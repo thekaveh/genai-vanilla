@@ -55,7 +55,8 @@ services:
       - backend
       
   graph-db:
-    image: neo4j:latest
+    build:
+      context: ./graph-db
     container_name: ${PROJECT_NAME}-graph-db
     restart: unless-stopped
     env_file:
@@ -73,6 +74,8 @@ services:
       - "${GRAPH_DB_PORT}:7687" # Bolt port
       - "${GRAPH_DB_DASHBOARD_PORT}:7474" # HTTP port (dashboard)
     volumes:
+      - ./graph-db/scripts:/scripts
+      - ./graph-db/snapshot:/snapshot
       - graph-db-data:/data
     healthcheck:
       test: ["CMD", "wget", "-O", "-", "http://localhost:7474"]

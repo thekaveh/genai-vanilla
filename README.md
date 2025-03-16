@@ -111,6 +111,23 @@ The Graph Database service (Neo4j) provides a robust graph database for storing 
   - Username: `neo4j`
   - Password: Value of `GRAPH_DB_PASSWORD` from your `.env` file
 - **Persistent Storage**: Data is stored in a Docker volume for persistence between container restarts
+- **Backup and Restore Workflow**:
+  1. **Backing Up Data**: Create a snapshot while Neo4j is running:
+     ```bash
+     # Create a backup (will temporarily stop and restart Neo4j)
+     docker exec -it ${PROJECT_NAME}-graph-db backup.sh
+     ```
+     The backup will be stored in the `./graph-db/snapshot/` directory.
+  
+  2. **Data Persistence**: By default, data persists in the Docker volume between restarts.
+  
+  3. **Manual Restoration**: To restore from a previous backup:
+     ```bash
+     # Restore from the latest backup
+     docker exec -it ${PROJECT_NAME}-graph-db restore.sh
+     ```
+     
+  4. **Important Note**: Automatic restoration at startup is not enabled by default to prevent unintended data overwriting. The restore script must be manually run when needed.
 
 ### Database Setup Process
 
