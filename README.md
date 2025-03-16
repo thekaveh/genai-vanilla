@@ -64,6 +64,68 @@ OLLAMA_ENDPOINT=http://host.docker.internal:11434
 docker compose --profile external-ollama up
 ```
 
+## Database Service
+
+The PostgreSQL database service comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
+
+### Database Setup Process
+
+When the database container starts for the first time, the following steps happen automatically:
+
+1. PostgreSQL initializes with the credentials from `.env`
+2. `setup_extensions.sh` runs to install pgvector and PostGIS extensions
+3. `init_extensions.sql` runs to:
+   - Enable the vector and postgis extensions in the database
+   - Create the application user with credentials from `.env`
+   - Set appropriate permissions for the application user
+
+### Database Backup and Restore
+
+The database service includes a comprehensive backup and restore system:
+
+#### Manual Backup
+
+To manually create a database backup:
+
+```bash
+# Connect to the running container
+docker exec -it vanilla-genai-db bash
+
+# Run the backup script (requires environment variables to be set)
+backup.sh
+```
+
+This creates a timestamped SQL dump in the `db/snapshot/` directory, which is mounted as a volume.
+
+#### Automatic Backup (Optional)
+
+For automatic periodic backups:
+
+1. Uncomment the cron job section in the `db/Dockerfile`
+2. Rebuild the container with `docker compose build db`
+
+This will run a daily backup at midnight, storing it in the snapshot directory.
+
+#### Manual Restore
+
+To manually restore from a backup:
+
+```bash
+# Connect to the running container
+docker exec -it vanilla-genai-db bash
+
+# Run the restore script (finds and uses latest backup)
+restore.sh
+```
+
+#### Automatic Restore
+
+When the container starts and if backup files exist in the `db/snapshot/` directory:
+- The container initializes the database
+- Any snapshot files in the mounted snapshot directory are available for manual restore
+- Automatic restore is not enabled by default to prevent unintended data overwriting
+- To enable automatic restore at startup, mount backup files to `/docker-entrypoint-initdb.d/`
+
 ## Development
 
 ```bash

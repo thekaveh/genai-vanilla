@@ -1,0 +1,20 @@
+-- Enable extensions in the database
+
+-- Create extensions if they don't exist
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Create app user if not exists
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${DB_APP_USER}') THEN
+    CREATE USER "${DB_APP_USER}" WITH PASSWORD '${DB_APP_PASSWORD}';
+  END IF;
+END
+$$;
+
+-- Grant privileges to app user
+GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO "${DB_APP_USER}";
+GRANT USAGE ON SCHEMA public TO "${DB_APP_USER}";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "${DB_APP_USER}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "${DB_APP_USER}";
