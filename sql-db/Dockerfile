@@ -22,5 +22,9 @@ RUN chmod +x /docker-entrypoint-initdb.d/01-setup_extensions.sh \
 # Create backup directory
 RUN mkdir -p /backups
 
+# Add script to check for backups and restore them at startup
+COPY ./scripts/auto_restore.sh /docker-entrypoint-initdb.d/03-auto_restore.sh
+RUN chmod +x /docker-entrypoint-initdb.d/03-auto_restore.sh
+
 # Set default command
 CMD ["postgres"]

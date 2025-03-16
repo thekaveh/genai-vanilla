@@ -7,6 +7,9 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="${SCRIPT_DIR}/../snapshot"
 BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.dump"
 
+# Ensure backup directory exists
+mkdir -p "${BACKUP_DIR}"
+
 echo "Creating Neo4j database backup to ${BACKUP_FILE}..."
 
 # Stop Neo4j service temporarily to ensure consistent backup

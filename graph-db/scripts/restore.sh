@@ -5,6 +5,9 @@
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 SNAPSHOT_DIR="${SCRIPT_DIR}/../snapshot"
 
+# Ensure snapshot directory exists
+mkdir -p "${SNAPSHOT_DIR}"
+
 # Find the latest backup file
 LATEST_BACKUP=$(find "${SNAPSHOT_DIR}" -name "backup_*.dump" -type f -printf "%T@ %p\n" 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2)
 

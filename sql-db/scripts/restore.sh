@@ -2,8 +2,11 @@
 
 # This script restores a database from the latest backup file found in the snapshot directory
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-SNAPSHOT_DIR="${SCRIPT_DIR}/../snapshot"
+# Use the container's mounted snapshot directory
+SNAPSHOT_DIR="/snapshot"
+
+# Ensure snapshot directory exists
+mkdir -p "${SNAPSHOT_DIR}"
 
 # Find the latest backup file
 LATEST_BACKUP=$(find "${SNAPSHOT_DIR}" -name "backup_*.sql" -type f -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2)

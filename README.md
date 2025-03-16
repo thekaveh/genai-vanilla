@@ -115,19 +115,19 @@ The Graph Database service (Neo4j) provides a robust graph database for storing 
   1. **Backing Up Data**: Create a snapshot while Neo4j is running:
      ```bash
      # Create a backup (will temporarily stop and restart Neo4j)
-     docker exec -it ${PROJECT_NAME}-graph-db backup.sh
+     docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/backup.sh
      ```
-     The backup will be stored in the `./graph-db/snapshot/` directory.
+     The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./graph-db/snapshot/` directory on your host machine.
   
   2. **Data Persistence**: By default, data persists in the Docker volume between restarts.
   
   3. **Manual Restoration**: To restore from a previous backup:
      ```bash
      # Restore from the latest backup
-     docker exec -it ${PROJECT_NAME}-graph-db restore.sh
+     docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
      ```
      
-  4. **Important Note**: Automatic restoration at startup is not enabled by default to prevent unintended data overwriting. The restore script must be manually run when needed.
+  4. **Important Note**: Automatic restoration at startup is now enabled by default. When the container starts, it will automatically restore from the latest backup if one is available. To disable this behavior, remove or rename the auto_restore.sh script in the Dockerfile.
 
 ### Database Setup Process
 
@@ -150,13 +150,13 @@ To manually create a database backup:
 
 ```bash
 # Connect to the running container
-docker exec -it vanilla-genai-db bash
+docker exec -it vanilla-genai-sql-db bash
 
 # Run the backup script (requires environment variables to be set)
-backup.sh
+/scripts/backup.sh
 ```
 
-This creates a timestamped SQL dump in the `db/snapshot/` directory, which is mounted as a volume.
+This creates a timestamped SQL dump in the `/snapshot` directory inside the container, which is mounted to the `./sql-db/snapshot/` directory on your host machine.
 
 #### Automatic Backup (Optional)
 
@@ -173,19 +173,19 @@ To manually restore from a backup:
 
 ```bash
 # Connect to the running container
-docker exec -it vanilla-genai-db bash
+docker exec -it vanilla-genai-sql-db bash
 
 # Run the restore script (finds and uses latest backup)
-restore.sh
+/scripts/restore.sh
 ```
 
 #### Automatic Restore
 
-When the container starts and if backup files exist in the `db/snapshot/` directory:
+When the container starts and if backup files exist in the `/snapshot` directory inside the container (which maps to `./sql-db/snapshot/` on your host machine):
 - The container initializes the database
-- Any snapshot files in the mounted snapshot directory are available for manual restore
-- Automatic restore is not enabled by default to prevent unintended data overwriting
-- To enable automatic restore at startup, mount backup files to `/docker-entrypoint-initdb.d/`
+- The newest backup file from the snapshot directory will be automatically restored
+- This happens on container restart, ensuring your data is always recovered from the latest backup
+- If you want to disable automatic restore, you can remove or rename the `auto_restore.sh` script in the Dockerfile
 
 ## Development
 
