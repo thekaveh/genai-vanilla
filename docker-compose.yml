@@ -1,21 +1,52 @@
 version: '3.8'
 
 services:
-  db:
+  sql-db:
     build:
-      context: ./db
-    container_name: ${PROJECT_NAME:-vanilla-genai}-db
+      context: ./sql-db
+    container_name: ${PROJECT_NAME}-sql-db
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      POSTGRES_USER: ${SQL_DB_USER}
+      POSTGRES_PASSWORD: ${SQL_DB_PASSWORD}
+      POSTGRES_DB: ${SQL_DB_NAME}
     volumes:
-      - ./db/scripts:/scripts
-      - ./db/snapshot:/docker-entrypoint-initdb.d/snapshots
-      - db-data:/var/lib/postgresql/data
+      - ./sql-db/scripts:/scripts
+      - ./sql-db/snapshot:/docker-entrypoint-initdb.d/snapshots
+      - sql-db-data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${SQL_DB_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-vanilla_genai}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SQL_DB_USER} -d ${SQL_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+
+  sql-db-dashboard:
+    image: dpage/pgadmin4:latest
+    container_name: ${PROJECT_NAME}-sql-db-dashboard
+    restart: unless-stopped
+    depends_on:
+      - sql-db
+    env_file:
+      - .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${SQL_DB_DASHBOARD_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${SQL_DB_DASHBOARD_PASSWORD}
+      # Improve user experience by disabling some prompts
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${SQL_DB_DASHBOARD_PORT}:80"
+    volumes:
+      - sql-db-dashboard-data:/var/lib/pgadmin
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,5 +59,7 @@ networks:
     driver: bridge
 
 volumes:
-  db-data:
+  sql-db-data:
+    driver: local
+  sql-db-dashboard-data:
     driver: local

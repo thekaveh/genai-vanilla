@@ -11,7 +11,7 @@ LATEST_BACKUP=$(find "${SNAPSHOT_DIR}" -name "backup_*.sql" -type f -printf "%T@
 # If a backup file exists, restore it
 if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
     echo "Restoring database from ${LATEST_BACKUP}..."
-    psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" < "${LATEST_BACKUP}"
+    psql -U "${SQL_DB_USER}" -d "${SQL_DB_NAME}" < "${LATEST_BACKUP}"
     echo "Database restored successfully."
 else
     echo "No backup file found. Skipping restore."

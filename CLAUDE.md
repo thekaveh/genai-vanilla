@@ -3,7 +3,7 @@
 ## Project Overview
 - Vanilla, boilerplate GenAI project with customizable services
 - Multi-service architecture managed by Docker Compose with multiple profiles/flavors
-- Services include: PostgreSQL (with pgvector/PostGIS), Ollama, Neo4j, pgAdmin, OpenWebUI, FastAPI, etc.
+- Services include: SQL Database (PostgreSQL with pgvector/PostGIS), SQL Database Dashboard (pgAdmin), Ollama, Neo4j, OpenWebUI, FastAPI, etc.
 - Each service will have its own dedicated directory structure
 - No src folder in root directory; each service that needs it will have its own
 

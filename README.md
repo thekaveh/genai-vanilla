@@ -64,9 +64,29 @@ OLLAMA_ENDPOINT=http://host.docker.internal:11434
 docker compose --profile external-ollama up
 ```
 
-## Database Service
+## Database Services
 
-The PostgreSQL database service comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
+### SQL Database (PostgreSQL)
+
+The SQL Database service (PostgreSQL) comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
+
+### SQL Database Dashboard (pgAdmin)
+
+The SQL Database Dashboard service provides a web-based administration interface for PostgreSQL:
+
+- **Accessible**: Available at http://localhost:60001 (configured via `SQL_DB_DASHBOARD_PORT`)
+- **Login**: Use email and password from `.env` file (`SQL_DB_DASHBOARD_EMAIL` and `SQL_DB_DASHBOARD_PASSWORD`)
+- **Database Registration**: Manually register your database server (one-time setup):
+  1. Right-click on "Servers" in the left sidebar and select "Register > Server"
+  2. In the General tab, name your server (e.g., "Vanilla GenAI DB")
+  3. In the Connection tab, enter:
+     - Host: sql-db
+     - Port: 5432
+     - Maintenance DB: vanilla_genai
+     - Username: postgres
+     - Password: [value of SQL_DB_PASSWORD]
+     - Check "Save password"
+  4. Click Save
 
 ### Database Setup Process
 

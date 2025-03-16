@@ -8,6 +8,6 @@ BACKUP_FILE="${SCRIPT_DIR}/../snapshot/backup_${TIMESTAMP}.sql"
 
 echo "Creating database backup to ${BACKUP_FILE}..."
 
-pg_dump -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" > "${BACKUP_FILE}"
+pg_dump -U "${SQL_DB_USER}" -d "${SQL_DB_NAME}" > "${BACKUP_FILE}"
 
 echo "Backup completed."
