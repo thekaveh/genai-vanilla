@@ -88,9 +88,33 @@ The SQL Database Dashboard service provides a web-based administration interface
      - Check "Save password"
   4. Click Save
 
+## Graph Database Services
+
+### Graph Database (Neo4j)
+
+The Graph Database service (Neo4j) provides a robust graph database for storing and querying connected data:
+
+- **Built-in Dashboard Interface**: Available at http://localhost:60003 (configured via `GRAPH_DB_DASHBOARD_PORT`)
+- **First-time Login**: 
+  1. When you first access the dashboard, you'll see the Neo4j Browser interface
+  2. In the connection form, you'll see it's pre-filled with "neo4j://graph-db:7687"
+  3. **Change the connection URL to**: `neo4j://localhost:60002` or `bolt://localhost:60002`
+  4. Connection details:
+     - Database: Leave as default (neo4j)
+     - Authentication type: Username / Password
+     - Username: `neo4j`
+     - Password: Value of `GRAPH_DB_PASSWORD` from your `.env` file (default: neo4j_password)
+  5. Click "Connect" button
+
+- **Application Connection**: Applications can connect to the database using the Bolt protocol:
+  - Bolt URL: `bolt://localhost:60002` 
+  - Username: `neo4j`
+  - Password: Value of `GRAPH_DB_PASSWORD` from your `.env` file
+- **Persistent Storage**: Data is stored in a Docker volume for persistence between container restarts
+
 ### Database Setup Process
 
-When the database container starts for the first time, the following steps happen automatically:
+When the database containers start for the first time, the following steps happen automatically:
 
 1. PostgreSQL initializes with the credentials from `.env`
 2. `setup_extensions.sh` runs to install pgvector and PostGIS extensions

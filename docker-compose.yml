@@ -53,6 +53,35 @@ services:
       start_period: 30s
     networks:
       - backend
+      
+  graph-db:
+    image: neo4j:latest
+    container_name: ${PROJECT_NAME}-graph-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NEO4J_AUTH: ${GRAPH_DB_AUTH}
+      # This advertises the correct address for internal container usage
+      NEO4J_server_default__advertised__address: "localhost"
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      # Enable APOC plugin for advanced operations
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      # Configure browser connection to use the internal Bolt connector
+      NEO4J_browser_remote__content__hostname__whitelist: "*"
+    ports:
+      - "${GRAPH_DB_PORT}:7687" # Bolt port
+      - "${GRAPH_DB_DASHBOARD_PORT}:7474" # HTTP port (dashboard)
+    volumes:
+      - graph-db-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
 
 networks:
   backend:
@@ -62,4 +91,6 @@ volumes:
   sql-db-data:
     driver: local
   sql-db-dashboard-data:
+    driver: local
+  graph-db-data:
     driver: local
