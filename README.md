@@ -17,7 +17,7 @@ Vanilla GenAI Stack is a customizable multi-service architecture for AI applicat
 - **Multiple Deployment Profiles**: Choose different service combinations with Docker Compose profiles
 - **Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **Health Monitoring**: Built-in healthchecks for all applicable services
-- **Environment-based Configuration**: Easy configuration through .env files
+- **Environment-based Configuration**: Easy configuration through environment variables
 
 ## Getting Started
 
@@ -42,7 +42,18 @@ docker compose build
 
 ## Service Configuration
 
-Services can be configured through environment variables in .env files or by selecting different Docker Compose profiles:
+Services can be configured through environment variables or by selecting different Docker Compose profiles:
+
+### Environment Variables
+
+The project uses two environment files:
+- `.env` - Contains actual configuration values (not committed to git)
+- `.env.example` - Template with the same structure but empty secret values (committed to git)
+
+When setting up the project:
+1. Copy `.env.example` to `.env`
+2. Fill in the required values in `.env`
+3. Keep both files in sync when adding new variables
 
 ```bash
 # Example: Use external Ollama instead of containerized version

@@ -40,4 +40,8 @@
 - **Naming**: snake_case for Python variables/functions, CamelCase for classes
 - **Error Handling**: Use explicit exception handling with proper logging
 - **Documentation**: Docstrings for modules, classes, and functions
-- **Environment**: Use environment variables in .env files for service configuration
+- **Environment**: Configure services using environment variables
+  - Maintain both `.env` and `.env.example` files
+  - Keep structure identical between both files
+  - Leave API keys/secrets empty in `.env.example`
+  - Update both files whenever adding new variables
