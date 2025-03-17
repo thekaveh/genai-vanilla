@@ -19,9 +19,9 @@ services:
       - "${SQL_DB_PORT}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${SQL_DB_USER} -d ${SQL_DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     networks:
       - backend
@@ -47,9 +47,9 @@ services:
       - sql-db-dashboard-data:/var/lib/pgadmin
     healthcheck:
       test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 60s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     networks:
       - backend
@@ -79,9 +79,9 @@ services:
       - graph-db-data:/data
     healthcheck:
       test: ["CMD", "wget", "-O", "-", "http://localhost:7474"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 60s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     networks:
       - backend
@@ -98,31 +98,31 @@ services:
       - ollama-data:/root/.ollama
     ports:
       - "${OLLAMA_PORT}:11434"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - backend
       
   # Ollama Model Puller - pulls specified models after Ollama is ready
   ollama-pull:
-    image: ollama/ollama:latest
+    image: curlimages/curl:latest
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama
     networks:
       - backend
-    entrypoint: /bin/sh
-    command:
-      - "-c"
-      - "ollama pull gemma3:12b && ollama pull mxbai-embed-large:latest"
-    volumes:
-      - ollama-data:/root/.ollama  # Share volume with ollama service
+    entrypoint: sh
+    command: >
+      -c "
+      echo 'Waiting 30 seconds for Ollama to start...' &&
+      sleep 30 &&
+      echo 'Checking if Ollama is available...' &&
+      until curl -s --fail http://ollama:11434/; do
+        echo 'Waiting for Ollama API...'
+        sleep 5
+      done &&
+      echo 'Pulling mxbai-embed-large model...' &&
+      curl -s -X POST http://ollama:11434/api/pull -d '{\"name\":\"mxbai-embed-large:latest\"}'
+      "
 
 networks:
   backend:

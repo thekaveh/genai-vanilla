@@ -1,29 +1,122 @@
 services:
-  # Other services remain the same as in the main docker-compose.yml
+  sql-db:
+    build:
+      context: ./sql-db
+    container_name: ${PROJECT_NAME}-sql-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${SQL_DB_USER}
+      POSTGRES_PASSWORD: ${SQL_DB_PASSWORD}
+      POSTGRES_DB: ${SQL_DB_NAME}
+    volumes:
+      - ./sql-db/scripts:/scripts
+      - ./sql-db/snapshot:/snapshot
+      - sql-db-data:/var/lib/postgresql/data
+    ports:
+      - "${SQL_DB_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SQL_DB_USER} -d ${SQL_DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend
 
-  # Ollama service is explicitly removed
-  ollama:
-    # Using a minimal busybox image to replace the ollama service
-    # This is needed because docker-compose does not allow removing a service
-    # in override files, but we can replace it with a minimal no-op service
-    image: busybox
-    command: ["echo", "Using local Ollama instance on host"]
-    restart: "no"
+  sql-db-dashboard:
+    image: dpage/pgadmin4:latest
+    container_name: ${PROJECT_NAME}-sql-db-dashboard
+    restart: unless-stopped
     depends_on:
-      sql-db:
-        condition: service_healthy
-        
-  # Ollama Model Puller - modified to use the host's Ollama instance
+      - sql-db
+    env_file:
+      - .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${SQL_DB_DASHBOARD_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${SQL_DB_DASHBOARD_PASSWORD}
+      # Improve user experience by disabling some prompts
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "${SQL_DB_DASHBOARD_PORT}:80"
+    volumes:
+      - sql-db-dashboard-data:/var/lib/pgadmin
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend
+      
+  graph-db:
+    build:
+      context: ./graph-db
+    container_name: ${PROJECT_NAME}-graph-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NEO4J_AUTH: ${GRAPH_DB_AUTH}
+      # This advertises the correct address for internal container usage
+      NEO4J_server_default__advertised__address: "localhost"
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      # Enable APOC plugin for advanced operations
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      # Configure browser connection to use the internal Bolt connector
+      NEO4J_browser_remote__content__hostname__whitelist: "*"
+    ports:
+      - "${GRAPH_DB_PORT}:7687" # Bolt port
+      - "${GRAPH_DB_DASHBOARD_PORT}:7474" # HTTP port (dashboard)
+    volumes:
+      - ./graph-db/scripts:/scripts
+      - ./graph-db/snapshot:/snapshot
+      - graph-db-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:7474"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend
+
+  # Ollama Model Puller - connects to the host's Ollama instance
   ollama-pull:
-    image: ollama/ollama:latest
+    image: curlimages/curl:latest
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
-    # No volumes needed as we're connecting to the host's Ollama
-    entrypoint: /bin/sh
-    command:
-      - "-c"
-      - "OLLAMA_HOST=host.docker.internal:11434 ollama pull gemma3:12b && OLLAMA_HOST=host.docker.internal:11434 ollama pull mxbai-embed-large:latest"
+    depends_on:
+      - sql-db
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Access host machine from container
+    networks:
+      - backend
+    entrypoint: sh
+    command: >
+      -c "
+      echo 'Waiting 10 seconds before connecting to host Ollama...' &&
+      sleep 10 &&
+      echo 'Checking if host Ollama is available...' &&
+      until curl -s --fail http://host.docker.internal:11434/; do
+        echo 'Waiting for host Ollama API...'
+        sleep 5
+      done &&
+      echo 'Pulling mxbai-embed-large model...' &&
+      curl -s -X POST http://host.docker.internal:11434/api/pull -d '{\"name\":\"mxbai-embed-large:latest\"}'
+      "
 
-# Include all networks and volumes from the main docker-compose.yml
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  sql-db-data:
+    driver: local
+  sql-db-dashboard-data:
+    driver: local
+  graph-db-data:
+    driver: local

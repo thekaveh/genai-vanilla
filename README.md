@@ -6,7 +6,7 @@ A flexible, modular GenAI project boilerplate with customizable services.
 
 Vanilla GenAI Stack is a customizable multi-service architecture for AI applications, featuring:
 
-- Multiple deployment profiles managed by Docker Compose
+- Multiple deployment flavors using standalone Docker Compose files
 - Modular service architecture with interchangeability between containerized and external services
 - Support for local development and cloud deployment (AWS ECS compatible)
 - Key services including Ollama, PostgreSQL, Neo4j, pgAdmin, OpenWebUI, and FastAPI
@@ -14,7 +14,7 @@ Vanilla GenAI Stack is a customizable multi-service architecture for AI applicat
 ## Features
 
 - **Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints
-- **Multiple Deployment Profiles**: Choose different service combinations with Docker Compose profiles
+- **Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
 - **Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **Health Monitoring**: Built-in healthchecks for all applicable services
 - **Environment-based Configuration**: Easy configuration through environment variables
@@ -33,8 +33,8 @@ Vanilla GenAI Stack is a customizable multi-service architecture for AI applicat
 # Start all services
 docker compose up
 
-# Start with a specific profile
-docker compose --profile <profile_name> up
+# Start with a specific flavor
+docker compose -f docker-compose.<flavor_name>.yml up
 
 # Build services
 docker compose build
@@ -58,10 +58,10 @@ When setting up the project:
 ```bash
 # Example: Use external Ollama instead of containerized version
 # In .env file:
-OLLAMA_ENDPOINT=http://host.docker.internal:11434
+OLLAMA_API_ENDPOINT=http://host.docker.internal:11434
 
-# Then run with external-ollama profile
-docker compose --profile external-ollama up
+# Then run with dev-ollama-local flavor
+docker compose -f docker-compose.dev-ollama-local.yml up
 ```
 
 ## Database Services
@@ -150,19 +150,19 @@ docker compose up
 
 # Development with local Ollama (running on your host machine)
 # First ensure Ollama is running on your host
-docker compose -f docker-compose.yml -f docker-compose.dev-ollama-local.yml up
+docker compose -f docker-compose.dev-ollama-local.yml up
 
 # Production with NVIDIA GPU support
-docker compose -f docker-compose.yml -f docker-compose.prod-gpu.yml up
+docker compose -f docker-compose.prod-gpu.yml up
 ```
 
 #### Environment-Specific Configuration
 
-The Ollama service is configured for different environments using Docker Compose override files:
+The Ollama service is configured for different environments using standalone Docker Compose files:
 
 - **Default (docker-compose.yml)**: Standard containerized Ollama service (runs on CPU)
-- **dev-ollama-local (docker-compose.dev-ollama-local.yml)**: Replaces the Ollama container with a minimal placeholder, allowing services to connect to a locally running Ollama instance
-- **prod-gpu (docker-compose.prod-gpu.yml)**: Adds NVIDIA GPU acceleration to the Ollama container
+- **dev-ollama-local (docker-compose.dev-ollama-local.yml)**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
+- **prod-gpu (docker-compose.prod-gpu.yml)**: Complete stack with NVIDIA GPU acceleration for the Ollama container
 
 The configuration includes an `ollama-pull` service that automatically downloads the required models (gemma3:12b and mxbai-embed-large) after the Ollama service is available. This ensures the necessary models are always available for dependent services.
 
@@ -173,29 +173,11 @@ This approach ensures that dependent services can always reference the `ollama` 
 When using the dev-ollama-local configuration to connect to a locally running Ollama instance:
 
 1. Make sure Ollama is installed and running on your host machine
-2. **Important**: Update your `.env` file to point to the local instance:
-   ```
-   OLLAMA_API_ENDPOINT=http://host.docker.internal:11434
-   ```
-3. Run Docker Compose with the local override file:
+2. Run Docker Compose with the dev-ollama-local file:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.dev-ollama-local.yml up
-   ```
-4. When switching back to containerized Ollama, remember to revert the environment variable:
-   ```
-   OLLAMA_API_ENDPOINT=http://ollama:11434
+   docker compose -f docker-compose.dev-ollama-local.yml up
    ```
 
-The `OLLAMA_API_ENDPOINT` environment variable must be manually updated when switching between different Ollama configurations, as it tells all services where to find the Ollama API.
-
-#### Configuration for Dependent Services
-
-Services that need to communicate with Ollama should configure their connection using the `OLLAMA_API_ENDPOINT` environment variable:
-
-- For containerized Ollama (`default`, `container-ollama`, `prod.nvidia` profiles): `OLLAMA_API_ENDPOINT=http://ollama:11434`
-- For local host Ollama (`external-ollama` profile): `OLLAMA_API_ENDPOINT=http://host.docker.internal:11434`
-
-When using the `external-ollama` profile, make sure to update your `.env` file to set `OLLAMA_API_ENDPOINT=http://host.docker.internal:11434`.
 
 ### Database Setup Process
 
