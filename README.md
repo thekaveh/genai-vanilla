@@ -129,6 +129,74 @@ The Graph Database service (Neo4j) provides a robust graph database for storing 
      
   4. **Important Note**: Automatic restoration at startup is now enabled by default. When the container starts, it will automatically restore from the latest backup if one is available. To disable this behavior, remove or rename the auto_restore.sh script in the Dockerfile.
 
+### Ollama Service
+
+The Ollama service provides a containerized environment for running large language models locally:
+
+- **API Endpoint**: Available at http://localhost:11434
+- **Persistent Storage**: Model files are stored in a Docker volume for persistence between container restarts
+- **Multiple Deployment Options**:
+  - **Default (Containerized)**: Uses the Ollama container within the stack
+  - **Local Ollama**: Connect to an Ollama instance running on your host machine
+  - **Production with GPU**: Use NVIDIA GPU acceleration for improved performance
+
+#### Switching Between Deployment Options
+
+The Ollama service can be deployed in different configurations using separate Docker Compose files:
+
+```bash
+# Default: Use the containerized Ollama service (CPU)
+docker compose up
+
+# Development with local Ollama (running on your host machine)
+# First ensure Ollama is running on your host
+docker compose -f docker-compose.yml -f docker-compose.dev-ollama-local.yml up
+
+# Production with NVIDIA GPU support
+docker compose -f docker-compose.yml -f docker-compose.prod-gpu.yml up
+```
+
+#### Environment-Specific Configuration
+
+The Ollama service is configured for different environments using Docker Compose override files:
+
+- **Default (docker-compose.yml)**: Standard containerized Ollama service (runs on CPU)
+- **dev-ollama-local (docker-compose.dev-ollama-local.yml)**: Replaces the Ollama container with a minimal placeholder, allowing services to connect to a locally running Ollama instance
+- **prod-gpu (docker-compose.prod-gpu.yml)**: Adds NVIDIA GPU acceleration to the Ollama container
+
+The configuration includes an `ollama-pull` service that automatically downloads the required models (gemma3:12b and mxbai-embed-large) after the Ollama service is available. This ensures the necessary models are always available for dependent services.
+
+This approach ensures that dependent services can always reference the `ollama` service without needing environment-specific configurations.
+
+#### Using Local Ollama
+
+When using the dev-ollama-local configuration to connect to a locally running Ollama instance:
+
+1. Make sure Ollama is installed and running on your host machine
+2. **Important**: Update your `.env` file to point to the local instance:
+   ```
+   OLLAMA_API_ENDPOINT=http://host.docker.internal:11434
+   ```
+3. Run Docker Compose with the local override file:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev-ollama-local.yml up
+   ```
+4. When switching back to containerized Ollama, remember to revert the environment variable:
+   ```
+   OLLAMA_API_ENDPOINT=http://ollama:11434
+   ```
+
+The `OLLAMA_API_ENDPOINT` environment variable must be manually updated when switching between different Ollama configurations, as it tells all services where to find the Ollama API.
+
+#### Configuration for Dependent Services
+
+Services that need to communicate with Ollama should configure their connection using the `OLLAMA_API_ENDPOINT` environment variable:
+
+- For containerized Ollama (`default`, `container-ollama`, `prod.nvidia` profiles): `OLLAMA_API_ENDPOINT=http://ollama:11434`
+- For local host Ollama (`external-ollama` profile): `OLLAMA_API_ENDPOINT=http://host.docker.internal:11434`
+
+When using the `external-ollama` profile, make sure to update your `.env` file to set `OLLAMA_API_ENDPOINT=http://host.docker.internal:11434`.
+
 ### Database Setup Process
 
 When the database containers start for the first time, the following steps happen automatically:

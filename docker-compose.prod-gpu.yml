@@ -1,0 +1,19 @@
+services:
+  # Override the Ollama service with GPU-enabled configuration
+  ollama:
+    # All other settings from the base file remain the same
+    environment:
+      - "NVIDIA_VISIBLE_DEVICES=all"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    cpus: ${PROD_ENV_CPUS:-2}
+    mem_limit: ${PROD_ENV_MEM_LIMIT:-8g}
+    
+  # The ollama-pull service remains the same
+  # It automatically benefits from the GPU since it shares volumes with Ollama
+
+# Include all networks and volumes from the main docker-compose.yml

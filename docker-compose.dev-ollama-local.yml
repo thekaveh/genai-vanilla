@@ -1,0 +1,29 @@
+services:
+  # Other services remain the same as in the main docker-compose.yml
+
+  # Ollama service is explicitly removed
+  ollama:
+    # Using a minimal busybox image to replace the ollama service
+    # This is needed because docker-compose does not allow removing a service
+    # in override files, but we can replace it with a minimal no-op service
+    image: busybox
+    command: ["echo", "Using local Ollama instance on host"]
+    restart: "no"
+    depends_on:
+      sql-db:
+        condition: service_healthy
+        
+  # Ollama Model Puller - modified to use the host's Ollama instance
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: ${PROJECT_NAME}-ollama-pull
+    restart: "no"
+    # No volumes needed as we're connecting to the host's Ollama
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - "OLLAMA_HOST=host.docker.internal:11434 ollama pull gemma3:12b && OLLAMA_HOST=host.docker.internal:11434 ollama pull mxbai-embed-large:latest"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Access host machine from container
+
+# Include all networks and volumes from the main docker-compose.yml

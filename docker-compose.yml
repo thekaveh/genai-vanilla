@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   sql-db:
@@ -32,7 +31,8 @@ services:
     container_name: ${PROJECT_NAME}-sql-db-dashboard
     restart: unless-stopped
     depends_on:
-      - sql-db
+      sql-db:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -86,6 +86,44 @@ services:
     networks:
       - backend
 
+  # Standard Ollama service (CPU)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ${PROJECT_NAME}-ollama
+    restart: unless-stopped
+    depends_on:
+      sql-db:
+        condition: service_healthy
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT}:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - backend
+      
+  # Ollama Model Puller - pulls specified models after Ollama is ready
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: ${PROJECT_NAME}-ollama-pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - backend
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - "ollama pull gemma3:12b && ollama pull mxbai-embed-large:latest"
+    volumes:
+      - ollama-data:/root/.ollama  # Share volume with ollama service
+
 networks:
   backend:
     driver: bridge
@@ -96,4 +134,6 @@ volumes:
   sql-db-dashboard-data:
     driver: local
   graph-db-data:
+    driver: local
+  ollama-data:
     driver: local
