@@ -192,50 +192,64 @@ When the database containers start for the first time, the following steps happe
 
 ### Database Backup and Restore
 
-The database service includes a comprehensive backup and restore system:
+The database services (Supabase/PostgreSQL and Neo4j) include comprehensive backup and restore systems:
 
-#### Manual Backup
+#### Supabase PostgreSQL Backup and Restore
+
+##### Manual Backup
 
 To manually create a database backup:
 
 ```bash
-# Connect to the running container
-docker exec -it vanilla-genai-sql-db bash
-
-# Run the backup script (requires environment variables to be set)
-/scripts/backup.sh
+# Create a backup directly from the container
+docker exec vanilla-genai-supabase-db /usr/local/bin/backup.sh
 ```
 
-This creates a timestamped SQL dump in the `/snapshot` directory inside the container, which is mounted to the `./sql-db/snapshot/` directory on your host machine.
+This creates a timestamped SQL dump in the `/snapshot` directory inside the container, which is mounted to the `./supabase/db/snapshot/` directory on your host machine.
 
-#### Automatic Backup (Optional)
-
-For automatic periodic backups:
-
-1. Uncomment the cron job section in the `db/Dockerfile`
-2. Rebuild the container with `docker compose build db`
-
-This will run a daily backup at midnight, storing it in the snapshot directory.
-
-#### Manual Restore
+##### Manual Restore
 
 To manually restore from a backup:
 
 ```bash
-# Connect to the running container
-docker exec -it vanilla-genai-sql-db bash
-
-# Run the restore script (finds and uses latest backup)
-/scripts/restore.sh
+# Restore the database from the latest backup
+docker exec vanilla-genai-supabase-db /usr/local/bin/restore.sh
 ```
 
-#### Automatic Restore
+The restore script automatically finds and uses the most recent backup file from the snapshot directory.
 
-When the container starts and if backup files exist in the `/snapshot` directory inside the container (which maps to `./sql-db/snapshot/` on your host machine):
-- The container initializes the database
-- The newest backup file from the snapshot directory will be automatically restored
-- This happens on container restart, ensuring your data is always recovered from the latest backup
-- If you want to disable automatic restore, you can remove or rename the `auto_restore.sh` script in the Dockerfile
+##### Important Notes:
+
+- Backups are stored in `./supabase/db/snapshot/` on your host machine with timestamped filenames
+- The restore process does not interrupt normal database operations
+- There is no automatic restore on startup - you must manually run the restore command when needed
+
+#### Neo4j Graph Database Backup and Restore
+
+##### Manual Backup
+
+To manually create a graph database backup:
+
+```bash
+# Create a backup (will temporarily stop and restart Neo4j)
+docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/backup.sh
+```
+
+The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./graph-db/snapshot/` directory on your host machine.
+
+##### Manual Restore
+
+To restore from a previous backup:
+
+```bash
+# Restore from the latest backup
+docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
+```
+
+##### Important Notes:
+- By default, data persists in the Docker volume between restarts
+- Automatic restoration at startup is enabled by default for Neo4j. When the container starts, it will automatically restore from the latest backup if one is available
+- To disable automatic restore for Neo4j, remove or rename the auto_restore.sh script in the Dockerfile
 
 ## Development
 

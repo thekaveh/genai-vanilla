@@ -1,23 +1,28 @@
 services:
-  sql-db:
-    build:
-      context: ./sql-db
-    container_name: ${PROJECT_NAME}-sql-db
+  # Supabase PostgreSQL Database
+  supabase-db:
+    image: supabase/postgres:15.8.1.054
+    container_name: ${PROJECT_NAME}-supabase-db
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${SQL_DB_USER}
-      POSTGRES_PASSWORD: ${SQL_DB_PASSWORD}
-      POSTGRES_DB: ${SQL_DB_NAME}
+      POSTGRES_USER: ${SUPABASE_DB_USER}
+      POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      POSTGRES_DB: ${SUPABASE_DB_NAME}
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_LISTEN_ADDRESSES: "*"
     volumes:
-      - ./sql-db/scripts:/scripts
-      - ./sql-db/snapshot:/snapshot
-      - sql-db-data:/var/lib/postgresql/data
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./supabase/db/snapshot:/snapshot
+      - ./supabase/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./supabase/db/backup.sh:/usr/local/bin/backup.sh
+      - ./supabase/db/restore.sh:/usr/local/bin/restore.sh
+    command: postgres -c listen_addresses='*' -c hba_file=/var/lib/postgresql/data/pg_hba.conf
     ports:
-      - "${SQL_DB_PORT}:5432"
+      - "${SUPABASE_DB_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SQL_DB_USER} -d ${SQL_DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,26 +30,50 @@ services:
     networks:
       - backend
 
-  sql-db-dashboard:
-    image: dpage/pgadmin4:latest
-    container_name: ${PROJECT_NAME}-sql-db-dashboard
+  # Supabase Meta Service for DB Management
+  supabase-meta:
+    image: supabase/postgres-meta:v0.66.3
+    container_name: ${PROJECT_NAME}-supabase-meta
     restart: unless-stopped
     depends_on:
-      - sql-db
+      supabase-db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${SUPABASE_DB_NAME}
+      PG_META_DB_USER: ${SUPABASE_DB_USER}
+      PG_META_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+    ports:
+      - "${SUPABASE_META_PORT}:8080"
+    networks:
+      - backend
+
+  # Supabase Studio (Dashboard)
+  supabase-studio:
+    image: supabase/studio:latest
+    container_name: ${PROJECT_NAME}-supabase-studio
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-meta:
+        condition: service_started
     env_file:
       - .env
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${SQL_DB_DASHBOARD_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${SQL_DB_DASHBOARD_PASSWORD}
-      # Improve user experience by disabling some prompts
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      SUPABASE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      SUPABASE_PUBLIC_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
     ports:
-      - "${SQL_DB_DASHBOARD_PORT}:80"
-    volumes:
-      - sql-db-dashboard-data:/var/lib/pgadmin
+      - "${SUPABASE_STUDIO_PORT}:3000"
     healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
+      test: ["CMD", "wget", "-O", "-", "http://localhost:3000"]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -90,7 +119,7 @@ services:
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
-      - sql-db
+      - supabase-db
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Access host machine from container
     networks:
@@ -114,9 +143,7 @@ networks:
     driver: bridge
 
 volumes:
-  sql-db-data:
-    driver: local
-  sql-db-dashboard-data:
+  supabase-db-data:
     driver: local
   graph-db-data:
     driver: local
