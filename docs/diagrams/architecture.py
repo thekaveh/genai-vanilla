@@ -6,8 +6,7 @@ This script generates an architecture diagram based on the current Docker Compos
 
 from diagrams import Diagram, Cluster, Edge
 from diagrams.custom import Custom
-from diagrams.onprem.database import PostgreSQL, Neo4j
-from diagrams.onprem.analytics import Jupyter
+from diagrams.onprem.database import PostgreSQL
 from diagrams.generic.storage import Storage
 from diagrams.generic.compute import Rack
 from diagrams.onprem.network import Nginx
@@ -75,12 +74,12 @@ def get_service_icon(service_name, image):
         return Custom(service_name, os.path.join(SCRIPT_DIR, custom_icons[service_name]))
     
     # Default icons based on service type
-    if "postgres" in image.lower() or service_name.endswith("-db") or "sql" in service_name.lower():
+    if "postgres" in image.lower() or "supabase" in service_name.lower() or "sql" in service_name.lower():
         return PostgreSQL(service_name)
     elif "neo4j" in image.lower() or "graph" in service_name.lower():
-        return Neo4j(service_name)
+        return Custom(service_name, os.path.join(SCRIPT_DIR, "../images/icons/neo4j.png"))
     elif "jupyter" in image.lower() or "notebook" in service_name.lower():
-        return Jupyter(service_name)
+        return Custom(service_name, os.path.join(SCRIPT_DIR, "../images/icons/jupyter.png"))
     elif "nginx" in image.lower():
         return Nginx(service_name)
     else:
@@ -132,7 +131,8 @@ def ensure_icons_directory():
     icons = {
         "supabase.png": "https://seeklogo.com/images/S/supabase-logo-DCC676FFE2-seeklogo.com.png",
         "neo4j.png": "https://dist.neo4j.com/wp-content/uploads/20210423072428/neo4j-logo-2020-1.svg",
-        "ollama.png": "https://ollama.ai/public/ollama.png"
+        "ollama.png": "https://ollama.ai/public/ollama.png",
+        "jupyter.png": "https://jupyter.org/assets/homepage/main-logo.svg"
     }
     
     # Download missing icons
