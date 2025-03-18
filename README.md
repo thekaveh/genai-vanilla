@@ -9,7 +9,7 @@ Vanilla GenAI Stack is a customizable multi-service architecture for AI applicat
 - Multiple deployment flavors using standalone Docker Compose files
 - Modular service architecture with interchangeability between containerized and external services
 - Support for local development and cloud deployment (AWS ECS compatible)
-- Key services including Ollama, PostgreSQL, Neo4j, pgAdmin, OpenWebUI, and FastAPI
+- Key services including Supabase (PostgreSQL + Studio), Neo4j, and Ollama
 
 ## Features
 
@@ -80,27 +80,21 @@ docker compose -f docker-compose.dev-ollama-local.yml up
 
 ## Database Services
 
-### SQL Database (PostgreSQL)
+### Supabase Services
 
-The SQL Database service (PostgreSQL) comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
+The Supabase services provide a PostgreSQL database with additional capabilities along with a web-based Studio interface for management:
 
-### SQL Database Dashboard (pgAdmin)
+#### Supabase PostgreSQL Database
 
-The SQL Database Dashboard service provides a web-based administration interface for PostgreSQL:
+The Supabase PostgreSQL database comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
 
-- **Accessible**: Available at http://localhost:60001 (configured via `SQL_DB_DASHBOARD_PORT`)
-- **Login**: Use email and password from `.env` file (`SQL_DB_DASHBOARD_EMAIL` and `SQL_DB_DASHBOARD_PASSWORD`)
-- **Database Registration**: Manually register your database server (one-time setup):
-  1. Right-click on "Servers" in the left sidebar and select "Register > Server"
-  2. In the General tab, name your server (e.g., "Vanilla GenAI DB")
-  3. In the Connection tab, enter:
-     - Host: sql-db
-     - Port: 5432
-     - Maintenance DB: vanilla_genai
-     - Username: postgres
-     - Password: [value of SQL_DB_PASSWORD]
-     - Check "Save password"
-  4. Click Save
+#### Supabase Studio Dashboard
+
+The Supabase Studio provides a modern web-based administration interface for PostgreSQL:
+
+- **Accessible**: Available at http://localhost:${SUPABASE_STUDIO_PORT} (configured via `SUPABASE_STUDIO_PORT`)
+- **Database**: The dashboard automatically connects to the PostgreSQL database
+- **Features**: Table editor, SQL editor, database structure visualization, and more
 
 ## Graph Database Services
 
@@ -221,7 +215,7 @@ To manually create a database backup:
 
 ```bash
 # Create a backup directly from the container
-docker exec vanilla-genai-supabase-db /usr/local/bin/backup.sh
+docker exec ${PROJECT_NAME}-supabase-db /usr/local/bin/backup.sh
 ```
 
 This creates a timestamped SQL dump in the `/snapshot` directory inside the container, which is mounted to the `./supabase/db/snapshot/` directory on your host machine.
@@ -232,7 +226,7 @@ To manually restore from a backup:
 
 ```bash
 # Restore the database from the latest backup
-docker exec vanilla-genai-supabase-db /usr/local/bin/restore.sh
+docker exec ${PROJECT_NAME}-supabase-db /usr/local/bin/restore.sh
 ```
 
 The restore script automatically finds and uses the most recent backup file from the snapshot directory.
@@ -241,7 +235,7 @@ The restore script automatically finds and uses the most recent backup file from
 
 - Backups are stored in `./supabase/db/snapshot/` on your host machine with timestamped filenames
 - The restore process does not interrupt normal database operations
-- There is no automatic restore on startup - you must manually run the restore command when needed
+- Automatic restore on startup can be enabled via the auto_restore.sh script
 
 #### Neo4j Graph Database Backup and Restore
 
