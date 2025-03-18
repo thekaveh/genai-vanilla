@@ -59,88 +59,119 @@ def extract_services_from_docker_compose(file_path):
 
 def get_service_icon(service_name, image):
     """Determine the appropriate icon for a service based on its name and image."""
-    # Custom icon paths relative to the script
-    custom_icons = {
-        "supabase-db": "../images/icons/supabase.png",
-        "supabase-meta": "../images/icons/supabase.png",
-        "supabase-studio": "../images/icons/supabase.png",
-        "graph-db": "../images/icons/neo4j.png",
-        "ollama": "../images/icons/ollama.png",
-        "ollama-pull": "../images/icons/ollama.png",
+    # Set display names for services (to make them prettier in the diagram)
+    display_names = {
+        "supabase-db": "Supabase\nDatabase",
+        "supabase-meta": "Supabase\nMeta",
+        "supabase-studio": "Supabase\nStudio",
+        "graph-db": "Neo4j\nGraph Database",
+        "ollama": "Ollama\nAI Models",
     }
     
-    # Check if there's a custom icon for this service
-    if service_name in custom_icons and os.path.exists(os.path.join(SCRIPT_DIR, custom_icons[service_name])):
-        return Custom(service_name, os.path.join(SCRIPT_DIR, custom_icons[service_name]))
+    # Get the display name or use the original
+    display_name = display_names.get(service_name, service_name)
     
-    # Default icons based on service type
-    if "postgres" in image.lower() or "supabase" in service_name.lower() or "sql" in service_name.lower():
-        return PostgreSQL(service_name)
-    elif "neo4j" in image.lower() or "graph" in service_name.lower():
-        return Custom(service_name, os.path.join(SCRIPT_DIR, "../images/icons/neo4j.png"))
-    elif "jupyter" in image.lower() or "notebook" in service_name.lower():
-        return Custom(service_name, os.path.join(SCRIPT_DIR, "../images/icons/jupyter.png"))
+    # Custom icon paths relative to the script
+    icon_path = os.path.join(SCRIPT_DIR, "../images/icons")
+    
+    # Return custom icons for specific services
+    if "supabase" in service_name:
+        return Custom(display_name, os.path.join(icon_path, "supabase.png"))
+    elif "graph-db" in service_name:
+        return Custom(display_name, os.path.join(icon_path, "neo4j.png"))
+    elif "ollama" in service_name:
+        return Custom(display_name, os.path.join(icon_path, "ollama.png"))
+    elif "postgres" in image.lower():
+        return PostgreSQL(display_name)
     elif "nginx" in image.lower():
-        return Nginx(service_name)
+        return Nginx(display_name)
     else:
-        return Rack(service_name)
+        return Rack(display_name)
 
 def create_architecture_diagram(services, output_file):
     """Create an architecture diagram using the Diagrams library."""
     graph_attr = {
-        "fontsize": "20",
+        "fontsize": "24",
         "bgcolor": "white",
-        "rankdir": "TB",
-        "splines": "spline",
-        "compound": "true",
+        "rankdir": "TB",  # Top to Bottom layout
+        "splines": "spline",  # Curved edges for nicer look
+        "nodesep": "1.0",
+        "ranksep": "1.5",
+        "pad": "0.5",
+        "dpi": "300",
     }
     
-    with Diagram("Vanilla GenAI Stack Architecture", filename=output_file, outformat="png", 
-                 show=False, direction="TB", graph_attr=graph_attr):
+    node_attr = {
+        "fontsize": "16",
+        "fontname": "Arial",
+        "shape": "box",
+        "style": "filled,rounded",
+        "fillcolor": "#f5f5f5",
+        "width": "2.0",
+        "height": "1.5",
+        "penwidth": "2.0",
+    }
+    
+    edge_attr = {
+        "fontsize": "14",
+        "fontname": "Arial",
+        "penwidth": "2.0",
+        "color": "#555555",
+    }
+    
+    with Diagram("Vanilla GenAI Stack", filename=output_file, outformat="png", 
+                 show=False, direction="TB", graph_attr=graph_attr, 
+                 node_attr=node_attr, edge_attr=edge_attr):
         
-        with Cluster("Docker Compose"):
-            service_nodes = {}
-            
-            # Create all service nodes first
-            for service_name, service_config in services.items():
+        # Define the services we care about and their positions in the graph
+        main_services = [
+            "supabase-db",
+            "supabase-meta",
+            "supabase-studio",
+            "graph-db",
+            "ollama"
+        ]
+        
+        service_nodes = {}
+        
+        # Create nodes for main services
+        for service_name in main_services:
+            if service_name in services:
+                service_config = services[service_name]
                 service_nodes[service_name] = get_service_icon(service_name, service_config['image'])
+        
+        # Manually create edges to control the layout better
+        if "supabase-db" in service_nodes and "supabase-meta" in service_nodes:
+            service_nodes["supabase-db"] >> Edge(label="provides data", color="#4285F4") >> service_nodes["supabase-meta"]
+        
+        if "supabase-meta" in service_nodes and "supabase-studio" in service_nodes:
+            service_nodes["supabase-meta"] >> Edge(label="connects to", color="#4285F4") >> service_nodes["supabase-studio"]
+        
+        if "supabase-db" in service_nodes and "ollama" in service_nodes:
+            service_nodes["supabase-db"] >> Edge(label="provides models", color="#4285F4") >> service_nodes["ollama"]
             
-            # Then create edges between services
-            for service_name, service_config in services.items():
-                for dependency in service_config['dependencies']:
-                    if dependency in service_nodes:
-                        service_nodes[dependency] >> Edge(label="depends on") >> service_nodes[service_name]
-            
-            # Add volume connections
-            with Cluster("Volumes"):
-                volumes = {}
-                for service_name, service_config in services.items():
-                    for volume in service_config['volumes']:
-                        if isinstance(volume, str) and ':' in volume:
-                            vol_name = volume.split(':')[0]
-                            if vol_name not in volumes:
-                                volumes[vol_name] = Storage(vol_name)
-                            service_nodes[service_name] << Edge(label="mounts") << volumes[vol_name]
+        # Add connection from graph-db to potential applications
+        if "graph-db" in service_nodes and "ollama" in service_nodes:
+            service_nodes["graph-db"] - Edge(style="dashed", label="available for\nconnections", color="#4285F4") - service_nodes["ollama"]
 
 def ensure_icons_directory():
     """Ensure the icons directory exists and contains necessary icons."""
     icons_dir = os.path.join(SCRIPT_DIR, "..", "images", "icons")
     os.makedirs(icons_dir, exist_ok=True)
     
-    # List of icon URLs to download if they don't exist
+    # List of high-quality icon URLs to download if they don't exist
     icons = {
         "supabase.png": "https://seeklogo.com/images/S/supabase-logo-DCC676FFE2-seeklogo.com.png",
-        "neo4j.png": "https://dist.neo4j.com/wp-content/uploads/20210423072428/neo4j-logo-2020-1.svg",
-        "ollama.png": "https://ollama.ai/public/ollama.png",
-        "jupyter.png": "https://jupyter.org/assets/homepage/main-logo.svg"
+        "neo4j.png": "https://neo4j.com/wp-content/themes/neo4jweb/assets/images/neo4j-logo-2015.png",
+        "ollama.png": "https://ollama.com/public/ollama.png"
     }
     
     # Download missing icons
     for icon_name, icon_url in icons.items():
         icon_path = os.path.join(icons_dir, icon_name)
-        if not os.path.exists(icon_path):
+        if not os.path.exists(icon_path) or os.path.getsize(icon_path) < 5000:  # Ensure icon is substantial
             try:
-                subprocess.run(["curl", "-s", "-o", icon_path, icon_url], check=True)
+                subprocess.run(["curl", "-s", "-L", "-o", icon_path, icon_url], check=True)
                 print(f"Downloaded {icon_name}")
             except subprocess.CalledProcessError:
                 print(f"Failed to download {icon_name} from {icon_url}")
