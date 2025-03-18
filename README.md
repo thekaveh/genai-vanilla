@@ -30,14 +30,28 @@ Vanilla GenAI Stack is a customizable multi-service architecture for AI applicat
 ### Running the Stack
 
 ```bash
+# First, make sure all previous services are stopped to avoid port conflicts
+docker compose down --remove-orphans
+
 # Start all services
 docker compose up
 
 # Start with a specific flavor
+docker compose -f docker-compose.<flavor_name>.yml down --remove-orphans
 docker compose -f docker-compose.<flavor_name>.yml up
 
 # Build services
 docker compose build
+
+# Fresh/Cold Start (completely reset the environment)
+# This will remove all volumes, containers, and orphaned services before rebuilding and starting
+docker compose down --volumes --remove-orphans && docker compose up --build
+```
+
+For a fresh/cold start with a specific flavor, use:
+
+```bash
+docker compose -f docker-compose.<flavor_name>.yml down --volumes --remove-orphans && docker compose -f docker-compose.<flavor_name>.yml up --build
 ```
 
 ## Service Configuration
@@ -164,7 +178,7 @@ The Ollama service is configured for different environments using standalone Doc
 - **dev-ollama-local (docker-compose.dev-ollama-local.yml)**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
 - **prod-gpu (docker-compose.prod-gpu.yml)**: Complete stack with NVIDIA GPU acceleration for the Ollama container
 
-The configuration includes an `ollama-pull` service that automatically downloads the required models (gemma3:12b and mxbai-embed-large) after the Ollama service is available. This ensures the necessary models are always available for dependent services.
+The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the `llms` table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
 
 This approach ensures that dependent services can always reference the `ollama` service without needing environment-specific configurations.
 
@@ -184,11 +198,16 @@ When using the dev-ollama-local configuration to connect to a locally running Ol
 When the database containers start for the first time, the following steps happen automatically:
 
 1. PostgreSQL initializes with the credentials from `.env`
-2. `setup_extensions.sh` runs to install pgvector and PostGIS extensions
-3. `init_extensions.sql` runs to:
-   - Enable the vector and postgis extensions in the database
-   - Create the application user with credentials from `.env`
-   - Set appropriate permissions for the application user
+2. The Supabase database initializes with the following:
+   - Extensions: pgvector and PostGIS
+   - Tables: Default tables including the `llms` table for managing LLM configurations
+   - Default data: Initial records (e.g., default Ollama models)
+
+The `llms` table stores:
+- Model names and providers
+- Active status (determines which models are pulled by the ollama-pull service)
+- Capability flags (vision, content, structured_content, embeddings)
+- Creation and update timestamps
 
 ### Database Backup and Restore
 

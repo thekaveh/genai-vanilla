@@ -113,20 +113,28 @@ services:
     networks:
       - backend
 
-  # Ollama Model Puller - connects to the host's Ollama instance
+  # Ollama Model Puller - connects to the host's Ollama instance and pulls models from supabase
   ollama-pull:
-    image: curlimages/curl:latest
+    image: alpine:latest
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
       - supabase-db
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Access host machine from container
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
     networks:
       - backend
     entrypoint: sh
     command: >
       -c "
+      echo 'Installing required tools...' &&
+      apk add --no-cache curl postgresql-client &&
       echo 'Waiting 10 seconds before connecting to host Ollama...' &&
       sleep 10 &&
       echo 'Checking if host Ollama is available...' &&
@@ -134,8 +142,18 @@ services:
         echo 'Waiting for host Ollama API...'
         sleep 5
       done &&
-      echo 'Pulling mxbai-embed-large model...' &&
-      curl -s -X POST http://host.docker.internal:11434/api/pull -d '{\"name\":\"mxbai-embed-large:latest\"}'
+      echo 'Fetching active Ollama models from database...' &&
+      MODEL_LIST=$(PGPASSWORD=${SUPABASE_DB_PASSWORD} psql -h supabase-db -p 5432 -d ${SUPABASE_DB_NAME} -U ${SUPABASE_DB_USER} -t -c \"SELECT name FROM llms WHERE provider = 'ollama' AND active = true;\") &&
+      if [ -z \"$${MODEL_LIST}\" ]; then
+        echo 'No active Ollama models found in database.'
+      else
+        for MODEL in $${MODEL_LIST}; do
+          MODEL_CLEAN=$(echo $${MODEL} | tr -d ' ') &&
+          echo \"Pulling $${MODEL_CLEAN} model...\" &&
+          curl -s -X POST http://host.docker.internal:11434/api/pull -d '{\"name\":\"'$${MODEL_CLEAN}'\"}' 
+          echo
+        done
+      fi
       "
 
 networks:

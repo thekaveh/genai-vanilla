@@ -138,18 +138,27 @@ services:
     networks:
       - backend
       
-  # Ollama Model Puller - pulls specified models after Ollama is ready
+  # Ollama Model Puller - pulls models from the supabase database
   ollama-pull:
-    image: curlimages/curl:latest
+    image: alpine:latest
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
       - ollama
+      - supabase-db
     networks:
       - backend
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
     entrypoint: sh
     command: >
       -c "
+      echo 'Installing required tools...' &&
+      apk add --no-cache curl postgresql-client &&
       echo 'Waiting 30 seconds for Ollama to start...' &&
       sleep 30 &&
       echo 'Checking if Ollama is available...' &&
@@ -157,8 +166,18 @@ services:
         echo 'Waiting for Ollama API...'
         sleep 5
       done &&
-      echo 'Pulling mxbai-embed-large model...' &&
-      curl -s -X POST http://ollama:11434/api/pull -d '{\"name\":\"mxbai-embed-large:latest\"}'
+      echo 'Fetching active Ollama models from database...' &&
+      MODEL_LIST=$(PGPASSWORD=${SUPABASE_DB_PASSWORD} psql -h supabase-db -p 5432 -d ${SUPABASE_DB_NAME} -U ${SUPABASE_DB_USER} -t -c \"SELECT name FROM llms WHERE provider = 'ollama' AND active = true;\") &&
+      if [ -z \"$${MODEL_LIST}\" ]; then
+        echo 'No active Ollama models found in database.'
+      else
+        for MODEL in $${MODEL_LIST}; do
+          MODEL_CLEAN=$(echo $${MODEL} | tr -d ' ') &&
+          echo \"Pulling $${MODEL_CLEAN} model...\" &&
+          curl -s -X POST http://ollama:11434/api/pull -d '{\"name\":\"'$${MODEL_CLEAN}'\"}' 
+          echo
+        done
+      fi
       "
 
 networks:
