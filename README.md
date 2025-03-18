@@ -2,6 +2,12 @@
 
 A flexible, modular GenAI project boilerplate with customizable services.
 
+## Architecture Diagram
+
+![Architecture Diagram](docs/images/architecture.png)
+
+*Note: Run `./docs/diagrams/generate_diagram.sh` to update this diagram after making changes to the architecture.*
+
 ## Project Overview
 
 Vanilla GenAI Stack is a customizable multi-service architecture for AI applications, featuring:
