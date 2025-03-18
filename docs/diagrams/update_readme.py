@@ -18,7 +18,7 @@ def update_readme_with_diagram(diagram_path):
     
     # Define the regex pattern for the architecture diagram section
     diagram_pattern = r'## Architecture Diagram\s+!\[Architecture Diagram\]\([^)]+\)'
-    diagram_replacement = f"## Architecture Diagram\n\n![Architecture Diagram]({diagram_path})"
+    diagram_replacement = f"## Architecture Diagram\n\n![Architecture Diagram](./{diagram_path})"
     
     # Check if the architecture diagram section exists
     if re.search(diagram_pattern, content):
