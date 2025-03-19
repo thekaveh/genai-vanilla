@@ -20,8 +20,9 @@ create table public.llms (
 ) TABLESPACE pg_default;
 
 -- Insert default Ollama models
-INSERT INTO llms (name, provider, active, embeddings) VALUES
-    ('mxbai-embed-large', 'ollama', true, true);
+INSERT INTO llms (name, provider, active, embeddings, content) VALUES
+    ('mxbai-embed-large', 'ollama', true, true, false),
+    ('deepseek-r1:1.5b', 'ollama', true, false, true);
 
 -- Add authentication entry to pg_hba.conf to allow all connections
 \connect postgres

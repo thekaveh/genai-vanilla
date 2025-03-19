@@ -171,6 +171,37 @@ services:
         done
       fi
       "
+      
+  # OpenWebUI - UI for Ollama
+  open-web-ui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: ${PROJECT_NAME}-open-web-ui
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_started
+      supabase-db:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DATABASE_URL=postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      - WEBUI_SECRET_KEY=${OPEN_WEB_UI_SECRET_KEY}
+    volumes:
+      - open-web-ui-data:/data
+    ports:
+      - "${OPEN_WEB_UI_PORT}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:8080"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend
 
 networks:
   backend:
@@ -182,4 +213,6 @@ volumes:
   graph-db-data:
     driver: local
   ollama-data:
+    driver: local
+  open-web-ui-data:
     driver: local
