@@ -52,6 +52,42 @@ services:
     networks:
       - backend
 
+  # Supabase Auth (Gotrue)
+  supabase-auth:
+    image: supabase/gotrue:v2.151.0
+    container_name: ${PROJECT_NAME}-supabase-auth
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      GOTRUE_SITE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      API_EXTERNAL_URL: http://supabase-auth:9999
+      GOTRUE_DB_DRIVER: postgres
+      DB_NAMESPACE: auth
+      GOTRUE_DB_DATABASE_URL: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_MAILER_URLPATHS_INVITE: "/invite"
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: "/confirm"
+      GOTRUE_MAILER_URLPATHS_RECOVERY: "/recover"
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "/email-change"
+      GOTRUE_SMTP_HOST: "localhost"
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_USER: ""
+      GOTRUE_SMTP_PASS: ""
+      GOTRUE_SMTP_SENDER_NAME: "Supabase Auth"
+      GOTRUE_SMTP_ADMIN_EMAIL: "admin@example.com"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      # Required by Studio and PostgREST when using JWT
+      GOTRUE_SITE_NAME: "Local Supabase"
+    ports:
+      - "${SUPABASE_AUTH_PORT}:9999"
+    networks:
+      - backend
+
   # Supabase Studio (Dashboard)
   supabase-studio:
     image: supabase/studio:latest
@@ -62,12 +98,15 @@ services:
         condition: service_healthy
       supabase-meta:
         condition: service_started
+      supabase-auth:
+        condition: service_started
     env_file:
       - .env
     environment:
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
       SUPABASE_PUBLIC_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      SUPABASE_AUTH_URL: http://supabase-auth:9999
       SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
       SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
       DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}

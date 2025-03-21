@@ -79,13 +79,31 @@ The Supabase services provide a PostgreSQL database with additional capabilities
 
 The Supabase PostgreSQL database comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
 
-#### 5.1.2. Supabase Studio Dashboard
+#### 5.1.2. Supabase Auth Service
+
+The Supabase Auth service (GoTrue) provides user authentication and management:
+
+- **API Endpoint**: Available at http://localhost:${SUPABASE_AUTH_PORT} (configured via `SUPABASE_AUTH_PORT`)
+- **JWT Authentication**: Uses a secure JWT token system for authentication
+- **Features**: User registration, login, password recovery, email confirmation, and more
+
+**IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret:
+
+```bash
+# Generate a random 32-character string for the JWT secret
+openssl rand -base64 32
+
+# Then copy this value to your .env file in the SUPABASE_JWT_SECRET variable
+```
+
+#### 5.1.3. Supabase Studio Dashboard
 
 The Supabase Studio provides a modern web-based administration interface for PostgreSQL:
 
 - **Accessible**: Available at http://localhost:${SUPABASE_STUDIO_PORT} (configured via `SUPABASE_STUDIO_PORT`)
 - **Database**: The dashboard automatically connects to the PostgreSQL database
 - **Features**: Table editor, SQL editor, database structure visualization, and more
+- **Authentication**: Integrated with the Auth service for user management
 
 ### 5.2. Graph Database (Neo4j)
 
@@ -311,6 +329,7 @@ vanilla-genai/
 │   │   ├── init.sql
 │   │   ├── scripts/
 │   │   └── snapshot/
+│   ├── auth/             # Supabase Auth service (GoTrue)
 │   └── storage/
 └── docs/                 # Documentation and diagrams
     ├── diagrams/
