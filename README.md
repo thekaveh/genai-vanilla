@@ -87,14 +87,61 @@ The Supabase Auth service (GoTrue) provides user authentication and management:
 - **JWT Authentication**: Uses a secure JWT token system for authentication
 - **Features**: User registration, login, password recovery, email confirmation, and more
 
-**IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret:
+**IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret and auth tokens:
+
+### Automatic setup (recommended)
+
+Run the included script to automatically generate all required keys:
 
 ```bash
-# Generate a random 32-character string for the JWT secret
-openssl rand -base64 32
+# Make the script executable
+chmod +x generate_supabase_keys.sh
+
+# Run the script to generate and set all required keys in your .env file
+./generate_supabase_keys.sh
+```
+
+This script will:
+1. Generate a secure random JWT secret
+2. Create properly signed JWT tokens for both anonymous and service role access
+3. Update your .env file with all three values
+
+### Manual setup (alternative)
+
+If you prefer to generate the keys manually:
+
+1. Generate a JWT secret:
+```bash
+# Generate a random 32-character hex string for the JWT secret
+openssl rand -hex 32
 
 # Then copy this value to your .env file in the SUPABASE_JWT_SECRET variable
 ```
+
+2. Generate JWT tokens for authentication using the JWT secret:
+   - Go to [jwt.io](https://jwt.io/)
+   - In the "PAYLOAD" section, create tokens with the following structure:
+   
+   For the ANON key (anonymous access):
+   ```json
+   {
+     "iss": "supabase-local",
+     "role": "anon",
+     "exp": 2147483647
+   }
+   ```
+   
+   For the SERVICE key (service role access):
+   ```json
+   {
+     "iss": "supabase-local",
+     "role": "service_role",
+     "exp": 2147483647
+   }
+   ```
+   
+   - In the "VERIFY SIGNATURE" section, enter your JWT secret
+   - Copy the generated tokens to your .env file for SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY variables
 
 #### 5.1.3. Supabase Studio Dashboard
 
