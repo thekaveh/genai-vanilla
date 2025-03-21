@@ -9,7 +9,7 @@ Vanilla GenAI Stack is a customizable multi-service architecture for AI applicat
 - Multiple deployment flavors using standalone Docker Compose files
 - Modular service architecture with interchangeability between containerized and external services
 - Support for local development and cloud deployment (AWS ECS compatible)
-- Key services including Supabase (PostgreSQL + Studio), Neo4j, and Ollama
+- Key services including Supabase (PostgreSQL + Studio), Neo4j, Ollama, and FastAPI backend
 
 ## 2. Features
 
@@ -173,6 +173,43 @@ The Open Web UI service provides a web interface for interacting with the Ollama
 - **Automatic Connection**: Automatically connects to the Ollama API endpoint
 - **Database Integration**: Uses the Supabase PostgreSQL database for storing conversations and settings
 
+### 6.3. Backend API Service
+
+The Backend service provides a FastAPI-based REST API that connects to both Supabase PostgreSQL and Ollama for AI model inference:
+
+- **REST API Endpoint**: Available at http://localhost:${BACKEND_PORT} (configured via `BACKEND_PORT`)
+- **API Documentation**: 
+  - Swagger UI: http://localhost:${BACKEND_PORT}/docs
+  - ReDoc: http://localhost:${BACKEND_PORT}/redoc
+- **Features**:
+  - Connection to Supabase PostgreSQL with pgvector support
+  - Integration with Ollama for local AI model inference
+  - Support for multiple LLM providers (OpenAI, Groq, etc.)
+  - Dependency management with uv instead of pip/virtualenv
+
+#### 6.3.1. Configuration
+
+The backend service is configured via environment variables:
+
+- `DATABASE_URL`: PostgreSQL connection string for Supabase
+- `OLLAMA_BASE_URL`: URL for Ollama API
+- `BACKEND_PORT`: Port to expose the API (configured via `BACKEND_PORT`)
+
+#### 6.3.2. Local Development
+
+For local development outside of Docker:
+
+```bash
+# Navigate to app directory
+cd backend/app
+
+# Install dependencies using uv
+uv pip install -r requirements.txt
+
+# Run the server in development mode
+uvicorn main:app --reload
+```
+
 ## 7. Database Setup Process
 
 When the database containers start for the first time, the following steps happen automatically:
@@ -258,6 +295,12 @@ vanilla-genai/
 ├── docker-compose.yml    # Main compose file
 ├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor
 ├── docker-compose.prod-gpu.yml          # GPU-optimized flavor
+├── backend/              # FastAPI backend service
+│   ├── Dockerfile
+│   └── app/
+│       ├── main.py
+│       ├── requirements.txt
+│       └── data/         # Data storage (mounted as volume)
 ├── graph-db/             # Neo4j Graph Database configuration
 │   ├── Dockerfile
 │   ├── scripts/

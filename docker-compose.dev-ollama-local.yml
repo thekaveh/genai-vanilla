@@ -186,6 +186,36 @@ services:
       start_period: 30s
     networks:
       - backend
+      
+  # Backend API Service with Local Ollama
+  backend:
+    build:
+      context: ./backend
+    container_name: ${PROJECT_NAME}-backend
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Access host machine from container
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    volumes:
+      - ./backend/app:/app
+      - backend-data:/app/data
+    ports:
+      - "${BACKEND_PORT}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend
 
 networks:
   backend:
@@ -197,4 +227,6 @@ volumes:
   graph-db-data:
     driver: local
   open-web-ui-data:
+    driver: local
+  backend-data:
     driver: local

@@ -93,4 +93,9 @@ tmp/
 *.zip
 *.tar.gz
 *.tgz
+
+# uv specific
+.uv/
+
+# Project specific
 CLAUDE.md
