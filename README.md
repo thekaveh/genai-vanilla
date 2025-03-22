@@ -1,10 +1,14 @@
-# Vanilla GenAI Stack
+# GenAI Vanilla Stack
+
+## Architecture Diagram
+
+![Architecture Diagram](./docs/images/architecture.png)
 
 A flexible, modular GenAI project boilerplate with customizable services.
 
 ## 1. Project Overview
 
-Vanilla GenAI Stack is a customizable multi-service architecture for AI applications, featuring:
+GenAI Vanilla Stack is a customizable multi-service architecture for AI applications, featuring:
 
 - Multiple deployment flavors using standalone Docker Compose files
 - Modular service architecture with interchangeability between containerized and external services
@@ -360,7 +364,7 @@ docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
 ## 9. Project Structure
 
 ```
-vanilla-genai/
+genai-vanilla-stack/
 ├── .env                  # Environment configuration
 ├── docker-compose.yml    # Main compose file
 ├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor

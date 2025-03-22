@@ -25,9 +25,9 @@ def update_readme_with_diagram(diagram_path):
         # Replace the existing diagram
         updated_content = re.sub(diagram_pattern, diagram_replacement, content)
     else:
-        # Insert the diagram after the first heading (# Vanilla GenAI Stack)
-        title_pattern = r'# Vanilla GenAI Stack\s+'
-        updated_content = re.sub(title_pattern, f'# Vanilla GenAI Stack\n\n{diagram_replacement}\n\n', content)
+        # Insert the diagram after the first heading (# GenAI Vanilla Stack)
+        title_pattern = r'# (?:Vanilla GenAI|GenAI Vanilla) Stack\s+'
+        updated_content = re.sub(title_pattern, f'# GenAI Vanilla Stack\n\n{diagram_replacement}\n\n', content)
     
     # Write the updated content back to the README
     with open(README_PATH, 'w') as file:

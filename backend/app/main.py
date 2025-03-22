@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI(
-    title="Vanilla GenAI Backend",
-    description="Backend API for Vanilla GenAI Stack",
+    title="GenAI Vanilla Stack Backend",
+    description="Backend API for GenAI Vanilla Stack",
     version="0.1.0",
 )
 
@@ -33,6 +33,6 @@ async def health_check():
 async def root():
     """Root endpoint that returns a welcome message"""
     return {
-        "message": "Welcome to the Vanilla GenAI Backend API",
+        "message": "Welcome to the GenAI Vanilla Stack Backend API",
         "docs_url": "/docs",
     }
