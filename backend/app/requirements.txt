@@ -31,6 +31,14 @@ langchain-groq>=0.1.5
 groq>=0.4.0
 transformers>=4.39.3
 
+# Graph Database
+neo4j>=5.18.0
+langchain-neo4j>=0.1.0
+
+# DSPy Framework
+dspy>=2.4.6
+dspy-ai>=2.4.6
+
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.5

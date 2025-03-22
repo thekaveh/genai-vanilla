@@ -259,6 +259,8 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+      graph-db:
+        condition: service_healthy
       ollama:
         condition: service_started
     env_file:
@@ -266,6 +268,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       - OLLAMA_BASE_URL=http://ollama:11434
+      - NEO4J_URI=bolt://graph-db:7687
+      - NEO4J_USER=${GRAPH_DB_USER}
+      - NEO4J_PASSWORD=${GRAPH_DB_PASSWORD}
       - PROD_MODE=true
     volumes:
       - ./backend/app:/app

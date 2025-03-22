@@ -240,7 +240,7 @@ The Open Web UI service provides a web interface for interacting with the Ollama
 
 ### 6.3. Backend API Service
 
-The Backend service provides a FastAPI-based REST API that connects to both Supabase PostgreSQL and Ollama for AI model inference:
+The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference:
 
 - **REST API Endpoint**: Available at http://localhost:${BACKEND_PORT} (configured via `BACKEND_PORT`)
 - **API Documentation**: 
@@ -248,6 +248,8 @@ The Backend service provides a FastAPI-based REST API that connects to both Supa
   - ReDoc: http://localhost:${BACKEND_PORT}/redoc
 - **Features**:
   - Connection to Supabase PostgreSQL with pgvector support
+  - Neo4j Graph Database integration for storing and querying connected data
+  - DSPy framework for advanced prompt engineering and LLM optimization
   - Integration with Ollama for local AI model inference
   - Support for multiple LLM providers (OpenAI, Groq, etc.)
   - Dependency management with uv instead of pip/virtualenv
@@ -258,6 +260,9 @@ The backend service is configured via environment variables:
 
 - `DATABASE_URL`: PostgreSQL connection string for Supabase
 - `OLLAMA_BASE_URL`: URL for Ollama API
+- `NEO4J_URI`: Connection URI for Neo4j Graph Database (bolt://graph-db:7687)
+- `NEO4J_USER`: Username for Neo4j authentication (from `GRAPH_DB_USER` in .env)
+- `NEO4J_PASSWORD`: Password for Neo4j authentication (from `GRAPH_DB_PASSWORD` in .env)
 - `BACKEND_PORT`: Port to expose the API (configured via `BACKEND_PORT`)
 
 #### 6.3.2. Local Development
