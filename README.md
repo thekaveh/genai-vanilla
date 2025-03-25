@@ -1,12 +1,10 @@
 # GenAI Vanilla Stack
 
-## Architecture Diagram
-
-![Architecture Diagram](./docs/images/architecture.png)
-
 A flexible, modular GenAI project boilerplate with customizable services.
 
 This project provides a solid foundation for building GenAI applications with a focus on modularity, allowing developers to swap components or connect to external services as needed. It supports both local development and production deployment with GPU acceleration.
+
+![Architecture Diagram](./docs/images/architecture.png)
 
 ## 1. Project Overview
 
