@@ -263,6 +263,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+      supabase-auth:
+        condition: service_started
     env_file:
       - .env
     environment:
