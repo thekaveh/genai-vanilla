@@ -6,6 +6,8 @@
 
 A flexible, modular GenAI project boilerplate with customizable services.
 
+This project provides a solid foundation for building GenAI applications with a focus on modularity, allowing developers to swap components or connect to external services as needed. It supports both local development and production deployment with GPU acceleration.
+
 ## 1. Project Overview
 
 GenAI Vanilla Stack is a customizable multi-service architecture for AI applications, featuring:
