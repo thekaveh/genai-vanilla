@@ -241,10 +241,11 @@ The Open Web UI service provides a web interface for interacting with the Ollama
 - **Accessible**: Available at http://localhost:${OPEN_WEB_UI_PORT} (configured via `OPEN_WEB_UI_PORT`)
 - **Automatic Connection**: Automatically connects to the Ollama API endpoint
 - **Database Integration**: Uses the Supabase PostgreSQL database for storing conversations and settings
+- **Dependencies**: Depends on Ollama, Supabase DB, and Ollama Pull services
 
 ### 6.3. Backend API Service
 
-The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference:
+The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Supabase Auth, Neo4j Graph Database, and Ollama for AI model inference:
 
 - **REST API Endpoint**: Available at http://localhost:${BACKEND_PORT} (configured via `BACKEND_PORT`)
 - **API Documentation**: 
@@ -252,6 +253,7 @@ The Backend service provides a FastAPI-based REST API that connects to Supabase 
   - ReDoc: http://localhost:${BACKEND_PORT}/redoc
 - **Features**:
   - Connection to Supabase PostgreSQL with pgvector support
+  - Authentication via Supabase Auth service
   - Neo4j Graph Database integration for storing and querying connected data
   - DSPy framework for advanced prompt engineering and LLM optimization
   - Integration with Ollama for local AI model inference
@@ -269,7 +271,15 @@ The backend service is configured via environment variables:
 - `NEO4J_PASSWORD`: Password for Neo4j authentication (from `GRAPH_DB_PASSWORD` in .env)
 - `BACKEND_PORT`: Port to expose the API (configured via `BACKEND_PORT`)
 
-#### 6.3.2. Local Development
+#### 6.3.2. Dependencies
+
+The backend service depends on:
+- Supabase DB (for database operations)
+- Supabase Auth (for authentication)
+- Graph DB (for graph database operations)
+- Ollama (for AI model inference)
+
+#### 6.3.3. Local Development
 
 For local development outside of Docker:
 
