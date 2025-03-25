@@ -404,6 +404,40 @@ genai-vanilla-stack/
 
 Note: Many services will be pre-packaged and pulled directly in docker-compose.yml without needing separate Dockerfiles.
 
-## 10. License
+## 10. Cross-Platform Compatibility
+
+This project is designed to work across different operating systems:
+
+### 10.1. Line Ending Handling
+
+- A `.gitattributes` file is included to enforce consistent line endings across platforms
+- All shell scripts use LF line endings (Unix-style) even when checked out on Windows
+- Docker files and YAML configurations maintain consistent line endings
+
+### 10.2. Host Script Compatibility
+
+The following scripts that run on the host machine (not in containers) have been made cross-platform compatible:
+
+- `generate_supabase_keys.sh` - For generating JWT keys
+- `docs/diagrams/generate_diagram.sh` - For generating architecture diagrams
+
+These scripts use:
+- The more portable `#!/usr/bin/env bash` shebang
+- Cross-platform path handling
+- Platform detection for macOS vs Linux differences
+
+### 10.3. Container Scripts
+
+Scripts that run inside Docker containers (in the `graph-db/scripts/`, `supabase/db/scripts/`, and `supabase/db/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
+
+### 10.4. Windows Compatibility Notes
+
+When running on Windows:
+
+- Use Git Bash or WSL (Windows Subsystem for Linux) for running host scripts
+- Docker Desktop for Windows handles path translations automatically
+- Host scripts will detect Windows environments and provide appropriate guidance
+
+## 11. License
 
 [MIT](LICENSE)
