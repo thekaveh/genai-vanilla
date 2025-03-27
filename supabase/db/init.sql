@@ -1,3 +1,12 @@
+-- Create supabase_admin role if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    CREATE ROLE supabase_admin WITH LOGIN SUPERUSER PASSWORD '${SUPABASE_DB_PASSWORD}';
+  END IF;
+END
+$$;
+
 -- Enable extensions if not already enabled
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS postgis;
@@ -23,5 +32,4 @@ create table public.llms (
 
 -- Insert default Ollama models
 INSERT INTO llms (name, provider, active, embeddings, content) VALUES
-    ('mxbai-embed-large', 'ollama', true, true, false),
-    ('deepseek-r1:1.5b', 'ollama', true, false, true);
+    ('mxbai-embed-large', 'ollama', true, true, false);

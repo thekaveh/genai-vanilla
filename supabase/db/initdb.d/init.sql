@@ -1,3 +1,12 @@
+-- Create supabase_admin role if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
+    CREATE ROLE supabase_admin WITH LOGIN SUPERUSER PASSWORD '${SUPABASE_DB_PASSWORD}';
+  END IF;
+END
+$$;
+
 -- Enable extensions
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS postgis;

@@ -10,6 +10,7 @@ graph LR
         supabaseDB[Supabase DB]
         supabaseMeta[Supabase Meta]
         supabaseAuth[Supabase Auth]
+        supabaseAPI[Supabase API]
         supabaseStudio[Supabase Studio]
         graphDB[Neo4j Graph DB]
     end
@@ -33,11 +34,15 @@ graph LR
     %% Connections based on docker-compose.yml dependencies
     supabaseDB --> supabaseMeta
     supabaseDB --> supabaseAuth
+    supabaseDB --> supabaseAPI
+    supabaseAuth --> supabaseAPI
     supabaseMeta --> supabaseStudio
     supabaseAuth --> supabaseStudio
+    supabaseAPI --> supabaseStudio
     
     %% Backend dependencies
     supabaseDB -- Data --> backendAPI
+    supabaseAPI -- REST API --> backendAPI
     graphDB -- Graph Data --> backendAPI
     ollama -- AI Models --> backendAPI
     supabaseAuth -- Auth --> backendAPI
@@ -53,7 +58,7 @@ graph LR
     ollamaPull --> openWebUI
     
     %% Apply styles
-    class supabaseDB,supabaseMeta,supabaseAuth,supabaseStudio,graphDB database
+    class supabaseDB,supabaseMeta,supabaseAuth,supabaseAPI,supabaseStudio,graphDB database
     class ollama,ollamaPull ai
     class openWebUI ui
     class backendAPI api

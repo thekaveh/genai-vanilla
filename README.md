@@ -33,6 +33,34 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 ### 3.2. Running the Stack
 
+#### Using Convenience Scripts (Recommended)
+
+The project includes cross-platform scripts that simplify starting and stopping the stack:
+
+```bash
+# Start the stack with default settings
+./start.sh
+
+# Start with a custom base port (all service ports will be incremented from this base)
+./start.sh --base-port 64000
+
+# Start with a specific deployment profile
+./start.sh --profile dev-ollama-local
+
+# Combine options
+./start.sh --base-port 64000 --profile prod-gpu
+
+# Stop the stack and clean up resources
+./stop.sh
+
+# Stop a specific profile
+./stop.sh --profile prod-gpu
+```
+
+#### Manual Docker Compose Commands (Alternative)
+
+You can also use Docker Compose commands directly:
+
 ```bash
 # First, make sure all previous services are stopped to avoid port conflicts
 docker compose down --remove-orphans
@@ -57,6 +85,92 @@ For a fresh/cold start with a specific flavor, use:
 ```bash
 docker compose -f docker-compose.<flavor_name>.yml down --volumes --remove-orphans && docker compose -f docker-compose.<flavor_name>.yml up --build
 ```
+
+### 3.3. Convenience Scripts
+
+The project includes two cross-platform scripts to simplify deployment and port management:
+
+#### start.sh
+
+This script provides a streamlined way to start the stack with configurable ports and deployment profiles:
+
+```bash
+Usage: ./start.sh [options]
+Options:
+  --base-port PORT   Set the base port number (default: 63000)
+  --profile PROFILE  Set the deployment profile (default: default)
+                     Supported profiles: default, dev-ollama-local, prod-gpu
+  --cold             Force creation of new .env file and generate new keys
+  --help             Show this help message
+```
+
+The script automatically:
+1. Checks if `.env` exists, and if not, creates one from `.env.example` and generates Supabase keys
+2. Generates a new `.env` file with incremented port numbers based on the specified base port
+3. Preserves all non-port-related environment variables
+4. Backs up your existing `.env` file to `.env.backup`
+5. Displays a detailed port assignment table for all services
+6. Starts the appropriate Docker Compose configuration
+
+**First-time Setup:**
+When running for the first time, the script will automatically:
+- Create the `.env` file from `.env.example`
+- Run `generate_supabase_keys.sh` to generate required JWT keys
+- Set all port numbers based on the specified base port
+
+**Cold Start Option:**
+Use the `--cold` option to force a complete reset of the environment:
+```bash
+./start.sh --cold
+```
+This will:
+- Back up your existing `.env` file with a timestamp
+- Create a fresh `.env` file from `.env.example`
+- Generate new Supabase keys
+- Set all port numbers based on the specified base port
+- Remove Docker volumes if specified
+
+**Port Assignment Logic:**
+- SUPABASE_DB_PORT = BASE_PORT
+- SUPABASE_META_PORT = BASE_PORT + 1
+- SUPABASE_AUTH_PORT = BASE_PORT + 2
+- SUPABASE_API_PORT = BASE_PORT + 3
+- SUPABASE_STUDIO_PORT = BASE_PORT + 4
+- GRAPH_DB_PORT = BASE_PORT + 5
+- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 6
+- OLLAMA_PORT = BASE_PORT + 7
+- OPEN_WEB_UI_PORT = BASE_PORT + 8
+- BACKEND_PORT = BASE_PORT + 9
+
+#### stop.sh
+
+This script stops the stack and cleans up resources:
+
+```bash
+Usage: ./stop.sh [options]
+Options:
+  --profile PROFILE  Set the deployment profile (default: default)
+                     Supported profiles: default, dev-ollama-local, prod-gpu
+  --cold             Remove volumes (data will be lost)
+  --help             Show this help message
+```
+
+The script:
+1. Stops all containers in the specified profile
+2. Removes orphaned containers
+3. Preserves data volumes by default
+
+**Cold Stop Option:**
+Use the `--cold` option to perform a complete cleanup including volumes:
+```bash
+./stop.sh --cold
+```
+This will:
+- Stop all containers in the specified profile
+- Remove all volumes (all data will be lost)
+- Remove orphaned containers
+
+This is useful when you want to start completely fresh, but be careful as all database data will be lost.
 
 ## 4. Service Configuration
 
@@ -90,6 +204,16 @@ The Supabase Auth service (GoTrue) provides user authentication and management:
 - **API Endpoint**: Available at http://localhost:${SUPABASE_AUTH_PORT} (configured via `SUPABASE_AUTH_PORT`)
 - **JWT Authentication**: Uses a secure JWT token system for authentication
 - **Features**: User registration, login, password recovery, email confirmation, and more
+
+#### 5.1.3. Supabase API Service
+
+The Supabase API service (PostgREST) provides a RESTful API interface to the PostgreSQL database:
+
+- **API Endpoint**: Available at http://localhost:${SUPABASE_API_PORT} (configured via `SUPABASE_API_PORT`)
+- **Auto-generated API**: Automatically generates RESTful endpoints for all tables and views
+- **JWT Authentication**: Uses the same JWT tokens as the Auth service for secure access
+- **Role-Based Access Control**: Enforces database-level permissions based on JWT claims
+- **Dependencies**: Requires both the Supabase DB and Auth services
 
 **IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret and auth tokens:
 
@@ -147,7 +271,7 @@ openssl rand -hex 32
    - In the "VERIFY SIGNATURE" section, enter your JWT secret
    - Copy the generated tokens to your .env file for SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY variables
 
-#### 5.1.3. Supabase Studio Dashboard
+#### 5.1.4. Supabase Studio Dashboard
 
 The Supabase Studio provides a modern web-based administration interface for PostgreSQL:
 
@@ -276,6 +400,7 @@ The backend service is configured via environment variables:
 The backend service depends on:
 - Supabase DB (for database operations)
 - Supabase Auth (for authentication)
+- Supabase API (for RESTful API access to the database)
 - Graph DB (for graph database operations)
 - Ollama (for AI model inference)
 
@@ -376,6 +501,8 @@ docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
 ```
 genai-vanilla-stack/
 ├── .env                  # Environment configuration
+├── start.sh              # Script to start the stack with configurable ports
+├── stop.sh               # Script to stop the stack and clean up resources
 ├── docker-compose.yml    # Main compose file
 ├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor
 ├── docker-compose.prod-gpu.yml          # GPU-optimized flavor
@@ -396,6 +523,7 @@ genai-vanilla-stack/
 │   │   ├── scripts/
 │   │   └── snapshot/
 │   ├── auth/             # Supabase Auth service (GoTrue)
+│   ├── api/              # Supabase API service (PostgREST)
 │   └── storage/
 └── docs/                 # Documentation and diagrams
     ├── diagrams/
@@ -418,6 +546,8 @@ This project is designed to work across different operating systems:
 
 The following scripts that run on the host machine (not in containers) have been made cross-platform compatible:
 
+- `start.sh` - For starting the stack with configurable ports and profiles
+- `stop.sh` - For stopping the stack and cleaning up resources
 - `generate_supabase_keys.sh` - For generating JWT keys
 - `docs/diagrams/generate_diagram.sh` - For generating architecture diagrams
 

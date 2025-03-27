@@ -86,6 +86,33 @@ services:
     networks:
       - backend
 
+  # Supabase API (PostgREST)
+  supabase-api:
+    image: postgrest/postgrest:v11.2.2
+    container_name: ${PROJECT_NAME}-supabase-api
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-auth:
+        condition: service_started
+    environment:
+      PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      PGRST_DB_SCHEMA: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    ports:
+      - "${SUPABASE_API_PORT}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+
   # Supabase Studio (Dashboard)
   supabase-studio:
     image: supabase/studio:latest
@@ -98,6 +125,8 @@ services:
         condition: service_started
       supabase-auth:
         condition: service_started
+      supabase-api:
+        condition: service_started
     env_file:
       - .env
     environment:
@@ -105,6 +134,7 @@ services:
       SUPABASE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
       SUPABASE_PUBLIC_URL: http://localhost:${SUPABASE_STUDIO_PORT}
       SUPABASE_AUTH_URL: http://supabase-auth:9999
+      SUPABASE_REST_URL: http://supabase-api:3000
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}
@@ -264,6 +294,8 @@ services:
       ollama:
         condition: service_started
       supabase-auth:
+        condition: service_started
+      supabase-api:
         condition: service_started
     env_file:
       - .env
