@@ -63,27 +63,27 @@ You can also use Docker Compose commands directly:
 
 ```bash
 # First, make sure all previous services are stopped to avoid port conflicts
-docker compose down --remove-orphans
+docker compose --env-file=.env down --remove-orphans
 
 # Start all services
-docker compose up
+docker compose --env-file=.env up
 
 # Start with a specific flavor
-docker compose -f docker-compose.<flavor_name>.yml down --remove-orphans
-docker compose -f docker-compose.<flavor_name>.yml up
+docker compose -f docker-compose.<flavor_name>.yml --env-file=.env down --remove-orphans
+docker compose -f docker-compose.<flavor_name>.yml --env-file=.env up
 
 # Build services
-docker compose build
+docker compose --env-file=.env build
 
 # Fresh/Cold Start (completely reset the environment)
 # This will remove all volumes, containers, and orphaned services before rebuilding and starting
-docker compose down --volumes --remove-orphans && docker compose up --build
+docker compose --env-file=.env down --volumes --remove-orphans && docker compose --env-file=.env up --build
 ```
 
 For a fresh/cold start with a specific flavor, use:
 
 ```bash
-docker compose -f docker-compose.<flavor_name>.yml down --volumes --remove-orphans && docker compose -f docker-compose.<flavor_name>.yml up --build
+docker compose -f docker-compose.<flavor_name>.yml --env-file=.env down --volumes --remove-orphans && docker compose -f docker-compose.<flavor_name>.yml --env-file=.env up --build
 ```
 
 ### 3.3. Convenience Scripts
@@ -110,7 +110,8 @@ The script automatically:
 3. Preserves all non-port-related environment variables
 4. Backs up your existing `.env` file to `.env.backup`
 5. Displays a detailed port assignment table for all services
-6. Starts the appropriate Docker Compose configuration
+6. Explicitly uses the `.env` file when starting Docker Compose to ensure port settings are applied consistently
+7. Starts the appropriate Docker Compose configuration
 
 **First-time Setup:**
 When running for the first time, the script will automatically:
@@ -141,6 +142,11 @@ This will:
 - OLLAMA_PORT = BASE_PORT + 7
 - OPEN_WEB_UI_PORT = BASE_PORT + 8
 - BACKEND_PORT = BASE_PORT + 9
+
+**Troubleshooting Port Issues:**
+- If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
+- The script automatically uses this flag to ensure Docker Compose reads the updated environment variables
+- When running Docker Compose manually, always include this flag: `docker compose --env-file=.env ...`
 
 #### stop.sh
 
@@ -501,6 +507,8 @@ docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
 ```
 genai-vanilla-stack/
 ├── .env                  # Environment configuration
+├── .env.example          # Template environment configuration
+├── generate_supabase_keys.sh # Script to generate JWT keys for Supabase
 ├── start.sh              # Script to start the stack with configurable ports
 ├── stop.sh               # Script to stop the stack and clean up resources
 ├── docker-compose.yml    # Main compose file
@@ -515,19 +523,32 @@ genai-vanilla-stack/
 ├── graph-db/             # Neo4j Graph Database configuration
 │   ├── Dockerfile
 │   ├── scripts/
+│   │   ├── backup.sh
+│   │   ├── restore.sh
+│   │   ├── auto_restore.sh
+│   │   └── docker-entrypoint-wrapper.sh
 │   └── snapshot/
 ├── supabase/             # Supabase configuration
 │   ├── db/
 │   │   ├── Dockerfile
 │   │   ├── init.sql
+│   │   ├── initdb.d/
+│   │   │   └── init.sql
 │   │   ├── scripts/
+│   │   │   ├── backup.sh
+│   │   │   ├── restore.sh
+│   │   │   └── auto_restore.sh
 │   │   └── snapshot/
 │   ├── auth/             # Supabase Auth service (GoTrue)
 │   ├── api/              # Supabase API service (PostgREST)
 │   └── storage/
 └── docs/                 # Documentation and diagrams
     ├── diagrams/
+    │   ├── README.md
+    │   ├── architecture.mermaid
+    │   └── generate_diagram.sh
     └── images/
+       └── architecture.png
 ```
 
 Note: Many services will be pre-packaged and pulled directly in docker-compose.yml without needing separate Dockerfiles.
