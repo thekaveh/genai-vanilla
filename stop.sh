@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 # Cross-platform script to stop the GenAI Vanilla Stack
 
+# Function to detect available docker compose command
+detect_docker_compose_cmd() {
+  if command -v docker &> /dev/null; then
+    if docker compose version &> /dev/null; then
+      echo "docker compose"
+    elif command -v docker-compose &> /dev/null; then
+      echo "docker-compose"
+    else
+      echo "Error: Neither 'docker compose' nor 'docker-compose' command is available."
+      exit 1
+    fi
+  else
+    echo "Error: Docker is not installed or not in PATH."
+    exit 1
+  fi
+}
+
+# Store the detected command in a variable
+DOCKER_COMPOSE_CMD=$(detect_docker_compose_cmd)
+
 # Default values
 DEFAULT_PROFILE="default"
 COLD_STOP=false
@@ -60,21 +80,28 @@ if [[ "$COLD_STOP" == "true" ]]; then
 fi
 echo ""
 
+# Explicitly verify and indicate the env file is being used
+if [[ -f .env ]]; then
+  echo "• Found .env file with timestamp: $(stat -c %y .env 2>/dev/null || stat -f %m .env 2>/dev/null)"
+fi
+
+echo "• Using Docker Compose command: $DOCKER_COMPOSE_CMD"
+
 # Stop the stack with the selected profile
 echo "🔄 Stopping containers..."
 if [[ "$COLD_STOP" == "true" ]]; then
   echo "   and removing volumes (data will be lost)..."
   if [[ "$PROFILE" == "default" ]]; then
-    docker compose --env-file=.env down --volumes --remove-orphans
+    $DOCKER_COMPOSE_CMD --env-file=.env down --volumes --remove-orphans
   else
-    docker compose -f $COMPOSE_FILE --env-file=.env down --volumes --remove-orphans
+    $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env down --volumes --remove-orphans
   fi
   echo "✅ Stack stopped and volumes removed."
 else
   if [[ "$PROFILE" == "default" ]]; then
-    docker compose --env-file=.env down --remove-orphans
+    $DOCKER_COMPOSE_CMD --env-file=.env down --remove-orphans
   else
-    docker compose -f $COMPOSE_FILE --env-file=.env down --remove-orphans
+    $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env down --remove-orphans
   fi
   echo "✅ Stack stopped. Data volumes preserved."
 fi

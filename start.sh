@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 # Cross-platform script to start the GenAI Vanilla Stack with configurable ports and profile
 
+# Function to detect available docker compose command
+detect_docker_compose_cmd() {
+  if command -v docker &> /dev/null; then
+    if docker compose version &> /dev/null; then
+      echo "docker compose"
+    elif command -v docker-compose &> /dev/null; then
+      echo "docker-compose"
+    else
+      echo "Error: Neither 'docker compose' nor 'docker-compose' command is available."
+      exit 1
+    fi
+  else
+    echo "Error: Docker is not installed or not in PATH."
+    exit 1
+  fi
+}
+
+# Store the detected command in a variable
+DOCKER_COMPOSE_CMD=$(detect_docker_compose_cmd)
+
 # Default values
 DEFAULT_BASE_PORT=63000
 DEFAULT_PROFILE="default"
@@ -59,6 +79,14 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
+# Since port issues can sometimes persist due to Docker's caching, let's
+# explicitly verify and indicate the env file is being used
+if [[ -f .env ]]; then
+  echo "• Found .env file with timestamp: $(stat -c %y .env 2>/dev/null || stat -f %m .env 2>/dev/null)"
+fi
+
+echo "• Using Docker Compose command: $DOCKER_COMPOSE_CMD"
+
 # Determine Docker Compose file based on profile
 COMPOSE_FILE="docker-compose.yml"
 if [[ "$PROFILE" != "default" ]]; then
@@ -69,6 +97,7 @@ echo "🚀 Starting GenAI Vanilla Stack with:"
 echo "  • Base Port: $BASE_PORT"
 echo "  • Profile: $PROFILE"
 echo "  • Compose File: $COMPOSE_FILE"
+echo "  • Using .env file: YES (--env-file=.env flag will be used)"
 if [[ "$COLD_START" == "true" ]]; then
   echo "  • Cold Start: Yes (forcing new environment setup)"
 fi
@@ -224,12 +253,12 @@ echo "  • Performing deep clean of Docker environment..."
 if [[ "$PROFILE" == "default" ]]; then
   # Stop and remove containers from previous runs
   echo "    - Stopping and removing containers..."
-  docker compose down --remove-orphans
+  $DOCKER_COMPOSE_CMD down --remove-orphans
   
   # Remove volumes if cold start is requested
   if [[ "$COLD_START" == "true" ]]; then
     echo "    - Removing volumes (cold start)..."
-    docker compose down -v
+    $DOCKER_COMPOSE_CMD down -v
   fi
   
   # Prune Docker system to remove any cached configurations
@@ -243,30 +272,30 @@ if [[ "$PROFILE" == "default" ]]; then
   echo "  • Starting containers with new configuration..."
   echo "    - Building images without cache..."
   # Force Docker to use the updated environment file by explicitly passing it
-  docker compose --env-file=.env build --no-cache
+  $DOCKER_COMPOSE_CMD --env-file=.env build --no-cache
   
   echo "    - Starting containers..."
   # Force Docker to use the updated environment file by explicitly passing it
-  docker compose --env-file=.env up -d
+  $DOCKER_COMPOSE_CMD --env-file=.env up -d
   
   # Show the actual port mappings to verify
   echo ""
   echo "🔍 Verifying port mappings..."
-  docker compose ps
+  $DOCKER_COMPOSE_CMD ps
   
   # Show logs
   echo ""
   echo "📋 Container logs (press Ctrl+C to exit):"
-  docker compose logs -f
+  $DOCKER_COMPOSE_CMD logs -f
 else
   # Stop and remove containers from previous runs
   echo "    - Stopping and removing containers..."
-  docker compose -f $COMPOSE_FILE down --remove-orphans
+  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE down --remove-orphans
   
   # Remove volumes if cold start is requested
   if [[ "$COLD_START" == "true" ]]; then
     echo "    - Removing volumes (cold start)..."
-    docker compose -f $COMPOSE_FILE down -v
+    $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE down -v
   fi
   
   # Prune Docker system to remove any cached configurations
@@ -280,19 +309,19 @@ else
   echo "  • Starting containers with new configuration..."
   echo "    - Building images without cache..."
   # Force Docker to use the updated environment file by explicitly passing it
-  docker compose -f $COMPOSE_FILE --env-file=.env build --no-cache
+  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env build --no-cache
   
   echo "    - Starting containers..."
   # Force Docker to use the updated environment file by explicitly passing it
-  docker compose -f $COMPOSE_FILE --env-file=.env up -d
+  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env up -d
   
   # Show the actual port mappings to verify
   echo ""
   echo "🔍 Verifying port mappings..."
-  docker compose -f $COMPOSE_FILE ps
+  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE ps
   
   # Show logs
   echo ""
   echo "📋 Container logs (press Ctrl+C to exit):"
-  docker compose -f $COMPOSE_FILE logs -f
+  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE logs -f
 fi
