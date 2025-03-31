@@ -211,7 +211,7 @@ The Supabase Auth service (GoTrue) provides user authentication and management:
 - **JWT Authentication**: Uses a secure JWT token system for authentication
 - **Features**: User registration, login, password recovery, email confirmation, and more
 
-#### 5.1.3. Supabase API Service
+#### 5.1.3. Supabase API Service (PostgREST)
 
 The Supabase API service (PostgREST) provides a RESTful API interface to the PostgreSQL database:
 
@@ -220,6 +220,37 @@ The Supabase API service (PostgREST) provides a RESTful API interface to the Pos
 - **JWT Authentication**: Uses the same JWT tokens as the Auth service for secure access
 - **Role-Based Access Control**: Enforces database-level permissions based on JWT claims
 - **Dependencies**: Requires both the Supabase DB and Auth services
+
+**API Usage Examples:**
+
+- **List all records**: `GET http://localhost:${SUPABASE_API_PORT}/table_name`
+- **Filter records**: `GET http://localhost:${SUPABASE_API_PORT}/table_name?column=value`
+- **Create record**: `POST http://localhost:${SUPABASE_API_PORT}/table_name` with JSON body
+- **Update record**: `PATCH http://localhost:${SUPABASE_API_PORT}/table_name?id=eq.1` with JSON body
+- **Delete record**: `DELETE http://localhost:${SUPABASE_API_PORT}/table_name?id=eq.1`
+
+**Authentication Headers:**
+
+- Anonymous access: `Authorization: Bearer ${SUPABASE_ANON_KEY}`
+- Authenticated access: `Authorization: Bearer user_jwt_token`
+- Service role access: `Authorization: Bearer ${SUPABASE_SERVICE_KEY}`
+
+**Health Check Endpoint:**
+
+- The API provides a health check endpoint at `/health` that returns a simple "healthy" response
+- This endpoint is used by Docker health checks to monitor the service status
+
+**Configuration Options:**
+
+The Supabase API service can be customized using the following environment variables:
+
+- `SUPABASE_API_MAX_ROWS`: Maximum number of rows returned by a request (default: 1000)
+- `SUPABASE_API_POOL`: Number of database connections to keep open (default: 10)
+- `SUPABASE_API_POOL_TIMEOUT`: Timeout for acquiring a connection from the pool (default: 10)
+- `SUPABASE_API_EXTRA_SEARCH_PATH`: Additional schemas to search (default: public,extensions)
+- `SUPABASE_API_SERVER_PROXY_URI`: Proxy URI for external access
+
+These variables are mapped to PostgREST's internal configuration variables in the Docker Compose files.
 
 **IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret and auth tokens:
 

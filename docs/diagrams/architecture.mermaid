@@ -10,10 +10,13 @@ graph LR
         supabaseDB[Supabase DB]
         supabaseMeta[Supabase Meta]
         supabaseAuth[Supabase Auth]
-        supabaseAPI[Supabase API]
+        supabaseAPI["Supabase API (RESTful PostgreSQL)"]
         supabaseStudio[Supabase Studio]
         graphDB[Neo4j Graph DB]
     end
+    
+    supabaseAPI --- apiNote[Provides RESTful API access to PostgreSQL data]
+    style apiNote fill:#f8f9fa,stroke:#dee2e6,color:#495057
     
     %% AI Services
     subgraph AI[AI Services]
