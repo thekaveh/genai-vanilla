@@ -99,18 +99,24 @@ services:
       supabase-auth:
         condition: service_started
     environment:
-      # Map our SUPABASE_API_ prefixed variables to PostgREST's internal variables
+      # Use PostgREST's native environment variables
+      PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      PGRST_DB_SCHEMA: "public,storage"
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      # Keep the SUPABASE_API_ prefixed variables for compatibility
       SUPABASE_API_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      SUPABASE_API_DB_SCHEMA: public,storage
+      SUPABASE_API_DB_SCHEMA: "public,storage"
       SUPABASE_API_DB_ANON_ROLE: anon
       SUPABASE_API_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_API_DB_USE_LEGACY_GUCS: "false"
       # Optional: Uncomment to customize PostgREST settings
-      # SUPABASE_API_DB_MAX_ROWS: ${SUPABASE_API_MAX_ROWS:-1000}
-      # SUPABASE_API_DB_POOL: ${SUPABASE_API_POOL:-10}
-      # SUPABASE_API_DB_POOL_TIMEOUT: ${SUPABASE_API_POOL_TIMEOUT:-10}
-      # SUPABASE_API_DB_EXTRA_SEARCH_PATH: ${SUPABASE_API_EXTRA_SEARCH_PATH:-public,extensions}
-      # SUPABASE_API_SERVER_PROXY_URI: ${SUPABASE_API_SERVER_PROXY_URI:-}
+      # PGRST_DB_MAX_ROWS: ${SUPABASE_API_MAX_ROWS:-1000}
+      # PGRST_DB_POOL: ${SUPABASE_API_POOL:-10}
+      # PGRST_DB_POOL_TIMEOUT: ${SUPABASE_API_POOL_TIMEOUT:-10}
+      # PGRST_DB_EXTRA_SEARCH_PATH: ${SUPABASE_API_EXTRA_SEARCH_PATH:-public,extensions}
+      # PGRST_SERVER_PROXY_URI: ${SUPABASE_API_SERVER_PROXY_URI:-}
     ports:
       - "${SUPABASE_API_PORT}:3000"
     healthcheck:

@@ -14,19 +14,20 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS storage;
 
--- Create roles for PostgREST if they don't exist
+-- Roles for PostgREST are created by the 00000000000000-initial-schema.sql script
+-- We'll just check if they exist and create them if they don't
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN;
+    CREATE ROLE anon NOLOGIN NOINHERIT;
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN;
+    CREATE ROLE authenticated NOLOGIN NOINHERIT;
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN;
+    CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
   END IF;
 END
 $$;

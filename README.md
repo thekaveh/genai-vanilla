@@ -250,7 +250,14 @@ The Supabase API service can be customized using the following environment varia
 - `SUPABASE_API_EXTRA_SEARCH_PATH`: Additional schemas to search (default: public,extensions)
 - `SUPABASE_API_SERVER_PROXY_URI`: Proxy URI for external access
 
-These variables are mapped to PostgREST's internal configuration variables in the Docker Compose files.
+**Important Note on Environment Variables:**
+
+The Supabase API service uses two sets of environment variables for compatibility:
+
+1. Native PostgREST variables with the `PGRST_` prefix (e.g., `PGRST_DB_URI`, `PGRST_DB_SCHEMA`)
+2. Legacy Supabase variables with the `SUPABASE_API_` prefix (e.g., `SUPABASE_API_DB_URI`, `SUPABASE_API_DB_SCHEMA`)
+
+Both sets are required to ensure proper connectivity between the Supabase API and database services across different deployment environments. The Docker Compose files include both sets of variables.
 
 **IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret and auth tokens:
 
