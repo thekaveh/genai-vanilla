@@ -86,6 +86,7 @@ if [[ -f .env ]]; then
 fi
 
 echo "• Using Docker Compose command: $DOCKER_COMPOSE_CMD"
+echo ""
 
 # Stop the stack with the selected profile
 echo "🔄 Stopping containers..."
@@ -96,6 +97,7 @@ if [[ "$COLD_STOP" == "true" ]]; then
   else
     $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env down --volumes --remove-orphans
   fi
+  echo ""
   echo "✅ Stack stopped and volumes removed."
 else
   if [[ "$PROFILE" == "default" ]]; then
@@ -103,7 +105,10 @@ else
   else
     $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env down --remove-orphans
   fi
+  echo ""
   echo "✅ Stack stopped. Data volumes preserved."
 fi
 
-echo "   To restart the stack, run: ./start.sh [options]"
+echo ""
+echo "📋 To restart the stack, run: ./start.sh [options]"
+echo "   Example: ./start.sh --base-port 64567 --profile $PROFILE"
