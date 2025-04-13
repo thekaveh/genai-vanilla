@@ -168,7 +168,9 @@ PROJECT_NAME=$PROJECT_NAME
 
 # Supabase Database Configuration
 SUPABASE_DB_PORT=$BASE_PORT
-SUPABASE_DB_USER=$SUPABASE_DB_USER
+# IMPORTANT: This value MUST be 'supabase_admin' and cannot be changed after database initialization
+# The Supabase base image expects this specific username for its internal scripts
+SUPABASE_DB_USER=supabase_admin
 SUPABASE_DB_PASSWORD=$SUPABASE_DB_PASSWORD
 SUPABASE_DB_NAME=$SUPABASE_DB_NAME
 # Additional DB users (for application use)

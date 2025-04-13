@@ -468,10 +468,33 @@ uvicorn main:app --reload
 When the database containers start for the first time, the following steps happen automatically:
 
 1. PostgreSQL initializes with the credentials from `.env`
-2. The Supabase database initializes with the following:
-   - Extensions: pgvector and PostGIS
-   - Tables: Default tables including the `llms` table for managing LLM configurations
-   - Default data: Initial records (e.g., default Ollama models)
+   - **IMPORTANT**: The `SUPABASE_DB_USER` must be set to `supabase_admin`. This is a requirement of the Supabase base image, which has internal scripts that expect this specific username. Changing this value will cause initialization failures.
+
+2. The Supabase database initializes with the following initialization scripts:
+   - `init.sql` (runs first): Creates extensions, schemas, tables, roles, and grants permissions
+     * Uses `IF NOT EXISTS` clauses for all objects (tables, roles, schemas)
+     * Wraps permission grants in conditional blocks to ensure roles exist
+     * Creates the `llms` table with default Ollama models
+   
+   - `auto_restore.sh` (runs second): Restores from the latest backup if available
+     * Preprocesses backup files to add `IF NOT EXISTS` clauses
+     * Handles ownership assignments (replaces "postgres" with current user)
+     * Comments out redundant primary key constraints
+     * Comments out role creation statements that are handled by init.sql
+     * Uses error handling to continue despite non-fatal errors
+   
+   - Built-in Supabase scripts (run last): Set up additional database features
+     * These scripts run after our custom initialization
+     * Any conflicts with roles or objects are handled gracefully
+
+3. The initialization ensures:
+   - Extensions: pgvector and PostGIS are installed
+   - Schemas: public, auth, and storage schemas exist
+   - Tables: All required tables including `llms` for managing LLM configurations
+   - Roles: anon, authenticated, and service_role are created with proper permissions
+   - Default data: Initial records (e.g., default Ollama models) are inserted
+
+**Note on Database Initialization**: The project uses a custom Supabase PostgreSQL image that includes initialization scripts in the `/docker-entrypoint-initdb.d/` directory. These scripts create the necessary tables and roles when the database is first initialized. The scripts are designed to be idempotent, meaning they can be run multiple times without causing errors or duplicate data. The Docker Compose files are configured to build this custom image from the `supabase/db` directory rather than using the base Supabase PostgreSQL image directly.
 
 The `llms` table stores:
 - Model names and providers
@@ -569,14 +592,13 @@ genai-vanilla-stack/
 ├── supabase/             # Supabase configuration
 │   ├── db/
 │   │   ├── Dockerfile
-│   │   ├── init.sql
 │   │   ├── initdb.d/
-│   │   │   └── init.sql
-│   │   ├── scripts/
+│   │   │   └── init.sql  # Database initialization script
+│   │   ├── scripts/      # Database utility scripts
+│   │   │   ├── auto_restore.sh
 │   │   │   ├── backup.sh
-│   │   │   ├── restore.sh
-│   │   │   └── auto_restore.sh
-│   │   └── snapshot/
+│   │   │   └── restore.sh
+│   │   └── snapshot/     # Database backup storage
 │   ├── auth/             # Supabase Auth service (GoTrue)
 │   ├── api/              # Supabase API service (PostgREST)
 │   └── storage/
@@ -617,7 +639,7 @@ These scripts use:
 
 ### 10.3. Container Scripts
 
-Scripts that run inside Docker containers (in the `graph-db/scripts/`, `supabase/db/scripts/`, and `supabase/db/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
+Scripts that run inside Docker containers (in the `graph-db/scripts/` and `supabase/db/scripts/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
 
 ### 10.4. Windows Compatibility Notes
 

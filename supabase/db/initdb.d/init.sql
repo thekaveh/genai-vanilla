@@ -1,17 +1,9 @@
--- Create supabase_admin role if it doesn't exist
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'supabase_admin') THEN
-    CREATE ROLE supabase_admin WITH LOGIN SUPERUSER PASSWORD '${SUPABASE_DB_PASSWORD}';
-  END IF;
-END
-$$;
-
 -- Enable extensions
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- Create storage schema if it doesn't exist
+-- Create schemas if they don't exist
+CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS storage;
 
 -- Create users table as per example
@@ -25,49 +17,63 @@ CREATE TABLE IF NOT EXISTS users (
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
-    CREATE ROLE anon NOLOGIN;
+    CREATE ROLE anon NOLOGIN NOINHERIT;
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
-    CREATE ROLE authenticated NOLOGIN;
+    CREATE ROLE authenticated NOLOGIN NOINHERIT;
   END IF;
   
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
-    CREATE ROLE service_role NOLOGIN;
-  END IF;
-  
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${SUPABASE_DB_APP_USER}') THEN
-    CREATE USER "${SUPABASE_DB_APP_USER}" WITH PASSWORD '${SUPABASE_DB_APP_PASSWORD}';
+    CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
   END IF;
 END
 $$;
 
--- Grant privileges to app user
-GRANT CONNECT ON DATABASE "${SUPABASE_DB_NAME}" TO "${SUPABASE_DB_APP_USER}";
-GRANT USAGE ON SCHEMA public TO "${SUPABASE_DB_APP_USER}";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "${SUPABASE_DB_APP_USER}";
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "${SUPABASE_DB_APP_USER}";
-
--- Grant appropriate permissions to roles
-GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO authenticated, service_role;
-
--- Set default permissions for future objects
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
-
--- Grant access to the storage schema
-GRANT USAGE ON SCHEMA storage TO "${SUPABASE_DB_APP_USER}", anon, authenticated, service_role;
-GRANT ALL ON SCHEMA storage TO "${SUPABASE_DB_APP_USER}", service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA storage TO service_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA storage TO anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA storage GRANT ALL ON TABLES TO service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA storage GRANT SELECT ON TABLES TO anon, authenticated;
+-- Grant appropriate permissions to roles (only if roles exist)
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') AND 
+     EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') AND
+     EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
+    
+    -- Grant schema usage
+    GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+    
+    -- Grant table permissions
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+    GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+    
+    -- Grant sequence permissions
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+    
+    -- Grant function permissions
+    GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO authenticated, service_role;
+    
+    -- Set default privileges for future objects
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
+    
+    -- Grant access to the auth schema
+    GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
+    GRANT ALL ON SCHEMA auth TO service_role;
+    GRANT ALL ON ALL TABLES IN SCHEMA auth TO service_role;
+    GRANT SELECT ON ALL TABLES IN SCHEMA auth TO anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON TABLES TO service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT SELECT ON TABLES TO anon, authenticated;
+    
+    -- Grant access to the storage schema
+    GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
+    GRANT ALL ON SCHEMA storage TO service_role;
+    GRANT ALL ON ALL TABLES IN SCHEMA storage TO service_role;
+    GRANT SELECT ON ALL TABLES IN SCHEMA storage TO anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA storage GRANT ALL ON TABLES TO service_role;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA storage GRANT SELECT ON TABLES TO anon, authenticated;
+  END IF;
+END
+$$;
 
 -- Create health check function
 CREATE OR REPLACE FUNCTION public.health() RETURNS text AS $$
@@ -77,4 +83,37 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Grant access to the health function
-GRANT EXECUTE ON FUNCTION public.health() TO anon;
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
+    GRANT EXECUTE ON FUNCTION public.health() TO anon;
+  END IF;
+END
+$$;
+
+-- Create llms table to store model information
+CREATE TABLE IF NOT EXISTS public.llms (
+  id bigint generated by default as identity not null,
+  active boolean not null default false,
+  vision boolean not null default false,
+  content boolean not null default false,
+  structured_content boolean not null default false,
+  embeddings boolean not null default false,
+  provider character varying not null,
+  name character varying not null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint llms_pkey primary key (id),
+  constraint llms_id_key unique (id),
+  constraint llms_name_key unique (name)
+) TABLESPACE pg_default;
+
+-- Insert default Ollama models (only if they don't exist)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'mxbai-embed-large' AND provider = 'ollama') THEN
+    INSERT INTO llms (name, provider, active, embeddings, content) VALUES
+      ('mxbai-embed-large', 'ollama', true, true, false);
+  END IF;
+END
+$$;

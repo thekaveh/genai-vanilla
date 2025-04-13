@@ -1,7 +1,8 @@
 services:
   # Supabase PostgreSQL Database
   supabase-db:
-    image: supabase/postgres:15.8.1.054
+    build:
+      context: ./supabase/db
     container_name: ${PROJECT_NAME}-supabase-db
     restart: unless-stopped
     env_file:
@@ -15,9 +16,6 @@ services:
     volumes:
       - supabase-db-data:/var/lib/postgresql/data
       - ./supabase/db/snapshot:/snapshot
-      - ./supabase/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./supabase/db/backup.sh:/usr/local/bin/backup.sh
-      - ./supabase/db/restore.sh:/usr/local/bin/restore.sh
     command: postgres -c listen_addresses='*' -c hba_file=/var/lib/postgresql/data/pg_hba.conf
     ports:
       - "${SUPABASE_DB_PORT}:5432"
