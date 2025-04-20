@@ -13,42 +13,51 @@ if [ -f "${PGDATA}/PG_VERSION" ]; then
     
     # If a backup file exists, restore it
     if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
-      echo "Found backup file: ${LATEST_BACKUP}"
-      echo "Preprocessing backup file to add IF NOT EXISTS clauses and fix ownership..."
-      
-      # Create a temporary directory for processed files
-      TEMP_DIR=$(mktemp -d)
-      PROCESSED_BACKUP="${TEMP_DIR}/processed_backup.sql"
-      
-      # Preprocess the backup file to add IF NOT EXISTS clauses and fix ownership
-      cat "${LATEST_BACKUP}" | sed -E '
-        # Add IF NOT EXISTS to CREATE TABLE statements
-        s/CREATE TABLE public\.([a-zA-Z0-9_]+)/CREATE TABLE IF NOT EXISTS public.\1/g;
+      # Check if the database is empty (no tables in public schema)
+      TABLE_COUNT=$(psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" | tr -d '[:space:]')
+      if [ "${TABLE_COUNT}" -eq 0 ]; then
+        echo "Found backup file: ${LATEST_BACKUP}"
+        echo "Preprocessing backup file to add IF NOT EXISTS clauses and fix ownership..."
         
-        # Replace OWNER TO postgres with OWNER TO current user
-        s/OWNER TO postgres;/OWNER TO '"${POSTGRES_USER}"';/g;
+        # Create a temporary directory for processed files
+        TEMP_DIR=$(mktemp -d)
+        PROCESSED_BACKUP="${TEMP_DIR}/processed_backup.sql"
         
-        # Comment out primary key constraints (they are already defined in CREATE TABLE)
-        s/ALTER TABLE ONLY public\.([a-zA-Z0-9_]+)[[:space:]]*\n[[:space:]]*ADD CONSTRAINT ([a-zA-Z0-9_]+) PRIMARY KEY \([^)]+\);/-- Primary key constraint \2 is already defined in CREATE TABLE\n-- ALTER TABLE ONLY public.\1\n--     ADD CONSTRAINT \2 PRIMARY KEY/g;
+        # Preprocess the backup file to add IF NOT EXISTS clauses and fix ownership
+        cat "${LATEST_BACKUP}" | sed -E '
+          # Add IF NOT EXISTS to CREATE TABLE statements
+          s/CREATE TABLE public\.([a-zA-Z0-9_]+)/CREATE TABLE IF NOT EXISTS public.\1/g;
+          
+          # Comment out ALTER TABLE OWNER TO postgres commands (postgres role may not exist)
+          s/ALTER TABLE public\.([a-zA-Z0-9_]+) OWNER TO postgres;/-- ALTER TABLE public.\1 OWNER TO postgres; -- commented out due to missing role/g;
+          
+          # Replace OWNER TO postgres with OWNER TO current user
+          s/OWNER TO postgres;/OWNER TO '"${POSTGRES_USER}"';/g;
+          
+          # Comment out primary key constraints (they are already defined in CREATE TABLE)
+          :a
+          N
+          s/ALTER TABLE ONLY public\.([a-zA-Z0-9_]+)[[:space:]]*\n[[:space:]]*ADD CONSTRAINT ([a-zA-Z0-9_]+) PRIMARY KEY \([^)]+\);/-- Primary key constraint \2 is already defined in CREATE TABLE\n-- ALTER TABLE ONLY public.\1\n--     ADD CONSTRAINT \2 PRIMARY KEY/g
+          ta
+          
+          # Comment out role creation statements (roles are already created by init.sql)
+          s/^[[:space:]]*create role ([a-zA-Z0-9_]+).*nologin.*noinherit.*;/-- Role \1 is already created by init.sql/g;
+          s/^[[:space:]]*create role ([a-zA-Z0-9_]+).*login.*noinherit.*;/-- Role \1 is already created by init.sql/g;
+          s/^[[:space:]]*create role ([a-zA-Z0-9_]+).*nologin.*bypassrls.*;/-- Role \1 is already created by init.sql/g;
+        ' > "${PROCESSED_BACKUP}"
         
-        # Comment out role creation statements (roles are already created by init.sql)
-        s/^[[:space:]]*create role ([a-zA-Z0-9_]+).*nologin.*noinherit.*;/-- Role \1 is already created by init.sql/g;
-        s/^[[:space:]]*create role ([a-zA-Z0-9_]+).*login.*noinherit.*;/-- Role \1 is already created by init.sql/g;
-        s/^[[:space:]]*create role ([a-zA-Z0-9_]+).*nologin.*bypassrls.*;/-- Role \1 is already created by init.sql/g;
-      ' > "${PROCESSED_BACKUP}"
-      
-      echo "Automatically restoring database from preprocessed backup..."
-      
-      # Use ON_ERROR_STOP=0 to continue despite errors
-      # This allows the restore to complete even if some objects already exist
-      psql -v ON_ERROR_STOP=0 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" < "${PROCESSED_BACKUP}"
-      
-      # Clean up temporary files
-      rm -rf "${TEMP_DIR}"
-      
-      # Verify and fix ownership issues
-      echo "Checking and fixing ownership issues..."
-      psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
+        echo "Automatically restoring database from preprocessed backup..."
+        
+        # Use ON_ERROR_STOP=0 to continue despite errors
+        # This allows the restore to complete even if some objects already exist
+        psql -v ON_ERROR_STOP=0 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" < "${PROCESSED_BACKUP}"
+        
+        # Clean up temporary files
+        rm -rf "${TEMP_DIR}"
+        
+        # Verify and fix ownership issues
+        echo "Checking and fixing ownership issues..."
+        psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
 -- Fix ownership of objects owned by postgres (if postgres role doesn't exist)
 DO \$\$
 BEGIN
@@ -66,10 +75,10 @@ BEGIN
 END
 \$\$;
 EOF
-      
-      # Verify critical tables exist
-      echo "Verifying critical tables exist..."
-      psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
+        
+        # Verify critical tables exist
+        echo "Verifying critical tables exist..."
+        psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" <<EOF
 -- Ensure llms table exists
 CREATE TABLE IF NOT EXISTS public.llms (
   id bigint generated by default as identity not null,
@@ -114,14 +123,17 @@ BEGIN
 END
 \$\$;
 EOF
-      
-      echo "Database automatically restored successfully with error handling and verification."
+        
+        echo "Database automatically restored successfully with error handling and verification."
+      else
+        echo "Database already initialized, skipping restore."
+      fi
     else
       echo "No backup files found in snapshot directory. Skipping automatic restore."
     fi
   else
-    echo "Snapshot directory not found. Skipping automatic restore."
-  fi
+  echo "First-time PostgreSQL initialization - skipping automatic restore."
+fi
 else
   echo "First-time PostgreSQL initialization - skipping automatic restore."
 fi

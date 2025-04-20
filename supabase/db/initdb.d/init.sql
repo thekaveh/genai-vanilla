@@ -1,3 +1,6 @@
+-- Log start of init.sql
+-- RAISE NOTICE 'Running init.sql script...';
+
 -- Enable extensions
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS postgis;

@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     depends_on:
       supabase-db:
-        condition: service_healthy
+        condition: service_started
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: supabase-db
@@ -55,7 +55,7 @@ services:
     restart: unless-stopped
     depends_on:
       supabase-db:
-        condition: service_healthy
+        condition: service_started
     environment:
       GOTRUE_SITE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
       API_EXTERNAL_URL: http://supabase-auth:9999
@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
     depends_on:
       supabase-db:
-        condition: service_healthy
+        condition: service_started
       supabase-auth:
         condition: service_started
     environment:
@@ -131,7 +131,7 @@ services:
     restart: unless-stopped
     depends_on:
       supabase-db:
-        condition: service_healthy
+        condition: service_started
       supabase-meta:
         condition: service_started
       supabase-auth:
@@ -243,7 +243,7 @@ services:
     restart: unless-stopped
     depends_on:
       supabase-db:
-        condition: service_healthy
+        condition: service_started
       ollama-pull:
         condition: service_completed_successfully
     extra_hosts:
@@ -275,7 +275,7 @@ services:
     restart: unless-stopped
     depends_on:
       supabase-db:
-        condition: service_healthy
+        condition: service_started
       graph-db:
         condition: service_healthy
       supabase-auth:
