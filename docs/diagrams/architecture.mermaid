@@ -5,63 +5,67 @@ graph LR
     classDef ui fill:#ffd8a8,stroke:#e8590c,color:#1e1e1e
     classDef api fill:#b2f2bb,stroke:#2f9e44,color:#1e1e1e
     
-    %% Database Services
-    subgraph DB[Database Services]
-        supabaseDB[Supabase DB]
-        supabaseMeta[Supabase Meta]
-        supabaseAuth[Supabase Auth]
-        supabaseAPI["Supabase API (RESTful PostgreSQL)"]
-        supabaseStudio[Supabase Studio]
-        graphDB[Neo4j Graph DB]
+    %% Database Services & Initialization
+    subgraph DB[Database Services & Init]
+        direction LR
+        supabaseDB[supabaseDB]
+        dbInit(dbInit)
+        subgraph Supabase Core
+            direction TB
+            supabaseMeta[supabaseMeta]
+            supabaseAuth[supabaseAuth]
+            supabaseAPI[supabaseAPI]
+            supabaseStudio[supabaseStudio]
+        end
+        graphDB[graphDB]
     end
-    
-    supabaseAPI --- apiNote[Provides RESTful API access to PostgreSQL data]
-    style apiNote fill:#f8f9fa,stroke:#dee2e6,color:#495057
-    
+
     %% AI Services
     subgraph AI[AI Services]
-        ollama[Ollama]
-        ollamaPull[Model Puller]
+        direction TB
+        ollama[ollama]
+        ollamaPull[ollamaPull]
     end
     
     %% API Layer (moved to right side)
     subgraph API[API Layer]
-        backendAPI[FastAPI Backend]
+        backendAPI[backendAPI]
     end
     
     %% UI Layer
     subgraph UI[UI Layer]
-        openWebUI[Open WebUI]
+        openWebUI[openWebUI]
     end
     
-    %% Connections based on docker-compose.yml dependencies
-    supabaseDB --> supabaseMeta
-    supabaseDB --> supabaseAuth
-    supabaseDB --> supabaseAPI
-    supabaseAuth --> supabaseAPI
+    %% Connections / Dependencies
+    supabaseDB -- "Depends on DB Started" --> dbInit
+    dbInit -- "Runs Custom Initialization SQL" --> supabaseDB
+    dbInit -- "Completes Successfully" --> supabaseMeta
+    dbInit -- "Completes Successfully" --> supabaseAuth
+    dbInit -- "Completes Successfully" --> supabaseAPI
+    dbInit -- "Completes Successfully" --> supabaseStudio
+    dbInit -- "Completes Successfully" --> ollamaPull
+    dbInit -- "Completes Successfully" --> openWebUI
+    dbInit -- "Completes Successfully" --> backendAPI
+
+    %% Service Inter-dependencies (After db-init)
     supabaseMeta --> supabaseStudio
     supabaseAuth --> supabaseStudio
     supabaseAPI --> supabaseStudio
-    
-    %% Backend dependencies
-    supabaseDB -- Data --> backendAPI
-    supabaseAPI -- REST API --> backendAPI
-    graphDB -- Graph Data --> backendAPI
-    ollama -- AI Models --> backendAPI
-    supabaseAuth -- Auth --> backendAPI
-    
-    %% Ollama and related services
-    supabaseDB --> ollama
-    ollama --> ollamaPull
-    supabaseDB --> ollamaPull
-    
-    %% Open WebUI dependencies
-    ollama --> openWebUI
-    supabaseDB --> openWebUI
-    ollamaPull --> openWebUI
-    
+    supabaseAuth --> backendAPI
+    supabaseAPI -- REST --> backendAPI
+    graphDB -- Graph --> backendAPI
+    ollama -- Models --> backendAPI
+    ollamaPull -- "Completes Successfully" --> openWebUI
+    ollamaPull -- "Completes Successfully" --> backendAPI
+    ollama -- "Depends on Ollama Started" --> ollamaPull
+
+
     %% Apply styles
-    class supabaseDB,supabaseMeta,supabaseAuth,supabaseAPI,supabaseStudio,graphDB database
+    classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
+    class supabaseDB,graphDB database
+    class supabaseMeta,supabaseAuth,supabaseAPI,supabaseStudio database
     class ollama,ollamaPull ai
     class openWebUI ui
     class backendAPI api
+    class dbInit init

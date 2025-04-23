@@ -1,43 +1,48 @@
-
 services:
-  # Supabase PostgreSQL Database
-  supabase-db:
-    build:
-      context: ./supabase/db
+  supabase-db: # Uses base image, no custom init scripts mounted via volumes
+    image: supabase/postgres:17.4.1.016
     container_name: ${PROJECT_NAME}-supabase-db
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${SUPABASE_DB_USER}
+      POSTGRES_USER: ${SUPABASE_DB_USER} # Must be supabase_admin for base image scripts
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
       POSTGRES_DB: ${SUPABASE_DB_NAME}
-      POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_MULTIPLE_DATABASES: ${SUPABASE_DB_NAME}
-      PGDATA: /var/lib/postgresql/data
+      POSTGRES_HOST_AUTH_METHOD: trust # Allows easy psql access locally
     volumes:
       - supabase-db-data:/var/lib/postgresql/data
-      - ./supabase/db/snapshot:/snapshot
-    command: postgres -c listen_addresses='*' -c hba_file=/var/lib/postgresql/data/pg_hba.conf
+      - ./supabase/db/snapshot:/snapshot # For manual backups/restores
     ports:
       - "${SUPABASE_DB_PORT}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     networks:
       - backend
 
-  # Supabase Meta Service for DB Management
+  # Runs custom DB initialization scripts after supabase-db is ready
+  db-init:
+    image: postgres:15-alpine # Lightweight image with psql client tools
+    container_name: ${PROJECT_NAME}-db-init
+    restart: no
+    environment:
+      PGHOST: supabase-db
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      PGDATABASE: ${SUPABASE_DB_NAME}
+    volumes:
+      - ./supabase/db/scripts:/scripts # Mounts runner script and *.sql files
+    entrypoint: ["/scripts/db-init-runner.sh"] # Executes the runner script
+    depends_on:
+      - supabase-db # Waits for db container to start
+    networks:
+      - backend
+
   supabase-meta:
-    image: supabase/postgres-meta:v0.66.3
+    image: supabase/postgres-meta:v0.88.9
     container_name: ${PROJECT_NAME}-supabase-meta
     restart: unless-stopped
     depends_on:
-      supabase-db:
-        condition: service_started
+      db-init:
+        condition: service_completed_successfully
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: supabase-db
@@ -50,14 +55,13 @@ services:
     networks:
       - backend
 
-  # Supabase Auth (Gotrue)
-  supabase-auth:
-    image: supabase/gotrue:v2.151.0
+  supabase-auth: # Uses standard gotrue image
+    image: supabase/gotrue:v2.171.0
     container_name: ${PROJECT_NAME}-supabase-auth
     restart: unless-stopped
     depends_on:
-      supabase-db:
-        condition: service_started
+      db-init:
+        condition: service_completed_successfully
     environment:
       GOTRUE_SITE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
       API_EXTERNAL_URL: http://supabase-auth:9999
@@ -79,61 +83,38 @@ services:
       GOTRUE_SMTP_SENDER_NAME: "Supabase Auth"
       GOTRUE_SMTP_ADMIN_EMAIL: "admin@example.com"
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
-      # Required by Studio and PostgREST when using JWT
       GOTRUE_SITE_NAME: "Local Supabase"
     ports:
       - "${SUPABASE_AUTH_PORT}:9999"
     networks:
       - backend
 
-  # Supabase API (PostgREST)
   supabase-api:
-    image: postgrest/postgrest:v11.2.2
+    image: postgrest/postgrest:v12.2.10
     container_name: ${PROJECT_NAME}-supabase-api
     restart: unless-stopped
     depends_on:
-      supabase-db:
-        condition: service_started
-      supabase-auth:
-        condition: service_started
+      db-init:
+        condition: service_completed_successfully
     environment:
-      # Use PostgREST's native environment variables
       PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      PGRST_DB_SCHEMA: "public,storage"
+      PGRST_DB_SCHEMA: "public,storage,auth" # Needs auth schema for JWT functions
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       PGRST_DB_USE_LEGACY_GUCS: "false"
-      # Keep the SUPABASE_API_ prefixed variables for compatibility
-      SUPABASE_API_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      SUPABASE_API_DB_SCHEMA: "public,storage"
-      SUPABASE_API_DB_ANON_ROLE: anon
-      SUPABASE_API_JWT_SECRET: ${SUPABASE_JWT_SECRET}
-      SUPABASE_API_DB_USE_LEGACY_GUCS: "false"
-      # Optional: Uncomment to customize PostgREST settings
-      # PGRST_DB_MAX_ROWS: ${SUPABASE_API_MAX_ROWS:-1000}
-      # PGRST_DB_POOL: ${SUPABASE_API_POOL:-10}
-      # PGRST_DB_POOL_TIMEOUT: ${SUPABASE_API_POOL_TIMEOUT:-10}
-      # PGRST_DB_EXTRA_SEARCH_PATH: ${SUPABASE_API_EXTRA_SEARCH_PATH:-public,extensions}
-      # PGRST_SERVER_PROXY_URI: ${SUPABASE_API_SERVER_PROXY_URI:-}
     ports:
       - "${SUPABASE_API_PORT}:3000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     networks:
       - backend
 
-  # Supabase Studio (Dashboard)
   supabase-studio:
     image: supabase/studio:latest
     container_name: ${PROJECT_NAME}-supabase-studio
     restart: unless-stopped
     depends_on:
-      supabase-db:
-        condition: service_started
+      db-init:
+        condition: service_completed_successfully # Waits for custom DB setup
+      # Studio also needs these services running to be fully functional
       supabase-meta:
         condition: service_started
       supabase-auth:
@@ -154,15 +135,9 @@ services:
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
     ports:
       - "${SUPABASE_STUDIO_PORT}:3000"
-    healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:3000"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     networks:
       - backend
-      
+
   graph-db:
     build:
       context: ./graph-db
@@ -172,52 +147,40 @@ services:
       - .env
     environment:
       NEO4J_AUTH: ${GRAPH_DB_AUTH}
-      # This advertises the correct address for internal container usage
       NEO4J_server_default__advertised__address: "localhost"
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
-      # Enable APOC plugin for advanced operations
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
-      # Configure browser connection to use the internal Bolt connector
       NEO4J_browser_remote__content__hostname__whitelist: "*"
     ports:
-      - "${GRAPH_DB_PORT}:7687" # Bolt port
-      - "${GRAPH_DB_DASHBOARD_PORT}:7474" # HTTP port (dashboard)
+      - "${GRAPH_DB_PORT}:7687"
+      - "${GRAPH_DB_DASHBOARD_PORT}:7474"
     volumes:
-      - ./graph-db/scripts:/scripts
+      - ./graph-db/scripts:/scripts # Contains backup/restore scripts
       - ./graph-db/snapshot:/snapshot
       - graph-db-data:/data
-    healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:7474"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
     networks:
       - backend
 
-  # Standard Ollama service (CPU)
-  ollama:
+  ollama: # Standard CPU Ollama service
     image: ollama/ollama:latest
     container_name: ${PROJECT_NAME}-ollama
     restart: unless-stopped
-    depends_on:
-      supabase-db:
-        condition: service_started
     volumes:
-      - ollama-data:/root/.ollama
+      - ollama-data:/root/.ollama # Persist models
     ports:
       - "${OLLAMA_PORT}:11434"
     networks:
       - backend
-      
-  # Ollama Model Puller - pulls models from the supabase database
-  ollama-pull:
+
+  ollama-pull: # Pulls models listed in DB from Ollama API
     image: alpine:latest
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
-      - ollama
-      - supabase-db
+      db-init: # Needs DB ready for query
+        condition: service_completed_successfully
+      ollama: # Needs ollama running
+        condition: service_started
     networks:
       - backend
     environment:
@@ -226,43 +189,19 @@ services:
       PGDATABASE: ${SUPABASE_DB_NAME}
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-    entrypoint: sh
-    command: >
-      -c "
-      echo 'Installing required tools...' &&
-      apk add --no-cache curl postgresql-client &&
-      echo 'Waiting 30 seconds for Ollama to start...' &&
-      sleep 30 &&
-      echo 'Checking if Ollama is available...' &&
-      until curl -s --fail http://ollama:11434/; do
-        echo 'Waiting for Ollama API...'
-        sleep 5
-      done &&
-      echo 'Fetching active Ollama models from database...' &&
-      MODEL_LIST=$(PGPASSWORD=${SUPABASE_DB_PASSWORD} psql -h supabase-db -p 5432 -d ${SUPABASE_DB_NAME} -U ${SUPABASE_DB_USER} -t -c \"SELECT name FROM llms WHERE provider = 'ollama' AND active = true;\") &&
-      if [ -z \"$${MODEL_LIST}\" ]; then
-        echo 'No active Ollama models found in database.'
-      else
-        for MODEL in $${MODEL_LIST}; do
-          MODEL_CLEAN=$(echo $${MODEL} | tr -d ' ') &&
-          echo \"Pulling $${MODEL_CLEAN} model...\" &&
-          curl -s -X POST http://ollama:11434/api/pull -d '{\"name\":\"'$${MODEL_CLEAN}'\"}' 
-          echo
-        done
-      fi
-      "
-      
-  # OpenWebUI - UI for Ollama
+      OLLAMA_HOST_URL: http://ollama:11434 # Service name for containerized ollama
+    volumes:
+      - ./ollama-pull/scripts:/scripts
+    entrypoint: ["/scripts/pull.sh"]
+
   open-web-ui:
     image: ghcr.io/open-webui/open-webui:latest
     container_name: ${PROJECT_NAME}-open-web-ui
     restart: unless-stopped
     depends_on:
-      ollama:
-        condition: service_started
-      supabase-db:
-        condition: service_started
-      ollama-pull:
+      db-init: # Needs DB ready for its own schema/data
+        condition: service_completed_successfully
+      ollama-pull: # Needs models pulled
         condition: service_completed_successfully
     env_file:
       - .env
@@ -274,32 +213,23 @@ services:
       - open-web-ui-data:/data
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
-    healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:8080"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     networks:
       - backend
-      
-  # Backend API Service
+
   backend:
     build:
       context: ./backend
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
     depends_on:
-      supabase-db:
+      db-init: # Needs DB ready
+        condition: service_completed_successfully
+      ollama-pull: # Needs models pulled
+        condition: service_completed_successfully
+      graph-db: # Needs graph DB started
         condition: service_started
-      graph-db:
-        condition: service_healthy
-      ollama:
-        condition: service_started
-      supabase-auth:
-        condition: service_started
-      supabase-api:
-        condition: service_started
+      # Implicitly depends on supabase-auth and supabase-api being started,
+      # which should be true if db-init completed.
     env_file:
       - .env
     environment:
@@ -313,12 +243,6 @@ services:
       - backend-data:/app/data
     ports:
       - "${BACKEND_PORT}:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     networks:
       - backend
 

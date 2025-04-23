@@ -20,8 +20,8 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **2.1. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints
 - **2.2. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
 - **2.3. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
-- **2.4. Health Monitoring**: Built-in healthchecks for all applicable services
-- **2.5. Environment-based Configuration**: Easy configuration through environment variables
+- **2.4. Environment-based Configuration**: Easy configuration through environment variables
+- **2.5. Explicit Initialization Control**: Uses a dedicated `db-init` service to manage custom database setup after the base database starts.
 
 ## 3. Getting Started
 
@@ -465,76 +465,62 @@ uvicorn main:app --reload
 
 ## 7. Database Setup Process
 
-When the database containers start for the first time, the following steps happen automatically:
+The database initialization follows a two-stage process managed by Docker Compose dependencies:
 
-1. PostgreSQL initializes with the credentials from `.env`
-   - **IMPORTANT**: The `SUPABASE_DB_USER` must be set to `supabase_admin`. This is a requirement of the Supabase base image, which has internal scripts that expect this specific username. Changing this value will cause initialization failures.
+1.  **Base Database Initialization (`supabase-db` service):**
+    *   Uses the standard `supabase/postgres` image.
+    *   On first start with an empty data volume, this image runs its own internal initialization scripts located within its `/docker-entrypoint-initdb.d/`.
+    *   These base scripts handle setting up PostgreSQL, creating the database specified by `POSTGRES_DB`, creating standard Supabase roles (`anon`, `authenticated`, `service_role`), enabling necessary extensions (like `pgcrypto`, `uuid-ossp`), and setting up the basic `auth` and `storage` schemas.
+    *   **IMPORTANT**: The `SUPABASE_DB_USER` in your `.env` file must be set to `supabase_admin`. This is required by the base image's internal scripts.
 
-2. The Supabase database initializes with the following initialization scripts:
-   - `init.sql` (runs first): Creates extensions, schemas, tables, roles, and grants permissions
-     * Uses `IF NOT EXISTS` clauses for all objects (tables, roles, schemas)
-     * Wraps permission grants in conditional blocks to ensure roles exist
-     * Creates the `llms` table with default Ollama models
-   
-   - `auto_restore.sh` (runs second): Restores from the latest backup if available
-     * Preprocesses backup files to add `IF NOT EXISTS` clauses
-     * Handles ownership assignments (replaces "postgres" with current user)
-     * Comments out redundant primary key constraints
-     * Comments out role creation statements that are handled by init.sql
-     * Uses error handling to continue despite non-fatal errors
-   
-   - Built-in Supabase scripts (run last): Set up additional database features
-     * These scripts run after our custom initialization
-     * Any conflicts with roles or objects are handled gracefully
+2.  **Custom Post-Initialization (`db-init` service):**
+    *   A dedicated, short-lived service (`db-init`) using a `postgres:alpine` image (which includes `psql` and `pg_isready`).
+    *   This service `depends_on: supabase-db`.
+    *   Its entrypoint (`supabase/db/scripts/db-init-runner.sh`) first waits until `supabase-db` is ready to accept connections using `pg_isready`.
+    *   Once the database is ready, the runner script executes all `.sql` files found in the `./supabase/db/scripts/` directory (mounted to `/scripts` inside the container) in alphabetical/numerical order.
+    *   These custom scripts handle project-specific setup *after* the base Supabase initialization is complete. This includes:
+        *   Ensuring required extensions like `vector` and `postgis` are enabled (`01-extensions.sql`).
+        *   Ensuring schemas like `auth` and `storage` exist (`02-schemas.sql`).
+        *   Creating necessary custom types for Supabase Auth (`03-auth-types.sql`).
+        *   Creating custom public tables like `users` and `llms` (`04-public-tables.sql`).
+        *   Granting appropriate permissions to standard roles (`05-permissions.sql`).
+        *   Creating custom functions like `public.health` (`06-functions.sql`).
+        *   Inserting seed data like default LLMs (`07-seed-data.sql`).
+    *   All custom SQL scripts use `IF NOT EXISTS` or equivalent idempotent logic to allow safe re-runs if needed (though `db-init` only runs once per `docker compose up`).
 
-3. The initialization ensures:
-   - Extensions: pgvector and PostGIS are installed
-   - Schemas: public, auth, and storage schemas exist
-   - Tables: All required tables including `llms` for managing LLM configurations
-   - Roles: anon, authenticated, and service_role are created with proper permissions
-   - Default data: Initial records (e.g., default Ollama models) are inserted
+3.  **Service Dependencies:**
+    *   Most other services (`supabase-meta`, `supabase-auth`, `supabase-api`, `supabase-studio`, `ollama-pull`, `open-web-ui`, `backend`) now have `depends_on: { db-init: { condition: service_completed_successfully } }`.
+    *   This ensures they only start *after* both the base database initialization and all custom post-initialization steps are fully completed.
 
-**Note on Database Initialization**: The project uses a custom Supabase PostgreSQL image that includes initialization scripts in the `/docker-entrypoint-initdb.d/` directory. These scripts create the necessary tables and roles when the database is first initialized. The scripts are designed to be idempotent, meaning they can be run multiple times without causing errors or duplicate data. The Docker Compose files are configured to build this custom image from the `supabase/db` directory rather than using the base Supabase PostgreSQL image directly.
-
-The `llms` table stores:
-- Model names and providers
-- Active status (determines which models are pulled by the ollama-pull service)
-- Capability flags (vision, content, structured_content, embeddings)
-- Creation and update timestamps
+This approach separates base database setup from custom application setup, improving reliability and maintainability.
 
 ## 8. Database Backup and Restore
 
-The database services (Supabase/PostgreSQL and Neo4j) include comprehensive backup and restore systems:
+The database services (Supabase/PostgreSQL and Neo4j) require different backup approaches:
 
 ### 8.1. Supabase PostgreSQL Backup and Restore
 
-#### 8.1.1. Manual Backup
+**Note:** The previous custom backup/restore scripts (`backup.sh`, `restore.sh`, `auto_restore.sh`) are **no longer included or used** by the simplified `supabase-db` service configuration. Automatic restore on startup is disabled.
 
-To manually create a database backup:
+Backup and restore must now be performed using standard PostgreSQL tools (`pg_dump`, `pg_restore`, `psql`) against the running `supabase-db` container.
 
-```bash
-# Create a backup directly from the container
-docker exec ${PROJECT_NAME}-supabase-db /usr/local/bin/backup.sh
-```
-
-This creates a timestamped SQL dump in the `/snapshot` directory inside the container, which is mounted to the `./supabase/db/snapshot/` directory on your host machine.
-
-#### 8.1.2. Manual Restore
-
-To manually restore from a backup:
+#### 8.1.1. Manual Backup (Example using `pg_dump`)
 
 ```bash
-# Restore the database from the latest backup
-docker exec ${PROJECT_NAME}-supabase-db /usr/local/bin/restore.sh
+# Execute pg_dump inside the running container, redirect output to a host file
+docker compose exec -T supabase-db pg_dump -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME} > ./supabase/db/snapshot/backup_$(date +%Y%m%d_%H%M%S).sql
+```
+*(Replace `${SUPABASE_DB_USER}` and `${SUPABASE_DB_NAME}` with values from your `.env` file or use environment variables directly if your shell supports it).*
+
+#### 8.1.2. Manual Restore (Example using `psql`)
+
+```bash
+# Execute psql inside the running container, feeding it a backup file from the host
+# Ensure the target database exists and is empty or prepared for restore first.
+cat ./supabase/db/snapshot/<your_backup_file>.sql | docker compose exec -T supabase-db psql -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME}
 ```
 
-The restore script automatically finds and uses the most recent backup file from the snapshot directory.
-
-#### 8.1.3. Important Notes:
-
-- Backups are stored in `./supabase/db/snapshot/` on your host machine with timestamped filenames
-- The restore process does not interrupt normal database operations
-- Automatic restore on startup can be enabled via the auto_restore.sh script
+**Recommendation:** For robust backup/restore, consider implementing a dedicated backup container or using external database backup solutions.
 
 ### 8.2. Neo4j Graph Database Backup and Restore
 
@@ -591,17 +577,11 @@ genai-vanilla-stack/
 │   └── snapshot/
 ├── supabase/             # Supabase configuration
 │   ├── db/
-│   │   ├── Dockerfile
-│   │   ├── initdb.d/
-│   │   │   └── init.sql  # Database initialization script
-│   │   ├── scripts/      # Database utility scripts
-│   │   │   ├── auto_restore.sh
-│   │   │   ├── backup.sh
-│   │   │   └── restore.sh
-│   │   └── snapshot/     # Database backup storage
-│   ├── auth/             # Supabase Auth service (GoTrue)
+│   │   ├── scripts/      # Contains db-init-runner.sh and post-init SQL scripts (01-*.sql, etc.)
+│   │   └── snapshot/     # Database backup storage (manual dumps)
+│   ├── auth/             # Supabase Auth service (GoTrue) - Uses standard image
 │   ├── api/              # Supabase API service (PostgREST)
-│   └── storage/
+│   └── storage/          # Supabase Storage (if added)
 └── docs/                 # Documentation and diagrams
     ├── diagrams/
     │   ├── README.md
