@@ -37,6 +37,10 @@ DO $$ BEGIN
     -- Grant access to the storage schema (assuming base image created necessary tables/functions)
     GRANT ALL ON SCHEMA storage TO service_role; -- service_role needs full access
     GRANT SELECT ON ALL TABLES IN SCHEMA storage TO anon, authenticated;
+    -- Explicit grants for storage.buckets table
+    GRANT ALL PRIVILEGES ON storage.buckets TO service_role;
+    GRANT ALL PRIVILEGES ON storage.objects TO service_role;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA storage TO service_role;
     ALTER DEFAULT PRIVILEGES IN SCHEMA storage GRANT ALL ON TABLES TO service_role;
     ALTER DEFAULT PRIVILEGES IN SCHEMA storage GRANT SELECT ON TABLES TO anon, authenticated;
     -- Note: Specific function grants might be needed depending on base image setup

@@ -55,6 +55,39 @@ services:
     networks:
       - backend
 
+  supabase-storage:
+    image: supabase/storage-api:v1.22.7
+    container_name: ${PROJECT_NAME}-supabase-storage
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      ANON_KEY: ${SUPABASE_ANON_KEY}
+      SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      REGION: ${STORAGE_REGION}
+      FILE_SIZE_LIMIT: ${STORAGE_FILE_SIZE_LIMIT}
+      STORAGE_BACKEND: ${STORAGE_BACKEND}
+      FILE_STORAGE_PATH: /var/lib/storage
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ${TENANT_ID}
+      PROJECT_REF: ${PROJECT_REF}
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      # Ensure these match the API service for proper integration
+      POSTGREST_URL: http://supabase-api:3000
+      # Ensure this matches the Auth service for proper integration
+      GOTRUE_URL: http://supabase-auth:9999
+    ports:
+      - "${SUPABASE_STORAGE_PORT}:5000"
+    volumes:
+      - supabase-storage-data:/var/lib/storage
+    networks:
+      - backend
+
   supabase-auth: # Uses standard gotrue image
     image: supabase/gotrue:v2.171.0
     container_name: ${PROJECT_NAME}-supabase-auth
@@ -116,6 +149,8 @@ services:
         condition: service_completed_successfully # Waits for custom DB setup
       # Studio also needs these services running to be fully functional
       supabase-meta:
+        condition: service_started
+      supabase-storage:
         condition: service_started
       supabase-auth:
         condition: service_started
@@ -203,6 +238,8 @@ services:
         condition: service_completed_successfully
       ollama-pull: # Needs models pulled
         condition: service_completed_successfully
+      supabase-storage:
+        condition: service_started
     env_file:
       - .env
     environment:
@@ -227,6 +264,8 @@ services:
       ollama-pull: # Needs models pulled
         condition: service_completed_successfully
       graph-db: # Needs graph DB started
+        condition: service_started
+      supabase-storage:
         condition: service_started
       # Implicitly depends on supabase-auth and supabase-api being started,
       # which should be true if db-init completed.
@@ -260,4 +299,6 @@ volumes:
   open-web-ui-data:
     driver: local
   backend-data:
+    driver: local
+  supabase-storage-data:
     driver: local

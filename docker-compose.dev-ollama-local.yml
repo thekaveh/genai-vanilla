@@ -10,7 +10,6 @@ services:
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
       POSTGRES_DB: ${SUPABASE_DB_NAME}
       POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_LISTEN_ADDRESSES: "*"
     volumes:
       - supabase-db-data:/var/lib/postgresql/data
       - ./supabase/db/snapshot:/snapshot
@@ -53,6 +52,39 @@ services:
       PG_META_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
     ports:
       - "${SUPABASE_META_PORT}:8080"
+    networks:
+      - backend
+
+  supabase-storage:
+    image: supabase/storage-api:v1.22.7
+    container_name: ${PROJECT_NAME}-supabase-storage
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      ANON_KEY: ${SUPABASE_ANON_KEY}
+      SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      REGION: ${STORAGE_REGION}
+      FILE_SIZE_LIMIT: ${STORAGE_FILE_SIZE_LIMIT}
+      STORAGE_BACKEND: ${STORAGE_BACKEND}
+      FILE_STORAGE_PATH: /var/lib/storage
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ${TENANT_ID}
+      PROJECT_REF: ${PROJECT_REF}
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      # Ensure these match the API service for proper integration
+      POSTGREST_URL: http://supabase-api:3000
+      # Ensure this matches the Auth service for proper integration
+      GOTRUE_URL: http://supabase-auth:9999
+    ports:
+      - "${SUPABASE_STORAGE_PORT}:5000"
+    volumes:
+      - supabase-storage-data:/var/lib/storage
     networks:
       - backend
 
@@ -117,6 +149,8 @@ services:
         condition: service_completed_successfully # Waits for custom DB setup
       # Studio also needs these services running to be fully functional
       supabase-meta:
+        condition: service_started
+      supabase-storage:
         condition: service_started
       supabase-auth:
         condition: service_started
@@ -196,6 +230,8 @@ services:
         condition: service_completed_successfully
       ollama-pull: # Needs models pulled
         condition: service_completed_successfully
+      supabase-storage:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allows container to reach host network
     env_file:
@@ -223,6 +259,8 @@ services:
       ollama-pull: # Needs models pulled
         condition: service_completed_successfully
       graph-db: # Needs graph DB started
+        condition: service_started
+      supabase-storage:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway" # Allows container to reach host network
@@ -254,4 +292,6 @@ volumes:
   open-web-ui-data:
     driver: local
   backend-data:
+    driver: local
+  supabase-storage-data:
     driver: local

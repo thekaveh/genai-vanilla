@@ -11,11 +11,12 @@ graph LR
         supabaseDB[supabaseDB]
         dbInit(dbInit)
         subgraph Supabase Core
-            direction TB
-            supabaseMeta[supabaseMeta]
-            supabaseAuth[supabaseAuth]
-            supabaseAPI[supabaseAPI]
-            supabaseStudio[supabaseStudio]
+        direction TB
+        supabaseMeta[supabaseMeta]
+        supabaseStorage[supabaseStorage]
+        supabaseAuth[supabaseAuth]
+        supabaseAPI[supabaseAPI]
+        supabaseStudio[supabaseStudio]
         end
         graphDB[graphDB]
     end
@@ -41,6 +42,7 @@ graph LR
     supabaseDB -- "Depends on DB Started" --> dbInit
     dbInit -- "Runs Custom Initialization SQL" --> supabaseDB
     dbInit -- "Completes Successfully" --> supabaseMeta
+    dbInit -- "Completes Successfully" --> supabaseStorage
     dbInit -- "Completes Successfully" --> supabaseAuth
     dbInit -- "Completes Successfully" --> supabaseAPI
     dbInit -- "Completes Successfully" --> supabaseStudio
@@ -54,17 +56,19 @@ graph LR
     supabaseAPI --> supabaseStudio
     supabaseAuth --> backendAPI
     supabaseAPI -- REST --> backendAPI
+    supabaseStorage -- Storage --> backendAPI
     graphDB -- Graph --> backendAPI
     ollama -- Models --> backendAPI
     ollamaPull -- "Completes Successfully" --> openWebUI
     ollamaPull -- "Completes Successfully" --> backendAPI
+    supabaseStorage -- Storage --> openWebUI
     ollama -- "Depends on Ollama Started" --> ollamaPull
 
 
     %% Apply styles
     classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
     class supabaseDB,graphDB database
-    class supabaseMeta,supabaseAuth,supabaseAPI,supabaseStudio database
+    class supabaseMeta,supabaseStorage,supabaseAuth,supabaseAPI,supabaseStudio database
     class ollama,ollamaPull ai
     class openWebUI ui
     class backendAPI api

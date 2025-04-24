@@ -134,14 +134,15 @@ This will:
 **Port Assignment Logic:**
 - SUPABASE_DB_PORT = BASE_PORT
 - SUPABASE_META_PORT = BASE_PORT + 1
-- SUPABASE_AUTH_PORT = BASE_PORT + 2
-- SUPABASE_API_PORT = BASE_PORT + 3
-- SUPABASE_STUDIO_PORT = BASE_PORT + 4
-- GRAPH_DB_PORT = BASE_PORT + 5
-- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 6
-- OLLAMA_PORT = BASE_PORT + 7
-- OPEN_WEB_UI_PORT = BASE_PORT + 8
-- BACKEND_PORT = BASE_PORT + 9
+- SUPABASE_STORAGE_PORT = BASE_PORT + 2
+- SUPABASE_AUTH_PORT = BASE_PORT + 3
+- SUPABASE_API_PORT = BASE_PORT + 4
+- SUPABASE_STUDIO_PORT = BASE_PORT + 5
+- GRAPH_DB_PORT = BASE_PORT + 6
+- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 7
+- OLLAMA_PORT = BASE_PORT + 8
+- OPEN_WEB_UI_PORT = BASE_PORT + 9
+- BACKEND_PORT = BASE_PORT + 10
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
@@ -211,7 +212,23 @@ The Supabase Auth service (GoTrue) provides user authentication and management:
 - **JWT Authentication**: Uses a secure JWT token system for authentication
 - **Features**: User registration, login, password recovery, email confirmation, and more
 
-#### 5.1.3. Supabase API Service (PostgREST)
+#### 5.1.3. Supabase Storage Service
+
+The Supabase Storage service provides a secure file storage and management system:
+
+- **API Endpoint**: Available at http://localhost:${SUPABASE_STORAGE_PORT} (configured via `SUPABASE_STORAGE_PORT`)
+- **Features**:
+  - File upload and download
+  - Public and private buckets
+  - Access control via JWT tokens
+  - Integration with Supabase Auth for user-specific storage
+- **Configuration**:
+  - `STORAGE_BACKEND`: File storage backend (default: file)
+  - `FILE_SIZE_LIMIT`: Maximum file size in bytes (default: 50MB)
+  - `REGION`: Storage region identifier (default: local)
+- **Dependencies**: Requires Supabase DB and Auth services
+
+#### 5.1.4. Supabase API Service (PostgREST)
 
 The Supabase API service (PostgREST) provides a RESTful API interface to the PostgreSQL database:
 
@@ -252,12 +269,7 @@ The Supabase API service can be customized using the following environment varia
 
 **Important Note on Environment Variables:**
 
-The Supabase API service uses two sets of environment variables for compatibility:
-
-1. Native PostgREST variables with the `PGRST_` prefix (e.g., `PGRST_DB_URI`, `PGRST_DB_SCHEMA`)
-2. Legacy Supabase variables with the `SUPABASE_API_` prefix (e.g., `SUPABASE_API_DB_URI`, `SUPABASE_API_DB_SCHEMA`)
-
-Both sets are required to ensure proper connectivity between the Supabase API and database services across different deployment environments. The Docker Compose files include both sets of variables.
+The Supabase API service uses native PostgREST variables with the `PGRST_` prefix (e.g., `PGRST_DB_URI`, `PGRST_DB_SCHEMA`).
 
 **IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret and auth tokens:
 
@@ -494,35 +506,7 @@ The database initialization follows a two-stage process managed by Docker Compos
 
 This approach separates base database setup from custom application setup, improving reliability and maintainability.
 
-## 8. Database Backup and Restore
-
-The database services (Supabase/PostgreSQL and Neo4j) require different backup approaches:
-
-### 8.1. Supabase PostgreSQL Backup and Restore
-
-**Note:** The previous custom backup/restore scripts (`backup.sh`, `restore.sh`, `auto_restore.sh`) are **no longer included or used** by the simplified `supabase-db` service configuration. Automatic restore on startup is disabled.
-
-Backup and restore must now be performed using standard PostgreSQL tools (`pg_dump`, `pg_restore`, `psql`) against the running `supabase-db` container.
-
-#### 8.1.1. Manual Backup (Example using `pg_dump`)
-
-```bash
-# Execute pg_dump inside the running container, redirect output to a host file
-docker compose exec -T supabase-db pg_dump -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME} > ./supabase/db/snapshot/backup_$(date +%Y%m%d_%H%M%S).sql
-```
-*(Replace `${SUPABASE_DB_USER}` and `${SUPABASE_DB_NAME}` with values from your `.env` file or use environment variables directly if your shell supports it).*
-
-#### 8.1.2. Manual Restore (Example using `psql`)
-
-```bash
-# Execute psql inside the running container, feeding it a backup file from the host
-# Ensure the target database exists and is empty or prepared for restore first.
-cat ./supabase/db/snapshot/<your_backup_file>.sql | docker compose exec -T supabase-db psql -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME}
-```
-
-**Recommendation:** For robust backup/restore, consider implementing a dedicated backup container or using external database backup solutions.
-
-### 8.2. Neo4j Graph Database Backup and Restore
+## 8. Neo4j Graph Database Backup and Restore
 
 #### 8.2.1. Manual Backup
 

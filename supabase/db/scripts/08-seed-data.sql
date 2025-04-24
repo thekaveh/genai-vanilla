@@ -1,4 +1,4 @@
--- 07-seed-data.sql
+-- 08-seed-data.sql
 -- Insert initial data into custom tables
 
 -- Insert default Ollama models (safe to re-run)

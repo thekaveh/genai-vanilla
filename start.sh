@@ -153,6 +153,13 @@ OPEN_WEB_UI_SECRET_KEY=$(grep "^OPEN_WEB_UI_SECRET_KEY=" $ENV_SOURCE | cut -d '=
 PROD_ENV_CPUS=$(grep "^PROD_ENV_CPUS=" $ENV_SOURCE | cut -d '=' -f2)
 PROD_ENV_MEM_LIMIT=$(grep "^PROD_ENV_MEM_LIMIT=" $ENV_SOURCE | cut -d '=' -f2)
 
+# Extract storage-specific variables
+STORAGE_REGION=$(grep "^STORAGE_REGION=" $ENV_SOURCE | cut -d '=' -f2)
+STORAGE_FILE_SIZE_LIMIT=$(grep "^STORAGE_FILE_SIZE_LIMIT=" $ENV_SOURCE | cut -d '=' -f2)
+STORAGE_BACKEND=$(grep "^STORAGE_BACKEND=" $ENV_SOURCE | cut -d '=' -f2)
+PROJECT_REF=$(grep "^PROJECT_REF=" $ENV_SOURCE | cut -d '=' -f2)
+TENANT_ID=$(grep "^TENANT_ID=" $ENV_SOURCE | cut -d '=' -f2)
+
 # Generate new .env file with calculated ports
 cat > .env << EOF
 # GenAI Vanilla Stack - Environment Variables
@@ -180,8 +187,11 @@ SUPABASE_DB_APP_PASSWORD=$SUPABASE_DB_APP_PASSWORD
 # Supabase Meta Configuration
 SUPABASE_META_PORT=$(($BASE_PORT + 1))
 
+# Supabase Storage Configuration
+SUPABASE_STORAGE_PORT=$(($BASE_PORT + 2))
+
 # Supabase authentication configuration
-SUPABASE_AUTH_PORT=$(($BASE_PORT + 2))
+SUPABASE_AUTH_PORT=$(($BASE_PORT + 3))
 # IMPORTANT: Run ./generate_supabase_keys.sh to automatically generate these keys
 # The script will update this file with secure values for all three keys below
 SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET
@@ -189,10 +199,10 @@ SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY
 
 # Supabase API (PostgREST) Configuration
-SUPABASE_API_PORT=$(($BASE_PORT + 3))
+SUPABASE_API_PORT=$(($BASE_PORT + 4))
 
 # Supabase Studio Configuration
-SUPABASE_STUDIO_PORT=$(($BASE_PORT + 4))
+SUPABASE_STUDIO_PORT=$(($BASE_PORT + 5))
 
 # Graph Database (Neo4j) Configuration
 GRAPH_DB_HOST=graph-db
@@ -213,6 +223,13 @@ OPEN_WEB_UI_SECRET_KEY=$OPEN_WEB_UI_SECRET_KEY
 # Backend Configuration
 BACKEND_PORT=$(($BASE_PORT + 10))
 
+# Supabase Storage Configuration
+STORAGE_REGION=${STORAGE_REGION:-local}
+STORAGE_FILE_SIZE_LIMIT=${STORAGE_FILE_SIZE_LIMIT:-52428800}
+STORAGE_BACKEND=${STORAGE_BACKEND:-file}
+PROJECT_REF=${PROJECT_REF:-default}
+TENANT_ID=${TENANT_ID:-stub}
+
 # GPU configuration for prod-gpu flavor
 PROD_ENV_CPUS=$PROD_ENV_CPUS
 PROD_ENV_MEM_LIMIT=$PROD_ENV_MEM_LIMIT
@@ -224,6 +241,7 @@ echo "✅ .env file generated successfully!"
 echo "📋 Verifying port assignments from .env file..."
 VERIFIED_SUPABASE_DB_PORT=$(grep "^SUPABASE_DB_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_META_PORT=$(grep "^SUPABASE_META_PORT=" .env | cut -d '=' -f2)
+VERIFIED_SUPABASE_STORAGE_PORT=$(grep "^SUPABASE_STORAGE_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_AUTH_PORT=$(grep "^SUPABASE_AUTH_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_API_PORT=$(grep "^SUPABASE_API_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_STUDIO_PORT=$(grep "^SUPABASE_STUDIO_PORT=" .env | cut -d '=' -f2)
@@ -238,6 +256,7 @@ echo ""
 echo "🚀 PORT ASSIGNMENTS (verified from .env file):"
 printf "  • %-35s %s\n" "Supabase PostgreSQL Database:" "$VERIFIED_SUPABASE_DB_PORT"
 printf "  • %-35s %s\n" "Supabase Meta Service:" "$VERIFIED_SUPABASE_META_PORT"
+printf "  • %-35s %s\n" "Supabase Storage Service:" "$VERIFIED_SUPABASE_STORAGE_PORT"
 printf "  • %-35s %s\n" "Supabase Auth Service:" "$VERIFIED_SUPABASE_AUTH_PORT"
 printf "  • %-35s %s\n" "Supabase API (PostgREST):" "$VERIFIED_SUPABASE_API_PORT"
 printf "  • %-35s %s\n" "Supabase Studio Dashboard:" "$VERIFIED_SUPABASE_STUDIO_PORT"
@@ -309,6 +328,7 @@ if [[ "$PROFILE" == "default" ]]; then
   SERVICES=(
     "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
     "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
+    "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
     "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
     "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
     "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
@@ -326,16 +346,16 @@ if [[ "$PROFILE" == "default" ]]; then
   for SERVICE_INFO in "${SERVICES[@]}"; do
     IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
     
-  # Get the actual port mapping from Docker - with improved error handling
-  ACTUAL_PORT=$($DOCKER_COMPOSE_CMD port "$SERVICE" "$INTERNAL_PORT" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
-  
-  if [[ -z "$ACTUAL_PORT" ]]; then
-    echo "  • ❌ $SERVICE: Could not determine port mapping"
-  elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
-    echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
-  else
-    echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
-  fi
+    # Get the actual port mapping from Docker - with improved error handling
+    ACTUAL_PORT=$($DOCKER_COMPOSE_CMD port "$SERVICE" "$INTERNAL_PORT" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
+    
+    if [[ -z "$ACTUAL_PORT" ]]; then
+      echo "  • ❌ $SERVICE: Could not determine port mapping"
+    elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
+      echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
+    else
+      echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
+    fi
   done
   echo ""
   
@@ -387,6 +407,7 @@ else
   SERVICES=(
     "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
     "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
+    "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
     "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
     "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
     "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
@@ -404,16 +425,16 @@ else
   for SERVICE_INFO in "${SERVICES[@]}"; do
     IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
     
-  # Get the actual port mapping from Docker - with improved error handling
-  ACTUAL_PORT=$($DOCKER_COMPOSE_CMD -f $COMPOSE_FILE port "$SERVICE" "$INTERNAL_PORT" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
-  
-  if [[ -z "$ACTUAL_PORT" ]]; then
-    echo "  • ❌ $SERVICE: Could not determine port mapping"
-  elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
-    echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
-  else
-    echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
-  fi
+    # Get the actual port mapping from Docker - with improved error handling
+    ACTUAL_PORT=$($DOCKER_COMPOSE_CMD -f $COMPOSE_FILE port "$SERVICE" "$INTERNAL_PORT" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
+    
+    if [[ -z "$ACTUAL_PORT" ]]; then
+      echo "  • ❌ $SERVICE: Could not determine port mapping"
+    elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
+      echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
+    else
+      echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
+    fi
   done
   echo ""
   
