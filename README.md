@@ -653,48 +653,6 @@ genai-vanilla-stack/
        └── architecture.png
 ```
 
-```
-genai-vanilla-stack/
-├── .env                  # Environment configuration
-├── .env.example          # Template environment configuration
-├── generate_supabase_keys.sh # Script to generate JWT keys for Supabase
-├── start.sh              # Script to start the stack with configurable ports
-├── stop.sh              # Script to stop the stack and clean up resources
-├── docker-compose.yml    # Main compose file
-├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor
-├── docker-compose.prod-gpu.yml          # GPU-optimized flavor
-├── backend/              # FastAPI backend service
-│   ├── Dockerfile
-│   └── app/
-│       ├── main.py
-│       ├── requirements.txt
-│       └── data/         # Data storage (mounted as volume)
-├── neo4j-graph-db/       # Neo4j Graph Database configuration
-│   ├── Dockerfile
-│   ├── scripts/
-│   │   ├── backup.sh
-│   │   ├── restore.sh
-│   │   ├── auto_restore.sh
-│   │   └── docker-entrypoint-wrapper.sh
-│   └── snapshot/
-├── supabase/             # Supabase configuration
-│   ├── db/
-│   │   ├── scripts/      # Contains db-init-runner.sh and post-init SQL scripts (01-*.sql, etc.)
-│   │   └── snapshot/     # Database backup storage (manual dumps)
-│   ├── auth/             # Supabase Auth service (GoTrue) - Uses standard image
-│   ├── api/              # Supabase API service (PostgREST)
-│   └── storage/          # Supabase Storage (if added)
-├── volumes/              # Docker volumes and configurations
-│   └── api/              # API gateway configurations
-│       └── kong.yml      # Kong declarative configuration file
-└── docs/                 # Documentation and diagrams
-    ├── diagrams/
-    │   ├── README.md
-    │   ├── architecture.mermaid
-    │   └── generate_diagram.sh
-    └── images/
-       └── architecture.png
-```
 
 Note: Many services will be pre-packaged and pulled directly in docker-compose.yml without needing separate Dockerfiles.
 
