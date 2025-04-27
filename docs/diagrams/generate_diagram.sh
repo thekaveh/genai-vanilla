@@ -42,13 +42,13 @@ if [ ! -f "$MERMAID_FILE" ]; then
     exit 1
 fi
 
-# Convert mermaid to PNG
-echo "Converting $MERMAID_FILE to PNG..."
-npx mmdc -i "$MERMAID_FILE" -o "$OUTPUT_FILE" -t neutral -b transparent
+# Convert mermaid to PNG with higher resolution and white background
+echo "Converting $MERMAID_FILE to PNG with higher resolution and white background..."
+npx mmdc -i "$MERMAID_FILE" -o "$OUTPUT_FILE" -t neutral --width 2400 -b #FFFFFF
 
 # Check if conversion was successful
 if [ $? -eq 0 ]; then
-    echo "Conversion successful! PNG file created at: $OUTPUT_FILE"
+    echo "Conversion successful! High-resolution PNG file with white background created at: $OUTPUT_FILE"
     echo "The architecture diagram has been updated in the README.md"
     echo "Done!"
 else
