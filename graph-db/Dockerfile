@@ -1,4 +1,4 @@
-FROM neo4j:latest
+FROM neo4j:5.19.0
 
 # Copy backup and restore scripts
 COPY ./scripts/backup.sh /usr/local/bin/backup.sh

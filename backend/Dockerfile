@@ -14,9 +14,16 @@ RUN uv pip install --system --no-cache-dir -r requirements.txt
 # Copy application code
 COPY ./app .
 
-# Health check
+# Create a non-root user and group
+RUN groupadd --system --gid 1001 appgroup && \
+    useradd --system --uid 1001 --gid appgroup appuser
+
+# Switch to the non-root user
+USER appuser
+
+# Health check (using httpx which is already a dependency)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8000/health').raise_for_status()"
+  CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
 
 # Expose API port
 EXPOSE 8000

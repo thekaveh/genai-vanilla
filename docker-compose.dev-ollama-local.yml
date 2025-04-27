@@ -1,12 +1,12 @@
 services:
-  supabase-db: # Uses base image, no custom init scripts mounted via volumes
+  supabase-db:
     image: supabase/postgres:17.4.1.016
     container_name: ${PROJECT_NAME}-supabase-db
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${SUPABASE_DB_USER} # Must be supabase_admin for base image scripts
+      POSTGRES_USER: ${SUPABASE_DB_USER}
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
       POSTGRES_DB: ${SUPABASE_DB_NAME}
       POSTGRES_HOST_AUTH_METHOD: trust
@@ -16,33 +16,36 @@ services:
     ports:
       - "${SUPABASE_DB_PORT}:5432"
     networks:
-      - backend
+      - backend-bridge-network
 
-  # Runs custom DB initialization scripts after supabase-db is ready
-  db-init:
-    image: postgres:15-alpine # Lightweight image with psql client tools
-    container_name: ${PROJECT_NAME}-db-init
+  supabase-db-init:
+    image: postgres:15-alpine
+    container_name: ${PROJECT_NAME}-supabase-db-init
     restart: no
+    env_file:
+      - .env
     environment:
       PGHOST: supabase-db
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       PGDATABASE: ${SUPABASE_DB_NAME}
     volumes:
-      - ./supabase/db/scripts:/scripts # Mounts runner script and *.sql files
-    entrypoint: ["/scripts/db-init-runner.sh"] # Executes the runner script
+      - ./supabase/db/scripts:/scripts
+    entrypoint: ["/scripts/db-init-runner.sh"]
     depends_on:
-      - supabase-db # Waits for db container to start
+      - supabase-db
     networks:
-      - backend
+      - backend-bridge-network
 
   supabase-meta:
     image: supabase/postgres-meta:v0.88.9
     container_name: ${PROJECT_NAME}-supabase-meta
     restart: unless-stopped
     depends_on:
-      db-init:
+      supabase-db-init:
         condition: service_completed_successfully
+    env_file:
+      - .env
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: supabase-db
@@ -53,14 +56,48 @@ services:
     ports:
       - "${SUPABASE_META_PORT}:8080"
     networks:
-      - backend
+      - backend-bridge-network
+
+  kong-api-gateway:
+    container_name: ${PROJECT_NAME}-kong-api-gateway
+    image: kong:3.9.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - ${KONG_HTTP_PORT}:8000/tcp
+      - ${KONG_HTTPS_PORT}:8443/tcp
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
+    depends_on:
+      supabase-auth:
+        condition: service_started
+      supabase-api:
+        condition: service_started
+      supabase-storage:
+        condition: service_started
+      supabase-meta:
+        condition: service_started
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+    networks:
+      - backend-bridge-network
 
   supabase-storage:
     image: supabase/storage-api:v1.22.7
     container_name: ${PROJECT_NAME}-supabase-storage
     restart: unless-stopped
     depends_on:
-      db-init:
+      supabase-db-init:
         condition: service_completed_successfully
     env_file:
       - .env
@@ -77,24 +114,24 @@ services:
       TENANT_ID: ${TENANT_ID}
       PROJECT_REF: ${PROJECT_REF}
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
-      # Ensure these match the API service for proper integration
       POSTGREST_URL: http://supabase-api:3000
-      # Ensure this matches the Auth service for proper integration
       GOTRUE_URL: http://supabase-auth:9999
     ports:
       - "${SUPABASE_STORAGE_PORT}:5000"
     volumes:
       - supabase-storage-data:/var/lib/storage
     networks:
-      - backend
+      - backend-bridge-network
 
-  supabase-auth: # Uses standard gotrue image
+  supabase-auth:
     image: supabase/gotrue:v2.171.0
     container_name: ${PROJECT_NAME}-supabase-auth
     restart: unless-stopped
     depends_on:
-      db-init:
+      supabase-db-init:
         condition: service_completed_successfully
+    env_file:
+      - .env
     environment:
       GOTRUE_SITE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
       API_EXTERNAL_URL: http://supabase-auth:9999
@@ -120,34 +157,35 @@ services:
     ports:
       - "${SUPABASE_AUTH_PORT}:9999"
     networks:
-      - backend
+      - backend-bridge-network
 
   supabase-api:
     image: postgrest/postgrest:v12.2.10
     container_name: ${PROJECT_NAME}-supabase-api
     restart: unless-stopped
     depends_on:
-      db-init:
+      supabase-db-init:
         condition: service_completed_successfully
+    env_file:
+      - .env
     environment:
       PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      PGRST_DB_SCHEMA: "public,storage,auth" # Needs auth schema for JWT functions
+      PGRST_DB_SCHEMA: "public,storage,auth"
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       PGRST_DB_USE_LEGACY_GUCS: "false"
     ports:
       - "${SUPABASE_API_PORT}:3000"
     networks:
-      - backend
+      - backend-bridge-network
 
   supabase-studio:
     image: supabase/studio:latest
     container_name: ${PROJECT_NAME}-supabase-studio
     restart: unless-stopped
     depends_on:
-      db-init:
-        condition: service_completed_successfully # Waits for custom DB setup
-      # Studio also needs these services running to be fully functional
+      supabase-db-init:
+        condition: service_completed_successfully
       supabase-meta:
         condition: service_started
       supabase-storage:
@@ -156,14 +194,16 @@ services:
         condition: service_started
       supabase-api:
         condition: service_started
+      kong-api-gateway:
+        condition: service_started
     env_file:
       - .env
     environment:
       STUDIO_PG_META_URL: http://supabase-meta:8080
-      SUPABASE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      SUPABASE_URL: http://kong-api-gateway:8000
       SUPABASE_PUBLIC_URL: http://localhost:${SUPABASE_STUDIO_PORT}
-      SUPABASE_AUTH_URL: http://supabase-auth:9999
-      SUPABASE_REST_URL: http://supabase-api:3000
+      SUPABASE_AUTH_URL: http://kong-api-gateway:8000/auth
+      SUPABASE_REST_URL: http://kong-api-gateway:8000/rest
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}
@@ -171,18 +211,18 @@ services:
     ports:
       - "${SUPABASE_STUDIO_PORT}:3000"
     networks:
-      - backend
+      - backend-bridge-network
 
-  graph-db:
+  neo4j-graph-db:
     build:
       context: ./graph-db
-    container_name: ${PROJECT_NAME}-graph-db
+    container_name: ${PROJECT_NAME}-neo4j-graph-db
     restart: unless-stopped
     env_file:
       - .env
     environment:
       NEO4J_AUTH: ${GRAPH_DB_AUTH}
-      NEO4J_server_default__advertised__address: "localhost"
+      NEO4J_server_default__advertised__address: "neo4j-graph-db"
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
       NEO4J_browser_remote__content__hostname__whitelist: "*"
@@ -190,54 +230,53 @@ services:
       - "${GRAPH_DB_PORT}:7687"
       - "${GRAPH_DB_DASHBOARD_PORT}:7474"
     volumes:
-      - ./graph-db/scripts:/scripts # Contains backup/restore scripts
+      - ./graph-db/scripts:/scripts
       - ./graph-db/snapshot:/snapshot
       - graph-db-data:/data
     networks:
-      - backend
+      - backend-bridge-network
 
-  # Ollama Model Puller - connects to the host's Ollama instance
   ollama-pull:
     image: alpine:latest
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
-      db-init: # Needs DB ready for query
+      supabase-db-init:
         condition: service_completed_successfully
-      # No explicit depends_on ollama needed as it connects to host
     extra_hosts:
-      - "host.docker.internal:host-gateway" # Allows container to reach host network
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
     networks:
-      - backend
+      - backend-bridge-network
     environment:
       PGHOST: supabase-db
       PGPORT: 5432
       PGDATABASE: ${SUPABASE_DB_NAME}
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-      OLLAMA_HOST_URL: http://host.docker.internal:11434 # Points to host machine
+      OLLAMA_HOST_URL: http://host.docker.internal:11434
     volumes:
       - ./ollama-pull/scripts:/scripts
     entrypoint: ["/scripts/pull.sh"]
 
-  # OpenWebUI - UI for Local Ollama
   open-web-ui:
     image: ghcr.io/open-webui/open-webui:latest
     container_name: ${PROJECT_NAME}-open-web-ui
     restart: unless-stopped
     depends_on:
-      db-init: # Needs DB ready
+      supabase-db-init:
         condition: service_completed_successfully
-      ollama-pull: # Needs models pulled
+      ollama-pull:
         condition: service_completed_successfully
       supabase-storage:
         condition: service_started
     extra_hosts:
-      - "host.docker.internal:host-gateway" # Allows container to reach host network
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434 # Points to host machine
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - DATABASE_URL=postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       - WEBUI_SECRET_KEY=${OPEN_WEB_UI_SECRET_KEY}
     volumes:
@@ -245,31 +284,33 @@ services:
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
     networks:
-      - backend
+      - backend-bridge-network
 
-  # Backend API Service with Local Ollama
   backend:
     build:
       context: ./backend
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
     depends_on:
-      db-init: # Needs DB ready
+      supabase-db-init:
         condition: service_completed_successfully
-      ollama-pull: # Needs models pulled
+      ollama-pull:
         condition: service_completed_successfully
-      graph-db: # Needs graph DB started
+      neo4j-graph-db:
         condition: service_started
       supabase-storage:
         condition: service_started
+      kong-api-gateway:
+        condition: service_started
     extra_hosts:
-      - "host.docker.internal:host-gateway" # Allows container to reach host network
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     environment:
+      - KONG_URL=http://kong-api-gateway:8000
       - DATABASE_URL=postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434 # Points to host machine
-      - NEO4J_URI=bolt://graph-db:7687
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - NEO4J_URI=bolt://neo4j-graph-db:7687
       - NEO4J_USER=${GRAPH_DB_USER}
       - NEO4J_PASSWORD=${GRAPH_DB_PASSWORD}
     volumes:
@@ -278,10 +319,10 @@ services:
     ports:
       - "${BACKEND_PORT}:8000"
     networks:
-      - backend
+      - backend-bridge-network
 
 networks:
-  backend:
+  backend-bridge-network:
     driver: bridge
 
 volumes:

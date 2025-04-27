@@ -20,19 +20,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Get environment variables with defaults
-STORAGE_PORT = os.getenv("SUPABASE_STORAGE_PORT", "63002")
+# Get environment variables
+KONG_URL = os.getenv("KONG_URL")
 SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
+if not KONG_URL:
+    raise ValueError("KONG_URL environment variable is required")
 if not SERVICE_KEY:
     raise ValueError("SUPABASE_SERVICE_KEY environment variable is required")
 
+# Construct Supabase Storage URL via Kong
+# The standard path for storage via the gateway is /storage/v1
+storage_url = f"{KONG_URL}/storage/v1"
+
 # Initialize Supabase Storage client
 storage_client = StorageClient(
-    url=f"http://localhost:{STORAGE_PORT}",
+    url=storage_url,
     headers={
         "Authorization": f"Bearer {SERVICE_KEY}",
-        "apikey": SERVICE_KEY,
+        "apikey": SERVICE_KEY,  # Supabase storage requires the service key as apikey header
     },
 )
 

@@ -8,68 +8,83 @@ graph LR
     %% Database Services & Initialization
     subgraph DB[Database Services & Init]
         direction LR
-        supabaseDB[supabaseDB]
-        dbInit(dbInit)
+        supabase-db[supabase-db]
+        supabase-db-init(supabase-db-init)
         subgraph Supabase Core
         direction TB
-        supabaseMeta[supabaseMeta]
-        supabaseStorage[supabaseStorage]
-        supabaseAuth[supabaseAuth]
-        supabaseAPI[supabaseAPI]
-        supabaseStudio[supabaseStudio]
+        supabase-meta[supabase-meta]
+        supabase-storage[supabase-storage]
+        supabase-auth[supabase-auth]
+        supabase-api[supabase-api]
+        supabase-studio[supabase-studio]
         end
-        graphDB[graphDB]
+        neo4j-graph-db[neo4j-graph-db]
     end
 
     %% AI Services
     subgraph AI[AI Services]
         direction TB
         ollama[ollama]
-        ollamaPull[ollamaPull]
+        ollama-pull[ollama-pull]
     end
     
     %% API Layer (moved to right side)
     subgraph API[API Layer]
-        backendAPI[backendAPI]
+        kong-api-gateway[Kong API Gateway]
+        backend[backend]
     end
     
     %% UI Layer
     subgraph UI[UI Layer]
-        openWebUI[openWebUI]
+        open-web-ui[open-web-ui]
     end
     
     %% Connections / Dependencies
-    supabaseDB -- "Depends on DB Started" --> dbInit
-    dbInit -- "Runs Custom Initialization SQL" --> supabaseDB
-    dbInit -- "Completes Successfully" --> supabaseMeta
-    dbInit -- "Completes Successfully" --> supabaseStorage
-    dbInit -- "Completes Successfully" --> supabaseAuth
-    dbInit -- "Completes Successfully" --> supabaseAPI
-    dbInit -- "Completes Successfully" --> supabaseStudio
-    dbInit -- "Completes Successfully" --> ollamaPull
-    dbInit -- "Completes Successfully" --> openWebUI
-    dbInit -- "Completes Successfully" --> backendAPI
+    supabase-db -- "Depends on DB Started" --> supabase-db-init
+    supabase-db-init -- "Runs Custom Initialization SQL" --> supabase-db
+    supabase-db-init -- "Completes Successfully" --> supabase-meta
+    supabase-db-init -- "Completes Successfully" --> supabase-storage
+    supabase-db-init -- "Completes Successfully" --> supabase-auth
+    supabase-db-init -- "Completes Successfully" --> supabase-api
+    supabase-db-init -- "Completes Successfully" --> supabase-studio
+    supabase-db-init -- "Completes Successfully" --> ollama-pull
+    supabase-db-init -- "Completes Successfully" --> open-web-ui
+    supabase-db-init -- "Completes Successfully" --> backend
 
     %% Service Inter-dependencies (After db-init)
-    supabaseMeta --> supabaseStudio
-    supabaseAuth --> supabaseStudio
-    supabaseAPI --> supabaseStudio
-    supabaseAuth --> backendAPI
-    supabaseAPI -- REST --> backendAPI
-    supabaseStorage -- Storage --> backendAPI
-    graphDB -- Graph --> backendAPI
-    ollama -- Models --> backendAPI
-    ollamaPull -- "Completes Successfully" --> openWebUI
-    ollamaPull -- "Completes Successfully" --> backendAPI
-    supabaseStorage -- Storage --> openWebUI
-    ollama -- "Depends on Ollama Started" --> ollamaPull
+    %% Connections now go through Kong where applicable
+    supabase-meta --> supabase-studio
+    supabase-auth --> kong-api-gateway
+    supabase-api --> kong-api-gateway
+    supabase-storage --> kong-api-gateway
+    supabase-studio -- API Calls --> kong-api-gateway
+    backend -- "HTTP API Calls (Auth, Storage)" --> kong-api-gateway
+    open-web-ui -- API Calls --> kong-api-gateway
+
+    kong-api-gateway -- Routes --> supabase-auth
+    kong-api-gateway -- Routes --> supabase-api
+    kong-api-gateway -- Routes --> supabase-storage
+    kong-api-gateway -- Routes --> supabase-meta
+    kong-api-gateway -- Routes --> supabase-studio
+
+    backend -- "Bolt (Direct)" --> neo4j-graph-db
+    backend -- "HTTP API (Direct)" --> ollama
+    backend -- "DB Connection (Direct)" --> supabase-db
+    ollama-pull -- "Completes Successfully" --> open-web-ui
+    ollama-pull -- "Completes Successfully" --> backend
+    supabase-storage -- Storage --> open-web-ui
+    ollama -- "Depends on Ollama Started" --> ollama-pull
+
+    %% Add dependency of Studio on Kong
+    supabase-studio -- "Depends on" --> kong-api-gateway
 
 
     %% Apply styles
     classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
-    class supabaseDB,graphDB database
-    class supabaseMeta,supabaseStorage,supabaseAuth,supabaseAPI,supabaseStudio database
-    class ollama,ollamaPull ai
-    class openWebUI ui
-    class backendAPI api
-    class dbInit init
+    class supabase-db,neo4j-graph-db database
+    class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-studio database
+    class ollama,ollama-pull ai
+    class open-web-ui ui
+    class backend api
+    class kong-api-gateway api
+    class supabase-db-init init

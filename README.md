@@ -13,15 +13,16 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - Multiple deployment flavors using standalone Docker Compose files
 - Modular service architecture with interchangeability between containerized and external services
 - Support for local development and cloud deployment (AWS ECS compatible)
-- Key services including Supabase (PostgreSQL + Studio), Neo4j, Ollama, and FastAPI backend
+- Key services including Supabase (PostgreSQL + Studio), Neo4j, Ollama, FastAPI backend, and Kong API Gateway
 
 ## 2. Features
 
-- **2.1. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints
-- **2.2. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
-- **2.3. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
-- **2.4. Environment-based Configuration**: Easy configuration through environment variables
-- **2.5. Explicit Initialization Control**: Uses a dedicated `db-init` service to manage custom database setup after the base database starts.
+- **2.1. API Gateway (Kong)**: Centralized API management, authentication, and routing for backend services.
+- **2.2. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose files (e.g., `docker-compose.dev-ollama-local.yml` for local Ollama, `docker-compose.prod-gpu.yml` for GPU support).
+- **2.3. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
+- **2.4. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
+- **2.5. Environment-based Configuration**: Easy configuration through environment variables
+- **2.6. Explicit Initialization Control**: Uses a dedicated `supabase-db-init` service to manage custom database setup after the base database starts.
 
 ## 3. Getting Started
 
@@ -107,8 +108,8 @@ Options:
 The script automatically:
 1. Checks if `.env` exists, and if not, creates one from `.env.example` and generates Supabase keys
 2. Generates a new `.env` file with incremented port numbers based on the specified base port
-3. Preserves all non-port-related environment variables
-4. Backs up your existing `.env` file to `.env.backup`
+3. Preserves all non-port-related environment variables and comments from the source `.env` file
+4. Backs up your existing `.env` file with a timestamp (e.g., `.env.backup.YYYYMMDDHHMMSS`)
 5. Displays a detailed port assignment table for all services
 6. Explicitly uses the `.env` file when starting Docker Compose to ensure port settings are applied consistently
 7. Starts the appropriate Docker Compose configuration
@@ -132,17 +133,19 @@ This will:
 - Remove Docker volumes if specified
 
 **Port Assignment Logic:**
-- SUPABASE_DB_PORT = BASE_PORT
-- SUPABASE_META_PORT = BASE_PORT + 1
-- SUPABASE_STORAGE_PORT = BASE_PORT + 2
-- SUPABASE_AUTH_PORT = BASE_PORT + 3
-- SUPABASE_API_PORT = BASE_PORT + 4
-- SUPABASE_STUDIO_PORT = BASE_PORT + 5
-- GRAPH_DB_PORT = BASE_PORT + 6
-- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 7
-- OLLAMA_PORT = BASE_PORT + 8
-- OPEN_WEB_UI_PORT = BASE_PORT + 9
-- BACKEND_PORT = BASE_PORT + 10
+- SUPABASE_DB_PORT = BASE_PORT + 0
+- KONG_HTTP_PORT = BASE_PORT + 1
+- KONG_HTTPS_PORT = BASE_PORT + 2
+- SUPABASE_META_PORT = BASE_PORT + 3
+- SUPABASE_STORAGE_PORT = BASE_PORT + 4
+- SUPABASE_AUTH_PORT = BASE_PORT + 5
+- SUPABASE_API_PORT = BASE_PORT + 6
+- SUPABASE_STUDIO_PORT = BASE_PORT + 7
+- GRAPH_DB_PORT = BASE_PORT + 8
+- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 9
+- OLLAMA_PORT = BASE_PORT + 10
+- OPEN_WEB_UI_PORT = BASE_PORT + 11
+- BACKEND_PORT = BASE_PORT + 12
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
@@ -189,22 +192,80 @@ The project uses two environment files:
 - `.env` - Contains actual configuration values (not committed to git)
 - `.env.example` - Template with the same structure but empty secret values (committed to git)
 
+**Note on Service Naming:**
+
+The service names used in the `docker-compose.yml` files (e.g., `supabase-auth`, `supabase-api`) differ from the internal service names used within the `kong.yml` declarative configuration (e.g., `auth`, `rest`). The Kong gateway routes requests to the internal service names defined in `kong.yml`, which are mapped to the corresponding Docker Compose service names.
+
+### 4.2. Kong API Gateway Configuration
+
+The Kong API Gateway is used for centralized API management, including routing, authentication, and plugin management. It is configured using a declarative configuration file (`kong.yml`).
+
+*   **Configuration File:** `./volumes/api/kong.yml` defines the services and routes managed by Kong.
+*   **Environment Variables:** The following variables are used by the Kong service and must be set in your `.env` file:
+    *   `KONG_HTTP_PORT`: Port for Kong's HTTP listener.
+    *   `KONG_HTTPS_PORT`: Port for Kong's HTTPS listener.
+    *   `DASHBOARD_USERNAME`: Username for accessing the Kong dashboard (if enabled).
+    *   `DASHBOARD_PASSWORD`: Password for accessing the Kong dashboard.
+
 When setting up the project:
 1. Copy `.env.example` to `.env`
 2. Fill in the required values in `.env`
 3. Keep both files in sync when adding new variables
 
-## 5. Database Services
+## 5. Authentication and User Management
 
-### 5.1. Supabase Services
+This stack utilizes Supabase Auth (GoTrue) for user authentication and management, leveraging JSON Web Tokens (JWTs) for secure API access.
+
+### 5.1. Overview
+
+- **Provider:** Supabase Auth (`supabase-auth` service) handles user registration, login, password management, and JWT issuance.
+- **Method:** Authentication relies on JWTs signed with a shared secret (`SUPABASE_JWT_SECRET`).
+- **Gateway:** The Kong API Gateway (`kong-api-gateway`) acts as the entry point for most API requests, routing them to the appropriate backend services. While Kong can enforce authentication policies, the `key-auth` and `acl` plugins are currently commented out in `kong.yml` due to potential compatibility issues with DB-less mode and the need for further investigation based on official Kong documentation. Authentication is primarily handled by the upstream Supabase services.
+- **Clients:** Services like `supabase-studio` and the `backend` API act as clients, obtaining JWTs from `supabase-auth` and including them in requests to other services via Kong.
+
+### 5.2. Key Components and Configuration
+
+- **`supabase-auth` (GoTrue):**
+    - Issues JWTs upon successful login/sign-up.
+    - Validates JWTs presented to its endpoints.
+    - Configured via `GOTRUE_*` environment variables in `docker-compose` files (e.g., `GOTRUE_JWT_SECRET`, `GOTRUE_DISABLE_SIGNUP`, `GOTRUE_MAILER_AUTOCONFIRM`).
+    - By default, sign-ups are enabled (`GOTRUE_DISABLE_SIGNUP="false"`) and emails are auto-confirmed (`GOTRUE_MAILER_AUTOCONFIRM="true"`) for local development convenience.
+- **`supabase-api` (PostgREST):**
+    - Expects a valid JWT in the `Authorization: Bearer <token>` header for most requests.
+    - Validates the JWT signature using `PGRST_JWT_SECRET` (shared with `supabase-auth`).
+    - Enforces database permissions based on the `role` claim in the JWT (e.g., `anon`, `authenticated`) via PostgreSQL's Row Level Security (RLS).
+- **`supabase-storage`:**
+    - Uses JWTs passed via Kong to enforce storage access policies defined in the database.
+- **`kong-api-gateway`:**
+    - Routes authenticated requests to backend services.
+    - Currently relies on upstream services for JWT validation. (See note above about commented-out plugins).
+- **JWT Keys (`.env` file):**
+    - `SUPABASE_JWT_SECRET`: The secret key used to sign and verify all JWTs. Must be consistent across `supabase-auth`, `supabase-api`, and `supabase-storage`.
+    - `SUPABASE_ANON_KEY`: A pre-generated, long-lived JWT representing the `anon` (anonymous) role. Used for public access requests.
+    - `SUPABASE_SERVICE_KEY`: A pre-generated, long-lived JWT representing the `service_role`. Grants administrative privileges, bypassing RLS. Use with caution.
+
+### 5.3. Setup and Usage
+
+1.  **Generate Keys:** Before starting the stack for the first time, run the `generate_supabase_keys.sh` script. This will create secure values for `SUPABASE_JWT_SECRET`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` and populate them in your `.env` file.
+2.  **Client Authentication:** Client applications (like a frontend app interacting with the `backend` service, or the `backend` service itself interacting with Supabase APIs) need to:
+    *   Implement a login flow using `supabase-auth` endpoints (e.g., `/auth/v1/token?grant_type=password`).
+    *   Store the received JWT securely.
+    *   Include the JWT in the `Authorization: Bearer <token>` header for subsequent requests to protected API endpoints via the Kong gateway.
+3.  **Anonymous Access:** For requests that should be publicly accessible, use the `SUPABASE_ANON_KEY` in the `Authorization` header. Ensure appropriate RLS policies are set up in the database for the `anon` role.
+4.  **Service Role Access:** For backend operations requiring administrative privileges, use the `SUPABASE_SERVICE_KEY` in the `Authorization` header. This key should be handled securely and never exposed to frontend clients.
+5.  **User Management via Studio:** You can manage users (invite, delete, etc.) through the Supabase Studio interface (`http://localhost:${SUPABASE_STUDIO_PORT}`), which interacts with the `supabase-auth` service.
+
+## 6. Database Services
+
+### 6.1. Supabase Services
 
 The Supabase services provide a PostgreSQL database with additional capabilities along with a web-based Studio interface for management:
 
-#### 5.1.1. Supabase PostgreSQL Database
+#### 6.1.1. Supabase PostgreSQL Database
 
 The Supabase PostgreSQL database comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
 
-#### 5.1.2. Supabase Auth Service
+#### 6.1.2. Supabase Auth Service
 
 The Supabase Auth service (GoTrue) provides user authentication and management:
 
@@ -336,14 +397,14 @@ The Supabase Studio provides a modern web-based administration interface for Pos
 - **Features**: Table editor, SQL editor, database structure visualization, and more
 - **Authentication**: Integrated with the Auth service for user management
 
-### 5.2. Graph Database (Neo4j)
+### 5.2. Neo4j Graph Database (neo4j-graph-db)
 
-The Graph Database service (Neo4j) provides a robust graph database for storing and querying connected data:
+The Neo4j Graph Database service (`neo4j-graph-db`) provides a robust graph database for storing and querying connected data:
 
 - **Built-in Dashboard Interface**: Available at http://localhost:${GRAPH_DB_DASHBOARD_PORT} (configured via `GRAPH_DB_DASHBOARD_PORT`)
 - **First-time Login**: 
   1. When you first access the dashboard, you'll see the Neo4j Browser interface
-  2. In the connection form, you'll see it's pre-filled with "neo4j://graph-db:7687"
+  2. In the connection form, you'll see it's pre-filled with "neo4j://neo4j-graph-db:7687"
   3. **Change the connection URL to**: `neo4j://localhost:${GRAPH_DB_PORT}` or `bolt://localhost:${GRAPH_DB_PORT}`
   4. Connection details:
      - Database: Leave as default (neo4j)
@@ -361,23 +422,23 @@ The Graph Database service (Neo4j) provides a robust graph database for storing 
   1. **Backing Up Data**: Create a snapshot while Neo4j is running:
      ```bash
      # Create a backup (will temporarily stop and restart Neo4j)
-     docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/backup.sh
+     docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/backup.sh
      ```
-     The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./graph-db/snapshot/` directory on your host machine.
+     The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./neo4j-graph-db/snapshot/` directory on your host machine.
   
   2. **Data Persistence**: By default, data persists in the Docker volume between restarts.
   
   3. **Manual Restoration**: To restore from a previous backup:
      ```bash
      # Restore from the latest backup
-     docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
+     docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
      ```
      
   4. **Important Note**: Automatic restoration at startup is now enabled by default. When the container starts, it will automatically restore from the latest backup if one is available. To disable this behavior, remove or rename the auto_restore.sh script in the Dockerfile.
 
-## 6. AI Services
+## 7. AI Services
 
-### 6.1. Ollama Service
+### 7.1. Ollama Service
 
 The Ollama service provides a containerized environment for running large language models locally:
 
@@ -388,7 +449,7 @@ The Ollama service provides a containerized environment for running large langua
   - **Local Ollama**: Connect to an Ollama instance running on your host machine
   - **Production with GPU**: Use NVIDIA GPU acceleration for improved performance
 
-#### 6.1.1. Switching Between Deployment Options
+#### 7.1.1. Switching Between Deployment Options
 
 The Ollama service can be deployed in different configurations using separate Docker Compose files:
 
@@ -425,12 +486,13 @@ The Open Web UI service provides a web interface for interacting with the Ollama
 
 ### 6.3. Backend API Service
 
-The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Supabase Auth, Neo4j Graph Database, and Ollama for AI model inference:
+The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference. It interacts with Supabase Storage via the Kong API Gateway. Its own API is also exposed through the Kong gateway.
 
-- **REST API Endpoint**: Available at http://localhost:${BACKEND_PORT} (configured via `BACKEND_PORT`)
-- **API Documentation**: 
-  - Swagger UI: http://localhost:${BACKEND_PORT}/docs
-  - ReDoc: http://localhost:${BACKEND_PORT}/redoc
+- **API Endpoint (via Kong):** Available at `http://localhost:${KONG_HTTP_PORT}/backend` (or HTTPS equivalent). Kong routes requests starting with `/backend` to this service.
+- **Direct API Endpoint (Internal/Testing):** Available at `http://localhost:${BACKEND_PORT}` (configured via `BACKEND_PORT`).
+- **API Documentation (via Kong):**
+  - Swagger UI: `http://localhost:${KONG_HTTP_PORT}/backend/docs`
+  - ReDoc: `http://localhost:${KONG_HTTP_PORT}/backend/redoc`
 - **Features**:
   - Connection to Supabase PostgreSQL with pgvector support
   - Authentication via Supabase Auth service
@@ -444,21 +506,30 @@ The Backend service provides a FastAPI-based REST API that connects to Supabase 
 
 The backend service is configured via environment variables:
 
-- `DATABASE_URL`: PostgreSQL connection string for Supabase
-- `OLLAMA_BASE_URL`: URL for Ollama API
-- `NEO4J_URI`: Connection URI for Neo4j Graph Database (bolt://graph-db:7687)
-- `NEO4J_USER`: Username for Neo4j authentication (from `GRAPH_DB_USER` in .env)
-- `NEO4J_PASSWORD`: Password for Neo4j authentication (from `GRAPH_DB_PASSWORD` in .env)
-- `BACKEND_PORT`: Port to expose the API (configured via `BACKEND_PORT`)
+- `KONG_URL`: Base URL for the Kong API Gateway (e.g., `http://kong-api-gateway:8000`). Used for interacting with Supabase services like Storage via the gateway.
+- `DATABASE_URL`: PostgreSQL connection string for Supabase (direct connection).
+- `OLLAMA_BASE_URL`: URL for Ollama API (direct connection or via host).
+- `NEO4J_URI`: Connection URI for Neo4j Graph Database (bolt://neo4j-graph-db:7687) (direct connection).
+- `NEO4J_USER`: Username for Neo4j authentication (set via `GRAPH_DB_USER` in .env).
+- `NEO4J_PASSWORD`: Password for Neo4j authentication (set via `GRAPH_DB_PASSWORD` in .env).
+- `BACKEND_PORT`: Port to expose the API (configured via `BACKEND_PORT`).
 
-#### 6.3.2. Dependencies
+#### 6.3.2. Dependencies and Interactions
 
-The backend service depends on:
-- Supabase DB (for database operations)
-- Supabase Auth (for authentication)
-- Supabase API (for RESTful API access to the database)
-- Graph DB (for graph database operations)
-- Ollama (for AI model inference)
+The backend service interacts with several other services:
+
+**Direct Connections:**
+- **Supabase DB:** Connects directly using a PostgreSQL driver and the `DATABASE_URL` for standard database operations.
+- **Neo4j Graph DB (neo4j-graph-db):** Connects directly using the Bolt protocol and `NEO4J_URI` for graph operations.
+- **Ollama:** Connects directly via HTTP using `OLLAMA_BASE_URL` for AI model inference.
+
+**Connections via Kong API Gateway:**
+- **Supabase Storage:** Interacts with the Storage API via Kong using the `KONG_URL` (e.g., `http://kong-api-gateway:8000/storage/v1`) and the `storage3` client library.
+- **Supabase Auth & API (PostgREST):** If the backend needs to make HTTP calls to Supabase Auth or the PostgREST API, it **should** use the `KONG_URL` (e.g., `http://kong-api-gateway:8000/auth/v1` or `http://kong-api-gateway:8000/rest/v1`) to route these requests through the gateway. (Note: Current implementation in `main.py` does not show these calls, but explicit environment variables should be added if needed).
+
+**Architectural Rationale:**
+- Direct connections are used for non-HTTP protocols (PostgreSQL, Bolt) or for services not typically managed under the central API gateway policies (like Ollama in this setup). The Neo4j service is configured to advertise its service name (`neo4j-graph-db`) for reliable inter-container communication.
+- HTTP API interactions with core Supabase services (Auth, API, Storage) are routed through the Kong gateway (`kong-api-gateway`) to leverage centralized routing, potential policy enforcement (authentication, rate limiting - though auth plugins are currently commented out), and a unified access point.
 
 #### 6.3.3. Local Development
 
@@ -475,7 +546,7 @@ uv pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-## 7. Database Setup Process
+## 8. Database Setup Process
 
 The database initialization follows a two-stage process managed by Docker Compose dependencies:
 
@@ -485,8 +556,8 @@ The database initialization follows a two-stage process managed by Docker Compos
     *   These base scripts handle setting up PostgreSQL, creating the database specified by `POSTGRES_DB`, creating standard Supabase roles (`anon`, `authenticated`, `service_role`), enabling necessary extensions (like `pgcrypto`, `uuid-ossp`), and setting up the basic `auth` and `storage` schemas.
     *   **IMPORTANT**: The `SUPABASE_DB_USER` in your `.env` file must be set to `supabase_admin`. This is required by the base image's internal scripts.
 
-2.  **Custom Post-Initialization (`db-init` service):**
-    *   A dedicated, short-lived service (`db-init`) using a `postgres:alpine` image (which includes `psql` and `pg_isready`).
+2.  **Custom Post-Initialization (`supabase-db-init` service):**
+    *   A dedicated, short-lived service (`supabase-db-init`) using a `postgres:alpine` image (which includes `psql` and `pg_isready`).
     *   This service `depends_on: supabase-db`.
     *   Its entrypoint (`supabase/db/scripts/db-init-runner.sh`) first waits until `supabase-db` is ready to accept connections using `pg_isready`.
     *   Once the database is ready, the runner script executes all `.sql` files found in the `./supabase/db/scripts/` directory (mounted to `/scripts` inside the container) in alphabetical/numerical order.
@@ -501,39 +572,43 @@ The database initialization follows a two-stage process managed by Docker Compos
     *   All custom SQL scripts use `IF NOT EXISTS` or equivalent idempotent logic to allow safe re-runs if needed (though `db-init` only runs once per `docker compose up`).
 
 3.  **Service Dependencies:**
-    *   Most other services (`supabase-meta`, `supabase-auth`, `supabase-api`, `supabase-studio`, `ollama-pull`, `open-web-ui`, `backend`) now have `depends_on: { db-init: { condition: service_completed_successfully } }`.
+    *   Most other services (`supabase-meta`, `supabase-auth`, `supabase-api`, `supabase-studio`, `ollama-pull`, `open-web-ui`, `backend`) now have `depends_on: { supabase-db-init: { condition: service_completed_successfully } }`.
     *   This ensures they only start *after* both the base database initialization and all custom post-initialization steps are fully completed.
 
 This approach separates base database setup from custom application setup, improving reliability and maintainability.
 
-## 8. Neo4j Graph Database Backup and Restore
+## 9. Neo4j Graph Database (neo4j-graph-db) Backup and Restore
 
-#### 8.2.1. Manual Backup
+#### 9.1. Manual Backup
 
 To manually create a graph database backup:
 
-```bash
-# Create a backup (will temporarily stop and restart Neo4j)
-docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/backup.sh
-```
+     ```bash
+     # Create a backup (will temporarily stop and restart Neo4j)
+     docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/backup.sh
+     ```
 
-The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./graph-db/snapshot/` directory on your host machine.
+The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./neo4j-graph-db/snapshot/` directory on your host machine.
 
-#### 8.2.2. Manual Restore
+#### 9.2. Manual Restore
 
 To restore from a previous backup:
 
-```bash
-# Restore from the latest backup
-docker exec -it ${PROJECT_NAME}-graph-db /usr/local/bin/restore.sh
-```
+     ```bash
+     # Restore from the latest backup
+     docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
+     ```
 
-#### 8.2.3. Important Notes:
+#### 9.3. Important Notes:
 - By default, data persists in the Docker volume between restarts
 - Automatic restoration at startup is enabled by default for Neo4j. When the container starts, it will automatically restore from the latest backup if one is available
 - To disable automatic restore for Neo4j, remove or rename the auto_restore.sh script in the Dockerfile
 
-## 9. Project Structure
+## 10. Project Structure (Note: Network and Volume names)
+
+The project uses Docker named volumes for data persistence and a custom bridge network for inter-service communication.
+- **Network Name:** `backend-bridge-network` (defined in `docker-compose` files)
+- **Volume Names:** `supabase-db-data`, `graph-db-data`, `ollama-data`, `open-web-ui-data`, `backend-data`, `supabase-storage-data` (defined in `docker-compose` files). Note: Volume names do not currently support environment variable substitution in the top-level `volumes:` definition.
 
 ```
 genai-vanilla-stack/
@@ -541,7 +616,7 @@ genai-vanilla-stack/
 ├── .env.example          # Template environment configuration
 ├── generate_supabase_keys.sh # Script to generate JWT keys for Supabase
 ├── start.sh              # Script to start the stack with configurable ports
-├── stop.sh               # Script to stop the stack and clean up resources
+├── stop.sh              # Script to stop the stack and clean up resources
 ├── docker-compose.yml    # Main compose file
 ├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor
 ├── docker-compose.prod-gpu.yml          # GPU-optimized flavor
@@ -566,6 +641,52 @@ genai-vanilla-stack/
 │   ├── auth/             # Supabase Auth service (GoTrue) - Uses standard image
 │   ├── api/              # Supabase API service (PostgREST)
 │   └── storage/          # Supabase Storage (if added)
+├── volumes/              # Docker volumes and configurations
+│   └── api/              # API gateway configurations
+│       └── kong.yml      # Kong declarative configuration file
+└── docs/                 # Documentation and diagrams
+    ├── diagrams/
+    │   ├── README.md
+    │   ├── architecture.mermaid
+    │   └── generate_diagram.sh
+    └── images/
+       └── architecture.png
+```
+
+```
+genai-vanilla-stack/
+├── .env                  # Environment configuration
+├── .env.example          # Template environment configuration
+├── generate_supabase_keys.sh # Script to generate JWT keys for Supabase
+├── start.sh              # Script to start the stack with configurable ports
+├── stop.sh              # Script to stop the stack and clean up resources
+├── docker-compose.yml    # Main compose file
+├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor
+├── docker-compose.prod-gpu.yml          # GPU-optimized flavor
+├── backend/              # FastAPI backend service
+│   ├── Dockerfile
+│   └── app/
+│       ├── main.py
+│       ├── requirements.txt
+│       └── data/         # Data storage (mounted as volume)
+├── neo4j-graph-db/       # Neo4j Graph Database configuration
+│   ├── Dockerfile
+│   ├── scripts/
+│   │   ├── backup.sh
+│   │   ├── restore.sh
+│   │   ├── auto_restore.sh
+│   │   └── docker-entrypoint-wrapper.sh
+│   └── snapshot/
+├── supabase/             # Supabase configuration
+│   ├── db/
+│   │   ├── scripts/      # Contains db-init-runner.sh and post-init SQL scripts (01-*.sql, etc.)
+│   │   └── snapshot/     # Database backup storage (manual dumps)
+│   ├── auth/             # Supabase Auth service (GoTrue) - Uses standard image
+│   ├── api/              # Supabase API service (PostgREST)
+│   └── storage/          # Supabase Storage (if added)
+├── volumes/              # Docker volumes and configurations
+│   └── api/              # API gateway configurations
+│       └── kong.yml      # Kong declarative configuration file
 └── docs/                 # Documentation and diagrams
     ├── diagrams/
     │   ├── README.md
@@ -577,11 +698,11 @@ genai-vanilla-stack/
 
 Note: Many services will be pre-packaged and pulled directly in docker-compose.yml without needing separate Dockerfiles.
 
-## 10. Cross-Platform Compatibility
+## 11. Cross-Platform Compatibility
 
 This project is designed to work across different operating systems:
 
-### 10.1. Line Ending Handling
+### 11.1. Line Ending Handling
 
 - A `.gitattributes` file is included to enforce consistent line endings across platforms
 - All shell scripts use LF line endings (Unix-style) even when checked out on Windows
@@ -603,7 +724,7 @@ These scripts use:
 
 ### 10.3. Container Scripts
 
-Scripts that run inside Docker containers (in the `graph-db/scripts/` and `supabase/db/scripts/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
+Scripts that run inside Docker containers (in the `neo4j-graph-db/scripts/` and `supabase/db/scripts/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
 
 ### 10.4. Windows Compatibility Notes
 
@@ -613,6 +734,6 @@ When running on Windows:
 - Docker Desktop for Windows handles path translations automatically
 - Host scripts will detect Windows environments and provide appropriate guidance
 
-## 11. License
+## 13. License
 
 [MIT](LICENSE)
