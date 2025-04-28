@@ -13,7 +13,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - Multiple deployment flavors using standalone Docker Compose files
 - Modular service architecture with interchangeability between containerized and external services
 - Support for local development and cloud deployment (AWS ECS compatible)
-- Key services including Supabase (PostgreSQL + Studio), Neo4j, Ollama, FastAPI backend, and Kong API Gateway
+- Key services including Supabase (PostgreSQL + Meta + Auth + Storage + Studio), Neo4j, Redis, Ollama, FastAPI backend, and Kong API Gateway
 
 ## 2. Features
 
@@ -134,18 +134,19 @@ This will:
 
 **Port Assignment Logic:**
 - SUPABASE_DB_PORT = BASE_PORT + 0
-- KONG_HTTP_PORT = BASE_PORT + 1
-- KONG_HTTPS_PORT = BASE_PORT + 2
-- SUPABASE_META_PORT = BASE_PORT + 3
-- SUPABASE_STORAGE_PORT = BASE_PORT + 4
-- SUPABASE_AUTH_PORT = BASE_PORT + 5
-- SUPABASE_API_PORT = BASE_PORT + 6
-- SUPABASE_STUDIO_PORT = BASE_PORT + 7
-- GRAPH_DB_PORT = BASE_PORT + 8
-- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 9
-- OLLAMA_PORT = BASE_PORT + 10
-- OPEN_WEB_UI_PORT = BASE_PORT + 11
-- BACKEND_PORT = BASE_PORT + 12
+- REDIS_PORT = BASE_PORT + 1
+- KONG_HTTP_PORT = BASE_PORT + 2
+- KONG_HTTPS_PORT = BASE_PORT + 3
+- SUPABASE_META_PORT = BASE_PORT + 4
+- SUPABASE_STORAGE_PORT = BASE_PORT + 5
+- SUPABASE_AUTH_PORT = BASE_PORT + 6
+- SUPABASE_API_PORT = BASE_PORT + 7
+- SUPABASE_STUDIO_PORT = BASE_PORT + 8
+- GRAPH_DB_PORT = BASE_PORT + 9
+- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 10
+- OLLAMA_PORT = BASE_PORT + 11
+- OPEN_WEB_UI_PORT = BASE_PORT + 12
+- BACKEND_PORT = BASE_PORT + 13
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
@@ -596,7 +597,7 @@ To restore from a previous backup:
 
 The project uses Docker named volumes for data persistence and a custom bridge network for inter-service communication.
 - **Network Name:** `backend-bridge-network` (defined in `docker-compose` files)
-- **Volume Names:** `supabase-db-data`, `graph-db-data`, `ollama-data`, `open-web-ui-data`, `backend-data`, `supabase-storage-data` (defined in `docker-compose` files). Note: Volume names do not currently support environment variable substitution in the top-level `volumes:` definition.
+- **Volume Names:** `supabase-db-data`, `redis-data`, `graph-db-data`, `ollama-data`, `open-web-ui-data`, `backend-data`, `supabase-storage-data` (defined in `docker-compose` files). Note: Volume names do not currently support environment variable substitution in the top-level `volumes:` definition.
 
 ```
 genai-vanilla-stack/
@@ -684,21 +685,51 @@ When running on Windows:
 
 [MIT](LICENSE)
 
-## 13. TODO – Future Candidate Services
+## 13. Redis Service
+
+The Redis service provides a high-performance in-memory data store that is used for caching, pub/sub messaging, and geospatial operations.
+
+### 13.1. Overview
+
+- **Image**: Uses the official `redis:7.2-alpine` image for a lightweight footprint
+- **Persistence**: Configured with AOF (Append-Only File) persistence for data durability
+- **Security**: Protected with password authentication
+- **Port**: Available at `localhost:${REDIS_PORT}` (configured via `REDIS_PORT`)
+- **Dependencies**: Starts after the successful completion of the `supabase-db-init` service
+
+### 13.2. Integration with Other Services
+
+- **Kong API Gateway**: Uses Redis for rate limiting and other Redis-backed plugins
+- **Backend Service**: Uses Redis for caching, pub/sub messaging, and geospatial operations
+
+### 13.3. Configuration
+
+The Redis service can be configured through the following environment variables:
+
+- `REDIS_PORT`: The port on which Redis is accessible (default: 63001)
+- `REDIS_PASSWORD`: The password used to authenticate with Redis
+- `REDIS_URL`: The connection URL used by services to connect to Redis
+
+### 13.4. Usage in Backend
+
+The backend service is configured to use Redis for:
+
+- **Caching**: Improving performance by caching frequently accessed data
+- **Pub/Sub**: Enabling real-time messaging between components
+- **Geohashing**: Supporting geospatial operations and queries
+
+## 14. TODO – Future Candidate Services
 
 | Service | Purpose | Benefits | Effort |
 |---------|---------|----------|--------|
-| **Redis** | Caching layer, Pub/Sub bus, Kong rate-limit store, lightweight task queue | ⚡ Reduces DB load, enables real-time token streaming, unlocks Kong plugins | Low–Med |
 | **Supabase Realtime** | Logical-replication → WebSocket change-feeds | 📡 Pushes DB updates to UI/backend without polling; powers presence channels | Medium |
 | **n8n** | Low-code workflow/ETL/cron orchestrator | 🛠 Automates nightly vector refresh, Slack alerts, SaaS integrations | Medium |
 
-### 13.1 Planned Roll-out Order
-1. **Redis** – add `redis:7-alpine` service, expose `REDIS_URL`, enable Kong rate-limiting plugin, integrate `aioredis` in backend.
-2. **Supabase Realtime** – add `supabase/realtime`, configure `wal_level=logical`, create replication slot, expose `/realtime/v1` via Kong, consume channels in Open Web UI & backend.
-3. **n8n** – add `n8n` service with own Postgres DB (or reuse Supabase), secure with basic auth/OIDC, route triggers through Kong, craft starter workflows (vector re-index, health alerts).
+### 14.1 Planned Roll-out Order
+1. **Supabase Realtime** – add `supabase/realtime`, configure `wal_level=logical`, create replication slot, expose `/realtime/v1` via Kong, consume channels in Open Web UI & backend.
+2. **n8n** – add `n8n` service with own Postgres DB (or reuse Supabase), secure with basic auth/OIDC, route triggers through Kong, craft starter workflows (vector re-index, health alerts).
 
-### 13.2 Why These Services?
-* **Redis** brings immediate performance & real-time capabilities with minimal risk.
+### 14.2 Why These Services?
 * **Supabase Realtime** piggybacks on existing Postgres to deliver live updates without third-party services.
 * **n8n** provides a no-code automation layer, letting ops & data tasks evolve without backend changes.
 

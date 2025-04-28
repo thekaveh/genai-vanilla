@@ -83,6 +83,7 @@ done
 if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
   echo "📋 Unsetting potentially lingering port environment variables..."
   unset SUPABASE_DB_PORT
+  unset REDIS_PORT
   unset KONG_HTTP_PORT
   unset KONG_HTTPS_PORT
   unset SUPABASE_META_PORT
@@ -159,6 +160,7 @@ fi
 # Define port variables that need calculation
 PORT_VARS=(
   "SUPABASE_DB_PORT"
+  "REDIS_PORT"
   "KONG_HTTP_PORT"
   "KONG_HTTPS_PORT"
   "SUPABASE_META_PORT"
@@ -196,18 +198,19 @@ cat >> .env << EOF
 
 # --- Port Assignments (Auto-calculated by start.sh) ---
 SUPABASE_DB_PORT=$BASE_PORT
-KONG_HTTP_PORT=$(($BASE_PORT + 1))
-KONG_HTTPS_PORT=$(($BASE_PORT + 2))
-SUPABASE_META_PORT=$(($BASE_PORT + 3))
-SUPABASE_STORAGE_PORT=$(($BASE_PORT + 4))
-SUPABASE_AUTH_PORT=$(($BASE_PORT + 5))
-SUPABASE_API_PORT=$(($BASE_PORT + 6))
-SUPABASE_STUDIO_PORT=$(($BASE_PORT + 7))
-GRAPH_DB_PORT=$(($BASE_PORT + 8))
-GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 9))
-OLLAMA_PORT=$(($BASE_PORT + 10))
-OPEN_WEB_UI_PORT=$(($BASE_PORT + 11))
-BACKEND_PORT=$(($BASE_PORT + 12))
+REDIS_PORT=$(($BASE_PORT + 1))
+KONG_HTTP_PORT=$(($BASE_PORT + 2))
+KONG_HTTPS_PORT=$(($BASE_PORT + 3))
+SUPABASE_META_PORT=$(($BASE_PORT + 4))
+SUPABASE_STORAGE_PORT=$(($BASE_PORT + 5))
+SUPABASE_AUTH_PORT=$(($BASE_PORT + 6))
+SUPABASE_API_PORT=$(($BASE_PORT + 7))
+SUPABASE_STUDIO_PORT=$(($BASE_PORT + 8))
+GRAPH_DB_PORT=$(($BASE_PORT + 9))
+GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 10))
+OLLAMA_PORT=$(($BASE_PORT + 11))
+OPEN_WEB_UI_PORT=$(($BASE_PORT + 12))
+BACKEND_PORT=$(($BASE_PORT + 13))
 EOF
 
 echo "✅ .env file generated successfully!"
@@ -215,6 +218,7 @@ echo "✅ .env file generated successfully!"
 # Read back port values from the .env file to verify they were written correctly
 echo "📋 Verifying port assignments from .env file..."
 VERIFIED_SUPABASE_DB_PORT=$(grep "^SUPABASE_DB_PORT=" .env | cut -d '=' -f2)
+VERIFIED_REDIS_PORT=$(grep "^REDIS_PORT=" .env | cut -d '=' -f2)
 VERIFIED_KONG_HTTP_PORT=$(grep "^KONG_HTTP_PORT=" .env | cut -d '=' -f2)
 VERIFIED_KONG_HTTPS_PORT=$(grep "^KONG_HTTPS_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_META_PORT=$(grep "^SUPABASE_META_PORT=" .env | cut -d '=' -f2)
@@ -232,6 +236,7 @@ VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
 echo ""
 echo "🚀 PORT ASSIGNMENTS (verified from .env file):"
 printf "  • %-35s %s\n" "Supabase PostgreSQL Database:" "$VERIFIED_SUPABASE_DB_PORT"
+printf "  • %-35s %s\n" "Redis:" "$VERIFIED_REDIS_PORT"
 printf "  • %-35s %s\n" "Kong HTTP Gateway:" "$VERIFIED_KONG_HTTP_PORT"
 printf "  • %-35s %s\n" "Kong HTTPS Gateway:" "$VERIFIED_KONG_HTTPS_PORT"
 printf "  • %-35s %s\n" "Supabase Meta Service:" "$VERIFIED_SUPABASE_META_PORT"
@@ -319,6 +324,7 @@ if [[ "$PROFILE" == "default" ]]; then
   # Using simple arrays instead of associative arrays for better compatibility
   SERVICES=(
     "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
+    "redis:6379:$VERIFIED_REDIS_PORT"
     "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
     "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
     "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
@@ -411,6 +417,7 @@ else
   # Using simple arrays instead of associative arrays for better compatibility
   SERVICES=(
     "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
+    "redis:6379:$VERIFIED_REDIS_PORT"
     "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
     "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
     "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"

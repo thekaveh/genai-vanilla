@@ -6,6 +6,7 @@ graph LR
 
     %% Define styles
     classDef database fill:#a5d8ff,stroke:#1971c2,color:#1e1e1e
+    classDef cache fill:#f8d7da,stroke:#dc3545,color:#1e1e1e
     classDef ai fill:#f5d0fe,stroke:#9c36b5,color:#1e1e1e
     classDef ui fill:#ffd8a8,stroke:#e8590c,color:#1e1e1e
     classDef api fill:#b2f2bb,stroke:#2f9e44,color:#1e1e1e
@@ -14,6 +15,7 @@ graph LR
     subgraph DB[Database Services & Init]
         direction LR
         supabase-db[supabase-db]
+        redis[redis]:::cache
         supabase-db-init(supabase-db-init)
         subgraph Supabase Core
         direction TB
@@ -47,6 +49,7 @@ graph LR
     %% Connections / Dependencies
     supabase-db -- "Depends on DB Started" --> supabase-db-init
     supabase-db-init -- "Runs Custom Initialization SQL" --> supabase-db
+    supabase-db-init -- "Completes Successfully" --> redis
     supabase-db-init -- "Completes Successfully" --> supabase-meta
     supabase-db-init -- "Completes Successfully" --> supabase-storage
     supabase-db-init -- "Completes Successfully" --> supabase-auth
@@ -72,6 +75,7 @@ graph LR
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
 
+    kong-api-gateway -- "Depends on" --> redis
     kong-api-gateway -- "Depends on" --> supabase-auth
     kong-api-gateway -- "Depends on" --> supabase-api
     kong-api-gateway -- "Depends on" --> supabase-storage
@@ -80,6 +84,7 @@ graph LR
     backend -- "Bolt (Direct)" --> neo4j-graph-db
     backend -- "HTTP API (Direct)" --> ollama
     backend -- "DB Connection (Direct)" --> supabase-db
+    backend -- "Cache, Pub/Sub, Geohashing" --> redis
     ollama-pull -- "Completes Successfully" --> open-web-ui
     ollama-pull -- "Completes Successfully" --> backend
     ollama -- "Depends on Ollama Started" --> ollama-pull

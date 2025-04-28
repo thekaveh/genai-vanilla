@@ -39,6 +39,11 @@ dspy-ai>=2.4.6
 neo4j>=5.18.0
 langchain-neo4j>=0.1.0
 
+# Redis
+redis>=5.0.1
+hiredis>=2.2.3
+aioredis>=2.0.1
+
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.5
