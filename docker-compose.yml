@@ -136,7 +136,7 @@ services:
     env_file:
       - .env
     environment:
-      GOTRUE_SITE_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      GOTRUE_SITE_URL: http://supabase-studio:3000
       API_EXTERNAL_URL: http://supabase-auth:9999
       GOTRUE_DB_DRIVER: postgres
       DB_NAMESPACE: auth
@@ -206,16 +206,15 @@ services:
     environment:
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_URL: http://kong-api-gateway:8000
-      SUPABASE_PUBLIC_URL: http://localhost:${SUPABASE_STUDIO_PORT}
+      SUPABASE_PUBLIC_URL: http://localhost:${KONG_HTTP_PORT}
       SUPABASE_AUTH_URL: http://kong-api-gateway:8000/auth
       SUPABASE_REST_URL: http://kong-api-gateway:8000/rest
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      # Enable verbose logging for troubleshooting
-      LOG_LEVEL: debug
-      DEBUG: true
+      AUTH_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
     ports:
       - "${SUPABASE_STUDIO_PORT}:3000"
     networks:
@@ -295,6 +294,7 @@ services:
     env_file:
       - .env
     environment:
+      OLLAMA_BASE_URL: http://ollama:11434
       PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       PGRST_DB_SCHEMA: "public,storage,auth"
       PGRST_DB_ANON_ROLE: anon
@@ -303,7 +303,7 @@ services:
       # Enable verbose logging for troubleshooting
       PGRST_LOG_LEVEL: debug
     ports:
-      - "${SUPABASE_API_PORT}:3000"
+      - "${OPEN_WEB_UI_PORT}:8080"
     networks:
       - backend-bridge-network
 
@@ -326,12 +326,12 @@ services:
     env_file:
       - .env
     environment:
-      - KONG_URL=http://kong-api-gateway:8000
-      - DATABASE_URL=postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - NEO4J_URI=bolt://neo4j-graph-db:7687
-      - NEO4J_USER=${GRAPH_DB_USER}
-      - NEO4J_PASSWORD=${GRAPH_DB_PASSWORD}
+      KONG_URL: http://kong-api-gateway:8000
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      OLLAMA_BASE_URL: http://ollama:11434
+      NEO4J_URI: bolt://neo4j-graph-db:7687
+      NEO4J_USER: ${GRAPH_DB_USER}
+      NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data
