@@ -1,4 +1,9 @@
 graph LR
+    %% This diagram represents the default and prod-gpu deployment flavors with a containerized Ollama service.
+    %% For the dev-ollama-local flavor, the 'ollama' container is removed, and 'backend', 'open-web-ui',
+    %% and 'ollama-pull' connect to a local Ollama instance via host.docker.internal:11434.
+    %% The prod-gpu flavor adds NVIDIA GPU resources and limits to the 'ollama' and 'backend' services.
+
     %% Define styles
     classDef database fill:#a5d8ff,stroke:#1971c2,color:#1e1e1e
     classDef ai fill:#f5d0fe,stroke:#9c36b5,color:#1e1e1e
@@ -67,16 +72,21 @@ graph LR
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
 
+    kong-api-gateway -- "Depends on" --> supabase-auth
+    kong-api-gateway -- "Depends on" --> supabase-api
+    kong-api-gateway -- "Depends on" --> supabase-storage
+    kong-api-gateway -- "Depends on" --> supabase-meta
+
     backend -- "Bolt (Direct)" --> neo4j-graph-db
     backend -- "HTTP API (Direct)" --> ollama
     backend -- "DB Connection (Direct)" --> supabase-db
     ollama-pull -- "Completes Successfully" --> open-web-ui
     ollama-pull -- "Completes Successfully" --> backend
-    supabase-storage -- Storage --> open-web-ui
     ollama -- "Depends on Ollama Started" --> ollama-pull
 
     %% Add dependency of Studio on Kong
     supabase-studio -- "Depends on" --> kong-api-gateway
+    open-web-ui -- "Storage API via Kong" --> kong-api-gateway
 
 
     %% Apply styles

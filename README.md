@@ -273,7 +273,7 @@ The Supabase Auth service (GoTrue) provides user authentication and management:
 - **JWT Authentication**: Uses a secure JWT token system for authentication
 - **Features**: User registration, login, password recovery, email confirmation, and more
 
-#### 5.1.3. Supabase Storage Service
+#### 6.1.3. Supabase Storage Service
 
 The Supabase Storage service provides a secure file storage and management system:
 
@@ -289,7 +289,7 @@ The Supabase Storage service provides a secure file storage and management syste
   - `REGION`: Storage region identifier (default: local)
 - **Dependencies**: Requires Supabase DB and Auth services
 
-#### 5.1.4. Supabase API Service (PostgREST)
+#### 6.1.4. Supabase API Service (PostgREST)
 
 The Supabase API service (PostgREST) provides a RESTful API interface to the PostgreSQL database:
 
@@ -388,7 +388,7 @@ openssl rand -hex 32
    - In the "VERIFY SIGNATURE" section, enter your JWT secret
    - Copy the generated tokens to your .env file for SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY variables
 
-#### 5.1.4. Supabase Studio Dashboard
+#### 6.1.5. Supabase Studio Dashboard
 
 The Supabase Studio provides a modern web-based administration interface for PostgreSQL:
 
@@ -397,12 +397,12 @@ The Supabase Studio provides a modern web-based administration interface for Pos
 - **Features**: Table editor, SQL editor, database structure visualization, and more
 - **Authentication**: Integrated with the Auth service for user management
 
-### 5.2. Neo4j Graph Database (neo4j-graph-db)
+### 6.2. Neo4j Graph Database (neo4j-graph-db)
 
 The Neo4j Graph Database service (`neo4j-graph-db`) provides a robust graph database for storing and querying connected data:
 
 - **Built-in Dashboard Interface**: Available at http://localhost:${GRAPH_DB_DASHBOARD_PORT} (configured via `GRAPH_DB_DASHBOARD_PORT`)
-- **First-time Login**: 
+- **First-time Login**:
   1. When you first access the dashboard, you'll see the Neo4j Browser interface
   2. In the connection form, you'll see it's pre-filled with "neo4j://neo4j-graph-db:7687"
   3. **Change the connection URL to**: `neo4j://localhost:${GRAPH_DB_PORT}` or `bolt://localhost:${GRAPH_DB_PORT}`
@@ -414,27 +414,10 @@ The Neo4j Graph Database service (`neo4j-graph-db`) provides a robust graph data
   5. Click "Connect" button
 
 - **Application Connection**: Applications can connect to the database using the Bolt protocol:
-  - Bolt URL: `bolt://localhost:${GRAPH_DB_PORT}` 
+  - Bolt URL: `bolt://localhost:${GRAPH_DB_PORT}`
   - Username: `neo4j`
   - Password: Value of `GRAPH_DB_PASSWORD` from your `.env` file
 - **Persistent Storage**: Data is stored in a Docker volume for persistence between container restarts
-- **Backup and Restore Workflow**:
-  1. **Backing Up Data**: Create a snapshot while Neo4j is running:
-     ```bash
-     # Create a backup (will temporarily stop and restart Neo4j)
-     docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/backup.sh
-     ```
-     The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./neo4j-graph-db/snapshot/` directory on your host machine.
-  
-  2. **Data Persistence**: By default, data persists in the Docker volume between restarts.
-  
-  3. **Manual Restoration**: To restore from a previous backup:
-     ```bash
-     # Restore from the latest backup
-     docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
-     ```
-     
-  4. **Important Note**: Automatic restoration at startup is now enabled by default. When the container starts, it will automatically restore from the latest backup if one is available. To disable this behavior, remove or rename the auto_restore.sh script in the Dockerfile.
 
 ## 7. AI Services
 
@@ -465,7 +448,7 @@ docker compose -f docker-compose.dev-ollama-local.yml up
 docker compose -f docker-compose.prod-gpu.yml up
 ```
 
-#### 6.1.2. Environment-Specific Configuration
+#### 7.1.2. Environment-Specific Configuration
 
 The Ollama service is configured for different environments using standalone Docker Compose files:
 
@@ -475,16 +458,21 @@ The Ollama service is configured for different environments using standalone Doc
 
 The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the `llms` table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
 
-### 6.2. Open Web UI
+### 7.2. Open Web UI
 
 The Open Web UI service provides a web interface for interacting with the Ollama models:
 
 - **Accessible**: Available at http://localhost:${OPEN_WEB_UI_PORT} (configured via `OPEN_WEB_UI_PORT`)
 - **Automatic Connection**: Automatically connects to the Ollama API endpoint
-- **Database Integration**: Uses the Supabase PostgreSQL database for storing conversations and settings
-- **Dependencies**: Depends on Ollama, Supabase DB, and Ollama Pull services
+- **Database Integration**: Uses the Supabase PostgreSQL database (`DATABASE_URL`) for storing conversations and settings.
+- **Storage Interaction**: Interacts with the Supabase Storage API (likely via the Kong API Gateway) for file operations.
+- **Dependencies**: Depends on Ollama, Supabase DB, Ollama Pull, and Supabase Storage services.
+- **Configuration**:
+    - `OLLAMA_BASE_URL`: URL for Ollama API.
+    - `DATABASE_URL`: PostgreSQL connection string for Supabase.
+    - `WEBUI_SECRET_KEY`: Secret key for Open Web UI.
 
-### 6.3. Backend API Service
+### 7.3. Backend API Service
 
 The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference. It interacts with Supabase Storage via the Kong API Gateway. Its own API is also exposed through the Kong gateway.
 
@@ -502,7 +490,7 @@ The Backend service provides a FastAPI-based REST API that connects to Supabase 
   - Support for multiple LLM providers (OpenAI, Groq, etc.)
   - Dependency management with uv instead of pip/virtualenv
 
-#### 6.3.1. Configuration
+#### 7.3.1. Configuration
 
 The backend service is configured via environment variables:
 
@@ -514,7 +502,7 @@ The backend service is configured via environment variables:
 - `NEO4J_PASSWORD`: Password for Neo4j authentication (set via `GRAPH_DB_PASSWORD` in .env).
 - `BACKEND_PORT`: Port to expose the API (configured via `BACKEND_PORT`).
 
-#### 6.3.2. Dependencies and Interactions
+#### 7.3.2. Dependencies and Interactions
 
 The backend service interacts with several other services:
 
@@ -531,7 +519,7 @@ The backend service interacts with several other services:
 - Direct connections are used for non-HTTP protocols (PostgreSQL, Bolt) or for services not typically managed under the central API gateway policies (like Ollama in this setup). The Neo4j service is configured to advertise its service name (`neo4j-graph-db`) for reliable inter-container communication.
 - HTTP API interactions with core Supabase services (Auth, API, Storage) are routed through the Kong gateway (`kong-api-gateway`) to leverage centralized routing, potential policy enforcement (authentication, rate limiting - though auth plugins are currently commented out), and a unified access point.
 
-#### 6.3.3. Local Development
+#### 7.3.3. Local Development
 
 For local development outside of Docker:
 
@@ -666,12 +654,12 @@ This project is designed to work across different operating systems:
 - All shell scripts use LF line endings (Unix-style) even when checked out on Windows
 - Docker files and YAML configurations maintain consistent line endings
 
-### 10.2. Host Script Compatibility
+### 11.2. Host Script Compatibility
 
 The following scripts that run on the host machine (not in containers) have been made cross-platform compatible:
 
 - `start.sh` - For starting the stack with configurable ports and profiles
-- `stop.sh` - For stopping the stack and cleaning up resources
+- `stop.sh` - For stopping the stack and clean up resources
 - `generate_supabase_keys.sh` - For generating JWT keys
 - `docs/diagrams/generate_diagram.sh` - For generating architecture diagrams
 
@@ -680,11 +668,11 @@ These scripts use:
 - Cross-platform path handling
 - Platform detection for macOS vs Linux differences
 
-### 10.3. Container Scripts
+### 11.3. Container Scripts
 
 Scripts that run inside Docker containers (in the `neo4j-graph-db/scripts/` and `supabase/db/scripts/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
 
-### 10.4. Windows Compatibility Notes
+### 11.4. Windows Compatibility Notes
 
 When running on Windows:
 
@@ -692,6 +680,6 @@ When running on Windows:
 - Docker Desktop for Windows handles path translations automatically
 - Host scripts will detect Windows environments and provide appropriate guidance
 
-## 13. License
+## 12. License
 
 [MIT](LICENSE)
