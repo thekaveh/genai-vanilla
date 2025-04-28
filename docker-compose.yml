@@ -116,9 +116,6 @@ services:
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       POSTGREST_URL: http://supabase-api:3000
       GOTRUE_URL: http://supabase-auth:9999
-      # Enable verbose logging for troubleshooting
-      LOG_LEVEL: debug
-      DEBUG: true
     ports:
       - "${SUPABASE_STORAGE_PORT}:5000"
     volumes:
@@ -177,8 +174,6 @@ services:
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       PGRST_DB_USE_LEGACY_GUCS: "false"
-      # Enable verbose logging for troubleshooting
-      PGRST_LOG_LEVEL: debug
     ports:
       - "${SUPABASE_API_PORT}:3000"
     networks:
@@ -207,8 +202,6 @@ services:
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_URL: http://kong-api-gateway:8000
       SUPABASE_PUBLIC_URL: http://localhost:${KONG_HTTP_PORT}
-      SUPABASE_AUTH_URL: http://kong-api-gateway:8000/auth
-      SUPABASE_REST_URL: http://kong-api-gateway:8000/rest
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}
