@@ -683,3 +683,23 @@ When running on Windows:
 ## 12. License
 
 [MIT](LICENSE)
+
+## 13. TODO – Future Candidate Services
+
+| Service | Purpose | Benefits | Effort |
+|---------|---------|----------|--------|
+| **Redis** | Caching layer, Pub/Sub bus, Kong rate-limit store, lightweight task queue | ⚡ Reduces DB load, enables real-time token streaming, unlocks Kong plugins | Low–Med |
+| **Supabase Realtime** | Logical-replication → WebSocket change-feeds | 📡 Pushes DB updates to UI/backend without polling; powers presence channels | Medium |
+| **n8n** | Low-code workflow/ETL/cron orchestrator | 🛠 Automates nightly vector refresh, Slack alerts, SaaS integrations | Medium |
+
+### 13.1 Planned Roll-out Order
+1. **Redis** – add `redis:7-alpine` service, expose `REDIS_URL`, enable Kong rate-limiting plugin, integrate `aioredis` in backend.
+2. **Supabase Realtime** – add `supabase/realtime`, configure `wal_level=logical`, create replication slot, expose `/realtime/v1` via Kong, consume channels in Open Web UI & backend.
+3. **n8n** – add `n8n` service with own Postgres DB (or reuse Supabase), secure with basic auth/OIDC, route triggers through Kong, craft starter workflows (vector re-index, health alerts).
+
+### 13.2 Why These Services?
+* **Redis** brings immediate performance & real-time capabilities with minimal risk.
+* **Supabase Realtime** piggybacks on existing Postgres to deliver live updates without third-party services.
+* **n8n** provides a no-code automation layer, letting ops & data tasks evolve without backend changes.
+
+> The table and reasoning should help contributors understand the roadmap and rationalize PRs around these additions.
