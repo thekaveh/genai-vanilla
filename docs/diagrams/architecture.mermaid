@@ -39,6 +39,7 @@ graph LR
     subgraph API[API Layer]
         kong-api-gateway[Kong API Gateway]
         backend[backend]
+        n8n[n8n]:::api
     end
     
     %% UI Layer
@@ -58,6 +59,7 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> ollama-pull
     supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> backend
+    supabase-db-init -- "Completes Successfully" --> n8n
 
     %% Service Inter-dependencies (After db-init)
     %% Connections now go through Kong where applicable
@@ -74,6 +76,7 @@ graph LR
     kong-api-gateway -- Routes --> supabase-storage
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
+    kong-api-gateway -- Routes --> n8n
 
     kong-api-gateway -- "Depends on" --> redis
     kong-api-gateway -- "Depends on" --> supabase-auth
@@ -84,9 +87,12 @@ graph LR
     backend -- "Bolt (Direct)" --> neo4j-graph-db
     backend -- "HTTP API (Direct)" --> ollama
     backend -- "DB Connection (Direct)" --> supabase-db
+    n8n -- "DB Connection (Direct)" --> supabase-db
+    backend -- "Workflow Automation" --> n8n
     backend -- "Cache, Pub/Sub, Geohashing" --> redis
     ollama-pull -- "Completes Successfully" --> open-web-ui
     ollama-pull -- "Completes Successfully" --> backend
+    ollama-pull -- "Completes Successfully" --> n8n
     ollama -- "Depends on Ollama Started" --> ollama-pull
 
     %% Add dependency of Studio on Kong

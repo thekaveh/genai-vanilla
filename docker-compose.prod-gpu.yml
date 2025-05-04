@@ -306,7 +306,7 @@ services:
     entrypoint: ["/scripts/pull.sh"]
 
   open-web-ui:
-    image: ghcr.io/open-webui/open-webui:latest
+    image: dyrnq/open-webui:latest
     container_name: ${PROJECT_NAME}-open-web-ui
     restart: unless-stopped
     depends_on:
@@ -324,6 +324,7 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
+      # DATABASE_SCHEMA: openwebui
     volumes:
       - open-web-ui-data:/data
     ports:
@@ -349,6 +350,8 @@ services:
         condition: service_started
       kong-api-gateway:
         condition: service_started
+      n8n:
+        condition: service_started
     env_file:
       - .env
     environment:
@@ -360,6 +363,7 @@ services:
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       PROD_MODE: true
+      N8N_BASE_URL: http://n8n:5678
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data
@@ -367,6 +371,47 @@ services:
       - "${BACKEND_PORT}:8000"
     cpus: ${PROD_ENV_BACKEND_CPUS:-1}
     mem_limit: ${PROD_ENV_BACKEND_MEM_LIMIT:-2g}
+    networks:
+      - backend-bridge-network
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ${PROJECT_NAME}-n8n
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: supabase-db
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${SUPABASE_DB_NAME}
+      DB_POSTGRESDB_USER: ${SUPABASE_DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_PATH: ${N8N_PATH:-/}
+      NODE_ENV: production
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_AUTH_ENABLED: ${N8N_AUTH_ENABLED:-true}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_SECURE_COOKIE: false
+      N8N_RUNNERS_ENABLED: true
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
+      NODE_OPTIONS: --max_old_space_size=512
+    ports:
+      - "${N8N_PORT}:5678"
+    volumes:
+      - n8n-data:/home/node/.n8n
+    cpus: ${PROD_ENV_N8N_CPUS:-1}
+    mem_limit: ${PROD_ENV_N8N_MEM_LIMIT:-2g}
     networks:
       - backend-bridge-network
 
@@ -388,4 +433,6 @@ volumes:
   backend-data:
     driver: local
   supabase-storage-data:
+    driver: local
+  n8n-data:
     driver: local

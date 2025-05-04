@@ -32,6 +32,26 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - Python 3.10+ (for local development)
 - UV package manager (optional, for Python dependency management)
 
+#### 3.1.1. Docker Resource Requirements
+
+This stack requires sufficient resources allocated to your Docker environment:
+
+- **Memory**: At least 8GB, preferably 10-12GB RAM allocated to Docker
+- **CPU**: At least 4 cores recommended, especially for running AI models
+- **Disk**: At least 10GB of free space for Docker volumes
+
+**For Docker Desktop users:**
+- Increase memory allocation in Settings → Resources → Memory
+- Increase CPU allocation in Settings → Resources → CPU
+
+**For Colima users:**
+```bash
+# Start Colima with adequate resources (adjust as needed)
+colima start --memory 12 --cpu 6
+```
+
+**Important**: After adding the n8n service to the stack, memory requirements have increased. If you experience container crashes with exit code 137 (OOM kill), this indicates insufficient memory allocated to Docker.
+
 ### 3.2. Running the Stack
 
 #### Using Convenience Scripts (Recommended)

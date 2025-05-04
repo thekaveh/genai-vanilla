@@ -96,6 +96,7 @@ if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
   unset OLLAMA_PORT
   unset OPEN_WEB_UI_PORT
   unset BACKEND_PORT
+  unset N8N_PORT
 fi
 
 
@@ -145,6 +146,22 @@ if [[ ! -f .env || "$COLD_START" == "true" ]]; then
     echo "    to generate the required JWT keys for Supabase services."
   fi
   
+  # Generate N8N_ENCRYPTION_KEY for cold start
+  if [[ "$COLD_START" == "true" ]]; then
+    echo "  • Generating n8n encryption key..."
+    N8N_ENCRYPTION_KEY=$(openssl rand -hex 24)
+    # Update the .env file with the new encryption key
+    if grep -q "^N8N_ENCRYPTION_KEY=" .env; then
+      # Replace existing key
+      sed -i.bak "s/^N8N_ENCRYPTION_KEY=.*/N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY/" .env
+      rm .env.bak 2>/dev/null || true  # Remove backup file if created by sed
+    else
+      # Add new key if it doesn't exist
+      echo "N8N_ENCRYPTION_KEY=$N8N_ENCRYPTION_KEY" >> .env
+    fi
+    echo "  • n8n encryption key generated successfully"
+  fi
+  
   ENV_SOURCE=".env"
 else
   echo "📝 Updating .env file with base port $BASE_PORT..."
@@ -173,6 +190,7 @@ PORT_VARS=(
   "OLLAMA_PORT"
   "OPEN_WEB_UI_PORT"
   "BACKEND_PORT"
+  "N8N_PORT"
 )
 
 # Create a temporary file to store non-port variables
@@ -211,6 +229,7 @@ GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 10))
 OLLAMA_PORT=$(($BASE_PORT + 11))
 OPEN_WEB_UI_PORT=$(($BASE_PORT + 12))
 BACKEND_PORT=$(($BASE_PORT + 13))
+N8N_PORT=$(($BASE_PORT + 14))
 EOF
 
 echo "✅ .env file generated successfully!"
@@ -231,6 +250,7 @@ VERIFIED_GRAPH_DB_DASHBOARD_PORT=$(grep "^GRAPH_DB_DASHBOARD_PORT=" .env | cut -
 VERIFIED_OLLAMA_PORT=$(grep "^OLLAMA_PORT=" .env | cut -d '=' -f2)
 VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" .env | cut -d '=' -f2)
 VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
+VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" .env | cut -d '=' -f2)
 
 # Display port assignments in a cleaner format with aligned port numbers
 echo ""
@@ -249,6 +269,7 @@ printf "  • %-35s %s\n" "Neo4j Graph Database (Dashboard):" "$VERIFIED_GRAPH_D
 printf "  • %-35s %s\n" "Ollama API:" "$VERIFIED_OLLAMA_PORT"
 printf "  • %-35s %s\n" "Open Web UI:" "$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-35s %s\n" "Backend API:" "$VERIFIED_BACKEND_PORT"
+printf "  • %-35s %s\n" "n8n Workflow Automation:" "$VERIFIED_N8N_PORT"
 echo ""
 echo "📋 Access Points:"
 printf "  • %-20s %s\n" "Supabase Studio:" "http://localhost:$VERIFIED_SUPABASE_STUDIO_PORT"
@@ -257,6 +278,7 @@ printf "  • %-20s %s\n" "Kong HTTPS Gateway:" "https://localhost:$VERIFIED_KON
 printf "  • %-20s %s\n" "Neo4j Browser:" "http://localhost:$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
 printf "  • %-20s %s\n" "Open Web UI:" "http://localhost:$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_PORT/docs"
+printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"
 echo ""
 
 # Start the stack with the selected profile

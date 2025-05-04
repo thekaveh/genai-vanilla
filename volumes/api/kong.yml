@@ -2,6 +2,19 @@ _format_version: '2.1'
 _transform: true
 
 ###
+### Consumers and Credentials
+###
+consumers:
+  - username: n8n_user
+    basicauth_credentials:
+      - username: ${N8N_BASIC_AUTH_USER}
+        password: ${N8N_BASIC_AUTH_PASSWORD}
+  - username: dashboard_user
+    basicauth_credentials:
+      - username: ${DASHBOARD_USERNAME}
+        password: ${DASHBOARD_PASSWORD}
+
+###
 ### API Routes
 ###
 services:
@@ -198,6 +211,23 @@ services:
     plugins:
       - name: cors # Add basic CORS, can be customized further
 
+  ## n8n routes
+  - name: n8n-api
+    url: http://n8n:5678/
+    routes:
+      - name: n8n-api-all
+        strip_path: false
+        paths:
+          - /n8n/      # Main path
+          - /assets/   # Path for CSS/JS assets
+          - /rest/     # Path for potential API calls n8n UI makes
+          - /webhook/  # Common path for n8n webhooks
+          - /webhook-test/ # Common path for n8n webhook testing
+    plugins:
+      - name: cors
+      # Removed basic-auth plugin to rely on n8n's built-in authentication
+      # and avoid double authentication issues
+
   ## Protected Dashboard - catch all remaining routes
   - name: dashboard
     url: http://supabase-studio:3000/
@@ -208,6 +238,7 @@ services:
           - /
     plugins:
       - name: cors
-      - name: basic-auth
-        config:
-          hide_credentials: true
+      # Commenting out basic-auth to troubleshoot authentication issues
+      # - name: basic-auth
+      #   config:
+      #     hide_credentials: true

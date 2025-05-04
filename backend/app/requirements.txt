@@ -47,3 +47,6 @@ aioredis>=2.0.1
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.5
+
+# n8n integration
+requests>=2.31.0

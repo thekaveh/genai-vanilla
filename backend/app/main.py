@@ -2,8 +2,11 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from storage3 import SyncStorageClient as StorageClient
-from typing import Optional, cast
+from typing import Optional, cast, Dict, Any, List
 import os
+import httpx
+
+from n8n_client import N8nClient
 
 app = FastAPI(
     title="GenAI Vanilla Stack Backend",
@@ -70,6 +73,97 @@ async def root():
         "message": "Welcome to the GenAI Vanilla Stack Backend API",
         "docs_url": "/docs",
     }
+
+
+# Initialize n8n client
+n8n_client = N8nClient()
+
+
+class WorkflowExecuteRequest(BaseModel):
+    """Request model for executing a workflow"""
+
+    data: Optional[Dict[str, Any]] = None
+
+
+class WorkflowResponse(BaseModel):
+    """Response model for workflow operations"""
+
+    id: str
+    name: str
+    active: bool
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class WorkflowExecutionResponse(BaseModel):
+    """Response model for workflow execution"""
+
+    id: str
+    finished: bool
+    mode: str
+    status: str
+    started_at: str
+    workflow_id: str
+    data: Optional[Dict[str, Any]] = None
+
+
+@app.get("/workflows", response_model=List[WorkflowResponse])
+async def list_workflows():
+    """List all n8n workflows"""
+    try:
+        workflows = await n8n_client.list_workflows()
+        return workflows
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list workflows: {str(e)}",
+        )
+
+
+@app.get("/workflows/{workflow_id}", response_model=WorkflowResponse)
+async def get_workflow(workflow_id: str):
+    """Get a specific n8n workflow by ID"""
+    try:
+        workflow = await n8n_client.get_workflow(workflow_id)
+        return workflow
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow with ID {workflow_id} not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get workflow: {str(e)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get workflow: {str(e)}",
+        )
+
+
+@app.post("/workflows/{workflow_id}/execute", response_model=WorkflowExecutionResponse)
+async def execute_workflow(workflow_id: str, request: WorkflowExecuteRequest):
+    """Execute a specific n8n workflow by ID"""
+    try:
+        execution = await n8n_client.execute_workflow(workflow_id, request.data)
+        return execution
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Workflow with ID {workflow_id} not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute workflow: {str(e)}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute workflow: {str(e)}",
+        )
 
 
 @app.post("/storage/upload", response_model=StorageResponse)
