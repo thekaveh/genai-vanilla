@@ -738,19 +738,70 @@ The backend service is configured to use Redis for:
 - **Pub/Sub**: Enabling real-time messaging between components
 - **Geohashing**: Supporting geospatial operations and queries
 
-## 14. TODO – Future Candidate Services
+## 14. n8n Workflow Automation Service
+
+The n8n service provides a powerful workflow automation platform that can be used to create, schedule, and monitor automated workflows.
+
+### 14.1. Overview
+
+- **Image**: Uses the official `n8nio/n8n:latest` image
+- **Database**: Uses the Supabase PostgreSQL database for storing workflows and execution data
+- **Queue Management**: Uses Redis for workflow execution queueing
+- **Authentication**: Protected with basic authentication
+- **Port**: Available at `http://localhost:${N8N_PORT}` (configured via `N8N_PORT`)
+- **Dependencies**: Starts after the successful completion of the `supabase-db-init` and `ollama-pull` services
+
+### 14.2. Features
+
+- **Visual Workflow Editor**: Create workflows with a drag-and-drop interface
+- **Node-Based Architecture**: Connect different services and actions using nodes
+- **Scheduling**: Run workflows on a schedule or trigger them based on events
+- **Error Handling**: Configure retry logic and error workflows
+- **Credentials Management**: Securely store and manage credentials for various services
+- **Extensibility**: Create custom nodes for specific use cases
+
+### 14.3. Integration with Other Services
+
+- **Backend Service**: The backend service can trigger n8n workflows for tasks like data processing, notifications, and more
+- **Supabase PostgreSQL**: n8n uses the Supabase database for storing workflows and execution data
+- **Redis**: n8n uses Redis for queue management, improving reliability and scalability of workflow executions
+
+### 14.4. Configuration
+
+The n8n service can be configured through the following environment variables:
+
+- `N8N_PORT`: The port on which n8n is accessible (default: 63014)
+- `N8N_ENCRYPTION_KEY`: The encryption key used to secure credentials and other sensitive data
+- `N8N_AUTH_ENABLED`: Whether authentication is enabled (default: true)
+- `N8N_BASIC_AUTH_ACTIVE`: Whether basic authentication is active (default: true)
+- `N8N_BASIC_AUTH_USER`: The username for basic authentication
+- `N8N_BASIC_AUTH_PASSWORD`: The password for basic authentication
+- `N8N_HOST`: The hostname for n8n (default: localhost)
+- `N8N_PROTOCOL`: The protocol for n8n (default: http)
+- `N8N_PATH`: The base path for n8n (default: /)
+- `N8N_EXECUTIONS_MODE`: The execution mode for n8n (default: queue)
+
+### 14.5. Usage Examples
+
+n8n can be used for a wide variety of automation tasks, including:
+
+- **Data Processing**: Automatically process and transform data from various sources
+- **Notifications**: Send notifications to Slack, email, or other channels based on events
+- **Scheduled Tasks**: Run tasks on a schedule, such as nightly vector database refreshes
+- **API Integrations**: Connect to external APIs to fetch or send data
+- **Conditional Logic**: Create complex workflows with conditional branching
+- **Error Handling**: Configure retry logic and error workflows
+
+## 15. TODO – Future Candidate Services
 
 | Service | Purpose | Benefits | Effort |
 |---------|---------|----------|--------|
 | **Supabase Realtime** | Logical-replication → WebSocket change-feeds | 📡 Pushes DB updates to UI/backend without polling; powers presence channels | Medium |
-| **n8n** | Low-code workflow/ETL/cron orchestrator | 🛠 Automates nightly vector refresh, Slack alerts, SaaS integrations | Medium |
 
-### 14.1 Planned Roll-out Order
+### 15.1 Planned Roll-out Order
 1. **Supabase Realtime** – add `supabase/realtime`, configure `wal_level=logical`, create replication slot, expose `/realtime/v1` via Kong, consume channels in Open Web UI & backend.
-2. **n8n** – add `n8n` service with own Postgres DB (or reuse Supabase), secure with basic auth/OIDC, route triggers through Kong, craft starter workflows (vector re-index, health alerts).
 
-### 14.2 Why These Services?
+### 15.2 Why This Service?
 * **Supabase Realtime** piggybacks on existing Postgres to deliver live updates without third-party services.
-* **n8n** provides a no-code automation layer, letting ops & data tasks evolve without backend changes.
 
 > The table and reasoning should help contributors understand the roadmap and rationalize PRs around these additions.

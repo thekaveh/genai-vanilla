@@ -391,6 +391,11 @@ services:
       N8N_RUNNERS_ENABLED: true
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
       NODE_OPTIONS: --max_old_space_size=512
+      EXECUTIONS_MODE: ${N8N_EXECUTIONS_MODE:-queue}
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      QUEUE_BULL_REDIS_DB: 0
     ports:
       - "${N8N_PORT}:5678"
     volumes:
