@@ -18,11 +18,12 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 ## 2. Features
 
 - **2.1. API Gateway (Kong)**: Centralized API management, authentication, and routing for backend services.
-- **2.2. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose files (e.g., `docker-compose.dev-ollama-local.yml` for local Ollama, `docker-compose.prod-gpu.yml` for GPU support).
-- **2.3. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
-- **2.4. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
-- **2.5. Environment-based Configuration**: Easy configuration through environment variables
-- **2.6. Explicit Initialization Control**: Uses a dedicated `supabase-db-init` service to manage custom database setup after the base database starts.
+- **2.2. Real-time Data Synchronization**: Live database change notifications via Supabase Realtime WebSocket connections.
+- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose files (e.g., `docker-compose.dev-ollama-local.yml` for local Ollama, `docker-compose.prod-gpu.yml` for GPU support).
+- **2.4. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
+- **2.5. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
+- **2.6. Environment-based Configuration**: Easy configuration through environment variables
+- **2.7. Explicit Initialization Control**: Uses a dedicated `supabase-db-init` service to manage custom database setup after the base database starts.
 
 ## 3. Getting Started
 
@@ -161,12 +162,14 @@ This will:
 - SUPABASE_STORAGE_PORT = BASE_PORT + 5
 - SUPABASE_AUTH_PORT = BASE_PORT + 6
 - SUPABASE_API_PORT = BASE_PORT + 7
-- SUPABASE_STUDIO_PORT = BASE_PORT + 8
-- GRAPH_DB_PORT = BASE_PORT + 9
-- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 10
-- OLLAMA_PORT = BASE_PORT + 11
-- OPEN_WEB_UI_PORT = BASE_PORT + 12
-- BACKEND_PORT = BASE_PORT + 13
+- SUPABASE_REALTIME_PORT = BASE_PORT + 8
+- SUPABASE_STUDIO_PORT = BASE_PORT + 9
+- GRAPH_DB_PORT = BASE_PORT + 10
+- GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 11
+- OLLAMA_PORT = BASE_PORT + 12
+- OPEN_WEB_UI_PORT = BASE_PORT + 13
+- BACKEND_PORT = BASE_PORT + 14
+- N8N_PORT = BASE_PORT + 15
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
@@ -409,14 +412,45 @@ openssl rand -hex 32
    - In the "VERIFY SIGNATURE" section, enter your JWT secret
    - Copy the generated tokens to your .env file for SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY variables
 
-#### 6.1.5. Supabase Studio Dashboard
+#### 6.1.5. Supabase Realtime Service
+
+The Supabase Realtime service provides real-time database change notifications via WebSocket connections:
+
+- **API Endpoint**: Available at http://localhost:${SUPABASE_REALTIME_PORT} (configured via `SUPABASE_REALTIME_PORT`)
+- **WebSocket Endpoint**: Available at `ws://localhost:${KONG_HTTP_PORT}/realtime/v1/` (via Kong API Gateway)
+- **Features**:
+  - Real-time database change notifications via logical replication
+  - Presence channels for tracking online users
+  - Broadcast messaging between clients
+  - Row-Level Security (RLS) enforcement for secure channels
+- **Configuration**:
+  - Uses logical replication with dedicated replication slot (`supabase_realtime_slot`)
+  - JWT authentication using the same tokens as other Supabase services
+  - Configurable channel security and access control
+- **Dependencies**: Requires Supabase DB, Auth, and API services
+- **Integration**: Accessible through Kong API Gateway for centralized routing and policy enforcement
+
+**Usage Examples:**
+
+- **Connect to WebSocket**: `ws://localhost:${KONG_HTTP_PORT}/realtime/v1/websocket`
+- **Subscribe to table changes**: Listen for INSERT, UPDATE, DELETE events on specific tables
+- **Presence channels**: Track which users are currently online in your application
+- **Broadcast messages**: Send real-time messages between connected clients
+
+**Authentication:**
+- Use the same JWT tokens as other Supabase services
+- Anonymous access: Include `apikey=${SUPABASE_ANON_KEY}` in WebSocket connection
+- Authenticated access: Include `apikey=user_jwt_token` in WebSocket connection
+
+#### 6.1.6. Supabase Studio Dashboard
 
 The Supabase Studio provides a modern web-based administration interface for PostgreSQL:
 
 - **Accessible**: Available at http://localhost:${SUPABASE_STUDIO_PORT} (configured via `SUPABASE_STUDIO_PORT`)
 - **Database**: The dashboard automatically connects to the PostgreSQL database
-- **Features**: Table editor, SQL editor, database structure visualization, and more
+- **Features**: Table editor, SQL editor, database structure visualization, real-time connection monitoring, and more
 - **Authentication**: Integrated with the Auth service for user management
+- **Realtime Integration**: Shows active realtime connections and channel subscriptions
 
 ### 6.2. Neo4j Graph Database (neo4j-graph-db)
 
@@ -792,16 +826,30 @@ n8n can be used for a wide variety of automation tasks, including:
 - **Conditional Logic**: Create complex workflows with conditional branching
 - **Error Handling**: Configure retry logic and error workflows
 
-## 15. TODO – Future Candidate Services
+## 15. Completed Integrations
 
-| Service | Purpose | Benefits | Effort |
-|---------|---------|----------|--------|
-| **Supabase Realtime** | Logical-replication → WebSocket change-feeds | 📡 Pushes DB updates to UI/backend without polling; powers presence channels | Medium |
+### 15.1 Supabase Realtime ✅
 
-### 15.1 Planned Roll-out Order
-1. **Supabase Realtime** – add `supabase/realtime`, configure `wal_level=logical`, create replication slot, expose `/realtime/v1` via Kong, consume channels in Open Web UI & backend.
+**Status**: Fully integrated and operational
 
-### 15.2 Why This Service?
-* **Supabase Realtime** piggybacks on existing Postgres to deliver live updates without third-party services.
+**Implementation Details**:
+- ✅ Added `supabase/realtime:v2.33.72` service to all Docker Compose flavors
+- ✅ Configured `wal_level=logical` for PostgreSQL logical replication
+- ✅ Created dedicated replication slot (`supabase_realtime_slot`)
+- ✅ Exposed `/realtime/v1` endpoint via Kong API Gateway
+- ✅ Added required database extensions (`pgcrypto`) and schema (`realtime`)
+- ✅ Configured proper service dependencies and environment variables
+- ✅ Updated port assignments and documentation
 
-> The table and reasoning should help contributors understand the roadmap and rationalize PRs around these additions.
+**Features Available**:
+- Real-time database change notifications via WebSocket
+- Presence channels for tracking online users
+- Broadcast messaging between clients
+- Row-Level Security (RLS) enforcement for secure channels
+- Integration with existing JWT authentication system
+
+**Access Points**:
+- WebSocket: `ws://localhost:${KONG_HTTP_PORT}/realtime/v1/websocket`
+- Direct API: `http://localhost:${SUPABASE_REALTIME_PORT}`
+
+> This integration enables live data synchronization without polling, providing a foundation for real-time features in Open Web UI, backend services, and future frontend applications.

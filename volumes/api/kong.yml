@@ -114,7 +114,7 @@ services:
 
   ## Secure Realtime routes
   - name: realtime-v1-ws
-    url: http://realtime-dev.supabase-realtime:4000/socket
+    url: http://supabase-realtime:4000/socket
     protocol: ws
     routes:
       - name: realtime-v1-ws
@@ -133,7 +133,7 @@ services:
       #       - admin
       #       - anon
   - name: realtime-v1-rest
-    url: http://realtime-dev.supabase-realtime:4000/api
+    url: http://supabase-realtime:4000/api
     protocol: http
     routes:
       - name: realtime-v1-rest

@@ -90,6 +90,7 @@ if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
   unset SUPABASE_STORAGE_PORT
   unset SUPABASE_AUTH_PORT
   unset SUPABASE_API_PORT
+  unset SUPABASE_REALTIME_PORT
   unset SUPABASE_STUDIO_PORT
   unset GRAPH_DB_PORT
   unset GRAPH_DB_DASHBOARD_PORT
@@ -184,6 +185,7 @@ PORT_VARS=(
   "SUPABASE_STORAGE_PORT"
   "SUPABASE_AUTH_PORT"
   "SUPABASE_API_PORT"
+  "SUPABASE_REALTIME_PORT"
   "SUPABASE_STUDIO_PORT"
   "GRAPH_DB_PORT"
   "GRAPH_DB_DASHBOARD_PORT"
@@ -223,13 +225,14 @@ SUPABASE_META_PORT=$(($BASE_PORT + 4))
 SUPABASE_STORAGE_PORT=$(($BASE_PORT + 5))
 SUPABASE_AUTH_PORT=$(($BASE_PORT + 6))
 SUPABASE_API_PORT=$(($BASE_PORT + 7))
-SUPABASE_STUDIO_PORT=$(($BASE_PORT + 8))
-GRAPH_DB_PORT=$(($BASE_PORT + 9))
-GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 10))
-OLLAMA_PORT=$(($BASE_PORT + 11))
-OPEN_WEB_UI_PORT=$(($BASE_PORT + 12))
-BACKEND_PORT=$(($BASE_PORT + 13))
-N8N_PORT=$(($BASE_PORT + 14))
+SUPABASE_REALTIME_PORT=$(($BASE_PORT + 8))
+SUPABASE_STUDIO_PORT=$(($BASE_PORT + 9))
+GRAPH_DB_PORT=$(($BASE_PORT + 10))
+GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 11))
+OLLAMA_PORT=$(($BASE_PORT + 12))
+OPEN_WEB_UI_PORT=$(($BASE_PORT + 13))
+BACKEND_PORT=$(($BASE_PORT + 14))
+N8N_PORT=$(($BASE_PORT + 15))
 EOF
 
 echo "✅ .env file generated successfully!"
@@ -244,6 +247,7 @@ VERIFIED_SUPABASE_META_PORT=$(grep "^SUPABASE_META_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_STORAGE_PORT=$(grep "^SUPABASE_STORAGE_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_AUTH_PORT=$(grep "^SUPABASE_AUTH_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_API_PORT=$(grep "^SUPABASE_API_PORT=" .env | cut -d '=' -f2)
+VERIFIED_SUPABASE_REALTIME_PORT=$(grep "^SUPABASE_REALTIME_PORT=" .env | cut -d '=' -f2)
 VERIFIED_SUPABASE_STUDIO_PORT=$(grep "^SUPABASE_STUDIO_PORT=" .env | cut -d '=' -f2)
 VERIFIED_GRAPH_DB_PORT=$(grep "^GRAPH_DB_PORT=" .env | cut -d '=' -f2)
 VERIFIED_GRAPH_DB_DASHBOARD_PORT=$(grep "^GRAPH_DB_DASHBOARD_PORT=" .env | cut -d '=' -f2)
@@ -263,6 +267,7 @@ printf "  • %-35s %s\n" "Supabase Meta Service:" "$VERIFIED_SUPABASE_META_PORT
 printf "  • %-35s %s\n" "Supabase Storage Service:" "$VERIFIED_SUPABASE_STORAGE_PORT"
 printf "  • %-35s %s\n" "Supabase Auth Service:" "$VERIFIED_SUPABASE_AUTH_PORT"
 printf "  • %-35s %s\n" "Supabase API (PostgREST):" "$VERIFIED_SUPABASE_API_PORT"
+printf "  • %-35s %s\n" "Supabase Realtime:" "$VERIFIED_SUPABASE_REALTIME_PORT"
 printf "  • %-35s %s\n" "Supabase Studio Dashboard:" "$VERIFIED_SUPABASE_STUDIO_PORT"
 printf "  • %-35s %s\n" "Neo4j Graph Database (Bolt):" "$VERIFIED_GRAPH_DB_PORT"
 printf "  • %-35s %s\n" "Neo4j Graph Database (Dashboard):" "$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
@@ -351,6 +356,7 @@ if [[ "$PROFILE" == "default" ]]; then
     "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
     "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
     "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
+    "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
     "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
     "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
     "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"

@@ -93,6 +93,8 @@ services:
         condition: service_started
       supabase-api:
         condition: service_started
+      supabase-realtime:
+        condition: service_started
       supabase-storage:
         condition: service_started
       supabase-meta:
@@ -201,6 +203,50 @@ services:
     networks:
       - backend-bridge-network
 
+  supabase-realtime:
+    image: supabase/realtime:v2.33.72
+    container_name: ${PROJECT_NAME}-supabase-realtime
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      supabase-auth:
+        condition: service_started
+      supabase-api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      # Database connection
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_NAME: ${SUPABASE_DB_NAME}
+      DB_USER: ${SUPABASE_DB_USER}
+      DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      # Replication configuration
+      DB_SLOT: supabase_realtime_slot
+      DB_CHANNEL_ENABLED: "true"
+      # JWT configuration
+      JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      JWT_ROLE: service_role
+      # Server configuration
+      PORT: 4000
+      REPLICATION_MODE: RLS
+      SECURE_CHANNELS: "true"
+      # Additional configuration
+      IP_VERSION: ipv4
+      # Required Phoenix/Erlang configuration
+      SECRET_KEY_BASE: ${SUPABASE_JWT_SECRET}
+      RLIMIT_NOFILE: 65536
+      ERL_AFLAGS: "-proto_dist inet_tcp"
+      HOSTNAME: supabase-realtime
+      FLY_APP_NAME: ${PROJECT_NAME}-realtime
+      APP_NAME: realtime
+    ports:
+      - "${SUPABASE_REALTIME_PORT}:4000"
+    networks:
+      - backend-bridge-network
+
   supabase-studio:
     image: supabase/studio:latest
     container_name: ${PROJECT_NAME}-supabase-studio
@@ -215,6 +261,8 @@ services:
       supabase-auth:
         condition: service_started
       supabase-api:
+        condition: service_started
+      supabase-realtime:
         condition: service_started
       kong-api-gateway:
         condition: service_started
@@ -314,6 +362,8 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
+      supabase-realtime:
+        condition: service_started
       supabase-storage:
         condition: service_started
       kong-api-gateway:
@@ -347,6 +397,8 @@ services:
       redis:
         condition: service_started
       supabase-storage:
+        condition: service_started
+      supabase-realtime:
         condition: service_started
       kong-api-gateway:
         condition: service_started

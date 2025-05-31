@@ -18,3 +18,20 @@ END
 $$;
 
 -- Add any other custom functions here
+
+-- Enable logical replication for Realtime
+DO $$
+BEGIN
+  -- Check if wal_level is not already logical
+  IF current_setting('wal_level') != 'logical' THEN
+    ALTER SYSTEM SET wal_level = 'logical';
+    -- Note: This requires a database restart to take effect
+  END IF;
+END $$;
+
+-- Create replication slot for realtime if it doesn't exist
+SELECT pg_create_logical_replication_slot('supabase_realtime_slot', 'pgoutput')
+WHERE NOT EXISTS (
+  SELECT 1 FROM pg_replication_slots 
+  WHERE slot_name = 'supabase_realtime_slot'
+);
