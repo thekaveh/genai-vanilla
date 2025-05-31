@@ -23,6 +23,7 @@ graph LR
         supabase-storage[supabase-storage]
         supabase-auth[supabase-auth]
         supabase-api[supabase-api]
+        supabase-realtime[supabase-realtime]
         supabase-studio[supabase-studio]
         end
         neo4j-graph-db[neo4j-graph-db]
@@ -55,6 +56,7 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> supabase-storage
     supabase-db-init -- "Completes Successfully" --> supabase-auth
     supabase-db-init -- "Completes Successfully" --> supabase-api
+    supabase-db-init -- "Completes Successfully" --> supabase-realtime
     supabase-db-init -- "Completes Successfully" --> supabase-studio
     supabase-db-init -- "Completes Successfully" --> ollama-pull
     supabase-db-init -- "Completes Successfully" --> open-web-ui
@@ -67,6 +69,7 @@ graph LR
     supabase-auth --> kong-api-gateway
     supabase-api --> kong-api-gateway
     supabase-storage --> kong-api-gateway
+    supabase-realtime --> kong-api-gateway
     supabase-studio -- API Calls --> kong-api-gateway
     backend -- "HTTP API Calls (Auth, Storage)" --> kong-api-gateway
     open-web-ui -- API Calls --> kong-api-gateway
@@ -74,6 +77,7 @@ graph LR
     kong-api-gateway -- Routes --> supabase-auth
     kong-api-gateway -- Routes --> supabase-api
     kong-api-gateway -- Routes --> supabase-storage
+    kong-api-gateway -- Routes --> supabase-realtime
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
     kong-api-gateway -- Routes --> n8n
@@ -82,6 +86,7 @@ graph LR
     kong-api-gateway -- "Depends on" --> supabase-auth
     kong-api-gateway -- "Depends on" --> supabase-api
     kong-api-gateway -- "Depends on" --> supabase-storage
+    kong-api-gateway -- "Depends on" --> supabase-realtime
     kong-api-gateway -- "Depends on" --> supabase-meta
 
     backend -- "Bolt (Direct)" --> neo4j-graph-db
@@ -99,12 +104,15 @@ graph LR
     %% Add dependency of Studio on Kong
     supabase-studio -- "Depends on" --> kong-api-gateway
     open-web-ui -- "Storage API via Kong" --> kong-api-gateway
+    
+    %% Realtime logical replication connection
+    supabase-realtime -- "Logical Replication" --> supabase-db
 
 
     %% Apply styles
     classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
     class supabase-db,neo4j-graph-db database
-    class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-studio database
+    class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
     class ollama,ollama-pull ai
     class open-web-ui ui
     class backend api
