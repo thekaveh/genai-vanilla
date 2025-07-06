@@ -167,14 +167,21 @@ This will:
 - GRAPH_DB_PORT = BASE_PORT + 10
 - GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 11
 - OLLAMA_PORT = BASE_PORT + 12
-- OPEN_WEB_UI_PORT = BASE_PORT + 13
-- BACKEND_PORT = BASE_PORT + 14
-- N8N_PORT = BASE_PORT + 15
+- LOCAL_DEEP_RESEARCHER_PORT = BASE_PORT + 13
+- OPEN_WEB_UI_PORT = BASE_PORT + 14
+- BACKEND_PORT = BASE_PORT + 15
+- N8N_PORT = BASE_PORT + 16
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
 - The script automatically uses this flag to ensure Docker Compose reads the updated environment variables
 - When running Docker Compose manually, always include this flag: `docker compose --env-file=.env ...`
+
+**Troubleshooting Research Integration:**
+- Research service health: `curl http://localhost:${BACKEND_PORT}/research/health`
+- Check local-deep-researcher status: `docker compose ps local-deep-researcher`
+- View research logs: `docker compose logs local-deep-researcher`
+- For detailed troubleshooting: See section 15.3 "Deep Researcher Integration"
 
 #### stop.sh
 
@@ -511,23 +518,216 @@ The Ollama service is configured for different environments using standalone Doc
 - **dev-ollama-local (docker-compose.dev-ollama-local.yml)**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
 - **prod-gpu (docker-compose.prod-gpu.yml)**: Complete stack with NVIDIA GPU acceleration for the Ollama container
 
-The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the `llms` table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
+The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the LLMs table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
 
-### 7.2. Open Web UI
+### 7.2. Local Deep Researcher Service
 
-The Open Web UI service provides a web interface for interacting with the Ollama models:
+The Local Deep Researcher service provides an advanced AI-powered research platform built on LangGraph for conducting comprehensive web research tasks:
+
+- **API Endpoint**: Available at http://localhost:${LOCAL_DEEP_RESEARCHER_PORT} (configured via `LOCAL_DEEP_RESEARCHER_PORT`)
+- **LangGraph Server**: Runs a LangGraph development server internally on port 2024, exposed via the configured port
+- **Database Integration**: Automatically queries the Supabase database to detect and use active LLM models
+- **Dynamic Configuration**: Adapts to your preferred LLM setup by reading from the LLMs table
+- **Web Research**: Performs multi-source web scraping and research with configurable depth and search backends
+
+#### 7.2.1. Features
+
+- **Intelligent Model Selection**: Automatically detects active Ollama models from the database, with preference for Ollama providers
+- **Configurable Research Depth**: Adjustable number of research loops via `LOCAL_DEEP_RESEARCHER_LOOPS` (default: 3)
+- **Multiple Search Backends**: Supports DuckDuckGo and other search APIs via `LOCAL_DEEP_RESEARCHER_SEARCH_API`
+- **LangGraph Integration**: Built on LangGraph for advanced workflow orchestration and AI agent management
+- **Persistent Storage**: Research data and results stored in Docker volumes for persistence between restarts
+
+#### 7.2.2. Configuration
+
+The Local Deep Researcher service is configured through environment variables and database queries:
+
+- **Environment Variables**:
+  - `LOCAL_DEEP_RESEARCHER_PORT`: Port to expose the service (default: 63013)
+  - `LOCAL_DEEP_RESEARCHER_LOOPS`: Number of research iteration loops (default: 3)
+  - `LOCAL_DEEP_RESEARCHER_SEARCH_API`: Search backend to use (default: DuckDuckGo)
+
+- **Database Integration**:
+  - Queries `public.llms` table for active content LLMs: `SELECT provider, name FROM public.llms WHERE active = true AND content = true ORDER BY provider = 'ollama' DESC, name LIMIT 1`
+  - Automatically configures runtime settings based on detected models
+  - Falls back to llama3.2 if no active models are found
+
+#### 7.2.3. Dependencies and Startup
+
+The Local Deep Researcher service depends on:
+- **Supabase Database**: For LLM configuration queries and potential data storage
+- **Ollama Service**: For AI model inference (either containerized or local host)
+- **Ollama Pull Service**: Ensures required models are available before startup
+
+#### 7.2.4. Different Deployment Configurations
+
+The service adapts to different deployment scenarios:
+
+- **Default (docker-compose.yml)**: Connects to containerized Ollama service
+- **Development (docker-compose.dev-ollama-local.yml)**: Connects to local host Ollama instance
+- **Production (docker-compose.prod-gpu.yml)**: Connects to GPU-accelerated containerized Ollama
+
+#### 7.2.5. Usage
+
+Once running, the Local Deep Researcher provides:
+- **Web Interface**: Accessible via browser for managing research tasks
+- **API Endpoints**: RESTful API for programmatic research task submission
+- **Research Workflows**: Automated multi-step research processes with web scraping and analysis
+- **Result Management**: Persistent storage and retrieval of research findings
+
+### 7.3. Open Web UI
+
+The Open Web UI service provides a web interface for interacting with AI models:
 
 - **Accessible**: Available at http://localhost:${OPEN_WEB_UI_PORT} (configured via `OPEN_WEB_UI_PORT`)
-- **Automatic Connection**: Automatically connects to the Ollama API endpoint
-- **Database Integration**: Uses the Supabase PostgreSQL database (`DATABASE_URL`) for storing conversations and settings.
-- **Storage Interaction**: Interacts with the Supabase Storage API (likely via the Kong API Gateway) for file operations.
-- **Dependencies**: Depends on Ollama, Supabase DB, Ollama Pull, and Supabase Storage services.
+- **Model Integration**: Connects to Ollama API endpoint for standard AI chat functionality
+- **Database Integration**: Uses the Supabase PostgreSQL database (`DATABASE_URL`) for storing conversations and settings
+- **Storage Interaction**: Interacts with the Supabase Storage API (via the Kong API Gateway) for file operations
+- **Deep Researcher Integration**: Multiple ways to access research capabilities:
+    - **Functions**: Slash commands like `/deep_researcher` for user-triggered research (auto-loaded)
+    - **Tools**: AI-invoked research capabilities that models can use automatically (manual import)
+    - **Shared Architecture**: Common research client eliminates code duplication
+    - **Manual Setup**: Tools require one-time manual import via Open-WebUI admin interface
+    - **Database-driven**: Research uses active models from the `llms` table (qwen3:latest by default)
+    - **Real-time Updates**: Progress indicators and status updates during research operations
+- **Volume Mounts**: 
+    - `open-web-ui-data:/app/backend/data` - Persistent data storage
+    - `./open-webui/functions:/app/backend/data/functions` - Custom functions directory
+- **Generic Image**: Uses standard `dyrnq/open-webui:latest` for reliability and simplicity
+- **Dependencies**: Depends on Ollama, Supabase DB, Ollama Pull, Local Deep Researcher, and Supabase Storage services
 - **Configuration**:
-    - `OLLAMA_BASE_URL`: URL for Ollama API.
-    - `DATABASE_URL`: PostgreSQL connection string for Supabase.
-    - `WEBUI_SECRET_KEY`: Secret key for Open Web UI.
+    - `OLLAMA_BASE_URL`: URL for Ollama API
+    - `DATABASE_URL`: PostgreSQL connection string for Supabase
+    - `WEBUI_SECRET_KEY`: Secret key for Open Web UI
 
-### 7.3. Backend API Service
+**Usage**: 
+- **Functions**: Type `/deep_researcher {"query": "your question"}` for user-controlled research (works immediately)
+- **Tools**: AI models automatically invoke research when they need current information (requires manual import)
+- **Manual Setup**: Import tools via Open-WebUI admin interface → Tools → Add New Tool
+
+#### 7.3.1. Open-WebUI Directory Structure
+
+The `open-webui/` folder contains custom integrations:
+
+- `functions/` - Custom functions invoked via slash commands (auto-loaded via volume mount)
+- `tools/` - AI tools for manual import into Open-WebUI
+- `shared/` - Common modules to avoid code duplication between functions and tools
+
+#### 7.3.2. Functions vs Tools
+
+**Functions**:
+- **Purpose**: User-invoked utilities via slash commands
+- **Usage**: Type `/function_name` in chat to execute
+- **Loading**: Automatically loaded via volume mount
+- **Implementation**: Simple Python scripts with a `main()` function
+- **Best for**: Direct user control, immediate execution
+
+**Tools**:
+- **Purpose**: AI capabilities that models can invoke automatically
+- **Usage**: Models decide when to use them during conversations
+- **Loading**: Manual import through Open-WebUI admin interface
+- **Implementation**: Class-based with `Tools` class and `Valves` configuration
+- **Best for**: AI-enhanced capabilities, seamless integration
+
+#### 7.3.3. Available Deep Researcher Functions
+
+These functions are automatically available when you start any docker-compose flavor:
+
+- `/deep_researcher` - Advanced research with progress tracking
+- `/deep_researcher_manual` - Research with custom parameters
+- `/deep_researcher_pipe` - Pipeline-based research agent
+
+**Usage Example**:
+```bash
+/deep_researcher {"query": "Latest AI developments in 2024", "max_loops": 3}
+```
+
+#### 7.3.4. Tool Configuration
+
+**Research Service Settings**:
+All research operations use the Local Deep Researcher service which:
+- Uses the default LLM from the database (LLMs table)
+- Connects via the backend API at `http://backend:8000`
+- Supports configurable research depth and search engines
+
+**Tool Configuration (Valves)**:
+Once imported, tools can be configured via the Valves interface:
+- `backend_url`: Backend service URL (default: `http://backend:8000`)
+- `timeout`: Maximum research time (default: 300 seconds)
+- `poll_interval`: Status check interval (default: 5 seconds)
+- `default_max_loops`: Research depth (default: 3)
+- `default_search_api`: Search engine (default: DuckDuckGo)
+
+#### 7.3.5. Development Guidelines
+
+**Adding a New Function**:
+1. Create a Python file in `open-webui/functions/` with metadata header:
+   ```python
+   """
+   title: My Function
+   author: Your Name
+   description: What it does
+   requirements: requests
+   version: 1.0.0
+   """
+   
+   def main(body: dict) -> dict:
+       # Implementation
+   ```
+2. Restart container to load new function
+
+**Adding a New Tool**:
+1. Create a Python file in `open-webui/tools/` with metadata header
+2. Implement `Tools` class with methods and `Valves`:
+   ```python
+   class Tools:
+       class Valves(BaseModel):
+           # Configuration parameters
+           
+       def __init__(self):
+           self.valves = self.Valves()
+           
+       def my_tool_method(self, param: str) -> str:
+           """Tool method description"""
+           # Implementation
+   ```
+3. Manually import via Open-WebUI admin interface
+4. Enable for desired models
+
+**Using Shared Modules**:
+```python
+import sys
+from pathlib import Path  # Python standard library
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from shared.research_client import ResearchClient
+```
+
+#### 7.3.6. Troubleshooting
+
+**Functions Not Working**:
+1. Check Open-WebUI logs for import errors
+2. Verify function syntax and metadata format
+3. Ensure all requirements are available
+4. Restart container if needed
+
+**Tools Not Appearing**:
+1. Check that tool was successfully imported via admin interface
+2. Verify tool syntax matches Open-WebUI requirements
+3. Check model settings to ensure tool is enabled
+4. Look for errors in Open-WebUI logs
+
+**Research Failures**:
+1. Verify Local Deep Researcher service is running:
+   ```bash
+   docker compose ps local-deep-researcher
+   ```
+2. Check backend service connectivity:
+   ```bash
+   curl http://localhost:${BACKEND_PORT}/research/health
+   ```
+3. Ensure default LLM is configured in database
+
+### 7.4. Backend API Service
 
 The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference. It interacts with Supabase Storage via the Kong API Gateway. Its own API is also exposed through the Kong gateway.
 
@@ -543,7 +743,19 @@ The Backend service provides a FastAPI-based REST API that connects to Supabase 
   - DSPy framework for advanced prompt engineering and LLM optimization
   - Integration with Ollama for local AI model inference
   - Support for multiple LLM providers (OpenAI, Groq, etc.)
+  - Comprehensive research API integration with Local Deep Researcher
+  - Async task management for long-running research operations
+  - Session tracking and result persistence
   - Dependency management with uv instead of pip/virtualenv
+
+- **Research API Endpoints**:
+  - `POST /research/start` - Start new research session
+  - `GET /research/{session_id}/status` - Check research progress
+  - `GET /research/{session_id}/result` - Get completed results
+  - `POST /research/{session_id}/cancel` - Cancel running research
+  - `GET /research/{session_id}/logs` - Get detailed process logs
+  - `GET /research/sessions` - List user research history
+  - `GET /research/health` - Service health check
 
 #### 7.3.1. Configuration
 
@@ -853,3 +1065,572 @@ n8n can be used for a wide variety of automation tasks, including:
 - Direct API: `http://localhost:${SUPABASE_REALTIME_PORT}`
 
 > This integration enables live data synchronization without polling, providing a foundation for real-time features in Open Web UI, backend services, and future frontend applications.
+
+### 15.2 Local Deep Researcher ✅
+
+**Status**: Fully integrated and operational
+
+**Implementation Details**:
+- ✅ Added `local-deep-researcher` service to all Docker Compose flavors (default, dev-ollama-local, prod-gpu)
+- ✅ Built custom Docker container with LangGraph CLI and uv package management
+- ✅ Implemented database-driven configuration that queries `public.llms` table for active models
+- ✅ Created initialization scripts for dynamic LLM detection and runtime configuration
+- ✅ Added proper service dependencies (supabase-db-init, ollama-pull)
+- ✅ Configured health checks and restart policies
+- ✅ Updated port assignments and environment variables
+- ✅ Added persistent volume for research data storage
+
+**Features Available**:
+- AI-powered web research with configurable depth and search backends
+- Automatic LLM model detection from database with Ollama preference
+- LangGraph-based workflow orchestration for complex research tasks
+- Configurable search APIs (DuckDuckGo default) and research iteration loops
+- Persistent storage for research findings and workflow data
+- Multi-deployment support (containerized/local/GPU-accelerated Ollama)
+
+**Access Points**:
+- Web Interface: `http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}` (default: 55679)
+- LangGraph Server: Internal port 2024, exposed via configured port
+- Research Data: Stored in `local-deep-researcher-data` Docker volume
+
+**Configuration**:
+- Environment variables: `LOCAL_DEEP_RESEARCHER_LOOPS`, `LOCAL_DEEP_RESEARCHER_SEARCH_API`
+- Database integration: Automatic query of `public.llms` table for model selection
+- Fallback configuration: llama3.2 model if no active models detected
+
+> This integration provides advanced AI research capabilities, enabling automated multi-source web research with intelligent model selection and persistent result storage.
+
+### 15.3 Deep Researcher Integration ✅
+
+**Status**: Fully integrated with dynamic LLM selection and Pipe-based Open-WebUI interface
+
+**Overview**: The Deep Researcher integration provides comprehensive AI-powered web research capabilities with database-driven model selection, accessible through multiple interfaces including a modern Pipe function in Open-WebUI.
+
+#### Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Open-WebUI    │    │      n8n        │    │   External      │
+│  (Pipe Interface)│    │   Workflows     │    │   Applications  │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          │ Pipe Function        │ HTTP Requests        │ REST API
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                    ┌─────────────▼───────────┐
+                    │     Backend API         │
+                    │   (FastAPI Service)     │
+                    └─────────────┬───────────┘
+                                  │ HTTP Client
+                                  │
+                    ┌─────────────▼───────────┐
+                    │ Local Deep Researcher   │◄──────┐
+                    │   (LangGraph Service)   │       │
+                    └─────────────┬───────────┘       │ Config
+                                  │                    │
+          ┌───────────────────────┼────────────────────┼───────┐
+          │                       │                    │       │
+    ┌─────▼─────┐       ┌─────────▼────────┐    ┌────▼────┐  │
+    │ Supabase  │       │     Ollama       │◄───│ Ollama  │  │
+    │ Database  │       │   AI Models      │    │  Pull   │  │
+    │  + llms   │       │  (qwen3:latest)  │    │ Service │  │
+    │   table   │       └──────────────────┘    └─────────┘  │
+    └───────────┘                                             │
+          │                                                   │
+          └───────────────────────────────────────────────────┘
+                        Model Configuration Flow
+```
+
+#### Components
+
+**1. Database Layer (Supabase)**
+
+**Research Tables**:
+- `research_sessions`: Track research requests and status
+- `research_results`: Store completed research findings
+- `research_sources`: Individual sources and references
+- `research_logs`: Step-by-step research process logs
+
+**LLM Configuration Table**:
+- `llms`: Manages available AI models
+  - `active`: Whether the model is available for use
+  - `content`: Whether the model can be used for research content generation
+  - `provider`: Model provider (e.g., ollama, openai)
+  - `name`: Model identifier (e.g., qwen3:latest)
+
+**Key Features**:
+- Row Level Security (RLS) for user data isolation
+- Automatic timestamps and status tracking
+- Comprehensive audit trail
+- Integration with existing user management
+- Dynamic model configuration
+
+**2. Backend API (FastAPI)**
+
+**Research Endpoints**:
+- `POST /research/start` - Start new research session
+- `GET /research/{session_id}/status` - Check research progress
+- `GET /research/{session_id}/result` - Get completed results
+- `POST /research/{session_id}/cancel` - Cancel running research
+- `GET /research/{session_id}/logs` - Get detailed process logs
+- `GET /research/sessions` - List user research history
+- `GET /research/health` - Service health check
+
+**Features**:
+- Async task management for long-running research
+- Comprehensive error handling and validation
+- Database persistence and session tracking
+- Health monitoring and diagnostics
+
+**3. n8n Workflow Integration**
+
+**Pre-built Workflows**:
+
+1. **Simple Research** (`research-simple.json`)
+   - Single query research via webhook
+   - Automatic result retrieval
+   - Webhook: `/webhook/research-trigger`
+
+2. **Batch Research** (`research-batch.json`)
+   - Multiple query processing
+   - Consolidated results
+   - Webhook: `/webhook/batch-research`
+
+3. **Scheduled Research** (`research-scheduled.json`)
+   - Automated weekly research reports
+   - Configurable topics and schedules
+   - Report generation and storage
+
+**4. Open-WebUI Integration (Pipe Function)**
+
+The Deep Researcher is integrated as a **Pipe function** in Open-WebUI, providing a seamless research experience:
+
+**Deep Researcher Pipe** (`deep_researcher_pipe.py`):
+- **Type**: Pipe function (appears in model dropdown)
+- **Name**: "Deep Researcher 🔍"
+- **Features**:
+  - Real-time progress updates during research
+  - Formatted results with sources and metadata
+  - Configurable settings via Valves
+  - Async operation with event emitters
+
+**Key Capabilities**:
+- Comprehensive web research on any topic
+- Dynamic status updates (loops, sources found)
+- Structured output with summary, findings, and sources
+- Uses database-configured LLM (qwen3:latest by default)
+
+**Important Note**: The Deep Researcher uses its own LLM configuration from the database, not the model selected in Open-WebUI's main interface
+
+**5. API Gateway (Kong)**
+
+**Research API Routes**:
+- External access via `/research/` path
+- Rate limiting (30/minute, 500/hour)
+- CORS support for web applications
+- Optional API key authentication
+
+#### Dynamic LLM Selection
+
+The Local Deep Researcher uses a database-driven approach for selecting which LLM model to use for research:
+
+**How It Works**
+
+1. **Database Configuration**:
+   - Models are stored in the `llms` table in Supabase
+   - Each model has flags: `active`, `content`, `embeddings`, `vision`
+   - The Deep Researcher uses models marked with `active = true` AND `content = true`
+
+2. **Automatic Model Selection**:
+   ```
+   Database Query → Active Content Model → Configuration → Deep Researcher
+   ```
+   - On startup, `init-config.py` queries the database
+   - Prefers Ollama providers (for local inference)
+   - Creates runtime configuration with selected model
+   - Default: `qwen3:latest` (not llama3.2)
+
+3. **Model Pull Process**:
+   - The `ollama-pull` service automatically pulls all active Ollama models
+   - Runs before Deep Researcher starts
+   - Ensures models are available locally
+
+**Current Default Model**
+
+Based on the seed data, the default model is:
+- **Model**: `qwen3:latest`
+- **Provider**: ollama
+- **Features**: 100+ language support, strong reasoning capabilities
+- **Context Window**: 40,000 tokens
+
+**Changing the Research Model**
+
+To use a different model for research:
+
+1. **Add the model to the database**:
+   ```sql
+   INSERT INTO public.llms (name, provider, active, content, description)
+   VALUES ('llama3.2', 'ollama', true, true, 'Meta Llama 3.2 model');
+   ```
+
+2. **Deactivate the current model** (optional):
+   ```sql
+   UPDATE public.llms 
+   SET active = false 
+   WHERE name = 'qwen3:latest' AND content = true;
+   ```
+
+3. **Restart the services**:
+   ```bash
+   docker compose restart ollama-pull local-deep-researcher
+   ```
+
+The system will automatically:
+- Pull the new model via ollama-pull
+- Configure Deep Researcher to use it
+- Apply the change to all research operations
+
+#### Open-WebUI Usage
+
+The Deep Researcher is now available as a Pipe function in Open-WebUI:
+
+**Using the Deep Researcher**
+
+1. **Select the Deep Researcher**:
+   - Open the model dropdown in Open-WebUI
+   - Select "Deep Researcher 🔍"
+   - The interface will switch to use the research pipe
+
+2. **Perform Research**:
+   - Simply type your research question
+   - No special commands or formatting needed
+   - Watch real-time progress updates
+
+**Example Interactions**
+
+**Basic Research**:
+```
+User: What are the latest cybersecurity threats in 2024?
+
+Deep Researcher 🔍: [Shows progress: 🔍 Researching... Loop 1/3 | Sources found: 5]
+[After completion, displays formatted research report with summary, findings, and sources]
+```
+
+**Complex Research**:
+```
+User: Compare the features, pricing, and performance of AWS, Azure, and Google Cloud for machine learning workloads
+
+Deep Researcher 🔍: [Shows progress updates throughout the research process]
+[Returns comprehensive comparison with multiple sources]
+```
+
+**Configuring the Pipe (Admin Only)**
+
+1. Navigate to Workspace → Functions
+2. Find "Deep Researcher Pipe"
+3. Click the gear icon
+4. Adjust settings:
+   - `backend_url`: Backend service URL
+   - `timeout`: Maximum research time (seconds)
+   - `max_loops`: Research depth (1-6)
+   - `show_status`: Enable/disable progress updates
+
+**Important Notes**
+
+- The Deep Researcher uses the model configured in the database (qwen3:latest by default)
+- It does NOT use the model you might have selected before switching to Deep Researcher
+- Research depth and quality depend on the `max_loops` setting
+- All research is persisted in the database for future reference
+
+#### Configuration
+
+**Environment Variables**
+
+**Backend Service**:
+- `DATABASE_URL`: PostgreSQL connection string
+- `LOCAL_DEEP_RESEARCHER_URL`: Research service endpoint (default: `http://local-deep-researcher:2024`)
+- `BACKEND_PORT`: API service port (default: 63016)
+
+**Local Deep Researcher**:
+- `LOCAL_DEEP_RESEARCHER_PORT`: Service port (default: 63013)
+- `LOCAL_DEEP_RESEARCHER_LOOPS`: Default research iterations (default: 3)
+- `LOCAL_DEEP_RESEARCHER_SEARCH_API`: Search engine (default: duckduckgo)
+- `OLLAMA_BASE_URL`: Ollama service URL (set automatically to `http://ollama:11434`)
+- `DATABASE_URL`: PostgreSQL connection for model configuration
+
+**Model Configuration** (via Database):
+- `LOCAL_LLM`: Dynamically set from llms table (default: qwen3:latest)
+- `LLM_PROVIDER`: Dynamically set from llms table (default: ollama)
+
+**Open-WebUI**:
+- `OPEN_WEB_UI_PORT`: Web interface port (default: 63015)
+- `OPEN_WEB_UI_SECRET_KEY`: Session encryption key
+
+#### LLM Configuration
+
+The Deep Researcher's LLM selection is entirely database-driven, providing flexibility and easy management:
+
+**Understanding the LLM Table**
+
+The `llms` table structure:
+```sql
+CREATE TABLE public.llms (
+  id bigint PRIMARY KEY,
+  active boolean NOT NULL DEFAULT false,
+  vision boolean NOT NULL DEFAULT false,
+  content boolean NOT NULL DEFAULT false,
+  structured_content boolean NOT NULL DEFAULT false,
+  embeddings boolean NOT NULL DEFAULT false,
+  provider varchar NOT NULL,
+  name varchar NOT NULL UNIQUE,
+  description text,
+  size_gb numeric,
+  context_window integer,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+**Model Selection Logic**
+
+1. **Query Priority**:
+   ```sql
+   SELECT provider, name FROM public.llms 
+   WHERE active = true AND content = true 
+   ORDER BY provider = 'ollama' DESC, name
+   LIMIT 1;
+   ```
+
+2. **Selection Criteria**:
+   - Must have `active = true`
+   - Must have `content = true` (for text generation)
+   - Prefers `ollama` provider for local inference
+   - Falls back to `llama3.2` if no models found
+
+**Managing Research Models**
+
+View Available Models:
+```sql
+-- See all content-capable models
+SELECT name, provider, active, description 
+FROM public.llms 
+WHERE content = true;
+
+-- Check current active research model
+SELECT name, provider 
+FROM public.llms 
+WHERE active = true AND content = true 
+ORDER BY provider = 'ollama' DESC
+LIMIT 1;
+```
+
+Add New Models:
+```sql
+-- Add a new Ollama model
+INSERT INTO public.llms (
+  name, provider, active, content, 
+  description, context_window
+) VALUES (
+  'llama3.1:70b', 'ollama', true, true,
+  'Large Llama 3.1 model with enhanced capabilities', 128000
+);
+```
+
+Switch Active Model:
+```sql
+-- Deactivate current model
+UPDATE public.llms 
+SET active = false 
+WHERE name = 'qwen3:latest';
+
+-- Activate new model
+UPDATE public.llms 
+SET active = true 
+WHERE name = 'llama3.1:70b';
+```
+
+**Model Pull Process**
+
+The `ollama-pull` service automatically:
+1. Queries the database for all active Ollama models
+2. Pulls each model using Ollama's API
+3. Ensures models are available before services start
+
+To manually trigger a model pull:
+```bash
+docker compose restart ollama-pull
+```
+
+**Integration with Services**
+
+- **Local Deep Researcher**: Uses `init-config.py` to read model configuration
+- **Open-WebUI**: The Pipe function uses the backend API, which connects to the configured model
+- **n8n Workflows**: Research workflows use the same backend API
+
+#### Troubleshooting
+
+**Research Service Unavailable**
+```bash
+# Check service status
+docker compose ps local-deep-researcher
+
+# Check logs
+docker compose logs local-deep-researcher
+
+# Restart if needed
+docker compose restart local-deep-researcher
+```
+
+**Model Not Found or Not Loading**
+```bash
+# Check if model is in database
+docker compose exec supabase-db psql -U postgres -d postgres -c \
+  "SELECT name, provider, active FROM public.llms WHERE content = true;"
+
+# Check ollama-pull logs
+docker compose logs ollama-pull
+
+# Manually pull a model
+docker compose exec ollama ollama pull qwen3:latest
+
+# Restart services to reload configuration
+docker compose restart ollama-pull local-deep-researcher
+```
+
+**Deep Researcher Not Appearing in Open-WebUI**
+1. Check if the pipe function file exists:
+   ```bash
+   ls -la open-webui/functions/deep_researcher_pipe.py
+   ```
+2. Restart Open-WebUI to reload functions:
+   ```bash
+   docker compose restart open-web-ui
+   ```
+3. Check Open-WebUI logs for function loading errors:
+   ```bash
+   docker compose logs open-web-ui | grep -i "deep_researcher"
+   ```
+
+**Wrong Model Being Used**
+```sql
+-- Check which model is active
+SELECT name, provider FROM public.llms 
+WHERE active = true AND content = true 
+ORDER BY provider = 'ollama' DESC;
+
+-- If multiple models are active, deactivate unwanted ones
+UPDATE public.llms SET active = false 
+WHERE name != 'your-preferred-model' AND content = true;
+```
+
+**Model Configuration Not Updating**
+1. Ensure init-config.py ran successfully:
+   ```bash
+   docker compose logs local-deep-researcher | grep -i "config"
+   ```
+2. Check runtime configuration:
+   ```bash
+   docker compose exec local-deep-researcher cat /app/config/runtime_config.json
+   ```
+3. Force reconfiguration:
+   ```bash
+   docker compose restart local-deep-researcher
+   ```
+
+> This integration provides a modern, database-driven research platform with intelligent model selection, real-time status updates, and seamless integration across all services. The Pipe-based Open-WebUI interface offers an intuitive user experience while maintaining the flexibility to use different models and configurations.
+
+#### Tool Integration for Open-WebUI
+
+The Deep Researcher is available as both **Functions** and **Tools** in Open-WebUI for maximum flexibility.
+
+**Integration Types:**
+- **Functions**: User-invoked via slash commands (e.g., `/deep_researcher`) - auto-loaded via volume mount
+- **Tools**: AI-invoked automatically when models need research capabilities - manual import required
+
+**Manual Tool Setup**
+
+The project includes a Deep Researcher Tool (`open-webui/tools/deep_researcher_tool.py`) that can be imported into Open-WebUI for automatic use by AI models.
+
+**Setup Process (Manual Import Required)**
+
+Tools require one-time manual import via the Open-WebUI admin interface:
+
+```bash
+# 1. Start any docker-compose flavor
+docker compose up -d
+# Functions work immediately, tools require manual import
+
+# 2. Import tools via Open-WebUI admin interface (see steps below)
+```
+
+**Import Steps:**
+1. Access Open-WebUI at `http://localhost:${OPEN_WEB_UI_PORT}`
+2. Go to **Admin Panel** → **Tools**
+3. Click **"+"** to add a new tool
+4. Copy contents of `open-webui/tools/deep_researcher_tool.py`
+5. Paste into the tool editor
+6. Click **Save**
+
+**Enable Tool for AI Models**
+
+After importing the tool:
+
+1. Go to **Admin Panel** → **Models**
+2. Select a model (e.g., your default LLM) and click **Edit**
+3. Find **"Deep Researcher Tool"** in the Tools section
+4. **Toggle it ON** to enable it for that model
+5. Click **Save** to confirm changes
+
+**Using the Tool in Conversations**
+
+Once enabled, the AI can automatically use the tool when appropriate:
+
+```
+User: "What are the latest developments in quantum computing?"
+AI: [Automatically calls research_web tool] Based on my research, here are the latest developments...
+
+User: "Research the current state of renewable energy adoption"
+AI: [Calls research_web tool] I'll research that for you...
+```
+
+**Tool Configuration**
+
+The tool can be configured via the Valves interface:
+- `backend_url`: Backend service URL (default: http://backend:8000)
+- `timeout`: Maximum research time (default: 300 seconds)
+- `poll_interval`: Status check interval (default: 5 seconds)
+- `default_max_loops`: Default research depth (default: 3)
+- `default_search_api`: Default search engine (default: duckduckgo)
+- `enable_tool`: Enable/disable the tool (default: true)
+
+**Tool Troubleshooting**
+
+**If manual tool import fails:**
+```bash
+# Check if tool was imported successfully
+docker exec -it ${PROJECT_NAME}-open-web-ui sqlite3 /app/backend/data/webui.db "SELECT name FROM tool;"
+
+# Check Open-WebUI logs for errors
+docker logs ${PROJECT_NAME}-open-web-ui | grep -i "error"
+
+# Verify tool file syntax before importing
+python -m py_compile open-webui/tools/deep_researcher_tool.py
+```
+
+**If AI doesn't use the tool when expected:**
+1. Verify tool is enabled in Admin Panel → Models → [Model] → Tools
+2. Check that the tool was successfully imported via Admin Panel → Tools
+3. Try being more explicit: "Please research..." or "Can you look up..."
+4. Check tool configuration in the Valves section
+
+**Development Notes**
+
+- **Architecture**: Shared modules in `open-webui/shared/` eliminate code duplication
+- **Database**: Tools stored in Open-WebUI's SQLite database at `/app/backend/data/webui.db`
+- **Tool Files**: Located in `open-webui/tools/` directory  
+- **Function Files**: Located in `open-webui/functions/` directory
+- **Configuration**: Auto-enablement controlled by `open-webui/tool_config.json`
+- **LLM Selection**: Research uses database-configured LLM, not the chat model
+- **Status Updates**: Tools support real-time progress updates during research operations
+

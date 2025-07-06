@@ -1,0 +1,312 @@
+{
+  "name": "Scheduled Research Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "value": "0 9 * * MON"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Define recurring research queries\nconst scheduledQueries = [\n  {\n    query: \"Latest AI and machine learning breakthroughs\",\n    priority: \"high\",\n    max_loops: 5\n  },\n  {\n    query: \"Technology industry trends and market analysis\",\n    priority: \"medium\",\n    max_loops: 3\n  },\n  {\n    query: \"Cybersecurity threats and vulnerabilities\",\n    priority: \"high\",\n    max_loops: 4\n  },\n  {\n    query: \"Open source software updates and releases\",\n    priority: \"low\",\n    max_loops: 2\n  }\n];\n\nconst batchId = `scheduled_${Date.now()}`;\nconst timestamp = new Date().toISOString();\n\n$execution.customData = {\n  batchId: batchId,\n  scheduleType: 'weekly',\n  startedAt: timestamp\n};\n\nreturn scheduledQueries.map((item, index) => ({\n  ...item,\n  batchId: batchId,\n  index: index,\n  scheduledAt: timestamp,\n  search_api: 'duckduckgo'\n}));"
+      },
+      "id": "b3c4d5e6-f7g8-h9i0-j1k2-l3m4n5o6p7q8",
+      "name": "Define Research Topics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/research/start",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "max_loops",
+              "value": "={{ $json.max_loops }}"
+            },
+            {
+              "name": "search_api",
+              "value": "={{ $json.search_api }}"
+            },
+            {
+              "name": "user_id",
+              "value": "system_scheduler"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c5d6e7f8-g9h0-i1j2-k3l4-m5n6o7p8q9r0",
+      "name": "Start Research Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store session information for later retrieval\nconst sessions = [];\n\nfor (const item of $input.all()) {\n  const inputData = item.json;\n  const response = item.json;\n  \n  sessions.push({\n    batchId: $execution.customData.batchId,\n    sessionId: response.session_id,\n    query: inputData.query,\n    priority: inputData.priority,\n    startedAt: new Date().toISOString()\n  });\n}\n\n$execution.customData.sessions = sessions;\n\nreturn [{\n  batchId: $execution.customData.batchId,\n  totalSessions: sessions.length,\n  message: `Started ${sessions.length} scheduled research tasks`\n}];"
+      },
+      "id": "d7e8f9g0-h1i2-j3k4-l5m6-n7o8p9q0r1s2",
+      "name": "Track Sessions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "e9f0g1h2-i3j4-k5l6-m7n8-o9p0q1r2s3t4",
+      "name": "Wait for Completion",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate status check requests\nconst sessions = $execution.customData.sessions || [];\n\nreturn sessions.map(session => ({\n  sessionId: session.sessionId,\n  query: session.query,\n  priority: session.priority\n}));"
+      },
+      "id": "f1g2h3i4-j5k6-l7m8-n9o0-p1q2r3s4t5u6",
+      "name": "Prepare Status Checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/research/{{ $json.sessionId }}/result",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "redirect": {
+            "redirect": {
+              "followRedirects": true
+            }
+          }
+        }
+      },
+      "id": "g3h4i5j6-k7l8-m9n0-o1p2-q3r4s5t6u7v8",
+      "name": "Get Research Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process and format results for storage/notification\nconst results = $input.all();\nconst batchId = $execution.customData.batchId;\nconst startedAt = $execution.customData.startedAt;\n\nconst processedResults = results.map(item => {\n  const result = item.json;\n  return {\n    sessionId: result.session_id,\n    title: result.title,\n    summary: result.summary,\n    wordCount: result.content ? result.content.length : 0,\n    sourceCount: result.sources ? result.sources.length : 0,\n    completedAt: result.created_at\n  };\n});\n\nconst report = {\n  batchId: batchId,\n  reportType: 'scheduled_research',\n  generatedAt: new Date().toISOString(),\n  executionSummary: {\n    totalQueries: results.length,\n    completedSuccessfully: processedResults.length,\n    averageWordCount: processedResults.reduce((acc, r) => acc + r.wordCount, 0) / processedResults.length,\n    totalSources: processedResults.reduce((acc, r) => acc + r.sourceCount, 0)\n  },\n  results: processedResults,\n  metadata: {\n    scheduleType: $execution.customData.scheduleType,\n    startedAt: startedAt,\n    processingTime: Date.now() - new Date(startedAt).getTime()\n  }\n};\n\nreturn [report];"
+      },
+      "id": "h5i6j7k8-l9m0-n1o2-p3q4-r5s6t7u8v9w0",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/storage/upload",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "bucket",
+              "value": "research-reports"
+            }
+          ]
+        },
+        "sendBinaryData": true,
+        "binaryPropertyName": "report",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "i7j8k9l0-m1n2-o3p4-q5r6-s7t8u9v0w1x2",
+      "name": "Save Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert report to binary data for storage\nconst report = $input.first().json;\nconst reportJson = JSON.stringify(report, null, 2);\nconst filename = `research_report_${report.batchId}.json`;\n\n// Create binary data\nconst binaryData = Buffer.from(reportJson, 'utf8');\n\nreturn {\n  json: {\n    filename: filename,\n    contentType: 'application/json',\n    size: binaryData.length\n  },\n  binary: {\n    report: {\n      data: binaryData.toString('base64'),\n      mimeType: 'application/json',\n      fileName: filename\n    }\n  }\n};"
+      },
+      "id": "j9k0l1m2-n3o4-p5q6-r7s8-t9u0v1w2x3y4",
+      "name": "Prepare Report File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        450
+      ]
+    }
+  ],
+  "connections": {
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Define Research Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Research Topics": {
+      "main": [
+        [
+          {
+            "node": "Start Research Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Research Tasks": {
+      "main": [
+        [
+          {
+            "node": "Track Sessions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Sessions": {
+      "main": [
+        [
+          {
+            "node": "Wait for Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Completion": {
+      "main": [
+        [
+          {
+            "node": "Prepare Status Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Status Checks": {
+      "main": [
+        [
+          {
+            "node": "Get Research Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Research Results": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Prepare Report File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Report File": {
+      "main": [
+        [
+          {
+            "node": "Save Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "research-scheduled-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "research-scheduled",
+  "tags": ["research", "scheduled", "automation", "reports"]
+}

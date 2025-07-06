@@ -1,0 +1,417 @@
+{
+  "name": "Batch Research Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "batch-research",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+      "name": "Batch Research Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "batch-research"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process batch research request\nconst items = $input.first().json;\nconst queries = items.queries || [];\nconst config = items.config || {};\n\nif (!Array.isArray(queries) || queries.length === 0) {\n  throw new Error('queries array is required and must not be empty');\n}\n\nconst batchId = Date.now().toString();\nconst batchResults = [];\n\n// Create individual research requests\nfor (let i = 0; i < queries.length; i++) {\n  const query = queries[i];\n  batchResults.push({\n    batchId: batchId,\n    index: i,\n    query: typeof query === 'string' ? query : query.query,\n    max_loops: query.max_loops || config.max_loops || 3,\n    search_api: query.search_api || config.search_api || 'duckduckgo',\n    user_id: config.user_id || null\n  });\n}\n\n$execution.customData = {\n  batchId: batchId,\n  totalQueries: queries.length,\n  startedAt: new Date().toISOString()\n};\n\nreturn batchResults;"
+      },
+      "id": "b3c4d5e6-f7g8-h9i0-j1k2-l3m4n5o6p7q8",
+      "name": "Process Batch Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/research/start",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "max_loops",
+              "value": "={{ $json.max_loops }}"
+            },
+            {
+              "name": "search_api",
+              "value": "={{ $json.search_api }}"
+            },
+            {
+              "name": "user_id",
+              "value": "={{ $json.user_id }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c5d6e7f8-g9h0-i1j2-k3l4-m5n6o7p8q9r0",
+      "name": "Start Individual Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect session IDs and prepare for monitoring\nconst sessionData = [];\n\nfor (const item of $input.all()) {\n  const inputData = item.json;\n  const response = item.json;\n  \n  sessionData.push({\n    batchId: $execution.customData.batchId,\n    index: inputData.index,\n    query: inputData.query,\n    sessionId: response.session_id,\n    status: 'running',\n    startedAt: new Date().toISOString()\n  });\n}\n\n// Store session data in execution context\n$execution.customData.sessions = sessionData;\n\nreturn sessionData;"
+      },
+      "id": "d7e8f9g0-h1i2-j3k4-l5m6-n7o8p9q0r1s2",
+      "name": "Collect Session IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 45,
+        "unit": "seconds"
+      },
+      "id": "e9f0g1h2-i3j4-k5l6-m7n8-o9p0q1r2s3t4",
+      "name": "Wait for All Processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create status check requests for all sessions\nconst sessions = $execution.customData.sessions || [];\n\nreturn sessions.map(session => ({\n  sessionId: session.sessionId,\n  originalQuery: session.query,\n  batchIndex: session.index\n}));"
+      },
+      "id": "f1g2h3i4-j5k6-l7m8-n9o0-p1q2r3s4t5u6",
+      "name": "Prepare Status Checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/research/{{ $json.sessionId }}/status",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "g3h4i5j6-k7l8-m9n0-o1p2-q3r4s5t6u7v8",
+      "name": "Check All Statuses",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if all research sessions are completed\nconst allStatuses = $input.all();\nlet completedCount = 0;\nlet failedCount = 0;\nconst sessionStatuses = [];\n\nfor (const item of allStatuses) {\n  const status = item.json.status;\n  const sessionData = {\n    sessionId: item.json.session_id,\n    query: item.json.query,\n    status: status\n  };\n  \n  sessionStatuses.push(sessionData);\n  \n  if (status === 'completed') {\n    completedCount++;\n  } else if (status === 'failed') {\n    failedCount++;\n  }\n}\n\nconst allCompleted = (completedCount + failedCount) === allStatuses.length;\n\n$execution.customData.sessionStatuses = sessionStatuses;\n$execution.customData.completedCount = completedCount;\n$execution.customData.failedCount = failedCount;\n\nreturn [{\n  allCompleted: allCompleted,\n  completedCount: completedCount,\n  failedCount: failedCount,\n  totalCount: allStatuses.length,\n  sessionStatuses: sessionStatuses\n}];"
+      },
+      "id": "h5i6j7k8-l9m0-n1o2-p3q4-r5s6t7u8v9w0",
+      "name": "Analyze Batch Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "i7j8k9l0-m1n2-o3p4-q5r6-s7t8u9v0w1x2",
+              "leftValue": "={{ $json.allCompleted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "j9k0l1m2-n3o4-p5q6-r7s8-t9u0v1w2x3y4",
+      "name": "All Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get results for all completed sessions\nconst sessionStatuses = $execution.customData.sessionStatuses || [];\nconst completedSessions = sessionStatuses.filter(s => s.status === 'completed');\n\nreturn completedSessions.map(session => ({\n  sessionId: session.sessionId,\n  query: session.query\n}));"
+      },
+      "id": "k1l2m3n4-o5p6-q7r8-s9t0-u1v2w3x4y5z6",
+      "name": "Prepare Result Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/research/{{ $json.sessionId }}/result",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "l3m4n5o6-p7q8-r9s0-t1u2-v3w4x5y6z7a8",
+      "name": "Get All Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format final batch results\nconst batchId = $execution.customData.batchId;\nconst totalQueries = $execution.customData.totalQueries;\nconst completedCount = $execution.customData.completedCount;\nconst failedCount = $execution.customData.failedCount;\nconst results = $input.all();\n\nconst batchResult = {\n  batchId: batchId,\n  status: 'completed',\n  summary: {\n    totalQueries: totalQueries,\n    completedSuccessfully: completedCount,\n    failed: failedCount,\n    successRate: completedCount / totalQueries\n  },\n  startedAt: $execution.customData.startedAt,\n  completedAt: new Date().toISOString(),\n  results: results.map(item => item.json)\n};\n\nreturn [batchResult];"
+      },
+      "id": "m5n6o7p8-q9r0-s1t2-u3v4-w5x6y7z8a9b0",
+      "name": "Format Batch Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "n7o8p9q0-r1s2-t3u4-v5w6-x7y8z9a0b1c2",
+      "name": "Wait and Retry Batch",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "o9p0q1r2-s3t4-u5v6-w7x8-y9z0a1b2c3d4",
+      "name": "Return Batch Results",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Batch Research Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Batch Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Batch Request": {
+      "main": [
+        [
+          {
+            "node": "Start Individual Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Individual Research": {
+      "main": [
+        [
+          {
+            "node": "Collect Session IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Session IDs": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for All Processing": {
+      "main": [
+        [
+          {
+            "node": "Prepare Status Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Status Checks": {
+      "main": [
+        [
+          {
+            "node": "Check All Statuses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check All Statuses": {
+      "main": [
+        [
+          {
+            "node": "Analyze Batch Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Batch Status": {
+      "main": [
+        [
+          {
+            "node": "All Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Completed?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Result Requests",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait and Retry Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Result Requests": {
+      "main": [
+        [
+          {
+            "node": "Get All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Results": {
+      "main": [
+        [
+          {
+            "node": "Format Batch Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Batch Results": {
+      "main": [
+        [
+          {
+            "node": "Return Batch Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait and Retry Batch": {
+      "main": [
+        [
+          {
+            "node": "Prepare Status Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "research-batch-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "research-batch",
+  "tags": ["research", "batch", "automation", "webhook"]
+}

@@ -7,6 +7,7 @@ import os
 import httpx
 
 from n8n_client import N8nClient
+from research_service import ResearchService
 
 app = FastAPI(
     title="GenAI Vanilla Stack Backend",
@@ -77,6 +78,9 @@ async def root():
 
 # Initialize n8n client
 n8n_client = N8nClient()
+
+# Initialize research service
+research_service = ResearchService()
 
 
 class WorkflowExecuteRequest(BaseModel):
@@ -199,3 +203,191 @@ async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
+# Research API Models
+class ResearchStartRequest(BaseModel):
+    """Request model for starting research"""
+    query: str
+    max_loops: Optional[int] = 3
+    search_api: Optional[str] = "duckduckgo"
+    user_id: Optional[str] = None
+
+
+class ResearchResponse(BaseModel):
+    """Response model for research operations"""
+    session_id: str
+    status: str
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+
+class ResearchSessionResponse(BaseModel):
+    """Response model for research session details"""
+    session_id: str
+    query: str
+    status: str
+    max_loops: int
+    search_api: str
+    user_id: Optional[str] = None
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class ResearchResultResponse(BaseModel):
+    """Response model for research results"""
+    session_id: str
+    result_id: str
+    title: str
+    summary: str
+    content: str
+    sources: List[Dict[str, Any]]
+    metadata: Dict[str, Any]
+    created_at: str
+    status: str
+
+
+class ResearchLogResponse(BaseModel):
+    """Response model for research logs"""
+    step_number: int
+    step_type: str
+    message: str
+    data: Optional[Dict[str, Any]] = None
+    timestamp: str
+
+
+# Research API Endpoints
+@app.post("/research/start", response_model=ResearchResponse)
+async def start_research(request: ResearchStartRequest):
+    """Start a new research session"""
+    try:
+        result = await research_service.start_research(
+            query=request.query,
+            max_loops=request.max_loops or 3,
+            search_api=request.search_api or "duckduckgo",
+            user_id=request.user_id
+        )
+        return ResearchResponse(**result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start research: {str(e)}"
+        )
+
+
+@app.get("/research/{session_id}/status", response_model=ResearchSessionResponse)
+async def get_research_status(session_id: str):
+    """Get the status of a research session"""
+    try:
+        result = await research_service.get_research_status(session_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Research session {session_id} not found"
+            )
+        return ResearchSessionResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get research status: {str(e)}"
+        )
+
+
+@app.get("/research/{session_id}/result", response_model=ResearchResultResponse)
+async def get_research_result(session_id: str):
+    """Get the result of a completed research session"""
+    try:
+        result = await research_service.get_research_result(session_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Research result for session {session_id} not found"
+            )
+        return ResearchResultResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get research result: {str(e)}"
+        )
+
+
+@app.post("/research/{session_id}/cancel", response_model=ResearchResponse)
+async def cancel_research(session_id: str):
+    """Cancel a running research session"""
+    try:
+        success = await research_service.cancel_research(session_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot cancel research session {session_id} - session not found or not running"
+            )
+        return ResearchResponse(
+            session_id=session_id,
+            status="cancelled",
+            message="Research session cancelled successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to cancel research: {str(e)}"
+        )
+
+
+@app.get("/research/{session_id}/logs", response_model=List[ResearchLogResponse])
+async def get_research_logs(session_id: str):
+    """Get logs for a research session"""
+    try:
+        logs = await research_service.get_research_logs(session_id)
+        return [ResearchLogResponse(**log) for log in logs]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get research logs: {str(e)}"
+        )
+
+
+@app.get("/research/sessions", response_model=List[ResearchSessionResponse])
+async def list_research_sessions(
+    user_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """List research sessions"""
+    try:
+        sessions = await research_service.list_user_sessions(
+            user_id=user_id,
+            limit=min(limit, 100),  # Cap at 100
+            offset=max(offset, 0)   # Ensure non-negative
+        )
+        return [ResearchSessionResponse(**session) for session in sessions]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list research sessions: {str(e)}"
+        )
+
+
+@app.get("/research/health")
+async def research_health_check():
+    """Health check for research service"""
+    try:
+        health = await research_service.health_check()
+        return {
+            "service": "research",
+            "status": "healthy" if health["database"] == "healthy" else "degraded",
+            "details": health
+        }
+    except Exception as e:
+        return {
+            "service": "research", 
+            "status": "unhealthy",
+            "error": str(e)
+        }

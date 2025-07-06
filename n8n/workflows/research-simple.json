@@ -1,0 +1,310 @@
+{
+  "name": "Simple Research Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ab8f85c3-7d98-4b91-b51d-e5b3b8f8b8d4",
+      "name": "Research Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "research-trigger"
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/research/start",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "max_loops",
+              "value": "={{ $json.max_loops || 3 }}"
+            },
+            {
+              "name": "search_api",
+              "value": "={{ $json.search_api || 'duckduckgo' }}"
+            },
+            {
+              "name": "user_id",
+              "value": "={{ $json.user_id }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "d9c8e7f6-5a4b-3c2d-1e0f-9g8h7i6j5k4l",
+      "name": "Start Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract session ID from research start response\nconst sessionId = $input.first().json.session_id;\nconst query = $input.first().json.data?.query || 'Unknown query';\n\n// Set workflow context\n$execution.customData = {\n  sessionId: sessionId,\n  query: query,\n  startedAt: new Date().toISOString()\n};\n\nreturn {\n  sessionId: sessionId,\n  query: query,\n  message: 'Research started successfully',\n  status: 'running'\n};"
+      },
+      "id": "e1f2g3h4-i5j6-k7l8-m9n0-o1p2q3r4s5t6",
+      "name": "Process Start Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "f7g8h9i0-j1k2-l3m4-n5o6-p7q8r9s0t1u2",
+      "name": "Wait for Processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/research/{{ $execution.customData.sessionId }}/status",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "g3h4i5j6-k7l8-m9n0-o1p2-q3r4s5t6u7v8",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "h5i6j7k8-l9m0-n1o2-p3q4-r5s6t7u8v9w0",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "i7j8k9l0-m1n2-o3p4-q5r6-s7t8u9v0w1x2",
+      "name": "Is Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=http://backend:8000/research/{{ $execution.customData.sessionId }}/result",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "j9k0l1m2-n3o4-p5q6-r7s8-t9u0v1w2x3y4",
+      "name": "Get Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "k1l2m3n4-o5p6-q7r8-s9t0-u1v2w3x4y5z6",
+      "name": "Wait and Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "l3m4n5o6-p7q8-r9s0-t1u2-v3w4x5y6z7a8",
+      "name": "Return Results",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format error response\nconst sessionId = $execution.customData?.sessionId || 'unknown';\nconst query = $execution.customData?.query || 'unknown';\n\nreturn {\n  error: true,\n  sessionId: sessionId,\n  query: query,\n  message: 'Research timed out or failed',\n  status: 'failed',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "m5n6o7p8-q9r0-s1t2-u3v4-w5x6y7z8a9b0",
+      "name": "Format Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Research Webhook": {
+      "main": [
+        [
+          {
+            "node": "Start Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Research": {
+      "main": [
+        [
+          {
+            "node": "Process Start Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Start Response": {
+      "main": [
+        [
+          {
+            "node": "Wait for Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Processing": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Is Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Completed?": {
+      "main": [
+        [
+          {
+            "node": "Get Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait and Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Results": {
+      "main": [
+        [
+          {
+            "node": "Return Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait and Retry": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "research-simple-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "research-simple",
+  "tags": ["research", "automation", "webhook"]
+}

@@ -211,6 +211,44 @@ services:
     plugins:
       - name: cors # Add basic CORS, can be customized further
 
+  ## Research API routes (dedicated endpoint for external access)
+  - name: research-api
+    url: http://backend:8000/research/
+    routes:
+      - name: research-api-all
+        strip_path: true
+        paths:
+          - /research/
+    plugins:
+      - name: cors
+      - name: rate-limiting
+        config:
+          minute: 30
+          hour: 500
+          policy: local
+      # - name: key-auth  # Uncomment for API key authentication
+      #   config:
+      #     hide_credentials: true
+
+  ## Local Deep Researcher Direct API routes
+  - name: local-deep-researcher-api
+    url: http://local-deep-researcher:2024/
+    routes:
+      - name: local-deep-researcher-api-all
+        strip_path: true
+        paths:
+          - /local-deep-researcher/
+    plugins:
+      - name: cors
+      - name: rate-limiting
+        config:
+          minute: 20
+          hour: 300
+          policy: local
+      # - name: key-auth  # Uncomment for API key authentication
+      #   config:
+      #     hide_credentials: true
+
   ## n8n routes
   - name: n8n-api
     url: http://n8n:5678/

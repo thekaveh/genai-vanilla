@@ -95,6 +95,7 @@ if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
   unset GRAPH_DB_PORT
   unset GRAPH_DB_DASHBOARD_PORT
   unset OLLAMA_PORT
+  unset LOCAL_DEEP_RESEARCHER_PORT
   unset OPEN_WEB_UI_PORT
   unset BACKEND_PORT
   unset N8N_PORT
@@ -190,6 +191,7 @@ PORT_VARS=(
   "GRAPH_DB_PORT"
   "GRAPH_DB_DASHBOARD_PORT"
   "OLLAMA_PORT"
+  "LOCAL_DEEP_RESEARCHER_PORT"
   "OPEN_WEB_UI_PORT"
   "BACKEND_PORT"
   "N8N_PORT"
@@ -230,9 +232,10 @@ SUPABASE_STUDIO_PORT=$(($BASE_PORT + 9))
 GRAPH_DB_PORT=$(($BASE_PORT + 10))
 GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 11))
 OLLAMA_PORT=$(($BASE_PORT + 12))
-OPEN_WEB_UI_PORT=$(($BASE_PORT + 13))
-BACKEND_PORT=$(($BASE_PORT + 14))
-N8N_PORT=$(($BASE_PORT + 15))
+LOCAL_DEEP_RESEARCHER_PORT=$(($BASE_PORT + 13))
+OPEN_WEB_UI_PORT=$(($BASE_PORT + 14))
+BACKEND_PORT=$(($BASE_PORT + 15))
+N8N_PORT=$(($BASE_PORT + 16))
 EOF
 
 echo "✅ .env file generated successfully!"
@@ -252,6 +255,7 @@ VERIFIED_SUPABASE_STUDIO_PORT=$(grep "^SUPABASE_STUDIO_PORT=" .env | cut -d '=' 
 VERIFIED_GRAPH_DB_PORT=$(grep "^GRAPH_DB_PORT=" .env | cut -d '=' -f2)
 VERIFIED_GRAPH_DB_DASHBOARD_PORT=$(grep "^GRAPH_DB_DASHBOARD_PORT=" .env | cut -d '=' -f2)
 VERIFIED_OLLAMA_PORT=$(grep "^OLLAMA_PORT=" .env | cut -d '=' -f2)
+VERIFIED_LOCAL_DEEP_RESEARCHER_PORT=$(grep "^LOCAL_DEEP_RESEARCHER_PORT=" .env | cut -d '=' -f2)
 VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" .env | cut -d '=' -f2)
 VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
 VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" .env | cut -d '=' -f2)
@@ -272,6 +276,7 @@ printf "  • %-35s %s\n" "Supabase Studio Dashboard:" "$VERIFIED_SUPABASE_STUDI
 printf "  • %-35s %s\n" "Neo4j Graph Database (Bolt):" "$VERIFIED_GRAPH_DB_PORT"
 printf "  • %-35s %s\n" "Neo4j Graph Database (Dashboard):" "$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
 printf "  • %-35s %s\n" "Ollama API:" "$VERIFIED_OLLAMA_PORT"
+printf "  • %-35s %s\n" "Local Deep Researcher:" "$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
 printf "  • %-35s %s\n" "Open Web UI:" "$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-35s %s\n" "Backend API:" "$VERIFIED_BACKEND_PORT"
 printf "  • %-35s %s\n" "n8n Workflow Automation:" "$VERIFIED_N8N_PORT"
@@ -281,6 +286,7 @@ printf "  • %-20s %s\n" "Supabase Studio:" "http://localhost:$VERIFIED_SUPABAS
 printf "  • %-20s %s\n" "Kong HTTP Gateway:" "http://localhost:$VERIFIED_KONG_HTTP_PORT"
 printf "  • %-20s %s\n" "Kong HTTPS Gateway:" "https://localhost:$VERIFIED_KONG_HTTPS_PORT"
 printf "  • %-20s %s\n" "Neo4j Browser:" "http://localhost:$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
+printf "  • %-20s %s\n" "Local Deep Researcher:" "http://localhost:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
 printf "  • %-20s %s\n" "Open Web UI:" "http://localhost:$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_PORT/docs"
 printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"
@@ -359,6 +365,7 @@ if [[ "$PROFILE" == "default" ]]; then
     "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
     "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
     "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
+    "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
     "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
     "backend:8000:$VERIFIED_BACKEND_PORT"
     "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"
@@ -452,6 +459,7 @@ else
     "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
     "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
     "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
+    "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
     "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
     "backend:8000:$VERIFIED_BACKEND_PORT"
     "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"

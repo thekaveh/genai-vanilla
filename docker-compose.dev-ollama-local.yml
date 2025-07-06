@@ -330,6 +330,35 @@ services:
       - ./ollama-pull/scripts:/scripts
     entrypoint: ["/scripts/pull.sh"]
 
+  local-deep-researcher:
+    build:
+      context: ./local-deep-researcher
+    container_name: ${PROJECT_NAME}-local-deep-researcher
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
+    environment:
+      # Database connection for LLM config
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      # Ollama connection (local host)
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # Search configuration
+      SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-duckduckgo}
+      MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
+    ports:
+      - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
+    volumes:
+      - local-deep-researcher-data:/app/data
+    networks:
+      - backend-bridge-network
+
   open-web-ui:
     image: dyrnq/open-webui:latest
     container_name: ${PROJECT_NAME}-open-web-ui
@@ -339,6 +368,8 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
+      local-deep-researcher:
+        condition: service_started
       supabase-realtime:
         condition: service_started
       supabase-storage:
@@ -353,7 +384,8 @@ services:
       WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
       # DATABASE_SCHEMA: openwebui
     volumes:
-      - open-web-ui-data:/data
+      - open-web-ui-data:/app/backend/data
+      - ./open-webui/functions:/app/backend/data/functions
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
     networks:
@@ -420,6 +452,8 @@ services:
       DB_POSTGRESDB_DATABASE: ${SUPABASE_DB_NAME}
       DB_POSTGRESDB_USER: ${SUPABASE_DB_USER}
       DB_POSTGRESDB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      DB_POSTGRESDB_SCHEMA: n8n
+      DB_SCHEMA: n8n
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
@@ -456,6 +490,8 @@ volumes:
   redis-data:
     driver: local
   graph-db-data:
+    driver: local
+  local-deep-researcher-data:
     driver: local
   open-web-ui-data:
     driver: local

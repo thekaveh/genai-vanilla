@@ -1,0 +1,9 @@
+{
+	"dependencies": [
+		"."
+	],
+	"graphs": {
+		"agent": "./src/ollama_deep_researcher/graph.py:graph"
+	},
+	"env": ".env"
+}

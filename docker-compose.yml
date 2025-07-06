@@ -343,6 +343,33 @@ services:
       - ./ollama-pull/scripts:/scripts
     entrypoint: ["/scripts/pull.sh"]
 
+  local-deep-researcher:
+    build:
+      context: ./local-deep-researcher
+    container_name: ${PROJECT_NAME}-local-deep-researcher
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      # Database connection for LLM config
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      # Ollama connection (containerized)
+      OLLAMA_BASE_URL: http://ollama:11434
+      # Search configuration
+      SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-duckduckgo}
+      MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
+    ports:
+      - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
+    volumes:
+      - local-deep-researcher-data:/app/data
+    networks:
+      - backend-bridge-network
+
   open-web-ui:
     image: dyrnq/open-webui:latest
     container_name: ${PROJECT_NAME}-open-web-ui
@@ -352,6 +379,8 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
+      local-deep-researcher:
+        condition: service_started
       supabase-realtime:
         condition: service_started
       supabase-storage:
@@ -365,6 +394,9 @@ services:
       # DATABASE_SCHEMA: openwebui
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
+    volumes:
+      - open-web-ui-data:/app/backend/data
+      - ./open-webui/functions:/app/backend/data/functions
     networks:
       - backend-bridge-network
 
@@ -467,6 +499,8 @@ volumes:
   graph-db-data:
     driver: local
   ollama-data:
+    driver: local
+  local-deep-researcher-data:
     driver: local
   open-web-ui-data:
     driver: local

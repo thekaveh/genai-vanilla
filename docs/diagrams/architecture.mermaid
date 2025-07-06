@@ -34,6 +34,7 @@ graph LR
         direction TB
         ollama[ollama]
         ollama-pull[ollama-pull]
+        local-deep-researcher[local-deep-researcher]
     end
     
     %% API Layer (moved to right side)
@@ -59,6 +60,7 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> supabase-realtime
     supabase-db-init -- "Completes Successfully" --> supabase-studio
     supabase-db-init -- "Completes Successfully" --> ollama-pull
+    supabase-db-init -- "Completes Successfully" --> local-deep-researcher
     supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> backend
     supabase-db-init -- "Completes Successfully" --> n8n
@@ -96,10 +98,18 @@ graph LR
     n8n -- "Queue Management" --> redis
     backend -- "Workflow Automation" --> n8n
     backend -- "Cache, Pub/Sub, Geohashing" --> redis
+    ollama-pull -- "Completes Successfully" --> local-deep-researcher
     ollama-pull -- "Completes Successfully" --> open-web-ui
     ollama-pull -- "Completes Successfully" --> backend
     ollama-pull -- "Completes Successfully" --> n8n
     ollama -- "Depends on Ollama Started" --> ollama-pull
+    
+    %% Local Deep Researcher connections
+    local-deep-researcher -- "DB Query for LLM Config" --> supabase-db
+    local-deep-researcher -- "HTTP API (Direct)" --> ollama
+    open-web-ui -- "Depends on" --> local-deep-researcher
+    backend -- "Research API HTTP Client" --> local-deep-researcher
+    n8n -- "Research Webhook Calls" --> backend
 
     %% Add dependency of Studio on Kong
     supabase-studio -- "Depends on" --> kong-api-gateway
@@ -113,7 +123,7 @@ graph LR
     classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
     class supabase-db,neo4j-graph-db database
     class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
-    class ollama,ollama-pull ai
+    class ollama,ollama-pull,local-deep-researcher ai
     class open-web-ui ui
     class backend api
     class kong-api-gateway api
