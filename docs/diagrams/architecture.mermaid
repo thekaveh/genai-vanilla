@@ -3,6 +3,7 @@ graph LR
     %% For the dev-ollama-local flavor, the 'ollama' container is removed, and 'backend', 'open-web-ui',
     %% and 'ollama-pull' connect to a local Ollama instance via host.docker.internal:11434.
     %% The prod-gpu flavor adds NVIDIA GPU resources and limits to the 'ollama' and 'backend' services.
+    %% Open-WebUI integrates with Local Deep Researcher via research tools that call the backend API.
 
     %% Define styles
     classDef database fill:#a5d8ff,stroke:#1971c2,color:#1e1e1e
@@ -61,8 +62,8 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> supabase-studio
     supabase-db-init -- "Completes Successfully" --> ollama-pull
     supabase-db-init -- "Completes Successfully" --> local-deep-researcher
-    supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> backend
+    supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> n8n
 
     %% Service Inter-dependencies (After db-init)
@@ -83,6 +84,7 @@ graph LR
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
     kong-api-gateway -- Routes --> n8n
+    kong-api-gateway -- "Routes /research/*" --> backend
 
     kong-api-gateway -- "Depends on" --> redis
     kong-api-gateway -- "Depends on" --> supabase-auth
@@ -107,9 +109,11 @@ graph LR
     %% Local Deep Researcher connections
     local-deep-researcher -- "DB Query for LLM Config" --> supabase-db
     local-deep-researcher -- "HTTP API (Direct)" --> ollama
-    open-web-ui -- "Depends on" --> local-deep-researcher
     backend -- "Research API HTTP Client" --> local-deep-researcher
     n8n -- "Research Webhook Calls" --> backend
+    
+    %% Open-WebUI research integration via tools
+    open-web-ui -- "Research Tools API" --> backend
 
     %% Add dependency of Studio on Kong
     supabase-studio -- "Depends on" --> kong-api-gateway
