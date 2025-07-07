@@ -406,7 +406,8 @@ services:
       # DATABASE_SCHEMA: openwebui
     volumes:
       - open-web-ui-data:/app/backend/data
-      - ./open-webui/functions:/app/backend/data/functions
+      # Functions directory removed - using tools integration instead
+      # - ./open-webui/functions:/app/backend/data/functions
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
     networks:

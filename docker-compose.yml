@@ -396,7 +396,8 @@ services:
       - "${OPEN_WEB_UI_PORT}:8080"
     volumes:
       - open-web-ui-data:/app/backend/data
-      - ./open-webui/functions:/app/backend/data/functions
+      # Functions directory removed - using tools integration instead
+      # - ./open-webui/functions:/app/backend/data/functions
     networks:
       - backend-bridge-network
 

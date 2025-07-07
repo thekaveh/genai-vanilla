@@ -583,16 +583,13 @@ The Open Web UI service provides a web interface for interacting with AI models:
 - **Model Integration**: Connects to Ollama API endpoint for standard AI chat functionality
 - **Database Integration**: Uses the Supabase PostgreSQL database (`DATABASE_URL`) for storing conversations and settings
 - **Storage Interaction**: Interacts with the Supabase Storage API (via the Kong API Gateway) for file operations
-- **Deep Researcher Integration**: Multiple ways to access research capabilities:
-    - **Functions**: Slash commands like `/deep_researcher` for user-triggered research (auto-loaded)
+- **Deep Researcher Integration**: Tools-based integration for AI research capabilities:
     - **Tools**: AI-invoked research capabilities that models can use automatically (manual import)
-    - **Shared Architecture**: Common research client eliminates code duplication
     - **Manual Setup**: Tools require one-time manual import via Open-WebUI admin interface
     - **Database-driven**: Research uses active models from the `llms` table (qwen3:latest by default)
-    - **Real-time Updates**: Progress indicators and status updates during research operations
+    - **Two Tool Types**: Basic research tool and enhanced research tool with progress tracking
 - **Volume Mounts**: 
     - `open-web-ui-data:/app/backend/data` - Persistent data storage
-    - `./open-webui/functions:/app/backend/data/functions` - Custom functions directory
 - **Generic Image**: Uses standard `dyrnq/open-webui:latest` for reliability and simplicity
 - **Dependencies**: Depends on Ollama, Supabase DB, Ollama Pull, Local Deep Researcher, and Supabase Storage services
 - **Configuration**:
@@ -601,46 +598,47 @@ The Open Web UI service provides a web interface for interacting with AI models:
     - `WEBUI_SECRET_KEY`: Secret key for Open Web UI
 
 **Usage**: 
-- **Functions**: Type `/deep_researcher {"query": "your question"}` for user-controlled research (works immediately)
-- **Tools**: AI models automatically invoke research when they need current information (requires manual import)
-- **Manual Setup**: Import tools via Open-WebUI admin interface → Tools → Add New Tool
+- **Research Tools**: AI models automatically invoke research tools when they need current information
+- **Manual Setup**: Import research tools via Open-WebUI admin interface → Tools → Add New Tool
+- **Two tool versions available**: Basic research tool and enhanced research tool with progress tracking
 
 #### 7.3.1. Open-WebUI Directory Structure
 
-The `open-webui/` folder contains custom integrations:
+The `open-webui/` folder contains custom research integrations:
 
-- `functions/` - Custom functions invoked via slash commands (auto-loaded via volume mount)
-- `tools/` - AI tools for manual import into Open-WebUI
-- `shared/` - Common modules to avoid code duplication between functions and tools
+- `tools/` - Research tools for manual import into Open-WebUI
+  - `research_tool.py` - Basic research tool with polling and fallback support
+  - `research_streaming_tool.py` - Enhanced research tool with progress tracking
 
-#### 7.3.2. Functions vs Tools
+#### 7.3.2. Research Tool Types
 
-**Functions**:
-- **Purpose**: User-invoked utilities via slash commands
-- **Usage**: Type `/function_name` in chat to execute
-- **Loading**: Automatically loaded via volume mount
-- **Implementation**: Simple Python scripts with a `main()` function
-- **Best for**: Direct user control, immediate execution
+**Basic Research Tool** (`research_tool.py`):
+- **Purpose**: Simple research with polling-based status checks
+- **Features**: Error handling, timeout management, formatted results
+- **Best for**: Reliable research with fallback support
+- **User Experience**: Blocking operation with final results
 
-**Tools**:
-- **Purpose**: AI capabilities that models can invoke automatically
-- **Usage**: Models decide when to use them during conversations
-- **Loading**: Manual import through Open-WebUI admin interface
-- **Implementation**: Class-based with `Tools` class and `Valves` configuration
-- **Best for**: AI-enhanced capabilities, seamless integration
+**Enhanced Research Tool** (`research_streaming_tool.py`):
+- **Purpose**: Enhanced research with comprehensive progress tracking
+- **Features**: Progress logging, detailed status updates, comprehensive results formatting
+- **Best for**: Detailed research with full visibility into the research process
+- **User Experience**: Complete progress log delivered with final comprehensive results
 
-#### 7.3.3. Available Deep Researcher Functions
+#### 7.3.3. Tool Installation
 
-These functions are automatically available when you start any docker-compose flavor:
+To install the research tools in Open-WebUI:
 
-- `/deep_researcher` - Advanced research with progress tracking
-- `/deep_researcher_manual` - Research with custom parameters
-- `/deep_researcher_pipe` - Pipeline-based research agent
+1. Access Open-WebUI at `http://localhost:${OPEN_WEB_UI_PORT}`
+2. Go to **Admin Panel** → **Tools**
+3. Click **Add New Tool**
+4. Choose one of the tools:
+   - Copy contents of `open-webui/tools/research_tool.py` for basic research
+   - Copy contents of `open-webui/tools/research_streaming_tool.py` for enhanced research
+5. Paste the tool code and save
 
-**Usage Example**:
-```bash
-/deep_researcher {"query": "Latest AI developments in 2024", "max_loops": 3}
-```
+**Note**: Tools require one-time manual import and give AI models the ability to perform web research automatically.
+
+**Usage**: Once installed, AI models will automatically use research tools when they need current information during conversations.
 
 #### 7.3.4. Tool Configuration
 
@@ -652,29 +650,19 @@ All research operations use the Local Deep Researcher service which:
 
 **Tool Configuration (Valves)**:
 Once imported, tools can be configured via the Valves interface:
+
+*Basic Research Tool:*
 - `backend_url`: Backend service URL (default: `http://backend:8000`)
 - `timeout`: Maximum research time (default: 300 seconds)
-- `poll_interval`: Status check interval (default: 5 seconds)
-- `default_max_loops`: Research depth (default: 3)
-- `default_search_api`: Search engine (default: DuckDuckGo)
+- `enable_tool`: Enable/disable the tool (default: true)
+
+*Enhanced Research Tool:*
+- `backend_url`: Backend service URL (default: `http://backend:8000`)
+- `timeout`: Maximum research time (default: 300 seconds)
+- `poll_interval`: Status check interval (default: 3 seconds)
+- `show_progress`: Show research progress updates (default: true)
 
 #### 7.3.5. Development Guidelines
-
-**Adding a New Function**:
-1. Create a Python file in `open-webui/functions/` with metadata header:
-   ```python
-   """
-   title: My Function
-   author: Your Name
-   description: What it does
-   requirements: requests
-   version: 1.0.0
-   """
-   
-   def main(body: dict) -> dict:
-       # Implementation
-   ```
-2. Restart container to load new function
 
 **Adding a New Tool**:
 1. Create a Python file in `open-webui/tools/` with metadata header
@@ -694,21 +682,9 @@ Once imported, tools can be configured via the Valves interface:
 3. Manually import via Open-WebUI admin interface
 4. Enable for desired models
 
-**Using Shared Modules**:
-```python
-import sys
-from pathlib import Path  # Python standard library
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from shared.research_client import ResearchClient
-```
+**Note**: All dependencies should be self-contained within the tool file since Open-WebUI runs tools in an isolated environment.
 
 #### 7.3.6. Troubleshooting
-
-**Functions Not Working**:
-1. Check Open-WebUI logs for import errors
-2. Verify function syntax and metadata format
-3. Ensure all requirements are available
-4. Restart container if needed
 
 **Tools Not Appearing**:
 1. Check that tool was successfully imported via admin interface
