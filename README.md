@@ -1014,7 +1014,250 @@ n8n can be used for a wide variety of automation tasks, including:
 - **Conditional Logic**: Create complex workflows with conditional branching
 - **Error Handling**: Configure retry logic and error workflows
 
-## 15. Completed Integrations
+## 15. TODO - Planned Improvements
+
+### 15.1. Docker Compose Architecture Restructuring 🚀
+
+**Priority**: High | **Status**: Planned | **Complexity**: Medium
+
+**Overview**: Restructure the current Docker Compose architecture to improve modularity, reusability, and service management. This will enable better service control and make the stack more suitable as a foundation for specialized projects (like RAG showcases).
+
+#### Current Issues:
+- Redundant service definitions across flavor files (`docker-compose.dev-ollama-local.yml`, `docker-compose.prod-gpu.yml`)
+- All-or-nothing service deployment (can't easily disable unwanted services)
+- Difficult to selectively enable/disable service groups
+- Limited reusability for derivative projects
+
+#### Proposed New Structure:
+```
+vanilla-genai/
+├── docker-compose.yml              # Core infrastructure services only
+├── docker-compose.overrides.yml    # Default overrides for full stack
+├── compose-profiles/
+│   ├── core-services.yml           # Essential infrastructure (DB, Redis, API Gateway, Backend)
+│   ├── ai-services.yml             # AI-related services (Ollama, Local Deep Researcher)  
+│   ├── automation.yml              # Workflow automation (n8n, ComfyUI)
+│   ├── ui-services.yml             # User interfaces (Open-WebUI, Supabase Studio)
+│   ├── development.yml             # Dev-specific overrides
+│   └── production.yml              # Prod-specific overrides
+└── docker-compose.full.yml         # Everything enabled (backward compatibility)
+```
+
+#### Service Grouping:
+
+**Core Services** (`core-services.yml`):
+- `supabase-db` - PostgreSQL with pgvector and PostGIS
+- `supabase-db-init` - Database initialization scripts
+- `redis` - Caching and session management
+- `supabase-meta` - Database metadata service
+- `kong-api-gateway` - API gateway and routing
+- `backend` - FastAPI backend service
+- `supabase-auth` - Authentication service
+- `supabase-api` - REST API service (PostgREST)
+- `supabase-storage` - File storage service
+- `supabase-realtime` - Real-time subscriptions
+
+**AI Services** (`ai-services.yml`):
+- `ollama` - Local LLM inference
+- `ollama-pull` - Model management
+- `local-deep-researcher` - AI-powered research service
+- `neo4j-graph-db` - Graph database for AI knowledge graphs
+
+**Automation Services** (`automation.yml`):
+- `n8n` - Workflow automation platform
+- `comfyui` - Node-based AI image generation workflows (NEW)
+
+**UI Services** (`ui-services.yml`):
+- `open-web-ui` - Chat interface
+- `supabase-studio` - Database management UI
+
+#### Implementation Benefits:
+
+1. **Granular Control**: Start only needed services
+   ```bash
+   # Minimal stack (core infrastructure only)
+   docker-compose up
+   
+   # AI-focused stack
+   docker-compose -f docker-compose.yml -f compose-profiles/ai-services.yml up
+   
+   # Full automation stack
+   docker-compose -f docker-compose.yml -f compose-profiles/automation.yml up
+   ```
+
+2. **Easy Service Disabling**: Use profiles to disable unwanted services
+   ```yaml
+   # In derivative projects like RAG showcase
+   services:
+     open-web-ui:
+       profiles: ["disabled"]  # Skip UI for headless RAG
+   ```
+
+3. **Better Resource Utilization**: Run only what you need
+4. **Improved Reusability**: Perfect foundation for specialized projects
+5. **Simplified Maintenance**: DRY principle, no redundant definitions
+
+#### Migration Strategy:
+1. **Phase 1**: Create profile files alongside existing structure
+2. **Phase 2**: Update documentation and convenience scripts
+3. **Phase 3**: Deprecate flavor files (maintain backward compatibility)
+4. **Phase 4**: Remove deprecated files in next major version
+
+#### Environment-Based Control:
+```bash
+# Enhanced .env configuration
+ENABLE_AI_SERVICES=true
+ENABLE_AUTOMATION_SERVICES=true  
+ENABLE_UI_SERVICES=true
+ENABLE_GRAPH_DB=true
+ENABLE_COMFYUI=false  # NEW
+```
+
+#### Updated Convenience Scripts:
+```bash
+# Enhanced start.sh options
+./start.sh --profile ai                    # AI services only
+./start.sh --profile automation            # Automation services only  
+./start.sh --profile "ai,automation"       # Multiple profiles
+./start.sh --disable ui                    # Disable UI services
+./start.sh --enable comfyui               # Enable ComfyUI specifically
+```
+
+---
+
+### 15.2. ComfyUI Integration 🎨
+
+**Priority**: Medium | **Status**: Planned | **Complexity**: Low-Medium
+
+**Overview**: Add ComfyUI as an automation service to provide node-based AI image generation workflows, complementing n8n's general automation capabilities.
+
+#### Why ComfyUI?
+- **Node-based Interface**: Perfect fit with n8n workflow philosophy
+- **Advanced AI Image Generation**: Stable Diffusion, ControlNet, and more
+- **Workflow Automation**: Can be integrated with n8n for automated image generation
+- **Modular Architecture**: Fits well with our service-oriented approach
+
+#### Proposed Implementation:
+```yaml
+# In compose-profiles/automation.yml
+services:
+  comfyui:
+    image: yanwk/comfyui-boot:latest
+    container_name: ${PROJECT_NAME}-comfyui
+    restart: unless-stopped
+    environment:
+      - CLI_ARGS=--listen 0.0.0.0 --port 8188
+    ports:
+      - "${COMFYUI_PORT:-63017}:8188"
+    volumes:
+      - comfyui-data:/root
+      - ./comfyui/workflows:/root/workflows  # Pre-built workflows
+      - ./comfyui/models:/root/models        # Custom models
+    networks:
+      - backend-bridge-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]  # GPU support
+```
+
+#### Integration Features:
+- **API Integration**: ComfyUI provides REST API for workflow execution
+- **n8n Integration**: Create n8n workflows that trigger ComfyUI image generation
+- **Model Management**: Shared model storage with other AI services
+- **Workflow Library**: Pre-built workflows for common image generation tasks
+
+#### Use Cases:
+- **Automated Content Creation**: Generate images for blog posts, reports
+- **Dynamic Image Generation**: Create images based on research findings
+- **Workflow Chaining**: Research → Content → Images in single n8n workflow
+- **A/B Testing**: Generate multiple image variants automatically
+
+#### Configuration:
+```bash
+# New environment variables
+COMFYUI_PORT=63017
+ENABLE_COMFYUI=false  # Disabled by default (requires GPU)
+COMFYUI_GPU_MEMORY=8  # GPU memory allocation
+```
+
+---
+
+### 15.3. Enhanced Service Management 🔧
+
+**Priority**: Medium | **Status**: Planned | **Complexity**: Low
+
+**Overview**: Improve service discovery, health checking, and management capabilities.
+
+#### Planned Improvements:
+1. **Service Registry**: Central service discovery mechanism
+2. **Health Dashboard**: Real-time service status monitoring  
+3. **Resource Monitoring**: CPU, memory, and GPU usage tracking
+4. **Auto-scaling**: Dynamic service scaling based on load
+5. **Dependency Management**: Smarter service startup ordering
+
+#### Implementation:
+- **Consul**: Service discovery and health checking
+- **Prometheus + Grafana**: Metrics and monitoring
+- **Portainer**: Docker container management UI
+- **Watchtower**: Automatic service updates
+
+---
+
+### 15.4. RAG Foundation Preparation 📚
+
+**Priority**: High | **Status**: Planned | **Complexity**: High
+
+**Overview**: Prepare the vanilla stack to serve as a foundation for RAG (Retrieval-Augmented Generation) implementations including GraphRAG, LightRAG, and Agentic RAG.
+
+#### Database Schema Extensions:
+```sql
+-- RAG-specific tables (planned)
+CREATE TABLE rag_documents (
+    id UUID PRIMARY KEY,
+    content TEXT,
+    embeddings VECTOR(1536),
+    metadata JSONB
+);
+
+CREATE TABLE rag_entities (
+    id UUID PRIMARY KEY, 
+    name TEXT,
+    entity_type TEXT,
+    embeddings VECTOR(1536)
+);
+
+CREATE TABLE rag_relationships (
+    source_entity_id UUID,
+    target_entity_id UUID,
+    relationship_type TEXT,
+    weight FLOAT
+);
+```
+
+#### Service Extensions:
+- **Text Processing Endpoints**: Entity extraction, relationship mapping
+- **Embedding Service**: Unified embedding generation API
+- **Graph Processing**: Community detection, graph traversal
+- **Memory Management**: Agent memory systems for Agentic RAG
+
+---
+
+### 15.5. Developer Experience Improvements 🛠️
+
+**Priority**: Medium | **Status**: Planned | **Complexity**: Low
+
+#### Planned Enhancements:
+1. **Development Templates**: Quick-start templates for common use cases
+2. **CLI Tools**: Enhanced command-line interface for stack management
+3. **Hot Reload**: Development mode with automatic service reloading
+4. **Testing Framework**: Automated testing for all service integrations
+5. **Documentation Generator**: Auto-generated API documentation
+
+## 16. Completed Integrations
 
 ### 15.1 Supabase Realtime ✅
 
