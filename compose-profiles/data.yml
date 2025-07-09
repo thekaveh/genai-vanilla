@@ -1,0 +1,230 @@
+services:
+  supabase-db:
+    image: supabase/postgres:17.4.1.016
+    container_name: ${PROJECT_NAME}-supabase-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${SUPABASE_DB_USER}
+      POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      POSTGRES_DB: ${SUPABASE_DB_NAME}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./supabase/db/snapshot:/snapshot
+    ports:
+      - "${SUPABASE_DB_PORT}:5432"
+    networks:
+      - backend-bridge-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: ${PROJECT_NAME}-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    env_file:
+      - .env
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    networks:
+      - backend-bridge-network
+
+  supabase-db-init:
+    image: postgres:15-alpine
+    container_name: ${PROJECT_NAME}-supabase-db-init
+    restart: no
+    env_file:
+      - .env
+    environment:
+      PGHOST: supabase-db
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      PGDATABASE: ${SUPABASE_DB_NAME}
+    volumes:
+      - ./supabase/db/scripts:/scripts
+    entrypoint: ["/scripts/db-init-runner.sh"]
+    depends_on:
+      - supabase-db
+    networks:
+      - backend-bridge-network
+
+  supabase-meta:
+    image: supabase/postgres-meta:v0.88.9
+    container_name: ${PROJECT_NAME}-supabase-meta
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${SUPABASE_DB_NAME}
+      PG_META_DB_USER: ${SUPABASE_DB_USER}
+      PG_META_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+    ports:
+      - "${SUPABASE_META_PORT}:8080"
+    networks:
+      - backend-bridge-network
+
+  supabase-storage:
+    image: supabase/storage-api:v1.22.7
+    container_name: ${PROJECT_NAME}-supabase-storage
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      ANON_KEY: ${SUPABASE_ANON_KEY}
+      SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      REGION: ${STORAGE_REGION}
+      FILE_SIZE_LIMIT: ${STORAGE_FILE_SIZE_LIMIT}
+      STORAGE_BACKEND: ${STORAGE_BACKEND}
+      FILE_STORAGE_PATH: /var/lib/storage
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ${TENANT_ID}
+      PROJECT_REF: ${PROJECT_REF}
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      POSTGREST_URL: http://supabase-api:3000
+      GOTRUE_URL: http://supabase-auth:9999
+    ports:
+      - "${SUPABASE_STORAGE_PORT}:5000"
+    volumes:
+      - supabase-storage-data:/var/lib/storage
+    networks:
+      - backend-bridge-network
+
+  supabase-auth:
+    image: supabase/gotrue:v2.171.0
+    container_name: ${PROJECT_NAME}-supabase-auth
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      GOTRUE_SITE_URL: http://supabase-studio:3000
+      API_EXTERNAL_URL: http://supabase-auth:9999
+      GOTRUE_DB_DRIVER: postgres
+      DB_NAMESPACE: auth
+      GOTRUE_DB_DATABASE_URL: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_MAILER_URLPATHS_INVITE: "/invite"
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: "/confirm"
+      GOTRUE_MAILER_URLPATHS_RECOVERY: "/recover"
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: "/email-change"
+      GOTRUE_SMTP_HOST: "localhost"
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_USER: ""
+      GOTRUE_SMTP_PASS: ""
+      GOTRUE_SMTP_SENDER_NAME: "Supabase Auth"
+      GOTRUE_SMTP_ADMIN_EMAIL: "admin@example.com"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_SITE_NAME: "Local Supabase"
+    ports:
+      - "${SUPABASE_AUTH_PORT}:9999"
+    networks:
+      - backend-bridge-network
+
+  supabase-api:
+    image: postgrest/postgrest:v12.2.10
+    container_name: ${PROJECT_NAME}-supabase-api
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      PGRST_DB_SCHEMA: "public,storage,auth"
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    ports:
+      - "${SUPABASE_API_PORT}:3000"
+    networks:
+      - backend-bridge-network
+
+  supabase-realtime:
+    image: supabase/realtime:v2.33.72
+    container_name: ${PROJECT_NAME}-supabase-realtime
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      supabase-auth:
+        condition: service_started
+      supabase-api:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      # Database connection
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_NAME: ${SUPABASE_DB_NAME}
+      DB_USER: ${SUPABASE_DB_USER}
+      DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      # Replication configuration
+      DB_SLOT: supabase_realtime_slot
+      DB_CHANNEL_ENABLED: "true"
+      # JWT configuration
+      JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      JWT_ROLE: service_role
+      # Server configuration
+      PORT: 4000
+      REPLICATION_MODE: RLS
+      SECURE_CHANNELS: "true"
+      # Additional configuration
+      IP_VERSION: ipv4
+      # Required Phoenix/Erlang configuration
+      SECRET_KEY_BASE: ${SUPABASE_JWT_SECRET}
+      RLIMIT_NOFILE: 65536
+      ERL_AFLAGS: "-proto_dist inet_tcp"
+      HOSTNAME: supabase-realtime
+      FLY_APP_NAME: ${PROJECT_NAME}-realtime
+      APP_NAME: realtime
+    ports:
+      - "${SUPABASE_REALTIME_PORT}:4000"
+    networks:
+      - backend-bridge-network
+
+  neo4j-graph-db:
+    build:
+      context: ./graph-db
+    container_name: ${PROJECT_NAME}-neo4j-graph-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NEO4J_AUTH: ${GRAPH_DB_AUTH}
+      NEO4J_server_default__advertised__address: "neo4j-graph-db"
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_browser_remote__content__hostname__whitelist: "*"
+    ports:
+      - "${GRAPH_DB_PORT}:7687"
+      - "${GRAPH_DB_DASHBOARD_PORT}:7474"
+    volumes:
+      - ./graph-db/scripts:/scripts
+      - ./graph-db/snapshot:/snapshot
+      - graph-db-data:/data
+    networks:
+      - backend-bridge-network

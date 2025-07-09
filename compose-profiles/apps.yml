@@ -1,0 +1,149 @@
+services:
+  supabase-studio:
+    image: supabase/studio:latest
+    container_name: ${PROJECT_NAME}-supabase-studio
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      supabase-meta:
+        condition: service_started
+      supabase-storage:
+        condition: service_started
+      supabase-auth:
+        condition: service_started
+      supabase-api:
+        condition: service_started
+      supabase-realtime:
+        condition: service_started
+      kong-api-gateway:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      SUPABASE_URL: http://kong-api-gateway:8000
+      SUPABASE_PUBLIC_URL: http://localhost:${KONG_HTTP_PORT}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      DEFAULT_ORGANIZATION_NAME: ${PROJECT_NAME}
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      AUTH_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
+    ports:
+      - "${SUPABASE_STUDIO_PORT}:3000"
+    networks:
+      - backend-bridge-network
+
+  kong-api-gateway:
+    container_name: ${PROJECT_NAME}-kong-api-gateway
+    image: kong:3.9.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - ${KONG_HTTP_PORT}:8000/tcp
+      - ${KONG_HTTPS_PORT}:8443/tcp
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
+    depends_on:
+      redis:
+        condition: service_started
+      supabase-auth:
+        condition: service_started
+      supabase-api:
+        condition: service_started
+      supabase-realtime:
+        condition: service_started
+      supabase-storage:
+        condition: service_started
+      supabase-meta:
+        condition: service_started
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,rate-limiting
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_REDIS_HOST: redis
+      KONG_REDIS_PORT: 6379
+      KONG_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+    networks:
+      - backend-bridge-network
+
+  open-web-ui:
+    image: dyrnq/open-webui:latest
+    container_name: ${PROJECT_NAME}-open-web-ui
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+      local-deep-researcher:
+        condition: service_started
+      supabase-realtime:
+        condition: service_started
+      supabase-storage:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
+      # DATABASE_SCHEMA: openwebui
+    volumes:
+      - open-web-ui-data:/app/backend/data
+      # Functions directory removed - using tools integration instead
+      # - ./open-webui/functions:/app/backend/data/functions
+    ports:
+      - "${OPEN_WEB_UI_PORT}:8080"
+    networks:
+      - backend-bridge-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: ${PROJECT_NAME}-backend
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+      neo4j-graph-db:
+        condition: service_started
+      redis:
+        condition: service_started
+      supabase-storage:
+        condition: service_started
+      supabase-realtime:
+        condition: service_started
+      kong-api-gateway:
+        condition: service_started
+      n8n:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      KONG_URL: http://kong-api-gateway:8000
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      OLLAMA_BASE_URL: http://ollama:11434
+      NEO4J_URI: bolt://neo4j-graph-db:7687
+      NEO4J_USER: ${GRAPH_DB_USER}
+      NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      N8N_BASE_URL: http://n8n:5678
+    volumes:
+      - ./backend/app:/app
+      - backend-data:/app/data
+    ports:
+      - "${BACKEND_PORT}:8000"
+    networks:
+      - backend-bridge-network

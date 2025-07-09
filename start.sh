@@ -21,6 +21,17 @@ detect_docker_compose_cmd() {
 # Store the detected command in a variable
 DOCKER_COMPOSE_CMD=$(detect_docker_compose_cmd)
 
+# Function to execute docker compose with multiple files
+execute_compose_cmd() {
+  local cmd_args=""
+  IFS=':' read -ra FILES <<< "$COMPOSE_FILES"
+  for file in "${FILES[@]}"; do
+    cmd_args="$cmd_args -f $file"
+  done
+  echo "      Command: $DOCKER_COMPOSE_CMD $cmd_args $@"
+  $DOCKER_COMPOSE_CMD $cmd_args "$@"
+}
+
 # Default values
 DEFAULT_BASE_PORT=63000
 DEFAULT_PROFILE="default"
@@ -32,7 +43,7 @@ show_usage() {
   echo "Options:"
   echo "  --base-port PORT   Set the base port number (default: $DEFAULT_BASE_PORT)"
   echo "  --profile PROFILE  Set the deployment profile (default: $DEFAULT_PROFILE)"
-  echo "                     Supported profiles: default, dev-ollama-local, prod-gpu, fixed"
+  echo "                     Supported profiles: default, ai-local, ai-gpu, fixed"
   echo "  --cold             Force creation of new .env file and generate new keys"
   echo "  --help             Show this help message"
 }
@@ -54,11 +65,11 @@ while [[ "$#" -gt 0 ]]; do
       fi
       ;;
     --profile)
-      if [[ -n "$2" && "$2" =~ ^(default|dev-ollama-local|prod-gpu|fixed)$ ]]; then
+      if [[ -n "$2" && "$2" =~ ^(default|ai-local|ai-gpu|fixed)$ ]]; then
         PROFILE=$2
         shift 2
       else
-        echo "Error: --profile must be one of: default, dev-ollama-local, prod-gpu, fixed"
+        echo "Error: --profile must be one of: default, ai-local, ai-gpu, fixed"
         show_usage
         exit 1
       fi
@@ -110,16 +121,22 @@ fi
 
 echo "• Using Docker Compose command: $DOCKER_COMPOSE_CMD"
 
-# Determine Docker Compose file based on profile
-COMPOSE_FILE="docker-compose.yml"
-if [[ "$PROFILE" != "default" ]]; then
-  COMPOSE_FILE="docker-compose.$PROFILE.yml"
+# Determine Docker Compose files based on profile
+COMPOSE_FILES="docker-compose.yml:compose-profiles/data.yml"
+if [[ "$PROFILE" == "default" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
+elif [[ "$PROFILE" == "ai-local" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/apps-local.yml"
+elif [[ "$PROFILE" == "ai-gpu" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/apps-gpu.yml"
+elif [[ "$PROFILE" == "fixed" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
 fi
 
 echo "🚀 Starting GenAI Vanilla Stack with:"
 echo "  • Base Port: $BASE_PORT"
 echo "  • Profile: $PROFILE"
-echo "  • Compose File: $COMPOSE_FILE"
+echo "  • Compose Files: $COMPOSE_FILES"
 echo "  • Using .env file: YES (--env-file=.env flag will be used)"
 if [[ "$COLD_START" == "true" ]]; then
   echo "  • Cold Start: Yes (forcing new environment setup)"
@@ -298,198 +315,109 @@ echo "🔄 Starting the stack with profile: $PROFILE"
 # Aggressively clean Docker environment to prevent caching issues
 echo "  • Performing deep clean of Docker environment..."
 
-if [[ "$PROFILE" == "default" ]]; then
-  # Stop and remove containers from previous runs
-  echo "    - Stopping and removing containers..."
-  echo "      Command: $DOCKER_COMPOSE_CMD down --remove-orphans"
-  $DOCKER_COMPOSE_CMD down --remove-orphans
-  
-  # Remove volumes if cold start is requested
-  if [[ "$COLD_START" == "true" ]]; then
-    echo "    - Removing volumes (cold start)..."
-    echo "      Command: $DOCKER_COMPOSE_CMD down -v"
-    $DOCKER_COMPOSE_CMD down -v
+# Stop and remove containers from previous runs
+echo "    - Stopping and removing containers..."
+execute_compose_cmd down --remove-orphans
 
-    # Add explicit network removal for cold start
-    echo "    - Removing project network (cold start)..."
-    echo "      Command: docker network rm ${PROJECT_NAME}_backend-bridge-network"
-    docker network rm ${PROJECT_NAME}_backend-bridge-network || true # Use || true to prevent script from exiting if network doesn't exist
+# Remove volumes if cold start is requested
+if [[ "$COLD_START" == "true" ]]; then
+  echo "    - Removing volumes (cold start)..."
+  execute_compose_cmd down -v
 
-    # Add more aggressive system prune for cold start
-    echo "    - Performing aggressive Docker system prune (cold start)..."
-    echo "      Command: docker system prune --volumes -f"
-    docker system prune --volumes -f
-  fi
-  
-  # Prune Docker system to remove any cached configurations
-  # This prune is less aggressive and runs even without --cold for general cleanup
-  echo "    - Performing general Docker system prune..."
-  echo "      Command: docker system prune -f"
-  docker system prune -f
-  
-  # Small delay to ensure everything is cleaned up
-  sleep 2
-  
-  # Start with a completely fresh build
-  echo "  • Starting containers with new configuration..."
-  echo "    - Building images without cache..."
-  # Force Docker to use the updated environment file by explicitly passing it
-  echo "      Command: $DOCKER_COMPOSE_CMD --env-file=.env build --no-cache"
-  $DOCKER_COMPOSE_CMD --env-file=.env build --no-cache
-  
-  echo "    - Starting containers..."
-  # Force Docker to use the updated environment file by explicitly passing it
-  # Added --force-recreate to ensure containers are recreated with new port settings
-  echo "      Command: $DOCKER_COMPOSE_CMD --env-file=.env up -d --force-recreate"
-  $DOCKER_COMPOSE_CMD --env-file=.env up -d --force-recreate
+  # Add explicit network removal for cold start
+  echo "    - Removing project network (cold start)..."
+  echo "      Command: docker network rm ${PROJECT_NAME}_backend-bridge-network"
+  docker network rm ${PROJECT_NAME}_backend-bridge-network || true # Use || true to prevent script from exiting if network doesn't exist
 
-  # Show the actual port mappings to verify
-  echo ""
-  echo "🔍 Verifying port mappings from Docker..."
-  echo "  Command: $DOCKER_COMPOSE_CMD ps"
-  $DOCKER_COMPOSE_CMD ps
-  
-  # Verify actual port mappings against expected values
-  echo ""
-  echo "🔍 Checking if Docker assigned the expected ports..."
-  
-  # Define services and their internal ports to check
-  # Using simple arrays instead of associative arrays for better compatibility
-  SERVICES=(
-    "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
-    "redis:6379:$VERIFIED_REDIS_PORT"
-    "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
-    "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
-    "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
-    "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
-    "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
-    "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
-    "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
-    "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
-    "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
-    "backend:8000:$VERIFIED_BACKEND_PORT"
-    "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"
-    "kong-api-gateway:8443:$VERIFIED_KONG_HTTPS_PORT"
-  )
-  
-  # If using default profile, Ollama is included
-  if [[ "$PROFILE" == "default" ]]; then
-    SERVICES+=("ollama:11434:$VERIFIED_OLLAMA_PORT")
-  fi
-  
-  # Check each service
-  for SERVICE_INFO in "${SERVICES[@]}"; do
-    IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
-    
-    # Get the actual port mapping from Docker - with improved error handling
-    ACTUAL_PORT=$($DOCKER_COMPOSE_CMD port "$SERVICE" "$INTERNAL_PORT" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
-    
-    if [[ -z "$ACTUAL_PORT" ]]; then
-      echo "  • ❌ $SERVICE: Could not determine port mapping"
-    elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
-      echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
-    else
-      echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
-    fi
-  done
-  echo ""
-  
-  # Show logs
-  echo ""
-  echo "📋 Container logs (press Ctrl+C to exit):"
-  echo "  Command: $DOCKER_COMPOSE_CMD logs -f"
-  $DOCKER_COMPOSE_CMD logs -f
-else
-  # Stop and remove containers from previous runs
-  echo "    - Stopping and removing containers..."
-  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE down --remove-orphans
-  
-  # Remove volumes if cold start is requested
-  if [[ "$COLD_START" == "true" ]]; then
-    echo "    - Removing volumes (cold start)..."
-    $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE down -v
-
-    # Add explicit network removal for cold start
-    echo "    - Removing project network (cold start)..."
-    echo "      Command: docker network rm ${PROJECT_NAME}_backend-bridge-network"
-    docker network rm ${PROJECT_NAME}_backend-bridge-network || true # Use || true to prevent script from exiting if network doesn't exist
-
-    # Add more aggressive system prune for cold start
-    echo "    - Performing aggressive Docker system prune (cold start)..."
-    echo "      Command: docker system prune --volumes -f"
-    docker system prune --volumes -f
-  fi
-  
-  # Prune Docker system to remove any cached configurations
-  # This prune is less aggressive and runs even without --cold for general cleanup
-  echo "    - Performing general Docker system prune..."
-  docker system prune -f
-  
-  # Small delay to ensure everything is cleaned up
-  sleep 2
-  
-  # Start with a completely fresh build
-  echo "  • Starting containers with new configuration..."
-  echo "    - Building images without cache..."
-  # Force Docker to use the updated environment file by explicitly passing it
-  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env build --no-cache
-  
-  echo "    - Starting containers..."
-  # Force Docker to use the updated environment file by explicitly passing it
-  # Added --force-recreate to ensure containers are recreated with new port settings
-  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env up -d --force-recreate
-
-  # Show the actual port mappings to verify
-  echo ""
-  echo "🔍 Verifying port mappings from Docker..."
-  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE ps
-  
-  # Verify actual port mappings against expected values
-  echo ""
-  echo "🔍 Checking if Docker assigned the expected ports..."
-  
-  # Define services and their internal ports to check
-  # Using simple arrays instead of associative arrays for better compatibility
-  SERVICES=(
-    "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
-    "redis:6379:$VERIFIED_REDIS_PORT"
-    "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
-    "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
-    "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
-    "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
-    "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
-    "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
-    "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
-    "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
-    "backend:8000:$VERIFIED_BACKEND_PORT"
-    "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"
-    "kong-api-gateway:8443:$VERIFIED_KONG_HTTPS_PORT"
-  )
-  
-  # If using prod-gpu profile, Ollama is included
-  if [[ "$PROFILE" == "prod-gpu" ]]; then
-    SERVICES+=("ollama:11434:$VERIFIED_OLLAMA_PORT")
-  fi
-  
-  # Check each service
-  for SERVICE_INFO in "${SERVICES[@]}"; do
-    IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
-    
-    # Get the actual port mapping from Docker - with improved error handling
-    ACTUAL_PORT=$($DOCKER_COMPOSE_CMD -f $COMPOSE_FILE port "$SERVICE" "$INTERNAL_PORT" 2>/dev/null | grep -oE '[0-9]+$' || echo "")
-    
-    if [[ -z "$ACTUAL_PORT" ]]; then
-      echo "  • ❌ $SERVICE: Could not determine port mapping"
-    elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
-      echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
-    else
-      echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
-    fi
-  done
-  echo ""
-  
-  # Show logs
-  echo ""
-  echo "📋 Container logs (press Ctrl+C to exit):"
-  $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE logs -f
+  # Add more aggressive system prune for cold start
+  echo "    - Performing aggressive Docker system prune (cold start)..."
+  echo "      Command: docker system prune --volumes -f"
+  docker system prune --volumes -f
 fi
+
+# Prune Docker system to remove any cached configurations
+# This prune is less aggressive and runs even without --cold for general cleanup
+echo "    - Performing general Docker system prune..."
+echo "      Command: docker system prune -f"
+docker system prune -f
+
+# Small delay to ensure everything is cleaned up
+sleep 2
+
+# Start with a completely fresh build
+echo "  • Starting containers with new configuration..."
+echo "    - Building images without cache..."
+# Force Docker to use the updated environment file by explicitly passing it
+execute_compose_cmd --env-file=.env build --no-cache
+
+echo "    - Starting containers..."
+# Force Docker to use the updated environment file by explicitly passing it
+# Added --force-recreate to ensure containers are recreated with new port settings
+execute_compose_cmd --env-file=.env up -d --force-recreate
+
+# Show the actual port mappings to verify
+echo ""
+echo "🔍 Verifying port mappings from Docker..."
+execute_compose_cmd ps
+  
+# Verify actual port mappings against expected values
+echo ""
+echo "🔍 Checking if Docker assigned the expected ports..."
+
+# Define services and their internal ports to check
+# Using simple arrays instead of associative arrays for better compatibility
+SERVICES=(
+  "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
+  "redis:6379:$VERIFIED_REDIS_PORT"
+  "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
+  "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
+  "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
+  "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
+  "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
+  "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
+  "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
+  "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
+  "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
+  "backend:8000:$VERIFIED_BACKEND_PORT"
+  "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"
+  "kong-api-gateway:8443:$VERIFIED_KONG_HTTPS_PORT"
+)
+
+# If using default or ai-gpu profile, Ollama is included
+if [[ "$PROFILE" == "default" || "$PROFILE" == "ai-gpu" ]]; then
+  SERVICES+=("ollama:11434:$VERIFIED_OLLAMA_PORT")
+fi
+
+# Function to get actual port mapping
+get_actual_port() {
+  local service=$1
+  local internal_port=$2
+  local cmd_args=""
+  IFS=':' read -ra FILES <<< "$COMPOSE_FILES"
+  for file in "${FILES[@]}"; do
+    cmd_args="$cmd_args -f $file"
+  done
+  $DOCKER_COMPOSE_CMD $cmd_args port "$service" "$internal_port" 2>/dev/null | grep -oE '[0-9]+$' || echo ""
+}
+
+# Check each service
+for SERVICE_INFO in "${SERVICES[@]}"; do
+  IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
+  
+  # Get the actual port mapping from Docker - with improved error handling
+  ACTUAL_PORT=$(get_actual_port "$SERVICE" "$INTERNAL_PORT")
+  
+  if [[ -z "$ACTUAL_PORT" ]]; then
+    echo "  • ❌ $SERVICE: Could not determine port mapping"
+  elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
+    echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
+  else
+    echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
+  fi
+done
+echo ""
+
+# Show logs
+echo ""
+echo "📋 Container logs (press Ctrl+C to exit):"
+execute_compose_cmd logs -f

@@ -19,7 +19,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 - **2.1. API Gateway (Kong)**: Centralized API management, authentication, and routing for backend services.
 - **2.2. Real-time Data Synchronization**: Live database change notifications via Supabase Realtime WebSocket connections.
-- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose files (e.g., `docker-compose.dev-ollama-local.yml` for local Ollama, `docker-compose.prod-gpu.yml` for GPU support).
+- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose profiles (e.g., `ai-local` for local Ollama, `ai-gpu` for GPU support).
 - **2.4. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
 - **2.5. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **2.6. Environment-based Configuration**: Easy configuration through environment variables
@@ -67,16 +67,16 @@ The project includes cross-platform scripts that simplify starting and stopping 
 ./start.sh --base-port 64000
 
 # Start with a specific deployment profile
-./start.sh --profile dev-ollama-local
+./start.sh --profile ai-local
 
 # Combine options
-./start.sh --base-port 64000 --profile prod-gpu
+./start.sh --base-port 64000 --profile ai-gpu
 
 # Stop the stack and clean up resources
 ./stop.sh
 
 # Stop a specific profile
-./stop.sh --profile prod-gpu
+./stop.sh --profile ai-gpu
 ```
 
 #### Manual Docker Compose Commands (Alternative)
@@ -87,12 +87,11 @@ You can also use Docker Compose commands directly:
 # First, make sure all previous services are stopped to avoid port conflicts
 docker compose --env-file=.env down --remove-orphans
 
-# Start all services
+# Start all services with default profile
 docker compose --env-file=.env up
 
-# Start with a specific flavor
-docker compose -f docker-compose.<flavor_name>.yml --env-file=.env down --remove-orphans
-docker compose -f docker-compose.<flavor_name>.yml --env-file=.env up
+# Start with a specific profile using start.sh (recommended)
+./start.sh --profile ai-local
 
 # Build services
 docker compose --env-file=.env build
@@ -100,12 +99,6 @@ docker compose --env-file=.env build
 # Fresh/Cold Start (completely reset the environment)
 # This will remove all volumes, containers, and orphaned services before rebuilding and starting
 docker compose --env-file=.env down --volumes --remove-orphans && docker compose --env-file=.env up --build
-```
-
-For a fresh/cold start with a specific flavor, use:
-
-```bash
-docker compose -f docker-compose.<flavor_name>.yml --env-file=.env down --volumes --remove-orphans && docker compose -f docker-compose.<flavor_name>.yml --env-file=.env up --build
 ```
 
 ### 3.3. Convenience Scripts
@@ -121,7 +114,7 @@ Usage: ./start.sh [options]
 Options:
   --base-port PORT   Set the base port number (default: 63000)
   --profile PROFILE  Set the deployment profile (default: default)
-                     Supported profiles: default, dev-ollama-local, prod-gpu
+                     Supported profiles: default, ai-local, ai-gpu
   --cold             Force creation of new .env file and generate new keys
   --help             Show this help message
 ```
@@ -191,7 +184,7 @@ This script stops the stack and cleans up resources:
 Usage: ./stop.sh [options]
 Options:
   --profile PROFILE  Set the deployment profile (default: default)
-                     Supported profiles: default, dev-ollama-local, prod-gpu
+                     Supported profiles: default, ai-local, ai-gpu
   --cold             Remove volumes (data will be lost)
   --help             Show this help message
 ```
@@ -504,19 +497,19 @@ docker compose up
 
 # Development with local Ollama (running on your host machine)
 # First ensure Ollama is running on your host
-docker compose -f docker-compose.dev-ollama-local.yml up
+./start.sh --profile ai-local
 
 # Production with NVIDIA GPU support
-docker compose -f docker-compose.prod-gpu.yml up
+./start.sh --profile ai-gpu
 ```
 
 #### 7.1.2. Environment-Specific Configuration
 
 The Ollama service is configured for different environments using standalone Docker Compose files:
 
-- **Default (docker-compose.yml)**: Standard containerized Ollama service (runs on CPU)
-- **dev-ollama-local (docker-compose.dev-ollama-local.yml)**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
-- **prod-gpu (docker-compose.prod-gpu.yml)**: Complete stack with NVIDIA GPU acceleration for the Ollama container
+- **Default (default profile)**: Standard containerized Ollama service (runs on CPU)
+- **ai-local profile**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
+- **ai-gpu profile**: Complete stack with NVIDIA GPU acceleration for the Ollama container
 
 The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the LLMs table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
 
@@ -563,9 +556,9 @@ The Local Deep Researcher service depends on:
 
 The service adapts to different deployment scenarios:
 
-- **Default (docker-compose.yml)**: Connects to containerized Ollama service
-- **Development (docker-compose.dev-ollama-local.yml)**: Connects to local host Ollama instance
-- **Production (docker-compose.prod-gpu.yml)**: Connects to GPU-accelerated containerized Ollama
+- **Default (default profile)**: Connects to containerized Ollama service
+- **Development (ai-local profile)**: Connects to local host Ollama instance
+- **Production (ai-gpu profile)**: Connects to GPU-accelerated containerized Ollama
 
 #### 7.2.5. Usage
 
@@ -849,8 +842,16 @@ genai-vanilla-stack/
 ├── start.sh              # Script to start the stack with configurable ports
 ├── stop.sh              # Script to stop the stack and clean up resources
 ├── docker-compose.yml    # Main compose file
-├── docker-compose.dev-ollama-local.yml  # Local Ollama flavor
-├── docker-compose.prod-gpu.yml          # GPU-optimized flavor
+├── docker-compose.ai-local.yml  # Local Ollama flavor
+├── docker-compose.ai-gpu.yml          # GPU-optimized flavor
+├── compose-profiles/     # Modular service profiles
+│   ├── data.yml         # Data services (DB, Redis, Neo4j)
+│   ├── ai.yml           # AI services (Ollama, Deep Researcher)
+│   ├── ai-local.yml     # AI services for local Ollama
+│   ├── ai-gpu.yml       # AI services with GPU support
+│   ├── apps.yml         # Application services
+│   ├── apps-local.yml   # App services for local Ollama
+│   └── apps-gpu.yml     # App services with GPU support
 ├── backend/              # FastAPI backend service
 │   ├── Dockerfile
 │   └── app/
@@ -1016,92 +1017,87 @@ n8n can be used for a wide variety of automation tasks, including:
 
 ## 15. TODO - Planned Improvements
 
-### 15.1. Docker Compose Architecture Restructuring 🚀
+### 15.1. Docker Compose Architecture Restructuring ✅
 
-**Priority**: High | **Status**: Planned | **Complexity**: Medium
+**Priority**: High | **Status**: Completed | **Complexity**: Medium
 
-**Overview**: Restructure the current Docker Compose architecture to improve modularity, reusability, and service management. This will enable better service control and make the stack more suitable as a foundation for specialized projects (like RAG showcases).
+**Overview**: Restructured the Docker Compose architecture to improve modularity, reusability, and service management. This enables better service control and makes the stack more suitable as a foundation for specialized projects.
 
-#### Current Issues:
-- Redundant service definitions across flavor files (`docker-compose.dev-ollama-local.yml`, `docker-compose.prod-gpu.yml`)
-- All-or-nothing service deployment (can't easily disable unwanted services)
-- Difficult to selectively enable/disable service groups
-- Limited reusability for derivative projects
+#### Previous Issues (Resolved):
+- ✅ Redundant service definitions across flavor files (eliminated through modular structure)
+- ✅ All-or-nothing service deployment (resolved with profile-based deployment)
+- ✅ Difficult to selectively enable/disable service groups (now possible with profiles)
+- ✅ Limited reusability for derivative projects (improved modularity)
 
-#### Proposed New Structure:
+#### Implemented Structure:
 ```
 vanilla-genai/
-├── docker-compose.yml              # Core infrastructure services only
-├── docker-compose.overrides.yml    # Default overrides for full stack
+├── docker-compose.yml              # Base networks and volumes
+├── docker-compose.ai-local.yml     # Local Ollama flavor (backward compatibility)
+├── docker-compose.ai-gpu.yml       # GPU-optimized flavor (backward compatibility)
 ├── compose-profiles/
-│   ├── core-services.yml           # Essential infrastructure (DB, Redis, API Gateway, Backend)
-│   ├── ai-services.yml             # AI-related services (Ollama, Local Deep Researcher)  
-│   ├── automation.yml              # Workflow automation (n8n, ComfyUI)
-│   ├── ui-services.yml             # User interfaces (Open-WebUI, Supabase Studio)
-│   ├── development.yml             # Dev-specific overrides
-│   └── production.yml              # Prod-specific overrides
-└── docker-compose.full.yml         # Everything enabled (backward compatibility)
+│   ├── data.yml                    # Data services (DB, Redis, Neo4j, Supabase services)
+│   ├── ai.yml                      # AI services (Ollama, Local Deep Researcher, n8n)
+│   ├── ai-local.yml                # AI services for local Ollama
+│   ├── ai-gpu.yml                  # AI services with GPU support
+│   ├── apps.yml                    # Application services (UI, Backend, Kong)
+│   ├── apps-local.yml              # App services for local Ollama
+│   └── apps-gpu.yml                # App services with GPU support
 ```
 
 #### Service Grouping:
 
-**Core Services** (`core-services.yml`):
+**Data Services** (`data.yml`):
 - `supabase-db` - PostgreSQL with pgvector and PostGIS
 - `supabase-db-init` - Database initialization scripts
 - `redis` - Caching and session management
 - `supabase-meta` - Database metadata service
-- `kong-api-gateway` - API gateway and routing
-- `backend` - FastAPI backend service
 - `supabase-auth` - Authentication service
 - `supabase-api` - REST API service (PostgREST)
 - `supabase-storage` - File storage service
 - `supabase-realtime` - Real-time subscriptions
-
-**AI Services** (`ai-services.yml`):
-- `ollama` - Local LLM inference
-- `ollama-pull` - Model management
-- `local-deep-researcher` - AI-powered research service
 - `neo4j-graph-db` - Graph database for AI knowledge graphs
 
-**Automation Services** (`automation.yml`):
+**AI Services** (`ai.yml`, `ai-local.yml`, `ai-gpu.yml`):
+- `ollama` - Local LLM inference (containerized/local/GPU variants)
+- `ollama-pull` - Model management
+- `local-deep-researcher` - AI-powered research service
 - `n8n` - Workflow automation platform
-- `comfyui` - Node-based AI image generation workflows (NEW)
 
-**UI Services** (`ui-services.yml`):
-- `open-web-ui` - Chat interface
+**Application Services** (`apps.yml`, `apps-local.yml`, `apps-gpu.yml`):
 - `supabase-studio` - Database management UI
+- `kong-api-gateway` - API gateway and routing
+- `open-web-ui` - Chat interface
+- `backend` - FastAPI backend service
 
 #### Implementation Benefits:
 
-1. **Granular Control**: Start only needed services
+1. **✅ Granular Control**: Start only needed services
    ```bash
-   # Minimal stack (core infrastructure only)
-   docker-compose up
+   # Default stack (all services)
+   ./start.sh
    
    # AI-focused stack
-   docker-compose -f docker-compose.yml -f compose-profiles/ai-services.yml up
+   ./start.sh --profile ai-local
    
-   # Full automation stack
-   docker-compose -f docker-compose.yml -f compose-profiles/automation.yml up
+   # GPU-optimized stack
+   ./start.sh --profile ai-gpu
    ```
 
-2. **Easy Service Disabling**: Use profiles to disable unwanted services
-   ```yaml
-   # In derivative projects like RAG showcase
-   services:
-     open-web-ui:
-       profiles: ["disabled"]  # Skip UI for headless RAG
-   ```
+2. **✅ Modular Architecture**: Clean separation of concerns
+   - Data services are independent of AI services
+   - AI services can be swapped between local/containerized/GPU
+   - App services adapt to the AI configuration
 
-3. **Better Resource Utilization**: Run only what you need
-4. **Improved Reusability**: Perfect foundation for specialized projects
-5. **Simplified Maintenance**: DRY principle, no redundant definitions
+3. **✅ Better Resource Utilization**: Run only what you need
+4. **✅ Improved Reusability**: Perfect foundation for specialized projects
+5. **✅ Simplified Maintenance**: DRY principle, no redundant definitions
 
-#### Migration Strategy:
-1. **Phase 1**: Create profile files alongside existing structure
-2. **Phase 2**: Update documentation and convenience scripts
-3. **Phase 3**: Deprecate flavor files (maintain backward compatibility)
-4. **Phase 4**: Remove deprecated files in next major version
+#### Migration Strategy (Completed):
+1. **✅ Phase 1**: Created profile files alongside existing structure
+2. **✅ Phase 2**: Updated documentation and convenience scripts
+3. **✅ Phase 3**: Renamed profiles to cleaner names (ai-local, ai-gpu)
+4. **Future**: Remove deprecated files in next major version
 
 #### Environment-Based Control:
 ```bash

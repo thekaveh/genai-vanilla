@@ -21,6 +21,16 @@ detect_docker_compose_cmd() {
 # Store the detected command in a variable
 DOCKER_COMPOSE_CMD=$(detect_docker_compose_cmd)
 
+# Function to execute docker compose with multiple files
+execute_compose_cmd() {
+  local cmd_args=""
+  IFS=':' read -ra FILES <<< "$COMPOSE_FILES"
+  for file in "${FILES[@]}"; do
+    cmd_args="$cmd_args -f $file"
+  done
+  $DOCKER_COMPOSE_CMD $cmd_args "$@"
+}
+
 # Default values
 DEFAULT_PROFILE="default"
 COLD_STOP=false
@@ -30,7 +40,7 @@ show_usage() {
   echo "Usage: $0 [options]"
   echo "Options:"
   echo "  --profile PROFILE  Set the deployment profile (default: $DEFAULT_PROFILE)"
-  echo "                     Supported profiles: default, dev-ollama-local, prod-gpu"
+  echo "                     Supported profiles: default, ai-local, ai-gpu"
   echo "  --cold             Remove volumes (data will be lost)"
   echo "  --help             Show this help message"
 }
@@ -41,11 +51,11 @@ PROFILE=$DEFAULT_PROFILE
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --profile)
-      if [[ -n "$2" && "$2" =~ ^(default|dev-ollama-local|prod-gpu)$ ]]; then
+      if [[ -n "$2" && "$2" =~ ^(default|ai-local|ai-gpu)$ ]]; then
         PROFILE=$2
         shift 2
       else
-        echo "Error: --profile must be one of: default, dev-ollama-local, prod-gpu"
+        echo "Error: --profile must be one of: default, ai-local, ai-gpu"
         show_usage
         exit 1
       fi
@@ -66,15 +76,19 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-# Determine Docker Compose file based on profile
-COMPOSE_FILE="docker-compose.yml"
-if [[ "$PROFILE" != "default" ]]; then
-  COMPOSE_FILE="docker-compose.$PROFILE.yml"
+# Determine Docker Compose files based on profile
+COMPOSE_FILES="docker-compose.yml:compose-profiles/data.yml"
+if [[ "$PROFILE" == "default" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
+elif [[ "$PROFILE" == "ai-local" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/apps-local.yml"
+elif [[ "$PROFILE" == "ai-gpu" ]]; then
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/apps-gpu.yml"
 fi
 
 echo "🛑 Stopping GenAI Vanilla Stack"
 echo "  • Profile: $PROFILE"
-echo "  • Compose File: $COMPOSE_FILE"
+echo "  • Compose Files: $COMPOSE_FILES"
 if [[ "$COLD_STOP" == "true" ]]; then
   echo "  • Cold Stop: Yes (removing volumes)"
 fi
@@ -92,19 +106,11 @@ echo ""
 echo "🔄 Stopping containers..."
 if [[ "$COLD_STOP" == "true" ]]; then
   echo "   and removing volumes (data will be lost)..."
-  if [[ "$PROFILE" == "default" ]]; then
-    $DOCKER_COMPOSE_CMD --env-file=.env down --volumes --remove-orphans
-  else
-    $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env down --volumes --remove-orphans
-  fi
+  execute_compose_cmd --env-file=.env down --volumes --remove-orphans
   echo ""
   echo "✅ Stack stopped and volumes removed."
 else
-  if [[ "$PROFILE" == "default" ]]; then
-    $DOCKER_COMPOSE_CMD --env-file=.env down --remove-orphans
-  else
-    $DOCKER_COMPOSE_CMD -f $COMPOSE_FILE --env-file=.env down --remove-orphans
-  fi
+  execute_compose_cmd --env-file=.env down --remove-orphans
   echo ""
   echo "✅ Stack stopped. Data volumes preserved."
 fi
