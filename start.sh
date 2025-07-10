@@ -28,8 +28,8 @@ execute_compose_cmd() {
   for file in "${FILES[@]}"; do
     cmd_args="$cmd_args -f $file"
   done
-  echo "      Command: $DOCKER_COMPOSE_CMD $cmd_args $@"
-  $DOCKER_COMPOSE_CMD $cmd_args "$@"
+  echo "      Command: $DOCKER_COMPOSE_CMD $cmd_args --env-file=.env $@"
+  $DOCKER_COMPOSE_CMD $cmd_args --env-file=.env "$@"
 }
 
 # Default values
@@ -348,12 +348,12 @@ sleep 2
 echo "  • Starting containers with new configuration..."
 echo "    - Building images without cache..."
 # Force Docker to use the updated environment file by explicitly passing it
-execute_compose_cmd --env-file=.env build --no-cache
+execute_compose_cmd build --no-cache
 
 echo "    - Starting containers..."
 # Force Docker to use the updated environment file by explicitly passing it
 # Added --force-recreate to ensure containers are recreated with new port settings
-execute_compose_cmd --env-file=.env up -d --force-recreate
+execute_compose_cmd up -d --force-recreate
 
 # Show the actual port mappings to verify
 echo ""

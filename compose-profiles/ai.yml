@@ -3,8 +3,6 @@ services:
     image: ollama/ollama:latest
     container_name: ${PROJECT_NAME}-ollama
     restart: unless-stopped
-    env_file:
-      - ../.env
     volumes:
       - ollama-data:/root/.ollama
     ports:
@@ -21,8 +19,6 @@ services:
         condition: service_completed_successfully
       ollama:
         condition: service_started
-    env_file:
-      - ../.env
     networks:
       - backend-bridge-network
     environment:
@@ -33,12 +29,12 @@ services:
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       OLLAMA_HOST_URL: http://ollama:11434
     volumes:
-      - ../ollama-pull/scripts:/scripts
+      - ./ollama-pull/scripts:/scripts
     entrypoint: ["/scripts/pull.sh"]
 
   local-deep-researcher:
     build:
-      context: ../local-deep-researcher
+      context: ./local-deep-researcher
     container_name: ${PROJECT_NAME}-local-deep-researcher
     restart: unless-stopped
     depends_on:
@@ -46,8 +42,6 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
-    env_file:
-      - ../.env
     environment:
       # Database connection for LLM config
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -72,8 +66,6 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
-    env_file:
-      - ../.env
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: supabase-db

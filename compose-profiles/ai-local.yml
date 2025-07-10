@@ -8,8 +8,6 @@ services:
         condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - .env
     networks:
       - backend-bridge-network
     environment:
@@ -35,8 +33,6 @@ services:
         condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - .env
     environment:
       # Database connection for LLM config
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -61,8 +57,6 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
-    env_file:
-      - .env
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: supabase-db

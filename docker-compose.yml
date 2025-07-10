@@ -1,7 +1,5 @@
 include:
   - compose-profiles/data.yml
-  - compose-profiles/ai.yml
-  - compose-profiles/apps.yml
 
 networks:
   backend-bridge-network:

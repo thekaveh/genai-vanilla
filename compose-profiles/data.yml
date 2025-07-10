@@ -3,8 +3,6 @@ services:
     image: supabase/postgres:17.4.1.016
     container_name: ${PROJECT_NAME}-supabase-db
     restart: unless-stopped
-    env_file:
-      - ../.env
     environment:
       POSTGRES_USER: ${SUPABASE_DB_USER}
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
@@ -12,7 +10,7 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - supabase-db-data:/var/lib/postgresql/data
-      - ../supabase/db/snapshot:/snapshot
+      - ./supabase/db/snapshot:/snapshot
     ports:
       - "${SUPABASE_DB_PORT}:5432"
     networks:
@@ -23,8 +21,6 @@ services:
     container_name: ${PROJECT_NAME}-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    env_file:
-      - ../.env
     volumes:
       - redis-data:/data
     ports:
@@ -39,15 +35,13 @@ services:
     image: postgres:15-alpine
     container_name: ${PROJECT_NAME}-supabase-db-init
     restart: no
-    env_file:
-      - ../.env
     environment:
       PGHOST: supabase-db
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       PGDATABASE: ${SUPABASE_DB_NAME}
     volumes:
-      - ../supabase/db/scripts:/scripts
+      - ./supabase/db/scripts:/scripts
     entrypoint: ["/scripts/db-init-runner.sh"]
     depends_on:
       - supabase-db
@@ -61,8 +55,6 @@ services:
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
-    env_file:
-      - ../.env
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: supabase-db
@@ -82,8 +74,6 @@ services:
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
-    env_file:
-      - ../.env
     environment:
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       JWT_SECRET: ${SUPABASE_JWT_SECRET}
@@ -113,8 +103,6 @@ services:
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
-    env_file:
-      - ../.env
     environment:
       GOTRUE_SITE_URL: http://supabase-studio:3000
       API_EXTERNAL_URL: http://supabase-auth:9999
@@ -149,8 +137,6 @@ services:
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
-    env_file:
-      - ../.env
     environment:
       PGRST_DB_URI: postgres://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       PGRST_DB_SCHEMA: "public,storage,auth"
@@ -173,8 +159,6 @@ services:
         condition: service_started
       supabase-api:
         condition: service_started
-    env_file:
-      - ../.env
     environment:
       # Database connection
       DB_HOST: supabase-db
@@ -211,8 +195,6 @@ services:
       context: ./graph-db
     container_name: ${PROJECT_NAME}-neo4j-graph-db
     restart: unless-stopped
-    env_file:
-      - ../.env
     environment:
       NEO4J_AUTH: ${GRAPH_DB_AUTH}
       NEO4J_server_default__advertised__address: "neo4j-graph-db"

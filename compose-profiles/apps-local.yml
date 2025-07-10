@@ -18,8 +18,6 @@ services:
         condition: service_started
       kong-api-gateway:
         condition: service_started
-    env_file:
-      - .env
     environment:
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_URL: http://kong-api-gateway:8000
@@ -39,8 +37,6 @@ services:
     container_name: ${PROJECT_NAME}-kong-api-gateway
     image: kong:3.9.0
     restart: unless-stopped
-    env_file:
-      - .env
     ports:
       - ${KONG_HTTP_PORT}:8000/tcp
       - ${KONG_HTTPS_PORT}:8443/tcp
@@ -93,8 +89,6 @@ services:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - .env
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -133,8 +127,6 @@ services:
         condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - .env
     environment:
       KONG_URL: http://kong-api-gateway:8000
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
