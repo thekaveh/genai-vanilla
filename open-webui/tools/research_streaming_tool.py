@@ -17,9 +17,9 @@ from pydantic import BaseModel, Field
 
 class Tools:
     class Valves(BaseModel):
-        backend_url: str = Field(
-            default="http://backend:8000",
-            description="Backend service URL"
+        researcher_url: str = Field(
+            default="http://local-deep-researcher:2024",
+            description="Deep Researcher service URL"
         )
         timeout: int = Field(
             default=300,
@@ -72,27 +72,65 @@ class Tools:
     def _start_research_session(self, query: str) -> str:
         """Start a research session and return session ID"""
         try:
-            response = requests.post(
-                f"{self.valves.backend_url}/research/start",
+            # Create a new thread with unique metadata
+            import time
+            timestamp = int(time.time() * 1000)
+            
+            thread_resp = requests.post(
+                f"{self.valves.researcher_url}/threads",
                 json={
-                    "query": query,
-                    "max_loops": 3,
-                    "search_api": "duckduckgo"
+                    "metadata": {
+                        "query": query,
+                        "timestamp": timestamp,
+                        "source": "open_webui_streaming_tool"
+                    }
                 },
                 timeout=30
             )
             
-            if response.status_code != 200:
+            if thread_resp.status_code != 200:
                 return None
                 
-            data = response.json()
-            return data.get("session_id")
+            thread_data = thread_resp.json()
+            return thread_data.get("thread_id")
             
         except Exception:
             return None
 
-    def _track_research_progress(self, session_id: str, query: str) -> str:
+    def _track_research_progress(self, thread_id: str, query: str) -> str:
         """Track research progress and return final results"""
+        
+        # Start the research run
+        try:
+            run_resp = requests.post(
+                f"{self.valves.researcher_url}/threads/{thread_id}/runs/wait",
+                json={
+                    "assistant_id": "a6ab75b8-fb3d-5c2c-a436-2fee55e33a06",
+                    "input": {
+                        "research_topic": query  # Deep Researcher expects 'research_topic' not 'query'
+                    },
+                    "config": {
+                        "max_loops": 3, 
+                        "search_api": "duckduckgo"
+                    }
+                },
+                timeout=self.valves.timeout
+            )
+            
+            if run_resp.status_code != 200:
+                return f"❌ **Research failed:** HTTP {run_resp.status_code}"
+            
+            # Get the final results
+            result_data = run_resp.json()
+            return self._format_langgraph_result(result_data, query, thread_id)
+            
+        except requests.exceptions.Timeout:
+            return f"⏱️ **Research timed out** after {self.valves.timeout} seconds"
+        except Exception as e:
+            return f"❌ **Research failed:** {str(e)}"
+    
+    def _track_research_progress_old(self, session_id: str, query: str) -> str:
+        """Old method - keeping for reference"""
         start_time = time.time()
         last_status = None
         progress_log = []
@@ -109,7 +147,7 @@ class Tools:
             while time.time() - start_time < self.valves.timeout:
                 # Get current status
                 status_response = requests.get(
-                    f"{self.valves.backend_url}/research/{session_id}/status",
+                    f"{self.valves.researcher_url}/research/{session_id}/status",
                     timeout=10
                 )
                 
@@ -154,7 +192,7 @@ class Tools:
         """Get the final research results"""
         try:
             result_response = requests.get(
-                f"{self.valves.backend_url}/research/{session_id}/result",
+                f"{self.valves.researcher_url}/research/{session_id}/result",
                 timeout=30
             )
             
@@ -208,6 +246,43 @@ class Tools:
                 
         except Exception as e:
             return f"❌ **Failed to retrieve results:** {str(e)}\n\n{self._create_fallback_result(query, session_id)}"
+
+    def _format_langgraph_result(self, result: dict, query: str, thread_id: str) -> str:
+        """Format LangGraph research results"""
+        output = []
+        
+        title = result.get('title', f'Research Results: {query}')
+        output.append(f"# {title}")
+        
+        # Handle different possible response structures
+        if 'final_report' in result:
+            output.append(f"\n## Research Report\n{result['final_report']}")
+        elif 'report' in result:
+            output.append(f"\n## Research Report\n{result['report']}")
+        elif 'content' in result:
+            content = result['content']
+            if len(content) > 2000:
+                content = content[:2000] + "\n\n[Content truncated for brevity...]"
+            output.append(f"\n## Details\n{content}")
+        
+        # Extract sources if available
+        sources = result.get('sources', [])
+        if sources:
+            output.append("\n## Sources")
+            for i, src in enumerate(sources[:5], 1):
+                if isinstance(src, dict):
+                    title = src.get('title', 'Untitled')
+                    url = src.get('url', '#')
+                    output.append(f"{i}. [{title}]({url})")
+                else:
+                    output.append(f"{i}. {str(src)}")
+        
+        output.append(f"\n## Research Info")
+        output.append(f"- Thread ID: {thread_id}")
+        output.append(f"- Query: {query}")
+        output.append(f"- Status: ✅ Completed")
+        
+        return "\n".join(output)
 
     def _create_fallback_result(self, query: str, session_id: str) -> str:
         """Create a fallback result when API fails"""

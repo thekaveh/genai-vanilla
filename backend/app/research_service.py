@@ -101,9 +101,8 @@ class ResearchService:
                 user_id=user_id
             )
 
-            # Execute research (this is a mock - in real implementation, 
-            # you would call the actual local-deep-researcher service)
-            await self._mock_research_execution(conn, session_id, request)
+            # Execute research using the actual local-deep-researcher service
+            await self._execute_research(conn, session_id, request)
 
         except Exception as e:
             # Update status to failed
@@ -124,70 +123,56 @@ class ResearchService:
             if session_id in self._active_tasks:
                 del self._active_tasks[session_id]
 
-    async def _mock_research_execution(
+    async def _execute_research(
         self, 
         conn: asyncpg.Connection, 
         session_id: str, 
         request: ResearchRequest
     ):
-        """Mock research execution - replace with actual local-deep-researcher integration"""
+        """Execute research using actual local-deep-researcher service"""
         
-        # Simulate research steps
-        steps = [
-            ("search", "Performing web search"),
-            ("scrape", "Scraping relevant sources"),
-            ("analyze", "Analyzing content"),
-            ("synthesize", "Synthesizing final report")
-        ]
-
-        for i, (step_type, message) in enumerate(steps, 3):
-            await conn.execute("""
-                INSERT INTO public.research_logs (session_id, step_number, step_type, message)
-                VALUES ($1, $2, $3, $4)
-            """, session_id, i, step_type, message)
+        # Use the research client to start the research
+        research_response = await self.research_client.start_research(request)
+        
+        if research_response.status != ResearchStatus.RUNNING:
+            raise Exception(f"Failed to start research: {research_response.message}")
+        
+        remote_session_id = research_response.session_id
+        
+        # Log the remote session ID
+        await conn.execute("""
+            INSERT INTO public.research_logs (session_id, step_number, step_type, message)
+            VALUES ($1, $2, $3, $4)
+        """, session_id, 3, "remote_start", f"Remote research session started: {remote_session_id}")
+        
+        # Wait for completion
+        final_response = await self.research_client.wait_for_completion(remote_session_id)
+        
+        if final_response.status == ResearchStatus.COMPLETED:
+            # Get the results
+            research_result = await self.research_client.get_research_result(remote_session_id)
             
-            # Simulate processing time
-            await asyncio.sleep(2)
+            if research_result:
+                # Store the results
+                await self._store_research_result(conn, session_id, research_result)
+            else:
+                raise Exception("Failed to retrieve research results")
+        else:
+            raise Exception(f"Research failed: {final_response.message}")
 
-        # Create mock research result
-        mock_result = {
-            "title": f"Research Results: {request.query}",
-            "summary": f"Comprehensive research findings for '{request.query}' based on {request.max_loops} research loops.",
-            "content": f"""# Research Report: {request.query}
-
-## Executive Summary
-This research was conducted using {request.search_api} as the primary search engine with {request.max_loops} research loops.
-
-## Key Findings
-1. Primary insight related to {request.query}
-2. Secondary findings and supporting evidence
-3. Relevant data points and statistics
-
-## Sources
-Multiple sources were analyzed to provide comprehensive coverage of the topic.
-
-## Conclusion
-The research provides valuable insights into {request.query} with actionable recommendations.
-""",
-            "sources": [
-                {
-                    "url": "https://example.com/source1",
-                    "title": f"Primary Source for {request.query}",
-                    "relevance_score": 0.95
-                },
-                {
-                    "url": "https://example.com/source2", 
-                    "title": f"Supporting Evidence for {request.query}",
-                    "relevance_score": 0.87
-                }
-            ],
-            "metadata": {
-                "search_api": request.search_api,
-                "max_loops": request.max_loops,
-                "processing_time_seconds": 8,
-                "sources_analyzed": 15
-            }
-        }
+    async def _store_research_result(
+        self, 
+        conn: asyncpg.Connection, 
+        session_id: str, 
+        research_result: ResearchResult
+    ):
+        """Store research results in the database"""
+        
+        # Log completion
+        await conn.execute("""
+            INSERT INTO public.research_logs (session_id, step_number, step_type, message)
+            VALUES ($1, $2, $3, $4)
+        """, session_id, 4, "complete", "Research completed successfully")
 
         # Store research result
         result_id = str(uuid4())
@@ -195,18 +180,18 @@ The research provides valuable insights into {request.query} with actionable rec
             INSERT INTO public.research_results 
             (id, session_id, title, summary, content, sources, metadata)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
-        """, result_id, session_id, mock_result["title"], mock_result["summary"],
-            mock_result["content"], json.dumps(mock_result["sources"]), 
-            json.dumps(mock_result["metadata"]))
+        """, result_id, session_id, research_result.title, research_result.summary,
+            research_result.content, json.dumps(research_result.sources), 
+            json.dumps(research_result.metadata))
 
         # Store individual sources
-        for source in mock_result["sources"]:
+        for source in research_result.sources:
             await conn.execute("""
                 INSERT INTO public.research_sources 
                 (session_id, result_id, url, title, relevance_score, metadata)
                 VALUES ($1, $2, $3, $4, $5, $6)
-            """, session_id, result_id, source["url"], source["title"],
-                source["relevance_score"], json.dumps({}))
+            """, session_id, result_id, source.get("url", ""), source.get("title", ""),
+                source.get("relevance_score", 0.0), json.dumps(source.get("metadata", {})))
 
         # Update session as completed
         await conn.execute("""
@@ -214,11 +199,6 @@ The research provides valuable insights into {request.query} with actionable rec
             SET status = $1, completed_at = $2
             WHERE id = $3
         """, ResearchStatus.COMPLETED.value, datetime.utcnow(), session_id)
-
-        await conn.execute("""
-            INSERT INTO public.research_logs (session_id, step_number, step_type, message)
-            VALUES ($1, $2, $3, $4)
-        """, session_id, 10, "complete", "Research completed successfully")
 
     async def get_research_status(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get research session status"""

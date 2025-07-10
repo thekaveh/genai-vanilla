@@ -19,7 +19,7 @@ services:
       kong-api-gateway:
         condition: service_started
     env_file:
-      - .env
+      - ../.env
     environment:
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_URL: http://kong-api-gateway:8000
@@ -40,12 +40,12 @@ services:
     image: kong:3.9.0
     restart: unless-stopped
     env_file:
-      - .env
+      - ../.env
     ports:
       - ${KONG_HTTP_PORT}:8000/tcp
       - ${KONG_HTTPS_PORT}:8443/tcp
     volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
+      - ../volumes/api/kong.yml:/home/kong/kong.yml:ro,z
     depends_on:
       redis:
         condition: service_started
@@ -92,7 +92,7 @@ services:
       supabase-storage:
         condition: service_started
     env_file:
-      - .env
+      - ../.env
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -100,6 +100,7 @@ services:
       # DATABASE_SCHEMA: openwebui
     volumes:
       - open-web-ui-data:/app/backend/data
+      - ../open-webui/tools:/app/backend/data/tools
       # Functions directory removed - using tools integration instead
       # - ./open-webui/functions:/app/backend/data/functions
     ports:
@@ -109,7 +110,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
     depends_on:
@@ -130,7 +131,7 @@ services:
       n8n:
         condition: service_started
     env_file:
-      - .env
+      - ../.env
     environment:
       KONG_URL: http://kong-api-gateway:8000
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -141,7 +142,7 @@ services:
       REDIS_URL: ${REDIS_URL}
       N8N_BASE_URL: http://n8n:5678
     volumes:
-      - ./backend/app:/app
+      - ../backend/app:/app
       - backend-data:/app/data
     ports:
       - "${BACKEND_PORT}:8000"

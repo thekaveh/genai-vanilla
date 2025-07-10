@@ -576,13 +576,14 @@ The Open Web UI service provides a web interface for interacting with AI models:
 - **Model Integration**: Connects to Ollama API endpoint for standard AI chat functionality
 - **Database Integration**: Uses the Supabase PostgreSQL database (`DATABASE_URL`) for storing conversations and settings
 - **Storage Interaction**: Interacts with the Supabase Storage API (via the Kong API Gateway) for file operations
-- **Deep Researcher Integration**: Tools-based integration for AI research capabilities:
-    - **Tools**: AI-invoked research capabilities that models can use automatically (manual import)
-    - **Manual Setup**: Tools require one-time manual import via Open-WebUI admin interface
+- **Deep Researcher Integration**: Direct LangGraph API integration for AI research capabilities:
+    - **Tools**: AI-invoked research capabilities that models can use automatically
+    - **Direct Connection**: Tools connect directly to Deep Researcher service via LangGraph API
     - **Database-driven**: Research uses active models from the `llms` table (qwen3:latest by default)
     - **Two Tool Types**: Basic research tool and enhanced research tool with progress tracking
 - **Volume Mounts**: 
     - `open-web-ui-data:/app/backend/data` - Persistent data storage
+    - `../open-webui/tools:/app/backend/data/tools` - Research tools directory
 - **Generic Image**: Uses standard `dyrnq/open-webui:latest` for reliability and simplicity
 - **Dependencies**: Depends on Ollama, Supabase DB, Ollama Pull, Local Deep Researcher, and Supabase Storage services
 - **Configuration**:
@@ -590,9 +591,9 @@ The Open Web UI service provides a web interface for interacting with AI models:
     - `DATABASE_URL`: PostgreSQL connection string for Supabase
     - `WEBUI_SECRET_KEY`: Secret key for Open Web UI
 
-**Usage**: 
-- **Research Tools**: AI models automatically invoke research tools when they need current information
-- **Manual Setup**: Import research tools via Open-WebUI admin interface → Tools → Add New Tool
+**Setup Instructions**: 
+- **Quick Start**: See [open-webui/README.md](open-webui/README.md) for detailed setup guide
+- **Research Tools**: Import tools via Open-WebUI admin interface → Tools → Import Tool
 - **Two tool versions available**: Basic research tool and enhanced research tool with progress tracking
 
 #### 7.3.1. Open-WebUI Directory Structure
@@ -638,22 +639,25 @@ To install the research tools in Open-WebUI:
 **Research Service Settings**:
 All research operations use the Local Deep Researcher service which:
 - Uses the default LLM from the database (LLMs table)
-- Connects via the backend API at `http://backend:8000`
+- Connects directly to Deep Researcher at `http://local-deep-researcher:2024`
+- Uses LangGraph API for thread-based research sessions
 - Supports configurable research depth and search engines
 
 **Tool Configuration (Valves)**:
 Once imported, tools can be configured via the Valves interface:
 
 *Basic Research Tool:*
-- `backend_url`: Backend service URL (default: `http://backend:8000`)
+- `researcher_url`: Deep Researcher service URL (default: `http://local-deep-researcher:2024`)
 - `timeout`: Maximum research time (default: 300 seconds)
 - `enable_tool`: Enable/disable the tool (default: true)
 
 *Enhanced Research Tool:*
-- `backend_url`: Backend service URL (default: `http://backend:8000`)
+- `researcher_url`: Deep Researcher service URL (default: `http://local-deep-researcher:2024`)
 - `timeout`: Maximum research time (default: 300 seconds)
 - `poll_interval`: Status check interval (default: 3 seconds)
 - `show_progress`: Show research progress updates (default: true)
+
+**Note**: The tools now communicate directly with the Deep Researcher service using the LangGraph API, bypassing the backend service for improved performance and reliability.
 
 #### 7.3.5. Development Guidelines
 
