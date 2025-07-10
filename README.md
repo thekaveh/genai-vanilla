@@ -1671,7 +1671,7 @@ CREATE TABLE rag_relationships (
 **Status**: Fully integrated and operational
 
 **Implementation Details**:
-- ✅ Added `local-deep-researcher` service to all Docker Compose flavors (default, dev-ollama-local, prod-gpu)
+- ✅ Added `local-deep-researcher` service to all Docker Compose flavors (default, ai-local, ai-gpu)
 - ✅ Built custom Docker container with LangGraph CLI and uv package management
 - ✅ Implemented database-driven configuration that queries `public.llms` table for active models
 - ✅ Created initialization scripts for dynamic LLM detection and runtime configuration
