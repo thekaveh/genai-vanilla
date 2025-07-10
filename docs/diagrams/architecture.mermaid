@@ -1,9 +1,9 @@
 graph LR
-    %% This diagram represents the default and prod-gpu deployment flavors with a containerized Ollama service.
-    %% For the dev-ollama-local flavor, the 'ollama' container is removed, and 'backend', 'open-web-ui',
-    %% and 'ollama-pull' connect to a local Ollama instance via host.docker.internal:11434.
-    %% The prod-gpu flavor adds NVIDIA GPU resources and limits to the 'ollama' and 'backend' services.
-    %% Open-WebUI integrates with Local Deep Researcher via research tools that call the backend API.
+    %% This diagram represents the new modular Docker Compose profile architecture.
+    %% Services are organized into profiles: data.yml, ai.yml/ai-local.yml/ai-gpu.yml, apps.yml/apps-local.yml/apps-gpu.yml
+    %% For ai-local profile, the 'ollama' container is removed, and services connect to local Ollama via host.docker.internal:11434.
+    %% For ai-gpu profile, Ollama runs with NVIDIA GPU acceleration.
+    %% The start.sh script handles profile selection and consistent environment variable management.
 
     %% Define styles
     classDef database fill:#a5d8ff,stroke:#1971c2,color:#1e1e1e
@@ -12,42 +12,40 @@ graph LR
     classDef ui fill:#ffd8a8,stroke:#e8590c,color:#1e1e1e
     classDef api fill:#b2f2bb,stroke:#2f9e44,color:#1e1e1e
     
-    %% Database Services & Initialization
-    subgraph DB[Database Services & Init]
+    %% Data Services Profile (data.yml)
+    subgraph DataProfile[Data Profile - data.yml]
         direction LR
         supabase-db[supabase-db]
         redis[redis]:::cache
         supabase-db-init(supabase-db-init)
-        subgraph Supabase Core
+        subgraph SupabaseCore[Supabase Core Services]
         direction TB
         supabase-meta[supabase-meta]
         supabase-storage[supabase-storage]
         supabase-auth[supabase-auth]
         supabase-api[supabase-api]
         supabase-realtime[supabase-realtime]
-        supabase-studio[supabase-studio]
         end
         neo4j-graph-db[neo4j-graph-db]
     end
 
-    %% AI Services
-    subgraph AI[AI Services]
+    %% AI Services Profile (ai.yml / ai-local.yml / ai-gpu.yml)
+    subgraph AIProfile[AI Profile - ai.yml/ai-local.yml/ai-gpu.yml]
         direction TB
-        ollama[ollama]
+        ollama[ollama - containerized]
+        ollama-local[host.docker.internal:11434 - local]
         ollama-pull[ollama-pull]
         local-deep-researcher[local-deep-researcher]
-    end
-    
-    %% API Layer (moved to right side)
-    subgraph API[API Layer]
-        kong-api-gateway[Kong API Gateway]
-        backend[backend]
         n8n[n8n]:::api
     end
     
-    %% UI Layer
-    subgraph UI[UI Layer]
+    %% Apps Services Profile (apps.yml / apps-local.yml / apps-gpu.yml)
+    subgraph AppsProfile[Apps Profile - apps.yml/apps-local.yml/apps-gpu.yml]
+        direction TB
+        kong-api-gateway[Kong API Gateway]
+        backend[backend]
         open-web-ui[open-web-ui]
+        supabase-studio[supabase-studio]
     end
     
     %% Connections / Dependencies
@@ -123,12 +121,22 @@ graph LR
     supabase-realtime -- "Logical Replication" --> supabase-db
 
 
+    %% Profile Selection Notes
+    subgraph ProfileNotes[Profile Selection]
+        direction TB
+        DefaultNote[default: data.yml + ai.yml + apps.yml]
+        LocalNote[ai-local: data.yml + ai-local.yml + apps-local.yml]
+        GPUNote[ai-gpu: data.yml + ai-gpu.yml + apps-gpu.yml]
+    end
+
     %% Apply styles
     classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
+    classDef profile fill:#e3f2fd,stroke:#1976d2,color:#1e1e1e
     class supabase-db,neo4j-graph-db database
     class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
-    class ollama,ollama-pull,local-deep-researcher ai
+    class ollama,ollama-local,ollama-pull,local-deep-researcher ai
     class open-web-ui ui
     class backend api
     class kong-api-gateway api
     class supabase-db-init init
+    class DefaultNote,LocalNote,GPUNote profile

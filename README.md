@@ -20,7 +20,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **2.1. API Gateway (Kong)**: Centralized API management, authentication, and routing for backend services.
 - **2.2. Real-time Data Synchronization**: Live database change notifications via Supabase Realtime WebSocket connections.
 - **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose profiles (e.g., `ai-local` for local Ollama, `ai-gpu` for GPU support).
-- **2.4. Multiple Deployment Flavors**: Choose different service combinations with standalone Docker Compose files
+- **2.4. Multiple Deployment Profiles**: Choose different service combinations with modular Docker Compose profile files
 - **2.5. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **2.6. Environment-based Configuration**: Easy configuration through environment variables
 - **2.7. Explicit Initialization Control**: Uses a dedicated `supabase-db-init` service to manage custom database setup after the base database starts.
@@ -60,7 +60,7 @@ colima start --memory 12 --cpu 6
 The project includes cross-platform scripts that simplify starting and stopping the stack:
 
 ```bash
-# Start the stack with default settings
+# Start the stack with default settings (all services)
 ./start.sh
 
 # Start with a custom base port (all service ports will be incremented from this base)
@@ -79,26 +79,33 @@ The project includes cross-platform scripts that simplify starting and stopping 
 ./stop.sh --profile ai-gpu
 ```
 
+**Available Profiles:**
+- `default`: Complete stack with containerized Ollama (CPU-based)
+- `ai-local`: Complete stack using local Ollama installation on host machine  
+- `ai-gpu`: Complete stack with GPU-accelerated containerized Ollama
+
 #### Manual Docker Compose Commands (Alternative)
 
-You can also use Docker Compose commands directly:
+You can also use Docker Compose commands directly with the new profile structure:
 
 ```bash
 # First, make sure all previous services are stopped to avoid port conflicts
 docker compose --env-file=.env down --remove-orphans
 
-# Start all services with default profile
-docker compose --env-file=.env up
+# Start with default profile (all services, containerized Ollama)
+docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai.yml -f compose-profiles/apps.yml --env-file=.env up
 
-# Start with a specific profile using start.sh (recommended)
+# Start with ai-local profile (local Ollama)
+docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-local.yml -f compose-profiles/apps-local.yml --env-file=.env up
+
+# Start with ai-gpu profile (GPU Ollama)
+docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-gpu.yml -f compose-profiles/apps-gpu.yml --env-file=.env up
+
+# Build services for a specific profile
+docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai.yml -f compose-profiles/apps.yml --env-file=.env build
+
+# Recommended: Use start.sh script instead for easier profile management
 ./start.sh --profile ai-local
-
-# Build services
-docker compose --env-file=.env build
-
-# Fresh/Cold Start (completely reset the environment)
-# This will remove all volumes, containers, and orphaned services before rebuilding and starting
-docker compose --env-file=.env down --volumes --remove-orphans && docker compose --env-file=.env up --build
 ```
 
 ### 3.3. Convenience Scripts
@@ -570,7 +577,14 @@ Once running, the Local Deep Researcher provides:
 
 ### 7.3. Open Web UI
 
-The Open Web UI service provides a web interface for interacting with AI models:
+Open-WebUI is integrated with the Deep Researcher service to provide AI-powered web research capabilities directly within the chat interface. This integration uses Open-WebUI's Tools system to enable seamless research functionality.
+
+**Architecture**:
+```
+User → Open-WebUI → Research Tool → Deep Researcher (LangGraph) → Web Search
+                                           ↓
+                                        Ollama LLM
+```
 
 - **Accessible**: Available at http://localhost:${OPEN_WEB_UI_PORT} (configured via `OPEN_WEB_UI_PORT`)
 - **Model Integration**: Connects to Ollama API endpoint for standard AI chat functionality
@@ -591,12 +605,108 @@ The Open Web UI service provides a web interface for interacting with AI models:
     - `DATABASE_URL`: PostgreSQL connection string for Supabase
     - `WEBUI_SECRET_KEY`: Secret key for Open Web UI
 
-**Setup Instructions**: 
-- **Quick Start**: See [open-webui/README.md](open-webui/README.md) for detailed setup guide
-- **Research Tools**: Import tools via Open-WebUI admin interface → Tools → Import Tool
-- **Two tool versions available**: Basic research tool and enhanced research tool with progress tracking
+#### 7.3.1. Enabling Deep Researcher in Open-WebUI
 
-#### 7.3.1. Open-WebUI Directory Structure
+**Prerequisites**:
+1. Ensure all services are running:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. Verify Deep Researcher is healthy:
+   ```bash
+   curl http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/docs
+   ```
+
+3. Ensure Ollama has the required model:
+   ```bash
+   docker-compose exec ollama ollama pull qwen3:latest
+   # Or use an alternative model and update the database
+   ```
+
+**Step-by-Step Setup**:
+
+1. **Access Open-WebUI Admin Interface**
+   - Navigate to Open-WebUI: `http://localhost:${OPEN_WEB_UI_PORT}`
+   - Log in with admin credentials
+   - Go to **Admin Panel** → **Tools**
+
+2. **Import Research Tools**
+   
+   The research tools are automatically mounted from the host filesystem. You have two tools available:
+
+   - **Research Assistant** (`research_tool.py`)
+     - Basic research functionality
+     - Synchronous results display
+     - Best for quick research queries
+
+   - **Research Assistant (Enhanced)** (`research_streaming_tool.py`)
+     - Progressive status updates
+     - Real-time research progress
+     - Best for detailed research tasks
+
+   **Import Method (Copy/Paste)**:
+   Since Open-WebUI's file browser shows the container filesystem, use the copy/paste method:
+
+   a. On your host machine, copy the content of the tool file:
+   ```bash
+   # For basic research tool
+   cat open-webui/tools/research_tool.py
+   
+   # For enhanced research tool  
+   cat open-webui/tools/research_streaming_tool.py
+   ```
+
+   b. In Open-WebUI admin interface:
+   - Go to **Tools** → **Create New Tool**
+   - Paste the entire file content
+   - Click **"Create Tool"**
+
+3. **Configure Tool Settings**
+   
+   After importing, configure the tool by clicking on its settings (gear icon):
+
+   **Default Configuration** (Usually no changes needed):
+   - `researcher_url`: `http://local-deep-researcher:2024` (auto-configured)
+   - `timeout`: 300 seconds
+   - `enable_tool`: true
+
+   **Note**: The tools are pre-configured to use the correct Deep Researcher URL. You typically don't need to modify these settings.
+
+4. **Enable Tools for Models**
+   - Go to **Admin Panel** → **Models**
+   - Select the model you want to use (e.g., your Ollama model)
+   - In the **Tools** section, enable:
+     - ✅ Research Assistant
+     - ✅ Research Assistant (Enhanced) (optional)
+   - Save the model configuration
+
+5. **Test the Integration**
+   - Start a new chat with the model that has research tools enabled
+   - Try these example queries:
+     - "Research the latest developments in AI"
+     - "What are the current trends in renewable energy?"
+     - "Find information about quantum computing applications"
+
+   The tool will automatically activate when it detects research-related queries.
+
+**Do You Need to Restart Open-WebUI?**
+- **No**, you don't need to restart when importing tools through the admin interface
+- **Yes**, you need to restart when modifying tool Python files directly on disk
+
+#### 7.3.2. How Research Tools Work
+
+1. **Query Detection**: When you ask a research question, Open-WebUI detects it needs to use the research tool
+2. **Thread Creation**: The tool creates a new thread in the Deep Researcher LangGraph API
+3. **Research Execution**: Deep Researcher performs web searches and analysis using the configured LLM with the correct `research_topic` input format
+4. **Result Formatting**: Results are formatted and displayed in the chat interface
+
+**Recent Fixes**:
+- **Input Format**: Fixed tools to use `research_topic` input field (required by Deep Researcher) instead of `query`
+- **State Management**: Removed conflicting configuration parameters that caused thread state issues
+- **Thread Isolation**: Each research session now properly creates isolated threads
+
+#### 7.3.3. Open-WebUI Directory Structure
 
 The `open-webui/` folder contains custom research integrations:
 
@@ -604,101 +714,92 @@ The `open-webui/` folder contains custom research integrations:
   - `research_tool.py` - Basic research tool with polling and fallback support
   - `research_streaming_tool.py` - Enhanced research tool with progress tracking
 
-#### 7.3.2. Research Tool Types
+#### 7.3.4. Troubleshooting Open-WebUI Research Integration
 
-**Basic Research Tool** (`research_tool.py`):
-- **Purpose**: Simple research with polling-based status checks
-- **Features**: Error handling, timeout management, formatted results
-- **Best for**: Reliable research with fallback support
-- **User Experience**: Blocking operation with final results
+**Tools Not Showing Up**:
 
-**Enhanced Research Tool** (`research_streaming_tool.py`):
-- **Purpose**: Enhanced research with comprehensive progress tracking
-- **Features**: Progress logging, detailed status updates, comprehensive results formatting
-- **Best for**: Detailed research with full visibility into the research process
-- **User Experience**: Complete progress log delivered with final comprehensive results
-
-#### 7.3.3. Tool Installation
-
-To install the research tools in Open-WebUI:
-
-1. Access Open-WebUI at `http://localhost:${OPEN_WEB_UI_PORT}`
-2. Go to **Admin Panel** → **Tools**
-3. Click **Add New Tool**
-4. Choose one of the tools:
-   - Copy contents of `open-webui/tools/research_tool.py` for basic research
-   - Copy contents of `open-webui/tools/research_streaming_tool.py` for enhanced research
-5. Paste the tool code and save
-
-**Note**: Tools require one-time manual import and give AI models the ability to perform web research automatically.
-
-**Usage**: Once installed, AI models will automatically use research tools when they need current information during conversations.
-
-#### 7.3.4. Tool Configuration
-
-**Research Service Settings**:
-All research operations use the Local Deep Researcher service which:
-- Uses the default LLM from the database (LLMs table)
-- Connects directly to Deep Researcher at `http://local-deep-researcher:2024`
-- Uses LangGraph API for thread-based research sessions
-- Supports configurable research depth and search engines
-
-**Tool Configuration (Valves)**:
-Once imported, tools can be configured via the Valves interface:
-
-*Basic Research Tool:*
-- `researcher_url`: Deep Researcher service URL (default: `http://local-deep-researcher:2024`)
-- `timeout`: Maximum research time (default: 300 seconds)
-- `enable_tool`: Enable/disable the tool (default: true)
-
-*Enhanced Research Tool:*
-- `researcher_url`: Deep Researcher service URL (default: `http://local-deep-researcher:2024`)
-- `timeout`: Maximum research time (default: 300 seconds)
-- `poll_interval`: Status check interval (default: 3 seconds)
-- `show_progress`: Show research progress updates (default: true)
-
-**Note**: The tools now communicate directly with the Deep Researcher service using the LangGraph API, bypassing the backend service for improved performance and reliability.
-
-#### 7.3.5. Development Guidelines
-
-**Adding a New Tool**:
-1. Create a Python file in `open-webui/tools/` with metadata header
-2. Implement `Tools` class with methods and `Valves`:
-   ```python
-   class Tools:
-       class Valves(BaseModel):
-           # Configuration parameters
-           
-       def __init__(self):
-           self.valves = self.Valves()
-           
-       def my_tool_method(self, param: str) -> str:
-           """Tool method description"""
-           # Implementation
-   ```
-3. Manually import via Open-WebUI admin interface
-4. Enable for desired models
-
-**Note**: All dependencies should be self-contained within the tool file since Open-WebUI runs tools in an isolated environment.
-
-#### 7.3.6. Troubleshooting
-
-**Tools Not Appearing**:
-1. Check that tool was successfully imported via admin interface
-2. Verify tool syntax matches Open-WebUI requirements
-3. Check model settings to ensure tool is enabled
-4. Look for errors in Open-WebUI logs
-
-**Research Failures**:
-1. Verify Local Deep Researcher service is running:
+1. Check if tools are mounted:
    ```bash
-   docker compose ps local-deep-researcher
+   docker-compose exec open-web-ui ls -la /app/backend/data/tools/
    ```
-2. Check backend service connectivity:
+
+2. Verify Deep Researcher connectivity:
    ```bash
-   curl http://localhost:${BACKEND_PORT}/research/health
+   docker-compose exec open-web-ui curl http://local-deep-researcher:2024/docs
    ```
-3. Ensure default LLM is configured in database
+
+**Research Failing**:
+
+1. Check Deep Researcher logs:
+   ```bash
+   docker-compose logs local-deep-researcher --tail=50
+   ```
+
+2. Verify Ollama model is available:
+   ```bash
+   docker-compose exec ollama ollama list
+   ```
+
+3. Check if the model name in the database matches:
+   ```sql
+   -- Connect to database and check active LLM
+   SELECT name, provider FROM llms WHERE active = true AND content = true;
+   ```
+
+**Model Not Found Error**:
+
+If you see "model not found" errors:
+
+1. Pull the required model:
+   ```bash
+   docker-compose exec ollama ollama pull qwen3:latest
+   ```
+
+2. Or update the database to use an available model:
+   ```sql
+   UPDATE llms SET active = true WHERE name = 'your-available-model' AND provider = 'ollama';
+   UPDATE llms SET active = false WHERE name != 'your-available-model';
+   ```
+
+#### 7.3.5. Advanced Configuration
+
+**Using Different LLMs**:
+
+The Deep Researcher service dynamically selects the LLM from the database. To change it:
+
+1. Connect to Supabase database
+2. Update the `llms` table to activate your preferred model
+3. Ensure the model is available in Ollama
+
+**Custom Search Engines**:
+
+Currently supports:
+- DuckDuckGo (default)
+- Additional engines can be configured in the Deep Researcher service
+
+**Performance Tuning**:
+
+- Adjust `max_loops` in the tool code for search depth
+- Modify `timeout` in tool settings for longer research
+- Configure `poll_interval` for status update frequency
+
+#### 7.3.6. Security Considerations
+
+- Research tools only have access to public web content
+- All requests are routed through the backend service
+- No direct internet access from Open-WebUI container
+- Results are sanitized before display
+
+#### 7.3.7. Development Guidelines
+
+To modify the research tools:
+
+1. Edit files in `open-webui/tools/`
+2. Restart Open-WebUI: `docker-compose restart open-web-ui`
+3. Re-import the tool in the admin interface
+4. Test thoroughly before deployment
+
+For more details on tool development, see the Open-WebUI official documentation.
 
 ### 7.4. Backend API Service
 
@@ -845,9 +946,9 @@ genai-vanilla-stack/
 ├── generate_supabase_keys.sh # Script to generate JWT keys for Supabase
 ├── start.sh              # Script to start the stack with configurable ports
 ├── stop.sh              # Script to stop the stack and clean up resources
-├── docker-compose.yml    # Main compose file
-├── docker-compose.ai-local.yml  # Local Ollama flavor
-├── docker-compose.ai-gpu.yml          # GPU-optimized flavor
+├── docker-compose.yml    # Main compose file (base networks and volumes)
+├── docker-compose.ai-local.yml  # Local Ollama flavor (backward compatibility)
+├── docker-compose.ai-gpu.yml    # GPU-optimized flavor (backward compatibility)
 ├── compose-profiles/     # Modular service profiles
 │   ├── data.yml         # Data services (DB, Redis, Neo4j)
 │   ├── ai.yml           # AI services (Ollama, Deep Researcher)
@@ -928,15 +1029,55 @@ When running on Windows:
 - Docker Desktop for Windows handles path translations automatically
 - Host scripts will detect Windows environments and provide appropriate guidance
 
-## 12. License
+## 12. Architecture Diagram
+
+The `docs/diagrams/` directory contains the Mermaid diagram source for the project architecture.
+
+### 12.1. Generating the Architecture Diagram
+
+The architecture diagram is defined in `architecture.mermaid` and can be generated as a PNG image using the provided script:
+
+1. Make sure you have Node.js and npm installed
+2. Run the generation script:
+   ```bash
+   cd docs/diagrams
+   ./generate_diagram.sh
+   ```
+3. This will:
+   - Install the Mermaid CLI tool if needed
+   - Convert the Mermaid diagram to PNG
+   - Save it as `docs/images/architecture.png`
+
+The generated image will be automatically referenced in the main README.md file.
+
+### 12.2. Modifying the Architecture Diagram
+
+To modify the architecture diagram:
+
+1. Edit the `architecture.mermaid` file
+2. Run the generation script to update the PNG image
+3. The changes will be reflected in the README.md
+
+### 12.3. Mermaid Diagram Source
+
+The diagram uses Mermaid syntax to define a clean, professional representation of the project architecture with:
+- Logical grouping of services by category (Database, AI, API)
+- Clear data flow visualization
+- Consistent styling
+
+You can also embed the Mermaid code directly in Markdown files for platforms that support Mermaid rendering (like GitHub).
+
+**IMPORTANT**: Always update the architecture diagram when modifying the Docker Compose services!
+
+## 13. License
 
 [MIT](LICENSE)
 
-## 13. Redis Service
+## 14. Redis Service
 
 The Redis service provides a high-performance in-memory data store that is used for caching, pub/sub messaging, and geospatial operations.
 
-### 13.1. Overview
+### 14.1. Overview
 
 - **Image**: Uses the official `redis:7.2-alpine` image for a lightweight footprint
 - **Persistence**: Configured with AOF (Append-Only File) persistence for data durability
@@ -944,12 +1085,12 @@ The Redis service provides a high-performance in-memory data store that is used 
 - **Port**: Available at `localhost:${REDIS_PORT}` (configured via `REDIS_PORT`)
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` service
 
-### 13.2. Integration with Other Services
+### 14.2. Integration with Other Services
 
 - **Kong API Gateway**: Uses Redis for rate limiting and other Redis-backed plugins
 - **Backend Service**: Uses Redis for caching, pub/sub messaging, and geospatial operations
 
-### 13.3. Configuration
+### 14.3. Configuration
 
 The Redis service can be configured through the following environment variables:
 
@@ -957,7 +1098,7 @@ The Redis service can be configured through the following environment variables:
 - `REDIS_PASSWORD`: The password used to authenticate with Redis
 - `REDIS_URL`: The connection URL used by services to connect to Redis
 
-### 13.4. Usage in Backend
+### 14.4. Usage in Backend
 
 The backend service is configured to use Redis for:
 
@@ -965,11 +1106,11 @@ The backend service is configured to use Redis for:
 - **Pub/Sub**: Enabling real-time messaging between components
 - **Geohashing**: Supporting geospatial operations and queries
 
-## 14. n8n Workflow Automation Service
+## 15. n8n Workflow Automation Service
 
 The n8n service provides a powerful workflow automation platform that can be used to create, schedule, and monitor automated workflows.
 
-### 14.1. Overview
+### 15.1. Overview
 
 - **Image**: Uses the official `n8nio/n8n:latest` image
 - **Database**: Uses the Supabase PostgreSQL database for storing workflows and execution data
@@ -978,7 +1119,7 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Port**: Available at `http://localhost:${N8N_PORT}` (configured via `N8N_PORT`)
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` and `ollama-pull` services
 
-### 14.2. Features
+### 15.2. Features
 
 - **Visual Workflow Editor**: Create workflows with a drag-and-drop interface
 - **Node-Based Architecture**: Connect different services and actions using nodes
@@ -987,13 +1128,13 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Credentials Management**: Securely store and manage credentials for various services
 - **Extensibility**: Create custom nodes for specific use cases
 
-### 14.3. Integration with Other Services
+### 15.3. Integration with Other Services
 
 - **Backend Service**: The backend service can trigger n8n workflows for tasks like data processing, notifications, and more
 - **Supabase PostgreSQL**: n8n uses the Supabase database for storing workflows and execution data
 - **Redis**: n8n uses Redis for queue management, improving reliability and scalability of workflow executions
 
-### 14.4. Configuration
+### 15.4. Configuration
 
 The n8n service can be configured through the following environment variables:
 
@@ -1008,9 +1149,248 @@ The n8n service can be configured through the following environment variables:
 - `N8N_PATH`: The base path for n8n (default: /)
 - `N8N_EXECUTIONS_MODE`: The execution mode for n8n (default: queue)
 
-### 14.5. Usage Examples
+### 15.5. Pre-built Research Workflows
 
-n8n can be used for a wide variety of automation tasks, including:
+The `n8n/` directory contains pre-built n8n workflows for integrating with the Local Deep Researcher service. These workflows provide out-of-the-box automation for research tasks.
+
+#### 15.5.1. Simple Research Workflow (`research-simple.json`)
+
+**Purpose**: Execute single research queries via webhook with automatic result retrieval.
+
+**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/research-trigger`
+
+**Request Format**:
+```json
+{
+  "query": "Your research question here",
+  "max_loops": 3,
+  "search_api": "duckduckgo",
+  "user_id": "optional-user-id"
+}
+```
+
+**Response**: Complete research results including title, summary, content, and sources.
+
+**Use Cases**:
+- Single research queries from external applications
+- API integration with frontend applications
+- Manual research requests
+
+#### 15.5.2. Batch Research Workflow (`research-batch.json`)
+
+**Purpose**: Execute multiple research queries simultaneously and return consolidated results.
+
+**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/batch-research`
+
+**Request Format**:
+```json
+{
+  "queries": [
+    "First research question",
+    "Second research question",
+    {
+      "query": "Third research question",
+      "max_loops": 5,
+      "search_api": "duckduckgo"
+    }
+  ],
+  "config": {
+    "max_loops": 3,
+    "search_api": "duckduckgo",
+    "user_id": "optional-user-id"
+  }
+}
+```
+
+**Response**: Batch results with summary statistics and individual research outcomes.
+
+**Use Cases**:
+- Market research across multiple topics
+- Competitive analysis
+- Content research for multiple articles
+- Academic research compilation
+
+#### 15.5.3. Scheduled Research Workflow (`research-scheduled.json`)
+
+**Purpose**: Automatically execute predefined research queries on a schedule (default: weekly on Mondays at 9 AM).
+
+**Schedule**: Configurable via cron expression (default: `0 9 * * MON`)
+
+**Features**:
+- Predefined research topics (AI breakthroughs, tech trends, cybersecurity, open source)
+- Automatic report generation
+- Result storage in Supabase Storage
+- Execution summaries and statistics
+
+**Use Cases**:
+- Weekly industry reports
+- Trend monitoring
+- Automated competitive intelligence
+- Research newsletter generation
+
+### 15.6. Workflow Installation and Configuration
+
+1. **Import Workflows**:
+   - Access n8n at `http://localhost:${N8N_PORT}`
+   - Go to "Workflows" → "Import from JSON"
+   - Copy and paste the contents of each workflow file from the `n8n/workflows/` directory
+   - Save and activate the workflows
+
+2. **Configure Environment**:
+   - Ensure the backend service is running on the correct port
+   - Verify the Local Deep Researcher service is accessible
+   - Test webhook endpoints after import
+
+3. **Set up Credentials** (if needed):
+   - Configure any required API keys
+   - Set up database connections if using custom storage
+
+### 15.7. API Integration Examples
+
+#### Simple Research Request
+
+```bash
+curl -X POST "http://localhost:${N8N_PORT}/webhook/research-trigger" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Latest developments in artificial intelligence",
+    "max_loops": 4,
+    "user_id": "user123"
+  }'
+```
+
+#### Batch Research Request
+
+```bash
+curl -X POST "http://localhost:${N8N_PORT}/webhook/batch-research" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "queries": [
+      "Machine learning trends 2024",
+      "AI ethics and regulations",
+      "Neural network architectures"
+    ],
+    "config": {
+      "max_loops": 3,
+      "user_id": "user123"
+    }
+  }'
+```
+
+#### JavaScript Integration
+
+```javascript
+// Simple research
+async function performResearch(query) {
+  const response = await fetch('http://localhost:63016/webhook/research-trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: query,
+      max_loops: 3,
+      user_id: 'web-app-user'
+    })
+  });
+  return response.json();
+}
+
+// Batch research
+async function performBatchResearch(queries) {
+  const response = await fetch('http://localhost:63016/webhook/batch-research', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      queries: queries,
+      config: { max_loops: 3 }
+    })
+  });
+  return response.json();
+}
+```
+
+### 15.8. Configuration Options
+
+#### Timing Configuration
+
+- **Simple Research**: 30-second processing timeout with 10-second retry intervals
+- **Batch Research**: 45-second initial wait, 15-second retry intervals
+- **Scheduled Research**: 5-minute completion timeout for all queries
+
+#### Error Handling
+
+All workflows include:
+- Automatic retry mechanisms for transient failures
+- Timeout handling for long-running research
+- Error response formatting
+- Status tracking and logging
+
+#### Customization
+
+You can customize the workflows by:
+1. Modifying timing parameters in wait nodes
+2. Changing retry logic and timeout values
+3. Adding notification nodes (email, Slack, etc.)
+4. Integrating with other services (databases, APIs)
+5. Customizing the scheduled research topics
+
+### 15.9. Monitoring and Debugging
+
+#### Execution Logs
+
+- Access workflow execution logs in n8n interface
+- Monitor research session status via backend API endpoints
+- Check Local Deep Researcher service logs for detailed processing information
+
+#### Health Checks
+
+Test service health:
+```bash
+# Backend service health
+curl http://localhost:${BACKEND_PORT}/research/health
+
+# n8n workflow health
+curl http://localhost:${N8N_PORT}/webhook/research-trigger \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"query": "test query"}'
+```
+
+#### Common Issues
+
+1. **Webhook not responding**: Check n8n service status and workflow activation
+2. **Research timeouts**: Adjust wait times or check Local Deep Researcher performance
+3. **Database errors**: Verify Supabase connection and research table setup
+4. **Missing results**: Check backend service logs and research session status
+
+### 15.10. Advanced Usage
+
+#### Custom Workflows
+
+Create custom workflows by:
+1. Starting with one of the provided templates
+2. Adding pre-processing nodes for data transformation
+3. Integrating with external APIs or databases
+4. Adding post-processing for custom result formatting
+
+#### Integration with Other Services
+
+These workflows can be extended to integrate with:
+- Slack for result notifications
+- Email services for report delivery
+- Google Sheets for result tracking
+- Custom databases for analytics
+- Frontend applications for real-time updates
+
+#### Security Considerations
+
+- Use authentication for webhook endpoints in production
+- Implement rate limiting to prevent abuse
+- Validate input data to prevent injection attacks
+- Use HTTPS for secure communication
+- Implement proper user access controls
+
+### 15.11. General Usage Examples
+
+n8n can be used for a wide variety of automation tasks beyond research, including:
 
 - **Data Processing**: Automatically process and transform data from various sources
 - **Notifications**: Send notifications to Slack, email, or other channels based on events
@@ -1019,34 +1399,35 @@ n8n can be used for a wide variety of automation tasks, including:
 - **Conditional Logic**: Create complex workflows with conditional branching
 - **Error Handling**: Configure retry logic and error workflows
 
-## 15. TODO - Planned Improvements
+## 16. TODO - Planned Improvements
 
 ### 15.1. Docker Compose Architecture Restructuring ✅
 
 **Priority**: High | **Status**: Completed | **Complexity**: Medium
 
-**Overview**: Restructured the Docker Compose architecture to improve modularity, reusability, and service management. This enables better service control and makes the stack more suitable as a foundation for specialized projects.
+**Overview**: Successfully restructured the Docker Compose architecture to improve modularity, reusability, and service management. This implementation enables better service control and makes the stack more suitable as a foundation for specialized projects.
 
-#### Previous Issues (Resolved):
-- ✅ Redundant service definitions across flavor files (eliminated through modular structure)
-- ✅ All-or-nothing service deployment (resolved with profile-based deployment)
-- ✅ Difficult to selectively enable/disable service groups (now possible with profiles)
-- ✅ Limited reusability for derivative projects (improved modularity)
+#### Issues Resolved:
+- ✅ **Redundant service definitions**: Eliminated through modular profile structure
+- ✅ **All-or-nothing service deployment**: Resolved with profile-based deployment system
+- ✅ **Difficult service group control**: Now possible with granular profiles
+- ✅ **Limited reusability**: Improved modularity for derivative projects
+- ✅ **Environment file path issues**: Consistent env file handling across all profiles
 
-#### Implemented Structure:
+#### Final Implemented Structure:
 ```
 vanilla-genai/
-├── docker-compose.yml              # Base networks and volumes
-├── docker-compose.ai-local.yml     # Local Ollama flavor (backward compatibility)
-├── docker-compose.ai-gpu.yml       # GPU-optimized flavor (backward compatibility)
-├── compose-profiles/
-│   ├── data.yml                    # Data services (DB, Redis, Neo4j, Supabase services)
-│   ├── ai.yml                      # AI services (Ollama, Local Deep Researcher, n8n)
-│   ├── ai-local.yml                # AI services for local Ollama
+├── docker-compose.yml              # Base networks and volumes only
+├── docker-compose.ai-local.yml     # Legacy: Local Ollama flavor (backward compatibility)
+├── docker-compose.ai-gpu.yml       # Legacy: GPU-optimized flavor (backward compatibility)
+├── compose-profiles/               # New modular profile system
+│   ├── data.yml                    # Data services (Supabase, Redis, Neo4j)
+│   ├── ai.yml                      # AI services (Ollama, Deep Researcher, n8n)
+│   ├── ai-local.yml                # AI services for local Ollama (no Ollama container)
 │   ├── ai-gpu.yml                  # AI services with GPU support
 │   ├── apps.yml                    # Application services (UI, Backend, Kong)
-│   ├── apps-local.yml              # App services for local Ollama
-│   └── apps-gpu.yml                # App services with GPU support
+│   ├── apps-local.yml              # App services configured for local Ollama
+│   └── apps-gpu.yml                # App services with GPU optimization
 ```
 
 #### Service Grouping:
@@ -1257,7 +1638,7 @@ CREATE TABLE rag_relationships (
 4. **Testing Framework**: Automated testing for all service integrations
 5. **Documentation Generator**: Auto-generated API documentation
 
-## 16. Completed Integrations
+## 17. Completed Integrations
 
 ### 15.1 Supabase Realtime ✅
 
