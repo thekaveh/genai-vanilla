@@ -1914,7 +1914,380 @@ curl http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/health
 - Optimized for GPU acceleration
 - Larger model support for production workloads
 
-## 17. TODO - Planned Improvements
+## 18. Next-Generation Service Roadmap (vNext)
+
+Based on comprehensive analysis of the current GenAI landscape and emerging 2025 trends, here's our strategic roadmap for expanding the vanilla stack with cutting-edge services.
+
+### 18.1. Tier 1: High-Impact Essentials (Immediate Priority)
+
+#### 18.1.1. Weaviate Vector Database ⭐⭐⭐⭐⭐
+- **Purpose**: Dedicated vector database with hybrid search capabilities
+- **Value**: Massive upgrade from pgvector for RAG applications
+- **Integration**: Easy Docker deployment, 18MB image, GraphQL API
+- **Benefits**: Built-in embeddings, multi-modal support, semantic search
+- **Complexity**: Low - drop-in replacement with superior performance
+- **Profile**: New `vector.yml` profile for dedicated vector services
+
+#### 18.1.2. Whisper Audio Transcription Service ⭐⭐⭐⭐⭐
+- **Purpose**: Audio/video transcription and voice-to-text processing
+- **Value**: Enables multimedia content processing for research and analysis
+- **Integration**: Docker container available, REST API endpoints
+- **Benefits**: 99+ language support, high accuracy, batch processing
+- **Complexity**: Low - minimal configuration, immediate value
+- **Use Cases**: Meeting transcription, podcast analysis, video content extraction
+
+#### 18.1.3. Document Processing Service (Unstructured.io) ⭐⭐⭐⭐⭐
+- **Purpose**: Advanced PDF, DOCX, HTML, TXT parsing and intelligent chunking
+- **Value**: Critical for RAG applications and knowledge base ingestion
+- **Integration**: Docker image available, Python API, webhook support
+- **Benefits**: Maintains document structure, handles complex layouts, metadata extraction
+- **Complexity**: Medium - requires file handling workflows and storage integration
+- **Features**: Table extraction, OCR support, semantic chunking
+
+### 18.2. Tier 2: High-Value Enhancements (Next Phase)
+
+#### 18.2.1. Qdrant Vector Database (Alternative/Complement) ⭐⭐⭐⭐
+- **Purpose**: High-performance Rust-based vector search engine
+- **Value**: Superior performance for large-scale vector operations (billions of vectors)
+- **Integration**: Single Docker container, REST/gRPC APIs, clustering support
+- **Benefits**: Advanced filtering, payload search, horizontal scaling
+- **Complexity**: Low - similar to Weaviate but optimized for scale
+
+#### 18.2.2. Prometheus + Grafana Monitoring Stack ⭐⭐⭐⭐
+- **Purpose**: Comprehensive observability, metrics, and alerting
+- **Value**: Essential for production deployments and performance monitoring
+- **Integration**: Standard Docker images, Kong metrics integration, service discovery
+- **Benefits**: Real-time dashboards, alerting, historical analytics
+- **Complexity**: Medium - requires dashboard configuration and alert setup
+- **Profile**: New `monitoring.yml` profile for observability services
+
+#### 18.2.3. Piper TTS (Text-to-Speech) ⭐⭐⭐⭐
+- **Purpose**: High-quality, fast neural text-to-speech synthesis
+- **Value**: Complements Whisper for complete audio processing pipeline
+- **Integration**: Docker container, HTTP API, multiple voice models
+- **Benefits**: 30+ languages, neural voices, low latency (<100ms)
+- **Complexity**: Low - simple API integration with voice model management
+
+### 18.3. Tier 3: Advanced Capabilities (Future Phases)
+
+#### 18.3.1. Apache Airflow (Advanced Workflow Orchestration) ⭐⭐⭐
+- **Purpose**: Complex data pipeline orchestration and scheduling
+- **Value**: Advanced workflow management beyond n8n capabilities
+- **Integration**: Docker Compose stack, web UI, programmatic DAGs
+- **Benefits**: Complex dependencies, retry logic, monitoring, scale
+- **Complexity**: High - requires DAG development and learning curve
+
+#### 18.3.2. MeiliSearch (Lightning-Fast Search) ⭐⭐⭐
+- **Purpose**: Instant full-text search with typo tolerance
+- **Value**: Enhanced search capabilities for documents and content
+- **Integration**: Single Docker container, REST API, admin dashboard
+- **Benefits**: Sub-50ms search, faceted filtering, multilingual support
+- **Complexity**: Low - minimal configuration, immediate value
+
+#### 18.3.3. Keycloak (Enterprise Identity Management) ⭐⭐⭐
+- **Purpose**: Advanced authentication, SSO, OAuth2/OIDC provider
+- **Value**: Enterprise-grade security beyond basic Supabase Auth
+- **Integration**: Docker container, multiple database backends
+- **Benefits**: Role-based access, social logins, SAML federation
+- **Complexity**: High - complex configuration and administrative overhead
+
+### 18.4. Specialized Use Cases (Evaluation Phase)
+
+#### 18.4.1. LiveKit (Real-time Audio/Video) ⭐⭐
+- **Purpose**: Real-time multimedia streaming and processing
+- **Value**: Voice AI agents, live transcription, video conferencing
+- **Integration**: Multiple Docker services, WebRTC infrastructure
+- **Benefits**: Real-time voice bots, conference integration, live AI
+- **Complexity**: Very High - requires media server infrastructure
+
+### 18.5. Enhanced Search API Integration
+
+For the Deep Researcher service, we're expanding beyond DuckDuckGo to include multiple free and premium search APIs:
+
+#### 18.5.1. Free Search APIs (Available Now)
+
+**Brave Search API** ⭐⭐⭐⭐⭐
+- **Free Tier**: 2,000-5,000 queries/month
+- **Benefits**: Independent search index (30B+ pages), privacy-focused
+- **Quality**: High-quality results, academic citation support
+- **Integration**: REST API, JSON responses, rate limiting
+- **Status**: Ready for integration
+
+**DuckDuckGo API** ⭐⭐⭐
+- **Access**: Unofficial API, zero-click information
+- **Benefits**: Privacy-focused, instant answers
+- **Limitations**: Limited to quick facts, not full SERP data
+- **Current**: Already integrated as default
+
+**SearxNG (Self-hosted)** ⭐⭐⭐⭐
+- **Type**: Open-source metasearch aggregator
+- **Benefits**: Aggregates multiple search engines, privacy-focused
+- **Integration**: Docker container, customizable engines
+- **Features**: No tracking, configurable backends, themeable
+
+#### 18.5.2. Academic and Specialized APIs
+
+**Microsoft Academic API** (Transitioning)
+- **Status**: Being phased out, limited availability
+- **Alternative**: Semantic Scholar API for academic papers
+
+**Semantic Scholar API** ⭐⭐⭐⭐
+- **Purpose**: Academic paper search and citation analysis
+- **Benefits**: Free access, comprehensive paper database
+- **Integration**: REST API, detailed metadata, citation graphs
+
+#### 18.5.3. Commercial APIs (Premium Options)
+
+**Bing Search API** ❌
+- **Status**: Being discontinued by Microsoft (2025)
+- **Impact**: Major disruption to search API ecosystem
+- **Alternatives**: Brave, SearxNG, custom scrapers
+
+**Google Custom Search API** ⭐⭐
+- **Limitation**: 100 free queries/day, then paid
+- **Quality**: High-quality results, extensive coverage
+- **Cost**: $5 per 1,000 queries after free tier
+
+#### 18.5.4. Implementation Plan
+
+**Phase 1** (Immediate):
+- Integrate Brave Search API as premium option
+- Add SearxNG as self-hosted alternative
+- Create search API switching logic in Deep Researcher
+
+**Phase 2** (Next Quarter):
+- Add Semantic Scholar for academic research
+- Implement search API rotation and fallback
+- Add search quality scoring and optimization
+
+**Phase 3** (Future):
+- Custom web scraping service for specific domains
+- Search result deduplication and merging
+- AI-powered search query optimization
+
+### 18.6. Implementation Timeline
+
+#### Q1 2025 (Foundation)
+- **Weaviate** for vector storage upgrade
+- **Whisper** for audio transcription
+- **Document Processing** for RAG enhancement
+- **Brave Search API** integration
+
+#### Q2 2025 (Enhancement)
+- **Prometheus/Grafana** monitoring stack
+- **Piper TTS** for audio synthesis
+- **SearxNG** self-hosted search
+- **MeiliSearch** for fast search
+
+#### Q3 2025 (Advanced)
+- **Qdrant** for scale vector operations
+- **Airflow** for complex workflows
+- **Academic APIs** integration
+
+#### Q4 2025 (Enterprise)
+- **Keycloak** for enterprise auth
+- **LiveKit** evaluation for real-time features
+- **Performance optimization** and scaling
+
+### 18.7. New Profile Structure
+
+To accommodate these services, we'll introduce new modular profiles:
+
+```
+compose-profiles/
+├── data.yml           # Existing: Core data services
+├── ai.yml             # Existing: AI inference services
+├── apps.yml           # Existing: Application services
+├── vector.yml         # NEW: Vector databases and embedding services
+├── audio.yml          # NEW: Audio processing (Whisper, Piper TTS)
+├── search.yml         # NEW: Search engines and APIs
+├── monitoring.yml     # NEW: Observability and monitoring
+├── workflow.yml       # NEW: Advanced workflow orchestration
+└── security.yml       # NEW: Enhanced authentication and security
+```
+
+### 18.8. Integration Benefits
+
+This roadmap positions the GenAI Vanilla Stack as:
+- **Production-Ready**: Monitoring, security, and scaling capabilities
+- **RAG-Optimized**: Advanced vector storage and document processing
+- **Multi-Modal**: Audio, text, image, and video processing
+- **Research-Enhanced**: Multiple search APIs and academic sources
+- **Enterprise-Grade**: Advanced auth, monitoring, and compliance
+- **Developer-Friendly**: Rich tooling and automation capabilities
+
+### 18.9. Technology Choice Analysis & Comparisons
+
+The following section provides detailed analysis of why specific technologies were recommended and how they compare to alternatives, including existing services in the stack.
+
+#### 18.9.1. Search Engine Comparison: MeiliSearch vs Elasticsearch
+
+| Feature | MeiliSearch ⭐ | Elasticsearch | Analysis |
+|---------|----------------|---------------|----------|
+| **Setup Complexity** | Very Low (single Docker container) | High (cluster setup, multiple nodes) | MeiliSearch wins for simplicity |
+| **Memory Usage** | Low (~50-100MB) | High (1GB+ per node) | MeiliSearch 10x more efficient |
+| **Search Speed** | Ultra-fast (<50ms) | Fast (100-200ms) | MeiliSearch optimized for speed |
+| **Configuration** | Zero-config out-of-the-box | Complex (mappings, analyzers, shards) | MeiliSearch ready immediately |
+| **Typo Tolerance** | Built-in, intelligent | Requires custom configuration | MeiliSearch handles typos naturally |
+| **Faceted Search** | Native support | Requires aggregations setup | MeiliSearch simpler implementation |
+| **API Design** | RESTful, intuitive | Powerful but complex | MeiliSearch easier to integrate |
+| **Scaling** | Horizontal (simple) | Horizontal (complex) | Elasticsearch better for massive scale |
+| **Analytics** | Basic | Advanced (Kibana ecosystem) | Elasticsearch wins for analytics |
+| **Multi-language** | Excellent | Good (requires config) | MeiliSearch better i18n support |
+| **Resource Requirements** | Minimal | Substantial | MeiliSearch fits vanilla stack philosophy |
+| **Learning Curve** | Minimal | Steep | MeiliSearch faster to implement |
+| **Production Scale** | Medium (millions of docs) | Massive (billions of docs) | Depends on use case |
+
+**Why MeiliSearch for GenAI Vanilla Stack:**
+- **Philosophy Alignment**: Matches "vanilla" approach - simple, fast, effective
+- **Developer Experience**: Zero-config, instant search, intuitive API
+- **Resource Efficiency**: Perfect for containerized environments
+- **GenAI Use Cases**: Optimized for document search, knowledge bases, RAG applications
+- **Immediate Value**: Working search in minutes, not days
+
+**When to Choose Elasticsearch Instead:**
+- Massive scale requirements (100M+ documents)
+- Complex analytics and aggregations needed
+- Existing Elastic ecosystem investment
+- Advanced enterprise features required
+- Team has Elasticsearch expertise
+
+#### 18.9.2. Authentication Comparison: Keycloak vs Supabase Auth
+
+| Feature | Supabase Auth ✅ | Keycloak 🏢 | Analysis |
+|---------|------------------|-------------|----------|
+| **Setup Complexity** | Very Low (integrated) | High (standalone service) | Supabase wins for simplicity |
+| **Integration** | Native to stack | Requires integration work | Supabase already integrated |
+| **OAuth2/OIDC** | Basic support | Full compliance | Keycloak is standard-compliant |
+| **Social Logins** | Built-in (Google, GitHub, etc.) | Configurable | Both support major providers |
+| **Enterprise SSO** | Limited | Full SAML/LDAP support | Keycloak wins for enterprise |
+| **Role-Based Access** | Basic roles | Advanced RBAC + ABAC | Keycloak more sophisticated |
+| **Multi-tenancy** | Single tenant | Full multi-tenant | Keycloak for SaaS platforms |
+| **User Management** | Simple admin | Advanced admin console | Keycloak more feature-rich |
+| **Customization** | Limited theming | Full customization | Keycloak highly customizable |
+| **Compliance** | Basic | SOC2, GDPR, HIPAA ready | Keycloak for regulated industries |
+| **Performance** | Lightweight | Resource intensive | Supabase more efficient |
+| **Maintenance** | Managed by Supabase | Self-managed | Supabase requires less ops |
+| **Cost** | Free tier available | Open source (hosting costs) | Both can be cost-effective |
+
+**Why Supabase Auth is Recommended for Most Cases:**
+- **Integrated Experience**: Already part of the stack, zero additional setup
+- **Simplicity**: Covers 80% of use cases with minimal complexity
+- **Developer Productivity**: Working auth in minutes
+- **Maintenance**: One fewer service to manage and monitor
+- **GenAI Focus**: Perfect for AI applications, research tools, content platforms
+
+**When to Add Keycloak Instead:**
+- **Enterprise Requirements**: Large organizations with complex auth needs
+- **Compliance**: Regulated industries (healthcare, finance, government)
+- **Multi-tenancy**: SaaS platforms with tenant isolation
+- **Legacy Integration**: Existing LDAP/AD infrastructure
+- **Advanced RBAC**: Complex permission systems
+- **Federation**: Multiple identity providers
+
+**Hybrid Approach (Best of Both):**
+```
+Public Users → Supabase Auth (simple, fast)
+Enterprise Users → Keycloak (via federation)
+Internal Admin → Keycloak (advanced RBAC)
+```
+
+#### 18.9.3. Vector Database Comparison: pgvector vs Weaviate vs Qdrant
+
+| Feature | pgvector (Current) ✅ | Weaviate 🚀 | Qdrant ⚡ | Analysis |
+|---------|----------------------|-------------|-----------|----------|
+| **Setup Complexity** | Zero (already integrated) | Low (single container) | Low (single container) | pgvector wins for existing stacks |
+| **Performance** | Good (PostgreSQL optimized) | Excellent (purpose-built) | Excellent (Rust performance) | Weaviate/Qdrant 3-5x faster |
+| **Scalability** | Limited (PostgreSQL limits) | High (distributed) | Very High (horizontal) | Dedicated DBs scale better |
+| **Vector Operations** | Basic (L2, cosine, inner) | Advanced (hybrid search) | Advanced (payload filtering) | Specialized DBs more capable |
+| **Hybrid Search** | Manual implementation | Native (vector + keyword) | Native (vector + payload) | Native support is superior |
+| **Multi-modal** | No | Yes (text, images, audio) | Limited | Weaviate best for multi-modal |
+| **GraphQL Support** | No | Yes (native) | No | Weaviate unique advantage |
+| **Filtering** | SQL WHERE clauses | Native filters | Advanced payload filters | SQL familiar but limited |
+| **Memory Usage** | Shared with PostgreSQL | Optimized for vectors | Optimized for vectors | Dedicated memory management |
+| **Backup/Recovery** | PostgreSQL tools | Built-in snapshots | Built-in snapshots | PostgreSQL tools mature |
+| **ACID Transactions** | Yes (PostgreSQL) | Limited | Limited | PostgreSQL advantage |
+| **Ecosystem** | PostgreSQL ecosystem | Growing ecosystem | Smaller ecosystem | PostgreSQL mature ecosystem |
+| **Embeddings** | Manual generation | Auto-vectorization | Manual generation | Weaviate automates workflow |
+| **Language Support** | SQL + any PostgreSQL client | GraphQL, REST, gRPC | REST, gRPC | SQL most familiar |
+| **Resource Requirements** | Shared with DB | Dedicated resources | Dedicated resources | Shared resources more efficient |
+| **Production Scale** | Millions of vectors | Billions of vectors | Billions of vectors | Scale ceiling differences |
+
+**Why pgvector is Great for Getting Started:**
+- **Zero Setup**: Already running, no additional services
+- **Familiar**: SQL interface, PostgreSQL ecosystem
+- **Integrated**: Seamless with existing data and transactions
+- **Cost Effective**: No additional infrastructure
+- **ACID Compliance**: Full transaction support
+- **Rapid Prototyping**: Vector search working immediately
+
+**Why Upgrade to Weaviate:**
+- **Performance**: 3-5x faster vector operations
+- **Hybrid Search**: Native vector + keyword search
+- **Multi-modal**: Text, images, audio in one system
+- **Auto-vectorization**: Automatic embedding generation
+- **GraphQL**: Modern API with powerful querying
+- **Scale**: Handle billions of vectors efficiently
+- **Purpose-built**: Optimized specifically for vector operations
+
+**Why Choose Qdrant:**
+- **Performance**: Rust-based, extremely fast
+- **Filtering**: Advanced payload filtering capabilities
+- **Scalability**: Horizontal scaling for massive datasets
+- **Memory Efficiency**: Optimized memory usage patterns
+- **Production Ready**: Built for high-throughput applications
+- **Flexibility**: Rich query capabilities and filters
+
+**Recommended Migration Path:**
+
+1. **Start with pgvector** (Current):
+   - Perfect for prototyping and early development
+   - Learn vector search concepts
+   - Build initial RAG applications
+
+2. **Upgrade to Weaviate** (When you need):
+   - Better performance (>1M vectors)
+   - Multi-modal capabilities
+   - Hybrid search features
+   - Auto-vectorization workflows
+
+3. **Consider Qdrant** (For scale/performance):
+   - Massive datasets (>10M vectors)
+   - High-throughput applications
+   - Complex filtering requirements
+   - Performance-critical applications
+
+**Hybrid Approach (Best of All Worlds):**
+```
+Relational Data → PostgreSQL (with pgvector for basic vectors)
+Vector Search → Weaviate (for AI/ML workloads)
+High-Performance → Qdrant (for production scale)
+Transactional → PostgreSQL (for consistency requirements)
+```
+
+#### 18.9.4. Decision Framework
+
+**For Startups/Small Teams:**
+- Keep Supabase Auth + pgvector
+- Add MeiliSearch for search
+- Upgrade incrementally as you scale
+
+**For Growing Applications:**
+- Migrate to Weaviate for vectors
+- Keep Supabase Auth
+- Add MeiliSearch for document search
+- Monitor and scale as needed
+
+**For Enterprise/Scale:**
+- Weaviate or Qdrant for vectors
+- Keycloak for complex auth
+- Elasticsearch for advanced analytics
+- Full monitoring and observability
+
+**Key Principle: Progressive Enhancement**
+The vanilla stack philosophy is to start simple and enhance progressively. Each recommendation provides a clear upgrade path without forcing premature optimization.
+
+## 19. TODO - Current Planned Improvements
 
 ### 16.1. Docker Compose Architecture Restructuring ✅
 
