@@ -213,11 +213,37 @@ This will:
 
 This is useful when you want to start completely fresh, but be careful as all database data will be lost.
 
-## 4. Service Configuration
+## 4. Quick Access Guide
+
+Once the stack is running, you can access services at the following URLs:
+
+### Main Services
+- **Supabase Studio**: `http://localhost:${SUPABASE_STUDIO_PORT}` (default: 63009)
+- **Neo4j Dashboard**: `http://localhost:${GRAPH_DB_DASHBOARD_PORT}` (default: 63011)
+- **Open-WebUI**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
+- **n8n Workflow Automation**: 
+  - Direct: `http://localhost:${N8N_PORT}` (default: 63017)
+  - Via Kong: `http://localhost:${KONG_HTTP_PORT}/n8n/` (default: 63002/n8n/)
+- **ComfyUI Image Generation**:
+  - Containerized: `http://localhost:${COMFYUI_PORT}` (default: 63018)
+  - Local (ai-local profile): `http://localhost:8000`
+  - Via Kong: `http://localhost:${KONG_HTTP_PORT}/comfyui/` (default: 63002/comfyui/)
+
+### API Endpoints
+- **Backend API**: `http://localhost:${BACKEND_PORT}` (default: 63016)
+- **Research API**: `http://localhost:${BACKEND_PORT}/research/`
+- **Kong API Gateway**: `http://localhost:${KONG_HTTP_PORT}` (default: 63002)
+
+### Database Services
+- **PostgreSQL**: `localhost:${SUPABASE_DB_PORT}` (default: 63000)
+- **Neo4j**: `bolt://localhost:${GRAPH_DB_PORT}` (default: 63010)
+- **Redis**: `localhost:${REDIS_PORT}` (default: 63001)
+
+## 5. Service Configuration
 
 Services can be configured through environment variables or by selecting different Docker Compose profiles:
 
-### 4.1. Environment Variables
+### 5.1. Environment Variables
 
 The project uses two environment files:
 - `.env` - Contains actual configuration values (not committed to git)
@@ -227,7 +253,7 @@ The project uses two environment files:
 
 The service names used in the `docker-compose.yml` files (e.g., `supabase-auth`, `supabase-api`) differ from the internal service names used within the `kong.yml` declarative configuration (e.g., `auth`, `rest`). The Kong gateway routes requests to the internal service names defined in `kong.yml`, which are mapped to the corresponding Docker Compose service names.
 
-### 4.2. Kong API Gateway Configuration
+### 5.2. Kong API Gateway Configuration
 
 The Kong API Gateway is used for centralized API management, including routing, authentication, and plugin management. It is configured using a declarative configuration file (`kong.yml`).
 
@@ -243,11 +269,11 @@ When setting up the project:
 2. Fill in the required values in `.env`
 3. Keep both files in sync when adding new variables
 
-## 5. Authentication and User Management
+## 6. Authentication and User Management
 
 This stack utilizes Supabase Auth (GoTrue) for user authentication and management, leveraging JSON Web Tokens (JWTs) for secure API access.
 
-### 5.1. Overview
+### 6.1. Overview
 
 - **Provider:** Supabase Auth (`supabase-auth` service) handles user registration, login, password management, and JWT issuance.
 - **Method:** Authentication relies on JWTs signed with a shared secret (`SUPABASE_JWT_SECRET`).
@@ -286,9 +312,9 @@ This stack utilizes Supabase Auth (GoTrue) for user authentication and managemen
 4.  **Service Role Access:** For backend operations requiring administrative privileges, use the `SUPABASE_SERVICE_KEY` in the `Authorization` header. This key should be handled securely and never exposed to frontend clients.
 5.  **User Management via Studio:** You can manage users (invite, delete, etc.) through the Supabase Studio interface (`http://localhost:${SUPABASE_STUDIO_PORT}`), which interacts with the `supabase-auth` service.
 
-## 6. Database Services
+## 7. Database Services
 
-### 6.1. Supabase Services
+### 7.1. Supabase Services
 
 The Supabase services provide a PostgreSQL database with additional capabilities along with a web-based Studio interface for management:
 
@@ -875,6 +901,234 @@ uv pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
+### 7.5. ComfyUI Service
+
+ComfyUI is a powerful node-based workflow interface for Stable Diffusion and AI image generation, integrated into the GenAI stack for seamless image generation capabilities.
+
+#### 7.5.1. Features
+
+- **Visual Workflow Editor**: Node-based interface for creating complex image generation workflows
+- **Multi-Architecture Support**: CPU-only for development/testing, CUDA acceleration for production
+- **Multiple AI Models**: Support for SDXL, SD 1.5, ControlNet, LoRA, and custom models
+- **API Integration**: RESTful API for programmatic access and automation
+- **WebSocket Support**: Real-time progress updates and workflow monitoring
+- **Supabase Integration**: Automatic upload of generated images to Supabase Storage
+- **Kong Gateway Routing**: Secure API access through the Kong API Gateway
+
+#### 7.5.2. Configuration
+
+ComfyUI is configured through environment variables in `.env`:
+
+```bash
+# ComfyUI Configuration
+COMFYUI_PORT=63018
+COMFYUI_BASE_URL=http://comfyui:8188
+COMFYUI_ARGS=--listen
+COMFYUI_AUTO_UPDATE=false
+COMFYUI_PLATFORM=linux/amd64
+COMFYUI_IMAGE_TAG=v2-cpu-22.04-v0.2.7  # latest-cuda for GPU
+
+# Storage Integration
+COMFYUI_UPLOAD_TO_SUPABASE=true
+COMFYUI_STORAGE_BUCKET=comfyui-images
+```
+
+#### 7.5.3. Deployment Profiles
+
+ComfyUI supports multiple deployment configurations:
+
+**Default Profile (CPU):**
+- Uses `ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7`
+- CPU-only processing (slower but universal compatibility)
+- Suitable for development and testing
+
+**AI-GPU Profile (CUDA):**
+- Uses `ghcr.io/ai-dock/comfyui:latest-cuda`
+- NVIDIA GPU acceleration with CUDA support
+- High-performance image generation for production
+
+**AI-Local Profile:**
+- Uses local ComfyUI installation on host machine
+- CPU-only processing with local Ollama integration
+- Connects to host-based Ollama and ComfyUI instances
+- Optimized for macOS Apple Silicon (M1/M2/M3/M4) with Metal Performance Shaders
+
+#### 7.5.4. Local ComfyUI Installation (AI-Local Profile)
+
+For the AI-Local profile, you'll need to install ComfyUI locally on your host machine. This is particularly beneficial for macOS users with Apple Silicon processors.
+
+**Prerequisites:**
+- macOS 12.3 or later (for Apple Silicon optimization)
+- Python 3.10+ installed
+- Xcode Command Line Tools: `xcode-select --install`
+
+**Installation Steps:**
+
+1. **Clone ComfyUI Repository:**
+   ```bash
+   git clone https://github.com/comfyanonymous/ComfyUI.git
+   cd ComfyUI
+   ```
+
+2. **Create Virtual Environment:**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On macOS/Linux
+   ```
+
+3. **Install PyTorch for Apple Silicon:**
+   ```bash
+   # For Apple Silicon (M1/M2/M3/M4) - enables Metal Performance Shaders
+   pip3 install --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu
+   ```
+
+4. **Install ComfyUI Dependencies:**
+   ```bash
+   pip3 install -r requirements.txt
+   ```
+
+5. **Start ComfyUI:**
+   ```bash
+   python3 main.py --listen
+   ```
+
+6. **Verify Installation:**
+   - ComfyUI should be accessible at `http://localhost:8188`
+   - The stack will automatically connect to your local ComfyUI instance
+
+**Model Installation:**
+- When you start the GenAI stack with the AI-Local profile, the `comfyui-init` service will automatically download essential models
+- Models are stored in the `comfyui-models` Docker volume and shared with your local ComfyUI installation
+- You can access models at: `./models/` directory in your ComfyUI installation
+
+**Performance Benefits:**
+- **Apple Silicon**: Utilizes Metal Performance Shaders for hardware-accelerated inference
+- **Memory Efficiency**: Better memory management on macOS
+- **Native Integration**: Seamless integration with macOS system resources
+
+**Using the AI-Local Profile:**
+```bash
+# Start the stack with local ComfyUI
+./start.sh --profile ai-local
+
+# Or manually
+docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-local.yml -f compose-profiles/apps-local.yml up
+```
+
+#### 7.5.5. Service Dependencies
+
+ComfyUI depends on several services for full functionality:
+
+- **Database**: `supabase-db-init` (database initialization)
+- **AI Models**: `ollama-pull` (model availability)
+- **Storage**: `supabase-storage` (image storage)
+- **Cache**: `redis` (queue management)
+
+#### 7.5.5. Integration Points
+
+**OpenWebUI Integration:**
+- Direct image generation from chat interface
+- Seamless workflow integration with conversations
+- Generated images automatically stored in Supabase
+
+**Backend API Integration:**
+- RESTful endpoints for image generation
+- Status monitoring and result retrieval
+- Automated image processing pipelines
+
+**n8n Workflow Automation:**
+- Automated image generation workflows
+- Webhook-based progress notifications
+- Batch processing capabilities
+
+#### 7.5.6. API Endpoints
+
+ComfyUI provides several API endpoints accessible through Kong Gateway:
+
+```bash
+# Health check
+curl http://localhost:${KONG_HTTP_PORT}/comfyui/system_stats
+
+# Submit workflow
+curl -X POST http://localhost:${KONG_HTTP_PORT}/comfyui/prompt \
+  -H "Content-Type: application/json" \
+  -d @workflow.json
+
+# Check generation status
+curl http://localhost:${KONG_HTTP_PORT}/comfyui/history/{prompt_id}
+
+# Retrieve generated image
+curl http://localhost:${KONG_HTTP_PORT}/comfyui/view?filename={filename}
+```
+
+#### 7.5.7. Model Management
+
+ComfyUI uses persistent volumes for model storage:
+
+```
+/opt/ComfyUI/models/
+├── checkpoints/     # Main AI models (SDXL, SD 1.5, etc.)
+├── vae/            # Variational Autoencoders
+├── loras/          # LoRA fine-tuned models
+├── controlnet/     # ControlNet models
+├── upscale_models/ # Upscaling models
+└── clip/           # CLIP models
+```
+
+#### 7.5.8. Performance Considerations
+
+**CPU Mode (Default/Development):**
+- Slower image generation (2-5 minutes per image)
+- Lower memory requirements
+- Universal compatibility (macOS M-chip, Linux, Windows)
+
+**GPU Mode (Production):**
+- Fast image generation (10-30 seconds per image)
+- Requires NVIDIA GPU with 8GB+ VRAM
+- CUDA 12.5+ support recommended
+
+#### 7.5.9. Integration Examples
+
+**Generate via Backend API:**
+```bash
+curl -X POST http://localhost:${BACKEND_PORT}/comfyui/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "a beautiful landscape",
+    "negative_prompt": "blurry, low quality",
+    "width": 512,
+    "height": 512,
+    "steps": 20
+  }'
+```
+
+**OpenWebUI Usage:**
+1. ComfyUI automatically configured as image generation backend
+2. Use image generation features in chat conversations
+3. Generated images stored in Supabase Storage with URLs returned
+
+**n8n Workflow Integration:**
+1. HTTP Request node to submit workflows to ComfyUI
+2. WebSocket or polling for progress monitoring
+3. Automated image processing and storage
+
+#### 7.5.10. Troubleshooting
+
+**Service Not Starting:**
+- Check GPU drivers and CUDA installation (GPU mode)
+- Verify sufficient disk space for models
+- Check Docker container logs: `docker logs genai-comfyui`
+
+**Slow Generation:**
+- Ensure GPU mode is enabled for production
+- Check model loading and VRAM usage
+- Verify CUDA acceleration is working
+
+**Integration Issues:**
+- Verify service dependencies are healthy
+- Check Kong Gateway routing configuration
+- Ensure environment variables are correctly set
+
 ## 8. Database Setup Process
 
 The database initialization follows a two-stage process managed by Docker Compose dependencies:
@@ -1116,7 +1370,9 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Database**: Uses the Supabase PostgreSQL database for storing workflows and execution data
 - **Queue Management**: Uses Redis for workflow execution queueing
 - **Authentication**: Protected with basic authentication
-- **Port**: Available at `http://localhost:${N8N_PORT}` (configured via `N8N_PORT`)
+- **Access Points**:
+  - Direct: `http://localhost:${N8N_PORT}` (default: 63017)
+  - Kong Gateway: `http://localhost:${KONG_HTTP_PORT}/n8n/`
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` and `ollama-pull` services
 
 ### 15.2. Features
@@ -1146,14 +1402,20 @@ The n8n service can be configured through the following environment variables:
 - `N8N_BASIC_AUTH_PASSWORD`: The password for basic authentication
 - `N8N_HOST`: The hostname for n8n (default: localhost)
 - `N8N_PROTOCOL`: The protocol for n8n (default: http)
-- `N8N_PATH`: The base path for n8n (default: /)
 - `N8N_EXECUTIONS_MODE`: The execution mode for n8n (default: queue)
 
-### 15.5. Pre-built Research Workflows
+### 15.5. Pre-built Workflows
 
-The `n8n/` directory contains pre-built n8n workflows for integrating with the Local Deep Researcher service. These workflows provide out-of-the-box automation for research tasks.
+The `n8n/` directory contains pre-built n8n workflow templates providing automation and integration capabilities for research and image generation tasks.
 
-#### 15.5.1. Simple Research Workflow (`research-simple.json`)
+#### 15.5.1. Research Workflows
+
+**Available Workflows**:
+- `research-simple.json` - Basic research workflow with webhook trigger
+- `research-batch.json` - Batch research processing workflow  
+- `research-scheduled.json` - Scheduled research automation workflow
+
+**Simple Research Workflow**
 
 **Purpose**: Execute single research queries via webhook with automatic result retrieval.
 
@@ -1171,41 +1433,83 @@ The `n8n/` directory contains pre-built n8n workflows for integrating with the L
 
 **Response**: Complete research results including title, summary, content, and sources.
 
-**Use Cases**:
-- Single research queries from external applications
-- API integration with frontend applications
-- Manual research requests
+#### 15.5.2. ComfyUI Image Generation Workflows
 
-#### 15.5.2. Batch Research Workflow (`research-batch.json`)
+**Available Workflows**:
+- `comfyui-image-generation.json` - Comprehensive image generation workflow with validation and error handling
+- `comfyui-simple.json` - Simple image generation workflow for basic use cases
 
-**Purpose**: Execute multiple research queries simultaneously and return consolidated results.
+**Comprehensive Image Generation Workflow**
 
-**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/batch-research`
+**Features**:
+- **Input Validation**: Validates all parameters before generation
+- **Health Checking**: Verifies ComfyUI service availability  
+- **Error Handling**: Comprehensive error handling with meaningful responses
+- **Model Support**: Works with all available ComfyUI models
+- **Response Processing**: Extracts and formats generation results
+
+**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/comfyui-trigger`
 
 **Request Format**:
 ```json
 {
-  "queries": [
-    "First research question",
-    "Second research question",
+  "prompt": "a beautiful sunset over mountains",
+  "negative_prompt": "blurry, low quality",
+  "width": 512,
+  "height": 512,
+  "steps": 20,
+  "cfg": 7.0,
+  "checkpoint": "sd_v1-5_pruned_emaonly.safetensors",
+  "wait_for_completion": true
+}
+```
+
+**Response Format**:
+```json
+{
+  "success": true,
+  "prompt_id": "12345-abcde",
+  "client_id": "67890-fghij",
+  "message": "Image generated successfully",
+  "generation_parameters": {
+    "prompt": "a beautiful sunset over mountains",
+    "width": 512,
+    "height": 512,
+    "steps": 20,
+    "cfg": 7.0,
+    "checkpoint": "sd_v1-5_pruned_emaonly.safetensors"
+  },
+  "generated_images": [
     {
-      "query": "Third research question",
-      "max_loops": 5,
-      "search_api": "duckduckgo"
+      "filename": "ComfyUI_00001_.png",
+      "subfolder": "",
+      "folder_type": "output",
+      "node_id": "SaveImage_9"
     }
   ],
-  "config": {
-    "max_loops": 3,
-    "search_api": "duckduckgo",
-    "user_id": "optional-user-id"
+  "image_count": 1,
+  "workflow_info": {
+    "execution_id": "n8n-exec-123",
+    "workflow_name": "ComfyUI Image Generation Workflow",
+    "completed_at": "2024-01-15T12:30:45Z",
+    "processing_time": 15
   }
 }
 ```
 
-**Response**: Batch results with summary statistics and individual research outcomes.
+**Simple Image Generation Workflow**
 
-**Use Cases**:
-- Market research across multiple topics
+**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/comfyui-simple`
+
+**Request Format**:
+```json
+{
+  "prompt": "a cute cat",
+  "width": 512,
+  "height": 512,
+  "steps": 20
+}
+```
 - Competitive analysis
 - Content research for multiple articles
 - Academic research compilation
@@ -1388,9 +1692,48 @@ These workflows can be extended to integrate with:
 - Use HTTPS for secure communication
 - Implement proper user access controls
 
-### 15.11. General Usage Examples
+### 15.11. Integration with Other Services
 
-n8n can be used for a wide variety of automation tasks beyond research, including:
+#### Open-WebUI Integration
+- Import the ComfyUI tool in Open-WebUI for direct image generation
+- Use n8n workflows for batch processing and automation
+- Tools can trigger n8n workflows for complex operations
+
+#### Backend API Integration
+- Workflows communicate with FastAPI backend
+- Access to model management and health checking
+- Consistent error handling and response formatting
+
+#### Kong Gateway Routing
+- All workflows route through Kong for consistency
+- Rate limiting and authentication can be applied
+- Centralized service discovery and load balancing
+
+### 15.12. Workflow Customization
+
+#### Adding Custom Parameters
+To add new generation parameters:
+
+1. **Update Webhook Node**: Add new input fields
+2. **Update Validation**: Add parameter validation in code nodes
+3. **Update API Call**: Include new parameters in HTTP request
+4. **Update Response**: Include new parameters in response formatting
+
+#### Error Handling
+All workflows include comprehensive error handling:
+- **Service Health Checks**: Verify ComfyUI availability
+- **Parameter Validation**: Validate input parameters
+- **API Error Handling**: Handle backend API errors
+- **Response Formatting**: Consistent error response format
+
+#### Monitoring and Logging
+- Use n8n's built-in execution history for monitoring
+- Custom logging can be added via code nodes
+- Integration with external monitoring systems via webhooks
+
+### 15.13. General Usage Examples
+
+n8n can be used for a wide variety of automation tasks beyond research and image generation, including:
 
 - **Data Processing**: Automatically process and transform data from various sources
 - **Notifications**: Send notifications to Slack, email, or other channels based on events
@@ -1399,9 +1742,181 @@ n8n can be used for a wide variety of automation tasks beyond research, includin
 - **Conditional Logic**: Create complex workflows with conditional branching
 - **Error Handling**: Configure retry logic and error workflows
 
-## 16. TODO - Planned Improvements
+## 16. Open-WebUI Integration
 
-### 15.1. Docker Compose Architecture Restructuring ✅
+Open-WebUI provides a powerful, user-friendly web interface for interacting with AI models and services in the GenAI Vanilla Stack. This section covers the tools and configurations available for enhanced functionality.
+
+### 16.1. Overview
+
+- **Access Point**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
+- **Docker Image**: Uses the official Open-WebUI image
+- **Features**: Chat interface, model management, tool integration, workflow automation
+- **Dependencies**: Backend API, Ollama (containerized or local), optional ComfyUI and research services
+
+### 16.2. Available Tools
+
+The `open-webui/tools/` directory contains specialized tools for extending Open-WebUI capabilities:
+
+#### Research Tools
+- `research_tool.py` - Web research tool for comprehensive information gathering
+- `research_streaming_tool.py` - Streaming version of the research tool
+
+#### Image Generation Tools
+- `comfyui_image_generation_tool.py` - AI-powered image generation using ComfyUI
+
+### 16.3. ComfyUI Image Generation Tool
+
+The ComfyUI image generation tool provides AI-powered image generation capabilities directly within Open-WebUI.
+
+#### Features
+- Generate images from text prompts
+- Support for negative prompts
+- Configurable image dimensions, steps, and CFG scale
+- Model selection from available checkpoints
+- Real-time status checking
+- Queue monitoring
+
+#### Tool Functions
+1. **`generate_image(prompt, ...)`** - Generate images with customizable parameters
+2. **`get_available_models()`** - List all available ComfyUI models from database
+3. **`check_comfyui_status()`** - Check service health and queue status
+
+#### Usage Examples
+
+**Basic Image Generation**:
+```
+generate_image("a beautiful sunset over mountains")
+```
+
+**Advanced Image Generation**:
+```
+generate_image(
+    prompt="a cyberpunk city at night, neon lights, rain",
+    negative_prompt="blurry, low quality",
+    width=768,
+    height=512,
+    steps=30,
+    cfg=8.0,
+    checkpoint="sd_v1-5_pruned_emaonly.safetensors"
+)
+```
+
+**Check Available Models**:
+```
+get_available_models()
+```
+
+**Check Service Status**:
+```
+check_comfyui_status()
+```
+
+### 16.4. Configuration
+
+The tools are configured via Open-WebUI's tool valve system:
+
+#### ComfyUI Tool Valves
+- `backend_url`: Backend API URL (default: http://backend:8000)
+- `timeout`: Max wait time for generation (default: 120s)
+- `enable_tool`: Enable/disable the tool (default: true)
+- `default_width`: Default image width (default: 512)
+- `default_height`: Default image height (default: 512)
+- `default_steps`: Default generation steps (default: 20)
+- `default_cfg`: Default CFG scale (default: 7.0)
+
+#### Research Tool Valves
+- `researcher_url`: Deep Researcher service URL (default: http://local-deep-researcher:2024)
+- `timeout`: Max wait time for research (default: 300s)
+- `enable_tool`: Enable/disable the tool (default: true)
+
+### 16.5. Installation
+
+1. **Tool Import**: Copy the tool files to Open-WebUI's tools directory or import via the admin interface
+2. **Volume Mount**: Ensure the tools directory is mounted in the Docker container:
+   ```yaml
+   volumes:
+     - ./open-webui/tools:/app/backend/data/tools
+   ```
+3. **Environment Variables**: Ensure proper environment variables are set in the Docker Compose file
+4. **Model Management**: Use the backend API to manage ComfyUI models in the database
+
+### 16.6. Integration with Other Services
+
+#### Backend API Integration
+- ComfyUI tools communicate with the FastAPI backend at `/comfyui/*` endpoints
+- Research tools integrate with Local Deep Researcher service
+- All tools support health checking and error handling
+
+#### Kong Gateway Routing
+- Tools access services through Kong API Gateway for consistent routing
+- ComfyUI requests are routed to appropriate ComfyUI instance (containerized or local)
+- Authentication and rate limiting can be configured via Kong
+
+#### Database Integration
+- ComfyUI models are managed in PostgreSQL database
+- Tools can query available models and their metadata
+- Support for model categorization (checkpoints, VAE, LoRA, etc.)
+
+### 16.7. Troubleshooting
+
+#### Common Issues
+
+1. **Tool Not Available**
+   - Check if tools directory is properly mounted
+   - Verify tool files have correct format and metadata
+   - Check Open-WebUI logs for import errors
+
+2. **ComfyUI Connection Issues**
+   - Verify ComfyUI service is running (use `check_comfyui_status()`)
+   - Check backend API connectivity
+   - For ai-local profile, ensure local ComfyUI is running on port 8000
+
+3. **Image Generation Failures**
+   - Check if required models are available (`get_available_models()`)
+   - Verify model files are properly downloaded
+   - Check ComfyUI queue status for processing issues
+
+4. **Research Tool Issues**
+   - Verify Local Deep Researcher service is running
+   - Check network connectivity between containers
+   - Review research service logs for API errors
+
+#### Debug Commands
+
+```bash
+# Check ComfyUI health via backend
+curl http://localhost:${BACKEND_PORT}/comfyui/health
+
+# List available models
+curl http://localhost:${BACKEND_PORT}/comfyui/db/models
+
+# Check ComfyUI queue
+curl http://localhost:${BACKEND_PORT}/comfyui/queue
+
+# Test research service
+curl http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/health
+```
+
+### 16.8. Profile-Specific Considerations
+
+#### Default Profile
+- Uses containerized ComfyUI service
+- Models stored in Docker volumes
+- Full integration with all services
+
+#### AI-Local Profile
+- Uses host-installed ComfyUI (port 8000)
+- Models can be synced between host and Docker volumes
+- Requires local ComfyUI installation
+
+#### AI-GPU Profile
+- Uses CUDA-enabled ComfyUI container
+- Optimized for GPU acceleration
+- Larger model support for production workloads
+
+## 17. TODO - Planned Improvements
+
+### 16.1. Docker Compose Architecture Restructuring ✅
 
 **Priority**: High | **Status**: Completed | **Complexity**: Medium
 
@@ -1506,11 +2021,11 @@ ENABLE_COMFYUI=false  # NEW
 
 ---
 
-### 15.2. ComfyUI Integration 🎨
+### 16.2. ComfyUI Integration 🎨
 
-**Priority**: Medium | **Status**: Planned | **Complexity**: Low-Medium
+**Priority**: Medium | **Status**: ✅ Completed | **Complexity**: Low-Medium
 
-**Overview**: Add ComfyUI as an automation service to provide node-based AI image generation workflows, complementing n8n's general automation capabilities.
+**Overview**: ComfyUI has been successfully integrated as an AI image generation service, providing node-based workflow interface for Stable Diffusion and advanced image generation capabilities.
 
 #### Why ComfyUI?
 - **Node-based Interface**: Perfect fit with n8n workflow philosophy
@@ -1518,32 +2033,17 @@ ENABLE_COMFYUI=false  # NEW
 - **Workflow Automation**: Can be integrated with n8n for automated image generation
 - **Modular Architecture**: Fits well with our service-oriented approach
 
-#### Proposed Implementation:
-```yaml
-# In compose-profiles/automation.yml
-services:
-  comfyui:
-    image: yanwk/comfyui-boot:latest
-    container_name: ${PROJECT_NAME}-comfyui
-    restart: unless-stopped
-    environment:
-      - CLI_ARGS=--listen 0.0.0.0 --port 8188
-    ports:
-      - "${COMFYUI_PORT:-63017}:8188"
-    volumes:
-      - comfyui-data:/root
-      - ./comfyui/workflows:/root/workflows  # Pre-built workflows
-      - ./comfyui/models:/root/models        # Custom models
-    networks:
-      - backend-bridge-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]  # GPU support
-```
+#### ✅ Implemented Features:
+- **Multi-Architecture Support**: CPU (development) and GPU (production) deployment profiles
+- **Docker Images**: Uses `ghcr.io/ai-dock/comfyui` with CPU and CUDA variants
+- **Service Integration**: Full integration with all AI and Apps profiles
+- **Port Assignment**: ComfyUI on port 63018 (BASE_PORT + 17)
+- **Kong Gateway**: API routing through Kong for security and load balancing
+- **Supabase Integration**: Automatic image storage in Supabase Storage
+- **Health Checks**: Proper dependency management and service health monitoring
+- **OpenWebUI Integration**: Direct image generation from chat interface
+- **Backend API**: RESTful endpoints for programmatic image generation
+- **n8n Integration**: Workflow automation with webhook support
 
 #### Integration Features:
 - **API Integration**: ComfyUI provides REST API for workflow execution
@@ -1567,7 +2067,7 @@ COMFYUI_GPU_MEMORY=8  # GPU memory allocation
 
 ---
 
-### 15.3. Enhanced Service Management 🔧
+### 16.3. Enhanced Service Management 🔧
 
 **Priority**: Medium | **Status**: Planned | **Complexity**: Low
 
@@ -1588,7 +2088,7 @@ COMFYUI_GPU_MEMORY=8  # GPU memory allocation
 
 ---
 
-### 15.4. RAG Foundation Preparation 📚
+### 16.4. RAG Foundation Preparation 📚
 
 **Priority**: High | **Status**: Planned | **Complexity**: High
 
@@ -1627,7 +2127,7 @@ CREATE TABLE rag_relationships (
 
 ---
 
-### 15.5. Developer Experience Improvements 🛠️
+### 16.5. Developer Experience Improvements 🛠️
 
 **Priority**: Medium | **Status**: Planned | **Complexity**: Low
 
@@ -1640,7 +2140,7 @@ CREATE TABLE rag_relationships (
 
 ## 17. Completed Integrations
 
-### 15.1 Supabase Realtime ✅
+### 17.1 Supabase Realtime ✅
 
 **Status**: Fully integrated and operational
 
@@ -1666,7 +2166,7 @@ CREATE TABLE rag_relationships (
 
 > This integration enables live data synchronization without polling, providing a foundation for real-time features in Open Web UI, backend services, and future frontend applications.
 
-### 15.2 Local Deep Researcher ✅
+### 17.2 Local Deep Researcher ✅
 
 **Status**: Fully integrated and operational
 
@@ -1700,7 +2200,48 @@ CREATE TABLE rag_relationships (
 
 > This integration provides advanced AI research capabilities, enabling automated multi-source web research with intelligent model selection and persistent result storage.
 
-### 15.3 Deep Researcher Integration ✅
+### 17.3 ComfyUI Integration ✅
+
+**Status**: Fully integrated and operational
+
+**Implementation Details**:
+- ✅ Added `comfyui` service to all Docker Compose flavors (ai.yml, ai-local.yml, ai-gpu.yml)
+- ✅ Multi-architecture support with CPU and CUDA variants
+- ✅ Proper service dependencies (supabase-db-init, ollama-pull, supabase-storage, redis)
+- ✅ Kong API Gateway routing for secure API access
+- ✅ Supabase Storage integration for generated images
+- ✅ Health checks and service monitoring
+- ✅ Updated port assignments (BASE_PORT + 17)
+- ✅ Environment variable configuration
+- ✅ Persistent volumes for models and outputs
+
+**Features Available**:
+- Node-based workflow interface for AI image generation
+- Support for multiple AI models (SDXL, SD 1.5, ControlNet, LoRA)
+- RESTful API endpoints for programmatic access
+- WebSocket support for real-time progress updates
+- Automatic image storage in Supabase Storage
+- OpenWebUI integration for chat-based image generation
+- n8n workflow automation support
+- Backend API integration for custom applications
+
+**Access Points**:
+- Web Interface (Containerized): `http://localhost:${COMFYUI_PORT}` (default: 63018)
+- Web Interface (Local/ai-local profile): `http://localhost:8000`
+- Kong Gateway: `http://localhost:${KONG_HTTP_PORT}/comfyui/` (works for both containerized and local)
+- API Endpoints: `/prompt`, `/history`, `/view`, `/system_stats`
+- Model Storage: `comfyui-models` Docker volume
+- Generated Images: `comfyui-output` Docker volume
+
+**Configuration**:
+- Environment variables: `COMFYUI_ARGS`, `COMFYUI_AUTO_UPDATE`, `COMFYUI_UPLOAD_TO_SUPABASE`
+- Image variants: CPU (`v2-cpu-22.04-v0.2.7`) and GPU (`latest-cuda`)
+- Storage integration: Automatic upload to Supabase Storage bucket
+- Model management: Persistent volumes for checkpoints, VAE, LoRA, and custom nodes
+
+> This integration provides comprehensive AI image generation capabilities with seamless workflow automation, storage management, and cross-service integration.
+
+### 17.4 Deep Researcher Integration ✅
 
 **Status**: Fully integrated with dynamic LLM selection and Pipe-based Open-WebUI interface
 

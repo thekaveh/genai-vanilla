@@ -266,9 +266,9 @@ services:
       # Removed basic-auth plugin to rely on n8n's built-in authentication
       # and avoid double authentication issues
 
-  ## ComfyUI routes (for containerized ComfyUI - default and ai-gpu profiles)
+  ## ComfyUI routes (for local ComfyUI - ai-local profile)
   - name: comfyui-api
-    url: http://comfyui:8188/
+    url: http://host.docker.internal:8000/
     routes:
       - name: comfyui-api-all
         strip_path: true

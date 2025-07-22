@@ -110,6 +110,7 @@ if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
   unset OPEN_WEB_UI_PORT
   unset BACKEND_PORT
   unset N8N_PORT
+  unset COMFYUI_PORT
 fi
 
 
@@ -212,6 +213,7 @@ PORT_VARS=(
   "OPEN_WEB_UI_PORT"
   "BACKEND_PORT"
   "N8N_PORT"
+  "COMFYUI_PORT"
 )
 
 # Create a temporary file to store non-port variables
@@ -253,7 +255,20 @@ LOCAL_DEEP_RESEARCHER_PORT=$(($BASE_PORT + 13))
 OPEN_WEB_UI_PORT=$(($BASE_PORT + 14))
 BACKEND_PORT=$(($BASE_PORT + 15))
 N8N_PORT=$(($BASE_PORT + 16))
+COMFYUI_PORT=$(($BASE_PORT + 17))
 EOF
+
+# Add profile-specific environment variables
+if [[ "$PROFILE" == "ai-local" ]]; then
+  # For ai-local profile, ComfyUI runs on the host machine
+  # First check if COMFYUI_BASE_URL already exists and remove it
+  sed -i.bak '/^COMFYUI_BASE_URL=/d' .env
+  rm -f .env.bak 2>/dev/null || true
+  
+  echo "" >> .env
+  echo "# --- Profile-specific settings (ai-local) ---" >> .env
+  echo "COMFYUI_BASE_URL=http://host.docker.internal:8000" >> .env
+fi
 
 echo "✅ .env file generated successfully!"
 
@@ -276,6 +291,7 @@ VERIFIED_LOCAL_DEEP_RESEARCHER_PORT=$(grep "^LOCAL_DEEP_RESEARCHER_PORT=" .env |
 VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" .env | cut -d '=' -f2)
 VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
 VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" .env | cut -d '=' -f2)
+VERIFIED_COMFYUI_PORT=$(grep "^COMFYUI_PORT=" .env | cut -d '=' -f2)
 
 # Display port assignments in a cleaner format with aligned port numbers
 echo ""
@@ -297,6 +313,7 @@ printf "  • %-35s %s\n" "Local Deep Researcher:" "$VERIFIED_LOCAL_DEEP_RESEARC
 printf "  • %-35s %s\n" "Open Web UI:" "$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-35s %s\n" "Backend API:" "$VERIFIED_BACKEND_PORT"
 printf "  • %-35s %s\n" "n8n Workflow Automation:" "$VERIFIED_N8N_PORT"
+printf "  • %-35s %s\n" "ComfyUI Image Generation:" "$VERIFIED_COMFYUI_PORT"
 echo ""
 echo "📋 Access Points:"
 printf "  • %-20s %s\n" "Supabase Studio:" "http://localhost:$VERIFIED_SUPABASE_STUDIO_PORT"
@@ -307,6 +324,7 @@ printf "  • %-20s %s\n" "Local Deep Researcher:" "http://localhost:$VERIFIED_L
 printf "  • %-20s %s\n" "Open Web UI:" "http://localhost:$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_PORT/docs"
 printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"
+printf "  • %-20s %s\n" "ComfyUI Interface:" "http://localhost:$VERIFIED_COMFYUI_PORT"
 echo ""
 
 # Start the stack with the selected profile
@@ -386,6 +404,22 @@ SERVICES=(
 # If using default or ai-gpu profile, Ollama is included
 if [[ "$PROFILE" == "default" || "$PROFILE" == "ai-gpu" ]]; then
   SERVICES+=("ollama:11434:$VERIFIED_OLLAMA_PORT")
+fi
+
+# ComfyUI health check for ai-local profile
+if [[ "$PROFILE" == "ai-local" ]]; then
+  echo "🔍 Checking local ComfyUI availability..."
+  # Try port 8188 first (standard), then 8000 (common alternative)
+  if curl -s --connect-timeout 5 "http://localhost:8188/system_stats" > /dev/null 2>&1; then
+    echo "  • ✅ Local ComfyUI: Available at http://localhost:8188"
+  elif curl -s --connect-timeout 5 "http://localhost:8000/system_stats" > /dev/null 2>&1; then
+    echo "  • ✅ Local ComfyUI: Available at http://localhost:8000"
+  else
+    echo "  • ⚠️  Local ComfyUI: Not running on port 8188 or 8000"
+    echo "    Please start ComfyUI locally with: python main.py --listen --port 8188"
+    echo "    Or refer to the documentation for installation instructions."
+  fi
+  echo ""
 fi
 
 # Function to get actual port mapping

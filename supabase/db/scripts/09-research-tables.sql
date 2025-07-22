@@ -73,6 +73,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_research_sessions_updated_at ON public.research_sessions;
 CREATE TRIGGER update_research_sessions_updated_at 
     BEFORE UPDATE ON public.research_sessions 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -94,6 +95,16 @@ ALTER TABLE public.research_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.research_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.research_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.research_logs ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own research sessions" ON public.research_sessions;
+DROP POLICY IF EXISTS "Service role can access all research sessions" ON public.research_sessions;
+DROP POLICY IF EXISTS "Users can view results for their sessions" ON public.research_results;
+DROP POLICY IF EXISTS "Service role can access all research results" ON public.research_results;
+DROP POLICY IF EXISTS "Users can view sources for their sessions" ON public.research_sources;
+DROP POLICY IF EXISTS "Service role can access all research sources" ON public.research_sources;
+DROP POLICY IF EXISTS "Users can view logs for their sessions" ON public.research_logs;
+DROP POLICY IF EXISTS "Service role can access all research logs" ON public.research_logs;
 
 -- Users can only see their own research sessions
 CREATE POLICY "Users can view their own research sessions" ON public.research_sessions

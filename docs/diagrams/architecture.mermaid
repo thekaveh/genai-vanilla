@@ -35,8 +35,10 @@ graph LR
         ollama[ollama - containerized]
         ollama-local[host.docker.internal:11434 - local]
         ollama-pull[ollama-pull]
+        comfyui-init[comfyui-init]
         local-deep-researcher[local-deep-researcher]
         n8n[n8n]:::api
+        comfyui[comfyui]:::ai
     end
     
     %% Apps Services Profile (apps.yml / apps-local.yml / apps-gpu.yml)
@@ -59,10 +61,12 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> supabase-realtime
     supabase-db-init -- "Completes Successfully" --> supabase-studio
     supabase-db-init -- "Completes Successfully" --> ollama-pull
+    supabase-db-init -- "Completes Successfully" --> comfyui-init
     supabase-db-init -- "Completes Successfully" --> local-deep-researcher
     supabase-db-init -- "Completes Successfully" --> backend
     supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> n8n
+    supabase-db-init -- "Completes Successfully" --> comfyui
 
     %% Service Inter-dependencies (After db-init)
     %% Connections now go through Kong where applicable
@@ -82,6 +86,7 @@ graph LR
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
     kong-api-gateway -- Routes --> n8n
+    kong-api-gateway -- Routes --> comfyui
     kong-api-gateway -- "Routes /research/*" --> backend
 
     kong-api-gateway -- "Depends on" --> redis
@@ -102,6 +107,8 @@ graph LR
     ollama-pull -- "Completes Successfully" --> open-web-ui
     ollama-pull -- "Completes Successfully" --> backend
     ollama-pull -- "Completes Successfully" --> n8n
+    ollama-pull -- "Completes Successfully" --> comfyui-init
+    comfyui-init -- "Completes Successfully" --> comfyui
     ollama -- "Depends on Ollama Started" --> ollama-pull
     
     %% Local Deep Researcher connections
@@ -112,6 +119,14 @@ graph LR
     
     %% Open-WebUI research integration via tools
     open-web-ui -- "Research Tools API" --> backend
+    
+    %% ComfyUI integrations
+    comfyui-init -- "Model Management DB Query" --> supabase-db
+    comfyui -- "HTTP API (Direct)" --> ollama
+    backend -- "Image Generation API" --> comfyui
+    open-web-ui -- "Image Generation" --> comfyui
+    n8n -- "Image Workflow Automation" --> comfyui
+    comfyui -- "Storage Upload" --> supabase-storage
 
     %% Add dependency of Studio on Kong
     supabase-studio -- "Depends on" --> kong-api-gateway
@@ -134,7 +149,7 @@ graph LR
     classDef profile fill:#e3f2fd,stroke:#1976d2,color:#1e1e1e
     class supabase-db,neo4j-graph-db database
     class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
-    class ollama,ollama-local,ollama-pull,local-deep-researcher ai
+    class ollama,ollama-local,ollama-pull,comfyui-init,local-deep-researcher,comfyui ai
     class open-web-ui ui
     class backend api
     class kong-api-gateway api

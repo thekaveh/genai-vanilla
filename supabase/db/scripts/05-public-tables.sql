@@ -26,4 +26,61 @@ CREATE TABLE IF NOT EXISTS public.llms (
   constraint llms_name_key unique (name)
 );
 
+-- ComfyUI models and configurations tables
+CREATE TABLE IF NOT EXISTS public.comfyui_models (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL, -- 'checkpoint', 'vae', 'lora', 'controlnet', 'upscaler', 'embeddings'
+    filename VARCHAR(255) NOT NULL,
+    download_url TEXT NOT NULL,
+    file_size_gb DECIMAL(5,2),
+    description TEXT,
+    active BOOLEAN DEFAULT true,
+    essential BOOLEAN DEFAULT false, -- Models that should be downloaded by default
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_comfyui_model_name UNIQUE (name, type)
+);
+
+-- Create index for efficient queries
+CREATE INDEX IF NOT EXISTS idx_comfyui_models_active ON public.comfyui_models(active);
+CREATE INDEX IF NOT EXISTS idx_comfyui_models_essential ON public.comfyui_models(essential);
+CREATE INDEX IF NOT EXISTS idx_comfyui_models_type ON public.comfyui_models(type);
+
+-- Create ComfyUI workflows table for storing custom workflows
+CREATE TABLE IF NOT EXISTS public.comfyui_workflows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    workflow_data JSONB NOT NULL,
+    category VARCHAR(100) DEFAULT 'custom',
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_comfyui_workflow_name UNIQUE (name)
+);
+
+-- Create index for workflow queries
+CREATE INDEX IF NOT EXISTS idx_comfyui_workflows_active ON public.comfyui_workflows(active);
+CREATE INDEX IF NOT EXISTS idx_comfyui_workflows_category ON public.comfyui_workflows(category);
+
+-- Create ComfyUI generated images table for tracking generations
+CREATE TABLE IF NOT EXISTS public.comfyui_generations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    prompt TEXT NOT NULL,
+    negative_prompt TEXT,
+    workflow_id UUID REFERENCES public.comfyui_workflows(id),
+    image_url TEXT,
+    image_path TEXT,
+    parameters JSONB, -- Store generation parameters like seed, steps, cfg, etc.
+    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create index for generation queries
+CREATE INDEX IF NOT EXISTS idx_comfyui_generations_status ON public.comfyui_generations(status);
+CREATE INDEX IF NOT EXISTS idx_comfyui_generations_created_at ON public.comfyui_generations(created_at DESC);
+
 -- Add any other custom public tables here

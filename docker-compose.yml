@@ -24,3 +24,11 @@ volumes:
     driver: local
   n8n-data:
     driver: local
+  comfyui-models:
+    driver: local
+  comfyui-output:
+    driver: local
+  comfyui-input:
+    driver: local
+  comfyui-custom-nodes:
+    driver: local

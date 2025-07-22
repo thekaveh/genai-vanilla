@@ -1,0 +1,376 @@
+{
+  "name": "ComfyUI Image Generation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "comfyui-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ac8f85c3-7d98-4b91-b51d-e5b3b8f8b8e1",
+      "name": "ComfyUI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "comfyui-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and prepare ComfyUI generation request\nconst input = $input.first().json;\n\n// Required parameters\nif (!input.prompt) {\n  throw new Error('Prompt is required for image generation');\n}\n\n// Set defaults for optional parameters\nconst generationRequest = {\n  prompt: input.prompt,\n  negative_prompt: input.negative_prompt || '',\n  width: input.width || 512,\n  height: input.height || 512,\n  steps: input.steps || 20,\n  cfg: input.cfg || 7.0,\n  checkpoint: input.checkpoint || 'sd_v1-5_pruned_emaonly.safetensors',\n  wait_for_completion: input.wait_for_completion !== false // Default to true\n};\n\n// Validate dimensions\nif (generationRequest.width < 64 || generationRequest.width > 2048) {\n  throw new Error('Width must be between 64 and 2048 pixels');\n}\nif (generationRequest.height < 64 || generationRequest.height > 2048) {\n  throw new Error('Height must be between 64 and 2048 pixels');\n}\n\n// Validate steps\nif (generationRequest.steps < 1 || generationRequest.steps > 150) {\n  throw new Error('Steps must be between 1 and 150');\n}\n\n// Validate CFG\nif (generationRequest.cfg < 1 || generationRequest.cfg > 30) {\n  throw new Error('CFG scale must be between 1 and 30');\n}\n\nreturn {\n  generationRequest,\n  originalInput: input,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "bd9f86d4-8e09-5c02-c62e-f6c4c9f9c9f2",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/comfyui/health",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ce0f97e5-9f10-6d13-d73f-g7d5d0g0d0g3",
+      "name": "Check ComfyUI Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "healthcheck-condition",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "healthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "df1f08f6-0f21-7e24-e84f-h8e6e1h1e1h4",
+      "name": "Health Check Branch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/comfyui/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $('Validate Request').item.json.generationRequest.prompt }}"
+            },
+            {
+              "name": "negative_prompt",
+              "value": "={{ $('Validate Request').item.json.generationRequest.negative_prompt }}"
+            },
+            {
+              "name": "width",
+              "value": "={{ $('Validate Request').item.json.generationRequest.width }}"
+            },
+            {
+              "name": "height",
+              "value": "={{ $('Validate Request').item.json.generationRequest.height }}"
+            },
+            {
+              "name": "steps",
+              "value": "={{ $('Validate Request').item.json.generationRequest.steps }}"
+            },
+            {
+              "name": "cfg",
+              "value": "={{ $('Validate Request').item.json.generationRequest.cfg }}"
+            },
+            {
+              "name": "checkpoint",
+              "value": "={{ $('Validate Request').item.json.generationRequest.checkpoint }}"
+            },
+            {
+              "name": "wait_for_completion",
+              "value": "={{ $('Validate Request').item.json.generationRequest.wait_for_completion }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "ef2f19f7-1f32-8f35-f95f-i9f7f2i2f2i5",
+      "name": "Generate Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process successful image generation result\nconst result = $input.first().json;\nconst originalRequest = $('Validate Request').item.json;\n\nif (!result.success) {\n  throw new Error(`Image generation failed: ${result.error || 'Unknown error'}`);\n}\n\n// Extract generation info\nconst response = {\n  success: true,\n  prompt_id: result.prompt_id,\n  client_id: result.client_id,\n  message: result.message || 'Image generated successfully',\n  generation_parameters: {\n    prompt: originalRequest.generationRequest.prompt,\n    negative_prompt: originalRequest.generationRequest.negative_prompt,\n    width: originalRequest.generationRequest.width,\n    height: originalRequest.generationRequest.height,\n    steps: originalRequest.generationRequest.steps,\n    cfg: originalRequest.generationRequest.cfg,\n    checkpoint: originalRequest.generationRequest.checkpoint\n  },\n  outputs: result.data?.outputs || {},\n  workflow_info: {\n    execution_id: $execution.id,\n    workflow_name: $workflow.name,\n    completed_at: new Date().toISOString(),\n    processing_time: Math.round((Date.now() - new Date(originalRequest.timestamp).getTime()) / 1000)\n  }\n};\n\n// If outputs contain images, extract image information\nif (result.data?.outputs) {\n  const imageFiles = [];\n  for (const [nodeId, nodeOutput] of Object.entries(result.data.outputs)) {\n    if (nodeOutput.images && Array.isArray(nodeOutput.images)) {\n      for (const img of nodeOutput.images) {\n        if (img.filename) {\n          imageFiles.push({\n            filename: img.filename,\n            subfolder: img.subfolder || '',\n            folder_type: img.folder_type || 'output',\n            node_id: nodeId\n          });\n        }\n      }\n    }\n  }\n  response.generated_images = imageFiles;\n  response.image_count = imageFiles.length;\n}\n\nreturn response;"
+      },
+      "id": "fg3f20g8-2g43-9g46-g06g-j0g8g3j3g3j6",
+      "name": "Process Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle ComfyUI service unhealthy or error cases\nconst healthResponse = $input.first().json;\n\nconst errorResponse = {\n  success: false,\n  error: 'ComfyUI service is not available',\n  details: {\n    service_status: healthResponse.status || 'unknown',\n    service_error: healthResponse.error,\n    workflow_info: {\n      execution_id: $execution.id,\n      workflow_name: $workflow.name,\n      failed_at: new Date().toISOString()\n    }\n  }\n};\n\nreturn errorResponse;"
+      },
+      "id": "gh4f31h9-3h54-0h57-h17h-k1h9h4k4h4k7",
+      "name": "Handle Service Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "hi5f42i0-4i65-1i68-i28i-l2i0i5l5i5l8",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "ij6f53j1-5j76-2j79-j39j-m3j1j6m6j6m9",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:8000/comfyui/db/models?active_only=true&essential_only=false",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "jk7f64k2-6k87-3k80-k40k-n4k2k7n7k7n0",
+      "name": "Get Available Models",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        240,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process available models for response\nconst modelsResponse = $input.first().json;\n\nif (!modelsResponse.success) {\n  return {\n    success: false,\n    error: 'Failed to retrieve available models',\n    models: []\n  };\n}\n\nconst models = modelsResponse.models || [];\n\n// Group models by type\nconst modelsByType = {};\nmodels.forEach(model => {\n  const type = model.type || 'unknown';\n  if (!modelsByType[type]) {\n    modelsByType[type] = [];\n  }\n  modelsByType[type].push({\n    name: model.name,\n    filename: model.filename,\n    description: model.description,\n    file_size_gb: model.file_size_gb,\n    essential: model.essential || false\n  });\n});\n\nreturn {\n  success: true,\n  total_models: models.length,\n  models_by_type: modelsByType,\n  models: models.map(m => ({\n    name: m.name,\n    type: m.type,\n    filename: m.filename,\n    essential: m.essential || false\n  }))\n};"
+      },
+      "id": "kl8f75l3-7l98-4l91-l51l-o5l3l8o8l8o1",
+      "name": "Process Models",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "lm9f86m4-8m09-5m02-m62m-p6m4m9p9m9p2",
+      "name": "Models Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        680,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "ComfyUI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Check ComfyUI Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ComfyUI Health": {
+      "main": [
+        [
+          {
+            "node": "Health Check Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check Branch": {
+      "main": [
+        [
+          {
+            "node": "Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Service Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image": {
+      "main": [
+        [
+          {
+            "node": "Process Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Success": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Service Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Models": {
+      "main": [
+        [
+          {
+            "node": "Process Models",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Models": {
+      "main": [
+        [
+          {
+            "node": "Models Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1.0.0",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "comfyui-image-generation",
+  "tags": [
+    {
+      "createdAt": "2024-01-15T12:00:00.000Z",
+      "updatedAt": "2024-01-15T12:00:00.000Z",
+      "id": "comfyui",
+      "name": "ComfyUI"
+    },
+    {
+      "createdAt": "2024-01-15T12:00:00.000Z",
+      "updatedAt": "2024-01-15T12:00:00.000Z",
+      "id": "image-generation",
+      "name": "Image Generation"
+    }
+  ]
+}

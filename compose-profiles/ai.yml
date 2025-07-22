@@ -32,6 +32,29 @@ services:
       - ./ollama-pull/scripts:/scripts
     entrypoint: ["/scripts/pull.sh"]
 
+  comfyui-init:
+    image: alpine:latest
+    container_name: ${PROJECT_NAME}-comfyui-init
+    restart: "no"
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+    networks:
+      - backend-bridge-network
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      COMFYUI_MODELS_PATH: /models
+    volumes:
+      - ./comfyui-init/scripts:/scripts
+      - comfyui-models:/models
+    entrypoint: ["/scripts/download_models.sh"]
+
   local-deep-researcher:
     build:
       context: ./local-deep-researcher
@@ -78,7 +101,6 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
-      N8N_PATH: ${N8N_PATH:-/}
       NODE_ENV: production
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_AUTH_ENABLED: ${N8N_AUTH_ENABLED:-true}
@@ -100,3 +122,56 @@ services:
       - n8n-data:/home/node/.n8n
     networks:
       - backend-bridge-network
+
+  comfyui:
+    image: ghcr.io/ai-dock/comfyui:${COMFYUI_IMAGE_TAG:-v2-cpu-22.04-v0.2.7}
+    platform: ${COMFYUI_PLATFORM:-linux/amd64}
+    container_name: ${PROJECT_NAME}-comfyui
+    restart: unless-stopped
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+      comfyui-init:
+        condition: service_completed_successfully
+      supabase-storage:
+        condition: service_started
+      redis:
+        condition: service_started
+    environment:
+      - COMFYUI_ARGS=${COMFYUI_ARGS:---listen --cpu}
+      - AUTO_UPDATE=${COMFYUI_AUTO_UPDATE:-false}
+      - COMFYUI_PORT_HOST=8188
+      - SUPABASE_URL=${COMFYUI_KONG_URL:-http://kong-api-gateway:8000}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_STORAGE_BUCKET=${COMFYUI_STORAGE_BUCKET:-comfyui-images}
+      - COMFYUI_UPLOAD_TO_SUPABASE=${COMFYUI_UPLOAD_TO_SUPABASE:-true}
+    ports:
+      - "${COMFYUI_PORT}:8188"
+    volumes:
+      - comfyui-models:/opt/ComfyUI/models
+      - comfyui-output:/opt/ComfyUI/output
+      - comfyui-input:/opt/ComfyUI/input
+      - comfyui-custom-nodes:/opt/ComfyUI/custom_nodes
+    networks:
+      - backend-bridge-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "com.genai.service=image-generation"
+      - "com.genai.category=ai"
+      - "com.genai.dependencies=ollama,supabase-storage"
+
+volumes:
+  ollama-data:
+  local-deep-researcher-data:
+  n8n-data:
+  comfyui-models:
+  comfyui-output:
+  comfyui-input:
+  comfyui-custom-nodes:

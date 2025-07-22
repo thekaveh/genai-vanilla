@@ -480,7 +480,6 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
-      N8N_PATH: ${N8N_PATH:-/}
       NODE_ENV: production
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_AUTH_ENABLED: ${N8N_AUTH_ENABLED:-true}
