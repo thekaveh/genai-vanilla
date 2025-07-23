@@ -2000,70 +2000,103 @@ Based on comprehensive analysis of the current GenAI landscape and emerging 2025
 - **Benefits**: Real-time voice bots, conference integration, live AI
 - **Complexity**: Very High - requires media server infrastructure
 
-### 18.5. Enhanced Search API Integration
+### 18.5. Search Service Integration - SearxNG Only
 
-For the Deep Researcher service, we're expanding beyond DuckDuckGo to include multiple free and premium search APIs:
+After comprehensive evaluation, we've selected SearxNG as our sole search service for the Deep Researcher. This decision simplifies our architecture while providing access to 70+ search engines through a single, unified interface.
 
-#### 18.5.1. Free Search APIs (Available Now)
+#### 18.5.1. Selected Search Solution
 
-**Brave Search API** ⭐⭐⭐⭐⭐
-- **Free Tier**: 2,000-5,000 queries/month
-- **Benefits**: Independent search index (30B+ pages), privacy-focused
-- **Quality**: High-quality results, academic citation support
-- **Integration**: REST API, JSON responses, rate limiting
-- **Status**: Ready for integration
-
-**DuckDuckGo API** ⭐⭐⭐
-- **Access**: Unofficial API, zero-click information
-- **Benefits**: Privacy-focused, instant answers
-- **Limitations**: Limited to quick facts, not full SERP data
-- **Current**: Already integrated as default
-
-**SearxNG (Self-hosted)** ⭐⭐⭐⭐
+**SearxNG (Self-hosted Metasearch Engine)** ✅ **SELECTED**
 - **Type**: Open-source metasearch aggregator
-- **Benefits**: Aggregates multiple search engines, privacy-focused
-- **Integration**: Docker container, customizable engines
-- **Features**: No tracking, configurable backends, themeable
+- **Why Selected**: 
+  - Aggregates 70+ search engines including Google Scholar, Semantic Scholar, DuckDuckGo, arxiv, PubMed, GitHub, StackOverflow, Wikipedia, and more
+  - Self-hosted with complete privacy control - no data leaves our infrastructure
+  - No API keys required - zero external dependencies
+  - Built-in result merging, deduplication, and ranking
+  - Supports categorized search (academic, general, news, technical)
+  - Single service to deploy and maintain
+  - Perfect alignment with vanilla stack philosophy
+- **Integration**: Docker container with simple REST/JSON API
+- **Features**: Privacy-first, customizable engines, result filtering, multi-language support
 
-#### 18.5.2. Academic and Specialized APIs
+#### 18.5.2. Discarded Search API Options
 
-**Microsoft Academic API** (Transitioning)
-- **Status**: Being phased out, limited availability
-- **Alternative**: Semantic Scholar API for academic papers
+**Brave Search API** ❌ **DISCARDED**
+- **Rationale for Discarding**:
+  - Requires API key registration even for free tier
+  - Limited to 2,000-5,000 queries/month on free tier
+  - Costs $5 per 1,000 queries after free tier exhausted
+  - SearxNG can access Brave search results without API limitations
+  - Adds unnecessary complexity and external dependency
 
-**Semantic Scholar API** ⭐⭐⭐⭐
-- **Purpose**: Academic paper search and citation analysis
-- **Benefits**: Free access, comprehensive paper database
-- **Integration**: REST API, detailed metadata, citation graphs
+**DuckDuckGo Direct API** ❌ **DISCARDED**
+- **Rationale for Discarding**:
+  - Already available through SearxNG with better integration
+  - SearxNG provides superior result formatting and filtering
+  - No need to maintain separate API integration
+  - Limited to instant answers when used directly
 
-#### 18.5.3. Commercial APIs (Premium Options)
+**Semantic Scholar Direct API** ❌ **DISCARDED**
+- **Rationale for Discarding**:
+  - Already integrated as a search engine within SearxNG
+  - SearxNG automatically merges academic results with other sources
+  - No need to manage separate rate limits or API keys
+  - Results are automatically deduplicated with other academic engines
 
-**Bing Search API** ❌
-- **Status**: Being discontinued by Microsoft (2025)
-- **Impact**: Major disruption to search API ecosystem
-- **Alternatives**: Brave, SearxNG, custom scrapers
+**Google Custom Search API** ❌ **DISCARDED**
+- **Rationale for Discarding**:
+  - Restrictive limit of 100 free queries/day
+  - Expensive at $5 per 1,000 queries
+  - Privacy concerns with sending queries to Google
+  - SearxNG provides access to web results without these limitations
 
-**Google Custom Search API** ⭐⭐
-- **Limitation**: 100 free queries/day, then paid
-- **Quality**: High-quality results, extensive coverage
-- **Cost**: $5 per 1,000 queries after free tier
+**Bing Search API** ❌ **DISCARDED**
+- **Rationale for Discarding**:
+  - Being discontinued by Microsoft in 2025
+  - Would require migration to alternative anyway
+  - SearxNG provides more sustainable long-term solution
 
-#### 18.5.4. Implementation Plan
+#### 18.5.3. SearxNG Configuration for Research
+
+SearxNG will be configured with carefully selected engines optimized for research:
+
+**Academic & Research Engines**:
+- Semantic Scholar (weight: 2.0)
+- Google Scholar (weight: 2.0)
+- arxiv (weight: 1.8)
+- PubMed (weight: 1.5)
+- CrossRef (weight: 1.5)
+
+**General & Technical Engines**:
+- DuckDuckGo (weight: 1.5)
+- GitHub (weight: 1.5)
+- StackOverflow (weight: 1.8)
+- Wikipedia (weight: 1.2)
+
+**Privacy-First Approach**:
+- Google: Disabled
+- Bing: Disabled
+- All tracking engines: Disabled
+
+#### 18.5.4. Simplified Implementation Plan
 
 **Phase 1** (Immediate):
-- Integrate Brave Search API as premium option
-- Add SearxNG as self-hosted alternative
-- Create search API switching logic in Deep Researcher
+- Deploy SearxNG as a Docker service
+- Configure selected search engines and weights
+- Integrate with Deep Researcher service
+- Add to Kong API Gateway routing
 
-**Phase 2** (Next Quarter):
-- Add Semantic Scholar for academic research
-- Implement search API rotation and fallback
-- Add search quality scoring and optimization
+**Phase 2** (Optimization):
+- Fine-tune engine weights based on usage
+- Implement result caching in Redis
+- Add search analytics and monitoring
+- Create custom search categories
 
-**Phase 3** (Future):
-- Custom web scraping service for specific domains
-- Search result deduplication and merging
-- AI-powered search query optimization
+**Phase 3** (Enhancement):
+- Add custom search plugins if needed
+- Implement advanced filtering rules
+- Optimize for specific research domains
+- Consider federation with other SearxNG instances
 
 ### 18.6. Implementation Timeline
 
@@ -2071,18 +2104,16 @@ For the Deep Researcher service, we're expanding beyond DuckDuckGo to include mu
 - **Weaviate** for vector storage upgrade
 - **Whisper** for audio transcription
 - **Document Processing** for RAG enhancement
-- **Brave Search API** integration
+- **SearxNG** self-hosted search (moved from Q2 - sole search solution)
 
 #### Q2 2025 (Enhancement)
 - **Prometheus/Grafana** monitoring stack
 - **Piper TTS** for audio synthesis
-- **SearxNG** self-hosted search
-- **MeiliSearch** for fast search
+- **MeiliSearch** for fast document search (distinct from web search)
 
 #### Q3 2025 (Advanced)
 - **Qdrant** for scale vector operations
 - **Airflow** for complex workflows
-- **Academic APIs** integration
 
 #### Q4 2025 (Enterprise)
 - **Keycloak** for enterprise auth
@@ -2100,7 +2131,7 @@ compose-profiles/
 ├── apps.yml           # Existing: Application services
 ├── vector.yml         # NEW: Vector databases and embedding services
 ├── audio.yml          # NEW: Audio processing (Whisper, Piper TTS)
-├── search.yml         # NEW: Search engines and APIs
+├── search.yml         # NEW: SearxNG metasearch service
 ├── monitoring.yml     # NEW: Observability and monitoring
 ├── workflow.yml       # NEW: Advanced workflow orchestration
 └── security.yml       # NEW: Enhanced authentication and security
