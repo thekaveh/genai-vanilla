@@ -107,6 +107,7 @@ if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
   unset GRAPH_DB_DASHBOARD_PORT
   unset OLLAMA_PORT
   unset LOCAL_DEEP_RESEARCHER_PORT
+  unset SEARXNG_PORT
   unset OPEN_WEB_UI_PORT
   unset BACKEND_PORT
   unset N8N_PORT
@@ -182,6 +183,23 @@ if [[ ! -f .env || "$COLD_START" == "true" ]]; then
     echo "  • n8n encryption key generated successfully"
   fi
   
+  # Generate SEARXNG_SECRET if missing or for cold start
+  SEARXNG_SECRET_VALUE=$(grep "^SEARXNG_SECRET=" .env 2>/dev/null | cut -d '=' -f2 || echo "")
+  if [[ "$COLD_START" == "true" || -z "$SEARXNG_SECRET_VALUE" ]]; then
+    echo "  • Generating SearxNG secret key..."
+    SEARXNG_SECRET=$(openssl rand -hex 32)
+    # Update the .env file with the new secret
+    if grep -q "^SEARXNG_SECRET=" .env; then
+      # Replace existing secret
+      sed -i.bak "s/^SEARXNG_SECRET=.*/SEARXNG_SECRET=$SEARXNG_SECRET/" .env
+      rm .env.bak 2>/dev/null || true  # Remove backup file if created by sed
+    else
+      # Add new secret if it doesn't exist
+      echo "SEARXNG_SECRET=$SEARXNG_SECRET" >> .env
+    fi
+    echo "  • SearxNG secret key generated successfully"
+  fi
+  
   ENV_SOURCE=".env"
 else
   echo "📝 Updating .env file with base port $BASE_PORT..."
@@ -190,6 +208,23 @@ else
   BACKUP_FILE=".env.backup.$(date +%Y%m%d%H%M%S)"
   cp .env "$BACKUP_FILE"
   echo "  • Backed up existing .env to $BACKUP_FILE"
+  
+  # Generate SEARXNG_SECRET if missing from existing .env file
+  SEARXNG_SECRET_VALUE=$(grep "^SEARXNG_SECRET=" .env 2>/dev/null | cut -d '=' -f2 || echo "")
+  if [[ -z "$SEARXNG_SECRET_VALUE" ]]; then
+    echo "  • Generating missing SearxNG secret key..."
+    SEARXNG_SECRET=$(openssl rand -hex 32)
+    # Update the .env file with the new secret
+    if grep -q "^SEARXNG_SECRET=" .env; then
+      # Replace existing empty secret
+      sed -i.bak "s/^SEARXNG_SECRET=.*/SEARXNG_SECRET=$SEARXNG_SECRET/" .env
+      rm .env.bak 2>/dev/null || true  # Remove backup file if created by sed
+    else
+      # Add new secret if it doesn't exist
+      echo "SEARXNG_SECRET=$SEARXNG_SECRET" >> .env
+    fi
+    echo "  • SearxNG secret key generated successfully"
+  fi
   
   ENV_SOURCE=".env"
 fi
@@ -210,6 +245,7 @@ PORT_VARS=(
   "GRAPH_DB_DASHBOARD_PORT"
   "OLLAMA_PORT"
   "LOCAL_DEEP_RESEARCHER_PORT"
+  "SEARXNG_PORT"
   "OPEN_WEB_UI_PORT"
   "BACKEND_PORT"
   "N8N_PORT"
@@ -252,10 +288,11 @@ GRAPH_DB_PORT=$(($BASE_PORT + 10))
 GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 11))
 OLLAMA_PORT=$(($BASE_PORT + 12))
 LOCAL_DEEP_RESEARCHER_PORT=$(($BASE_PORT + 13))
-OPEN_WEB_UI_PORT=$(($BASE_PORT + 14))
-BACKEND_PORT=$(($BASE_PORT + 15))
-N8N_PORT=$(($BASE_PORT + 16))
-COMFYUI_PORT=$(($BASE_PORT + 17))
+SEARXNG_PORT=$(($BASE_PORT + 14))
+OPEN_WEB_UI_PORT=$(($BASE_PORT + 15))
+BACKEND_PORT=$(($BASE_PORT + 16))
+N8N_PORT=$(($BASE_PORT + 17))
+COMFYUI_PORT=$(($BASE_PORT + 18))
 EOF
 
 # Add profile-specific environment variables
@@ -288,6 +325,7 @@ VERIFIED_GRAPH_DB_PORT=$(grep "^GRAPH_DB_PORT=" .env | cut -d '=' -f2)
 VERIFIED_GRAPH_DB_DASHBOARD_PORT=$(grep "^GRAPH_DB_DASHBOARD_PORT=" .env | cut -d '=' -f2)
 VERIFIED_OLLAMA_PORT=$(grep "^OLLAMA_PORT=" .env | cut -d '=' -f2)
 VERIFIED_LOCAL_DEEP_RESEARCHER_PORT=$(grep "^LOCAL_DEEP_RESEARCHER_PORT=" .env | cut -d '=' -f2)
+VERIFIED_SEARXNG_PORT=$(grep "^SEARXNG_PORT=" .env | cut -d '=' -f2)
 VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" .env | cut -d '=' -f2)
 VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
 VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" .env | cut -d '=' -f2)
@@ -310,6 +348,7 @@ printf "  • %-35s %s\n" "Neo4j Graph Database (Bolt):" "$VERIFIED_GRAPH_DB_POR
 printf "  • %-35s %s\n" "Neo4j Graph Database (Dashboard):" "$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
 printf "  • %-35s %s\n" "Ollama API:" "$VERIFIED_OLLAMA_PORT"
 printf "  • %-35s %s\n" "Local Deep Researcher:" "$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
+printf "  • %-35s %s\n" "SearxNG Privacy Search:" "$VERIFIED_SEARXNG_PORT"
 printf "  • %-35s %s\n" "Open Web UI:" "$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-35s %s\n" "Backend API:" "$VERIFIED_BACKEND_PORT"
 printf "  • %-35s %s\n" "n8n Workflow Automation:" "$VERIFIED_N8N_PORT"
@@ -321,6 +360,7 @@ printf "  • %-20s %s\n" "Kong HTTP Gateway:" "http://localhost:$VERIFIED_KONG_
 printf "  • %-20s %s\n" "Kong HTTPS Gateway:" "https://localhost:$VERIFIED_KONG_HTTPS_PORT"
 printf "  • %-20s %s\n" "Neo4j Browser:" "http://localhost:$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
 printf "  • %-20s %s\n" "Local Deep Researcher:" "http://localhost:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
+printf "  • %-20s %s\n" "SearxNG Search:" "http://localhost:$VERIFIED_SEARXNG_PORT"
 printf "  • %-20s %s\n" "Open Web UI:" "http://localhost:$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_PORT/docs"
 printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"

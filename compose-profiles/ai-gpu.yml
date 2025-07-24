@@ -75,13 +75,15 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
+      searxng:
+        condition: service_healthy
     environment:
       # Database connection for LLM config
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       # Ollama connection (containerized)
       OLLAMA_BASE_URL: http://ollama:11434
       # Search configuration
-      SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-duckduckgo}
+      SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
     ports:
       - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
@@ -89,6 +91,33 @@ services:
       - local-deep-researcher-data:/app/data
     networks:
       - backend-bridge-network
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: ${PROJECT_NAME}-searxng
+    restart: unless-stopped
+    networks:
+      - backend-bridge-network
+    ports:
+      - "${SEARXNG_PORT}:8080"
+    volumes:
+      - ./searxng/config:/etc/searxng:rw
+      - searxng-data:/var/cache/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT}
+      - SEARXNG_SECRET=${SEARXNG_SECRET}
+      - FORCE_OWNERSHIP=1
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
   n8n:
     image: n8nio/n8n:latest
@@ -194,6 +223,7 @@ services:
 volumes:
   ollama-data:
   local-deep-researcher-data:
+  searxng-data:
   n8n-data:
   comfyui-models:
   comfyui-output:

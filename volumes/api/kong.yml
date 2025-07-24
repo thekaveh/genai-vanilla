@@ -266,6 +266,28 @@ services:
       # Removed basic-auth plugin to rely on n8n's built-in authentication
       # and avoid double authentication issues
 
+  ## SearxNG routes
+  - name: searxng-api
+    url: http://searxng:8080/
+    routes:
+      - name: searxng-api-all
+        strip_path: true
+        paths:
+          - /searxng/      # Main SearxNG path
+          - /search        # Search API endpoint
+          - /healthz       # Health check endpoint  
+          - /config        # Configuration endpoint
+          - /autocomplete  # Autocomplete suggestions
+        priority: 100      # High priority to match before catch-all
+    plugins:
+      - name: cors
+      - name: rate-limiting
+        config:
+          minute: 60     # Allow 60 searches per minute
+          hour: 1000     # Allow 1000 searches per hour
+          policy: local
+      # Note: SearxNG doesn't have built-in auth, add basic-auth if needed in production
+
   ## ComfyUI routes (for containerized ComfyUI - default and ai-gpu profiles)
   - name: comfyui-api
     url: http://comfyui:8188/
@@ -294,6 +316,7 @@ services:
         strip_path: true
         paths:
           - /
+        priority: 1        # Low priority as catch-all
     plugins:
       - name: cors
       # Commenting out basic-auth to troubleshoot authentication issues

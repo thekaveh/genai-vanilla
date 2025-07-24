@@ -168,9 +168,11 @@ This will:
 - GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 11
 - OLLAMA_PORT = BASE_PORT + 12
 - LOCAL_DEEP_RESEARCHER_PORT = BASE_PORT + 13
-- OPEN_WEB_UI_PORT = BASE_PORT + 14
-- BACKEND_PORT = BASE_PORT + 15
-- N8N_PORT = BASE_PORT + 16
+- SEARXNG_PORT = BASE_PORT + 14
+- OPEN_WEB_UI_PORT = BASE_PORT + 15
+- BACKEND_PORT = BASE_PORT + 16
+- N8N_PORT = BASE_PORT + 17
+- COMFYUI_PORT = BASE_PORT + 18
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
@@ -220,6 +222,7 @@ Once the stack is running, you can access services at the following URLs:
 ### Main Services
 - **Supabase Studio**: `http://localhost:${SUPABASE_STUDIO_PORT}` (default: 63009)
 - **Neo4j Dashboard**: `http://localhost:${GRAPH_DB_DASHBOARD_PORT}` (default: 63011)
+- **SearxNG Privacy Search**: `http://localhost:${SEARXNG_PORT}` (default: 63014)
 - **Open-WebUI**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
 - **n8n Workflow Automation**: 
   - Direct: `http://localhost:${N8N_PORT}` (default: 63017)
@@ -601,7 +604,101 @@ Once running, the Local Deep Researcher provides:
 - **Research Workflows**: Automated multi-step research processes with web scraping and analysis
 - **Result Management**: Persistent storage and retrieval of research findings
 
-### 7.3. Open Web UI
+### 7.3. SearxNG Privacy Search Service
+
+SearxNG is a privacy-respecting metasearch engine that aggregates results from multiple search engines without tracking users, serving as the primary search backend for the GenAI stack.
+
+#### 7.3.1. Overview
+
+- **API Endpoint**: Available at `http://localhost:${SEARXNG_PORT}` (default: 63014)
+- **Kong Gateway**: Accessible via `http://localhost:${KONG_HTTP_PORT}/searxng/`
+- **Purpose**: Privacy-focused web search for the GenAI stack
+- **Integration**: Serves as a search backend for various services
+
+#### 7.3.2. Features
+
+- **Privacy First**: No user tracking, no profiling, no data retention
+- **Multiple Search Engines**: Access to 70+ search engines through unified interface
+- **Customizable**: Full control over which engines to use and disable
+- **API Access**: JSON API for programmatic searches and automation
+- **Fast Performance**: Redis caching for improved response times
+- **Rate Limiting**: Built-in protection via Kong Gateway integration
+
+#### 7.3.3. Configuration
+
+The service is configured via `searxng/config/settings.yml` with key settings including:
+
+- **Search Engines**: DuckDuckGo, Wikipedia, GitHub (privacy-focused selection)
+- **UI Preferences**: Simple theme with auto color scheme detection
+- **API Format Support**: HTML, JSON, CSV, and RSS output formats
+- **Rate Limiting**: 60 searches per minute, 1000 per hour via Kong
+- **Security**: Redis-backed caching with password authentication
+
+#### 7.3.4. Integration Points
+
+**Local Deep Researcher Integration:**
+- Primary search backend for AI-powered research workflows
+- Configurable via `LOCAL_DEEP_RESEARCHER_SEARCH_API=searxng`
+- Provides privacy-respecting alternative to direct API access
+
+**Backend API Integration:**
+- Access privacy-focused search via `/search/privacy?q=your+query`
+- JSON API endpoints for programmatic access
+- Session tracking and result caching capabilities
+
+**n8n Workflow Integration:**
+- SearxNG webhook nodes for automated privacy-respecting searches
+- Batch processing capabilities for research automation
+- Integration with workflow scheduling and triggers
+
+**Open-WebUI Integration:**
+- Research tools can leverage SearxNG for web searches
+- Privacy-focused search capabilities in chat interface
+- Automatic result formatting and display
+
+#### 7.3.5. API Usage Examples
+
+**Basic Search:**
+```bash
+curl "http://localhost:${SEARXNG_PORT}/search?q=artificial+intelligence&format=json"
+```
+
+**Search with Specific Engines:**
+```bash
+curl "http://localhost:${SEARXNG_PORT}/search?q=python&engines=duckduckgo,wikipedia&format=json"
+```
+
+**Via Kong Gateway:**
+```bash
+curl "http://localhost:${KONG_HTTP_PORT}/searxng/search?q=machine+learning&format=json"
+```
+
+**Health Check:**
+```bash
+curl "http://localhost:${SEARXNG_PORT}/healthz"
+```
+
+#### 7.3.6. Troubleshooting
+
+**Service Not Starting:**
+- Check logs: `docker logs genai-searxng`
+- Verify Redis is healthy and accessible
+- Ensure port 63014 is not in use by other services
+- Check SearxNG secret key generation in start.sh
+
+**Search Not Working:**
+- Verify enabled engines in `settings.yml` configuration
+- Check network connectivity to external search providers
+- Review rate limiting settings and current usage
+- Test individual search engines for availability
+
+**Integration Issues:**
+- Ensure SearxNG is accessible from other containers
+- Verify Kong Gateway routing configuration is correct
+- Check service dependencies are running and healthy
+- Review environment variable configuration
+
+### 7.4. Open Web UI
 
 Open-WebUI is integrated with the Deep Researcher service to provide AI-powered web research capabilities directly within the chat interface. This integration uses Open-WebUI's Tools system to enable seamless research functionality.
 
@@ -827,7 +924,7 @@ To modify the research tools:
 
 For more details on tool development, see the Open-WebUI official documentation.
 
-### 7.4. Backend API Service
+### 7.5. Backend API Service
 
 The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference. It interacts with Supabase Storage via the Kong API Gateway. Its own API is also exposed through the Kong gateway.
 
@@ -901,11 +998,11 @@ uv pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-### 7.5. ComfyUI Service
+### 7.6. ComfyUI Service
 
 ComfyUI is a powerful node-based workflow interface for Stable Diffusion and AI image generation, integrated into the GenAI stack for seamless image generation capabilities.
 
-#### 7.5.1. Features
+#### 7.6.1. Features
 
 - **Visual Workflow Editor**: Node-based interface for creating complex image generation workflows
 - **Multi-Architecture Support**: CPU-only for development/testing, CUDA acceleration for production
@@ -915,7 +1012,7 @@ ComfyUI is a powerful node-based workflow interface for Stable Diffusion and AI 
 - **Supabase Integration**: Automatic upload of generated images to Supabase Storage
 - **Kong Gateway Routing**: Secure API access through the Kong API Gateway
 
-#### 7.5.2. Configuration
+#### 7.6.2. Configuration
 
 ComfyUI is configured through environment variables in `.env`:
 
@@ -933,7 +1030,7 @@ COMFYUI_UPLOAD_TO_SUPABASE=true
 COMFYUI_STORAGE_BUCKET=comfyui-images
 ```
 
-#### 7.5.3. Deployment Profiles
+#### 7.6.3. Deployment Profiles
 
 ComfyUI supports multiple deployment configurations:
 
@@ -953,7 +1050,7 @@ ComfyUI supports multiple deployment configurations:
 - Connects to host-based Ollama and ComfyUI instances
 - Optimized for macOS Apple Silicon (M1/M2/M3/M4) with Metal Performance Shaders
 
-#### 7.5.4. Local ComfyUI Installation (AI-Local Profile)
+#### 7.6.4. Local ComfyUI Installation (AI-Local Profile)
 
 For the AI-Local profile, you'll need to install ComfyUI locally on your host machine. This is particularly beneficial for macOS users with Apple Silicon processors.
 
@@ -1015,7 +1112,7 @@ For the AI-Local profile, you'll need to install ComfyUI locally on your host ma
 docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-local.yml -f compose-profiles/apps-local.yml up
 ```
 
-#### 7.5.5. Service Dependencies
+#### 7.6.5. Service Dependencies
 
 ComfyUI depends on several services for full functionality:
 
@@ -1024,7 +1121,7 @@ ComfyUI depends on several services for full functionality:
 - **Storage**: `supabase-storage` (image storage)
 - **Cache**: `redis` (queue management)
 
-#### 7.5.5. Integration Points
+#### 7.6.6. Integration Points
 
 **OpenWebUI Integration:**
 - Direct image generation from chat interface
@@ -1041,7 +1138,7 @@ ComfyUI depends on several services for full functionality:
 - Webhook-based progress notifications
 - Batch processing capabilities
 
-#### 7.5.6. API Endpoints
+#### 7.6.7. API Endpoints
 
 ComfyUI provides several API endpoints accessible through Kong Gateway:
 
@@ -1061,7 +1158,7 @@ curl http://localhost:${KONG_HTTP_PORT}/comfyui/history/{prompt_id}
 curl http://localhost:${KONG_HTTP_PORT}/comfyui/view?filename={filename}
 ```
 
-#### 7.5.7. Model Management
+#### 7.6.8. Model Management
 
 ComfyUI uses persistent volumes for model storage:
 
@@ -1075,7 +1172,7 @@ ComfyUI uses persistent volumes for model storage:
 └── clip/           # CLIP models
 ```
 
-#### 7.5.8. Performance Considerations
+#### 7.6.9. Performance Considerations
 
 **CPU Mode (Default/Development):**
 - Slower image generation (2-5 minutes per image)
@@ -1087,7 +1184,7 @@ ComfyUI uses persistent volumes for model storage:
 - Requires NVIDIA GPU with 8GB+ VRAM
 - CUDA 12.5+ support recommended
 
-#### 7.5.9. Integration Examples
+#### 7.6.10. Integration Examples
 
 **Generate via Backend API:**
 ```bash
@@ -1112,7 +1209,7 @@ curl -X POST http://localhost:${BACKEND_PORT}/comfyui/generate \
 2. WebSocket or polling for progress monitoring
 3. Automated image processing and storage
 
-#### 7.5.10. Troubleshooting
+#### 7.6.11. Troubleshooting
 
 **Service Not Starting:**
 - Check GPU drivers and CUDA installation (GPU mode)
@@ -3178,4 +3275,141 @@ python -m py_compile open-webui/tools/deep_researcher_tool.py
 - **Configuration**: Auto-enablement controlled by `open-webui/tool_config.json`
 - **LLM Selection**: Research uses database-configured LLM, not the chat model
 - **Status Updates**: Tools support real-time progress updates during research operations
+
+## 16. Future Enhancements: Docker MCP Servers Integration
+
+### 16.1. Overview
+
+The [Docker MCP (Model Context Protocol) Servers](https://github.com/docker/mcp-servers) project represents a significant opportunity to enhance our GenAI stack with standardized, secure AI-tool integration capabilities. MCP provides a unified protocol for Large Language Models to interact with external tools and data sources in a controlled, secure manner.
+
+### 16.2. Integration Benefits
+
+**Enhanced AI Capabilities**:
+- **Structured Data Access**: Enable Ollama models to interact with databases through standardized protocols
+- **Secure Tool Integration**: Sandboxed execution environment with resource limits (1 CPU, 2GB RAM)
+- **Open-WebUI Enhancement**: Extend tool capabilities beyond current research functions
+
+**Stack-Specific Advantages**:
+- **PostgreSQL MCP Server**: Direct, secure Supabase database queries for AI models
+- **Redis MCP Server**: Enhanced Redis operations beyond basic caching
+- **Neo4j MCP Server**: Advanced graph database queries and schema inspection
+- **Search Integration**: Complement SearxNG with additional search capabilities
+
+### 16.3. Recommended MCP Servers for Integration
+
+**Database Servers** (High Priority):
+1. **PostgreSQL MCP Server**: 
+   - Direct integration with existing Supabase PostgreSQL
+   - Schema inspection and read-only database access
+   - Enhanced AI-driven database queries
+
+2. **Redis MCP Server**:
+   - Advanced Redis operations beyond current caching
+   - Key-value store interactions for AI workflows
+
+3. **Neo4j MCP Server**:
+   - Graph database queries and schema management
+   - Enhanced relationship analysis capabilities
+
+**Search & Content Servers** (Medium Priority):
+1. **Tavily Search**: AI-optimized search with extraction capabilities
+2. **Meilisearch**: Full-text and semantic search API integration
+3. **Chroma**: Vector embeddings and document storage
+
+**Development & Integration Servers** (Low Priority):
+1. **Docker MCP Server**: Container and image management
+2. **Kubernetes MCP Server**: Orchestration and deployment management
+
+### 16.4. Implementation Architecture
+
+**Proposed Service Structure**:
+```yaml
+mcp-gateway:
+  image: docker/mcp-gateway:latest
+  container_name: ${PROJECT_NAME}-mcp-gateway
+  depends_on:
+    - supabase-db
+    - redis
+    - neo4j-graph-db
+  environment:
+    - MCP_SERVERS=postgresql,redis,neo4j
+    - POSTGRES_URL=${DATABASE_URL}
+    - REDIS_URL=${REDIS_URL}
+    - NEO4J_URL=bolt://neo4j-graph-db:7687
+  ports:
+    - "${MCP_GATEWAY_PORT}:8080"
+```
+
+**Integration Points**:
+- **Open-WebUI**: MCP servers as additional tool providers
+- **Backend API**: Structured AI-database interactions
+- **Deep Researcher**: Enhanced data access and analysis
+- **Kong Gateway**: Secure routing to MCP services
+
+### 16.5. Security Considerations
+
+**Built-in Security Features**:
+- **Container Isolation**: Each MCP server runs in sandboxed environment
+- **Resource Limits**: CPU and memory restrictions prevent resource abuse
+- **Access Control**: Explicit filesystem and network permissions
+- **OAuth Support**: Secure credential management without hardcoded secrets
+- **Digital Signatures**: All MCP server images digitally signed by Docker
+
+**Implementation Security**:
+- **Environment Variable Management**: Secure credential passing via Docker secrets
+- **Network Isolation**: Dedicated Docker network for MCP communications
+- **Kong Integration**: API gateway for secure external access
+
+### 16.6. Development Roadmap
+
+**Phase 1: Foundation** (4-6 weeks):
+- [ ] Add MCP Gateway service to Docker Compose profiles
+- [ ] Integrate PostgreSQL MCP server with Supabase
+- [ ] Configure basic security and networking
+- [ ] Update environment variable management
+
+**Phase 2: Core Integration** (6-8 weeks):
+- [ ] Add Redis and Neo4j MCP servers
+- [ ] Integrate MCP servers with Open-WebUI tool system
+- [ ] Enhance Backend API with MCP-powered endpoints
+- [ ] Implement Kong Gateway routing for MCP services
+
+**Phase 3: Advanced Features** (8-10 weeks):
+- [ ] Add search and content MCP servers
+- [ ] Implement vector embedding and semantic search
+- [ ] Create custom MCP servers for stack-specific needs
+- [ ] Optimize performance and resource utilization
+
+**Phase 4: Production Readiness** (4-6 weeks):
+- [ ] Comprehensive security audit and hardening  
+- [ ] Performance optimization and scaling
+- [ ] Documentation and operational procedures
+- [ ] Integration testing across all profiles
+
+### 16.7. Expected Outcomes
+
+**Enhanced AI Capabilities**:
+- Structured, secure database access for AI models
+- Advanced search and content analysis capabilities
+- Improved research quality and data integration
+
+**Developer Experience**:
+- Standardized protocol for AI-tool integration
+- Simplified tool development and deployment
+- Consistent security and access control patterns
+
+**System Architecture**:
+- Modular, extensible AI tooling framework
+- Enhanced observability and debugging capabilities
+- Future-proof integration patterns for emerging AI tools
+
+### 16.8. Next Steps
+
+1. **Feasibility Study**: Detailed technical assessment of MCP server integration requirements
+2. **Prototype Development**: Basic PostgreSQL MCP server integration
+3. **Security Review**: Comprehensive security architecture evaluation
+4. **Performance Testing**: Resource utilization and scaling analysis
+5. **Implementation Planning**: Detailed project timeline and resource allocation
+
+This integration would position the GenAI Vanilla Stack as a cutting-edge, production-ready platform for AI-powered applications with enterprise-grade security and extensibility.
 
