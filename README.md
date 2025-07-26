@@ -1422,7 +1422,7 @@ You can also embed the Mermaid code directly in Markdown files for platforms tha
 
 ## 14. License
 
-[MIT](LICENSE)
+[Apache License 2.0](LICENSE)
 
 ## 15. Redis Service
 
