@@ -283,7 +283,7 @@ This stack utilizes Supabase Auth (GoTrue) for user authentication and managemen
 - **Gateway:** The Kong API Gateway (`kong-api-gateway`) acts as the entry point for most API requests, routing them to the appropriate backend services. While Kong can enforce authentication policies, the `key-auth` and `acl` plugins are currently commented out in `kong.yml` due to potential compatibility issues with DB-less mode and the need for further investigation based on official Kong documentation. Authentication is primarily handled by the upstream Supabase services.
 - **Clients:** Services like `supabase-studio` and the `backend` API act as clients, obtaining JWTs from `supabase-auth` and including them in requests to other services via Kong.
 
-### 5.2. Key Components and Configuration
+### 6.2. Key Components and Configuration
 
 - **`supabase-auth` (GoTrue):**
     - Issues JWTs upon successful login/sign-up.
@@ -304,7 +304,7 @@ This stack utilizes Supabase Auth (GoTrue) for user authentication and managemen
     - `SUPABASE_ANON_KEY`: A pre-generated, long-lived JWT representing the `anon` (anonymous) role. Used for public access requests.
     - `SUPABASE_SERVICE_KEY`: A pre-generated, long-lived JWT representing the `service_role`. Grants administrative privileges, bypassing RLS. Use with caution.
 
-### 5.3. Setup and Usage
+### 6.3. Setup and Usage
 
 1.  **Generate Keys:** Before starting the stack for the first time, run the `generate_supabase_keys.sh` script. This will create secure values for `SUPABASE_JWT_SECRET`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` and populate them in your `.env` file.
 2.  **Client Authentication:** Client applications (like a frontend app interacting with the `backend` service, or the `backend` service itself interacting with Supabase APIs) need to:
@@ -321,11 +321,11 @@ This stack utilizes Supabase Auth (GoTrue) for user authentication and managemen
 
 The Supabase services provide a PostgreSQL database with additional capabilities along with a web-based Studio interface for management:
 
-#### 6.1.1. Supabase PostgreSQL Database
+#### 7.1.1. Supabase PostgreSQL Database
 
 The Supabase PostgreSQL database comes with pgvector and PostGIS extensions for vector operations and geospatial functionality.
 
-#### 6.1.2. Supabase Auth Service
+#### 7.1.2. Supabase Auth Service
 
 The Supabase Auth service (GoTrue) provides user authentication and management:
 
@@ -333,7 +333,7 @@ The Supabase Auth service (GoTrue) provides user authentication and management:
 - **JWT Authentication**: Uses a secure JWT token system for authentication
 - **Features**: User registration, login, password recovery, email confirmation, and more
 
-#### 6.1.3. Supabase Storage Service
+#### 7.1.3. Supabase Storage Service
 
 The Supabase Storage service provides a secure file storage and management system:
 
@@ -349,7 +349,7 @@ The Supabase Storage service provides a secure file storage and management syste
   - `REGION`: Storage region identifier (default: local)
 - **Dependencies**: Requires Supabase DB and Auth services
 
-#### 6.1.4. Supabase API Service (PostgREST)
+#### 7.1.4. Supabase API Service (PostgREST)
 
 The Supabase API service (PostgREST) provides a RESTful API interface to the PostgreSQL database:
 
@@ -448,7 +448,7 @@ openssl rand -hex 32
    - In the "VERIFY SIGNATURE" section, enter your JWT secret
    - Copy the generated tokens to your .env file for SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY variables
 
-#### 6.1.5. Supabase Realtime Service
+#### 7.1.5. Supabase Realtime Service
 
 The Supabase Realtime service provides real-time database change notifications via WebSocket connections:
 
@@ -478,7 +478,7 @@ The Supabase Realtime service provides real-time database change notifications v
 - Anonymous access: Include `apikey=${SUPABASE_ANON_KEY}` in WebSocket connection
 - Authenticated access: Include `apikey=user_jwt_token` in WebSocket connection
 
-#### 6.1.6. Supabase Studio Dashboard
+#### 7.1.6. Supabase Studio Dashboard
 
 The Supabase Studio provides a modern web-based administration interface for PostgreSQL:
 
@@ -488,7 +488,7 @@ The Supabase Studio provides a modern web-based administration interface for Pos
 - **Authentication**: Integrated with the Auth service for user management
 - **Realtime Integration**: Shows active realtime connections and channel subscriptions
 
-### 6.2. Neo4j Graph Database (neo4j-graph-db)
+### 7.2. Neo4j Graph Database (neo4j-graph-db)
 
 The Neo4j Graph Database service (`neo4j-graph-db`) provides a robust graph database for storing and querying connected data:
 
@@ -510,9 +510,9 @@ The Neo4j Graph Database service (`neo4j-graph-db`) provides a robust graph data
   - Password: Value of `GRAPH_DB_PASSWORD` from your `.env` file
 - **Persistent Storage**: Data is stored in a Docker volume for persistence between container restarts
 
-## 7. AI Services
+## 8. AI Services
 
-### 7.1. Ollama Service
+### 8.1. Ollama Service
 
 The Ollama service provides a containerized environment for running large language models locally:
 
@@ -549,7 +549,7 @@ The Ollama service is configured for different environments using standalone Doc
 
 The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the LLMs table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
 
-### 7.2. Local Deep Researcher Service
+### 8.2. Local Deep Researcher Service
 
 The Local Deep Researcher service provides an advanced AI-powered research platform built on LangGraph for conducting comprehensive web research tasks:
 
@@ -604,7 +604,7 @@ Once running, the Local Deep Researcher provides:
 - **Research Workflows**: Automated multi-step research processes with web scraping and analysis
 - **Result Management**: Persistent storage and retrieval of research findings
 
-### 7.3. SearxNG Privacy Search Service
+### 8.3. SearxNG Privacy Search Service
 
 SearxNG is a privacy-respecting metasearch engine that aggregates results from multiple search engines without tracking users, serving as the primary search backend for the GenAI stack.
 
@@ -698,7 +698,7 @@ curl "http://localhost:${SEARXNG_PORT}/healthz"
 - Check service dependencies are running and healthy
 - Review environment variable configuration
 
-### 7.4. Open Web UI
+### 8.4. Open Web UI
 
 Open-WebUI is integrated with the Deep Researcher service to provide AI-powered web research capabilities directly within the chat interface. This integration uses Open-WebUI's Tools system to enable seamless research functionality.
 
@@ -924,7 +924,7 @@ To modify the research tools:
 
 For more details on tool development, see the Open-WebUI official documentation.
 
-### 7.5. Backend API Service
+### 8.5. Backend API Service
 
 The Backend service provides a FastAPI-based REST API that connects to Supabase PostgreSQL, Neo4j Graph Database, and Ollama for AI model inference. It interacts with Supabase Storage via the Kong API Gateway. Its own API is also exposed through the Kong gateway.
 
@@ -998,7 +998,7 @@ uv pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-### 7.6. ComfyUI Service
+### 8.6. ComfyUI Service
 
 ComfyUI is a powerful node-based workflow interface for Stable Diffusion and AI image generation, integrated into the GenAI stack for seamless image generation capabilities.
 
@@ -1226,7 +1226,7 @@ curl -X POST http://localhost:${BACKEND_PORT}/comfyui/generate \
 - Check Kong Gateway routing configuration
 - Ensure environment variables are correctly set
 
-## 8. Database Setup Process
+## 9. Database Setup Process
 
 The database initialization follows a two-stage process managed by Docker Compose dependencies:
 
@@ -1257,9 +1257,9 @@ The database initialization follows a two-stage process managed by Docker Compos
 
 This approach separates base database setup from custom application setup, improving reliability and maintainability.
 
-## 9. Neo4j Graph Database (neo4j-graph-db) Backup and Restore
+## 10. Neo4j Graph Database (neo4j-graph-db) Backup and Restore
 
-#### 9.1. Manual Backup
+### 10.1. Manual Backup
 
 To manually create a graph database backup:
 
@@ -1270,7 +1270,7 @@ To manually create a graph database backup:
 
 The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./neo4j-graph-db/snapshot/` directory on your host machine.
 
-#### 9.2. Manual Restore
+### 10.2. Manual Restore
 
 To restore from a previous backup:
 
@@ -1279,12 +1279,12 @@ To restore from a previous backup:
      docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
      ```
 
-#### 9.3. Important Notes:
+### 10.3. Important Notes:
 - By default, data persists in the Docker volume between restarts
 - Automatic restoration at startup is enabled by default for Neo4j. When the container starts, it will automatically restore from the latest backup if one is available
 - To disable automatic restore for Neo4j, remove or rename the auto_restore.sh script in the Dockerfile
 
-## 10. Project Structure (Note: Network and Volume names)
+## 11. Project Structure (Note: Network and Volume names)
 
 The project uses Docker named volumes for data persistence and a custom bridge network for inter-service communication.
 - **Network Name:** `backend-bridge-network` (defined in `docker-compose` files)
@@ -1344,17 +1344,17 @@ genai-vanilla-stack/
 
 Note: Many services will be pre-packaged and pulled directly in docker-compose.yml without needing separate Dockerfiles.
 
-## 11. Cross-Platform Compatibility
+## 12. Cross-Platform Compatibility
 
 This project is designed to work across different operating systems:
 
-### 11.1. Line Ending Handling
+### 12.1. Line Ending Handling
 
 - A `.gitattributes` file is included to enforce consistent line endings across platforms
 - All shell scripts use LF line endings (Unix-style) even when checked out on Windows
 - Docker files and YAML configurations maintain consistent line endings
 
-### 11.2. Host Script Compatibility
+### 12.2. Host Script Compatibility
 
 The following scripts that run on the host machine (not in containers) have been made cross-platform compatible:
 
@@ -1368,11 +1368,11 @@ These scripts use:
 - Cross-platform path handling
 - Platform detection for macOS vs Linux differences
 
-### 11.3. Container Scripts
+### 12.3. Container Scripts
 
 Scripts that run inside Docker containers (in the `neo4j-graph-db/scripts/` and `supabase/db/scripts/` directories) use standard Linux shell scripting as they always execute in a Linux environment regardless of the host operating system.
 
-### 11.4. Windows Compatibility Notes
+### 12.4. Windows Compatibility Notes
 
 When running on Windows:
 
@@ -1380,11 +1380,11 @@ When running on Windows:
 - Docker Desktop for Windows handles path translations automatically
 - Host scripts will detect Windows environments and provide appropriate guidance
 
-## 12. Architecture Diagram
+## 13. Architecture Diagram
 
 The `docs/diagrams/` directory contains the Mermaid diagram source for the project architecture.
 
-### 12.1. Generating the Architecture Diagram
+### 13.1. Generating the Architecture Diagram
 
 The architecture diagram is defined in `architecture.mermaid` and can be generated as a PNG image using the provided script:
 
@@ -1401,7 +1401,7 @@ The architecture diagram is defined in `architecture.mermaid` and can be generat
 
 The generated image will be automatically referenced in the main README.md file.
 
-### 12.2. Modifying the Architecture Diagram
+### 13.2. Modifying the Architecture Diagram
 
 To modify the architecture diagram:
 
@@ -1409,7 +1409,7 @@ To modify the architecture diagram:
 2. Run the generation script to update the PNG image
 3. The changes will be reflected in the README.md
 
-### 12.3. Mermaid Diagram Source
+### 13.3. Mermaid Diagram Source
 
 The diagram uses Mermaid syntax to define a clean, professional representation of the project architecture with:
 - Logical grouping of services by category (Database, AI, API)
@@ -1420,15 +1420,15 @@ You can also embed the Mermaid code directly in Markdown files for platforms tha
 
 **IMPORTANT**: Always update the architecture diagram when modifying the Docker Compose services!
 
-## 13. License
+## 14. License
 
 [MIT](LICENSE)
 
-## 14. Redis Service
+## 15. Redis Service
 
 The Redis service provides a high-performance in-memory data store that is used for caching, pub/sub messaging, and geospatial operations.
 
-### 14.1. Overview
+### 15.1. Overview
 
 - **Image**: Uses the official `redis:7.2-alpine` image for a lightweight footprint
 - **Persistence**: Configured with AOF (Append-Only File) persistence for data durability
@@ -1436,12 +1436,12 @@ The Redis service provides a high-performance in-memory data store that is used 
 - **Port**: Available at `localhost:${REDIS_PORT}` (configured via `REDIS_PORT`)
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` service
 
-### 14.2. Integration with Other Services
+### 15.2. Integration with Other Services
 
 - **Kong API Gateway**: Uses Redis for rate limiting and other Redis-backed plugins
 - **Backend Service**: Uses Redis for caching, pub/sub messaging, and geospatial operations
 
-### 14.3. Configuration
+### 15.3. Configuration
 
 The Redis service can be configured through the following environment variables:
 
@@ -1449,7 +1449,7 @@ The Redis service can be configured through the following environment variables:
 - `REDIS_PASSWORD`: The password used to authenticate with Redis
 - `REDIS_URL`: The connection URL used by services to connect to Redis
 
-### 14.4. Usage in Backend
+### 15.4. Usage in Backend
 
 The backend service is configured to use Redis for:
 
@@ -1457,11 +1457,11 @@ The backend service is configured to use Redis for:
 - **Pub/Sub**: Enabling real-time messaging between components
 - **Geohashing**: Supporting geospatial operations and queries
 
-## 15. n8n Workflow Automation Service
+## 16. n8n Workflow Automation Service
 
 The n8n service provides a powerful workflow automation platform that can be used to create, schedule, and monitor automated workflows.
 
-### 15.1. Overview
+### 16.1. Overview
 
 - **Image**: Uses the official `n8nio/n8n:latest` image
 - **Database**: Uses the Supabase PostgreSQL database for storing workflows and execution data
@@ -1472,7 +1472,7 @@ The n8n service provides a powerful workflow automation platform that can be use
   - Kong Gateway: `http://localhost:${KONG_HTTP_PORT}/n8n/`
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` and `ollama-pull` services
 
-### 15.2. Features
+### 16.2. Features
 
 - **Visual Workflow Editor**: Create workflows with a drag-and-drop interface
 - **Node-Based Architecture**: Connect different services and actions using nodes
@@ -1481,13 +1481,13 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Credentials Management**: Securely store and manage credentials for various services
 - **Extensibility**: Create custom nodes for specific use cases
 
-### 15.3. Integration with Other Services
+### 16.3. Integration with Other Services
 
 - **Backend Service**: The backend service can trigger n8n workflows for tasks like data processing, notifications, and more
 - **Supabase PostgreSQL**: n8n uses the Supabase database for storing workflows and execution data
 - **Redis**: n8n uses Redis for queue management, improving reliability and scalability of workflow executions
 
-### 15.4. Configuration
+### 16.4. Configuration
 
 The n8n service can be configured through the following environment variables:
 
@@ -1501,7 +1501,7 @@ The n8n service can be configured through the following environment variables:
 - `N8N_PROTOCOL`: The protocol for n8n (default: http)
 - `N8N_EXECUTIONS_MODE`: The execution mode for n8n (default: queue)
 
-### 15.5. Pre-built Workflows
+### 16.5. Pre-built Workflows
 
 The `n8n/` directory contains pre-built n8n workflow templates providing automation and integration capabilities for research and image generation tasks.
 
@@ -1629,7 +1629,7 @@ The `n8n/` directory contains pre-built n8n workflow templates providing automat
 - Automated competitive intelligence
 - Research newsletter generation
 
-### 15.6. Workflow Installation and Configuration
+### 16.6. Workflow Installation and Configuration
 
 1. **Import Workflows**:
    - Access n8n at `http://localhost:${N8N_PORT}`
@@ -1646,7 +1646,7 @@ The `n8n/` directory contains pre-built n8n workflow templates providing automat
    - Configure any required API keys
    - Set up database connections if using custom storage
 
-### 15.7. API Integration Examples
+### 16.7. API Integration Examples
 
 #### Simple Research Request
 
@@ -1709,7 +1709,7 @@ async function performBatchResearch(queries) {
 }
 ```
 
-### 15.8. Configuration Options
+### 16.8. Configuration Options
 
 #### Timing Configuration
 
@@ -1734,7 +1734,7 @@ You can customize the workflows by:
 4. Integrating with other services (databases, APIs)
 5. Customizing the scheduled research topics
 
-### 15.9. Monitoring and Debugging
+### 16.9. Monitoring and Debugging
 
 #### Execution Logs
 
@@ -1762,7 +1762,7 @@ curl http://localhost:${N8N_PORT}/webhook/research-trigger \
 3. **Database errors**: Verify Supabase connection and research table setup
 4. **Missing results**: Check backend service logs and research session status
 
-### 15.10. Advanced Usage
+### 16.10. Advanced Usage
 
 #### Custom Workflows
 
@@ -1789,7 +1789,7 @@ These workflows can be extended to integrate with:
 - Use HTTPS for secure communication
 - Implement proper user access controls
 
-### 15.11. Integration with Other Services
+### 16.11. Integration with Other Services
 
 #### Open-WebUI Integration
 - Import the ComfyUI tool in Open-WebUI for direct image generation
@@ -1806,7 +1806,7 @@ These workflows can be extended to integrate with:
 - Rate limiting and authentication can be applied
 - Centralized service discovery and load balancing
 
-### 15.12. Workflow Customization
+### 16.12. Workflow Customization
 
 #### Adding Custom Parameters
 To add new generation parameters:
@@ -1828,7 +1828,7 @@ All workflows include comprehensive error handling:
 - Custom logging can be added via code nodes
 - Integration with external monitoring systems via webhooks
 
-### 15.13. General Usage Examples
+### 16.13. General Usage Examples
 
 n8n can be used for a wide variety of automation tasks beyond research and image generation, including:
 
@@ -1839,18 +1839,18 @@ n8n can be used for a wide variety of automation tasks beyond research and image
 - **Conditional Logic**: Create complex workflows with conditional branching
 - **Error Handling**: Configure retry logic and error workflows
 
-## 16. Open-WebUI Integration
+## 17. Open-WebUI Integration
 
 Open-WebUI provides a powerful, user-friendly web interface for interacting with AI models and services in the GenAI Vanilla Stack. This section covers the tools and configurations available for enhanced functionality.
 
-### 16.1. Overview
+### 17.1. Overview
 
 - **Access Point**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
 - **Docker Image**: Uses the official Open-WebUI image
 - **Features**: Chat interface, model management, tool integration, workflow automation
 - **Dependencies**: Backend API, Ollama (containerized or local), optional ComfyUI and research services
 
-### 16.2. Available Tools
+### 17.2. Available Tools
 
 The `open-webui/tools/` directory contains specialized tools for extending Open-WebUI capabilities:
 
@@ -1861,7 +1861,7 @@ The `open-webui/tools/` directory contains specialized tools for extending Open-
 #### Image Generation Tools
 - `comfyui_image_generation_tool.py` - AI-powered image generation using ComfyUI
 
-### 16.3. ComfyUI Image Generation Tool
+### 17.3. ComfyUI Image Generation Tool
 
 The ComfyUI image generation tool provides AI-powered image generation capabilities directly within Open-WebUI.
 
@@ -1908,7 +1908,7 @@ get_available_models()
 check_comfyui_status()
 ```
 
-### 16.4. Configuration
+### 17.4. Configuration
 
 The tools are configured via Open-WebUI's tool valve system:
 
@@ -1926,7 +1926,7 @@ The tools are configured via Open-WebUI's tool valve system:
 - `timeout`: Max wait time for research (default: 300s)
 - `enable_tool`: Enable/disable the tool (default: true)
 
-### 16.5. Installation
+### 17.5. Installation
 
 1. **Tool Import**: Copy the tool files to Open-WebUI's tools directory or import via the admin interface
 2. **Volume Mount**: Ensure the tools directory is mounted in the Docker container:
@@ -1937,7 +1937,7 @@ The tools are configured via Open-WebUI's tool valve system:
 3. **Environment Variables**: Ensure proper environment variables are set in the Docker Compose file
 4. **Model Management**: Use the backend API to manage ComfyUI models in the database
 
-### 16.6. Integration with Other Services
+### 17.6. Integration with Other Services
 
 #### Backend API Integration
 - ComfyUI tools communicate with the FastAPI backend at `/comfyui/*` endpoints
@@ -1954,7 +1954,7 @@ The tools are configured via Open-WebUI's tool valve system:
 - Tools can query available models and their metadata
 - Support for model categorization (checkpoints, VAE, LoRA, etc.)
 
-### 16.7. Troubleshooting
+### 17.7. Troubleshooting
 
 #### Common Issues
 
@@ -1994,7 +1994,7 @@ curl http://localhost:${BACKEND_PORT}/comfyui/queue
 curl http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/health
 ```
 
-### 16.8. Profile-Specific Considerations
+### 17.8. Profile-Specific Considerations
 
 #### Default Profile
 - Uses containerized ComfyUI service
@@ -2417,7 +2417,7 @@ The vanilla stack philosophy is to start simple and enhance progressively. Each 
 
 ## 19. TODO - Current Planned Improvements
 
-### 16.1. Docker Compose Architecture Restructuring ✅
+### 19.1. Docker Compose Architecture Restructuring ✅
 
 **Priority**: High | **Status**: Completed | **Complexity**: Medium
 
@@ -2522,7 +2522,7 @@ ENABLE_COMFYUI=false  # NEW
 
 ---
 
-### 16.2. ComfyUI Integration 🎨
+### 19.2. ComfyUI Integration 🎨
 
 **Priority**: Medium | **Status**: ✅ Completed | **Complexity**: Low-Medium
 
@@ -2568,7 +2568,7 @@ COMFYUI_GPU_MEMORY=8  # GPU memory allocation
 
 ---
 
-### 16.3. Enhanced Service Management 🔧
+### 19.3. Enhanced Service Management 🔧
 
 **Priority**: Medium | **Status**: Planned | **Complexity**: Low
 
@@ -2589,7 +2589,7 @@ COMFYUI_GPU_MEMORY=8  # GPU memory allocation
 
 ---
 
-### 16.4. RAG Foundation Preparation 📚
+### 19.4. RAG Foundation Preparation 📚
 
 **Priority**: High | **Status**: Planned | **Complexity**: High
 
@@ -2628,7 +2628,7 @@ CREATE TABLE rag_relationships (
 
 ---
 
-### 16.5. Developer Experience Improvements 🛠️
+### 19.5. Developer Experience Improvements 🛠️
 
 **Priority**: Medium | **Status**: Planned | **Complexity**: Low
 
@@ -2639,9 +2639,9 @@ CREATE TABLE rag_relationships (
 4. **Testing Framework**: Automated testing for all service integrations
 5. **Documentation Generator**: Auto-generated API documentation
 
-## 17. Completed Integrations
+## 20. Completed Integrations
 
-### 17.1 Supabase Realtime ✅
+### 20.1 Supabase Realtime ✅
 
 **Status**: Fully integrated and operational
 
@@ -2667,7 +2667,7 @@ CREATE TABLE rag_relationships (
 
 > This integration enables live data synchronization without polling, providing a foundation for real-time features in Open Web UI, backend services, and future frontend applications.
 
-### 17.2 Local Deep Researcher ✅
+### 20.2 Local Deep Researcher ✅
 
 **Status**: Fully integrated and operational
 
@@ -2701,7 +2701,7 @@ CREATE TABLE rag_relationships (
 
 > This integration provides advanced AI research capabilities, enabling automated multi-source web research with intelligent model selection and persistent result storage.
 
-### 17.3 ComfyUI Integration ✅
+### 20.3 ComfyUI Integration ✅
 
 **Status**: Fully integrated and operational
 
@@ -2742,7 +2742,7 @@ CREATE TABLE rag_relationships (
 
 > This integration provides comprehensive AI image generation capabilities with seamless workflow automation, storage management, and cross-service integration.
 
-### 17.4 Deep Researcher Integration ✅
+### 20.4 Deep Researcher Integration ✅
 
 **Status**: Fully integrated with dynamic LLM selection and Pipe-based Open-WebUI interface
 
@@ -3276,13 +3276,13 @@ python -m py_compile open-webui/tools/deep_researcher_tool.py
 - **LLM Selection**: Research uses database-configured LLM, not the chat model
 - **Status Updates**: Tools support real-time progress updates during research operations
 
-## 16. Future Enhancements: Docker MCP Servers Integration
+## 21. Future Enhancements: Docker MCP Servers Integration
 
-### 16.1. Overview
+### 21.1. Overview
 
 The [Docker MCP (Model Context Protocol) Servers](https://github.com/docker/mcp-servers) project represents a significant opportunity to enhance our GenAI stack with standardized, secure AI-tool integration capabilities. MCP provides a unified protocol for Large Language Models to interact with external tools and data sources in a controlled, secure manner.
 
-### 16.2. Integration Benefits
+### 21.2. Integration Benefits
 
 **Enhanced AI Capabilities**:
 - **Structured Data Access**: Enable Ollama models to interact with databases through standardized protocols
@@ -3295,7 +3295,7 @@ The [Docker MCP (Model Context Protocol) Servers](https://github.com/docker/mcp-
 - **Neo4j MCP Server**: Advanced graph database queries and schema inspection
 - **Search Integration**: Complement SearxNG with additional search capabilities
 
-### 16.3. Recommended MCP Servers for Integration
+### 21.3. Recommended MCP Servers for Integration
 
 **Database Servers** (High Priority):
 1. **PostgreSQL MCP Server**: 
@@ -3320,7 +3320,7 @@ The [Docker MCP (Model Context Protocol) Servers](https://github.com/docker/mcp-
 1. **Docker MCP Server**: Container and image management
 2. **Kubernetes MCP Server**: Orchestration and deployment management
 
-### 16.4. Implementation Architecture
+### 21.4. Implementation Architecture
 
 **Proposed Service Structure**:
 ```yaml
@@ -3346,7 +3346,7 @@ mcp-gateway:
 - **Deep Researcher**: Enhanced data access and analysis
 - **Kong Gateway**: Secure routing to MCP services
 
-### 16.5. Security Considerations
+### 21.5. Security Considerations
 
 **Built-in Security Features**:
 - **Container Isolation**: Each MCP server runs in sandboxed environment
@@ -3360,7 +3360,7 @@ mcp-gateway:
 - **Network Isolation**: Dedicated Docker network for MCP communications
 - **Kong Integration**: API gateway for secure external access
 
-### 16.6. Development Roadmap
+### 21.6. Development Roadmap
 
 **Phase 1: Foundation** (4-6 weeks):
 - [ ] Add MCP Gateway service to Docker Compose profiles
@@ -3386,7 +3386,7 @@ mcp-gateway:
 - [ ] Documentation and operational procedures
 - [ ] Integration testing across all profiles
 
-### 16.7. Expected Outcomes
+### 21.7. Expected Outcomes
 
 **Enhanced AI Capabilities**:
 - Structured, secure database access for AI models
@@ -3403,7 +3403,7 @@ mcp-gateway:
 - Enhanced observability and debugging capabilities
 - Future-proof integration patterns for emerging AI tools
 
-### 16.8. Next Steps
+### 21.8. Next Steps
 
 1. **Feasibility Study**: Detailed technical assessment of MCP server integration requirements
 2. **Prototype Development**: Basic PostgreSQL MCP server integration
