@@ -44,6 +44,45 @@ engines:
   - name: github
     engine: github
     shortcut: gh
+    
+  # Image search engines
+  - name: duckduckgo images
+    engine: duckduckgo
+    categories: images
+    shortcut: ddi
+    timeout: 3.0
+    disabled: false
+    
+  - name: google images
+    engine: google
+    categories: images
+    shortcut: goi
+    timeout: 3.0
+    disabled: false
+    
+  - name: bing images
+    engine: bing
+    categories: images
+    shortcut: bii
+    timeout: 3.0
+    disabled: false
+    
+  - name: qwant images
+    engine: qwant
+    categories: images
+    shortcut: qwi
+    timeout: 3.0
+    disabled: false
+    
+  - name: unsplash
+    engine: unsplash
+    shortcut: us
+    disabled: false
+    
+  - name: pixabay
+    engine: pixabay
+    shortcut: px
+    disabled: false
 
 locales:
   en: English
