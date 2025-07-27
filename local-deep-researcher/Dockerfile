@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+ARG BASE_IMAGE=${LOCAL_DEEP_RESEARCHER_IMAGE:-python:3.11-slim}
+FROM ${BASE_IMAGE}
 
 # Set working directory
 WORKDIR /app

@@ -1,4 +1,5 @@
-FROM neo4j:5.19.0
+ARG BASE_IMAGE=${NEO4J_GRAPH_DB_IMAGE:-neo4j:5.19.0}
+FROM ${BASE_IMAGE}
 
 # Copy backup and restore scripts
 COPY ./scripts/backup.sh /usr/local/bin/backup.sh

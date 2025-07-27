@@ -1,6 +1,6 @@
 services:
   supabase-db:
-    image: supabase/postgres:17.4.1.016
+    image: ${SUPABASE_DB_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-db
     restart: unless-stopped
     env_file:
@@ -19,7 +19,7 @@ services:
       - backend-bridge-network
 
   redis:
-    image: redis:7.2-alpine
+    image: ${REDIS_IMAGE}
     container_name: ${PROJECT_NAME}-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
@@ -36,7 +36,7 @@ services:
       - backend-bridge-network
 
   supabase-db-init:
-    image: postgres:15-alpine
+    image: ${SUPABASE_DB_INIT_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-db-init
     restart: no
     env_file:
@@ -55,7 +55,7 @@ services:
       - backend-bridge-network
 
   supabase-meta:
-    image: supabase/postgres-meta:v0.88.9
+    image: ${SUPABASE_META_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-meta
     restart: unless-stopped
     depends_on:
@@ -77,7 +77,7 @@ services:
 
   kong-api-gateway:
     container_name: ${PROJECT_NAME}-kong-api-gateway
-    image: kong:3.9.0
+    image: ${KONG_API_GATEWAY_IMAGE}
     restart: unless-stopped
     env_file:
       - .env
@@ -117,7 +117,7 @@ services:
       - backend-bridge-network
 
   supabase-storage:
-    image: supabase/storage-api:v1.22.7
+    image: ${SUPABASE_STORAGE_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-storage
     restart: unless-stopped
     depends_on:
@@ -148,7 +148,7 @@ services:
       - backend-bridge-network
 
   supabase-auth:
-    image: supabase/gotrue:v2.171.0
+    image: ${SUPABASE_AUTH_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-auth
     restart: unless-stopped
     depends_on:
@@ -184,7 +184,7 @@ services:
       - backend-bridge-network
 
   supabase-api:
-    image: postgrest/postgrest:v12.2.10
+    image: ${SUPABASE_API_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-api
     restart: unless-stopped
     depends_on:
@@ -204,7 +204,7 @@ services:
       - backend-bridge-network
 
   supabase-realtime:
-    image: supabase/realtime:v2.33.72
+    image: ${SUPABASE_REALTIME_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-realtime
     restart: unless-stopped
     depends_on:
@@ -248,7 +248,7 @@ services:
       - backend-bridge-network
 
   supabase-studio:
-    image: supabase/studio:latest
+    image: ${SUPABASE_STUDIO_IMAGE}
     container_name: ${PROJECT_NAME}-supabase-studio
     restart: unless-stopped
     depends_on:
@@ -286,6 +286,8 @@ services:
   neo4j-graph-db:
     build:
       context: ./graph-db
+      args:
+        BASE_IMAGE: ${NEO4J_GRAPH_DB_IMAGE}
     container_name: ${PROJECT_NAME}-neo4j-graph-db
     restart: unless-stopped
     env_file:
@@ -307,7 +309,7 @@ services:
       - backend-bridge-network
 
   ollama:
-    image: ollama/ollama:latest
+    image: ${OLLAMA_IMAGE}
     container_name: ${PROJECT_NAME}-ollama
     restart: unless-stopped
     env_file:
@@ -330,7 +332,7 @@ services:
       - backend-bridge-network
 
   ollama-pull:
-    image: alpine:latest
+    image: ${OLLAMA_PULL_IMAGE}
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
@@ -356,6 +358,8 @@ services:
   local-deep-researcher:
     build:
       context: ./local-deep-researcher
+      args:
+        BASE_IMAGE: ${LOCAL_DEEP_RESEARCHER_IMAGE}
     container_name: ${PROJECT_NAME}-local-deep-researcher
     restart: unless-stopped
     depends_on:
@@ -381,7 +385,7 @@ services:
       - backend-bridge-network
 
   open-web-ui:
-    image: dyrnq/open-webui:latest
+    image: ${OPEN_WEB_UI_IMAGE}
     container_name: ${PROJECT_NAME}-open-web-ui
     restart: unless-stopped
     depends_on:
@@ -416,6 +420,8 @@ services:
   backend:
     build:
       context: ./backend
+      args:
+        BASE_IMAGE: ${BACKEND_IMAGE}
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
     depends_on:
@@ -458,7 +464,7 @@ services:
       - backend-bridge-network
 
   n8n:
-    image: n8nio/n8n:latest
+    image: ${N8N_IMAGE}
     container_name: ${PROJECT_NAME}-n8n
     restart: unless-stopped
     depends_on:

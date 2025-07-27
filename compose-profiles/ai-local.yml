@@ -1,6 +1,6 @@
 services:
   ollama-pull:
-    image: alpine:latest
+    image: ${OLLAMA_PULL_IMAGE}
     container_name: ${PROJECT_NAME}-ollama-pull
     restart: "no"
     depends_on:
@@ -22,7 +22,7 @@ services:
     entrypoint: ["/scripts/pull.sh"]
 
   comfyui-init:
-    image: alpine:latest
+    image: ${COMFYUI_INIT_IMAGE}
     container_name: ${PROJECT_NAME}-comfyui-init
     restart: "no"
     depends_on:
@@ -54,6 +54,8 @@ services:
   local-deep-researcher:
     build:
       context: ./local-deep-researcher
+      args:
+        BASE_IMAGE: ${LOCAL_DEEP_RESEARCHER_IMAGE}
     container_name: ${PROJECT_NAME}-local-deep-researcher
     restart: unless-stopped
     depends_on:
@@ -84,7 +86,7 @@ services:
       - backend-bridge-network
 
   searxng:
-    image: searxng/searxng:latest
+    image: ${SEARXNG_IMAGE}
     container_name: ${PROJECT_NAME}-searxng
     restart: unless-stopped
     networks:
@@ -111,7 +113,7 @@ services:
         condition: service_healthy
 
   n8n:
-    image: n8nio/n8n:latest
+    image: ${N8N_IMAGE}
     container_name: ${PROJECT_NAME}-n8n
     restart: unless-stopped
     depends_on:
