@@ -11,13 +11,19 @@ search:
 
 server:
   secret_key: "${SEARXNG_SECRET}"
-  limiter: true
+  limiter: false
   public_instance: false
   image_proxy: true
   default_theme: "simple"
 
 redis:
   url: redis://:redis_password@redis:6379/1
+
+outgoing:
+  request_timeout: 3.0
+  useragent_suffix: " (private instance; contact: admin@localhost)"
+  pool_connections: 10
+  pool_maxsize: 10
 
 ui:
   static_use_hash: true
@@ -40,6 +46,7 @@ engines:
     engine: wikipedia
     shortcut: wiki
     weight: 2
+    disabled: true  # Temporarily disabled due to 403 block
     
   - name: github
     engine: github

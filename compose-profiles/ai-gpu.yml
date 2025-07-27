@@ -84,6 +84,7 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       # Search configuration
       SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
+      SEARXNG_URL: http://searxng:8080
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
     ports:
       - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"

@@ -53,7 +53,29 @@ colima start --memory 12 --cpu 6
 
 **Important**: After adding the n8n service to the stack, memory requirements have increased. If you experience container crashes with exit code 137 (OOM kill), this indicates insufficient memory allocated to Docker.
 
-### 3.2. Running the Stack
+### 3.2. Quick Start with Local AI Services
+
+For users who want to use their own local Ollama installation:
+
+1. **Install and start Ollama:**
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ollama serve
+   # In another terminal:
+   ollama pull llama3.2
+   ```
+
+2. **Start the stack:**
+   ```bash
+   ./start.sh --profile ai-local
+   ```
+
+3. **Access services:**
+   - Open-WebUI: http://localhost:63015
+   - Backend API: http://localhost:63016/docs
+   - The stack will use your local Ollama for all AI operations
+
+### 3.3. Running the Stack
 
 #### Using Convenience Scripts (Recommended)
 
@@ -81,8 +103,36 @@ The project includes cross-platform scripts that simplify starting and stopping 
 
 **Available Profiles:**
 - `default`: Complete stack with containerized Ollama (CPU-based)
-- `ai-local`: Complete stack using local Ollama installation on host machine  
+- `ai-local`: Complete stack using local Ollama and ComfyUI installations on host machine (requires pre-installed Ollama on port 11434 and optionally ComfyUI on port 8000)
 - `ai-gpu`: Complete stack with GPU-accelerated containerized Ollama
+
+#### Prerequisites for AI-Local Profile
+
+To use the `ai-local` profile, you need to have Ollama installed and running on your host machine:
+
+**Install Ollama:**
+- **macOS/Linux**: `curl -fsSL https://ollama.com/install.sh | sh`
+- **Windows**: Download from [ollama.com/download](https://ollama.com/download)
+
+**Start Ollama:**
+```bash
+# Verify Ollama is installed
+ollama --version
+
+# Start Ollama service (if not already running)
+ollama serve
+
+# Pull required models (in another terminal)
+ollama pull llama3.2
+ollama pull qwen2.5:latest
+```
+
+**Verify Ollama is accessible:**
+```bash
+curl http://localhost:11434/api/tags
+```
+
+The ai-local profile expects Ollama to be running on `http://localhost:11434`.
 
 #### Manual Docker Compose Commands (Alternative)
 
@@ -108,7 +158,7 @@ docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-pro
 ./start.sh --profile ai-local
 ```
 
-### 3.3. Convenience Scripts
+### 3.4. Convenience Scripts
 
 The project includes two cross-platform scripts to simplify deployment and port management:
 
@@ -1993,6 +2043,24 @@ curl http://localhost:${BACKEND_PORT}/comfyui/queue
 # Test research service
 curl http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/health
 ```
+
+#### AI-Local Profile Troubleshooting
+
+**Ollama Connection Issues:**
+- Verify Ollama is running: `curl http://localhost:11434/api/tags`
+- Check Ollama logs: `journalctl -u ollama -f` (Linux) or check console output
+- Ensure port 11434 is not blocked by firewall
+- For macOS: Ollama runs as a menu bar app - ensure it's started
+
+**ComfyUI Connection Issues:**
+- Verify ComfyUI is running: `curl http://localhost:8000/system_stats`
+- Start ComfyUI manually: `cd /path/to/ComfyUI && python main.py --listen --port 8000`
+- Check that ComfyUI is bound to all interfaces with `--listen` flag
+
+**Service Detection:**
+The start.sh script will show warnings if local services aren't detected:
+- "⚠️ Local Ollama: Not detected on port 11434"
+- "⚠️ Local ComfyUI: Not running on port 8000"
 
 ### 17.8. Profile-Specific Considerations
 
