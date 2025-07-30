@@ -2590,7 +2590,142 @@ ENABLE_COMFYUI=false  # NEW
 
 ---
 
-### 19.2. ComfyUI Integration 🎨
+### 19.2. Service Dependencies Enhancement 🔗
+
+**Priority**: High | **Status**: Planned | **Complexity**: Medium
+
+**Overview**: Enhance service modularity by implementing configurable dependencies between services using built-in features, community plugins, and HTTP APIs. This will enable more sophisticated workflows while maintaining the ability to selectively enable/disable services.
+
+#### High-Value Service Dependencies (Implementation Ready)
+
+**1. n8n → ComfyUI Integration** ⭐⭐⭐⭐⭐
+- **Method**: Community nodes + HTTP API
+- **Implementation**: Install `@n8n/n8n-nodes-comfyui` community package
+- **Benefits**: Automated image generation workflows, batch processing
+- **Configuration**:
+  ```yaml
+  n8n:
+    environment:
+      - N8N_COMMUNITY_PACKAGES_ENABLED=true
+      - N8N_NODES_INCLUDE="@n8n/n8n-nodes-comfyui"
+  ```
+
+**2. Open-WebUI → Redis Caching** ⭐⭐⭐⭐⭐
+- **Method**: Built-in caching configuration
+- **Implementation**: Native Redis support for session/response caching
+- **Benefits**: Faster response times, reduced API calls
+- **Configuration**:
+  ```yaml
+  open-web-ui:
+    environment:
+      - ENABLE_WEBSOCKET_SUPPORT=true
+      - REDIS_URL=redis://redis:6379
+  ```
+
+**3. n8n → Ollama Integration** ⭐⭐⭐⭐⭐
+- **Method**: Built-in HTTP Request nodes
+- **Implementation**: Native HTTP nodes for LLM API calls
+- **Benefits**: LLM-powered automation workflows
+- **Configuration**: Use n8n's HTTP Request node with Ollama API endpoints
+
+**4. Open-WebUI → n8n Webhooks** ⭐⭐⭐⭐
+- **Method**: Webhook integration via Open-WebUI API
+- **Implementation**: Open-WebUI can trigger n8n workflows via webhooks
+- **Benefits**: Chat-triggered automation, workflow execution from UI
+- **Configuration**: Configure webhook URLs in Open-WebUI settings
+
+**5. ComfyUI → SearxNG Search** ⭐⭐⭐⭐
+- **Method**: HTTP Request nodes for web search
+- **Implementation**: Custom nodes making API calls to SearxNG
+- **Benefits**: Web search-enhanced image generation workflows
+- **Configuration**: Custom ComfyUI nodes calling SearxNG API
+
+**6. n8n → SearxNG Automation** ⭐⭐⭐⭐
+- **Method**: Built-in HTTP Request nodes
+- **Implementation**: Native HTTP nodes for search automation
+- **Benefits**: Automated research workflows, content discovery
+- **Configuration**: HTTP Request nodes configured with SearxNG endpoints
+
+#### Medium-Value Service Dependencies
+
+**7. Backend → Neo4j Integration** ⭐⭐⭐
+- **Method**: Neo4j driver integration
+- **Implementation**: Built-in graph database connectivity
+- **Benefits**: Knowledge graph storage, relationship mapping
+- **Configuration**: Add Neo4j driver and connection settings
+
+**8. Open-WebUI → SearxNG Search** ⭐⭐⭐
+- **Method**: API integration for web search
+- **Implementation**: Built-in search provider configuration
+- **Benefits**: Enhanced chat with web search capabilities
+- **Configuration**: Configure SearxNG as search provider
+
+**9. n8n → Neo4j Workflows** ⭐⭐⭐
+- **Method**: Community nodes for graph operations
+- **Implementation**: Install `@n8n/n8n-nodes-neo4j` package
+- **Benefits**: Automated graph data management
+- **Configuration**: Community package installation + credentials
+
+**10. ComfyUI → Ollama Integration** ⭐⭐⭐
+- **Method**: Community nodes for local LLM
+- **Implementation**: Custom nodes for Ollama API integration
+- **Benefits**: AI-enhanced image generation workflows
+- **Configuration**: Custom nodes + Ollama API configuration
+
+#### Lower-Value Dependencies (Nice-to-Have)
+
+**11. Kong → Redis Rate Limiting** ⭐⭐
+- **Method**: Built-in Redis plugin configuration
+- **Implementation**: Native Kong rate limiting plugin
+- **Benefits**: Distributed rate limiting, session management
+- **Configuration**:
+  ```yaml
+  kong-api-gateway:
+    environment:
+      - KONG_RATE_LIMITING_REDIS_HOST=redis
+      - KONG_RATE_LIMITING_REDIS_PORT=6379
+  ```
+
+**12. SearxNG → Redis Caching** ⭐⭐
+- **Method**: Native caching configuration
+- **Implementation**: Built-in Redis caching support
+- **Benefits**: Faster search results, reduced external API calls
+- **Configuration**: Update SearxNG settings.yml with Redis cache config
+
+**13. Backend → SearxNG Integration** ⭐⭐
+- **Method**: Search API integration
+- **Implementation**: HTTP API calls to SearxNG service
+- **Benefits**: Enhanced search capabilities in backend services
+- **Configuration**: Add SearxNG API endpoints to backend configuration
+
+#### Implementation Strategy
+
+**Phase 1: High-Impact Integrations**
+1. Implement n8n → ComfyUI (community nodes)
+2. Enable Open-WebUI → Redis caching
+3. Configure n8n → Ollama workflows
+
+**Phase 2: Medium-Value Additions**
+1. Backend → Neo4j integration
+2. Enhanced search integrations
+3. Additional n8n workflow capabilities
+
+**Phase 3: Infrastructure Optimizations**
+1. Kong → Redis rate limiting
+2. SearxNG → Redis caching
+3. Cross-service monitoring
+
+#### Benefits of This Approach
+
+- **Built-in Features Only**: No custom code required, only configuration
+- **Progressive Enhancement**: Services work independently, better together
+- **Maintenance Friendly**: Uses officially supported integration methods
+- **Scalable**: Dependencies can be enabled/disabled per deployment
+- **Documentation**: All integrations use documented APIs and features
+
+---
+
+### 19.3. ComfyUI Integration 🎨
 
 **Priority**: Medium | **Status**: ✅ Completed | **Complexity**: Low-Medium
 
@@ -2636,7 +2771,7 @@ COMFYUI_GPU_MEMORY=8  # GPU memory allocation
 
 ---
 
-### 19.3. Enhanced Service Management 🔧
+### 19.4. Enhanced Service Management 🔧
 
 **Priority**: Medium | **Status**: Planned | **Complexity**: Low
 
@@ -2657,7 +2792,7 @@ COMFYUI_GPU_MEMORY=8  # GPU memory allocation
 
 ---
 
-### 19.4. RAG Foundation Preparation 📚
+### 19.5. RAG Foundation Preparation 📚
 
 **Priority**: High | **Status**: Planned | **Complexity**: High
 
@@ -2696,7 +2831,7 @@ CREATE TABLE rag_relationships (
 
 ---
 
-### 19.5. Developer Experience Improvements 🛠️
+### 19.6. Developer Experience Improvements 🛠️
 
 **Priority**: Medium | **Status**: Planned | **Complexity**: Low
 
