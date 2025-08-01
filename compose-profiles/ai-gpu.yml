@@ -143,6 +143,8 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_PROXY_HOPS: 1
+      WEBHOOK_URL: http://n8n.localhost:${KONG_HTTP_PORT}/
       NODE_ENV: production
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_AUTH_ENABLED: ${N8N_AUTH_ENABLED:-true}
@@ -187,6 +189,9 @@ services:
       - COMFYUI_ARGS=${COMFYUI_ARGS:---listen --force-fp16}
       - AUTO_UPDATE=${COMFYUI_AUTO_UPDATE:-true}
       - COMFYUI_PORT_HOST=8188
+      - WEB_ENABLE_AUTH=false
+      - ENABLE_QUICKTUNNEL=false
+      - SERVERLESS=false
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - SUPABASE_URL=${COMFYUI_KONG_URL:-http://kong-api-gateway:8000}
@@ -194,7 +199,7 @@ services:
       - SUPABASE_STORAGE_BUCKET=${COMFYUI_STORAGE_BUCKET:-comfyui-images}
       - COMFYUI_UPLOAD_TO_SUPABASE=${COMFYUI_UPLOAD_TO_SUPABASE:-true}
     ports:
-      - "${COMFYUI_PORT}:8188"
+      - "${COMFYUI_PORT}:18188"
     volumes:
       - comfyui-models:/opt/ComfyUI/models
       - comfyui-output:/opt/ComfyUI/output
@@ -213,7 +218,7 @@ services:
           cpus: ${PROD_ENV_COMFYUI_CPUS:-2}
           memory: ${PROD_ENV_COMFYUI_MEM_LIMIT:-4g}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      test: ["CMD", "curl", "-f", "http://localhost:18188/system_stats"]
       interval: 30s
       timeout: 10s
       retries: 5

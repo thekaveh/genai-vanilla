@@ -95,7 +95,7 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
-      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://comfyui:8188}
+      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://comfyui:18188}
       ENABLE_IMAGE_GENERATION: true
       # DATABASE_SCHEMA: openwebui
     volumes:
@@ -145,7 +145,7 @@ services:
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       N8N_BASE_URL: http://n8n:5678
-      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://comfyui:8188}
+      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://comfyui:18188}
       COMFYUI_ENABLED: true
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}

@@ -133,6 +133,8 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_PROXY_HOPS: 1
+      WEBHOOK_URL: http://n8n.localhost:${KONG_HTTP_PORT}/
       NODE_ENV: production
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_AUTH_ENABLED: ${N8N_AUTH_ENABLED:-true}
@@ -175,12 +177,15 @@ services:
       - COMFYUI_ARGS=${COMFYUI_ARGS:---listen --cpu}
       - AUTO_UPDATE=${COMFYUI_AUTO_UPDATE:-false}
       - COMFYUI_PORT_HOST=8188
+      - WEB_ENABLE_AUTH=false
+      - ENABLE_QUICKTUNNEL=false
+      - SERVERLESS=false
       - SUPABASE_URL=${COMFYUI_KONG_URL:-http://kong-api-gateway:8000}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_STORAGE_BUCKET=${COMFYUI_STORAGE_BUCKET:-comfyui-images}
       - COMFYUI_UPLOAD_TO_SUPABASE=${COMFYUI_UPLOAD_TO_SUPABASE:-true}
     ports:
-      - "${COMFYUI_PORT}:8188"
+      - "${COMFYUI_PORT}:18188"
     volumes:
       - comfyui-models:/opt/ComfyUI/models
       - comfyui-output:/opt/ComfyUI/output
@@ -189,7 +194,7 @@ services:
     networks:
       - backend-bridge-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      test: ["CMD", "curl", "-f", "http://localhost:18188/system_stats"]
       interval: 30s
       timeout: 10s
       retries: 5

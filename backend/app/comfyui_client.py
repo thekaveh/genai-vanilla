@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class ComfyUIClient:
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = base_url or os.getenv("COMFYUI_BASE_URL", "http://comfyui:8188")
+        self.base_url = base_url or os.getenv("COMFYUI_BASE_URL", "http://comfyui:18188")
         self.base_url = self.base_url.rstrip('/')
         self.client = httpx.AsyncClient(timeout=60.0)
         

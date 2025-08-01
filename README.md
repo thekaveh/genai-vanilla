@@ -275,12 +275,13 @@ Once the stack is running, you can access services at the following URLs:
 - **SearxNG Privacy Search**: `http://localhost:${SEARXNG_PORT}` (default: 63014)
 - **Open-WebUI**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
 - **n8n Workflow Automation**: 
-  - Direct: `http://localhost:${N8N_PORT}` (default: 63017)
-  - Via Kong: `http://localhost:${KONG_HTTP_PORT}/n8n/` (default: 63002/n8n/)
+  - **Direct**: `http://localhost:${N8N_PORT}` (default: 63017) - ✅ **Recommended**
+  - **Via Kong**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002) - ✅ **Fully Working**
+    - **Setup Required**: Add `127.0.0.1 n8n.localhost` to your hosts file (see n8n section below for detailed instructions)
 - **ComfyUI Image Generation**:
-  - Containerized: `http://localhost:${COMFYUI_PORT}` (default: 63018)
+  - Containerized: `http://localhost:${COMFYUI_PORT}` (default: 63018) - ✅ **Authentication Bypassed**
   - Local (ai-local profile): `http://localhost:8000`
-  - Via Kong: `http://localhost:${KONG_HTTP_PORT}/comfyui/` (default: 63002/comfyui/)
+  - Via Kong: `http://localhost:${KONG_HTTP_PORT}/comfyui/` (default: 63002/comfyui/) - ✅ **Fully Working**
 
 ### API Endpoints
 - **Backend API**: `http://localhost:${BACKEND_PORT}` (default: 63016)
@@ -1069,7 +1070,7 @@ ComfyUI is configured through environment variables in `.env`:
 ```bash
 # ComfyUI Configuration
 COMFYUI_PORT=63018
-COMFYUI_BASE_URL=http://comfyui:8188
+COMFYUI_BASE_URL=http://comfyui:18188  # Updated to bypass authentication
 COMFYUI_ARGS=--listen
 COMFYUI_AUTO_UPDATE=false
 COMFYUI_PLATFORM=linux/amd64
@@ -1079,6 +1080,8 @@ COMFYUI_IMAGE_TAG=v2-cpu-22.04-v0.2.7  # latest-cuda for GPU
 COMFYUI_UPLOAD_TO_SUPABASE=true
 COMFYUI_STORAGE_BUCKET=comfyui-images
 ```
+
+> **🔧 Authentication Fix**: ComfyUI is configured to bypass the ai-dock authentication layer by connecting directly to port 18188 (internal ComfyUI port) instead of port 8188 (Caddy reverse proxy). This eliminates the need for login credentials and provides direct access to the ComfyUI interface.
 
 #### 7.6.3. Deployment Profiles
 
@@ -1518,11 +1521,78 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Queue Management**: Uses Redis for workflow execution queueing
 - **Authentication**: Protected with basic authentication
 - **Access Points**:
-  - Direct: `http://localhost:${N8N_PORT}` (default: 63017)
-  - Kong Gateway: `http://localhost:${KONG_HTTP_PORT}/n8n/`
+  - **Direct**: `http://localhost:${N8N_PORT}` (default: 63017) - ✅ **Recommended**
+  - **Kong Gateway**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002) - ✅ **Fully Working**
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` and `ollama-pull` services
 
-### 16.2. Features
+### 16.2. Access Methods
+
+#### Method 1: Direct Access (Recommended)
+Access n8n directly at: `http://localhost:${N8N_PORT}` (default: 63017)
+
+This bypasses Kong entirely and provides full n8n functionality.
+
+#### Method 2: Through Kong Gateway (Domain-based routing) ✅
+**FULLY WORKING**: Domain-based routing through Kong
+
+1. **Add to hosts file**: Follow the steps below for your operating system to add the required entry.
+
+**macOS/Linux Steps:**
+1. Open Terminal
+2. Run this command to edit the hosts file:
+   ```bash
+   sudo nano /etc/hosts
+   ```
+3. Enter your password when prompted
+4. Use arrow keys to navigate to the end of the file
+5. Add this new line at the bottom:
+   ```
+   127.0.0.1 n8n.localhost
+   ```
+6. Press `Ctrl + O` then `Enter` to save
+7. Press `Ctrl + X` to exit
+8. The change takes effect immediately
+
+**Windows Steps:**
+1. Press `Win + R` to open Run dialog
+2. Type `notepad` and press `Ctrl + Shift + Enter` to run as Administrator
+3. Click "Yes" when prompted by User Account Control
+4. In Notepad, click File → Open
+5. Navigate to: `C:\Windows\System32\drivers\etc\`
+6. Change file type dropdown from "Text Documents (*.txt)" to "All Files (*.*)"
+7. Select the `hosts` file and click Open
+8. Scroll to the bottom of the file
+9. Add this new line at the end:
+   ```
+   127.0.0.1 n8n.localhost
+   ```
+10. Save the file (Ctrl + S)
+11. Close Notepad
+12. The change takes effect immediately
+
+**Alternative Method (macOS/Linux):**
+If you prefer a one-line command:
+```bash
+echo "127.0.0.1 n8n.localhost" | sudo tee -a /etc/hosts
+```
+
+2. **Access n8n**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002)
+
+**Status**: ✅ Fully functional
+- ✅ Main page loads
+- ✅ All assets (CSS/JS) load properly
+- ✅ No proxy trust errors (fixed with `N8N_PROXY_HOPS=1`)
+- ✅ Full web interface functionality
+
+#### Authentication
+n8n uses its built-in authentication system. Use the credentials configured in your environment variables:
+- Username: As set in `N8N_BASIC_AUTH_USER`
+- Password: As set in `N8N_BASIC_AUTH_PASSWORD`
+
+#### Success! 🎉
+Both access methods now work fully. Domain-based routing through Kong provides the same functionality as direct access.
+
+### 16.3. Features
 
 - **Visual Workflow Editor**: Create workflows with a drag-and-drop interface
 - **Node-Based Architecture**: Connect different services and actions using nodes
@@ -1531,13 +1601,13 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Credentials Management**: Securely store and manage credentials for various services
 - **Extensibility**: Create custom nodes for specific use cases
 
-### 16.3. Integration with Other Services
+### 16.4. Integration with Other Services
 
 - **Backend Service**: The backend service can trigger n8n workflows for tasks like data processing, notifications, and more
 - **Supabase PostgreSQL**: n8n uses the Supabase database for storing workflows and execution data
 - **Redis**: n8n uses Redis for queue management, improving reliability and scalability of workflow executions
 
-### 16.4. Configuration
+### 16.5. Configuration
 
 The n8n service can be configured through the following environment variables:
 
@@ -1551,7 +1621,7 @@ The n8n service can be configured through the following environment variables:
 - `N8N_PROTOCOL`: The protocol for n8n (default: http)
 - `N8N_EXECUTIONS_MODE`: The execution mode for n8n (default: queue)
 
-### 16.5. Pre-built Workflows
+### 16.6. Pre-built Workflows
 
 The `n8n/` directory contains pre-built n8n workflow templates providing automation and integration capabilities for research and image generation tasks.
 

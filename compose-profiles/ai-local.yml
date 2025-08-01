@@ -133,6 +133,8 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_PROXY_HOPS: 1
+      WEBHOOK_URL: http://n8n.localhost:${KONG_HTTP_PORT}/
       NODE_ENV: production
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_AUTH_ENABLED: ${N8N_AUTH_ENABLED:-true}
