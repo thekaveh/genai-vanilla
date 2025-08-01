@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Cross-platform script to stop the GenAI Vanilla Stack
 
+# Source hosts utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/hosts-utils.sh" 2>/dev/null || {
+  echo "Warning: Could not load hosts-utils.sh"
+}
+
 # Function to detect available docker compose command
 detect_docker_compose_cmd() {
   if command -v docker &> /dev/null; then
@@ -34,6 +40,7 @@ execute_compose_cmd() {
 # Default values
 DEFAULT_PROFILE="default"
 COLD_STOP=false
+CLEAN_HOSTS=false
 
 # Function to show usage
 show_usage() {
@@ -42,6 +49,7 @@ show_usage() {
   echo "  --profile PROFILE  Set the deployment profile (default: $DEFAULT_PROFILE)"
   echo "                     Supported profiles: default, ai-local, ai-gpu"
   echo "  --cold             Remove volumes (data will be lost)"
+  echo "  --clean-hosts      Remove GenAI Stack hosts file entries (requires sudo/admin)"
   echo "  --help             Show this help message"
 }
 
@@ -62,6 +70,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --cold)
       COLD_STOP=true
+      shift
+      ;;
+    --clean-hosts)
+      CLEAN_HOSTS=true
       shift
       ;;
     --help)
@@ -113,6 +125,38 @@ else
   execute_compose_cmd --env-file=.env down --remove-orphans
   echo ""
   echo "✅ Stack stopped. Data volumes preserved."
+fi
+
+# Hosts file cleanup (if requested)
+if [[ "$CLEAN_HOSTS" == "true" ]]; then
+  echo ""
+  echo "🧹 Cleaning hosts file entries..."
+  
+  OS=$(detect_os)
+  HOSTS_FILE=$(get_hosts_file)
+  
+  if [[ -z "$HOSTS_FILE" || ! -f "$HOSTS_FILE" ]]; then
+    echo "⚠️  Could not locate hosts file for OS: $OS"
+  else
+    if is_elevated; then
+      if remove_hosts_entries "$HOSTS_FILE"; then
+        echo "✅ Hosts entries removed successfully"
+        echo "   The following entries were removed:"
+        for host in $(get_genai_hosts); do
+          echo "   127.0.0.1 $host"
+        done
+      else
+        echo "❌ Failed to remove hosts entries"
+      fi
+    else
+      echo "❌ --clean-hosts requires elevated privileges"
+      if [[ "$OS" == "windows" ]]; then
+        echo "   Please run as Administrator"
+      else
+        echo "   Please run with: sudo $0 --clean-hosts --profile $PROFILE"
+      fi
+    fi
+  fi
 fi
 
 echo ""

@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Cross-platform script to start the GenAI Vanilla Stack with configurable ports and profile
 
+# Source hosts utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/hosts-utils.sh" 2>/dev/null || {
+  echo "Warning: Could not load hosts-utils.sh"
+  SKIP_HOSTS=true
+}
+
 # Function to detect available docker compose command
 detect_docker_compose_cmd() {
   if command -v docker &> /dev/null; then
@@ -36,6 +43,8 @@ execute_compose_cmd() {
 DEFAULT_BASE_PORT=63000
 DEFAULT_PROFILE="default"
 COLD_START=false
+SETUP_HOSTS=false
+SKIP_HOSTS=false
 
 # Function to show usage
 show_usage() {
@@ -45,6 +54,8 @@ show_usage() {
   echo "  --profile PROFILE  Set the deployment profile (default: $DEFAULT_PROFILE)"
   echo "                     Supported profiles: default, ai-local, ai-gpu, fixed"
   echo "  --cold             Force creation of new .env file and generate new keys"
+  echo "  --setup-hosts      Setup required hosts file entries (requires sudo/admin)"
+  echo "  --skip-hosts       Skip hosts file check and setup"
   echo "  --help             Show this help message"
 }
 
@@ -76,6 +87,14 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --cold)
       COLD_START=true
+      shift
+      ;;
+    --setup-hosts)
+      SETUP_HOSTS=true
+      shift
+      ;;
+    --skip-hosts)
+      SKIP_HOSTS=true
       shift
       ;;
     --help)
@@ -366,6 +385,79 @@ printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_POR
 printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"
 printf "  • %-20s %s\n" "ComfyUI Interface:" "http://localhost:$VERIFIED_COMFYUI_PORT"
 echo ""
+
+# Hosts file management
+if [[ "$SKIP_HOSTS" != "true" ]]; then
+  echo "🔍 Checking hosts file configuration..."
+  
+  OS=$(detect_os)
+  HOSTS_FILE=$(get_hosts_file)
+  
+  if [[ -z "$HOSTS_FILE" || ! -f "$HOSTS_FILE" ]]; then
+    echo "⚠️  Could not locate hosts file for OS: $OS"
+    echo "   Subdomain access requires these entries in your hosts file:"
+    for host in $(get_genai_hosts); do
+      echo "   127.0.0.1 $host"
+    done
+    echo ""
+  else
+    # Check for missing entries
+    MISSING_HOSTS=($(check_missing_hosts "$HOSTS_FILE"))
+    
+    if [[ ${#MISSING_HOSTS[@]} -eq 0 ]]; then
+      echo "✅ All required hosts entries are present"
+    else
+      echo "⚠️  Missing hosts file entries for subdomain access:"
+      for host in "${MISSING_HOSTS[@]}"; do
+        echo "   127.0.0.1 $host"
+      done
+      echo ""
+      
+      # If --setup-hosts was provided, try to add them
+      if [[ "$SETUP_HOSTS" == "true" ]]; then
+        if is_elevated; then
+          echo "📝 Adding hosts entries..."
+          if add_hosts_entries "$HOSTS_FILE"; then
+            echo "✅ Hosts file updated successfully"
+          else
+            echo "❌ Failed to update hosts file"
+            exit 1
+          fi
+        else
+          echo "❌ --setup-hosts requires elevated privileges"
+          if [[ "$OS" == "windows" ]]; then
+            echo "   Please run as Administrator"
+          else
+            echo "   Please run with: sudo $0 --setup-hosts --profile $PROFILE"
+          fi
+          exit 1
+        fi
+      else
+        # Offer to add them
+        echo "To enable subdomain access (e.g., http://api.localhost:$VERIFIED_KONG_HTTP_PORT),"
+        echo "these entries need to be added to your hosts file."
+        echo ""
+        echo "You can:"
+        echo "1. Run with elevated privileges to add automatically:"
+        if [[ "$OS" == "windows" ]]; then
+          echo "   Run as Administrator: $0 --setup-hosts --profile $PROFILE"
+        else
+          echo "   sudo $0 --setup-hosts --profile $PROFILE"
+        fi
+        echo "2. Add them manually to $HOSTS_FILE"
+        echo "3. Continue without subdomain access (use direct ports only)"
+        echo ""
+        read -p "Continue without hosts file setup? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+          echo "Exiting. Please run with --setup-hosts or add entries manually."
+          exit 1
+        fi
+      fi
+    fi
+  fi
+  echo ""
+fi
 
 # Start the stack with the selected profile
 echo "🔄 Starting the stack with profile: $PROFILE"

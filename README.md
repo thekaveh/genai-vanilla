@@ -171,8 +171,10 @@ Usage: ./start.sh [options]
 Options:
   --base-port PORT   Set the base port number (default: 63000)
   --profile PROFILE  Set the deployment profile (default: default)
-                     Supported profiles: default, ai-local, ai-gpu
+                     Supported profiles: default, ai-local, ai-gpu, fixed
   --cold             Force creation of new .env file and generate new keys
+  --setup-hosts      Setup required hosts file entries (requires sudo/admin)
+  --skip-hosts       Skip hosts file check and setup
   --help             Show this help message
 ```
 
@@ -245,6 +247,7 @@ Options:
   --profile PROFILE  Set the deployment profile (default: default)
                      Supported profiles: default, ai-local, ai-gpu
   --cold             Remove volumes (data will be lost)
+  --clean-hosts      Remove GenAI Stack hosts file entries (requires sudo/admin)
   --help             Show this help message
 ```
 
@@ -265,6 +268,13 @@ This will:
 
 This is useful when you want to start completely fresh, but be careful as all database data will be lost.
 
+**Hosts File Cleanup:**
+Use the `--clean-hosts` option to remove subdomain entries from your hosts file:
+```bash
+sudo ./stop.sh --clean-hosts --profile default
+```
+This will remove all GenAI Stack subdomain entries (n8n.localhost, api.localhost, search.localhost, comfyui.localhost) from your system's hosts file.
+
 ## 4. Quick Access Guide
 
 Once the stack is running, you can access services at the following URLs:
@@ -272,20 +282,29 @@ Once the stack is running, you can access services at the following URLs:
 ### Main Services
 - **Supabase Studio**: `http://localhost:${SUPABASE_STUDIO_PORT}` (default: 63009)
 - **Neo4j Dashboard**: `http://localhost:${GRAPH_DB_DASHBOARD_PORT}` (default: 63011)
-- **SearxNG Privacy Search**: `http://localhost:${SEARXNG_PORT}` (default: 63014)
-- **Open-WebUI**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
+- **SearxNG Privacy Search**: 
+  - **Direct**: `http://localhost:${SEARXNG_PORT}` (default: 63014)
+  - **Via Kong**: `http://search.localhost:${KONG_HTTP_PORT}/` (default: search.localhost:63002) - ✅ **Subdomain Access**
+    - **Setup Required**: Add hosts file entries (see Section 16.2 below)
+- **Open-WebUI**: 
+  - **Direct**: `http://localhost:${OPEN_WEB_UI_PORT}` (default: 63015)
+  - **Via Kong**: `http://chat.localhost:${KONG_HTTP_PORT}/` (default: chat.localhost:63002) - ✅ **Subdomain Access**
+    - **Setup Required**: Add hosts file entries (see Section 16.2 below)
 - **n8n Workflow Automation**: 
   - **Direct**: `http://localhost:${N8N_PORT}` (default: 63017) - ✅ **Recommended**
   - **Via Kong**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002) - ✅ **Fully Working**
-    - **Setup Required**: Add `127.0.0.1 n8n.localhost` to your hosts file (see n8n section below for detailed instructions)
+    - **Setup Required**: Add hosts file entries (see Section 16.2 below for detailed instructions)
 - **ComfyUI Image Generation**:
-  - Containerized: `http://localhost:${COMFYUI_PORT}` (default: 63018) - ✅ **Authentication Bypassed**
-  - Local (ai-local profile): `http://localhost:8000`
-  - Via Kong: `http://localhost:${KONG_HTTP_PORT}/comfyui/` (default: 63002/comfyui/) - ✅ **Fully Working**
+  - **Direct**: `http://localhost:${COMFYUI_PORT}` (default: 63018) - ✅ **Authentication Bypassed**
+  - **Local (ai-local profile)**: `http://localhost:8000`
+  - **Via Kong**: `http://comfyui.localhost:${KONG_HTTP_PORT}/` (default: comfyui.localhost:63002) - ✅ **Subdomain Access**
+    - **Setup Required**: Add hosts file entries (see Section 16.2 below)
 
 ### API Endpoints
-- **Backend API**: `http://localhost:${BACKEND_PORT}` (default: 63016)
-- **Research API**: `http://localhost:${BACKEND_PORT}/research/`
+- **Backend API**: 
+  - **Direct**: `http://localhost:${BACKEND_PORT}` (default: 63016)
+  - **Via Kong**: `http://api.localhost:${KONG_HTTP_PORT}/` (default: api.localhost:63002) - ✅ **Subdomain Access**
+    - **Setup Required**: Add hosts file entries (see Section 16.2 below)
 - **Kong API Gateway**: `http://localhost:${KONG_HTTP_PORT}` (default: 63002)
 
 ### Database Services
@@ -1535,7 +1554,29 @@ This bypasses Kong entirely and provides full n8n functionality.
 #### Method 2: Through Kong Gateway (Domain-based routing) ✅
 **FULLY WORKING**: Domain-based routing through Kong
 
-1. **Add to hosts file**: Follow the steps below for your operating system to add the required entry.
+**🚀 Automatic Setup (Recommended):**
+The start.sh script can automatically manage hosts file entries for you:
+
+```bash
+# Option 1: Automatic setup during startup (requires sudo)
+sudo ./start.sh --setup-hosts --profile default
+
+# Option 2: Let the script check and prompt you
+./start.sh --profile default
+# The script will detect missing entries and guide you through setup
+
+# Option 3: Skip hosts file management
+./start.sh --skip-hosts --profile default
+```
+
+**Cleanup when done:**
+```bash
+# Remove hosts entries when stopping the stack
+sudo ./stop.sh --clean-hosts --profile default
+```
+
+**Manual Setup (if preferred):**
+If you prefer to manage hosts file entries manually, follow the steps below for your operating system to add the required entries for subdomain-based access.
 
 **macOS/Linux Steps:**
 1. Open Terminal
@@ -1545,9 +1586,14 @@ This bypasses Kong entirely and provides full n8n functionality.
    ```
 3. Enter your password when prompted
 4. Use arrow keys to navigate to the end of the file
-5. Add this new line at the bottom:
+5. Add these lines at the bottom:
    ```
+   # GenAI Stack subdomains
    127.0.0.1 n8n.localhost
+   127.0.0.1 api.localhost
+   127.0.0.1 search.localhost
+   127.0.0.1 comfyui.localhost
+   127.0.0.1 chat.localhost
    ```
 6. Press `Ctrl + O` then `Enter` to save
 7. Press `Ctrl + X` to exit
@@ -1562,25 +1608,35 @@ This bypasses Kong entirely and provides full n8n functionality.
 6. Change file type dropdown from "Text Documents (*.txt)" to "All Files (*.*)"
 7. Select the `hosts` file and click Open
 8. Scroll to the bottom of the file
-9. Add this new line at the end:
+9. Add these lines at the end:
    ```
+   # GenAI Stack subdomains
    127.0.0.1 n8n.localhost
+   127.0.0.1 api.localhost
+   127.0.0.1 search.localhost
+   127.0.0.1 comfyui.localhost
+   127.0.0.1 chat.localhost
    ```
 10. Save the file (Ctrl + S)
 11. Close Notepad
 12. The change takes effect immediately
 
 **Alternative Method (macOS/Linux):**
-If you prefer a one-line command:
+If you prefer a one-line command for all entries:
 ```bash
-echo "127.0.0.1 n8n.localhost" | sudo tee -a /etc/hosts
+echo -e "\n# GenAI Stack subdomains\n127.0.0.1 n8n.localhost\n127.0.0.1 api.localhost\n127.0.0.1 search.localhost\n127.0.0.1 comfyui.localhost\n127.0.0.1 chat.localhost" | sudo tee -a /etc/hosts
 ```
 
-2. **Access n8n**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002)
+2. **Access Services via Subdomains**:
+   - **n8n**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002)
+   - **Backend API**: `http://api.localhost:${KONG_HTTP_PORT}/` (default: api.localhost:63002)
+   - **SearxNG**: `http://search.localhost:${KONG_HTTP_PORT}/` (default: search.localhost:63002)
+   - **ComfyUI**: `http://comfyui.localhost:${KONG_HTTP_PORT}/` (default: comfyui.localhost:63002)
+   - **Open WebUI**: `http://chat.localhost:${KONG_HTTP_PORT}/` (default: chat.localhost:63002)
 
-**Status**: ✅ Fully functional
-- ✅ Main page loads
-- ✅ All assets (CSS/JS) load properly
+**Status**: ✅ All services fully functional with subdomain routing
+
+**Note**: Supabase services remain path-based (`/auth/v1/`, `/rest/v1/`, etc.) to maintain compatibility with Supabase client libraries and Supabase Studio.
 - ✅ No proxy trust errors (fixed with `N8N_PROXY_HOPS=1`)
 - ✅ Full web interface functionality
 

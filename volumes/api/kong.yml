@@ -200,54 +200,16 @@ services:
       #     allow:
       #       - admin
 
-  ## Backend API routes
+  ## Backend API routes - Domain-based routing
   - name: backend-api
     url: http://backend:8000/
     routes:
       - name: backend-api-all
-        strip_path: true
-        paths:
-          - /backend
+        strip_path: false
+        hosts:
+          - api.localhost
     plugins:
       - name: cors # Add basic CORS, can be customized further
-
-  ## Research API routes (dedicated endpoint for external access)
-  - name: research-api
-    url: http://backend:8000/research/
-    routes:
-      - name: research-api-all
-        strip_path: true
-        paths:
-          - /research/
-    plugins:
-      - name: cors
-      - name: rate-limiting
-        config:
-          minute: 30
-          hour: 500
-          policy: local
-      # - name: key-auth  # Uncomment for API key authentication
-      #   config:
-      #     hide_credentials: true
-
-  ## Local Deep Researcher Direct API routes
-  - name: local-deep-researcher-api
-    url: http://local-deep-researcher:2024/
-    routes:
-      - name: local-deep-researcher-api-all
-        strip_path: true
-        paths:
-          - /local-deep-researcher/
-    plugins:
-      - name: cors
-      - name: rate-limiting
-        config:
-          minute: 20
-          hour: 300
-          policy: local
-      # - name: key-auth  # Uncomment for API key authentication
-      #   config:
-      #     hide_credentials: true
 
   ## n8n routes - Domain-based routing with N8N_PROXY_HOPS=1 for proper asset loading
   - name: n8n-api
@@ -260,18 +222,14 @@ services:
     plugins:
       - name: cors
 
-  ## SearxNG routes
+  ## SearxNG routes - Domain-based routing
   - name: searxng-api
     url: http://searxng:8080/
     routes:
       - name: searxng-api-all
-        strip_path: true
-        paths:
-          - /searxng/      # Main SearxNG path
-          - /search        # Search API endpoint
-          - /healthz       # Health check endpoint  
-          - /config        # Configuration endpoint
-          - /autocomplete  # Autocomplete suggestions
+        strip_path: false
+        hosts:
+          - search.localhost
     plugins:
       - name: cors
       - name: rate-limiting
@@ -281,25 +239,29 @@ services:
           policy: local
       # Note: SearxNG doesn't have built-in auth, add basic-auth if needed in production
 
-  ## ComfyUI routes (for containerized ComfyUI - default and ai-gpu profiles)
+  ## ComfyUI routes - Domain-based routing
   - name: comfyui-api
     url: http://comfyui:18188/
     routes:
       - name: comfyui-api-all
-        strip_path: true
-        paths:
-          - /comfyui/      # Main ComfyUI UI path
-          - /prompt        # API endpoint for workflow submission
-          - /history       # API endpoint for checking status
-          - /view          # API endpoint for retrieving images
-          - /system_stats  # Health check endpoint
-          - /ws            # WebSocket for real-time updates
-          - /queue         # Queue management endpoint
-          - /interrupt     # Interrupt/cancel endpoint
-          - /upload        # File upload endpoint
+        strip_path: false
+        hosts:
+          - comfyui.localhost
     plugins:
       - name: cors
       # Note: ComfyUI doesn't have built-in auth, consider adding basic-auth if needed in production
+
+  ## Open WebUI routes - Domain-based routing
+  - name: openwebui-api
+    url: http://open-web-ui:8080/
+    routes:
+      - name: openwebui-api-all
+        strip_path: false
+        hosts:
+          - chat.localhost
+    plugins:
+      - name: cors
+      # Note: Open WebUI has its own authentication system
 
   ## Protected Dashboard - catch all remaining routes
   - name: dashboard
