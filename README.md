@@ -1539,10 +1539,24 @@ The n8n service provides a powerful workflow automation platform that can be use
 - **Database**: Uses the Supabase PostgreSQL database for storing workflows and execution data
 - **Queue Management**: Uses Redis for workflow execution queueing
 - **Authentication**: Protected with basic authentication
+- **Community Packages**: Automatically installs required community nodes via `n8n-init` service
 - **Access Points**:
   - **Direct**: `http://localhost:${N8N_PORT}` (default: 63017) - ✅ **Recommended**
   - **Kong Gateway**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (default: n8n.localhost:63002) - ✅ **Fully Working**
 - **Dependencies**: Starts after the successful completion of the `supabase-db-init` and `ollama-pull` services
+
+### 16.1.1. n8n-init Service
+
+The n8n-init service automatically installs and configures community packages for n8n:
+
+- **Purpose**: Installs essential community nodes for enhanced functionality
+- **Default Nodes**:
+  - `n8n-nodes-comfyui` - ComfyUI integration for image generation workflows
+  - `@ksc1234/n8n-nodes-comfyui-image-to-image` - Image transformation workflows
+  - `n8n-nodes-mcp` - Model Control Protocol integration
+- **Configuration**: Nodes can be customized via `N8N_INIT_NODES` environment variable
+- **Execution**: Runs once after n8n startup, then exits
+- **Persistence**: Installed nodes persist across container restarts
 
 ### 16.2. Access Methods
 
@@ -1676,6 +1690,9 @@ The n8n service can be configured through the following environment variables:
 - `N8N_HOST`: The hostname for n8n (default: localhost)
 - `N8N_PROTOCOL`: The protocol for n8n (default: http)
 - `N8N_EXECUTIONS_MODE`: The execution mode for n8n (default: queue)
+- `N8N_COMMUNITY_PACKAGES_ENABLED`: Enable community package installation (default: true)
+- `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE`: Allow community nodes as AI Agent tools (default: true)
+- `N8N_INIT_NODES`: Comma-separated list of community nodes to install automatically
 
 ### 16.6. Pre-built Workflows
 

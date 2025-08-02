@@ -144,6 +144,8 @@ services:
       N8N_SECURE_COOKIE: false
       N8N_RUNNERS_ENABLED: true
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
+      N8N_COMMUNITY_PACKAGES_ENABLED: ${N8N_COMMUNITY_PACKAGES_ENABLED:-true}
+      N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: ${N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE:-true}
       NODE_OPTIONS: --max_old_space_size=512
       EXECUTIONS_MODE: ${N8N_EXECUTIONS_MODE:-queue}
       QUEUE_BULL_REDIS_HOST: redis
@@ -156,6 +158,25 @@ services:
       - n8n-data:/home/node/.n8n
     networks:
       - backend-bridge-network
+
+  n8n-init:
+    image: ${N8N_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-n8n-init
+    restart: "no"
+    depends_on:
+      n8n:
+        condition: service_started
+    environment:
+      N8N_HOST: n8n
+      N8N_PORT: 5678
+      N8N_INIT_NODES: ${N8N_INIT_NODES:-n8n-nodes-comfyui,@ksc1234/n8n-nodes-comfyui-image-to-image,n8n-nodes-mcp}
+    volumes:
+      - ./n8n-init/scripts:/scripts
+      - ./n8n-init/config:/config
+      - n8n-data:/n8n-data
+    networks:
+      - backend-bridge-network
+    entrypoint: ["/scripts/install-nodes.sh"]
 
 
 volumes:

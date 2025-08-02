@@ -36,6 +36,7 @@ graph LR
         ollama-local[host.docker.internal:11434 - local]
         ollama-pull[ollama-pull]
         comfyui-init[comfyui-init]
+        n8n-init[n8n-init]
         local-deep-researcher[local-deep-researcher]
         n8n[n8n]:::api
         comfyui[comfyui]:::ai
@@ -66,6 +67,8 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> backend
     supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> n8n
+    n8n -- "Service Started" --> n8n-init
+    n8n-init -- "Installs Community Nodes" --> n8n
     supabase-db-init -- "Completes Successfully" --> comfyui
 
     %% Service Inter-dependencies (After db-init)
@@ -149,7 +152,7 @@ graph LR
     classDef profile fill:#e3f2fd,stroke:#1976d2,color:#1e1e1e
     class supabase-db,neo4j-graph-db database
     class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
-    class ollama,ollama-local,ollama-pull,comfyui-init,local-deep-researcher,comfyui ai
+    class ollama,ollama-local,ollama-pull,comfyui-init,n8n-init,local-deep-researcher,comfyui ai
     class open-web-ui ui
     class backend api
     class kong-api-gateway api

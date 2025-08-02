@@ -132,8 +132,8 @@ services:
         condition: service_started
       searxng:
         condition: service_healthy
-      n8n:
-        condition: service_started
+      n8n-init:
+        condition: service_completed_successfully
       comfyui:
         condition: service_healthy
     environment:
