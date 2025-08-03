@@ -2741,19 +2741,7 @@ ENABLE_COMFYUI=false  # NEW
 
 #### High-Value Service Dependencies (Implementation Ready)
 
-**1. n8n → ComfyUI Integration** ⭐⭐⭐⭐⭐
-- **Method**: Community nodes + HTTP API
-- **Implementation**: Install `@n8n/n8n-nodes-comfyui` community package
-- **Benefits**: Automated image generation workflows, batch processing
-- **Configuration**:
-  ```yaml
-  n8n:
-    environment:
-      - N8N_COMMUNITY_PACKAGES_ENABLED=true
-      - N8N_NODES_INCLUDE="@n8n/n8n-nodes-comfyui"
-  ```
-
-**2. Open-WebUI → Redis Caching** ⭐⭐⭐⭐⭐
+**1. Open-WebUI → Redis Caching** ⭐⭐⭐⭐⭐
 - **Method**: Built-in caching configuration
 - **Implementation**: Native Redis support for session/response caching
 - **Benefits**: Faster response times, reduced API calls
@@ -2765,25 +2753,25 @@ ENABLE_COMFYUI=false  # NEW
       - REDIS_URL=redis://redis:6379
   ```
 
-**3. n8n → Ollama Integration** ⭐⭐⭐⭐⭐
+**2. n8n → Ollama Integration** ⭐⭐⭐⭐⭐
 - **Method**: Built-in HTTP Request nodes
 - **Implementation**: Native HTTP nodes for LLM API calls
 - **Benefits**: LLM-powered automation workflows
 - **Configuration**: Use n8n's HTTP Request node with Ollama API endpoints
 
-**4. Open-WebUI → n8n Webhooks** ⭐⭐⭐⭐
+**3. Open-WebUI → n8n Webhooks** ⭐⭐⭐⭐
 - **Method**: Webhook integration via Open-WebUI API
 - **Implementation**: Open-WebUI can trigger n8n workflows via webhooks
 - **Benefits**: Chat-triggered automation, workflow execution from UI
 - **Configuration**: Configure webhook URLs in Open-WebUI settings
 
-**5. ComfyUI → SearxNG Search** ⭐⭐⭐⭐
+**4. ComfyUI → SearxNG Search** ⭐⭐⭐⭐
 - **Method**: HTTP Request nodes for web search
 - **Implementation**: Custom nodes making API calls to SearxNG
 - **Benefits**: Web search-enhanced image generation workflows
 - **Configuration**: Custom ComfyUI nodes calling SearxNG API
 
-**6. n8n → SearxNG Automation** ⭐⭐⭐⭐
+**5. n8n → SearxNG Automation** ⭐⭐⭐⭐
 - **Method**: Built-in HTTP Request nodes
 - **Implementation**: Native HTTP nodes for search automation
 - **Benefits**: Automated research workflows, content discovery
@@ -2844,7 +2832,7 @@ ENABLE_COMFYUI=false  # NEW
 #### Implementation Strategy
 
 **Phase 1: High-Impact Integrations**
-1. Implement n8n → ComfyUI (community nodes)
+1. ✅ Implement n8n → ComfyUI (community nodes) - COMPLETED
 2. Enable Open-WebUI → Redis caching
 3. Configure n8n → Ollama workflows
 
@@ -3013,7 +3001,29 @@ CREATE TABLE rag_relationships (
 
 > This integration enables live data synchronization without polling, providing a foundation for real-time features in Open Web UI, backend services, and future frontend applications.
 
-### 20.2 Local Deep Researcher ✅
+### 20.2 n8n → ComfyUI Integration ✅
+**Status**: Fully integrated and operational
+**Implementation Details**:
+- ✅ Created n8n-init service for automatic community node installation
+- ✅ Installed `n8n-nodes-comfyui` for direct ComfyUI workflow execution
+- ✅ Installed `@ksc1234/n8n-nodes-comfyui-image-to-image` for image transformations
+- ✅ Installed `n8n-nodes-mcp` for Model Context Protocol integration
+- ✅ Configured environment variables for community package support
+- ✅ Added to all Docker Compose profiles with proper service dependencies
+- ✅ Backend service waits for n8n-init completion before starting
+**Features Available**:
+- Direct n8n → ComfyUI workflow execution
+- Automated image generation pipelines
+- Batch image processing capabilities
+- Integration with other stack services
+- Configurable community node installation
+**Configuration**:
+- `N8N_COMMUNITY_PACKAGES_ENABLED=true` - Enables community packages
+- `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true` - Allows tool usage
+- `N8N_INIT_NODES` - Configurable list of nodes to install
+> This integration enables n8n to trigger ComfyUI workflows directly, creating powerful automated image generation and processing pipelines that integrate seamlessly with the rest of the stack.
+
+### 20.3 Local Deep Researcher ✅
 
 **Status**: Fully integrated and operational
 
