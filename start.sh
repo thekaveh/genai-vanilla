@@ -8,6 +8,55 @@ source "$SCRIPT_DIR/hosts-utils.sh" 2>/dev/null || {
   SKIP_HOSTS=true
 }
 
+# Function to apply horizontal gradient coloring to text
+apply_horizontal_gradient() {
+  local text="$1"
+  local length=${#text}
+  
+  # Define color gradient (dark blue -> cyan -> bright cyan -> bright blue)
+  local colors=(34 36 96 94 34 36 96 94)
+  local color_count=${#colors[@]}
+  
+  for (( i=0; i<length; i++ )); do
+    local char="${text:$i:1}"
+    local color_index=$(( (i * color_count) / length ))
+    local color=${colors[$color_index]}
+    
+    if [[ "$char" == " " ]]; then
+      printf " "
+    else
+      printf "\e[${color}m%s\e[0m" "$char"
+    fi
+  done
+  
+  printf "\n"
+}
+
+# Function to display the branded ASCII banner
+show_banner() {
+  # ASCII art for GenAI Vanilla using doom font
+  local line1=' _____             ___  _____   _   _             _ _ _       '
+  local line2='|  __ \           / _ \|_   _| | | | |           (_) | |      '
+  local line3='| |  \/ ___ _ __ / /_\ \ | |   | | | | __ _ _ __  _| | | __ _ '
+  local line4='| | __ / _ \ '"'"'_ \|  _  | | |   | | | |/ _` | '"'"'_ \| | | |/ _` |'
+  local line5='| |_\ \  __/ | | | | | |_| |_  \ \_/ / (_| | | | | | | | (_| |'
+  local line6=' \____/\___|_| |_\_| |_/\___/   \___/ \__,_|_| |_|_|_|_|\__,_|'
+  
+  # Apply horizontal gradient to each line
+  apply_horizontal_gradient "$line1"
+  apply_horizontal_gradient "$line2"
+  apply_horizontal_gradient "$line3"
+  apply_horizontal_gradient "$line4"
+  apply_horizontal_gradient "$line5"
+  apply_horizontal_gradient "$line6"
+  
+  printf "\n"
+  printf "\e[94m                  Developed by Kaveh Razavi\e[0m\n"
+  printf "\e[96m          https://github.com/thekaveh/genai-vanilla\e[0m\n"
+  printf "\e[93m                      Apache License 2.0\e[0m\n"
+  printf "\n"
+}
+
 # Function to detect available docker compose command
 detect_docker_compose_cmd() {
   if command -v docker &> /dev/null; then
@@ -153,6 +202,9 @@ elif [[ "$PROFILE" == "ai-gpu" ]]; then
 elif [[ "$PROFILE" == "fixed" ]]; then
   COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
 fi
+
+# Display the branded banner
+show_banner
 
 echo "🚀 Starting GenAI Vanilla Stack with:"
 echo "  • Base Port: $BASE_PORT"
