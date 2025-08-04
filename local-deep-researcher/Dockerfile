@@ -36,7 +36,7 @@ COPY config/ /app/config/
 RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
 
 # Create healthcheck script
-RUN echo '#!/bin/bash\ncurl -f http://localhost:2024/health || exit 1' > /app/scripts/healthcheck.sh && \
+RUN echo '#!/bin/bash\ncurl -f http://localhost:2024/docs || exit 1' > /app/scripts/healthcheck.sh && \
     chmod +x /app/scripts/healthcheck.sh
 
 # Set environment variables

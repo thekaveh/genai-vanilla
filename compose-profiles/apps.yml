@@ -89,6 +89,8 @@ services:
         condition: service_started
       supabase-storage:
         condition: service_started
+      redis:
+        condition: service_healthy
       comfyui:
         condition: service_healthy
     environment:
@@ -97,6 +99,12 @@ services:
       WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
       COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-http://comfyui:18188}
       ENABLE_IMAGE_GENERATION: true
+      # WebSocket Redis Integration
+      ENABLE_WEBSOCKET_SUPPORT: "true"
+      WEBSOCKET_MANAGER: "redis"
+      WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/2"
+      REDIS_KEY_PREFIX: "openwebui"
+      MODEL_LIST_CACHE_TTL: "300"
       # DATABASE_SCHEMA: openwebui
     volumes:
       - open-web-ui-data:/app/backend/data

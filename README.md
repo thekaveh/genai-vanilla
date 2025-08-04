@@ -2741,37 +2741,25 @@ ENABLE_COMFYUI=false  # NEW
 
 #### High-Value Service Dependencies (Implementation Ready)
 
-**1. Open-WebUI → Redis Caching** ⭐⭐⭐⭐⭐
-- **Method**: Built-in caching configuration
-- **Implementation**: Native Redis support for session/response caching
-- **Benefits**: Faster response times, reduced API calls
-- **Configuration**:
-  ```yaml
-  open-web-ui:
-    environment:
-      - ENABLE_WEBSOCKET_SUPPORT=true
-      - REDIS_URL=redis://redis:6379
-  ```
-
-**2. n8n → Ollama Integration** ⭐⭐⭐⭐⭐
+**1. n8n → Ollama Integration** ⭐⭐⭐⭐⭐
 - **Method**: Built-in HTTP Request nodes
 - **Implementation**: Native HTTP nodes for LLM API calls
 - **Benefits**: LLM-powered automation workflows
 - **Configuration**: Use n8n's HTTP Request node with Ollama API endpoints
 
-**3. Open-WebUI → n8n Webhooks** ⭐⭐⭐⭐
+**2. Open-WebUI → n8n Webhooks** ⭐⭐⭐⭐
 - **Method**: Webhook integration via Open-WebUI API
 - **Implementation**: Open-WebUI can trigger n8n workflows via webhooks
 - **Benefits**: Chat-triggered automation, workflow execution from UI
 - **Configuration**: Configure webhook URLs in Open-WebUI settings
 
-**4. ComfyUI → SearxNG Search** ⭐⭐⭐⭐
+**3. ComfyUI → SearxNG Search** ⭐⭐⭐⭐
 - **Method**: HTTP Request nodes for web search
 - **Implementation**: Custom nodes making API calls to SearxNG
 - **Benefits**: Web search-enhanced image generation workflows
 - **Configuration**: Custom ComfyUI nodes calling SearxNG API
 
-**5. n8n → SearxNG Automation** ⭐⭐⭐⭐
+**4. n8n → SearxNG Automation** ⭐⭐⭐⭐
 - **Method**: Built-in HTTP Request nodes
 - **Implementation**: Native HTTP nodes for search automation
 - **Benefits**: Automated research workflows, content discovery
@@ -2833,7 +2821,7 @@ ENABLE_COMFYUI=false  # NEW
 
 **Phase 1: High-Impact Integrations**
 1. ✅ Implement n8n → ComfyUI (community nodes) - COMPLETED
-2. Enable Open-WebUI → Redis caching
+2. ✅ Enable Open-WebUI → Redis caching - COMPLETED ✨ **FEATURE**
 3. Configure n8n → Ollama workflows
 
 **Phase 2: Medium-Value Additions**
@@ -3023,7 +3011,34 @@ CREATE TABLE rag_relationships (
 - `N8N_INIT_NODES` - Configurable list of nodes to install
 > This integration enables n8n to trigger ComfyUI workflows directly, creating powerful automated image generation and processing pipelines that integrate seamlessly with the rest of the stack.
 
-### 20.3 Local Deep Researcher ✅
+### 20.3 Open-WebUI → Redis Integration ✅ **FEATURE**
+**Status**: ✨ **RESOLVED** - Fully integrated and operational (Previously TODO item)
+**Implementation Details**:
+- ✅ Added Redis dependency to all Open-WebUI services
+- ✅ Configured WebSocket Redis management for real-time features
+- ✅ Implemented model list caching with configurable TTL
+- ✅ Set up dedicated Redis database (DB 2) to avoid conflicts
+- ✅ Added environment variables for Redis WebSocket integration
+- ✅ Updated all Docker Compose profiles (apps, apps-local, apps-gpu)
+**Features Available**:
+- Real-time WebSocket communication via Redis
+- Model list caching (5-minute TTL by default)
+- Multi-tab session synchronization
+- Presence indicators for online users
+- Reduced API calls to Ollama and external providers
+**Configuration**:
+- `ENABLE_WEBSOCKET_SUPPORT=true` - Enables WebSocket features
+- `WEBSOCKET_MANAGER=redis` - Uses Redis for WebSocket management  
+- `WEBSOCKET_REDIS_URL=redis://:password@redis:6379/2` - Redis connection
+- `REDIS_KEY_PREFIX=openwebui` - Namespace for Redis keys
+- `MODEL_LIST_CACHE_TTL=300` - Cache duration for model lists (seconds)
+**Redis Database Allocation**:
+- Database 0: Backend services, n8n queues
+- Database 1: SearxNG search caching
+- Database 2: Open-WebUI WebSocket management (NEW)
+> This integration enables real-time chat features and improves performance through caching, providing a foundation for advanced multi-user capabilities.
+
+### 20.4 Local Deep Researcher ✅
 
 **Status**: Fully integrated and operational
 
