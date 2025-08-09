@@ -121,6 +121,8 @@ services:
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: supabase-db
@@ -130,10 +132,14 @@ services:
       DB_POSTGRESDB_PASSWORD: ${SUPABASE_DB_PASSWORD}
       DB_POSTGRESDB_SCHEMA: n8n
       DB_SCHEMA: n8n
-      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_HOST: n8n.localhost
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
       N8N_PROXY_HOPS: 1
+      N8N_PUSH_BACKEND: websocket
+      VUE_APP_URL_BASE_API: http://n8n.localhost:${KONG_HTTP_PORT}/
+      N8N_EDITOR_BASE_URL: http://n8n.localhost:${KONG_HTTP_PORT}
+      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:${KONG_HTTP_PORT}
       WEBHOOK_URL: http://n8n.localhost:${KONG_HTTP_PORT}/
       NODE_ENV: production
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}

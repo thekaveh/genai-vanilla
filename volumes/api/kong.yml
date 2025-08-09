@@ -211,14 +211,21 @@ services:
     plugins:
       - name: cors # Add basic CORS, can be customized further
 
-  ## n8n routes - Domain-based routing with N8N_PROXY_HOPS=1 for proper asset loading
+  ## n8n routes - Domain-based routing with WebSocket support
   - name: n8n-api
     url: http://n8n:5678/
+    connect_timeout: 60000
+    write_timeout: 3600000
+    read_timeout: 3600000
     routes:
       - name: n8n-api-all
         strip_path: false
+        preserve_host: true
         hosts:
           - n8n.localhost
+        protocols:
+          - http
+          - https
     plugins:
       - name: cors
 

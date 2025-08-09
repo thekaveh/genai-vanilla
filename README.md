@@ -328,9 +328,10 @@ The service names used in the `docker-compose.yml` files (e.g., `supabase-auth`,
 
 ### 5.2. Kong API Gateway Configuration
 
-The Kong API Gateway is used for centralized API management, including routing, authentication, and plugin management. It is configured using a declarative configuration file (`kong.yml`).
+The Kong API Gateway is used for centralized API management, including routing, authentication, plugin management, and WebSocket proxying for real-time services. It is configured using a declarative configuration file (`kong.yml`).
 
 *   **Configuration File:** `./volumes/api/kong.yml` defines the services and routes managed by Kong.
+*   **WebSocket Support:** Kong automatically handles HTTP to WebSocket protocol upgrades for services like n8n and Supabase Realtime.
 *   **Environment Variables:** The following variables are used by the Kong service and must be set in your `.env` file:
     *   `KONG_HTTP_PORT`: Port for Kong's HTTP listener.
     *   `KONG_HTTPS_PORT`: Port for Kong's HTTPS listener.
@@ -1677,7 +1678,20 @@ Both access methods now work fully. Domain-based routing through Kong provides t
 - **Supabase PostgreSQL**: n8n uses the Supabase database for storing workflows and execution data
 - **Redis**: n8n uses Redis for queue management, improving reliability and scalability of workflow executions
 
-### 16.5. Configuration
+### 16.5. Kong Gateway Integration
+
+n8n is accessible through the Kong API Gateway with full WebSocket support for real-time features:
+
+- **Proxy URL**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (requires hosts file entries)
+- **Direct URL**: `http://localhost:${N8N_PORT}` (bypasses proxy)
+- **WebSocket Support**: Kong automatically handles HTTP to WebSocket protocol upgrades for n8n's push backend
+- **Real-time Features**: Workflow execution updates, test webhook listening, and collaboration features work seamlessly through the proxy
+- **Technical Implementation**: 
+  - Kong routes are configured with `preserve_host: true` for proper origin validation
+  - WebSocket connections are automatically upgraded when accessing `/rest/push` endpoints
+  - No additional Kong plugins required - the proxy handles WebSocket upgrades natively
+
+### 16.6. Configuration
 
 The n8n service can be configured through the following environment variables:
 
