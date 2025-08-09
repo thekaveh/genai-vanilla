@@ -16,7 +16,7 @@ graph LR
     subgraph DataProfile[Data Profile - data.yml]
         direction LR
         supabase-db[supabase-db]
-        redis[redis]:::cache
+        redis[redis<br/>DB 0: n8n queues, Backend<br/>DB 1: SearxNG caching<br/>DB 2: Open-WebUI WebSocket]:::cache
         supabase-db-init(supabase-db-init)
         subgraph SupabaseCore[Supabase Core Services]
         direction TB
@@ -73,6 +73,7 @@ graph LR
 
     %% Service Inter-dependencies (After db-init)
     %% Connections now go through Kong where applicable
+    %% Kong provides WebSocket proxy support for real-time services (n8n, Supabase Realtime)
     supabase-meta --> supabase-studio
     supabase-auth --> kong-api-gateway
     supabase-api --> kong-api-gateway
@@ -88,7 +89,7 @@ graph LR
     kong-api-gateway -- Routes --> supabase-realtime
     kong-api-gateway -- Routes --> supabase-meta
     kong-api-gateway -- Routes --> supabase-studio
-    kong-api-gateway -- Routes --> n8n
+    kong-api-gateway -- "Routes + WebSocket Proxy" --> n8n
     kong-api-gateway -- Routes --> comfyui
     kong-api-gateway -- "Routes /research/*" --> backend
 
