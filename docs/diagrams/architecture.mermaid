@@ -105,6 +105,7 @@ graph LR
     backend -- "DB Connection (Direct)" --> supabase-db
     n8n -- "DB Connection (Direct)" --> supabase-db
     n8n -- "Queue Management" --> redis
+    searxng -- "Search Result Caching" --> redis
     backend -- "Workflow Automation" --> n8n
     backend -- "Cache, Pub/Sub, Geohashing" --> redis
     ollama-pull -- "Completes Successfully" --> local-deep-researcher

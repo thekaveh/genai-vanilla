@@ -2819,13 +2819,7 @@ ENABLE_COMFYUI=false  # NEW
       - KONG_RATE_LIMITING_REDIS_PORT=6379
   ```
 
-**12. SearxNG → Redis Caching** ⭐⭐
-- **Method**: Native caching configuration
-- **Implementation**: Built-in Redis caching support
-- **Benefits**: Faster search results, reduced external API calls
-- **Configuration**: Update SearxNG settings.yml with Redis cache config
-
-**13. Backend → SearxNG Integration** ⭐⭐
+**12. Backend → SearxNG Integration** ⭐⭐
 - **Method**: Search API integration
 - **Implementation**: HTTP API calls to SearxNG service
 - **Benefits**: Enhanced search capabilities in backend services
@@ -3660,6 +3654,69 @@ python -m py_compile open-webui/tools/deep_researcher_tool.py
 - **Configuration**: Auto-enablement controlled by `open-webui/tool_config.json`
 - **LLM Selection**: Research uses database-configured LLM, not the chat model
 - **Status Updates**: Tools support real-time progress updates during research operations
+
+### 20.5 n8n → Redis Queue Management ✅
+
+**Status**: Fully integrated and operational
+
+**Implementation Details**:
+- ✅ Added Redis dependency to n8n service in all Docker Compose profiles
+- ✅ Configured n8n with `EXECUTIONS_MODE=queue` for queue-based execution
+- ✅ Set up Bull queue management using Redis database 0
+- ✅ Added proper health check conditions for service startup order
+- ✅ Resolved "Connection Lost" error when accessing n8n through Kong proxy
+- ✅ Implemented WebSocket backend support for real-time features
+
+**Technical Configuration**:
+- Queue backend: Bull (Redis-based queue library)
+- Redis connection: `QUEUE_BULL_REDIS_HOST=redis`
+- Database allocation: Redis DB 0 (shared with backend services)
+- Push backend: WebSocket (switched from SSE for bidirectional communication)
+
+**Kong Proxy Fix Details**:
+- Added `preserve_host: true` to Kong n8n route configuration
+- Removed invalid WebSocket protocol configurations that caused Kong startup failures
+- Kong now properly proxies WebSocket connections for n8n's real-time features
+
+**Benefits Achieved**:
+- Reliable workflow execution with queue management
+- Improved scalability for concurrent workflow processing
+- Real-time workflow status updates through WebSocket
+- Proper service dependency management preventing startup failures
+- Seamless access through Kong proxy without connection issues
+
+> This integration transformed n8n from a single-process execution model to a scalable, queue-based system with proper Redis dependency management and full Kong proxy support.
+
+### 20.6 SearxNG → Redis Caching ✅
+
+**Status**: Fully integrated and operational
+
+**Implementation Details**:
+- ✅ SearxNG already configured with Redis caching in `settings.yml`
+- ✅ Added formal Docker dependency (`depends_on: redis`) to all compose profiles
+- ✅ Configured to use Redis database 1 for search result caching
+- ✅ Updated architecture diagram to show caching relationship
+- ✅ Verified Redis connection and caching functionality
+
+**Technical Configuration**:
+```yaml
+redis:
+  url: redis://:redis_password@redis:6379/1
+```
+
+**Features Available**:
+- Cached search results for improved performance
+- Reduced external API calls to search providers
+- Configurable cache TTL for different search types
+- Automatic cache invalidation for stale results
+
+**Benefits Achieved**:
+- Faster search response times for repeated queries
+- Reduced load on external search providers
+- Better reliability during external API outages
+- Resource optimization through intelligent caching
+
+> This integration enhances SearxNG's performance by leveraging Redis for intelligent search result caching, providing faster responses and reducing external dependencies.
 
 ## 21. Future Enhancements: Docker MCP Servers Integration
 
