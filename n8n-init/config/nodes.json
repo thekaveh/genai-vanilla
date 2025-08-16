@@ -12,7 +12,7 @@
     },
     {
       "name": "n8n-nodes-mcp",
-      "description": "Model Control Protocol integration for AI models",
+      "description": "Model Context Protocol integration for AI models",
       "url": "https://www.npmjs.com/package/n8n-nodes-mcp"
     }
   ]

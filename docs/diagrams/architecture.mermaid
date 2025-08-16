@@ -38,7 +38,8 @@ graph LR
         comfyui-init[comfyui-init]
         n8n-init[n8n-init]
         local-deep-researcher[local-deep-researcher]
-        n8n[n8n]:::api
+        n8n[n8n - Main Instance]:::api
+        n8n-worker[n8n-worker - Queue Worker]:::api
         comfyui[comfyui]:::ai
     end
     
@@ -67,6 +68,7 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> backend
     supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> n8n
+    redis -- "Health Check" --> n8n-worker
     n8n -- "Service Started" --> n8n-init
     n8n-init -- "Installs Community Nodes" --> n8n
     supabase-db-init -- "Completes Successfully" --> comfyui
@@ -105,6 +107,7 @@ graph LR
     backend -- "DB Connection (Direct)" --> supabase-db
     n8n -- "DB Connection (Direct)" --> supabase-db
     n8n -- "Queue Management" --> redis
+    redis -- "Queue Processing" --> n8n-worker
     searxng -- "Search Result Caching" --> redis
     backend -- "Workflow Automation" --> n8n
     backend -- "Cache, Pub/Sub, Geohashing" --> redis
@@ -157,6 +160,6 @@ graph LR
     class ollama,ollama-local,ollama-pull,comfyui-init,n8n-init,local-deep-researcher,comfyui ai
     class open-web-ui ui
     class backend api
-    class kong-api-gateway api
+    class kong-api-gateway,n8n,n8n-worker api
     class supabase-db-init init
     class DefaultNote,LocalNote,GPUNote profile

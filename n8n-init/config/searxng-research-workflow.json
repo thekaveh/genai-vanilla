@@ -1,0 +1,235 @@
+{
+  "name": "SearxNG Research Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST", 
+        "path": "research",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1a1a1a1-1111-1111-1111-111111111111",
+      "name": "Research Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "research"
+    },
+    {
+      "parameters": {
+        "url": "http://searxng:8080/search",
+        "authentication": "none",
+        "httpMethod": "GET",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.query || $json.search || 'artificial intelligence' }}"
+            },
+            {
+              "name": "format", 
+              "value": "json"
+            },
+            {
+              "name": "categories",
+              "value": "={{ $json.categories || 'general' }}"
+            },
+            {
+              "name": "engines",
+              "value": "={{ $json.engines || '' }}"
+            },
+            {
+              "name": "pageno",
+              "value": "={{ $json.page || '1' }}"
+            },
+            {
+              "name": "time_range",
+              "value": "={{ $json.time_range || '' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a1a1a1a1-2222-2222-2222-222222222222",
+      "name": "Search SearxNG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND content = true ORDER BY created_at DESC LIMIT 1",
+        "options": {}
+      },
+      "id": "a1a1a1a1-3333-3333-3333-333333333333",
+      "name": "Get AI Model for Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres_supabase",
+          "name": "Supabase Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and format search results for AI summarization\nconst searchData = $input.first().json;\nconst results = searchData.results || [];\n\n// Format results for AI processing\nconst formattedResults = results.slice(0, 5).map((result, index) => {\n  return `${index + 1}. **${result.title}**\\n   URL: ${result.url}\\n   Content: ${result.content || result.description || 'No description available'}\\n`;\n}).join('\\n');\n\nconst searchQuery = $('Research Webhook').first().json.query || $('Research Webhook').first().json.search;\n\nconst promptText = `Please analyze and summarize these search results for the query: \"${searchQuery}\"\\n\\nSearch Results:\\n${formattedResults}\\n\\nPlease provide:\\n1. A concise summary of the key findings\\n2. The most relevant insights\\n3. Any notable trends or patterns\\n4. Credible sources mentioned`;\n\nreturn {\n  search_query: searchQuery,\n  total_results: searchData.number_of_results || results.length,\n  results_count: results.length,\n  raw_results: results,\n  formatted_prompt: promptText\n};"
+      },
+      "id": "a1a1a1a1-4444-4444-4444-444444444444",
+      "name": "Format Results for AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/generate",
+        "authentication": "none",
+        "httpMethod": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $node['Get AI Model for Summary'].json[0].name }}"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.formatted_prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            },
+            {
+              "name": "options",
+              "value": {
+                "temperature": 0.3,
+                "max_tokens": 1000
+              }
+            }
+          ]
+        },
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "a1a1a1a1-5555-5555-5555-555555555555",
+      "name": "Generate AI Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"search_query\": $node['Format Results for AI'].json.search_query,\n  \"total_results_found\": $node['Format Results for AI'].json.total_results,\n  \"results_analyzed\": $node['Format Results for AI'].json.results_count,\n  \"ai_summary\": $json.response,\n  \"model_used\": $node['Get AI Model for Summary'].json[0].name,\n  \"raw_search_results\": $node['Format Results for AI'].json.raw_results.slice(0, 3),\n  \"success\": true,\n  \"timestamp\": new Date().toISOString()\n} }}"
+      },
+      "id": "a1a1a1a1-6666-6666-6666-666666666666",
+      "name": "Return Research Summary",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"error\": \"Research workflow failed\",\n  \"details\": $json.error || \"Unknown error\",\n  \"success\": false,\n  \"timestamp\": new Date().toISOString()\n} }}"
+      },
+      "id": "a1a1a1a1-7777-7777-7777-777777777777",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 480]
+    }
+  ],
+  "connections": {
+    "Research Webhook": {
+      "main": [
+        [
+          {
+            "node": "Search SearxNG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search SearxNG": {
+      "main": [
+        [
+          {
+            "node": "Get AI Model for Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get AI Model for Summary": {
+      "main": [
+        [
+          {
+            "node": "Format Results for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Results for AI": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Summary": {
+      "main": [
+        [
+          {
+            "node": "Return Research Summary", 
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1",
+  "id": "searxng-research-workflow",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "genai-vanilla-stack"
+  },
+  "tags": [
+    "searxng",
+    "research", 
+    "ai",
+    "ollama",
+    "automation"
+  ]
+}

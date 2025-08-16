@@ -5,10 +5,6 @@ _transform: true
 ### Consumers and Credentials
 ###
 consumers:
-  - username: n8n_user
-    basicauth_credentials:
-      - username: ${N8N_BASIC_AUTH_USER}
-        password: ${N8N_BASIC_AUTH_PASSWORD}
   - username: dashboard_user
     basicauth_credentials:
       - username: ${DASHBOARD_USERNAME}
@@ -266,6 +262,11 @@ services:
           - https
     plugins:
       - name: cors
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - "X-Forwarded-Host: n8n.localhost:55668"
 
   ## ComfyUI routes - Domain-based routing (for local ComfyUI - ai-local profile)
   - name: comfyui-api

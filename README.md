@@ -1678,7 +1678,28 @@ Both access methods now work fully. Domain-based routing through Kong provides t
 - **Supabase PostgreSQL**: n8n uses the Supabase database for storing workflows and execution data
 - **Redis**: n8n uses Redis for queue management, improving reliability and scalability of workflow executions
 
-### 16.5. Kong Gateway Integration
+### 16.5. Queue Mode Architecture
+
+n8n operates in queue mode for enhanced scalability and reliability:
+
+#### Main n8n Service (Producer)
+- **Role**: Handles web UI, API requests, webhook triggers, and workflow orchestration
+- **Functionality**: Receives workflow execution requests and queues them to Redis
+- **Access**: Available via Kong proxy and direct connection
+
+#### n8n-worker Service (Consumer)  
+- **Role**: Dedicated worker process that executes workflows
+- **Functionality**: Pulls workflow execution jobs from Redis queue and processes them
+- **Scaling**: Multiple workers can be added for increased throughput
+- **Isolation**: Workflow execution is isolated from the main UI process
+
+#### Queue Management
+- **Message Broker**: Redis with Bull queue library
+- **Job Flow**: Main n8n → Redis queue → Worker(s) → Database
+- **Reliability**: Jobs persist in Redis until successfully processed
+- **Monitoring**: Health checks available at `/healthz` and `/healthz/readiness` on worker
+
+### 16.6. Kong Gateway Integration
 
 n8n is accessible through the Kong API Gateway with full WebSocket support for real-time features:
 
@@ -1688,10 +1709,37 @@ n8n is accessible through the Kong API Gateway with full WebSocket support for r
 - **Real-time Features**: Workflow execution updates, test webhook listening, and collaboration features work seamlessly through the proxy
 - **Technical Implementation**: 
   - Kong routes are configured with `preserve_host: true` for proper origin validation
+  - n8n runs in development mode (`NODE_ENV: development`) to allow WebSocket connections through proxy
   - WebSocket connections are automatically upgraded when accessing `/rest/push` endpoints
-  - No additional Kong plugins required - the proxy handles WebSocket upgrades natively
 
-### 16.6. Configuration
+### 16.7. Service Dependencies (Verified)
+
+The following service dependencies have been successfully tested and verified:
+
+#### n8n → Redis (Queue Management)
+- **Status**: ✅ **Working**
+- **Purpose**: Job queue management for workflow execution
+- **Verification**: Bull queue keys created in Redis, worker processes jobs successfully
+- **Configuration**: `EXECUTIONS_MODE=queue` with Redis connection parameters
+
+#### n8n → PostgreSQL (Data Storage)
+- **Status**: ✅ **Working** 
+- **Purpose**: Workflow storage, execution history, and credentials management
+- **Verification**: n8n schema and tables created in Supabase database
+- **Database**: Uses `n8n` schema in Supabase PostgreSQL
+
+#### n8n PostgreSQL Node → Supabase Database
+- **Status**: ✅ **Working**
+- **Purpose**: Workflows can query application data (e.g., LLM configurations)
+- **Verification**: Successfully queried `public.llms` table from n8n workflows
+- **Access**: Via PostgreSQL node with Supabase database credentials
+
+#### Complete Queue Pipeline
+- **Status**: ✅ **Working**
+- **Flow**: UI trigger → Main n8n → Redis queue → Worker → Database → Response
+- **Verification**: End-to-end workflow execution through queue system confirmed
+
+### 16.8. Configuration
 
 The n8n service can be configured through the following environment variables:
 
@@ -1708,343 +1756,45 @@ The n8n service can be configured through the following environment variables:
 - `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE`: Allow community nodes as AI Agent tools (default: true)
 - `N8N_INIT_NODES`: Comma-separated list of community nodes to install automatically
 
-### 16.6. Pre-built Workflows
+### 16.9. Pre-built Workflows
 
-The `n8n/` directory contains pre-built n8n workflow templates providing automation and integration capabilities for research and image generation tasks.
+The `n8n-init/config/` directory contains pre-built n8n workflow templates providing automation and integration capabilities for research tasks.
 
-#### 15.5.1. Research Workflows
+#### 16.9.1. Available Workflows
 
-**Available Workflows**:
-- `research-simple.json` - Basic research workflow with webhook trigger
-- `research-batch.json` - Batch research processing workflow  
-- `research-scheduled.json` - Scheduled research automation workflow
+**SearxNG Research Workflow** (`searxng-research-workflow.json`):
+- **Purpose**: Automated research using SearxNG with AI summarization
+- **Webhook**: `/webhook/research`
+- **Features**: Searches SearxNG for information, uses AI to summarize results, returns structured research summaries
 
-**Simple Research Workflow**
+**Import Instructions**:
+Since modern n8n (v1.106.3+) requires user management instead of Basic Auth, workflows must be imported manually:
 
-**Purpose**: Execute single research queries via webhook with automatic result retrieval.
+1. **Complete n8n Setup**: Access n8n and complete user registration
+2. **Set Up Database Credentials**: Add PostgreSQL credential for Supabase database
+3. **Import Workflows**: Upload JSON files via Workflows → Import from File
+4. **Configure Nodes**: Assign database credentials to PostgreSQL nodes
+5. **Activate Workflows**: Enable workflows using toggle switches
 
-**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/research-trigger`
+**Testing**: Use manual triggers or PostgreSQL node queries since webhook functionality has compatibility issues with modern n8n + queue mode.
 
-**Request Format**:
-```json
-{
-  "query": "Your research question here",
-  "max_loops": 3,
-  "search_api": "duckduckgo",
-  "user_id": "optional-user-id"
-}
-```
+#### 16.9.2. Integration with Open-WebUI
 
-**Response**: Complete research results including title, summary, content, and sources.
+The research workflow is designed to work with the Open-WebUI n8n integration tool located at `open-webui/tools/n8n_webhook_tool.py`. This tool allows users to trigger n8n workflows directly from chat conversations.
 
-#### 15.5.2. ComfyUI Image Generation Workflows
+### 16.10. Community Nodes
 
-**Available Workflows**:
-- `comfyui-image-generation.json` - Comprehensive image generation workflow with validation and error handling
-- `comfyui-simple.json` - Simple image generation workflow for basic use cases
+The following community nodes are automatically installed by the n8n-init service:
 
-**Comprehensive Image Generation Workflow**
+- **`n8n-nodes-comfyui`** - ComfyUI integration for image generation workflows
+- **`@ksc1234/n8n-nodes-comfyui-image-to-image`** - Advanced image transformation capabilities  
+- **`n8n-nodes-mcp`** - Model Context Protocol support for AI integrations
 
-**Features**:
-- **Input Validation**: Validates all parameters before generation
-- **Health Checking**: Verifies ComfyUI service availability  
-- **Error Handling**: Comprehensive error handling with meaningful responses
-- **Model Support**: Works with all available ComfyUI models
-- **Response Processing**: Extracts and formats generation results
+These nodes extend n8n's functionality with specialized AI and image processing capabilities.
 
-**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/comfyui-trigger`
+---
 
-**Request Format**:
-```json
-{
-  "prompt": "a beautiful sunset over mountains",
-  "negative_prompt": "blurry, low quality",
-  "width": 512,
-  "height": 512,
-  "steps": 20,
-  "cfg": 7.0,
-  "checkpoint": "sd_v1-5_pruned_emaonly.safetensors",
-  "wait_for_completion": true
-}
-```
-
-**Response Format**:
-```json
-{
-  "success": true,
-  "prompt_id": "12345-abcde",
-  "client_id": "67890-fghij",
-  "message": "Image generated successfully",
-  "generation_parameters": {
-    "prompt": "a beautiful sunset over mountains",
-    "width": 512,
-    "height": 512,
-    "steps": 20,
-    "cfg": 7.0,
-    "checkpoint": "sd_v1-5_pruned_emaonly.safetensors"
-  },
-  "generated_images": [
-    {
-      "filename": "ComfyUI_00001_.png",
-      "subfolder": "",
-      "folder_type": "output",
-      "node_id": "SaveImage_9"
-    }
-  ],
-  "image_count": 1,
-  "workflow_info": {
-    "execution_id": "n8n-exec-123",
-    "workflow_name": "ComfyUI Image Generation Workflow",
-    "completed_at": "2024-01-15T12:30:45Z",
-    "processing_time": 15
-  }
-}
-```
-
-**Simple Image Generation Workflow**
-
-**Webhook URL**: `http://localhost:${N8N_PORT}/webhook/comfyui-simple`
-
-**Request Format**:
-```json
-{
-  "prompt": "a cute cat",
-  "width": 512,
-  "height": 512,
-  "steps": 20
-}
-```
-- Competitive analysis
-- Content research for multiple articles
-- Academic research compilation
-
-#### 15.5.3. Scheduled Research Workflow (`research-scheduled.json`)
-
-**Purpose**: Automatically execute predefined research queries on a schedule (default: weekly on Mondays at 9 AM).
-
-**Schedule**: Configurable via cron expression (default: `0 9 * * MON`)
-
-**Features**:
-- Predefined research topics (AI breakthroughs, tech trends, cybersecurity, open source)
-- Automatic report generation
-- Result storage in Supabase Storage
-- Execution summaries and statistics
-
-**Use Cases**:
-- Weekly industry reports
-- Trend monitoring
-- Automated competitive intelligence
-- Research newsletter generation
-
-### 16.6. Workflow Installation and Configuration
-
-1. **Import Workflows**:
-   - Access n8n at `http://localhost:${N8N_PORT}`
-   - Go to "Workflows" → "Import from JSON"
-   - Copy and paste the contents of each workflow file from the `n8n/workflows/` directory
-   - Save and activate the workflows
-
-2. **Configure Environment**:
-   - Ensure the backend service is running on the correct port
-   - Verify the Local Deep Researcher service is accessible
-   - Test webhook endpoints after import
-
-3. **Set up Credentials** (if needed):
-   - Configure any required API keys
-   - Set up database connections if using custom storage
-
-### 16.7. API Integration Examples
-
-#### Simple Research Request
-
-```bash
-curl -X POST "http://localhost:${N8N_PORT}/webhook/research-trigger" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Latest developments in artificial intelligence",
-    "max_loops": 4,
-    "user_id": "user123"
-  }'
-```
-
-#### Batch Research Request
-
-```bash
-curl -X POST "http://localhost:${N8N_PORT}/webhook/batch-research" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "queries": [
-      "Machine learning trends 2024",
-      "AI ethics and regulations",
-      "Neural network architectures"
-    ],
-    "config": {
-      "max_loops": 3,
-      "user_id": "user123"
-    }
-  }'
-```
-
-#### JavaScript Integration
-
-```javascript
-// Simple research
-async function performResearch(query) {
-  const response = await fetch('http://localhost:63016/webhook/research-trigger', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      query: query,
-      max_loops: 3,
-      user_id: 'web-app-user'
-    })
-  });
-  return response.json();
-}
-
-// Batch research
-async function performBatchResearch(queries) {
-  const response = await fetch('http://localhost:63016/webhook/batch-research', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      queries: queries,
-      config: { max_loops: 3 }
-    })
-  });
-  return response.json();
-}
-```
-
-### 16.8. Configuration Options
-
-#### Timing Configuration
-
-- **Simple Research**: 30-second processing timeout with 10-second retry intervals
-- **Batch Research**: 45-second initial wait, 15-second retry intervals
-- **Scheduled Research**: 5-minute completion timeout for all queries
-
-#### Error Handling
-
-All workflows include:
-- Automatic retry mechanisms for transient failures
-- Timeout handling for long-running research
-- Error response formatting
-- Status tracking and logging
-
-#### Customization
-
-You can customize the workflows by:
-1. Modifying timing parameters in wait nodes
-2. Changing retry logic and timeout values
-3. Adding notification nodes (email, Slack, etc.)
-4. Integrating with other services (databases, APIs)
-5. Customizing the scheduled research topics
-
-### 16.9. Monitoring and Debugging
-
-#### Execution Logs
-
-- Access workflow execution logs in n8n interface
-- Monitor research session status via backend API endpoints
-- Check Local Deep Researcher service logs for detailed processing information
-
-#### Health Checks
-
-Test service health:
-```bash
-# Backend service health
-curl http://localhost:${BACKEND_PORT}/research/health
-
-# n8n workflow health
-curl http://localhost:${N8N_PORT}/webhook/research-trigger \
-  -X POST -H "Content-Type: application/json" \
-  -d '{"query": "test query"}'
-```
-
-#### Common Issues
-
-1. **Webhook not responding**: Check n8n service status and workflow activation
-2. **Research timeouts**: Adjust wait times or check Local Deep Researcher performance
-3. **Database errors**: Verify Supabase connection and research table setup
-4. **Missing results**: Check backend service logs and research session status
-
-### 16.10. Advanced Usage
-
-#### Custom Workflows
-
-Create custom workflows by:
-1. Starting with one of the provided templates
-2. Adding pre-processing nodes for data transformation
-3. Integrating with external APIs or databases
-4. Adding post-processing for custom result formatting
-
-#### Integration with Other Services
-
-These workflows can be extended to integrate with:
-- Slack for result notifications
-- Email services for report delivery
-- Google Sheets for result tracking
-- Custom databases for analytics
-- Frontend applications for real-time updates
-
-#### Security Considerations
-
-- Use authentication for webhook endpoints in production
-- Implement rate limiting to prevent abuse
-- Validate input data to prevent injection attacks
-- Use HTTPS for secure communication
-- Implement proper user access controls
-
-### 16.11. Integration with Other Services
-
-#### Open-WebUI Integration
-- Import the ComfyUI tool in Open-WebUI for direct image generation
-- Use n8n workflows for batch processing and automation
-- Tools can trigger n8n workflows for complex operations
-
-#### Backend API Integration
-- Workflows communicate with FastAPI backend
-- Access to model management and health checking
-- Consistent error handling and response formatting
-
-#### Kong Gateway Routing
-- All workflows route through Kong for consistency
-- Rate limiting and authentication can be applied
-- Centralized service discovery and load balancing
-
-### 16.12. Workflow Customization
-
-#### Adding Custom Parameters
-To add new generation parameters:
-
-1. **Update Webhook Node**: Add new input fields
-2. **Update Validation**: Add parameter validation in code nodes
-3. **Update API Call**: Include new parameters in HTTP request
-4. **Update Response**: Include new parameters in response formatting
-
-#### Error Handling
-All workflows include comprehensive error handling:
-- **Service Health Checks**: Verify ComfyUI availability
-- **Parameter Validation**: Validate input parameters
-- **API Error Handling**: Handle backend API errors
-- **Response Formatting**: Consistent error response format
-
-#### Monitoring and Logging
-- Use n8n's built-in execution history for monitoring
-- Custom logging can be added via code nodes
-- Integration with external monitoring systems via webhooks
-
-### 16.13. General Usage Examples
-
-n8n can be used for a wide variety of automation tasks beyond research and image generation, including:
-
-- **Data Processing**: Automatically process and transform data from various sources
-- **Notifications**: Send notifications to Slack, email, or other channels based on events
-- **Scheduled Tasks**: Run tasks on a schedule, such as nightly vector database refreshes
-- **API Integrations**: Connect to external APIs to fetch or send data
-- **Conditional Logic**: Create complex workflows with conditional branching
-- **Error Handling**: Configure retry logic and error workflows
+---
 
 ## 17. Open-WebUI Integration
 
