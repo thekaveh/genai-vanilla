@@ -8,52 +8,247 @@ source "$SCRIPT_DIR/hosts-utils.sh" 2>/dev/null || {
   SKIP_HOSTS=true
 }
 
-# Function to apply horizontal gradient coloring to text
-apply_horizontal_gradient() {
+# Function to apply rich multi-color gradient with multiple colors per character
+apply_enhanced_gradient() {
   local text="$1"
   local length=${#text}
   
-  # Define color gradient (dark blue -> cyan -> bright cyan -> bright blue)
-  local colors=(34 36 96 94 34 36 96 94)
-  local color_count=${#colors[@]}
+  # Rich blue hue palette based on the screenshot - comprehensive gradient colors
+  # From dark blue through bright cyan, covering all blue spectrum
+  local blue_palette=(
+    17   # Dark Navy Blue
+    18   # Dark Blue  
+    19   # Medium Dark Blue
+    20   # Royal Blue
+    21   # Bright Blue
+    26   # Blue-Cyan
+    27   # Cyan-Blue
+    33   # Bright Cyan-Blue
+    39   # Electric Blue
+    45   # Bright Electric Blue
+    51   # Cyan
+    87   # Light Cyan-Blue
+    123  # Bright Light Blue
+    159  # Very Light Blue
+    195  # Pale Blue
+  )
+  
+  local palette_size=${#blue_palette[@]}
+  
+  # Calculate how many colors to use per character (minimum 2, maximum 4)
+  local colors_per_char=2
+  if [[ $length -le 5 ]]; then
+    colors_per_char=2  # For GENAI (5 chars) = 10 colors minimum
+  elif [[ $length -le 7 ]]; then
+    colors_per_char=3  # For Vanilla (7 chars) = 21 colors
+  else
+    colors_per_char=2  # Default fallback
+  fi
   
   for (( i=0; i<length; i++ )); do
     local char="${text:$i:1}"
-    local color_index=$(( (i * color_count) / length ))
-    local color=${colors[$color_index]}
     
     if [[ "$char" == " " ]]; then
       printf " "
     else
-      printf "\e[${color}m%s\e[0m" "$char"
+      # Calculate which section of the palette this character should use
+      local char_section_start=$(( (i * palette_size) / length ))
+      local char_section_size=$(( palette_size / length + 1 ))
+      
+      # Apply multiple colors within each character using subshells for gradient effect
+      local color_step=$(( char_section_size / colors_per_char ))
+      if [[ $color_step -lt 1 ]]; then
+        color_step=1
+      fi
+      
+      # For each character, create a smooth transition through multiple colors
+      for (( color_idx=0; color_idx<colors_per_char; color_idx++ )); do
+        local palette_idx=$(( char_section_start + (color_idx * color_step) ))
+        
+        # Ensure we don't exceed palette bounds
+        if [[ $palette_idx -ge $palette_size ]]; then
+          palette_idx=$((palette_size - 1))
+        fi
+        
+        local color=${blue_palette[$palette_idx]}
+        
+        # Create a visual effect by printing portions of the character with different colors
+        # This simulates multiple colors per character through rapid color transitions
+        if [[ $color_idx -eq 0 ]]; then
+          # First color - main character display
+          printf "\e[1;38;5;${color}m%s\e[0m" "$char"
+        else
+          # Additional colors - create subtle overlay effect with zero-width characters
+          printf "\e[1;38;5;${color}m\b%s\e[0m" "$char"
+        fi
+      done
     fi
   done
   
   printf "\n"
 }
 
-# Function to display the branded ASCII banner
-show_banner() {
-  # ASCII art for GenAI Vanilla using doom font
-  local line1=' _____             ___  _____   _   _             _ _ _       '
-  local line2='|  __ \           / _ \|_   _| | | | |           (_) | |      '
-  local line3='| |  \/ ___ _ __ / /_\ \ | |   | | | | __ _ _ __  _| | | __ _ '
-  local line4='| | __ / _ \ '"'"'_ \|  _  | | |   | | | |/ _` | '"'"'_ \| | | |/ _` |'
-  local line5='| |_\ \  __/ | | | | | |_| |_  \ \_/ / (_| | | | | | | | (_| |'
-  local line6=' \____/\___|_| |_\_| |_/\___/   \___/ \__,_|_| |_|_|_|_|\__,_|'
+# Function to center text based on terminal width
+center_text() {
+  local text="$1"
+  local term_width=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  local text_length=${#text}
+  local padding=$(( (term_width - text_length) / 2 ))
   
-  # Apply horizontal gradient to each line
-  apply_horizontal_gradient "$line1"
-  apply_horizontal_gradient "$line2"
-  apply_horizontal_gradient "$line3"
-  apply_horizontal_gradient "$line4"
-  apply_horizontal_gradient "$line5"
-  apply_horizontal_gradient "$line6"
+  if [[ $padding -gt 0 ]]; then
+    printf "%*s" $padding ""
+  fi
+  echo "$text"
+}
+
+# Function to display the branded ASCII banner with responsive sizing
+show_banner() {
+  # Get terminal width
+  local term_width=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  
+  # Choose logo size based on terminal width
+  if [[ $term_width -lt 70 ]]; then
+    show_compact_banner
+  else
+    show_full_banner
+  fi
+}
+
+# Function to display the full branded ASCII banner - bold and prominent with centering
+show_full_banner() {
+  # Get terminal width for centering
+  local term_width=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  
+  # Filled block ASCII art for GenAI Vanilla - bold and prominent
+  local line1='  ██████╗  ███████╗ ███╗   ██╗  █████╗  ██╗'
+  local line2=' ██╔════╝  ██╔════╝ ████╗  ██║ ██╔══██╗ ██║'
+  local line3=' ██║  ███╗ █████╗   ██╔██╗ ██║ ███████║ ██║'
+  local line4=' ██║   ██║ ██╔══╝   ██║╚██╗██║ ██╔══██║ ██║'
+  local line5=' ╚██████╔╝ ███████╗ ██║ ╚████║ ██║  ██║ ██║'
+  local line6='  ╚═════╝  ╚══════╝ ╚═╝  ╚═══╝ ╚═╝  ╚═╝ ╚═╝'
+  
+  local line8=' ██╗   ██╗  █████╗  ███╗   ██╗ ██╗ ██╗      ██╗       █████╗'
+  local line9=' ██║   ██║ ██╔══██╗ ████╗  ██║ ██║ ██║      ██║      ██╔══██╗'
+  local line10=' ██║   ██║ ███████║ ██╔██╗ ██║ ██║ ██║      ██║      ███████║'
+  local line11=' ╚██╗ ██╔╝ ██╔══██║ ██║╚██╗██║ ██║ ██║      ██║      ██╔══██║'
+  local line12='  ╚████╔╝  ██║  ██║ ██║ ╚████║ ██║ ███████╗ ███████╗ ██║  ██║'
+  local line13='   ╚═══╝   ╚═╝  ╚═╝ ╚═╝  ╚═══╝ ╚═╝ ╚══════╝ ╚══════╝ ╚═╝  ╚═╝'
+  
+  # Calculate centering for GenAI (first part)
+  local genai_width=${#line1}
+  local genai_padding=$(( (term_width - genai_width) / 2 ))
+  
+  # Calculate centering for Vanilla (second part)  
+  local vanilla_width=${#line8}
+  local vanilla_padding=$(( (term_width - vanilla_width) / 2 ))
+  
+  # Apply enhanced gradient to each line with proper centering
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line1"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line2"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line3"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line4"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line5"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line6"
+  printf "\n"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line8"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line9"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line10"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line11"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line12"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line13"
   
   printf "\n"
-  printf "\e[94m                  Developed by Kaveh Razavi\e[0m\n"
-  printf "\e[96m          https://github.com/thekaveh/genai-vanilla\e[0m\n"
-  printf "\e[93m                      Apache License 2.0\e[0m\n"
+  # Center the credit information dynamically
+  local credit_padding=$(( (term_width - 25) / 2 ))
+  printf "%*s" $credit_padding ""
+  printf "\e[1;94mDeveloped by Kaveh Razavi\e[0m\n"
+  local url_padding=$(( (term_width - 45) / 2 ))
+  printf "%*s" $url_padding ""
+  printf "\e[1;96mhttps://github.com/thekaveh/genai-vanilla\e[0m\n"
+  local license_padding=$(( (term_width - 17) / 2 ))
+  printf "%*s" $license_padding ""
+  printf "\e[1;93mApache License 2.0\e[0m\n"
+  printf "\n"
+}
+
+# Function to display a compact banner for narrow terminals
+show_compact_banner() {
+  # Get terminal width for centering
+  local term_width=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
+  
+  # Compact filled block ASCII art for GenAI only
+  local line1='  ██████╗  ███████╗ ███╗   ██╗  █████╗  ██╗'
+  local line2=' ██╔════╝  ██╔════╝ ████╗  ██║ ██╔══██╗ ██║'
+  local line3=' ██║  ███╗ █████╗   ██╔██╗ ██║ ███████║ ██║'
+  local line4=' ██║   ██║ ██╔══╝   ██║╚██╗██║ ██╔══██║ ██║'
+  local line5=' ╚██████╔╝ ███████╗ ██║ ╚████║ ██║  ██║ ██║'
+  local line6='  ╚═════╝  ╚══════╝ ╚═╝  ╚═══╝ ╚═╝  ╚═╝ ╚═╝'
+  
+  local line8='  ██╗   ██╗  █████╗  ███╗   ██╗ ██╗ ██╗      ██╗       █████╗'
+  local line9='  ██║   ██║ ██╔══██╗ ████╗  ██║ ██║ ██║      ██║      ██╔══██╗'
+  local line10=' ██║   ██║ ███████║ ██╔██╗ ██║ ██║ ██║      ██║      ███████║'
+  local line11=' ╚██╗ ██╔╝ ██╔══██║ ██║╚██╗██║ ██║ ██║      ██║      ██╔══██║'
+  local line12='  ╚████╔╝  ██║  ██║ ██║ ╚████║ ██║ ███████╗ ███████╗ ██║  ██║'
+  local line13='   ╚═══╝   ╚═╝  ╚═╝ ╚═╝  ╚═══╝ ╚═╝ ╚══════╝ ╚══════╝ ╚═╝  ╚═╝'
+  
+  # Calculate centering for GenAI (first part)
+  local genai_width=${#line1}
+  local genai_padding=$(( (term_width - genai_width) / 2 ))
+  
+  # Calculate centering for Vanilla (second part)  
+  local vanilla_width=${#line8}
+  local vanilla_padding=$(( (term_width - vanilla_width) / 2 ))
+  
+  # Apply enhanced gradient to each line with proper centering
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line1"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line2"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line3"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line4"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line5"
+  printf "%*s" $genai_padding ""
+  apply_enhanced_gradient "$line6"
+  printf "\n"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line8"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line9"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line10"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line11"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line12"
+  printf "%*s" $vanilla_padding ""
+  apply_enhanced_gradient "$line13"
+  
+  printf "\n"
+  # Center the credit information dynamically for compact banner
+  local credit_padding=$(( (term_width - 25) / 2 ))
+  printf "%*s" $credit_padding ""
+  printf "\e[1;94mDeveloped by Kaveh Razavi\e[0m\n"
+  local url_padding=$(( (term_width - 45) / 2 ))
+  printf "%*s" $url_padding ""
+  printf "\e[1;96mhttps://github.com/thekaveh/genai-vanilla\e[0m\n"
+  local license_padding=$(( (term_width - 17) / 2 ))
+  printf "%*s" $license_padding ""
+  printf "\e[1;93mApache License 2.0\e[0m\n"
   printf "\n"
 }
 
