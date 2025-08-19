@@ -91,11 +91,11 @@ done
 # Determine Docker Compose files based on profile
 COMPOSE_FILES="docker-compose.yml:compose-profiles/data.yml"
 if [[ "$PROFILE" == "default" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/vector.yml:compose-profiles/apps.yml"
 elif [[ "$PROFILE" == "ai-local" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/apps-local.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/vector-local.yml:compose-profiles/apps-local.yml"
 elif [[ "$PROFILE" == "ai-gpu" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/apps-gpu.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/vector-gpu.yml:compose-profiles/apps-gpu.yml"
 fi
 
 echo "🛑 Stopping GenAI Vanilla Stack"
