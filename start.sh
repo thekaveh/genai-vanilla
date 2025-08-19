@@ -194,13 +194,13 @@ echo "• Using Docker Compose command: $DOCKER_COMPOSE_CMD"
 # Determine Docker Compose files based on profile
 COMPOSE_FILES="docker-compose.yml:compose-profiles/data.yml"
 if [[ "$PROFILE" == "default" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml:compose-profiles/vector.yml"
 elif [[ "$PROFILE" == "ai-local" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/apps-local.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/apps-local.yml:compose-profiles/vector-local.yml"
 elif [[ "$PROFILE" == "ai-gpu" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/apps-gpu.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/apps-gpu.yml:compose-profiles/vector-gpu.yml"
 elif [[ "$PROFILE" == "fixed" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml"
+  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml:compose-profiles/vector.yml"
 fi
 
 # Display the branded banner
@@ -321,6 +321,8 @@ PORT_VARS=(
   "BACKEND_PORT"
   "N8N_PORT"
   "COMFYUI_PORT"
+  "WEAVIATE_PORT"
+  "WEAVIATE_GRPC_PORT"
 )
 
 # Create a temporary file to store non-port variables
@@ -364,6 +366,8 @@ OPEN_WEB_UI_PORT=$(($BASE_PORT + 15))
 BACKEND_PORT=$(($BASE_PORT + 16))
 N8N_PORT=$(($BASE_PORT + 17))
 COMFYUI_PORT=$(($BASE_PORT + 18))
+WEAVIATE_PORT=$(($BASE_PORT + 19))
+WEAVIATE_GRPC_PORT=$(($BASE_PORT + 20))
 EOF
 
 # Add profile-specific environment variables
@@ -401,6 +405,8 @@ VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" .env | cut -d '=' -f2)
 VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
 VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" .env | cut -d '=' -f2)
 VERIFIED_COMFYUI_PORT=$(grep "^COMFYUI_PORT=" .env | cut -d '=' -f2)
+VERIFIED_WEAVIATE_PORT=$(grep "^WEAVIATE_PORT=" .env | cut -d '=' -f2)
+VERIFIED_WEAVIATE_GRPC_PORT=$(grep "^WEAVIATE_GRPC_PORT=" .env | cut -d '=' -f2)
 
 # Display port assignments in a cleaner format with aligned port numbers
 echo ""
@@ -424,6 +430,8 @@ printf "  • %-35s %s\n" "Open Web UI:" "$VERIFIED_OPEN_WEB_UI_PORT"
 printf "  • %-35s %s\n" "Backend API:" "$VERIFIED_BACKEND_PORT"
 printf "  • %-35s %s\n" "n8n Workflow Automation:" "$VERIFIED_N8N_PORT"
 printf "  • %-35s %s\n" "ComfyUI Image Generation:" "$VERIFIED_COMFYUI_PORT"
+printf "  • %-35s %s\n" "Weaviate Vector DB (HTTP):" "$VERIFIED_WEAVIATE_PORT"
+printf "  • %-35s %s\n" "Weaviate Vector DB (gRPC):" "$VERIFIED_WEAVIATE_GRPC_PORT"
 echo ""
 echo "📋 Access Points:"
 printf "  • %-20s %s\n" "Supabase Studio:" "http://localhost:$VERIFIED_SUPABASE_STUDIO_PORT"
@@ -436,6 +444,7 @@ printf "  • %-20s %s\n" "Open Web UI:" "http://localhost:$VERIFIED_OPEN_WEB_UI
 printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_PORT/docs"
 printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"
 printf "  • %-20s %s\n" "ComfyUI Interface:" "http://localhost:$VERIFIED_COMFYUI_PORT"
+printf "  • %-20s %s\n" "Weaviate GraphQL:" "http://localhost:$VERIFIED_WEAVIATE_PORT/v1/graphql"
 echo ""
 
 # Hosts file management
@@ -557,6 +566,34 @@ echo "    - Starting containers..."
 # Added --force-recreate to ensure containers are recreated with new port settings
 execute_compose_cmd up -d --force-recreate
 
+# Check dynamic Weaviate embedding model configuration
+echo ""
+echo "🔍 Verifying Weaviate embedding model configuration..."
+if [[ "$PROFILE" == *"vector"* ]] || [[ "$COMPOSE_FILES" == *"vector"* ]]; then
+  # Wait a moment for weaviate-init to complete
+  sleep 3
+  
+  # Check if weaviate-shared-config volume exists and has configuration
+  SHARED_CONFIG_PATH=""
+  if docker volume inspect "${PROJECT_NAME}_weaviate-shared-config" >/dev/null 2>&1; then
+    # Get the volume mount path (this is Docker-specific and may vary)
+    echo "  • weaviate-shared-config volume exists"
+    
+    # Try to read the configuration from the volume via a temporary container
+    WEAVIATE_MODEL=$(docker run --rm -v "${PROJECT_NAME}_weaviate-shared-config:/shared" alpine:latest sh -c "if [ -f /shared/weaviate-config.env ]; then cat /shared/weaviate-config.env | grep WEAVIATE_OLLAMA_EMBEDDING_MODEL | cut -d'=' -f2; fi" 2>/dev/null || echo "")
+    
+    if [ -n "$WEAVIATE_MODEL" ]; then
+      echo "  • ✅ Dynamic embedding model discovered: $WEAVIATE_MODEL"
+    else
+      echo "  • ⚠️  Warning: No embedding model configuration found, using default"
+    fi
+  else
+    echo "  • ⚠️  Warning: weaviate-shared-config volume not found"
+  fi
+else
+  echo "  • Skipped (vector services not included in profile: $PROFILE)"
+fi
+
 # Show the actual port mappings to verify
 echo ""
 echo "🔍 Verifying port mappings from Docker..."
@@ -578,6 +615,7 @@ SERVICES=(
   "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
   "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
   "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
+  "weaviate:8080:$VERIFIED_WEAVIATE_PORT"
   "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
   "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
   "backend:8000:$VERIFIED_BACKEND_PORT"

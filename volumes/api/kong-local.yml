@@ -297,6 +297,22 @@ services:
           policy: local
       # Note: SearxNG doesn't have built-in auth, add basic-auth if needed in production
 
+  ## Weaviate Vector Database routes - Domain-based routing
+  - name: weaviate-api
+    url: http://weaviate:8080/
+    routes:
+      - name: weaviate-api-all
+        strip_path: false
+        hosts:
+          - vector.localhost
+    plugins:
+      - name: cors
+      - name: rate-limiting
+        config:
+          minute: 100
+          hour: 1000
+          policy: local
+
   ## Open WebUI routes - Domain-based routing
   - name: openwebui-api
     url: http://open-web-ui:8080/

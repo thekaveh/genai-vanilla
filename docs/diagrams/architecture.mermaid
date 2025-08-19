@@ -43,6 +43,14 @@ graph LR
         comfyui[comfyui]:::ai
     end
     
+    %% Vector Services Profile (vector.yml / vector-local.yml / vector-gpu.yml)
+    subgraph VectorProfile[Vector Profile - vector.yml/vector-local.yml/vector-gpu.yml]
+        direction TB
+        weaviate-init[weaviate-init - Dynamic Config]:::init
+        weaviate[weaviate - Vector DB]:::api
+        multi2vec-clip[multi2vec-clip - CLIP Model]:::ai
+    end
+    
     %% Apps Services Profile (apps.yml / apps-local.yml / apps-gpu.yml)
     subgraph AppsProfile[Apps Profile - apps.yml/apps-local.yml/apps-gpu.yml]
         direction TB
@@ -68,6 +76,8 @@ graph LR
     supabase-db-init -- "Completes Successfully" --> backend
     supabase-db-init -- "Completes Successfully" --> open-web-ui
     supabase-db-init -- "Completes Successfully" --> n8n
+    supabase-db-init -- "Completes Successfully" --> weaviate-init
+    supabase-db-init -- "Completes Successfully" --> multi2vec-clip
     redis -- "Health Check" --> n8n-worker
     n8n -- "Service Started" --> n8n-init
     n8n-init -- "Installs Community Nodes" --> n8n
@@ -94,6 +104,7 @@ graph LR
     kong-api-gateway -- "Routes + WebSocket Proxy" --> n8n
     kong-api-gateway -- Routes --> comfyui
     kong-api-gateway -- "Routes /research/*" --> backend
+    kong-api-gateway -- "Routes /v1/* (Vector API)" --> weaviate
 
     kong-api-gateway -- "Depends on" --> redis
     kong-api-gateway -- "Depends on" --> supabase-auth
@@ -111,6 +122,22 @@ graph LR
     searxng -- "Search Result Caching" --> redis
     backend -- "Workflow Automation" --> n8n
     backend -- "Cache, Pub/Sub, Geohashing" --> redis
+    %% Weaviate dependencies and connections
+    weaviate-init -- "Queries Embedding Models" --> supabase-db
+    weaviate-init -- "Configures" --> weaviate
+    multi2vec-clip -- "Provides CLIP Inference" --> weaviate
+    weaviate -- "Text Vectorization" --> ollama
+    weaviate -- "Depends on" --> multi2vec-clip
+    weaviate -- "Depends on" --> weaviate-init
+    
+    %% Services depending on Weaviate
+    backend -- "Depends on" --> weaviate-init
+    backend -- "Depends on" --> weaviate
+    backend -- "Vector Operations" --> weaviate
+    n8n -- "Depends on" --> weaviate
+    n8n -- "Vector Workflows" --> weaviate
+    open-web-ui -- "Depends on" --> weaviate
+    open-web-ui -- "RAG Operations" --> weaviate
     ollama-pull -- "Completes Successfully" --> local-deep-researcher
     ollama-pull -- "Completes Successfully" --> open-web-ui
     ollama-pull -- "Completes Successfully" --> backend
@@ -147,9 +174,9 @@ graph LR
     %% Profile Selection Notes
     subgraph ProfileNotes[Profile Selection]
         direction TB
-        DefaultNote[default: data.yml + ai.yml + apps.yml]
-        LocalNote[ai-local: data.yml + ai-local.yml + apps-local.yml]
-        GPUNote[ai-gpu: data.yml + ai-gpu.yml + apps-gpu.yml]
+        DefaultNote[default: data.yml + ai.yml + apps.yml + vector.yml]
+        LocalNote[ai-local: data.yml + ai-local.yml + apps-local.yml + vector-local.yml]
+        GPUNote[ai-gpu: data.yml + ai-gpu.yml + apps-gpu.yml + vector-gpu.yml]
     end
 
     %% Apply styles
@@ -157,9 +184,10 @@ graph LR
     classDef profile fill:#e3f2fd,stroke:#1976d2,color:#1e1e1e
     class supabase-db,neo4j-graph-db database
     class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
-    class ollama,ollama-local,ollama-pull,comfyui-init,n8n-init,local-deep-researcher,comfyui ai
+    class ollama,ollama-local,ollama-pull,comfyui-init,n8n-init,local-deep-researcher,comfyui,multi2vec-clip ai
+    class weaviate-init init
     class open-web-ui ui
     class backend api
-    class kong-api-gateway,n8n,n8n-worker api
+    class kong-api-gateway,n8n,n8n-worker,weaviate api
     class supabase-db-init init
     class DefaultNote,LocalNote,GPUNote profile

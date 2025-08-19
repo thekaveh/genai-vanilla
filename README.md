@@ -581,6 +581,489 @@ The Neo4j Graph Database service (`neo4j-graph-db`) provides a robust graph data
   - Password: Value of `GRAPH_DB_PASSWORD` from your `.env` file
 - **Persistent Storage**: Data is stored in a Docker volume for persistence between container restarts
 
+### 7.3. Weaviate Vector Database
+
+Weaviate provides a powerful vector database for semantic search, RAG applications, and AI-driven workflows:
+
+- **GraphQL API**: Available at `http://localhost:${WEAVIATE_PORT}/v1/graphql`
+- **REST API**: Available at `http://localhost:${WEAVIATE_PORT}/v1`
+- **gRPC API**: Available at `localhost:${WEAVIATE_GRPC_PORT}`
+- **Kong Proxy**: Available at `http://vector.localhost:${KONG_HTTP_PORT}/` (requires hosts file setup)
+
+#### 7.3.1. Features
+
+- **Multi-modal Vector Search**: Support for text, images, and other data types
+- **Hybrid Search**: Combines vector similarity with keyword search
+- **Auto-vectorization**: Automatic embedding generation using Ollama or OpenAI
+- **GraphQL Interface**: Powerful query language with built-in playground
+- **CLIP Integration**: Image vectorization for visual similarity search
+- **Real-time Updates**: Immediate availability of new data for search
+
+#### 7.3.2. Dynamic Embedding Model Configuration
+
+**Automatic Model Discovery**:
+The system dynamically discovers and configures embedding models from your database:
+
+1. **weaviate-init Service**: Queries the database for active Ollama embedding models
+   ```sql
+   SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings = true;
+   ```
+
+2. **Dynamic Configuration**: Automatically configures Weaviate to use the discovered model
+3. **Fallback Strategy**: Uses `nomic-embed-text` if no active embedding model is found
+4. **Runtime Verification**: Start script displays the discovered embedding model during startup
+
+**Default Embedding Model**: `mxbai-embed-large` (configured in database seed data)
+- High-quality 334M parameter model from mixedbread.ai
+- 1,000-dimensional embeddings
+- Superior performance compared to many OpenAI models
+
+**Service Dependencies**:
+The Weaviate integration includes proper dependency management:
+- `weaviate-init` → Queries database for embedding configuration
+- `multi2vec-clip` → Provides CLIP model for image embeddings
+- `weaviate` → Depends on both init and CLIP services
+- Application services (`backend`, `n8n`, `open-web-ui`) → Wait for Weaviate to be ready
+
+#### 7.3.3. Integration Points
+
+**Ollama Integration**:
+- Text vectorization using your dynamically configured Ollama models
+- Automatic embedding generation for documents
+- Profile-aware configuration (containerized vs local Ollama)
+- Model selection managed through database configuration
+
+**Backend Service Integration**:
+- Vector storage and retrieval for RAG applications
+- Environment variables: `WEAVIATE_URL`, `WEAVIATE_ENABLED`, `WEAVIATE_OLLAMA_EMBEDDING_MODEL`
+- REST API endpoints for vector operations
+- Dynamic model discovery from shared configuration
+
+**n8n Workflow Integration**:
+- Automated document processing and vectorization
+- Vector search workflows
+- Batch processing capabilities
+
+**ComfyUI Integration**:
+- Image embedding storage via CLIP vectorization
+- Visual similarity search for generated images
+- Multi-modal search combining text and images
+
+#### 7.3.4. Embedding Strategy
+
+The system implements a multi-layered embedding approach:
+
+**Text Embeddings**:
+1. **Primary**: Dynamic Ollama model (discovered from database)
+2. **Fallback**: OpenAI text2vec (if API key provided)
+3. **Default**: `nomic-embed-text` (if no active model configured)
+
+**Image Embeddings**:
+1. **Primary**: multi2vec-clip (self-contained CLIP model)
+2. **Specialized**: For cross-modal text-image search and visual similarity
+
+**Multimodal Embeddings**:
+1. **Primary**: multi2vec-clip for text-image alignment
+2. **Text-only fallback**: Dynamic Ollama model for pure text
+
+This approach provides:
+- **Flexibility**: Change embedding models via database configuration
+- **Performance**: Local processing without external API dependencies
+- **Multimodal Capabilities**: CLIP for image and cross-modal tasks
+- **Fallback Options**: Graceful degradation if services are unavailable
+
+#### 7.3.5. Profile-Specific Configuration
+
+**Default Profile** (`vector.yml`):
+- Uses containerized Ollama at `http://ollama:11434`
+- GPU acceleration disabled for CLIP
+
+**AI-Local Profile** (`vector-local.yml`):
+- Uses local Ollama at `http://host.docker.internal:11434`
+- Requires local Ollama installation
+
+**AI-GPU Profile** (`vector-gpu.yml`):
+- Uses GPU-accelerated Ollama
+- GPU-enabled CLIP processing for faster image vectorization
+
+#### 7.3.4. Usage Examples
+
+**GraphQL Query (Text Search)**:
+```graphql
+{
+  Get {
+    Document(
+      nearText: {
+        concepts: ["artificial intelligence"]
+      }
+      limit: 5
+    ) {
+      title
+      content
+      _additional {
+        distance
+      }
+    }
+  }
+}
+```
+
+**REST API (Vector Storage)**:
+```bash
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/objects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "Document",
+    "properties": {
+      "title": "AI Research Paper",
+      "content": "Latest developments in machine learning..."
+    }
+  }'
+```
+
+#### 7.3.5. Access Points
+
+- **GraphQL Playground**: `http://localhost:${WEAVIATE_PORT}/v1/graphql`
+- **REST API Docs**: `http://localhost:${WEAVIATE_PORT}/v1`
+- **Kong Proxy**: `http://vector.localhost:${KONG_HTTP_PORT}/v1/graphql`
+- **Health Check**: `http://localhost:${WEAVIATE_PORT}/v1/.well-known/ready`
+
+#### 7.3.6. Testing Weaviate Integration
+
+After starting the stack, run these tests to verify Weaviate is working correctly:
+
+**1. Health Check**:
+```bash
+# Check if Weaviate is ready
+curl -s http://localhost:${WEAVIATE_PORT}/v1/.well-known/ready | jq .
+
+# Check Weaviate schema endpoint
+curl -s http://localhost:${WEAVIATE_PORT}/v1/schema | jq .
+```
+
+**2. Verify Embedding Model Configuration**:
+```bash
+# Check which embedding model is configured
+docker logs genai-weaviate-init 2>&1 | grep "embedding model"
+
+# Check which profile is running and verify Ollama endpoint
+docker exec genai-weaviate env | grep OLLAMA_ENDPOINT
+
+# Verify model in Ollama (for default/gpu profiles)
+docker exec genai-ollama ollama list | grep mxbai-embed-large || echo "Containerized Ollama not running (likely ai-local profile)"
+
+# For ai-local profile, check local Ollama
+curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name | contains("mxbai-embed-large"))' || echo "Local Ollama not available or model not pulled"
+```
+
+**3. Create a Test Collection**:
+
+**For Default/GPU Profile** (containerized Ollama):
+```bash
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "TestDocument",
+    "vectorizer": "text2vec-ollama",
+    "moduleConfig": {
+      "text2vec-ollama": {
+        "model": "mxbai-embed-large",
+        "apiEndpoint": "http://ollama:11434"
+      }
+    },
+    "properties": [
+      {
+        "name": "title",
+        "dataType": ["text"]
+      },
+      {
+        "name": "content", 
+        "dataType": ["text"]
+      }
+    ]
+  }'
+```
+
+**For AI-Local Profile** (local Ollama):
+```bash
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "TestDocument", 
+    "vectorizer": "text2vec-ollama",
+    "moduleConfig": {
+      "text2vec-ollama": {
+        "model": "mxbai-embed-large",
+        "apiEndpoint": "http://host.docker.internal:11434"
+      }
+    },
+    "properties": [
+      {
+        "name": "title",
+        "dataType": ["text"]
+      },
+      {
+        "name": "content",
+        "dataType": ["text"] 
+      }
+    ]
+  }'
+```
+
+**4. Test Text Embedding (Ollama)**:
+
+**For Default/GPU Profiles (Containerized Ollama)**:
+```bash
+# Create collection with containerized Ollama endpoint
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "TestDocument",
+    "vectorizer": "text2vec-ollama",
+    "moduleConfig": {
+      "text2vec-ollama": {
+        "apiEndpoint": "http://ollama:11434",
+        "model": "'${WEAVIATE_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}'"
+      }
+    },
+    "properties": [
+      {
+        "name": "title",
+        "dataType": ["text"]
+      },
+      {
+        "name": "content", 
+        "dataType": ["text"]
+      }
+    ]
+  }'
+
+# Add a document with text embedding
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/objects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "TestDocument",
+    "properties": {
+      "title": "Introduction to Vector Databases",
+      "content": "Vector databases enable semantic search by storing embeddings..."
+    }
+  }'
+```
+
+**For AI-Local Profile (Local Ollama)**:
+```bash
+# Create collection with local Ollama endpoint
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "TestDocumentLocal",
+    "vectorizer": "text2vec-ollama",
+    "moduleConfig": {
+      "text2vec-ollama": {
+        "apiEndpoint": "http://host.docker.internal:11434",
+        "model": "'${WEAVIATE_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}'"
+      }
+    },
+    "properties": [
+      {
+        "name": "title",
+        "dataType": ["text"]
+      },
+      {
+        "name": "content",
+        "dataType": ["text"]
+      }
+    ]
+  }'
+
+# Add a document with text embedding
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/objects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "TestDocumentLocal",
+    "properties": {
+      "title": "Introduction to Vector Databases (Local)",
+      "content": "Vector databases enable semantic search by storing embeddings..."
+    }
+  }'
+```
+
+**5. Test Vector Search**:
+```bash
+# Search for similar documents (Default/GPU profiles)
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "{
+      Get {
+        TestDocument(
+          nearText: {
+            concepts: [\"semantic search\"]
+          }
+          limit: 3
+        ) {
+          title
+          content
+          _additional {
+            distance
+            certainty
+          }
+        }
+      }
+    }"
+  }' | jq .
+
+# Search for similar documents (AI-Local profile)
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "{
+      Get {
+        TestDocumentLocal(
+          nearText: {
+            concepts: [\"semantic search\"]
+          }
+          limit: 3
+        ) {
+          title
+          content
+          _additional {
+            distance
+            certainty
+          }
+        }
+      }
+    }"
+  }' | jq .
+```
+
+**6. Test CLIP Image Embedding**:
+```bash
+# Create a CLIP collection for multimodal search
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "MultimodalDoc",
+    "vectorizer": "multi2vec-clip",
+    "moduleConfig": {
+      "multi2vec-clip": {
+        "textFields": ["description"],
+        "weights": {
+          "textFields": [1.0]
+        }
+      }
+    },
+    "properties": [
+      {
+        "name": "description",
+        "dataType": ["text"]
+      }
+    ]
+  }'
+
+# Add a document with CLIP vectorization
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/objects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "MultimodalDoc",
+    "properties": {
+      "description": "A beautiful sunset over the ocean with golden colors"
+    }
+  }'
+
+# Test CLIP-based search
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "{
+      Get {
+        MultimodalDoc(
+          nearText: {
+            concepts: [\"golden sky\"]
+          }
+          limit: 3
+        ) {
+          description
+          _additional {
+            distance
+          }
+        }
+      }
+    }"
+  }' | jq .
+```
+
+**7. Test Kong Proxy Access**:
+```bash
+# Access Weaviate through Kong (requires hosts file setup)
+curl -s http://vector.localhost:${KONG_HTTP_PORT}/v1/.well-known/ready | jq .
+```
+
+**8. Integration Tests**:
+```bash
+# Test backend connection to Weaviate
+curl -s http://localhost:${BACKEND_PORT}/health | jq .
+
+# Check if backend can access Weaviate
+docker exec genai-backend sh -c 'curl -s http://weaviate:8080/v1/.well-known/ready'
+
+# Verify n8n can access Weaviate
+docker exec genai-n8n sh -c 'curl -s http://weaviate:8080/v1/.well-known/ready'
+```
+
+**9. Monitor Resource Usage**:
+```bash
+# Check Weaviate memory and CPU usage
+docker stats genai-weaviate genai-multi2vec-clip --no-stream
+
+# Check logs for any errors
+docker logs genai-weaviate 2>&1 | grep -i error
+docker logs genai-multi2vec-clip 2>&1 | grep -i error
+```
+
+**10. Advanced Testing - Hybrid Search**:
+```bash
+# Test hybrid search (combining vector and keyword)
+curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "{
+      Get {
+        TestDocument(
+          hybrid: {
+            query: \"vector database\",
+            alpha: 0.75
+          }
+          limit: 5
+        ) {
+          title
+          content
+          _additional {
+            score
+          }
+        }
+      }
+    }"
+  }' | jq .
+```
+
+**Expected Results**:
+- Health checks should return `200 OK` status
+- Embedding model should show `mxbai-embed-large` (or your configured model)
+- Collection creation should succeed without errors
+- Document insertion should complete successfully
+- Vector searches should return relevant results with distance scores
+- CLIP service should be running and accessible
+- Kong proxy should route requests correctly
+- Integration services should connect without issues
+
+**Troubleshooting**:
+If any tests fail:
+1. Check service logs: `docker logs genai-weaviate`
+2. Verify dependencies: `docker compose ps`
+3. Check configuration: `docker exec genai-weaviate env | grep -i weaviate`
+4. Verify network connectivity: `docker network inspect genai_backend-bridge-network`
+
 ## 8. AI Services
 
 ### 8.1. Ollama Service

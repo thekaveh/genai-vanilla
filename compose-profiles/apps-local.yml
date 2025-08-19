@@ -105,6 +105,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -158,6 +160,10 @@ services:
         condition: service_healthy
       n8n-init:
         condition: service_completed_successfully
+      weaviate-init:
+        condition: service_completed_successfully
+      weaviate:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -173,10 +179,22 @@ services:
       COMFYUI_ENABLED: true
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      # Vector database integration
+      WEAVIATE_URL: http://weaviate:8080
+      WEAVIATE_ENABLED: true
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data
+      - weaviate-shared-config:/shared
     ports:
       - "${BACKEND_PORT}:8000"
     networks:
       - backend-bridge-network
+
+volumes:
+  open-web-ui-data:
+    driver: local
+  backend-data:
+    driver: local
+  weaviate-shared-config:
+    driver: local

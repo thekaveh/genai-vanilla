@@ -15,9 +15,13 @@ RUN uv pip install --system --no-cache-dir -r requirements.txt
 # Copy application code
 COPY ./app .
 
+# Copy configuration script
+COPY ./configure-backend.sh /usr/local/bin/configure-backend.sh
+
 # Create a non-root user and group
 RUN groupadd --system --gid 1001 appgroup && \
-    useradd --system --uid 1001 --gid appgroup appuser
+    useradd --system --uid 1001 --gid appgroup appuser && \
+    chmod +x /usr/local/bin/configure-backend.sh
 
 # Switch to the non-root user
 USER appuser
@@ -29,5 +33,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Expose API port
 EXPOSE 8000
 
-# Run the application
+# Run the application with dynamic configuration
+ENTRYPOINT ["/usr/local/bin/configure-backend.sh"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

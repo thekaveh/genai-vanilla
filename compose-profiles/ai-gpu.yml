@@ -133,6 +133,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: supabase-db

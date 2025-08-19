@@ -109,6 +109,8 @@ services:
         condition: service_started
       comfyui:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -158,8 +160,12 @@ services:
         condition: service_healthy
       n8n-init:
         condition: service_completed_successfully
+      weaviate-init:
+        condition: service_completed_successfully
       comfyui:
         condition: service_healthy
+      weaviate:
+        condition: service_started
     environment:
       KONG_URL: http://kong-api-gateway:8000
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
@@ -174,12 +180,24 @@ services:
       COMFYUI_ENABLED: true
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      # Vector database integration
+      WEAVIATE_URL: http://weaviate:8080
+      WEAVIATE_ENABLED: true
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data
+      - weaviate-shared-config:/shared
     ports:
       - "${BACKEND_PORT}:8000"
     cpus: ${PROD_ENV_BACKEND_CPUS:-1}
     mem_limit: ${PROD_ENV_BACKEND_MEM_LIMIT:-2g}
     networks:
       - backend-bridge-network
+
+volumes:
+  open-web-ui-data:
+    driver: local
+  backend-data:
+    driver: local
+  weaviate-shared-config:
+    driver: local
