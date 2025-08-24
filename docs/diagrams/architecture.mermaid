@@ -1,9 +1,9 @@
 graph LR
-    %% This diagram represents the new modular Docker Compose profile architecture.
-    %% Services are organized into profiles: data.yml, ai.yml/ai-local.yml/ai-gpu.yml, apps.yml/apps-local.yml/apps-gpu.yml
-    %% For ai-local profile, the 'ollama' container is removed, and services connect to local Ollama via host.docker.internal:11434.
-    %% For ai-gpu profile, Ollama runs with NVIDIA GPU acceleration.
-    %% The start.sh script handles profile selection and consistent environment variable management.
+    %% This diagram represents the unified SOURCE-based Docker Compose architecture.
+    %% All services are defined in single docker-compose.yml file
+    %% Services are dynamically configured via SOURCE variables in .env.example
+    %% The start.sh script parses config/service-configs.yml and generates environment variables
+    %% Services can run as: container-cpu, container-gpu, localhost, external, api, or disabled
 
     %% Define styles
     classDef database fill:#a5d8ff,stroke:#1971c2,color:#1e1e1e
@@ -11,183 +11,113 @@ graph LR
     classDef ai fill:#f5d0fe,stroke:#9c36b5,color:#1e1e1e
     classDef ui fill:#ffd8a8,stroke:#e8590c,color:#1e1e1e
     classDef api fill:#b2f2bb,stroke:#2f9e44,color:#1e1e1e
+    classDef config fill:#e7f5ff,stroke:#339af0,color:#1e1e1e
     
-    %% Data Services Profile (data.yml)
-    subgraph DataProfile[Data Profile - data.yml]
+    %% Configuration Layer
+    subgraph ConfigLayer[Configuration Layer]
+        direction TB
+        env-example[.env.example<br/>SOURCE Variables]:::config
+        service-configs[config/service-configs.yml<br/>Service Matrix]:::config
+        start-sh[start.sh<br/>YAML Parser & Env Generator]:::config
+    end
+
+    %% Data Services Layer (Always Container)
+    subgraph DataLayer[Data Layer - Always Container]
         direction LR
-        supabase-db[supabase-db]
+        supabase-db[supabase-db]:::database
         redis[redis<br/>DB 0: n8n queues, Backend<br/>DB 1: SearxNG caching<br/>DB 2: Open-WebUI WebSocket]:::cache
-        supabase-db-init(supabase-db-init)
+        supabase-db-init(supabase-db-init):::database
         subgraph SupabaseCore[Supabase Core Services]
-        direction TB
-        supabase-meta[supabase-meta]
-        supabase-storage[supabase-storage]
-        supabase-auth[supabase-auth]
-        supabase-api[supabase-api]
-        supabase-realtime[supabase-realtime]
+            direction TB
+            supabase-meta[supabase-meta]:::database
+            supabase-storage[supabase-storage]:::database
+            supabase-auth[supabase-auth]:::database
+            supabase-api[supabase-api]:::api
+            supabase-realtime[supabase-realtime]:::api
         end
-        neo4j-graph-db[neo4j-graph-db]
+        neo4j-graph-db[neo4j-graph-db]:::database
     end
 
-    %% AI Services Profile (ai.yml / ai-local.yml / ai-gpu.yml)
-    subgraph AIProfile[AI Profile - ai.yml/ai-local.yml/ai-gpu.yml]
+    %% AI Services Layer (SOURCE Configurable)
+    subgraph AILayer[AI Layer - SOURCE Configurable]
         direction TB
-        ollama[ollama - containerized]
-        ollama-local[host.docker.internal:11434 - local]
-        ollama-pull[ollama-pull]
-        comfyui-init[comfyui-init]
-        n8n-init[n8n-init]
-        local-deep-researcher[local-deep-researcher]
-        n8n[n8n - Main Instance]:::api
+        subgraph OllamaServices[LLM_PROVIDER_SOURCE Options]
+            ollama-container[Ollama Container<br/>CPU/GPU]:::ai
+            ollama-localhost[host.docker.internal:11434<br/>Localhost]:::ai
+            ollama-api[OpenAI/Anthropic APIs<br/>External]:::ai
+        end
+        subgraph ComfyUIServices[COMFYUI_SOURCE Options]
+            comfyui-container[ComfyUI Container<br/>CPU/GPU]:::ai
+            comfyui-localhost[host.docker.internal:8000<br/>Localhost]:::ai
+        end
+        ollama-pull[ollama-pull]:::ai
+        comfyui-init[comfyui-init]:::ai
+        local-deep-researcher[local-deep-researcher]:::ai
+        n8n[n8n - Workflow Engine]:::api
         n8n-worker[n8n-worker - Queue Worker]:::api
-        comfyui[comfyui]:::ai
+        n8n-init[n8n-init]:::api
+        searxng[searxng - Search Engine]:::api
     end
     
-    %% Vector Services Profile (vector.yml / vector-local.yml / vector-gpu.yml)
-    subgraph VectorProfile[Vector Profile - vector.yml/vector-local.yml/vector-gpu.yml]
+    %% Vector Services Layer (SOURCE Configurable)
+    subgraph VectorLayer[Vector Layer - SOURCE Configurable]
         direction TB
-        weaviate-init[weaviate-init - Dynamic Config]:::init
-        weaviate[weaviate - Vector DB]:::api
-        multi2vec-clip[multi2vec-clip - CLIP Model]:::ai
+        weaviate-init[weaviate-init]:::database
+        weaviate[weaviate - Vector DB<br/>Adapts to Ollama SOURCE]:::database
+        subgraph MultiVecServices[VECTOR_SOURCE Options]
+            multi2vec-clip-cpu[Multi2Vec CLIP<br/>CPU]:::ai
+            multi2vec-clip-gpu[Multi2Vec CLIP<br/>GPU]:::ai
+        end
     end
     
-    %% Apps Services Profile (apps.yml / apps-local.yml / apps-gpu.yml)
-    subgraph AppsProfile[Apps Profile - apps.yml/apps-local.yml/apps-gpu.yml]
+    %% Application Services Layer (Always Container)
+    subgraph AppLayer[Application Layer - Always Container]
         direction TB
-        kong-api-gateway[Kong API Gateway]
-        backend[backend]
-        open-web-ui[open-web-ui]
-        supabase-studio[supabase-studio]
+        kong-api-gateway[Kong API Gateway<br/>Centralized Routing]:::api
+        backend[Backend API<br/>Adapts to AI Services]:::api
+        open-web-ui[Open-WebUI<br/>Chat Interface]:::ui
+        supabase-studio[Supabase Studio<br/>Database Admin]:::ui
     end
     
-    %% Connections / Dependencies
-    supabase-db -- "Depends on DB Started" --> supabase-db-init
-    supabase-db-init -- "Runs Custom Initialization SQL" --> supabase-db
-    supabase-db-init -- "Completes Successfully" --> redis
-    supabase-db-init -- "Completes Successfully" --> supabase-meta
-    supabase-db-init -- "Completes Successfully" --> supabase-storage
-    supabase-db-init -- "Completes Successfully" --> supabase-auth
-    supabase-db-init -- "Completes Successfully" --> supabase-api
-    supabase-db-init -- "Completes Successfully" --> supabase-realtime
-    supabase-db-init -- "Completes Successfully" --> supabase-studio
-    supabase-db-init -- "Completes Successfully" --> ollama-pull
-    supabase-db-init -- "Completes Successfully" --> comfyui-init
-    supabase-db-init -- "Completes Successfully" --> local-deep-researcher
-    supabase-db-init -- "Completes Successfully" --> backend
-    supabase-db-init -- "Completes Successfully" --> open-web-ui
-    supabase-db-init -- "Completes Successfully" --> n8n
-    supabase-db-init -- "Completes Successfully" --> weaviate-init
-    supabase-db-init -- "Completes Successfully" --> multi2vec-clip
-    redis -- "Health Check" --> n8n-worker
-    n8n -- "Service Started" --> n8n-init
-    n8n-init -- "Installs Community Nodes" --> n8n
-    supabase-db-init -- "Completes Successfully" --> comfyui
+    %% Configuration Flow
+    env-example -- "SOURCE Variables" --> start-sh
+    service-configs -- "Service Matrix" --> start-sh
+    start-sh -- "Generated Environment Variables" --> docker-compose[docker-compose.yml<br/>Unified Service Definition]:::config
 
-    %% Service Inter-dependencies (After db-init)
-    %% Connections now go through Kong where applicable
-    %% Kong provides WebSocket proxy support for real-time services (n8n, Supabase Realtime)
-    supabase-meta --> supabase-studio
-    supabase-auth --> kong-api-gateway
-    supabase-api --> kong-api-gateway
-    supabase-storage --> kong-api-gateway
-    supabase-realtime --> kong-api-gateway
-    supabase-studio -- API Calls --> kong-api-gateway
-    backend -- "HTTP API Calls (Auth, Storage)" --> kong-api-gateway
-    open-web-ui -- API Calls --> kong-api-gateway
+    %% Core Dependencies
+    supabase-db -- "Database Ready" --> supabase-db-init
+    supabase-db-init -- "Initialization Complete" --> DataLayer
+    supabase-db-init -- "Initialization Complete" --> AILayer
+    supabase-db-init -- "Initialization Complete" --> VectorLayer
+    supabase-db-init -- "Initialization Complete" --> AppLayer
 
-    kong-api-gateway -- Routes --> supabase-auth
-    kong-api-gateway -- Routes --> supabase-api
-    kong-api-gateway -- Routes --> supabase-storage
-    kong-api-gateway -- Routes --> supabase-realtime
-    kong-api-gateway -- Routes --> supabase-meta
-    kong-api-gateway -- Routes --> supabase-studio
-    kong-api-gateway -- "Routes + WebSocket Proxy" --> n8n
-    kong-api-gateway -- Routes --> comfyui
-    kong-api-gateway -- "Routes /research/*" --> backend
-    kong-api-gateway -- "Routes /v1/* (Vector API)" --> weaviate
-
-    kong-api-gateway -- "Depends on" --> redis
-    kong-api-gateway -- "Depends on" --> supabase-auth
-    kong-api-gateway -- "Depends on" --> supabase-api
-    kong-api-gateway -- "Depends on" --> supabase-storage
-    kong-api-gateway -- "Depends on" --> supabase-realtime
-    kong-api-gateway -- "Depends on" --> supabase-meta
-
-    backend -- "Bolt (Direct)" --> neo4j-graph-db
-    backend -- "HTTP API (Direct)" --> ollama
-    backend -- "DB Connection (Direct)" --> supabase-db
-    n8n -- "DB Connection (Direct)" --> supabase-db
-    n8n -- "Queue Management" --> redis
-    redis -- "Queue Processing" --> n8n-worker
-    searxng -- "Search Result Caching" --> redis
-    backend -- "Workflow Automation" --> n8n
-    backend -- "Cache, Pub/Sub, Geohashing" --> redis
-    %% Weaviate dependencies and connections
-    weaviate-init -- "Queries Embedding Models" --> supabase-db
-    weaviate-init -- "Configures" --> weaviate
-    multi2vec-clip -- "Provides CLIP Inference" --> weaviate
-    weaviate -- "Text Vectorization" --> ollama
-    weaviate -- "Depends on" --> multi2vec-clip
-    weaviate -- "Depends on" --> weaviate-init
+    %% Adaptive Service Connections
+    %% Services automatically adapt to configured SOURCE types
+    AILayer -- "LLM Connections" --> AppLayer
+    VectorLayer -- "Vector Search" --> AppLayer
+    kong-api-gateway -- "Centralized Routing" --> AppLayer
     
-    %% Services depending on Weaviate
-    backend -- "Depends on" --> weaviate-init
-    backend -- "Depends on" --> weaviate
-    backend -- "Vector Operations" --> weaviate
-    n8n -- "Depends on" --> weaviate
-    n8n -- "Vector Workflows" --> weaviate
-    open-web-ui -- "Depends on" --> weaviate
-    open-web-ui -- "RAG Operations" --> weaviate
-    ollama-pull -- "Completes Successfully" --> local-deep-researcher
-    ollama-pull -- "Completes Successfully" --> open-web-ui
-    ollama-pull -- "Completes Successfully" --> backend
-    ollama-pull -- "Completes Successfully" --> n8n
-    ollama-pull -- "Completes Successfully" --> comfyui-init
-    comfyui-init -- "Completes Successfully" --> comfyui
-    ollama -- "Depends on Ollama Started" --> ollama-pull
+    %% Key Features of New Architecture:
+    %% 1. Single docker-compose.yml with all service definitions  
+    %% 2. SOURCE-based dynamic configuration via environment variables
+    %% 3. YAML-driven service matrix in config/service-configs.yml
+    %% 4. Automatic extra_hosts for localhost connectivity
+    %% 5. GPU/CPU variants handled via deploy.resources
+    %% 6. Services scale to 0 when disabled via deploy.replicas
     
-    %% Local Deep Researcher connections
-    local-deep-researcher -- "DB Query for LLM Config" --> supabase-db
-    local-deep-researcher -- "HTTP API (Direct)" --> ollama
-    backend -- "Research API HTTP Client" --> local-deep-researcher
-    n8n -- "Research Webhook Calls" --> backend
-    
-    %% Open-WebUI research integration via tools
-    open-web-ui -- "Research Tools API" --> backend
-    
-    %% ComfyUI integrations
-    comfyui-init -- "Model Management DB Query" --> supabase-db
-    comfyui -- "HTTP API (Direct)" --> ollama
-    backend -- "Image Generation API" --> comfyui
-    open-web-ui -- "Image Generation" --> comfyui
-    n8n -- "Image Workflow Automation" --> comfyui
-    comfyui -- "Storage Upload" --> supabase-storage
-
-    %% Add dependency of Studio on Kong
-    supabase-studio -- "Depends on" --> kong-api-gateway
-    open-web-ui -- "Storage API via Kong" --> kong-api-gateway
-    
-    %% Realtime logical replication connection
-    supabase-realtime -- "Logical Replication" --> supabase-db
-
-
-    %% Profile Selection Notes
-    subgraph ProfileNotes[Profile Selection]
+    %% SOURCE Configuration Reference
+    subgraph SourceNotes[SOURCE Configuration Options]
         direction TB
-        DefaultNote[default: data.yml + ai.yml + apps.yml + vector.yml]
-        LocalNote[ai-local: data.yml + ai-local.yml + apps-local.yml + vector-local.yml]
-        GPUNote[ai-gpu: data.yml + ai-gpu.yml + apps-gpu.yml + vector-gpu.yml]
+        ContainerNote[container-cpu/container-gpu: Docker containers with CPU/GPU]:::config
+        LocalhostNote[localhost: Services on host machine via host.docker.internal]:::config
+        ExternalNote[external: Connect to external service URLs]:::config
+        ApiNote[api: Cloud API services (OpenAI, Anthropic, etc.)]:::config
+        DisabledNote[disabled: Service not started (scale=0)]:::config
     end
-
-    %% Apply styles
-    classDef init fill:#c3fae8,stroke:#12b886,color:#1e1e1e
-    classDef profile fill:#e3f2fd,stroke:#1976d2,color:#1e1e1e
-    class supabase-db,neo4j-graph-db database
-    class supabase-meta,supabase-storage,supabase-auth,supabase-api,supabase-realtime,supabase-studio database
-    class ollama,ollama-local,ollama-pull,comfyui-init,n8n-init,local-deep-researcher,comfyui,multi2vec-clip ai
-    class weaviate-init init
-    class open-web-ui ui
-    class backend api
-    class kong-api-gateway,n8n,n8n-worker,weaviate api
-    class supabase-db-init init
-    class DefaultNote,LocalNote,GPUNote profile
+    
+    %% Styling
+    class supabase-db,neo4j-graph-db,weaviate database
+    class supabase-meta,supabase-storage,supabase-auth database  
+    class supabase-api,supabase-realtime,kong-api-gateway,n8n,n8n-worker,searxng,backend api
+    class ollama-container,ollama-localhost,ollama-api,comfyui-container,comfyui-localhost,local-deep-researcher,multi2vec-clip-cpu,multi2vec-clip-gpu ai
+    class open-web-ui,supabase-studio ui

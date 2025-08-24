@@ -22,7 +22,7 @@ done
 echo "weaviate-init: Database is available."
 
 echo "weaviate-init: Querying active Ollama embedding models from database..."
-psql_output=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings = true LIMIT 1;")
+psql_output=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings > 0 ORDER BY embeddings DESC LIMIT 1;")
 
 # Trim whitespace and check result
 embedding_model=$(echo "$psql_output" | xargs)

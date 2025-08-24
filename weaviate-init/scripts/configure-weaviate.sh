@@ -18,7 +18,7 @@ fi
 export OLLAMA_DEFAULT_MODEL="$WEAVIATE_OLLAMA_EMBEDDING_MODEL"
 
 # Set default Ollama endpoint for text2vec-ollama module
-# This ensures the module uses the correct endpoint based on profile
+# This ensures the module uses the correct endpoint based on SOURCE configuration
 if [ -n "$OLLAMA_ENDPOINT" ]; then
   export DEFAULT_OLLAMA_API_ENDPOINT="$OLLAMA_ENDPOINT"
   echo "weaviate: Using Ollama endpoint: $OLLAMA_ENDPOINT"

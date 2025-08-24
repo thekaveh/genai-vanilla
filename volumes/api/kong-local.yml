@@ -268,7 +268,7 @@ services:
             headers:
               - "X-Forwarded-Host: n8n.localhost:55668"
 
-  ## ComfyUI routes - Domain-based routing (for local ComfyUI - ai-local profile)
+  ## ComfyUI routes - Domain-based routing (for local ComfyUI - localhost SOURCE configuration)
   - name: comfyui-api
     url: http://host.docker.internal:8000/
     routes:

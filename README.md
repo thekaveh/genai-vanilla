@@ -19,8 +19,8 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 - **2.1. API Gateway (Kong)**: Centralized API management, authentication, and routing for backend services.
 - **2.2. Real-time Data Synchronization**: Live database change notifications via Supabase Realtime WebSocket connections.
-- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using different Docker Compose profiles (e.g., `ai-local` for local Ollama, `ai-gpu` for GPU support).
-- **2.4. Multiple Deployment Profiles**: Choose different service combinations with modular Docker Compose profile files
+- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using SOURCE variables in .env.example (e.g., `LLM_PROVIDER_SOURCE=localhost` for local Ollama).
+- **2.4. Modular Service Configuration**: Choose different service combinations via SOURCE variables in .env.example
 - **2.5. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **2.6. Environment-based Configuration**: Easy configuration through environment variables
 - **2.7. Explicit Initialization Control**: Uses a dedicated `supabase-db-init` service to manage custom database setup after the base database starts.
@@ -53,137 +53,256 @@ colima start --memory 12 --cpu 6
 
 **Important**: After adding the n8n service to the stack, memory requirements have increased. If you experience container crashes with exit code 137 (OOM kill), this indicates insufficient memory allocated to Docker.
 
-### 3.2. Quick Start with Local AI Services
+### 3.2. Quick Start Configurations
 
-For users who want to use their own local Ollama installation:
+The GenAI Vanilla stack uses a **SOURCE-based configuration system** that provides flexible deployment options through simple environment variable configuration.
 
-1. **Install and start Ollama:**
-   ```bash
-   curl -fsSL https://ollama.com/install.sh | sh
-   ollama serve
-   # In another terminal:
-   ollama pull llama3.2
-   ```
+#### 🚀 **Option 1: Full Container Setup (Recommended for Beginners)**
 
-2. **Start the stack:**
-   ```bash
-   ./start.sh --profile ai-local
-   ```
-
-3. **Access services:**
-   - Open-WebUI: http://localhost:63015
-   - Backend API: http://localhost:63016/docs
-   - The stack will use your local Ollama for all AI operations
-
-### 3.3. Running the Stack
-
-#### Using Convenience Scripts (Recommended)
-
-The project includes cross-platform scripts that simplify starting and stopping the stack:
+**What it does:** Runs all AI services (Ollama, ComfyUI, Weaviate) inside Docker containers with CPU-only processing.
 
 ```bash
-# Start the stack with default settings (all services)
+# 1. Clone and navigate to the repository
+git clone <your-repository-url>
+cd genai-vanilla
+
+# 2. Use default configuration (already set in .env.example)
+# LLM_PROVIDER_SOURCE=ollama-container-cpu
+# COMFYUI_SOURCE=container-cpu  
+# WEAVIATE_SOURCE=container
+
+# 3. Start the stack
 ./start.sh
 
-# Start with a custom base port (all service ports will be incremented from this base)
+# 4. Access services (after ~5 minutes for AI model downloads)
+# - Open WebUI: http://localhost:63015
+# - n8n Workflows: http://localhost:63002/n8n/
+# - Supabase Studio: http://localhost:63009
+```
+
+#### 🏠 **Option 2: Local AI Services Setup**
+
+**What it does:** Uses your local Ollama and ComfyUI installations, with other services in containers.
+
+```bash
+# 1. Install Ollama locally first
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Start Ollama and pull models
+ollama serve
+# In another terminal:
+ollama pull qwen2.5:latest
+ollama pull mxbai-embed-large
+
+# 3. Edit .env.example to use localhost services
+cp .env.example .env
+# Edit .env and change:
+# LLM_PROVIDER_SOURCE=localhost
+# COMFYUI_SOURCE=localhost
+
+# 4. Start the stack
+./start.sh
+
+# 5. Benefits: Faster startup, uses your local models, less Docker resource usage
+```
+
+#### 🔥 **Option 3: GPU-Accelerated Containers**
+
+**What it does:** Runs AI services in containers with full GPU acceleration (requires NVIDIA GPU + Docker GPU support).
+
+```bash
+# 1. Ensure NVIDIA Container Toolkit is installed
+# Follow: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+
+# 2. Edit .env.example for GPU acceleration
+cp .env.example .env
+# Edit .env and change:
+# LLM_PROVIDER_SOURCE=ollama-container-gpu
+# COMFYUI_SOURCE=container-gpu
+
+# 3. Start the stack
+./start.sh
+
+# 4. Verify GPU usage: docker exec genai-ollama nvidia-smi
+```
+
+#### ☁️ **Option 4: Cloud API Setup**
+
+**What it does:** Uses cloud LLM APIs (OpenAI, Anthropic, etc.) instead of local models.
+
+```bash
+# 1. Edit .env.example for API configuration
+cp .env.example .env
+# Edit .env and change:
+# LLM_PROVIDER_SOURCE=api
+# COMFYUI_SOURCE=disabled
+
+# 2. Start the stack
+./start.sh
+
+# 3. Configure API providers in Open WebUI:
+# Go to http://localhost:63015 → Settings → Connections
+# Add your OpenAI/Anthropic API keys
+```
+
+### 3.3. Advanced Configuration
+
+#### Understanding SOURCE Variables
+
+The stack uses these primary SOURCE variables in your `.env` file:
+
+- **`LLM_PROVIDER_SOURCE`**: Controls Ollama deployment
+  - `ollama-container-cpu` - Docker container, CPU only (default)
+  - `ollama-container-gpu` - Docker container with GPU acceleration
+  - `localhost` - Use Ollama running on host machine
+  - `api` - Use cloud API providers instead
+  - `disabled` - No LLM service
+
+- **`COMFYUI_SOURCE`**: Controls ComfyUI deployment
+  - `container-cpu` - Docker container, CPU only (default)
+  - `container-gpu` - Docker container with GPU acceleration
+  - `localhost` - Use ComfyUI running on host machine (port 8188)
+  - `disabled` - No image generation service
+
+- **`WEAVIATE_SOURCE`**: Controls vector database
+  - `container` - Docker container (default)
+  - `localhost` - Use Weaviate on host machine
+  - `disabled` - No vector search capabilities
+
+#### Script Options
+
+```bash
+# Basic usage
+./start.sh                    # Start with default configuration
+
+# Advanced options  
+./start.sh --base-port 64000  # Use custom port range (64000-64020)
+./start.sh --cold             # Fresh install with new encryption keys
+./start.sh --setup-hosts      # Configure hosts file for localhost services
+
+# Stop options
+./stop.sh                     # Stop services, keep data
+./stop.sh --cold              # Stop services and delete all data
+```
+
+#### Service Dependencies
+
+The stack automatically configures service dependencies based on your SOURCE choices:
+
+- **n8n workflows** → Requires Weaviate for vector operations
+- **Open WebUI** → Connects to available LLM and ComfyUI services
+- **Backend API** → Integrates with all available AI services
+- **Local Deep Researcher** → Uses configured LLM for research tasks
+
+### 3.4. Troubleshooting Quick Start Issues
+
+#### Common Issues and Solutions
+
+**🔍 Port Conflicts**
+```bash
+# Error: "bind: address already in use"
+# Solution: Use different port range
 ./start.sh --base-port 64000
 
-# Start with a specific deployment profile
-./start.sh --profile ai-local
-
-# Combine options
-./start.sh --base-port 64000 --profile ai-gpu
-
-# Stop the stack and clean up resources
-./stop.sh
-
-# Stop a specific profile
-./stop.sh --profile ai-gpu
+# Or find what's using the port:
+lsof -i :63015  # Check specific port
 ```
 
-**Available Profiles:**
-- `default`: Complete stack with containerized Ollama (CPU-based)
-- `ai-local`: Complete stack using local Ollama and ComfyUI installations on host machine (requires pre-installed Ollama on port 11434 and optionally ComfyUI on port 8000)
-- `ai-gpu`: Complete stack with GPU-accelerated containerized Ollama
-
-#### Prerequisites for AI-Local Profile
-
-To use the `ai-local` profile, you need to have Ollama installed and running on your host machine:
-
-**Install Ollama:**
-- **macOS/Linux**: `curl -fsSL https://ollama.com/install.sh | sh`
-- **Windows**: Download from [ollama.com/download](https://ollama.com/download)
-
-**Start Ollama:**
+**🐳 Docker Resource Issues**
 ```bash
-# Verify Ollama is installed
-ollama --version
+# Error: Containers crashing with exit code 137
+# Solution: Increase Docker memory allocation
+# Docker Desktop: Settings → Resources → Memory (set to 8-12GB)
+# Colima: colima start --memory 12 --cpu 6
+```
 
-# Start Ollama service (if not already running)
-ollama serve
+**🧠 AI Model Download Issues**
+```bash
+# ComfyUI models downloading slowly?
+# Check progress:
+docker logs genai-comfyui-init -f
 
-# Pull required models (in another terminal)
-ollama pull llama3.2
+# Ollama models not pulling?
+# Check Ollama logs:
+docker logs genai-ollama -f
+
+# For localhost setup, ensure models are pre-downloaded:
 ollama pull qwen2.5:latest
+ollama pull mxbai-embed-large
 ```
 
-**Verify Ollama is accessible:**
+**🌐 Service Connectivity Issues**
 ```bash
-curl http://localhost:11434/api/tags
+# Services showing as unhealthy?
+# Check overall status:
+docker compose ps
+
+# Check specific service logs:
+docker logs genai-[service-name] -f
+
+# Common fix - restart unhealthy services:
+docker restart genai-weaviate genai-supabase-studio
 ```
 
-The ai-local profile expects Ollama to be running on `http://localhost:11434`.
+**⚡ Localhost Service Issues**
+```bash
+# "Connection refused" when using localhost SOURCE?
+# Verify service is running and accessible:
+curl http://localhost:11434/api/tags  # For Ollama
+curl http://localhost:8188/           # For ComfyUI
 
-#### Manual Docker Compose Commands (Alternative)
+# Ensure proper SOURCE configuration in .env:
+LLM_PROVIDER_SOURCE=localhost
+COMFYUI_SOURCE=localhost
+```
 
-You can also use Docker Compose commands directly with the new profile structure:
+
+#### Complete Fresh Restart
+
+```bash
+# If everything is broken, start fresh:
+./stop.sh --cold                    # Remove all data
+./start.sh --cold --base-port 64000 # Fresh start with new ports
+```
+
+### 3.5. Manual Docker Compose Commands (Alternative)
+
+You can also use Docker Compose commands directly with the unified configuration:
 
 ```bash
 # First, make sure all previous services are stopped to avoid port conflicts
 docker compose --env-file=.env down --remove-orphans
 
-# Start with default profile (all services, containerized Ollama)
-docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai.yml -f compose-profiles/apps.yml --env-file=.env up
+# Start all services with current SOURCE configuration
+docker compose --env-file=.env up
 
-# Start with ai-local profile (local Ollama)
-docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-local.yml -f compose-profiles/apps-local.yml --env-file=.env up
+# Build all services
+docker compose --env-file=.env build
 
-# Start with ai-gpu profile (GPU Ollama)
-docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-gpu.yml -f compose-profiles/apps-gpu.yml --env-file=.env up
-
-# Build services for a specific profile
-docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai.yml -f compose-profiles/apps.yml --env-file=.env build
-
-# Recommended: Use start.sh script instead for easier profile management
-./start.sh --profile ai-local
+# Recommended: Use start.sh script for easier SOURCE configuration management
+./start.sh  # Uses SOURCE variables from .env file
 ```
 
-### 3.4. Convenience Scripts
+### 3.6. Convenience Scripts Reference
 
-The project includes two cross-platform scripts to simplify deployment and port management:
+#### start.sh Script Details
 
-#### start.sh
-
-This script provides a streamlined way to start the stack with configurable ports and deployment profiles:
+The `start.sh` script automatically:
+1. Copies `.env.example` to `.env` if needed
+2. Generates Supabase encryption keys if missing
+3. Configures service scaling based on SOURCE variables
+4. Manages port assignments and conflicts
+5. Displays service status and access URLs
 
 ```bash
 Usage: ./start.sh [options]
 Options:
-  --base-port PORT   Set the base port number (default: 63000)
-  --profile PROFILE  Set the deployment profile (default: default)
-                     Supported profiles: default, ai-local, ai-gpu, fixed
-  --cold             Force creation of new .env file and generate new keys
-  --setup-hosts      Setup required hosts file entries (requires sudo/admin)
-  --skip-hosts       Skip hosts file check and setup
-  --help             Show this help message
+  --base-port PORT   Set base port (default: 63000)
+  --cold             Fresh install with new keys  
+  --setup-hosts      Configure hosts file
+  --skip-hosts       Skip hosts file setup
+  --help             Show help message
 ```
-
-The script automatically:
-1. Checks if `.env` exists, and if not, creates one from `.env.example` and generates Supabase keys
-2. Generates a new `.env` file with incremented port numbers based on the specified base port
-3. Preserves all non-port-related environment variables and comments from the source `.env` file
-4. Backs up your existing `.env` file with a timestamp (e.g., `.env.backup.YYYYMMDDHHMMSS`)
-5. Displays a detailed port assignment table for all services
 6. Explicitly uses the `.env` file when starting Docker Compose to ensure port settings are applied consistently
 7. Starts the appropriate Docker Compose configuration
 
@@ -244,17 +363,16 @@ This script stops the stack and cleans up resources:
 ```bash
 Usage: ./stop.sh [options]
 Options:
-  --profile PROFILE  Set the deployment profile (default: default)
-                     Supported profiles: default, ai-local, ai-gpu
   --cold             Remove volumes (data will be lost)
   --clean-hosts      Remove GenAI Stack hosts file entries (requires sudo/admin)
   --help             Show this help message
 ```
 
 The script:
-1. Stops all containers in the specified profile
-2. Removes orphaned containers
-3. Preserves data volumes by default
+1. Reads SOURCE configuration from .env file
+2. Stops all containers for enabled services
+3. Removes orphaned containers
+4. Preserves data volumes by default
 
 **Cold Stop Option:**
 Use the `--cold` option to perform a complete cleanup including volumes:
@@ -262,7 +380,7 @@ Use the `--cold` option to perform a complete cleanup including volumes:
 ./stop.sh --cold
 ```
 This will:
-- Stop all containers in the specified profile
+- Stop all containers
 - Remove all volumes (all data will be lost)
 - Remove orphaned containers
 
@@ -271,9 +389,24 @@ This is useful when you want to start completely fresh, but be careful as all da
 **Hosts File Cleanup:**
 Use the `--clean-hosts` option to remove subdomain entries from your hosts file:
 ```bash
-sudo ./stop.sh --clean-hosts --profile default
+sudo ./stop.sh --clean-hosts ./start.sh
 ```
 This will remove all GenAI Stack subdomain entries (n8n.localhost, api.localhost, search.localhost, comfyui.localhost) from your system's hosts file.
+
+---
+
+## 🎉 **Getting Started Summary**
+
+**New to the stack?** → Use **Option 1: Full Container Setup** for the easiest experience  
+**Have local Ollama?** → Use **Option 2: Local AI Services** for better performance  
+**Have NVIDIA GPU?** → Use **Option 3: GPU-Accelerated** for maximum speed  
+**Need cloud APIs?** → Use **Option 4: Cloud API Setup** for OpenAI/Anthropic integration
+
+The SOURCE-based configuration system provides a simple and flexible way to customize your deployment.
+
+**Next Steps After Starting:** Access your services, configure API keys if needed, and explore the workflows in n8n and Open WebUI!
+
+---
 
 ## 4. Quick Access Guide
 
@@ -296,7 +429,7 @@ Once the stack is running, you can access services at the following URLs:
     - **Setup Required**: Add hosts file entries (see Section 16.2 below for detailed instructions)
 - **ComfyUI Image Generation**:
   - **Direct**: `http://localhost:${COMFYUI_PORT}` (default: 63018) - ✅ **Authentication Bypassed**
-  - **Local (ai-local profile)**: `http://localhost:8000`
+  - **Local (localhost SOURCE configuration)**: `http://localhost:8000`
   - **Via Kong**: `http://comfyui.localhost:${KONG_HTTP_PORT}/` (default: comfyui.localhost:63002) - ✅ **Subdomain Access**
     - **Setup Required**: Add hosts file entries (see Section 16.2 below)
 
@@ -314,7 +447,7 @@ Once the stack is running, you can access services at the following URLs:
 
 ## 5. Service Configuration
 
-Services can be configured through environment variables or by selecting different Docker Compose profiles:
+Services can be configured through SOURCE environment variables in the unified Docker Compose architecture:
 
 ### 5.1. Environment Variables
 
@@ -606,7 +739,7 @@ The system dynamically discovers and configures embedding models from your datab
 
 1. **weaviate-init Service**: Queries the database for active Ollama embedding models
    ```sql
-   SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings = true;
+   SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings > 0 ORDER BY embeddings DESC;
    ```
 
 2. **Dynamic Configuration**: Automatically configures Weaviate to use the discovered model
@@ -746,13 +879,13 @@ curl -s http://localhost:${WEAVIATE_PORT}/v1/schema | jq .
 # Check which embedding model is configured
 docker logs genai-weaviate-init 2>&1 | grep "embedding model"
 
-# Check which profile is running and verify Ollama endpoint
+# Check Weaviate configuration and verify Ollama endpoint
 docker exec genai-weaviate env | grep OLLAMA_ENDPOINT
 
-# Verify model in Ollama (for default/gpu profiles)
-docker exec genai-ollama ollama list | grep mxbai-embed-large || echo "Containerized Ollama not running (likely ai-local profile)"
+# Verify model in containerized Ollama 
+docker exec genai-ollama ollama list | grep mxbai-embed-large || echo "Containerized Ollama not running (likely localhost SOURCE configuration)"
 
-# For ai-local profile, check local Ollama
+# For localhost SOURCE configuration, check local Ollama
 curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name | contains("mxbai-embed-large"))' || echo "Local Ollama not available or model not pulled"
 ```
 
@@ -890,7 +1023,7 @@ curl -X POST http://localhost:${WEAVIATE_PORT}/v1/objects \
 
 **5. Test Vector Search**:
 ```bash
-# Search for similar documents (Default/GPU profiles)
+# Search for similar documents (containerized Ollama)
 curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
   -H "Content-Type: application/json" \
   -d '{
@@ -913,7 +1046,7 @@ curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
     }"
   }' | jq .
 
-# Search for similar documents (AI-Local profile)
+# Search for similar documents (localhost SOURCE configuration)
 curl -X POST http://localhost:${WEAVIATE_PORT}/v1/graphql \
   -H "Content-Type: application/json" \
   -d '{
@@ -1087,19 +1220,19 @@ docker compose up
 
 # Development with local Ollama (running on your host machine)
 # First ensure Ollama is running on your host
-./start.sh --profile ai-local
+./start.sh  # with LLM_PROVIDER_SOURCE=localhost in .env.example
 
 # Production with NVIDIA GPU support
-./start.sh --profile ai-gpu
+./start.sh --base-port 64000  # all services containerized
 ```
 
 #### 7.1.2. Environment-Specific Configuration
 
 The Ollama service is configured for different environments using standalone Docker Compose files:
 
-- **Default (default profile)**: Standard containerized Ollama service (runs on CPU)
-- **ai-local profile**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
-- **ai-gpu profile**: Complete stack with NVIDIA GPU acceleration for the Ollama container
+- **container-cpu SOURCE**: Standard containerized Ollama service (runs on CPU)
+- **localhost SOURCE**: Complete stack without an Ollama container, connects directly to a locally running Ollama instance
+- **container-gpu SOURCE**: Complete stack with NVIDIA GPU acceleration for the Ollama container
 
 The configuration includes an `ollama-pull` service that automatically downloads required models from the Supabase database. It queries the LLMs table for models where `provider='ollama'` and `active=true`, then pulls each model via the Ollama API. This ensures the necessary models are always available for dependent services.
 
@@ -1131,7 +1264,7 @@ The Local Deep Researcher service is configured through environment variables an
   - `LOCAL_DEEP_RESEARCHER_SEARCH_API`: Search backend to use (default: DuckDuckGo)
 
 - **Database Integration**:
-  - Queries `public.llms` table for active content LLMs: `SELECT provider, name FROM public.llms WHERE active = true AND content = true ORDER BY provider = 'ollama' DESC, name LIMIT 1`
+  - Queries `public.llms` table for active content LLMs: `SELECT provider, name FROM public.llms WHERE active = true AND content > 0 ORDER BY content DESC, provider = 'ollama' DESC, name LIMIT 1`
   - Automatically configures runtime settings based on detected models
   - Falls back to llama3.2 if no active models are found
 
@@ -1146,9 +1279,9 @@ The Local Deep Researcher service depends on:
 
 The service adapts to different deployment scenarios:
 
-- **Default (default profile)**: Connects to containerized Ollama service
-- **Development (ai-local profile)**: Connects to local host Ollama instance
-- **Production (ai-gpu profile)**: Connects to GPU-accelerated containerized Ollama
+- **container-cpu SOURCE**: Connects to containerized Ollama service
+- **localhost SOURCE**: Connects to local host Ollama instance
+- **container-gpu SOURCE**: Connects to GPU-accelerated containerized Ollama
 
 #### 7.2.5. Usage
 
@@ -1420,7 +1553,7 @@ The `open-webui/` folder contains custom research integrations:
 3. Check if the model name in the database matches:
    ```sql
    -- Connect to database and check active LLM
-   SELECT name, provider FROM llms WHERE active = true AND content = true;
+   SELECT name, provider FROM llms WHERE active = true AND content > 0 ORDER BY content DESC;
    ```
 
 **Model Not Found Error**:
@@ -1584,6 +1717,33 @@ COMFYUI_UPLOAD_TO_SUPABASE=true
 COMFYUI_STORAGE_BUCKET=comfyui-images
 ```
 
+#### 7.6.2.1. ComfyUI Authentication
+
+The ComfyUI service uses the `ai-dock` Docker image which includes authentication by default.
+
+**Default Credentials:**
+When accessing ComfyUI through:
+- Direct URL: `http://localhost:55684/`
+- Kong Gateway: `http://localhost:55668/comfyui/`
+
+You will be redirected to a login page. Use these credentials:
+- **Username**: `user`
+- **Password**: `password`
+
+**Disabling Authentication (Optional):**
+If you want to disable authentication, you can add these environment variables to the ComfyUI service:
+
+```yaml
+environment:
+  - WEB_ENABLE_AUTH=false
+  - ENABLE_QUICKTUNNEL=false
+```
+
+**Alternative Solutions:**
+1. Use a different ComfyUI image without authentication
+2. Configure a reverse proxy to bypass the authentication layer
+3. Use the ComfyUI API directly (bypassing the web UI)
+
 > **🔧 Authentication Fix**: ComfyUI is configured to bypass the ai-dock authentication layer by connecting directly to port 18188 (internal ComfyUI port) instead of port 8188 (Caddy reverse proxy). This eliminates the need for login credentials and provides direct access to the ComfyUI interface.
 
 #### 7.6.3. Deployment Profiles
@@ -1606,9 +1766,9 @@ ComfyUI supports multiple deployment configurations:
 - Connects to host-based Ollama and ComfyUI instances
 - Optimized for macOS Apple Silicon (M1/M2/M3/M4) with Metal Performance Shaders
 
-#### 7.6.4. Local ComfyUI Installation (AI-Local Profile)
+#### 7.6.4. Local ComfyUI Installation (Localhost SOURCE Configuration)
 
-For the AI-Local profile, you'll need to install ComfyUI locally on your host machine. This is particularly beneficial for macOS users with Apple Silicon processors.
+For localhost SOURCE configuration, you'll need to install ComfyUI locally on your host machine. This is particularly beneficial for macOS users with Apple Silicon processors.
 
 **Prerequisites:**
 - macOS 12.3 or later (for Apple Silicon optimization)
@@ -1650,7 +1810,7 @@ For the AI-Local profile, you'll need to install ComfyUI locally on your host ma
    - The stack will automatically connect to your local ComfyUI instance
 
 **Model Installation:**
-- When you start the GenAI stack with the AI-Local profile, the `comfyui-init` service will automatically download essential models
+- When you start the GenAI stack with localhost SOURCE configuration, the `comfyui-init` service will automatically download essential models
 - Models are stored in the `comfyui-models` Docker volume and shared with your local ComfyUI installation
 - You can access models at: `./models/` directory in your ComfyUI installation
 
@@ -1662,10 +1822,10 @@ For the AI-Local profile, you'll need to install ComfyUI locally on your host ma
 **Using the AI-Local Profile:**
 ```bash
 # Start the stack with local ComfyUI
-./start.sh --profile ai-local
+./start.sh  # with LLM_PROVIDER_SOURCE=localhost in .env.example
 
-# Or manually
-docker compose -f docker-compose.yml -f compose-profiles/data.yml -f compose-profiles/ai-local.yml -f compose-profiles/apps-local.yml up
+# Or manually with unified configuration
+docker compose --env-file=.env up
 ```
 
 #### 7.6.5. Service Dependencies
@@ -1782,6 +1942,78 @@ curl -X POST http://localhost:${BACKEND_PORT}/comfyui/generate \
 - Check Kong Gateway routing configuration
 - Ensure environment variables are correctly set
 
+### 8.7. n8n Workflow Automation Service
+
+n8n is a powerful workflow automation platform that provides advanced orchestration capabilities for the GenAI stack, enabling automated data processing, API integration, and workflow scheduling.
+
+#### 8.7.1. Overview
+
+- **Direct Access**: `http://localhost:${N8N_PORT}` (default: 63017)
+- **Kong Gateway**: `http://n8n.localhost:${KONG_HTTP_PORT}/` (requires hosts file setup)
+- **Database Integration**: Uses PostgreSQL for workflow storage and execution history
+- **Queue System**: Redis-backed queue processing for reliable workflow execution
+- **Community Packages**: Pre-installed nodes for ComfyUI, MCP, and other integrations
+
+#### 8.7.2. Workflow Templates
+
+This directory contains ready-to-use n8n workflow templates for the GenAI Vanilla Stack.
+
+**Available Workflows:**
+
+**1. SearxNG Research Workflow (`searxng-research-workflow.json`)**
+- **Purpose**: Automated research using SearxNG with AI summarization
+- **Webhook**: `/webhook/research`
+- **Features**:
+  - Searches SearxNG for relevant information
+  - Uses AI to summarize and analyze results
+  - Returns structured research summaries
+
+#### 8.7.3. Manual Import Instructions
+
+Since modern n8n requires user management, workflows must be imported manually:
+
+**Step 1: Complete n8n Setup**
+1. Access n8n at `http://n8n.localhost:55668` or `http://localhost:55683`
+2. Complete the initial user setup (email + password)
+3. Login to n8n
+
+**Step 2: Set Up Database Credentials**
+1. Go to **Credentials** → **Add Credential**
+2. Select **PostgreSQL**
+3. Configure:
+   - **Name**: `Supabase Database`
+   - **Host**: `supabase-db`
+   - **Port**: `5432`
+   - **Database**: `postgres`
+   - **User**: `supabase_admin`
+   - **Password**: `password` (or your configured password)
+   - **SSL**: Disabled
+
+**Step 3: Import Workflows**
+1. Go to **Workflows** → **Import from File**
+2. Upload `searxng-research-workflow.json`
+3. For each workflow:
+   - Open the workflow
+   - Click on the PostgreSQL node
+   - Select the credential you created in Step 2
+   - Save the workflow
+   - **Activate** the workflow (toggle switch)
+
+**Step 4: Test Webhooks**
+- **Research**: `POST http://localhost:55683/webhook/research`
+
+#### 8.7.4. Integration with Open-WebUI
+
+The research workflow is designed to work with the Open-WebUI n8n integration tool:
+- `trigger_research()` → calls `/webhook/research`
+
+#### 8.7.5. Community Nodes
+
+The following community nodes are automatically installed:
+- `n8n-nodes-comfyui` - ComfyUI integration
+- `@ksc1234/n8n-nodes-comfyui-image-to-image` - Image transformations
+- `n8n-nodes-mcp` - Model Context Protocol support
+
 ## 9. Database Setup Process
 
 The database initialization follows a two-stage process managed by Docker Compose dependencies:
@@ -1856,14 +2088,8 @@ genai-vanilla-stack/
 ├── docker-compose.yml    # Main compose file (base networks and volumes)
 ├── docker-compose.ai-local.yml  # Local Ollama flavor (backward compatibility)
 ├── docker-compose.ai-gpu.yml    # GPU-optimized flavor (backward compatibility)
-├── compose-profiles/     # Modular service profiles
-│   ├── data.yml         # Data services (DB, Redis, Neo4j)
-│   ├── ai.yml           # AI services (Ollama, Deep Researcher)
-│   ├── ai-local.yml     # AI services for local Ollama
-│   ├── ai-gpu.yml       # AI services with GPU support
-│   ├── apps.yml         # Application services
-│   ├── apps-local.yml   # App services for local Ollama
-│   └── apps-gpu.yml     # App services with GPU support
+├── config/               # Configuration files
+│   └── service-configs.yml  # SERVICE SOURCE matrix configuration
 ├── backend/              # FastAPI backend service
 │   ├── Dockerfile
 │   └── app/
@@ -1914,7 +2140,7 @@ This project is designed to work across different operating systems:
 
 The following scripts that run on the host machine (not in containers) have been made cross-platform compatible:
 
-- `start.sh` - For starting the stack with configurable ports and profiles
+- `start.sh` - For starting the stack with configurable ports and SOURCE-based service configuration
 - `stop.sh` - For stopping the stack and clean up resources
 - `generate_supabase_keys.sh` - For generating JWT keys
 - `docs/diagrams/generate_diagram.sh` - For generating architecture diagrams
@@ -2057,20 +2283,20 @@ The start.sh script can automatically manage hosts file entries for you:
 
 ```bash
 # Option 1: Automatic setup during startup (requires sudo)
-sudo ./start.sh --setup-hosts --profile default
+sudo ./start.sh --setup-hosts ./start.sh
 
 # Option 2: Let the script check and prompt you
-./start.sh --profile default
+./start.sh ./start.sh
 # The script will detect missing entries and guide you through setup
 
 # Option 3: Skip hosts file management
-./start.sh --skip-hosts --profile default
+./start.sh --skip-hosts ./start.sh
 ```
 
 **Cleanup when done:**
 ```bash
 # Remove hosts entries when stopping the stack
-sudo ./stop.sh --clean-hosts --profile default
+sudo ./stop.sh --clean-hosts ./start.sh
 ```
 
 **Manual Setup (if preferred):**
@@ -2406,7 +2632,7 @@ The tools are configured via Open-WebUI's tool valve system:
 2. **ComfyUI Connection Issues**
    - Verify ComfyUI service is running (use `check_comfyui_status()`)
    - Check backend API connectivity
-   - For ai-local profile, ensure local ComfyUI is running on port 8000
+   - For localhost SOURCE configuration, ensure local ComfyUI is running on port 8000
 
 3. **Image Generation Failures**
    - Check if required models are available (`get_available_models()`)
@@ -2481,7 +2707,7 @@ Based on comprehensive analysis of the current GenAI landscape and emerging 2025
 - **Integration**: Easy Docker deployment, 18MB image, GraphQL API
 - **Benefits**: Built-in embeddings, multi-modal support, semantic search
 - **Complexity**: Low - drop-in replacement with superior performance
-- **Profile**: New `vector.yml` profile for dedicated vector services
+- **Configuration**: Dedicated vector services in unified compose file
 
 #### 18.1.2. Whisper Audio Transcription Service ⭐⭐⭐⭐⭐
 - **Purpose**: Audio/video transcription and voice-to-text processing
@@ -2514,7 +2740,7 @@ Based on comprehensive analysis of the current GenAI landscape and emerging 2025
 - **Integration**: Standard Docker images, Kong metrics integration, service discovery
 - **Benefits**: Real-time dashboards, alerting, historical analytics
 - **Complexity**: Medium - requires dashboard configuration and alert setup
-- **Profile**: New `monitoring.yml` profile for observability services
+- **Configuration**: Observability services in unified compose file
 
 #### 18.2.3. Piper TTS (Text-to-Speech) ⭐⭐⭐⭐
 - **Purpose**: High-quality, fast neural text-to-speech synthesis
@@ -2675,19 +2901,16 @@ SearxNG will be configured with carefully selected engines optimized for researc
 - **LiveKit** evaluation for real-time features
 - **Performance optimization** and scaling
 
-### 18.7. New Profile Structure
+### 18.7. Unified Service Architecture
 
-To accommodate these services, we'll introduce new modular profiles:
+To accommodate these services, they will be integrated into the unified docker-compose.yml file with SOURCE-based configuration:
 
 ```
-compose-profiles/
-├── data.yml           # Existing: Core data services
-├── ai.yml             # Existing: AI inference services
-├── apps.yml           # Existing: Application services
-├── vector.yml         # NEW: Vector databases and embedding services
-├── audio.yml          # NEW: Audio processing (Whisper, Piper TTS)
-├── search.yml         # NEW: SearxNG metasearch service
-├── monitoring.yml     # NEW: Observability and monitoring
+# Services configured via SOURCE environment variables:
+# - Vector databases and embedding services (WEAVIATE_SOURCE, etc.)
+# - Audio processing services (WHISPER_SOURCE, PIPER_SOURCE)  
+# - Search services (SEARXNG_SOURCE)
+# - Monitoring services (PROMETHEUS_SOURCE, GRAFANA_SOURCE)
 ├── workflow.yml       # NEW: Advanced workflow orchestration
 └── security.yml       # NEW: Enhanced authentication and security
 ```
@@ -2879,29 +3102,23 @@ The vanilla stack philosophy is to start simple and enhance progressively. Each 
 
 **Priority**: High | **Status**: Completed | **Complexity**: Medium
 
-**Overview**: Successfully restructured the Docker Compose architecture to improve modularity, reusability, and service management. This implementation enables better service control and makes the stack more suitable as a foundation for specialized projects.
+**Overview**: Successfully restructured the Docker Compose architecture to improve modularity, reusability, and service management. The unified architecture with SOURCE-based configuration enables better service control and makes the stack more suitable as a foundation for specialized projects.
 
 #### Issues Resolved:
-- ✅ **Redundant service definitions**: Eliminated through modular profile structure
-- ✅ **All-or-nothing service deployment**: Resolved with profile-based deployment system
-- ✅ **Difficult service group control**: Now possible with granular profiles
+- ✅ **Redundant service definitions**: Eliminated through unified compose structure
+- ✅ **All-or-nothing service deployment**: Resolved with SOURCE-based configuration system  
+- ✅ **Difficult service group control**: Now possible with granular SOURCE variables
 - ✅ **Limited reusability**: Improved modularity for derivative projects
-- ✅ **Environment file path issues**: Consistent env file handling across all profiles
+- ✅ **Environment file path issues**: Consistent env file handling with unified compose file
 
 #### Final Implemented Structure:
 ```
 vanilla-genai/
-├── docker-compose.yml              # Base networks and volumes only
+├── docker-compose.yml              # Unified service definitions with SOURCE-based configuration
 ├── docker-compose.ai-local.yml     # Legacy: Local Ollama flavor (backward compatibility)
 ├── docker-compose.ai-gpu.yml       # Legacy: GPU-optimized flavor (backward compatibility)
-├── compose-profiles/               # New modular profile system
-│   ├── data.yml                    # Data services (Supabase, Redis, Neo4j)
-│   ├── ai.yml                      # AI services (Ollama, Deep Researcher, n8n)
-│   ├── ai-local.yml                # AI services for local Ollama (no Ollama container)
-│   ├── ai-gpu.yml                  # AI services with GPU support
-│   ├── apps.yml                    # Application services (UI, Backend, Kong)
-│   ├── apps-local.yml              # App services configured for local Ollama
-│   └── apps-gpu.yml                # App services with GPU optimization
+├── config/                         # Configuration management
+│   └── service-configs.yml         # SOURCE matrix for dynamic service configuration
 ```
 
 #### Service Grouping:
@@ -2937,10 +3154,10 @@ vanilla-genai/
    ./start.sh
    
    # AI-focused stack
-   ./start.sh --profile ai-local
+   ./start.sh  # with LLM_PROVIDER_SOURCE=localhost in .env.example
    
    # GPU-optimized stack
-   ./start.sh --profile ai-gpu
+   ./start.sh --base-port 64000  # all services containerized
    ```
 
 2. **✅ Modular Architecture**: Clean separation of concerns
@@ -2953,10 +3170,10 @@ vanilla-genai/
 5. **✅ Simplified Maintenance**: DRY principle, no redundant definitions
 
 #### Migration Strategy (Completed):
-1. **✅ Phase 1**: Created profile files alongside existing structure
-2. **✅ Phase 2**: Updated documentation and convenience scripts
-3. **✅ Phase 3**: Renamed profiles to cleaner names (ai-local, ai-gpu)
-4. **Future**: Remove deprecated files in next major version
+1. **✅ Phase 1**: Consolidated all services into unified docker-compose.yml
+2. **✅ Phase 2**: Implemented SOURCE-based configuration system
+3. **✅ Phase 3**: Updated documentation and convenience scripts
+4. **✅ Phase 4**: Migrated to YAML-driven service matrix configuration
 
 #### Environment-Based Control:
 ```bash
@@ -2971,9 +3188,8 @@ ENABLE_COMFYUI=false  # NEW
 #### Updated Convenience Scripts:
 ```bash
 # Enhanced start.sh options
-./start.sh --profile ai                    # AI services only
-./start.sh --profile automation            # Automation services only  
-./start.sh --profile "ai,automation"       # Multiple profiles
+# Configure SOURCE variables in .env.example for specific service combinations
+# All configuration is done via SOURCE variables
 ./start.sh --disable ui                    # Disable UI services
 ./start.sh --enable comfyui               # Enable ComfyUI specifically
 ```
@@ -3098,9 +3314,9 @@ ENABLE_COMFYUI=false  # NEW
 - **Modular Architecture**: Fits well with our service-oriented approach
 
 #### ✅ Implemented Features:
-- **Multi-Architecture Support**: CPU (development) and GPU (production) deployment profiles
+- **Multi-Architecture Support**: CPU (development) and GPU (production) deployment configurations
 - **Docker Images**: Uses `ghcr.io/ai-dock/comfyui` with CPU and CUDA variants
-- **Service Integration**: Full integration with all AI and Apps profiles
+- **Service Integration**: Full integration with unified service architecture
 - **Port Assignment**: ComfyUI on port 63018 (BASE_PORT + 17)
 - **Kong Gateway**: API routing through Kong for security and load balancing
 - **Supabase Integration**: Automatic image storage in Supabase Storage
@@ -3238,7 +3454,7 @@ CREATE TABLE rag_relationships (
 - ✅ Installed `@ksc1234/n8n-nodes-comfyui-image-to-image` for image transformations
 - ✅ Installed `n8n-nodes-mcp` for Model Context Protocol integration
 - ✅ Configured environment variables for community package support
-- ✅ Added to all Docker Compose profiles with proper service dependencies
+- ✅ Added to unified Docker Compose with proper service dependencies
 - ✅ Backend service waits for n8n-init completion before starting
 **Features Available**:
 - Direct n8n → ComfyUI workflow execution
@@ -3260,7 +3476,7 @@ CREATE TABLE rag_relationships (
 - ✅ Implemented model list caching with configurable TTL
 - ✅ Set up dedicated Redis database (DB 2) to avoid conflicts
 - ✅ Added environment variables for Redis WebSocket integration
-- ✅ Updated all Docker Compose profiles (apps, apps-local, apps-gpu)
+- ✅ Updated unified Docker Compose with Redis WebSocket configuration
 **Features Available**:
 - Real-time WebSocket communication via Redis
 - Model list caching (5-minute TTL by default)
@@ -3340,7 +3556,7 @@ CREATE TABLE rag_relationships (
 
 **Access Points**:
 - Web Interface (Containerized): `http://localhost:${COMFYUI_PORT}` (default: 63018)
-- Web Interface (Local/ai-local profile): `http://localhost:8000`
+- Web Interface (Local/localhost SOURCE configuration): `http://localhost:8000`
 - Kong Gateway: `http://localhost:${KONG_HTTP_PORT}/comfyui/` (works for both containerized and local)
 - API Endpoints: `/prompt`, `/history`, `/view`, `/system_stats`
 - Model Storage: `comfyui-models` Docker volume
@@ -3493,8 +3709,8 @@ The Local Deep Researcher uses a database-driven approach for selecting which LL
 
 1. **Database Configuration**:
    - Models are stored in the `llms` table in Supabase
-   - Each model has flags: `active`, `content`, `embeddings`, `vision`
-   - The Deep Researcher uses models marked with `active = true` AND `content = true`
+   - Each model has flags: `active` (boolean), `content`, `embeddings`, `vision`, `structured_content` (integer priorities)
+   - The Deep Researcher uses models marked with `active = true` AND `content > 0` (priority-based selection)
 
 2. **Automatic Model Selection**:
    ```
@@ -3532,7 +3748,7 @@ To use a different model for research:
    ```sql
    UPDATE public.llms 
    SET active = false 
-   WHERE name = 'qwen3:latest' AND content = true;
+   WHERE name = 'qwen3:latest' AND content > 0;
    ```
 
 3. **Restart the services**:
@@ -3632,34 +3848,42 @@ The `llms` table structure:
 CREATE TABLE public.llms (
   id bigint PRIMARY KEY,
   active boolean NOT NULL DEFAULT false,
-  vision boolean NOT NULL DEFAULT false,
-  content boolean NOT NULL DEFAULT false,
-  structured_content boolean NOT NULL DEFAULT false,
-  embeddings boolean NOT NULL DEFAULT false,
+  vision integer NOT NULL DEFAULT 0,
+  content integer NOT NULL DEFAULT 0,
+  structured_content integer NOT NULL DEFAULT 0,
+  embeddings integer NOT NULL DEFAULT 0,
   provider varchar NOT NULL,
   name varchar NOT NULL UNIQUE,
   description text,
   size_gb numeric,
   context_window integer,
+  api_key text,
+  api_endpoint text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
 ```
+
+**Key Schema Updates:**
+- **Capability Fields**: Now use `integer` for priority-based selection (0 = not capable, higher = higher priority)
+- **API Support**: Added `api_key` and `api_endpoint` columns for external API providers
+- **Active Field**: Remains `boolean` for general filtering capability
 
 **Model Selection Logic**
 
 1. **Query Priority**:
    ```sql
    SELECT provider, name FROM public.llms 
-   WHERE active = true AND content = true 
-   ORDER BY provider = 'ollama' DESC, name
+   WHERE active = true AND content > 0 
+   ORDER BY content DESC, provider = 'ollama' DESC, name
    LIMIT 1;
    ```
 
 2. **Selection Criteria**:
    - Must have `active = true`
-   - Must have `content = true` (for text generation)
-   - Prefers `ollama` provider for local inference
+   - Must have `content > 0` (for text generation, higher values = higher priority)
+   - Prioritizes models with highest `content` score
+   - Among equal priorities, prefers `ollama` provider for local inference
    - Falls back to `llama3.2` if no models found
 
 **Managing Research Models**
@@ -3669,13 +3893,13 @@ View Available Models:
 -- See all content-capable models
 SELECT name, provider, active, description 
 FROM public.llms 
-WHERE content = true;
+WHERE content > 0;
 
 -- Check current active research model
 SELECT name, provider 
 FROM public.llms 
-WHERE active = true AND content = true 
-ORDER BY provider = 'ollama' DESC
+WHERE active = true AND content > 0 
+ORDER BY content DESC, provider = 'ollama' DESC
 LIMIT 1;
 ```
 
@@ -3686,7 +3910,7 @@ INSERT INTO public.llms (
   name, provider, active, content, 
   description, context_window
 ) VALUES (
-  'llama3.1:70b', 'ollama', true, true,
+  'llama3.1:70b', 'ollama', true, 10,
   'Large Llama 3.1 model with enhanced capabilities', 128000
 );
 ```
@@ -3716,6 +3940,48 @@ To manually trigger a model pull:
 docker compose restart ollama-pull
 ```
 
+**API Provider Configuration**
+
+For external API providers (OpenAI, Anthropic, etc.), use the new database-driven configuration:
+
+1. **Set SOURCE to api**:
+   ```bash
+   # In .env.example:
+   LLM_PROVIDER_SOURCE=api
+   ```
+
+2. **Configure API providers in database**:
+   ```sql
+   -- Add OpenAI GPT-4 model
+   INSERT INTO public.llms (
+     name, provider, active, content, vision, api_key, api_endpoint,
+     description, context_window
+   ) VALUES (
+     'gpt-4o', 'openai', true, 15, 10, 'sk-your-openai-api-key', 'https://api.openai.com/v1',
+     'OpenAI GPT-4 Omni with vision capabilities', 128000
+   );
+
+   -- Add Anthropic Claude model
+   INSERT INTO public.llms (
+     name, provider, active, content, api_key, api_endpoint,
+     description, context_window
+   ) VALUES (
+     'claude-3-5-sonnet-20241022', 'anthropic', true, 20, 'sk-ant-your-anthropic-key', 'https://api.anthropic.com',
+     'Anthropic Claude 3.5 Sonnet latest version', 200000
+   );
+   ```
+
+3. **Priority-based Selection**:
+   - Higher `content` values = higher priority for text generation
+   - Higher `vision` values = higher priority for image analysis
+   - Higher `embeddings` values = higher priority for vector embeddings
+   - `active = false` excludes models from selection entirely
+
+4. **API Key Security**:
+   - API keys are stored securely in the database
+   - Use environment variables for sensitive keys when possible
+   - Rotate keys regularly and update in database
+
 **Integration with Services**
 
 - **Local Deep Researcher**: Uses `init-config.py` to read model configuration
@@ -3740,7 +4006,7 @@ docker compose restart local-deep-researcher
 ```bash
 # Check if model is in database
 docker compose exec supabase-db psql -U postgres -d postgres -c \
-  "SELECT name, provider, active FROM public.llms WHERE content = true;"
+  "SELECT name, provider, active FROM public.llms WHERE content > 0;"
 
 # Check ollama-pull logs
 docker compose logs ollama-pull
@@ -3770,12 +4036,12 @@ docker compose restart ollama-pull local-deep-researcher
 ```sql
 -- Check which model is active
 SELECT name, provider FROM public.llms 
-WHERE active = true AND content = true 
-ORDER BY provider = 'ollama' DESC;
+WHERE active = true AND content > 0 
+ORDER BY content DESC, provider = 'ollama' DESC;
 
 -- If multiple models are active, deactivate unwanted ones
 UPDATE public.llms SET active = false 
-WHERE name != 'your-preferred-model' AND content = true;
+WHERE name != 'your-preferred-model' AND content > 0;
 ```
 
 **Model Configuration Not Updating**
@@ -3893,7 +4159,7 @@ python -m py_compile open-webui/tools/deep_researcher_tool.py
 **Status**: Fully integrated and operational
 
 **Implementation Details**:
-- ✅ Added Redis dependency to n8n service in all Docker Compose profiles
+- ✅ Added Redis dependency to n8n service in unified Docker Compose
 - ✅ Configured n8n with `EXECUTIONS_MODE=queue` for queue-based execution
 - ✅ Set up Bull queue management using Redis database 0
 - ✅ Added proper health check conditions for service startup order
@@ -3926,7 +4192,7 @@ python -m py_compile open-webui/tools/deep_researcher_tool.py
 
 **Implementation Details**:
 - ✅ SearxNG already configured with Redis caching in `settings.yml`
-- ✅ Added formal Docker dependency (`depends_on: redis`) to all compose profiles
+- ✅ Added formal Docker dependency (`depends_on: redis`) to unified compose file
 - ✅ Configured to use Redis database 1 for search result caching
 - ✅ Updated architecture diagram to show caching relationship
 - ✅ Verified Redis connection and caching functionality
@@ -4038,7 +4304,7 @@ mcp-gateway:
 ### 21.6. Development Roadmap
 
 **Phase 1: Foundation** (4-6 weeks):
-- [ ] Add MCP Gateway service to Docker Compose profiles
+- [ ] Add MCP Gateway service to unified Docker Compose
 - [ ] Integrate PostgreSQL MCP server with Supabase
 - [ ] Configure basic security and networking
 - [ ] Update environment variable management
@@ -4059,7 +4325,7 @@ mcp-gateway:
 - [ ] Comprehensive security audit and hardening  
 - [ ] Performance optimization and scaling
 - [ ] Documentation and operational procedures
-- [ ] Integration testing across all profiles
+- [ ] Integration testing across all SOURCE configurations
 
 ### 21.7. Expected Outcomes
 

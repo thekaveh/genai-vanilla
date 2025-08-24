@@ -40,10 +40,15 @@ get_genai_hosts() {
   echo "n8n.localhost api.localhost search.localhost comfyui.localhost chat.localhost"
 }
 
-# Check which hosts entries are missing
+# Check which hosts entries are missing  
 check_missing_hosts() {
-  local hosts_file=$1
+  local hosts_file=$(get_hosts_file)
   local missing=()
+  
+  if [[ -z "$hosts_file" || ! -f "$hosts_file" ]]; then
+    echo "  • ⚠️  Cannot access hosts file: $hosts_file"
+    return 1
+  fi
   
   for host in $(get_genai_hosts); do
     if ! grep -q "^[[:space:]]*127\.0\.0\.1[[:space:]]\+.*$host" "$hosts_file" 2>/dev/null; then
@@ -51,7 +56,12 @@ check_missing_hosts() {
     fi
   done
   
-  echo "${missing[@]}"
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "  • Missing hosts entries: ${missing[*]}"
+    echo "    Run with --setup-hosts to add them automatically"
+  else
+    echo "  • ✅ All required hosts entries are present"
+  fi
 }
 
 # Add hosts entries (removes old ones first to prevent duplicates)
@@ -111,4 +121,57 @@ remove_hosts_entries() {
   remove_hosts_entries_silent "$hosts_file"
   
   return 0
+}
+
+# Setup hosts entries (main function called from start.sh)
+setup_hosts_entries() {
+  local hosts_file=$(get_hosts_file)
+  
+  if [[ -z "$hosts_file" ]]; then
+    echo "  • ❌ Cannot determine hosts file location for OS: $(detect_os)"
+    return 1
+  fi
+  
+  if [[ ! -f "$hosts_file" ]]; then
+    echo "  • ❌ Hosts file not found: $hosts_file"
+    return 1
+  fi
+  
+  # Check if we have elevated privileges
+  if ! is_elevated; then
+    echo "  • ❌ Administrative privileges required to modify hosts file"
+    echo "    Please run with sudo (Linux/macOS) or as Administrator (Windows)"
+    return 1
+  fi
+  
+  echo "  • Setting up GenAI Stack hosts entries..."
+  echo "  • Hosts file: $hosts_file"
+  
+  # Check which entries are missing first
+  local missing=()
+  for host in $(get_genai_hosts); do
+    if ! grep -q "^[[:space:]]*127\.0\.0\.1[[:space:]]\+.*$host" "$hosts_file" 2>/dev/null; then
+      missing+=("$host")
+    fi
+  done
+  
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    echo "  • ✅ All GenAI hosts entries already exist"
+    return 0
+  fi
+  
+  echo "  • Adding missing entries: ${missing[*]}"
+  
+  # Use the existing add_hosts_entries function
+  if add_hosts_entries "$hosts_file"; then
+    echo "  • ✅ Hosts entries added successfully"
+    echo "  • You can now access services via:"
+    for host in $(get_genai_hosts); do
+      echo "    - http://$host"
+    done
+    return 0
+  else
+    echo "  • ❌ Failed to add hosts entries"
+    return 1
+  fi
 }

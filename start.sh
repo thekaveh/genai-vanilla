@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Cross-platform script to start the GenAI Vanilla Stack with configurable ports and profile
+# Cross-platform script to start the GenAI Vanilla Stack with YAML-driven configuration
 
-# Source hosts utilities
+# Source hosts utilities from new location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/hosts-utils.sh" 2>/dev/null || {
+source "$SCRIPT_DIR/config/scripts/hosts-utils.sh" 2>/dev/null || {
   echo "Warning: Could not load hosts-utils.sh"
   SKIP_HOSTS=true
 }
@@ -252,6 +252,42 @@ show_compact_banner() {
   printf "\n"
 }
 
+# Function to check yq availability with graceful fallback
+ensure_yq_available() {
+  if ! command -v yq &> /dev/null; then
+    echo "⚠️  yq not found - required for YAML configuration processing"
+    echo ""
+    echo "Please install yq using one of these methods:"
+    echo ""
+    case "$OSTYPE" in
+      darwin*)
+        echo "  macOS:"
+        echo "    brew install yq"
+        echo "    or download from: https://github.com/mikefarah/yq/releases"
+        ;;
+      linux*)
+        echo "  Linux:"
+        echo "    # Ubuntu/Debian:"
+        echo "    sudo apt update && sudo apt install -y yq"
+        echo ""
+        echo "    # RHEL/CentOS/Fedora:"
+        echo "    sudo yum install -y yq"
+        echo ""
+        echo "    # Arch Linux:"
+        echo "    sudo pacman -S yq"
+        echo ""
+        echo "    # Or download from: https://github.com/mikefarah/yq/releases"
+        ;;
+      *)
+        echo "  Download from: https://github.com/mikefarah/yq/releases"
+        ;;
+    esac
+    echo ""
+    echo "After installing yq, please run this script again."
+    exit 1
+  fi
+}
+
 # Function to detect available docker compose command
 detect_docker_compose_cmd() {
   if command -v docker &> /dev/null; then
@@ -269,23 +305,419 @@ detect_docker_compose_cmd() {
   fi
 }
 
+# Function to validate SOURCE configurations against service-configs.yml
+validate_source_values() {
+  local config_file="config/service-configs.yml"
+  local validation_errors=0
+  
+  echo "🔍 Validating SOURCE configurations..."
+  
+  # Check LLM_PROVIDER_SOURCE
+  local llm_source="${SERVICE_SOURCES[LLM_PROVIDER_SOURCE]}"
+  local valid_llm_sources=$(yq eval '.source_mappings.LLM_PROVIDER_SOURCE.mappings | keys | .[]' "$config_file" | tr '\n' ' ')
+  if ! yq eval ".source_mappings.LLM_PROVIDER_SOURCE.mappings | has(\"$llm_source\")" "$config_file" | grep -q "true"; then
+    echo "❌ Invalid LLM_PROVIDER_SOURCE: '$llm_source'"
+    echo "   Valid options: $valid_llm_sources"
+    validation_errors=$((validation_errors + 1))
+  fi
+  
+  # Check COMFYUI_SOURCE
+  local comfyui_source="${SERVICE_SOURCES[COMFYUI_SOURCE]}"
+  local valid_comfyui_sources=$(yq eval '.source_mappings.COMFYUI_SOURCE.mappings | keys | .[]' "$config_file" | tr '\n' ' ')
+  if ! yq eval ".source_mappings.COMFYUI_SOURCE.mappings | has(\"$comfyui_source\")" "$config_file" | grep -q "true"; then
+    echo "❌ Invalid COMFYUI_SOURCE: '$comfyui_source'"
+    echo "   Valid options: $valid_comfyui_sources"
+    validation_errors=$((validation_errors + 1))
+  fi
+  
+  # Check WEAVIATE_SOURCE
+  local weaviate_source="${SERVICE_SOURCES[WEAVIATE_SOURCE]}"
+  local valid_weaviate_sources=$(yq eval '.source_mappings.WEAVIATE_SOURCE.mappings | keys | .[]' "$config_file" | tr '\n' ' ')
+  if ! yq eval ".source_mappings.WEAVIATE_SOURCE.mappings | has(\"$weaviate_source\")" "$config_file" | grep -q "true"; then
+    echo "❌ Invalid WEAVIATE_SOURCE: '$weaviate_source'"
+    echo "   Valid options: $valid_weaviate_sources"
+    validation_errors=$((validation_errors + 1))
+  fi
+  
+  # Check VECTOR_SOURCE
+  local vector_source="${SERVICE_SOURCES[VECTOR_SOURCE]}"
+  local valid_vector_sources=$(yq eval '.source_mappings.VECTOR_SOURCE.mappings | keys | .[]' "$config_file" | tr '\n' ' ')
+  if ! yq eval ".source_mappings.VECTOR_SOURCE.mappings | has(\"$vector_source\")" "$config_file" | grep -q "true"; then
+    echo "❌ Invalid VECTOR_SOURCE: '$vector_source'"
+    echo "   Valid options: $valid_vector_sources"
+    validation_errors=$((validation_errors + 1))
+  fi
+  
+  # Additional validation for localhost services
+  if [[ "$llm_source" == "localhost" ]]; then
+    echo "🔍 Validating localhost Ollama service..."
+    if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+      echo "⚠️  Warning: Ollama not detected at localhost:11434"
+      echo "   Make sure Ollama is running locally before starting the stack"
+    else
+      echo "✅ Localhost Ollama service is accessible"
+    fi
+  fi
+  
+  if [[ "$comfyui_source" == "localhost" ]]; then
+    echo "🔍 Validating localhost ComfyUI service..."
+    if ! curl -s http://localhost:8000 >/dev/null 2>&1 && ! curl -s http://localhost:8188 >/dev/null 2>&1; then
+      echo "⚠️  Warning: ComfyUI not detected at localhost:8000 or localhost:8188"
+      echo "   Make sure ComfyUI is running locally before starting the stack"
+    else
+      echo "✅ Localhost ComfyUI service is accessible"
+    fi
+  fi
+  
+  # Check for undefined SOURCE variables
+  local undefined_sources=()
+  for source_var in LLM_PROVIDER_SOURCE COMFYUI_SOURCE WEAVIATE_SOURCE VECTOR_SOURCE N8N_SOURCE SEARXNG_SOURCE BACKEND_SOURCE OPEN_WEB_UI_SOURCE LOCAL_DEEP_RESEARCHER_SOURCE NEO4J_SOURCE; do
+    if [[ -z "${SERVICE_SOURCES[$source_var]}" ]]; then
+      undefined_sources+=("$source_var")
+    fi
+  done
+  
+  if [[ ${#undefined_sources[@]} -gt 0 ]]; then
+    echo "❌ Undefined SOURCE variables: ${undefined_sources[*]}"
+    validation_errors=$((validation_errors + ${#undefined_sources[@]}))
+  fi
+  
+  if [[ $validation_errors -gt 0 ]]; then
+    echo ""
+    echo "❌ Found $validation_errors SOURCE configuration error(s)."
+    echo "Please correct the SOURCE values in your .env file and try again."
+    echo ""
+    echo "💡 Tip: Edit .env.example and run ./start.sh to recreate .env file"
+    exit 1
+  fi
+  
+  echo "✅ All SOURCE values are valid"
+}
+
+# Function to parse service SOURCE configurations from .env
+parse_service_sources() {
+  # Initialize associative array for service sources
+  declare -A SERVICE_SOURCES 2>/dev/null || true
+  
+  # Default values
+  SERVICE_SOURCES[LLM_PROVIDER_SOURCE]="container-cpu"
+  SERVICE_SOURCES[COMFYUI_SOURCE]="container-cpu"
+  SERVICE_SOURCES[WEAVIATE_SOURCE]="container"
+  SERVICE_SOURCES[VECTOR_SOURCE]="container-cpu"
+  SERVICE_SOURCES[N8N_SOURCE]="container"
+  SERVICE_SOURCES[SEARXNG_SOURCE]="container"
+  SERVICE_SOURCES[BACKEND_SOURCE]="container"
+  SERVICE_SOURCES[OPEN_WEB_UI_SOURCE]="container"
+  SERVICE_SOURCES[LOCAL_DEEP_RESEARCHER_SOURCE]="container"
+  SERVICE_SOURCES[NEO4J_SOURCE]="container"
+  
+  if [[ -f .env ]]; then
+    # Parse SOURCE variables from .env file
+    while IFS= read -r line; do
+      if [[ $line =~ ^([A-Z_]+_SOURCE)=([^#]*) ]]; then
+        local var_name="${BASH_REMATCH[1]}"
+        local var_value="${BASH_REMATCH[2]// /}"  # Remove spaces
+        var_value="${var_value//\"/}"  # Remove quotes
+        SERVICE_SOURCES[$var_name]="$var_value"
+      fi
+    done < .env
+  fi
+}
+
+# Function to load service configuration from YAML
+load_service_config() {
+  local config_file="config/service-configs.yml"
+  
+  if [[ ! -f "$config_file" ]]; then
+    echo "❌ Service configuration file not found: $config_file"
+    exit 1
+  fi
+  
+  echo "📋 Loading service configuration from $config_file"
+}
+
+# Function to get the correct host reference for localhost services
+get_localhost_host() {
+  # On Linux, host.docker.internal might not work, so we need a fallback
+  if [[ "$OSTYPE" == "linux"* ]]; then
+    # Check if host.docker.internal resolves
+    if ! getent hosts host.docker.internal >/dev/null 2>&1; then
+      echo "172.17.0.1"  # Default Docker bridge gateway on Linux
+    else
+      echo "host.docker.internal"
+    fi
+  else
+    echo "host.docker.internal"  # Works on macOS and Windows
+  fi
+}
+
+# Function to generate environment variables based on YAML configuration
+generate_service_environment() {
+  local config_file="config/service-configs.yml"
+  local localhost_host=$(get_localhost_host)
+  
+  echo "🔧 Generating service environment from YAML configuration..."
+  echo "🔗 Using '$localhost_host' for localhost service connections"
+  
+  # Parse LLM_PROVIDER_SOURCE
+  local llm_source="${SERVICE_SOURCES[LLM_PROVIDER_SOURCE]}"
+  local llm_config_key=$(yq eval ".source_mappings.LLM_PROVIDER_SOURCE.mappings.\"$llm_source\"" "$config_file")
+  
+  if [[ "$llm_config_key" == "null" || "$llm_config_key" == "" ]]; then
+    llm_config_key="container-cpu"  # Default fallback
+  fi
+  
+  # Set Ollama configuration based on YAML
+  local ollama_scale=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".scale" "$config_file")
+  local ollama_endpoint=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".environment.OLLAMA_ENDPOINT" "$config_file")
+  local ollama_gpu_devices=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".environment.NVIDIA_VISIBLE_DEVICES" "$config_file")
+  local ollama_extra_hosts=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".extra_hosts" "$config_file")
+  
+  export OLLAMA_SCALE="${ollama_scale:-1}"
+  # Replace host.docker.internal with dynamic localhost host for cross-platform compatibility
+  export OLLAMA_ENDPOINT="${ollama_endpoint/host.docker.internal/$localhost_host}"
+  export OLLAMA_NVIDIA_VISIBLE_DEVICES="${ollama_gpu_devices:-}"
+  
+  # Note: extra_hosts for localhost connectivity are statically defined in docker-compose.yml
+  
+  # Set deploy resources for GPU configurations
+  if [[ "$llm_config_key" == "container-gpu" ]]; then
+    export OLLAMA_DEPLOY_RESOURCES=$'reservations:\n  devices:\n    - driver: nvidia\n      capabilities: [gpu]'
+  else
+    export OLLAMA_DEPLOY_RESOURCES="~"
+  fi
+  
+  # Set dependent service scales
+  if [[ "$llm_config_key" == "container-cpu" || "$llm_config_key" == "container-gpu" ]]; then
+    export OLLAMA_PULL_SCALE=1
+  else
+    export OLLAMA_PULL_SCALE=0
+  fi
+  
+  # Parse COMFYUI_SOURCE
+  local comfyui_source="${SERVICE_SOURCES[COMFYUI_SOURCE]}"
+  local comfyui_config_key=$(yq eval ".source_mappings.COMFYUI_SOURCE.mappings.\"$comfyui_source\"" "$config_file")
+  
+  if [[ "$comfyui_config_key" == "null" || "$comfyui_config_key" == "" ]]; then
+    comfyui_config_key="container-cpu"  # Default fallback
+  fi
+  
+  # Set ComfyUI configuration
+  local comfyui_scale=$(yq eval ".source_configurable.comfyui.\"$comfyui_config_key\".scale" "$config_file")
+  local comfyui_endpoint=$(yq eval ".source_configurable.comfyui.\"$comfyui_config_key\".environment.COMFYUI_ENDPOINT" "$config_file")
+  local comfyui_args=$(yq eval ".source_configurable.comfyui.\"$comfyui_config_key\".environment.COMFYUI_ARGS" "$config_file")
+  local is_local_comfyui=$(yq eval ".source_configurable.comfyui.\"$comfyui_config_key\".environment.IS_LOCAL_COMFYUI" "$config_file")
+  local comfyui_models_path=$(yq eval ".source_configurable.comfyui.\"$comfyui_config_key\".environment.COMFYUI_LOCAL_MODELS_PATH" "$config_file")
+  local comfyui_extra_hosts=$(yq eval ".source_configurable.comfyui.\"$comfyui_config_key\".extra_hosts" "$config_file")
+  
+  export COMFYUI_SCALE="${comfyui_scale:-1}"
+  # Replace host.docker.internal with dynamic localhost host for cross-platform compatibility
+  export COMFYUI_ENDPOINT="${comfyui_endpoint/host.docker.internal/$localhost_host}"
+  export COMFYUI_ARGS="${comfyui_args}"
+  export IS_LOCAL_COMFYUI="${is_local_comfyui:-false}"
+  export COMFYUI_LOCAL_MODELS_PATH="${comfyui_models_path:-./empty}"
+  
+  # Create empty directory if needed
+  if [[ "$IS_LOCAL_COMFYUI" == "false" ]]; then
+    mkdir -p ./empty
+  fi
+  
+  # Note: extra_hosts for localhost connectivity are statically defined in docker-compose.yml
+  
+  # Set deploy resources for GPU configurations
+  if [[ "$comfyui_config_key" == "container-gpu" ]]; then
+    export COMFYUI_DEPLOY_RESOURCES=$'reservations:\n  devices:\n    - driver: nvidia\n      count: 1\n      capabilities: [gpu]\nlimits:\n  cpus: "${PROD_ENV_COMFYUI_CPUS:-2}"\n  memory: "${PROD_ENV_COMFYUI_MEM_LIMIT:-4g}"'
+  else
+    export COMFYUI_DEPLOY_RESOURCES="~"
+  fi
+  
+  # Set dependent service scales
+  if [[ "$comfyui_config_key" == "container-cpu" || "$comfyui_config_key" == "container-gpu" ]]; then
+    export COMFYUI_INIT_SCALE=1
+  else
+    export COMFYUI_INIT_SCALE=0
+  fi
+  
+  # Parse VECTOR_SOURCE for multi2vec-clip
+  local vector_source="${SERVICE_SOURCES[VECTOR_SOURCE]}"
+  local vector_config_key=$(yq eval ".source_mappings.VECTOR_SOURCE.mappings.\"$vector_source\"" "$config_file")
+  
+  if [[ "$vector_config_key" == "null" || "$vector_config_key" == "" ]]; then
+    vector_config_key="container-cpu"  # Default fallback
+  fi
+  
+  # Set CLIP configuration
+  local clip_scale=$(yq eval ".source_configurable.multi2vec-clip.\"$vector_config_key\".scale" "$config_file")
+  local clip_cuda=$(yq eval ".source_configurable.multi2vec-clip.\"$vector_config_key\".environment.ENABLE_CUDA" "$config_file")
+  
+  export CLIP_SCALE="${clip_scale:-1}"
+  export CLIP_ENABLE_CUDA="${clip_cuda:-0}"
+  
+  # Set deploy resources for GPU configurations
+  if [[ "$vector_config_key" == "container-gpu" ]]; then
+    export CLIP_DEPLOY_RESOURCES=$'reservations:\n  devices:\n    - driver: nvidia\n      capabilities: [gpu]'
+  else
+    export CLIP_DEPLOY_RESOURCES="~"
+  fi
+  
+  # Parse WEAVIATE_SOURCE
+  local weaviate_source="${SERVICE_SOURCES[WEAVIATE_SOURCE]}"
+  local weaviate_config_key=$(yq eval ".source_mappings.WEAVIATE_SOURCE.mappings.\"$weaviate_source\"" "$config_file")
+  local weaviate_scale=$(yq eval ".source_configurable.weaviate.\"$weaviate_config_key\".scale" "$config_file")
+  local weaviate_url=$(yq eval ".source_configurable.weaviate.\"$weaviate_config_key\".environment.WEAVIATE_URL" "$config_file")
+  local weaviate_extra_hosts=$(yq eval ".source_configurable.weaviate.\"$weaviate_config_key\".extra_hosts" "$config_file")
+  
+  export WEAVIATE_SCALE="${weaviate_scale:-1}"
+  # Replace host.docker.internal with dynamic localhost host for cross-platform compatibility
+  export WEAVIATE_URL="${weaviate_url/host.docker.internal/$localhost_host}"
+  export WEAVIATE_INIT_SCALE="$WEAVIATE_SCALE"
+  
+  # Weaviate inherits Ollama endpoint for vectorization when enabled
+  if [[ "$WEAVIATE_SCALE" -gt 0 ]]; then
+    export WEAVIATE_OLLAMA_ENDPOINT="${OLLAMA_ENDPOINT}"
+  else
+    export WEAVIATE_OLLAMA_ENDPOINT=""
+  fi
+  
+  # Parse N8N_SOURCE
+  local n8n_source="${SERVICE_SOURCES[N8N_SOURCE]}"
+  local n8n_config_key=$(yq eval ".source_mappings.N8N_SOURCE.mappings.\"$n8n_source\"" "$config_file")
+  local n8n_scale=$(yq eval ".source_configurable.n8n.\"$n8n_config_key\".scale" "$config_file")
+  
+  # n8n depends on weaviate for vector operations
+  if [[ "$n8n_scale" -gt 0 && "$WEAVIATE_SCALE" -eq 0 ]]; then
+    echo "⚠️  n8n disabled: requires weaviate for vector operations and AI workflow nodes"
+    echo "    Enable weaviate (WEAVIATE_SOURCE=container) to use n8n workflows with vector capabilities"
+    export N8N_SCALE=0
+    export N8N_WORKER_SCALE=0
+    export N8N_INIT_SCALE=0
+  else
+    export N8N_SCALE="${n8n_scale:-0}"
+    export N8N_WORKER_SCALE="$N8N_SCALE"
+    export N8N_INIT_SCALE="$N8N_SCALE"
+    if [[ "$N8N_SCALE" -gt 0 ]]; then
+      echo "  • n8n enabled with weaviate integration for vector operations"
+    fi
+  fi
+  
+  # Parse other services
+  local searxng_source="${SERVICE_SOURCES[SEARXNG_SOURCE]}"
+  local searxng_config_key=$(yq eval ".source_mappings.SEARXNG_SOURCE.mappings.\"$searxng_source\"" "$config_file")
+  local searxng_scale=$(yq eval ".source_configurable.searxng.\"$searxng_config_key\".scale" "$config_file")
+  export SEARXNG_SCALE="${searxng_scale:-0}"
+  
+  local backend_source="${SERVICE_SOURCES[BACKEND_SOURCE]}"
+  local backend_config_key=$(yq eval ".source_mappings.BACKEND_SOURCE.mappings.\"$backend_source\"" "$config_file")
+  local backend_scale=$(yq eval ".source_configurable.backend.\"$backend_config_key\".scale" "$config_file")
+  export BACKEND_SCALE="${backend_scale:-0}"
+  if [[ "$BACKEND_SCALE" -gt 0 ]]; then
+    echo "  • Backend enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate)"
+  fi
+  
+  local open_web_ui_source="${SERVICE_SOURCES[OPEN_WEB_UI_SOURCE]}"
+  local open_web_ui_config_key=$(yq eval ".source_mappings.OPEN_WEB_UI_SOURCE.mappings.\"$open_web_ui_source\"" "$config_file")
+  local open_web_ui_scale=$(yq eval ".source_configurable.open-web-ui.\"$open_web_ui_config_key\".scale" "$config_file")
+  export OPEN_WEB_UI_SCALE="${open_web_ui_scale:-0}"
+  if [[ "$OPEN_WEB_UI_SCALE" -gt 0 ]]; then
+    echo "  • Open WebUI enabled - will connect to available optional services (weaviate, local-deep-researcher)"
+  fi
+  
+  local local_deep_researcher_source="${SERVICE_SOURCES[LOCAL_DEEP_RESEARCHER_SOURCE]}"
+  local local_deep_researcher_config_key=$(yq eval ".source_mappings.LOCAL_DEEP_RESEARCHER_SOURCE.mappings.\"$local_deep_researcher_source\"" "$config_file")
+  local local_deep_researcher_scale=$(yq eval ".source_configurable.local-deep-researcher.\"$local_deep_researcher_config_key\".scale" "$config_file")
+  export LOCAL_DEEP_RESEARCHER_SCALE="${local_deep_researcher_scale:-0}"
+  
+  local neo4j_source="${SERVICE_SOURCES[NEO4J_SOURCE]}"
+  local neo4j_config_key=$(yq eval ".source_mappings.NEO4J_SOURCE.mappings.\"$neo4j_source\"" "$config_file")
+  local neo4j_scale=$(yq eval ".source_configurable.neo4j-graph-db.\"$neo4j_config_key\".scale" "$config_file")
+  local neo4j_uri=$(yq eval ".source_configurable.neo4j-graph-db.\"$neo4j_config_key\".environment.NEO4J_URI" "$config_file")
+  local neo4j_extra_hosts=$(yq eval ".source_configurable.neo4j-graph-db.\"$neo4j_config_key\".extra_hosts" "$config_file")
+  
+  export NEO4J_SCALE="${neo4j_scale:-0}"
+  # Replace host.docker.internal with dynamic localhost host for cross-platform compatibility
+  export NEO4J_URI="${neo4j_uri/host.docker.internal/$localhost_host}"
+  
+  # Note: extra_hosts for localhost connectivity are statically defined in docker-compose.yml
+
+  # Note: extra_hosts for localhost connectivity are statically defined in docker-compose.yml
+  
+  echo "✅ Service environment generated successfully"
+  echo "  - Ollama: $llm_config_key (scale: $OLLAMA_SCALE, endpoint: $OLLAMA_ENDPOINT)"
+  echo "  - ComfyUI: $comfyui_config_key (scale: $COMFYUI_SCALE, endpoint: $COMFYUI_ENDPOINT)"
+  echo "  - Multi2Vec-CLIP: $vector_config_key (scale: $CLIP_SCALE, CUDA: $CLIP_ENABLE_CUDA)"
+  echo "  - Weaviate: container (scale: $WEAVIATE_SCALE, ollama: $WEAVIATE_OLLAMA_ENDPOINT)"
+}
+
+# Function to update .env file with computed variables
+update_env_file() {
+  local env_file=".env"
+  local temp_file="${env_file}.tmp"
+  
+  echo "📝 Updating .env file with computed service configurations..."
+  
+  # Create a list of variables to add/update
+  local vars_to_update=(
+    "OLLAMA_SCALE"
+    "OLLAMA_ENDPOINT"
+    "OLLAMA_NVIDIA_VISIBLE_DEVICES"
+    "OLLAMA_DEPLOY_RESOURCES"
+    "OLLAMA_PULL_SCALE"
+    "COMFYUI_SCALE"
+    "COMFYUI_ENDPOINT"
+    "COMFYUI_ARGS"
+    "COMFYUI_DEPLOY_RESOURCES"
+    "COMFYUI_INIT_SCALE"
+    "IS_LOCAL_COMFYUI"
+    "CLIP_SCALE"
+    "CLIP_ENABLE_CUDA"
+    "CLIP_DEPLOY_RESOURCES"
+    "WEAVIATE_SCALE"
+    "WEAVIATE_URL"
+    "WEAVIATE_OLLAMA_ENDPOINT"
+    "N8N_SCALE"
+    "N8N_WORKER_SCALE"
+    "N8N_INIT_SCALE"
+    "WEAVIATE_INIT_SCALE"
+    "SEARXNG_SCALE"
+    "BACKEND_SCALE"
+    "OPEN_WEB_UI_SCALE"
+    "LOCAL_DEEP_RESEARCHER_SCALE"
+    "NEO4J_SCALE"
+    "NEO4J_URI"
+  )
+  
+  # Copy existing .env file
+  cp "$env_file" "$temp_file"
+  
+  # Add/update computed variables
+  for var in "${vars_to_update[@]}"; do
+    local value="${!var}"
+    if grep -q "^${var}=" "$temp_file"; then
+      # Update existing variable
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s|^${var}=.*|${var}=${value}|" "$temp_file"
+      else
+        sed -i "s|^${var}=.*|${var}=${value}|" "$temp_file"
+      fi
+    else
+      # Add new variable
+      echo "${var}=${value}" >> "$temp_file"
+    fi
+  done
+  
+  # Replace original file
+  mv "$temp_file" "$env_file"
+  
+  echo "✅ Environment file updated with computed configurations"
+}
+
+# Note: Kong route configuration is now handled by dynamic environment variables
+
 # Store the detected command in a variable
 DOCKER_COMPOSE_CMD=$(detect_docker_compose_cmd)
 
-# Function to execute docker compose with multiple files
-execute_compose_cmd() {
-  local cmd_args=""
-  IFS=':' read -ra FILES <<< "$COMPOSE_FILES"
-  for file in "${FILES[@]}"; do
-    cmd_args="$cmd_args -f $file"
-  done
-  echo "      Command: $DOCKER_COMPOSE_CMD $cmd_args --env-file=.env $@"
-  $DOCKER_COMPOSE_CMD $cmd_args --env-file=.env "$@"
-}
-
 # Default values
 DEFAULT_BASE_PORT=63000
-DEFAULT_PROFILE="default"
 COLD_START=false
 SETUP_HOSTS=false
 SKIP_HOSTS=false
@@ -295,37 +727,36 @@ show_usage() {
   echo "Usage: $0 [options]"
   echo "Options:"
   echo "  --base-port PORT   Set the base port number (default: $DEFAULT_BASE_PORT)"
-  echo "  --profile PROFILE  Set the deployment profile (default: $DEFAULT_PROFILE)"
-  echo "                     Supported profiles: default, ai-local, ai-gpu, fixed"
   echo "  --cold             Force creation of new .env file and generate new keys"
   echo "  --setup-hosts      Setup required hosts file entries (requires sudo/admin)"
   echo "  --skip-hosts       Skip hosts file check and setup"
   echo "  --help             Show this help message"
+  echo ""
+  echo "Service Configuration:"
+  echo "  Services are configured via SOURCE variables in .env.example file:"
+  echo "    container      - Run service in Docker container (default)"
+  echo "    container-cpu  - CPU-only container"
+  echo "    container-gpu  - GPU-accelerated container"
+  echo "    localhost      - Use service running on localhost"
+  echo "    external       - Use external service via URL"
+  echo "    disabled       - Don't start the service"
+  echo "    api            - Use API-based service (for LLM providers)"
+  echo ""
+  echo "Workflow:"
+  echo "  1. Edit .env.example with your desired SOURCE configurations"
+  echo "  2. Run this script - it will copy .env.example to .env automatically"
+  echo "  3. Script reads SOURCE values and starts appropriate services"
 }
 
 # Parse command line arguments
-BASE_PORT=$DEFAULT_BASE_PORT
-PROFILE=$DEFAULT_PROFILE
-
-while [[ "$#" -gt 0 ]]; do
+while [[ $# -gt 0 ]]; do
   case $1 in
     --base-port)
-      if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
-        BASE_PORT=$2
+      if [[ -n $2 && $2 =~ ^[0-9]+$ ]]; then
+        BASE_PORT="$2"
         shift 2
       else
-        echo "Error: --base-port requires a numeric argument"
-        show_usage
-        exit 1
-      fi
-      ;;
-    --profile)
-      if [[ -n "$2" && "$2" =~ ^(default|ai-local|ai-gpu|fixed)$ ]]; then
-        PROFILE=$2
-        shift 2
-      else
-        echo "Error: --profile must be one of: default, ai-local, ai-gpu, fixed"
-        show_usage
+        echo "❌ Error: --base-port requires a numeric value"
         exit 1
       fi
       ;;
@@ -346,69 +777,23 @@ while [[ "$#" -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown parameter: $1"
+      echo "❌ Unknown option: $1"
       show_usage
       exit 1
       ;;
   esac
 done
 
-# Unset potentially lingering port environment variables if cold start and custom base port are used
-if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
-  echo "📋 Unsetting potentially lingering port environment variables..."
-  unset SUPABASE_DB_PORT
-  unset REDIS_PORT
-  unset KONG_HTTP_PORT
-  unset KONG_HTTPS_PORT
-  unset SUPABASE_META_PORT
-  unset SUPABASE_STORAGE_PORT
-  unset SUPABASE_AUTH_PORT
-  unset SUPABASE_API_PORT
-  unset SUPABASE_REALTIME_PORT
-  unset SUPABASE_STUDIO_PORT
-  unset GRAPH_DB_PORT
-  unset GRAPH_DB_DASHBOARD_PORT
-  unset OLLAMA_PORT
-  unset LOCAL_DEEP_RESEARCHER_PORT
-  unset SEARXNG_PORT
-  unset OPEN_WEB_UI_PORT
-  unset BACKEND_PORT
-  unset N8N_PORT
-  unset COMFYUI_PORT
-fi
+# Set default base port if not specified
+BASE_PORT=${BASE_PORT:-$DEFAULT_BASE_PORT}
 
-
-# Since port issues can sometimes persist due to Docker's caching, let's
-# explicitly verify and indicate the env file is being used
-if [[ -f .env ]]; then
-  echo "• Found .env file with timestamp: $(stat -c %y .env 2>/dev/null || stat -f %m .env 2>/dev/null)"
-fi
-
-echo "• Using Docker Compose command: $DOCKER_COMPOSE_CMD"
-
-# Determine Docker Compose files based on profile
-COMPOSE_FILES="docker-compose.yml:compose-profiles/data.yml"
-if [[ "$PROFILE" == "default" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml:compose-profiles/vector.yml"
-elif [[ "$PROFILE" == "ai-local" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-local.yml:compose-profiles/apps-local.yml:compose-profiles/vector-local.yml"
-elif [[ "$PROFILE" == "ai-gpu" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai-gpu.yml:compose-profiles/apps-gpu.yml:compose-profiles/vector-gpu.yml"
-elif [[ "$PROFILE" == "fixed" ]]; then
-  COMPOSE_FILES="$COMPOSE_FILES:compose-profiles/ai.yml:compose-profiles/apps.yml:compose-profiles/vector.yml"
-fi
-
-# Display the branded banner
+# Display logo
 show_banner
 
-echo "🚀 Starting GenAI Vanilla Stack with:"
-echo "  • Base Port: $BASE_PORT"
-echo "  • Profile: $PROFILE"
-echo "  • Compose Files: $COMPOSE_FILES"
-echo "  • Using .env file: YES (--env-file=.env flag will be used)"
-if [[ "$COLD_START" == "true" ]]; then
-  echo "  • Cold Start: Yes (forcing new environment setup)"
-fi
+# Ensure yq is available for YAML processing
+ensure_yq_available
+
+echo "🚀 Starting GenAI Vanilla Stack (Base Port: $BASE_PORT)"
 echo ""
 
 # Check if .env exists, if not or if cold start is requested, create from .env.example
@@ -422,14 +807,41 @@ if [[ ! -f .env || "$COLD_START" == "true" ]]; then
   echo "  • Creating new .env file from .env.example"
   cp .env.example .env
   
+  # Unset potentially lingering port environment variables if cold start and custom base port are used
+  if [[ "$COLD_START" == "true" && "$BASE_PORT" != "$DEFAULT_BASE_PORT" ]]; then
+    echo "  • Unsetting potentially lingering port environment variables..."
+    unset SUPABASE_DB_PORT
+    unset REDIS_PORT
+    unset KONG_HTTP_PORT
+    unset KONG_HTTPS_PORT
+    unset SUPABASE_META_PORT
+    unset SUPABASE_STORAGE_PORT
+    unset SUPABASE_AUTH_PORT
+    unset SUPABASE_API_PORT
+    unset SUPABASE_REALTIME_PORT
+    unset SUPABASE_STUDIO_PORT
+    unset GRAPH_DB_PORT
+    unset GRAPH_DB_DASHBOARD_PORT
+    unset LLM_PROVIDER_PORT
+    unset LOCAL_DEEP_RESEARCHER_PORT
+    unset SEARXNG_PORT
+    unset OPEN_WEB_UI_PORT
+    unset BACKEND_PORT
+    unset N8N_PORT
+    unset COMFYUI_PORT
+    unset WEAVIATE_PORT
+    unset WEAVIATE_GRPC_PORT
+    echo "  • Port environment variables unset successfully"
+  fi
+  
   # Check if generate_supabase_keys.sh exists and is executable
-  if [[ -f ./generate_supabase_keys.sh && -x ./generate_supabase_keys.sh ]]; then
+  if [[ -f ./config/scripts/generate_supabase_keys.sh && -x ./config/scripts/generate_supabase_keys.sh ]]; then
     echo "  • Generating Supabase keys..."
-    ./generate_supabase_keys.sh
+    ./config/scripts/generate_supabase_keys.sh
     echo "  • Supabase keys generated successfully"
   else
-    echo "  • ⚠️  Warning: generate_supabase_keys.sh not found or not executable"
-    echo "    Please run 'chmod +x generate_supabase_keys.sh' and then './generate_supabase_keys.sh'"
+    echo "  • ⚠️  Warning: config/scripts/generate_supabase_keys.sh not found or not executable"
+    echo "    Please run 'chmod +x config/scripts/generate_supabase_keys.sh' and then './config/scripts/generate_supabase_keys.sh'"
     echo "    to generate the required JWT keys for Supabase services."
   fi
   
@@ -495,115 +907,137 @@ else
   ENV_SOURCE=".env"
 fi
 
-# Define port variables that need calculation
-PORT_VARS=(
-  "SUPABASE_DB_PORT"
-  "REDIS_PORT"
-  "KONG_HTTP_PORT"
-  "KONG_HTTPS_PORT"
-  "SUPABASE_META_PORT"
-  "SUPABASE_STORAGE_PORT"
-  "SUPABASE_AUTH_PORT"
-  "SUPABASE_API_PORT"
-  "SUPABASE_REALTIME_PORT"
-  "SUPABASE_STUDIO_PORT"
-  "GRAPH_DB_PORT"
-  "GRAPH_DB_DASHBOARD_PORT"
-  "OLLAMA_PORT"
-  "LOCAL_DEEP_RESEARCHER_PORT"
-  "SEARXNG_PORT"
-  "OPEN_WEB_UI_PORT"
-  "BACKEND_PORT"
-  "N8N_PORT"
-  "COMFYUI_PORT"
-  "WEAVIATE_PORT"
-  "WEAVIATE_GRPC_PORT"
-)
+# Update port configuration in .env
+echo "⚙️ Configuring ports (Base: $BASE_PORT)..."
+env_file=".env"
+temp_file="${env_file}.tmp"
 
-# Create a temporary file to store non-port variables
-TEMP_ENV=$(mktemp)
+# Port mapping based on base port - using portable approach
+cp "$env_file" "$temp_file"
 
-# Read the source .env file, preserve non-port variables and comments,
-# but exclude lines that define port variables, even with comments.
-if [[ -f "$ENV_SOURCE" ]]; then
-  # Construct a regex pattern to match lines starting with any PORT_VARS followed by =
-  # This pattern accounts for potential whitespace and comments after the assignment.
-  PORT_VARS_REGEX="^($(IFS=\|; echo "${PORT_VARS[*]}")[[:space:]]*=)"
-  
-  # Use grep -vE to exclude lines matching the regex
-  grep -vE "$PORT_VARS_REGEX" "$ENV_SOURCE" >> "$TEMP_ENV"
-fi
+# Function to update port in env file
+update_port() {
+  local port_var="$1"
+  local port_value="$2"
+  if grep -q "^${port_var}=" "$temp_file"; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' "s|^${port_var}=.*|${port_var}=${port_value}|" "$temp_file"
+    else
+      sed -i "s|^${port_var}=.*|${port_var}=${port_value}|" "$temp_file"
+    fi
+  else
+    echo "${port_var}=${port_value}" >> "$temp_file"
+  fi
+}
 
-# Generate new .env file: copy preserved lines, then add calculated ports
-cat "$TEMP_ENV" > .env # Overwrite .env with preserved non-port variables
-rm "$TEMP_ENV" # Clean up temporary file
+# Update all ports
+update_port "SUPABASE_DB_PORT" $(($BASE_PORT + 0))
+update_port "REDIS_PORT" $(($BASE_PORT + 1))
+update_port "KONG_HTTP_PORT" $(($BASE_PORT + 2))
+update_port "KONG_HTTPS_PORT" $(($BASE_PORT + 3))
+update_port "SUPABASE_META_PORT" $(($BASE_PORT + 4))
+update_port "SUPABASE_STORAGE_PORT" $(($BASE_PORT + 5))
+update_port "SUPABASE_AUTH_PORT" $(($BASE_PORT + 6))
+update_port "SUPABASE_API_PORT" $(($BASE_PORT + 7))
+update_port "SUPABASE_REALTIME_PORT" $(($BASE_PORT + 8))
+update_port "SUPABASE_STUDIO_PORT" $(($BASE_PORT + 9))
+update_port "GRAPH_DB_PORT" $(($BASE_PORT + 10))
+update_port "GRAPH_DB_DASHBOARD_PORT" $(($BASE_PORT + 11))
+update_port "LLM_PROVIDER_PORT" $(($BASE_PORT + 12))
+update_port "LOCAL_DEEP_RESEARCHER_PORT" $(($BASE_PORT + 13))
+update_port "SEARXNG_PORT" $(($BASE_PORT + 14))
+update_port "OPEN_WEB_UI_PORT" $(($BASE_PORT + 15))
+update_port "BACKEND_PORT" $(($BASE_PORT + 16))
+update_port "N8N_PORT" $(($BASE_PORT + 17))
+update_port "COMFYUI_PORT" $(($BASE_PORT + 18))
+update_port "WEAVIATE_PORT" $(($BASE_PORT + 19))
+update_port "WEAVIATE_GRPC_PORT" $(($BASE_PORT + 20))
 
-# Append calculated ports to the new .env file
-cat >> .env << EOF
-
-# --- Port Assignments (Auto-calculated by start.sh) ---
-SUPABASE_DB_PORT=$BASE_PORT
-REDIS_PORT=$(($BASE_PORT + 1))
-KONG_HTTP_PORT=$(($BASE_PORT + 2))
-KONG_HTTPS_PORT=$(($BASE_PORT + 3))
-SUPABASE_META_PORT=$(($BASE_PORT + 4))
-SUPABASE_STORAGE_PORT=$(($BASE_PORT + 5))
-SUPABASE_AUTH_PORT=$(($BASE_PORT + 6))
-SUPABASE_API_PORT=$(($BASE_PORT + 7))
-SUPABASE_REALTIME_PORT=$(($BASE_PORT + 8))
-SUPABASE_STUDIO_PORT=$(($BASE_PORT + 9))
-GRAPH_DB_PORT=$(($BASE_PORT + 10))
-GRAPH_DB_DASHBOARD_PORT=$(($BASE_PORT + 11))
-OLLAMA_PORT=$(($BASE_PORT + 12))
-LOCAL_DEEP_RESEARCHER_PORT=$(($BASE_PORT + 13))
-SEARXNG_PORT=$(($BASE_PORT + 14))
-OPEN_WEB_UI_PORT=$(($BASE_PORT + 15))
-BACKEND_PORT=$(($BASE_PORT + 16))
-N8N_PORT=$(($BASE_PORT + 17))
-COMFYUI_PORT=$(($BASE_PORT + 18))
-WEAVIATE_PORT=$(($BASE_PORT + 19))
-WEAVIATE_GRPC_PORT=$(($BASE_PORT + 20))
-EOF
-
-# Add profile-specific environment variables
-if [[ "$PROFILE" == "ai-local" ]]; then
-  # For ai-local profile, ComfyUI runs on the host machine
-  # First check if COMFYUI_BASE_URL already exists and remove it
-  sed -i.bak '/^COMFYUI_BASE_URL=/d' .env
-  rm -f .env.bak 2>/dev/null || true
-  
-  echo "" >> .env
-  echo "# --- Profile-specific settings (ai-local) ---" >> .env
-  echo "COMFYUI_BASE_URL=http://host.docker.internal:8000" >> .env
-fi
-
-echo "✅ .env file generated successfully!"
+mv "$temp_file" "$env_file"
 
 # Read back port values from the .env file to verify they were written correctly
 echo "📋 Verifying port assignments from .env file..."
-VERIFIED_SUPABASE_DB_PORT=$(grep "^SUPABASE_DB_PORT=" .env | cut -d '=' -f2)
-VERIFIED_REDIS_PORT=$(grep "^REDIS_PORT=" .env | cut -d '=' -f2)
-VERIFIED_KONG_HTTP_PORT=$(grep "^KONG_HTTP_PORT=" .env | cut -d '=' -f2)
-VERIFIED_KONG_HTTPS_PORT=$(grep "^KONG_HTTPS_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SUPABASE_META_PORT=$(grep "^SUPABASE_META_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SUPABASE_STORAGE_PORT=$(grep "^SUPABASE_STORAGE_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SUPABASE_AUTH_PORT=$(grep "^SUPABASE_AUTH_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SUPABASE_API_PORT=$(grep "^SUPABASE_API_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SUPABASE_REALTIME_PORT=$(grep "^SUPABASE_REALTIME_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SUPABASE_STUDIO_PORT=$(grep "^SUPABASE_STUDIO_PORT=" .env | cut -d '=' -f2)
-VERIFIED_GRAPH_DB_PORT=$(grep "^GRAPH_DB_PORT=" .env | cut -d '=' -f2)
-VERIFIED_GRAPH_DB_DASHBOARD_PORT=$(grep "^GRAPH_DB_DASHBOARD_PORT=" .env | cut -d '=' -f2)
-VERIFIED_OLLAMA_PORT=$(grep "^OLLAMA_PORT=" .env | cut -d '=' -f2)
-VERIFIED_LOCAL_DEEP_RESEARCHER_PORT=$(grep "^LOCAL_DEEP_RESEARCHER_PORT=" .env | cut -d '=' -f2)
-VERIFIED_SEARXNG_PORT=$(grep "^SEARXNG_PORT=" .env | cut -d '=' -f2)
-VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" .env | cut -d '=' -f2)
-VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" .env | cut -d '=' -f2)
-VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" .env | cut -d '=' -f2)
-VERIFIED_COMFYUI_PORT=$(grep "^COMFYUI_PORT=" .env | cut -d '=' -f2)
-VERIFIED_WEAVIATE_PORT=$(grep "^WEAVIATE_PORT=" .env | cut -d '=' -f2)
-VERIFIED_WEAVIATE_GRPC_PORT=$(grep "^WEAVIATE_GRPC_PORT=" .env | cut -d '=' -f2)
+VERIFIED_SUPABASE_DB_PORT=$(grep "^SUPABASE_DB_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_REDIS_PORT=$(grep "^REDIS_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_KONG_HTTP_PORT=$(grep "^KONG_HTTP_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_KONG_HTTPS_PORT=$(grep "^KONG_HTTPS_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SUPABASE_META_PORT=$(grep "^SUPABASE_META_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SUPABASE_STORAGE_PORT=$(grep "^SUPABASE_STORAGE_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SUPABASE_AUTH_PORT=$(grep "^SUPABASE_AUTH_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SUPABASE_API_PORT=$(grep "^SUPABASE_API_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SUPABASE_REALTIME_PORT=$(grep "^SUPABASE_REALTIME_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SUPABASE_STUDIO_PORT=$(grep "^SUPABASE_STUDIO_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_GRAPH_DB_PORT=$(grep "^GRAPH_DB_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_GRAPH_DB_DASHBOARD_PORT=$(grep "^GRAPH_DB_DASHBOARD_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_LLM_PROVIDER_PORT=$(grep "^LLM_PROVIDER_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_LOCAL_DEEP_RESEARCHER_PORT=$(grep "^LOCAL_DEEP_RESEARCHER_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_SEARXNG_PORT=$(grep "^SEARXNG_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_OPEN_WEB_UI_PORT=$(grep "^OPEN_WEB_UI_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_BACKEND_PORT=$(grep "^BACKEND_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_N8N_PORT=$(grep "^N8N_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_COMFYUI_PORT=$(grep "^COMFYUI_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_WEAVIATE_PORT=$(grep "^WEAVIATE_PORT=" "$env_file" | cut -d '=' -f2)
+VERIFIED_WEAVIATE_GRPC_PORT=$(grep "^WEAVIATE_GRPC_PORT=" "$env_file" | cut -d '=' -f2)
 
-# Display port assignments in a cleaner format with aligned port numbers
+echo "✅ Port verification completed successfully"
+
+# Parse service sources from .env
+parse_service_sources
+
+# Validate SOURCE values against service-configs.yml
+validate_source_values
+
+# Load and generate service configuration
+load_service_config
+generate_service_environment
+
+# Update .env with computed variables
+update_env_file
+
+# Note: Kong routes are now configured via dynamic environment variables
+
+# Setup hosts if needed
+if [[ "$SETUP_HOSTS" == true ]] && [[ "$SKIP_HOSTS" == false ]]; then
+  echo "🔧 Setting up hosts file entries..."
+  if ! setup_hosts_entries; then
+    echo "⚠️ Failed to setup hosts file entries"
+  fi
+elif [[ "$SKIP_HOSTS" == false ]]; then
+  echo "🔍 Checking hosts file entries..."
+  check_missing_hosts
+fi
+
+echo ""
+echo "📊 Service Configuration Summary:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+printf "%-25s %-15s %-35s %-8s\n" "SERVICE" "SOURCE" "ENDPOINT" "SCALE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+printf "%-25s %-15s %-35s %-8s\n" "Data Services:" "" "" ""
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase Database" "container" "postgresql://localhost:$VERIFIED_SUPABASE_DB_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Redis Cache" "container" "redis://localhost:$VERIFIED_REDIS_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Neo4j Graph Database" "${SERVICE_SOURCES[NEO4J_SOURCE]}" "bolt://localhost:$VERIFIED_GRAPH_DB_PORT" "$NEO4J_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase Meta" "container" "http://localhost:$VERIFIED_SUPABASE_META_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase Storage" "container" "http://localhost:$VERIFIED_SUPABASE_STORAGE_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase Auth" "container" "http://localhost:$VERIFIED_SUPABASE_AUTH_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase API" "container" "http://localhost:$VERIFIED_SUPABASE_API_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase Realtime" "container" "http://localhost:$VERIFIED_SUPABASE_REALTIME_PORT" "1"
+echo ""
+printf "%-25s %-15s %-35s %-8s\n" "AI Services:" "" "" ""
+printf "%-25s %-15s %-35s %-8s\n" "  Ollama" "${SERVICE_SOURCES[LLM_PROVIDER_SOURCE]}" "$OLLAMA_ENDPOINT" "$OLLAMA_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  ComfyUI" "${SERVICE_SOURCES[COMFYUI_SOURCE]}" "$COMFYUI_ENDPOINT" "$COMFYUI_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  Weaviate Vector DB" "${SERVICE_SOURCES[WEAVIATE_SOURCE]}" "http://localhost:$VERIFIED_WEAVIATE_PORT" "$WEAVIATE_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  Multi2Vec-CLIP" "${SERVICE_SOURCES[VECTOR_SOURCE]}" "http://multi2vec-clip:8080" "$CLIP_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  Local Deep Researcher" "${SERVICE_SOURCES[LOCAL_DEEP_RESEARCHER_SOURCE]}" "http://localhost:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT" "$LOCAL_DEEP_RESEARCHER_SCALE"
+echo ""
+printf "%-25s %-15s %-35s %-8s\n" "App Services:" "" "" ""
+printf "%-25s %-15s %-35s %-8s\n" "  Kong API Gateway" "container" "http://localhost:$VERIFIED_KONG_HTTP_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Supabase Studio" "container" "http://localhost:$VERIFIED_SUPABASE_STUDIO_PORT" "1"
+printf "%-25s %-15s %-35s %-8s\n" "  Open WebUI" "${SERVICE_SOURCES[OPEN_WEB_UI_SOURCE]}" "http://localhost:$VERIFIED_OPEN_WEB_UI_PORT" "$OPEN_WEB_UI_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  Backend API" "${SERVICE_SOURCES[BACKEND_SOURCE]}" "http://localhost:$VERIFIED_BACKEND_PORT" "$BACKEND_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  n8n Workflows" "${SERVICE_SOURCES[N8N_SOURCE]}" "http://localhost:$VERIFIED_N8N_PORT" "$N8N_SCALE"
+printf "%-25s %-15s %-35s %-8s\n" "  SearxNG Search" "${SERVICE_SOURCES[SEARXNG_SOURCE]}" "http://localhost:$VERIFIED_SEARXNG_PORT" "$SEARXNG_SCALE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 echo ""
 echo "🚀 PORT ASSIGNMENTS (verified from .env file):"
 printf "  • %-35s %s\n" "Supabase PostgreSQL Database:" "$VERIFIED_SUPABASE_DB_PORT"
@@ -618,7 +1052,7 @@ printf "  • %-35s %s\n" "Supabase Realtime:" "$VERIFIED_SUPABASE_REALTIME_PORT
 printf "  • %-35s %s\n" "Supabase Studio Dashboard:" "$VERIFIED_SUPABASE_STUDIO_PORT"
 printf "  • %-35s %s\n" "Neo4j Graph Database (Bolt):" "$VERIFIED_GRAPH_DB_PORT"
 printf "  • %-35s %s\n" "Neo4j Graph Database (Dashboard):" "$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
-printf "  • %-35s %s\n" "Ollama API:" "$VERIFIED_OLLAMA_PORT"
+printf "  • %-35s %s\n" "Ollama API:" "$VERIFIED_LLM_PROVIDER_PORT"
 printf "  • %-35s %s\n" "Local Deep Researcher:" "$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
 printf "  • %-35s %s\n" "SearxNG Privacy Search:" "$VERIFIED_SEARXNG_PORT"
 printf "  • %-35s %s\n" "Open Web UI:" "$VERIFIED_OPEN_WEB_UI_PORT"
@@ -640,86 +1074,18 @@ printf "  • %-20s %s\n" "Backend API:" "http://localhost:$VERIFIED_BACKEND_POR
 printf "  • %-20s %s\n" "n8n Dashboard:" "http://localhost:$VERIFIED_N8N_PORT"
 printf "  • %-20s %s\n" "ComfyUI Interface:" "http://localhost:$VERIFIED_COMFYUI_PORT"
 printf "  • %-20s %s\n" "Weaviate GraphQL:" "http://localhost:$VERIFIED_WEAVIATE_PORT/v1/graphql"
+
 echo ""
-
-# Hosts file management
-if [[ "$SKIP_HOSTS" != "true" ]]; then
-  echo "🔍 Checking hosts file configuration..."
-  
-  OS=$(detect_os)
-  HOSTS_FILE=$(get_hosts_file)
-  
-  if [[ -z "$HOSTS_FILE" || ! -f "$HOSTS_FILE" ]]; then
-    echo "⚠️  Could not locate hosts file for OS: $OS"
-    echo "   Subdomain access requires these entries in your hosts file:"
-    for host in $(get_genai_hosts); do
-      echo "   127.0.0.1 $host"
-    done
-    echo ""
-  else
-    # Check for missing entries
-    MISSING_HOSTS=($(check_missing_hosts "$HOSTS_FILE"))
-    
-    if [[ ${#MISSING_HOSTS[@]} -eq 0 ]]; then
-      echo "✅ All required hosts entries are present"
-    else
-      echo "⚠️  Missing hosts file entries for subdomain access:"
-      for host in "${MISSING_HOSTS[@]}"; do
-        echo "   127.0.0.1 $host"
-      done
-      echo ""
-      
-      # If --setup-hosts was provided, try to add them
-      if [[ "$SETUP_HOSTS" == "true" ]]; then
-        if is_elevated; then
-          echo "📝 Adding hosts entries..."
-          if add_hosts_entries "$HOSTS_FILE"; then
-            echo "✅ Hosts file updated successfully"
-          else
-            echo "❌ Failed to update hosts file"
-            exit 1
-          fi
-        else
-          echo "❌ --setup-hosts requires elevated privileges"
-          if [[ "$OS" == "windows" ]]; then
-            echo "   Please run as Administrator"
-          else
-            echo "   Please run with: sudo $0 --setup-hosts --profile $PROFILE"
-          fi
-          exit 1
-        fi
-      else
-        # Offer to add them
-        echo "To enable subdomain access (e.g., http://api.localhost:$VERIFIED_KONG_HTTP_PORT),"
-        echo "these entries need to be added to your hosts file."
-        echo ""
-        echo "You can:"
-        echo "1. Run with elevated privileges to add automatically:"
-        if [[ "$OS" == "windows" ]]; then
-          echo "   Run as Administrator: $0 --setup-hosts --profile $PROFILE"
-        else
-          echo "   sudo $0 --setup-hosts --profile $PROFILE"
-        fi
-        echo "2. Add them manually to $HOSTS_FILE"
-        echo "3. Continue without subdomain access (use direct ports only)"
-        echo ""
-        read -p "Continue without hosts file setup? [y/N] " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-          echo "Exiting. Please run with --setup-hosts or add entries manually."
-          exit 1
-        fi
-      fi
-    fi
-  fi
-  echo ""
-fi
-
-# Start the stack with the selected profile
-echo "🔄 Starting the stack with profile: $PROFILE"
+echo "🔄 Preparing Docker environment..."
 
 # Aggressively clean Docker environment to prevent caching issues
 echo "  • Performing deep clean of Docker environment..."
+
+# Function to execute compose command with proper error handling
+execute_compose_cmd() {
+  echo "      Command: $DOCKER_COMPOSE_CMD --env-file=.env $*"
+  $DOCKER_COMPOSE_CMD --env-file=.env "$@"
+}
 
 # Stop and remove containers from previous runs
 echo "    - Stopping and removing containers..."
@@ -733,7 +1099,7 @@ if [[ "$COLD_START" == "true" ]]; then
   # Add explicit network removal for cold start
   echo "    - Removing project network (cold start)..."
   echo "      Command: docker network rm ${PROJECT_NAME}_backend-bridge-network"
-  docker network rm ${PROJECT_NAME}_backend-bridge-network || true # Use || true to prevent script from exiting if network doesn't exist
+  docker network rm ${PROJECT_NAME}_backend-bridge-network 2>/dev/null || true # Use || true to prevent script from exiting if network doesn't exist
 
   # Add more aggressive system prune for cold start
   echo "    - Performing aggressive Docker system prune (cold start)..."
@@ -759,116 +1125,142 @@ execute_compose_cmd build --no-cache
 echo "    - Starting containers..."
 # Force Docker to use the updated environment file by explicitly passing it
 # Added --force-recreate to ensure containers are recreated with new port settings
-execute_compose_cmd up -d --force-recreate
+echo "      Command: $DOCKER_COMPOSE_CMD --env-file=.env up -d --force-recreate"
+$DOCKER_COMPOSE_CMD --env-file=.env up -d --force-recreate
 
-# Check dynamic Weaviate embedding model configuration
-echo ""
-echo "🔍 Verifying Weaviate embedding model configuration..."
-if [[ "$PROFILE" == *"vector"* ]] || [[ "$COMPOSE_FILES" == *"vector"* ]]; then
-  # Wait a moment for weaviate-init to complete
-  sleep 3
+if [[ $? -eq 0 ]]; then
+  echo ""
+  echo "🎉 GenAI Vanilla Stack started successfully!"
   
-  # Check if weaviate-shared-config volume exists and has configuration
-  SHARED_CONFIG_PATH=""
-  if docker volume inspect "${PROJECT_NAME}_weaviate-shared-config" >/dev/null 2>&1; then
-    # Get the volume mount path (this is Docker-specific and may vary)
-    echo "  • weaviate-shared-config volume exists"
-    
-    # Try to read the configuration from the volume via a temporary container
-    WEAVIATE_MODEL=$(docker run --rm -v "${PROJECT_NAME}_weaviate-shared-config:/shared" alpine:latest sh -c "if [ -f /shared/weaviate-config.env ]; then cat /shared/weaviate-config.env | grep WEAVIATE_OLLAMA_EMBEDDING_MODEL | cut -d'=' -f2; fi" 2>/dev/null || echo "")
-    
-    if [ -n "$WEAVIATE_MODEL" ]; then
-      echo "  • ✅ Dynamic embedding model discovered: $WEAVIATE_MODEL"
+  # ComfyUI health check for localhost configuration
+  if [[ "${SERVICE_SOURCES[COMFYUI_SOURCE]}" == "localhost" ]]; then
+    echo ""
+    echo "🔍 Checking local ComfyUI availability..."
+    # Try port 8188 first (standard), then 8000 (common alternative)
+    if curl -s --connect-timeout 5 "http://localhost:8188/system_stats" > /dev/null 2>&1; then
+      echo "  • ✅ Local ComfyUI: Available at http://localhost:8188"
+    elif curl -s --connect-timeout 5 "http://localhost:8000/system_stats" > /dev/null 2>&1; then
+      echo "  • ✅ Local ComfyUI: Available at http://localhost:8000"
     else
-      echo "  • ⚠️  Warning: No embedding model configuration found, using default"
+      echo "  • ⚠️  Local ComfyUI: Not running on port 8188 or 8000"
+      echo "    Please start ComfyUI locally with: python main.py --listen --port 8188"
+      echo "    Or refer to the documentation for installation instructions."
+    fi
+  fi
+  
+  # Check dynamic Weaviate embedding model configuration
+  if [[ "$WEAVIATE_SCALE" -gt 0 ]]; then
+    echo ""
+    echo "🔍 Verifying Weaviate embedding model configuration..."
+    # Wait a moment for weaviate-init to complete
+    sleep 3
+    
+    # Check if weaviate-shared-config volume exists and has configuration
+    if docker volume inspect "${PROJECT_NAME}_weaviate-shared-config" >/dev/null 2>&1; then
+      echo "  • weaviate-shared-config volume exists"
+      
+      # Try to read the configuration from the volume via a temporary container
+      WEAVIATE_MODEL=$(docker run --rm -v "${PROJECT_NAME}_weaviate-shared-config:/shared" alpine:latest sh -c "if [ -f /shared/weaviate-config.env ]; then cat /shared/weaviate-config.env | grep WEAVIATE_OLLAMA_EMBEDDING_MODEL | cut -d'=' -f2; fi" 2>/dev/null || echo "")
+      
+      if [ -n "$WEAVIATE_MODEL" ]; then
+        echo "  • ✅ Dynamic embedding model discovered: $WEAVIATE_MODEL"
+      else
+        echo "  • ⚠️  Warning: No embedding model configuration found, using default"
+      fi
+    else
+      echo "  • ⚠️  Warning: weaviate-shared-config volume not found"
     fi
   else
-    echo "  • ⚠️  Warning: weaviate-shared-config volume not found"
+    echo ""
+    echo "🔍 Verifying Weaviate embedding model configuration..."
+    echo "  • Skipped (Weaviate not running in current configuration)"
   fi
-else
-  echo "  • Skipped (vector services not included in profile: $PROFILE)"
-fi
 
-# Show the actual port mappings to verify
-echo ""
-echo "🔍 Verifying port mappings from Docker..."
-execute_compose_cmd ps
-  
-# Verify actual port mappings against expected values
-echo ""
-echo "🔍 Checking if Docker assigned the expected ports..."
-
-# Define services and their internal ports to check
-# Using simple arrays instead of associative arrays for better compatibility
-SERVICES=(
-  "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
-  "redis:6379:$VERIFIED_REDIS_PORT"
-  "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
-  "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
-  "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
-  "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
-  "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
-  "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
-  "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
-  "weaviate:8080:$VERIFIED_WEAVIATE_PORT"
-  "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
-  "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
-  "backend:8000:$VERIFIED_BACKEND_PORT"
-  "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"
-  "kong-api-gateway:8443:$VERIFIED_KONG_HTTPS_PORT"
-)
-
-# If using default or ai-gpu profile, Ollama is included
-if [[ "$PROFILE" == "default" || "$PROFILE" == "ai-gpu" ]]; then
-  SERVICES+=("ollama:11434:$VERIFIED_OLLAMA_PORT")
-fi
-
-# ComfyUI health check for ai-local profile
-if [[ "$PROFILE" == "ai-local" ]]; then
-  echo "🔍 Checking local ComfyUI availability..."
-  # Try port 8188 first (standard), then 8000 (common alternative)
-  if curl -s --connect-timeout 5 "http://localhost:8188/system_stats" > /dev/null 2>&1; then
-    echo "  • ✅ Local ComfyUI: Available at http://localhost:8188"
-  elif curl -s --connect-timeout 5 "http://localhost:8000/system_stats" > /dev/null 2>&1; then
-    echo "  • ✅ Local ComfyUI: Available at http://localhost:8000"
-  else
-    echo "  • ⚠️  Local ComfyUI: Not running on port 8188 or 8000"
-    echo "    Please start ComfyUI locally with: python main.py --listen --port 8188"
-    echo "    Or refer to the documentation for installation instructions."
-  fi
+  # Show the actual port mappings to verify
   echo ""
-fi
+  echo "🔍 Verifying port mappings from Docker..."
+  execute_compose_cmd ps
+    
+  # Verify actual port mappings against expected values
+  echo ""
+  echo "🔍 Checking if Docker assigned the expected ports..."
 
-# Function to get actual port mapping
-get_actual_port() {
-  local service=$1
-  local internal_port=$2
-  local cmd_args=""
-  IFS=':' read -ra FILES <<< "$COMPOSE_FILES"
-  for file in "${FILES[@]}"; do
-    cmd_args="$cmd_args -f $file"
-  done
-  $DOCKER_COMPOSE_CMD $cmd_args port "$service" "$internal_port" 2>/dev/null | grep -oE '[0-9]+$' || echo ""
-}
+  # Define services and their internal ports to check
+  # Using simple arrays instead of associative arrays for better compatibility
+  SERVICES=(
+    "supabase-db:5432:$VERIFIED_SUPABASE_DB_PORT"
+    "redis:6379:$VERIFIED_REDIS_PORT"
+    "supabase-meta:8080:$VERIFIED_SUPABASE_META_PORT"
+    "supabase-storage:5000:$VERIFIED_SUPABASE_STORAGE_PORT"
+    "supabase-auth:9999:$VERIFIED_SUPABASE_AUTH_PORT"
+    "supabase-api:3000:$VERIFIED_SUPABASE_API_PORT"
+    "supabase-realtime:4000:$VERIFIED_SUPABASE_REALTIME_PORT"
+    "supabase-studio:3000:$VERIFIED_SUPABASE_STUDIO_PORT"
+    "neo4j-graph-db:7687:$VERIFIED_GRAPH_DB_PORT"
+    "weaviate:8080:$VERIFIED_WEAVIATE_PORT"
+    "local-deep-researcher:2024:$VERIFIED_LOCAL_DEEP_RESEARCHER_PORT"
+    "open-web-ui:8080:$VERIFIED_OPEN_WEB_UI_PORT"
+    "backend:8000:$VERIFIED_BACKEND_PORT"
+    "kong-api-gateway:8000:$VERIFIED_KONG_HTTP_PORT"
+    "kong-api-gateway:8443:$VERIFIED_KONG_HTTPS_PORT"
+    "n8n:5678:$VERIFIED_N8N_PORT"
+    "searxng:8080:$VERIFIED_SEARXNG_PORT"
+  )
 
-# Check each service
-for SERVICE_INFO in "${SERVICES[@]}"; do
-  IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
-  
-  # Get the actual port mapping from Docker - with improved error handling
-  ACTUAL_PORT=$(get_actual_port "$SERVICE" "$INTERNAL_PORT")
-  
-  if [[ -z "$ACTUAL_PORT" ]]; then
-    echo "  • ❌ $SERVICE: Could not determine port mapping"
-  elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
-    echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
-  else
-    echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
+  # If Ollama is running in container mode, check its port too
+  if [[ "$OLLAMA_SCALE" -gt 0 ]]; then
+    SERVICES+=("ollama:11434:$VERIFIED_LLM_PROVIDER_PORT")
   fi
-done
-echo ""
+  
+  # If ComfyUI is running in container mode, check its port too
+  if [[ "$COMFYUI_SCALE" -gt 0 ]]; then
+    SERVICES+=("comfyui:18188:$VERIFIED_COMFYUI_PORT")
+  fi
 
-# Show logs
-echo ""
-echo "📋 Container logs (press Ctrl+C to exit):"
-execute_compose_cmd logs -f
+  # Function to get actual port mapping
+  get_actual_port() {
+    local service=$1
+    local internal_port=$2
+    $DOCKER_COMPOSE_CMD --env-file=.env port "$service" "$internal_port" 2>/dev/null | grep -oE '[0-9]+$' || echo ""
+  }
+
+  # Check each service
+  for SERVICE_INFO in "${SERVICES[@]}"; do
+    IFS=':' read -r SERVICE INTERNAL_PORT EXPECTED_PORT <<< "$SERVICE_INFO"
+    
+    # Get the actual port mapping from Docker - with improved error handling
+    ACTUAL_PORT=$(get_actual_port "$SERVICE" "$INTERNAL_PORT")
+    
+    if [[ -z "$ACTUAL_PORT" ]]; then
+      echo "  • ❌ $SERVICE: Could not determine port mapping"
+    elif [[ "$ACTUAL_PORT" == "$EXPECTED_PORT" ]]; then
+      echo "  • ✅ $SERVICE: Using expected port $EXPECTED_PORT"
+    else
+      echo "  • ⚠️  $SERVICE: Expected port $EXPECTED_PORT but got $ACTUAL_PORT"
+    fi
+  done
+  
+  echo ""
+  echo "🌐 Access your services:"
+  echo "  • Supabase Studio: http://localhost:$VERIFIED_SUPABASE_STUDIO_PORT"
+  echo "  • Open WebUI: http://localhost:$VERIFIED_OPEN_WEB_UI_PORT"
+  echo "  • Backend API: http://localhost:$VERIFIED_BACKEND_PORT/docs"
+  echo "  • n8n Workflows: http://localhost:$VERIFIED_N8N_PORT"
+  if [[ "$COMFYUI_SCALE" -gt 0 ]]; then
+    echo "  • ComfyUI: http://localhost:$VERIFIED_COMFYUI_PORT"
+  fi
+  echo "  • Neo4j Browser: http://localhost:$VERIFIED_GRAPH_DB_DASHBOARD_PORT"
+  echo "  • Weaviate: http://localhost:$VERIFIED_WEAVIATE_PORT/v1"
+  echo ""
+  echo "📚 For more information, check the README.md file"
+  echo ""
+  
+  # Optional: Show logs
+  echo "📋 Container logs (press Ctrl+C to exit):"
+  execute_compose_cmd logs -f
+else
+  echo ""
+  echo "❌ Failed to start GenAI Vanilla Stack"
+  echo "   Check the logs above for error details"
+  exit 1
+fi

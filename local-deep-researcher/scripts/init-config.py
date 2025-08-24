@@ -57,11 +57,11 @@ def initialize_config():
         conn = psycopg2.connect(database_url)
         cursor = conn.cursor()
 
-        # Query for active content LLMs, prefer ollama
+        # Query for active content LLMs, prefer highest priority, then ollama
         cursor.execute("""
             SELECT provider, name FROM public.llms 
-            WHERE active = true AND content = true 
-            ORDER BY provider = 'ollama' DESC, name
+            WHERE active = true AND content > 0 
+            ORDER BY content DESC, provider = 'ollama' DESC, name
             LIMIT 1
         """)
 

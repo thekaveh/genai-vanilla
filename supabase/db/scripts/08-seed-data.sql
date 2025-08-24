@@ -5,7 +5,7 @@
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'mxbai-embed-large' AND provider = 'ollama') THEN
     INSERT INTO public.llms (name, provider, active, embeddings, content) VALUES
-      ('mxbai-embed-large', 'ollama', true, true, false);
+      ('mxbai-embed-large', 'ollama', true, 10, 0);
   END IF;
 END $$;
 
@@ -13,7 +13,7 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'qwen3:latest' AND provider = 'ollama') THEN
     INSERT INTO public.llms (name, provider, active, embeddings, content, description, size_gb, context_window) VALUES
-      ('qwen3:latest', 'ollama', true, false, true, 'Latest generation LLM with 100+ language support and strong reasoning capabilities', 5.2, 40000);
+      ('qwen3:latest', 'ollama', true, 0, 10, 'Latest generation LLM with 100+ language support and strong reasoning capabilities', 5.2, 40000);
   END IF;
 END $$;
 
