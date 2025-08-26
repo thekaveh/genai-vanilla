@@ -349,7 +349,7 @@ validate_source_values() {
   fi
   
   # Additional validation for localhost services
-  if [[ "$llm_source" == "localhost" ]]; then
+  if [[ "$llm_source" == "ollama-localhost" ]]; then
     echo "🔍 Validating localhost Ollama service..."
     if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
       echo "⚠️  Warning: Ollama not detected at localhost:11434"
@@ -400,7 +400,7 @@ parse_service_sources() {
   declare -A SERVICE_SOURCES 2>/dev/null || true
   
   # Default values
-  SERVICE_SOURCES[LLM_PROVIDER_SOURCE]="container-cpu"
+  SERVICE_SOURCES[LLM_PROVIDER_SOURCE]="ollama-container-cpu"
   SERVICE_SOURCES[COMFYUI_SOURCE]="container-cpu"
   SERVICE_SOURCES[WEAVIATE_SOURCE]="container"
   SERVICE_SOURCES[VECTOR_SOURCE]="container-cpu"
@@ -468,10 +468,10 @@ generate_service_environment() {
   fi
   
   # Set Ollama configuration based on YAML
-  local ollama_scale=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".scale" "$config_file")
-  local ollama_endpoint=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".environment.OLLAMA_ENDPOINT" "$config_file")
-  local ollama_gpu_devices=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".environment.NVIDIA_VISIBLE_DEVICES" "$config_file")
-  local ollama_extra_hosts=$(yq eval ".source_configurable.ollama.\"$llm_config_key\".extra_hosts" "$config_file")
+  local ollama_scale=$(yq eval ".source_configurable.llm_provider.\"$llm_config_key\".scale" "$config_file")
+  local ollama_endpoint=$(yq eval ".source_configurable.llm_provider.\"$llm_config_key\".environment.OLLAMA_ENDPOINT" "$config_file")
+  local ollama_gpu_devices=$(yq eval ".source_configurable.llm_provider.\"$llm_config_key\".environment.NVIDIA_VISIBLE_DEVICES" "$config_file")
+  local ollama_extra_hosts=$(yq eval ".source_configurable.llm_provider.\"$llm_config_key\".extra_hosts" "$config_file")
   
   export OLLAMA_SCALE="${ollama_scale:-1}"
   # Replace host.docker.internal with dynamic localhost host for cross-platform compatibility
@@ -481,14 +481,14 @@ generate_service_environment() {
   # Note: extra_hosts for localhost connectivity are statically defined in docker-compose.yml
   
   # Set deploy resources for GPU configurations
-  if [[ "$llm_config_key" == "container-gpu" ]]; then
+  if [[ "$llm_config_key" == "ollama-container-gpu" ]]; then
     export OLLAMA_DEPLOY_RESOURCES=$'reservations:\n  devices:\n    - driver: nvidia\n      capabilities: [gpu]'
   else
     export OLLAMA_DEPLOY_RESOURCES="~"
   fi
   
   # Set dependent service scales
-  if [[ "$llm_config_key" == "container-cpu" || "$llm_config_key" == "container-gpu" ]]; then
+  if [[ "$llm_config_key" == "ollama-container-cpu" || "$llm_config_key" == "ollama-container-gpu" ]]; then
     export OLLAMA_PULL_SCALE=1
   else
     export OLLAMA_PULL_SCALE=0

@@ -77,6 +77,7 @@ search:
   # formats: [html, csv, json, rss]
   formats:
     - html
+    - json
 
 server:
   # Is overwritten by ${SEARXNG_PORT} and ${SEARXNG_BIND_ADDRESS}
@@ -2611,6 +2612,7 @@ engines:
     paging: true
     categories: [general, web]
     brave_category: search
+    disabled: true  # Disabled due to rate limiting issues
     # brave_spellcheck: true
 
   - name: brave.images
@@ -2619,6 +2621,7 @@ engines:
     shortcut: brimg
     categories: [images, web]
     brave_category: images
+    disabled: true  # Disabled due to rate limiting issues
 
   - name: brave.videos
     engine: brave
@@ -2626,6 +2629,7 @@ engines:
     shortcut: brvid
     categories: [videos, web]
     brave_category: videos
+    disabled: true  # Disabled due to rate limiting issues
 
   - name: brave.news
     engine: brave
@@ -2633,6 +2637,7 @@ engines:
     shortcut: brnews
     categories: news
     brave_category: news
+    disabled: true  # Disabled due to rate limiting issues
 
   # - name: brave.goggles
   #   engine: brave

@@ -347,6 +347,7 @@ services:
       COMFYUI_MODELS_PATH: /models
       COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       IS_LOCAL_COMFYUI: ${IS_LOCAL_COMFYUI:-false}
+      COMFYUI_MODEL_SET: ${COMFYUI_MODEL_SET:-minimal}
     volumes:
       - ./comfyui-init/scripts:/scripts
       - comfyui-models:/models
@@ -381,6 +382,8 @@ services:
       SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
       SEARXNG_URL: http://searxng:8080
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
+      # Worker configuration
+      LOCAL_DEEP_RESEARCHER_WORKERS: ${LOCAL_DEEP_RESEARCHER_WORKERS:-3}
     ports:
       - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
     volumes:
@@ -697,7 +700,7 @@ services:
     ports:
       - "${SUPABASE_STUDIO_PORT}:3000"
     healthcheck:
-      test: ["CMD-SHELL", "node -e 'require(\"http\").get(\"http://localhost:3000/api/health\", (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))'"]
+      test: ["CMD-SHELL", "node -e 'require(\"net\").createConnection({port:3000,host:\"localhost\"},()=>process.exit(0)).on(\"error\",()=>process.exit(1))'"]
       interval: 30s
       timeout: 10s
       retries: 5

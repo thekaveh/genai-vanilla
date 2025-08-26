@@ -1,39 +1,13 @@
 # GenAI Vanilla Stack - Complete Service Configuration Matrix
 # This file defines all services and their SOURCE-based variations
 
-# Services that are always containers (no SOURCE variants)
-# These services always run in containers with fixed configurations
-always_container:
-  data_services:
-    # Core data infrastructure - always containerized
-    - supabase-db
-    - redis
-    - supabase-db-init
-    - supabase-meta
-    - supabase-storage
-    - supabase-auth
-    - supabase-api
-    - supabase-realtime
-    - neo4j-graph-db
-  
-  app_services:
-    # Application infrastructure - always containerized
-    - supabase-studio
-    - kong-api-gateway
-  
-  workflow_services:
-    # Workflow and search infrastructure - can be disabled
-    - n8n
-    - n8n-worker
-    - n8n-init
-
 # Services with SOURCE-based configuration variations
 # These services can run in different modes based on SOURCE environment variables
 source_configurable:
   
-  ollama:
+  llm_provider:
     # Containerized CPU-only Ollama
-    container-cpu:
+    ollama-container-cpu:
       scale: 1
       environment:
         OLLAMA_ENDPOINT: "http://ollama:11434"
@@ -41,7 +15,7 @@ source_configurable:
       extra_hosts: []
       
     # Containerized GPU-accelerated Ollama  
-    container-gpu:
+    ollama-container-gpu:
       scale: 1
       environment:
         OLLAMA_ENDPOINT: "http://ollama:11434"
@@ -55,7 +29,7 @@ source_configurable:
       extra_hosts: []
       
     # Local Ollama running on host machine
-    localhost:
+    ollama-localhost:
       scale: 0
       environment:
         OLLAMA_ENDPOINT: "http://host.docker.internal:11434"
@@ -64,7 +38,7 @@ source_configurable:
         - "host.docker.internal:host-gateway"
         
     # External Ollama service
-    external:
+    ollama-external:
       scale: 0
       environment:
         OLLAMA_ENDPOINT: "${OLLAMA_EXTERNAL_URL}"
@@ -285,11 +259,11 @@ source_configurable:
 adaptive_services:
   
   ollama-pull:
-    adapts_to: ollama
-    scaling_logic: "scale to 1 only when ollama source is container-cpu or container-gpu"
+    adapts_to: llm_provider
+    scaling_logic: "scale to 1 only when llm_provider source is ollama-container-cpu or ollama-container-gpu"
     environment_adaptation:
       OLLAMA_HOST_URL: "${OLLAMA_ENDPOINT}"
-    extra_hosts_adaptation: "inherit from ollama"
+    extra_hosts_adaptation: "inherit from llm_provider"
     
   comfyui-init:
     adapts_to: comfyui
@@ -299,48 +273,50 @@ adaptive_services:
     extra_hosts_adaptation: "inherit from comfyui"
     
   local-deep-researcher:
-    adapts_to: ollama
+    adapts_to: llm_provider
     scaling_logic: "always scale to 1"
     environment_adaptation:
       LLM_PROVIDER_BASE_URL: "${OLLAMA_ENDPOINT}"
-    extra_hosts_adaptation: "inherit from ollama"
+    extra_hosts_adaptation: "inherit from llm_provider"
     
   open-web-ui:
-    adapts_to: [ollama, comfyui]
+    adapts_to: [llm_provider, comfyui]
     scaling_logic: "always scale to 1"
     environment_adaptation:
       OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
       COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT:-http://comfyui:18188}"
-    extra_hosts_adaptation: "inherit from ollama and comfyui"
+    extra_hosts_adaptation: "inherit from llm_provider and comfyui"
     
   backend:
-    adapts_to: [ollama, weaviate]
+    adapts_to: [llm_provider, weaviate]
     scaling_logic: "always scale to 1"
     environment_adaptation:
       OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
       WEAVIATE_URL: "http://weaviate:8080"
-    extra_hosts_adaptation: "inherit from ollama"
+    extra_hosts_adaptation: "inherit from llm_provider"
     
   weaviate-init:
-    adapts_to: ollama
+    adapts_to: llm_provider
     scaling_logic: "always scale to 1"
     environment_adaptation:
       OLLAMA_ENDPOINT: "${OLLAMA_ENDPOINT}"
-    extra_hosts_adaptation: "inherit from ollama"
+    extra_hosts_adaptation: "inherit from llm_provider"
 
 # SOURCE value mappings to configuration keys
 # Maps .env SOURCE values to the configuration keys above
 source_mappings:
   LLM_PROVIDER_SOURCE:
-    service: ollama
+    service: llm_provider
     mappings:
-      "container": container-cpu
-      "container-cpu": container-cpu
-      "ollama-container-cpu": container-cpu
-      "container-gpu": container-gpu
-      "ollama-container-gpu": container-gpu
-      "localhost": localhost
-      "external": external
+      "container": ollama-container-cpu
+      "container-cpu": ollama-container-cpu
+      "ollama-container-cpu": ollama-container-cpu
+      "container-gpu": ollama-container-gpu
+      "ollama-container-gpu": ollama-container-gpu
+      "localhost": ollama-localhost
+      "ollama-localhost": ollama-localhost
+      "external": ollama-external
+      "ollama-external": ollama-external
       "api": api
       "disabled": disabled
       
@@ -412,7 +388,7 @@ source_mappings:
 
 # Default SOURCE values for services not explicitly configured
 defaults:
-  ollama: container-cpu
+  llm_provider: ollama-container-cpu
   comfyui: container-cpu
   weaviate: container
   multi2vec-clip: container-cpu

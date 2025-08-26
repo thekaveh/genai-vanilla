@@ -32,7 +32,7 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM public.comfyui_models WHERE name = 'sdxl_base_1.0' AND type = 'checkpoint') THEN
     INSERT INTO public.comfyui_models (name, type, filename, download_url, file_size_gb, description, active, essential) VALUES
-      ('sdxl_base_1.0', 'checkpoint', 'sdxl_base_1.0.safetensors', 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors', 6.94, 'SDXL Base 1.0 - High-quality image generation with better prompt adherence', true, true);
+      ('sdxl_base_1.0', 'checkpoint', 'sdxl_base_1.0.safetensors', 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors', 6.94, 'SDXL Base 1.0 - High-quality image generation with better prompt adherence', true, false);
   END IF;
 END $$;
 
@@ -47,7 +47,7 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM public.comfyui_models WHERE name = 'sdxl_vae' AND type = 'vae') THEN
     INSERT INTO public.comfyui_models (name, type, filename, download_url, file_size_gb, description, active, essential) VALUES
-      ('sdxl_vae', 'vae', 'sdxl_vae.safetensors', 'https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors', 0.32, 'SDXL VAE - Required for SDXL models to produce proper images', true, true);
+      ('sdxl_vae', 'vae', 'sdxl_vae.safetensors', 'https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors', 0.32, 'SDXL VAE - Required for SDXL models to produce proper images', true, false);
   END IF;
 END $$;
 

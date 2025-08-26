@@ -59,14 +59,40 @@ if [ "$IS_LOCAL_COMFYUI" = "true" ]; then
   mkdir -p "$COMFYUI_MODELS_PATH/loras"
 fi
 
+echo "comfyui-init: Model set: ${COMFYUI_MODEL_SET:-minimal}"
 echo "comfyui-init: Fetching active ComfyUI models from database $PGDATABASE on $PGHOST..."
-psql_output=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "SELECT name, type, filename, download_url, file_size_gb FROM public.comfyui_models WHERE active = true AND essential = true ORDER BY type, name;")
+
+# Build SQL query based on model set configuration
+case "${COMFYUI_MODEL_SET:-minimal}" in
+  "minimal")
+    # Only SD 1.5 checkpoint (no VAE for minimal)
+    sql_query="SELECT name, type, filename, download_url, file_size_gb FROM public.comfyui_models WHERE active = true AND name = 'sd_v1-5_pruned_emaonly' ORDER BY type, name;"
+    ;;
+  "sd15")
+    # SD 1.5 checkpoint + VAE
+    sql_query="SELECT name, type, filename, download_url, file_size_gb FROM public.comfyui_models WHERE active = true AND (name = 'sd_v1-5_pruned_emaonly' OR name = 'vae_ft_mse_840000_ema_pruned') ORDER BY type, name;"
+    ;;
+  "sdxl")
+    # SDXL checkpoint + VAE
+    sql_query="SELECT name, type, filename, download_url, file_size_gb FROM public.comfyui_models WHERE active = true AND (name = 'sdxl_base_1.0' OR name = 'sdxl_vae') ORDER BY type, name;"
+    ;;
+  "full")
+    # All active models (legacy behavior)
+    sql_query="SELECT name, type, filename, download_url, file_size_gb FROM public.comfyui_models WHERE active = true ORDER BY type, name;"
+    ;;
+  *)
+    echo "comfyui-init: Warning: Unknown COMFYUI_MODEL_SET '${COMFYUI_MODEL_SET}', defaulting to minimal"
+    sql_query="SELECT name, type, filename, download_url, file_size_gb FROM public.comfyui_models WHERE active = true AND name = 'sd_v1-5_pruned_emaonly' ORDER BY type, name;"
+    ;;
+esac
+
+psql_output=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "$sql_query")
 
 if [ -z "$psql_output" ]; then
-  echo "comfyui-init: No active essential ComfyUI models found in database."
-  echo "comfyui-init: This might be expected if no models are marked as essential."
+  echo "comfyui-init: No ComfyUI models found for model set '${COMFYUI_MODEL_SET:-minimal}'."
+  echo "comfyui-init: Please check your model set configuration or database content."
 else
-  echo "comfyui-init: Found essential models to download:"
+  echo "comfyui-init: Found models to download for '${COMFYUI_MODEL_SET:-minimal}' set:"
   echo "$psql_output"
   
   # Process each model

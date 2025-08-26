@@ -21,8 +21,8 @@ class Tools:
             description="Deep Researcher service URL"
         )
         timeout: int = Field(
-            default=30,
-            description="Max wait time in seconds (reduced for stability)"
+            default=900,
+            description="Max wait time in seconds (15 minutes for research completion)"
         )
         search_api: str = Field(
             default="searxng",
@@ -106,7 +106,7 @@ class Tools:
                     )
                 except:
                     pass  # Ignore cancel errors
-                return str(f"❌ Research timed out after {self.valves.timeout}s. The request has been cancelled to prevent system issues.")
+                return str(f"❌ Research timed out after {self.valves.timeout}s (15 minutes). The request has been cancelled to prevent system issues.")
             
             if resp.status_code != 200:
                 try:
@@ -157,7 +157,7 @@ class Tools:
         except requests.exceptions.ConnectionError:
             return str("❌ Cannot connect to research service. Please check if the backend is running.")
         except requests.exceptions.Timeout:
-            return str(f"❌ Research service timed out after {self.valves.timeout}s. Service may be overloaded - try again later or increase timeout in settings.")
+            return str(f"❌ Research service timed out after {self.valves.timeout}s (15 minutes). Service may be overloaded - try again later or increase timeout in settings.")
         except Exception as e:
             return str(f"❌ Unexpected error: {str(e)}")
     
