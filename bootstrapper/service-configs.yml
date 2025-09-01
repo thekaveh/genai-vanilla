@@ -41,7 +41,7 @@ source_configurable:
     ollama-external:
       scale: 0
       environment:
-        OLLAMA_ENDPOINT: "${OLLAMA_EXTERNAL_URL}"
+        OLLAMA_ENDPOINT: "${LLM_PROVIDER_EXTERNAL_URL}"
       deploy: {}
       extra_hosts: []
       
@@ -49,7 +49,7 @@ source_configurable:
     api:
       scale: 0
       environment:
-        OLLAMA_ENDPOINT: "${OLLAMA_API_URL}"
+        OLLAMA_ENDPOINT: "http://api.provider.com"  # Configure API endpoint
       deploy: {}
       extra_hosts: []
     
@@ -118,7 +118,7 @@ source_configurable:
     external:
       scale: 0
       environment:
-        COMFYUI_ENDPOINT: "${COMFYUI_EXTERNAL_URL}"
+        COMFYUI_ENDPOINT: "http://external.comfyui.provider.com"  # Configure external endpoint
       deploy: {}
       extra_hosts: []
     
@@ -187,6 +187,14 @@ source_configurable:
               - driver: nvidia
                 capabilities: [gpu]
       extra_hosts: []
+    
+    # Disabled - no CLIP processing
+    disabled:
+      scale: 0
+      environment:
+        ENABLE_CUDA: "0"
+      deploy: {}
+      extra_hosts: []
 
   n8n:
     # Containerized n8n
@@ -204,29 +212,6 @@ source_configurable:
     disabled:
       scale: 0
 
-  backend:
-    # Containerized backend API
-    container:
-      scale: 1
-    # Disabled - no backend
-    disabled:
-      scale: 0
-
-  open-web-ui:
-    # Containerized Open WebUI
-    container:
-      scale: 1
-    # Disabled - no web interface
-    disabled:
-      scale: 0
-
-  local-deep-researcher:
-    # Containerized research service
-    container:
-      scale: 1
-    # Disabled - no research
-    disabled:
-      scale: 0
 
   neo4j-graph-db:
     # Containerized Neo4j
@@ -254,42 +239,267 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  # Supabase Database
+  supabase-db:
+    # Containerized Supabase DB (only option)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase Database Init
+  supabase-db-init:
+    # Containerized DB initialization
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - skip initialization
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase Meta
+  supabase-meta:
+    # Containerized Meta service
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - no Meta service
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase Storage
+  supabase-storage:
+    # Containerized Storage service
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - no Storage service
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase Auth
+  supabase-auth:
+    # Containerized Auth service
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - no Auth service
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase API (PostgREST)
+  supabase-api:
+    # Containerized API service
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - no API service
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase Realtime
+  supabase-realtime:
+    # Containerized Realtime service
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - no Realtime service
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Supabase Studio
+  supabase-studio:
+    # Containerized Studio service
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - no Studio service
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Redis Cache
+  redis:
+    # Containerized Redis (only option)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Kong API Gateway
+  kong-api-gateway:
+    # Containerized Kong (only option)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # n8n Init
+  n8n-init:
+    # Containerized n8n initialization
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - skip initialization
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Ollama Model Puller
+  ollama-pull:
+    # Containerized model puller (auto-managed by llm-provider)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - skip model pulling
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Weaviate Initialization
+  weaviate-init:
+    # Containerized Weaviate initialization (auto-managed by weaviate)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - skip initialization
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # ComfyUI Initialization
+  comfyui-init:
+    # Containerized ComfyUI initialization (auto-managed by comfyui)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    
+    # Disabled - skip initialization
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Open WebUI
+  open-web-ui:
+    # Containerized Open WebUI (adaptive service)
+    container:
+      scale: 1
+      environment:
+        # Environment variables will be set by adaptive service logic
+        OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
+        COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT:-http://comfyui:18188}"
+      deploy: {}
+      extra_hosts: []  # Will inherit from llm_provider and comfyui
+    
+    # Disabled - no Open WebUI
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Local Deep Researcher
+  local-deep-researcher:
+    # Containerized Local Deep Researcher (adaptive service)
+    container:
+      scale: 1
+      environment:
+        # Environment variables will be set by adaptive service logic
+        LLM_PROVIDER_BASE_URL: "${OLLAMA_ENDPOINT}"
+      deploy: {}
+      extra_hosts: []  # Will inherit from llm_provider
+    
+    # Disabled - no Local Deep Researcher
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
 # Services that adapt their configuration based on other services
 # These services modify their environment variables based on dependency sources
 adaptive_services:
   
   ollama-pull:
     adapts_to: llm_provider
-    scaling_logic: "scale to 1 only when llm_provider source is ollama-container-cpu or ollama-container-gpu"
+    # Scales to 1 when llm_provider is containerized (ollama-container-cpu or ollama-container-gpu)
     environment_adaptation:
       OLLAMA_HOST_URL: "${OLLAMA_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
     
   comfyui-init:
     adapts_to: comfyui
-    scaling_logic: "scale to 1 only when comfyui source is container-cpu or container-gpu"
+    # Scales to 1 when comfyui is containerized (container-cpu or container-gpu)
     environment_adaptation:
       COMFYUI_HOST_URL: "${COMFYUI_ENDPOINT}"
     extra_hosts_adaptation: "inherit from comfyui"
     
-  local-deep-researcher:
-    adapts_to: llm_provider
-    scaling_logic: "always scale to 1"
-    environment_adaptation:
-      LLM_PROVIDER_BASE_URL: "${OLLAMA_ENDPOINT}"
-    extra_hosts_adaptation: "inherit from llm_provider"
-    
-  open-web-ui:
-    adapts_to: [llm_provider, comfyui]
-    scaling_logic: "always scale to 1"
-    environment_adaptation:
-      OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
-      COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT:-http://comfyui:18188}"
-    extra_hosts_adaptation: "inherit from llm_provider and comfyui"
-    
   backend:
     adapts_to: [llm_provider, weaviate]
-    scaling_logic: "always scale to 1"
+    # Always scales to 1 (enabled by default)
     environment_adaptation:
       OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
       WEAVIATE_URL: "http://weaviate:8080"
@@ -297,107 +507,12 @@ adaptive_services:
     
   weaviate-init:
     adapts_to: llm_provider
-    scaling_logic: "always scale to 1"
+    # Scales with weaviate (inherits WEAVIATE_SCALE)
     environment_adaptation:
       OLLAMA_ENDPOINT: "${OLLAMA_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
-# SOURCE value mappings to configuration keys
-# Maps .env SOURCE values to the configuration keys above
-source_mappings:
-  LLM_PROVIDER_SOURCE:
-    service: llm_provider
-    mappings:
-      "container": ollama-container-cpu
-      "container-cpu": ollama-container-cpu
-      "ollama-container-cpu": ollama-container-cpu
-      "container-gpu": ollama-container-gpu
-      "ollama-container-gpu": ollama-container-gpu
-      "localhost": ollama-localhost
-      "ollama-localhost": ollama-localhost
-      "external": ollama-external
-      "ollama-external": ollama-external
-      "api": api
-      "disabled": disabled
-      
-  COMFYUI_SOURCE:
-    service: comfyui
-    mappings:
-      "container": container-cpu
-      "container-cpu": container-cpu
-      "container-gpu": container-gpu
-      "localhost": localhost
-      "external": external
-      "disabled": disabled
-      
-  WEAVIATE_SOURCE:
-    service: weaviate
-    mappings:
-      "container": container
-      "container-cpu": container
-      "container-gpu": container
-      "localhost": localhost
-      "disabled": disabled
-      
-  VECTOR_SOURCE:
-    service: multi2vec-clip
-    mappings:
-      "container": container-cpu
-      "container-cpu": container-cpu
-      "container-gpu": container-gpu
-      "localhost": container-cpu  # Local setup uses CPU CLIP
-      "external": external
-      "disabled": disabled
 
-  N8N_SOURCE:
-    service: n8n
-    mappings:
-      "container": container
-      "disabled": disabled
-
-  SEARXNG_SOURCE:
-    service: searxng
-    mappings:
-      "container": container
-      "disabled": disabled
-
-  BACKEND_SOURCE:
-    service: backend
-    mappings:
-      "container": container
-      "disabled": disabled
-
-  OPEN_WEB_UI_SOURCE:
-    service: open-web-ui
-    mappings:
-      "container": container
-      "disabled": disabled
-
-  LOCAL_DEEP_RESEARCHER_SOURCE:
-    service: local-deep-researcher
-    mappings:
-      "container": container
-      "disabled": disabled
-
-  NEO4J_SOURCE:
-    service: neo4j-graph-db
-    mappings:
-      "container": container
-      "localhost": localhost
-      "disabled": disabled
-
-# Default SOURCE values for services not explicitly configured
-defaults:
-  llm_provider: ollama-container-cpu
-  comfyui: container-cpu
-  weaviate: container
-  multi2vec-clip: container-cpu
-  n8n: container
-  searxng: container
-  backend: container
-  open-web-ui: container
-  local-deep-researcher: container
-  neo4j-graph-db: container
 
 # Service dependency relationships for proper startup ordering
 dependencies:
@@ -430,3 +545,31 @@ dependencies:
     - local-deep-researcher
     - open-web-ui
     - backend
+
+# Service dependency relationships
+# Defines which services require other services to function properly
+service_dependencies:
+  # n8n requires weaviate for vector operations and AI workflow nodes
+  n8n:
+    requires: [weaviate]
+    error_message: "n8n disabled: requires weaviate for vector operations and AI workflow nodes. Enable weaviate (WEAVIATE_SOURCE=container) to use n8n workflows with vector capabilities"
+    
+  # n8n-worker also requires weaviate (inherits from n8n)
+  n8n-worker:
+    requires: [weaviate]
+    error_message: "n8n-worker disabled: requires weaviate for vector operations"
+    
+  # Backend has optional dependencies - will connect if available
+  backend:
+    optional: [neo4j-graph-db, searxng, n8n, weaviate]
+    info_message: "Backend enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate)"
+  
+  # Open WebUI has optional dependencies - will connect if available
+  open-web-ui:
+    optional: [weaviate, local-deep-researcher]
+    info_message: "Open WebUI enabled - will connect to available optional services (weaviate, local-deep-researcher)"
+  
+  # Local Deep Researcher has optional dependencies - will connect if available  
+  local-deep-researcher:
+    optional: [neo4j-graph-db, searxng, n8n, weaviate]
+    info_message: "Local Deep Researcher enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate)"

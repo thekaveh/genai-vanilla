@@ -19,7 +19,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 - **2.1. API Gateway (Kong)**: Centralized API management, authentication, and routing for backend services.
 - **2.2. Real-time Data Synchronization**: Live database change notifications via Supabase Realtime WebSocket connections.
-- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using SOURCE variables in .env.example (e.g., `LLM_PROVIDER_SOURCE=localhost` for local Ollama).
+- **2.3. Flexible Service Configuration**: Switch between containerized services or connect to existing external endpoints by using SOURCE variables in .env.example (e.g., `LLM_PROVIDER_SOURCE=ollama-localhost` for local Ollama).
 - **2.4. Modular Service Configuration**: Choose different service combinations via SOURCE variables in .env.example
 - **2.5. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **2.6. Environment-based Configuration**: Easy configuration through environment variables
@@ -97,7 +97,7 @@ ollama pull mxbai-embed-large
 # 3. Edit .env.example to use localhost services
 cp .env.example .env
 # Edit .env and change:
-# LLM_PROVIDER_SOURCE=localhost
+# LLM_PROVIDER_SOURCE=ollama-localhost
 # COMFYUI_SOURCE=localhost
 
 # 4. Start the stack
@@ -154,7 +154,7 @@ The stack uses these primary SOURCE variables in your `.env` file:
 - **`LLM_PROVIDER_SOURCE`**: Controls Ollama deployment
   - `ollama-container-cpu` - Docker container, CPU only (default)
   - `ollama-container-gpu` - Docker container with GPU acceleration
-  - `localhost` - Use Ollama running on host machine
+  - `ollama-localhost` - Use Ollama running on host machine
   - `api` - Use cloud API providers instead
   - `disabled` - No LLM service
 
@@ -252,7 +252,7 @@ curl http://localhost:11434/api/tags  # For Ollama
 curl http://localhost:8188/           # For ComfyUI
 
 # Ensure proper SOURCE configuration in .env:
-LLM_PROVIDER_SOURCE=localhost
+LLM_PROVIDER_SOURCE=ollama-localhost
 COMFYUI_SOURCE=localhost
 ```
 
@@ -1220,7 +1220,7 @@ docker compose up
 
 # Development with local Ollama (running on your host machine)
 # First ensure Ollama is running on your host
-./start.sh  # with LLM_PROVIDER_SOURCE=localhost in .env.example
+./start.sh  # with LLM_PROVIDER_SOURCE=ollama-localhost in .env.example
 
 # Production with NVIDIA GPU support
 ./start.sh --base-port 64000  # all services containerized
@@ -1822,7 +1822,7 @@ For localhost SOURCE configuration, you'll need to install ComfyUI locally on yo
 **Using the AI-Local Profile:**
 ```bash
 # Start the stack with local ComfyUI
-./start.sh  # with LLM_PROVIDER_SOURCE=localhost in .env.example
+./start.sh  # with LLM_PROVIDER_SOURCE=ollama-localhost in .env.example
 
 # Or manually with unified configuration
 docker compose --env-file=.env up
@@ -3154,7 +3154,7 @@ vanilla-genai/
    ./start.sh
    
    # AI-focused stack
-   ./start.sh  # with LLM_PROVIDER_SOURCE=localhost in .env.example
+   ./start.sh  # with LLM_PROVIDER_SOURCE=ollama-localhost in .env.example
    
    # GPU-optimized stack
    ./start.sh --base-port 64000  # all services containerized

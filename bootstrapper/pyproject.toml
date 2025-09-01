@@ -1,0 +1,22 @@
+[project]
+name = "genai-bootstrapper"
+version = "1.0.0"
+description = "GenAI Vanilla Stack bootstrapper - cross-platform startup and management scripts"
+requires-python = ">=3.8"
+dependencies = [
+    "pyyaml>=6.0",           # YAML parsing (replaces yq)
+    "python-dotenv>=1.0.0",  # .env file handling
+    "rich>=13.0.0",          # Terminal colors, tables, formatting
+    "click>=8.1.0",          # CLI argument parsing
+    "docker>=7.0.0",         # Docker SDK for compose operations
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.uv]
+dev-dependencies = []

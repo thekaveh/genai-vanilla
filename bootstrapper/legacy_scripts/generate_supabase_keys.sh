@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# ⚠️  DEPRECATED: This Bash implementation has been migrated to Python
+# 🔄 Please use the new Python version: ../../generate_supabase_keys.sh
+# 📍 Python implementation: ../generate_supabase_keys.py
+#
 
 # More portable shebang that works across different Unix-like systems
 
@@ -10,6 +15,10 @@ ENV_FILE=".env"
 ISSUER="supabase-local"
 EXPIRY_SECONDS=$((60 * 60 * 24 * 365 * 10))  # 10 years
 
+echo "⚠️  WARNING: This is the deprecated Bash version!"
+echo "🔄 Please use the new Python version for better cross-platform support:"
+echo "   ./generate_supabase_keys.sh (from project root)"
+echo ""
 echo "🔐 Generating SUPABASE_JWT_SECRET..."
 SUPABASE_JWT_SECRET=$(openssl rand -hex 32)
 

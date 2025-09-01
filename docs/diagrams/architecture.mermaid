@@ -2,7 +2,7 @@ graph LR
     %% This diagram represents the unified SOURCE-based Docker Compose architecture.
     %% All services are defined in single docker-compose.yml file
     %% Services are dynamically configured via SOURCE variables in .env.example
-    %% The start.sh script parses config/service-configs.yml and generates environment variables
+    %% The start.sh script parses bootstrapper/service-configs.yml and generates environment variables
     %% Services can run as: container-cpu, container-gpu, localhost, external, api, or disabled
 
     %% Define styles
@@ -17,7 +17,7 @@ graph LR
     subgraph ConfigLayer[Configuration Layer]
         direction TB
         env-example[.env.example<br/>SOURCE Variables]:::config
-        service-configs[config/service-configs.yml<br/>Service Matrix]:::config
+        service-configs[bootstrapper/service-configs.yml<br/>Service Matrix]:::config
         start-sh[start.sh<br/>YAML Parser & Env Generator]:::config
     end
 
@@ -100,7 +100,7 @@ graph LR
     %% Key Features of New Architecture:
     %% 1. Single docker-compose.yml with all service definitions  
     %% 2. SOURCE-based dynamic configuration via environment variables
-    %% 3. YAML-driven service matrix in config/service-configs.yml
+    %% 3. YAML-driven service matrix in bootstrapper/service-configs.yml
     %% 4. Automatic extra_hosts for localhost connectivity
     %% 5. GPU/CPU variants handled via deploy.resources
     %% 6. Services scale to 0 when disabled via deploy.replicas
