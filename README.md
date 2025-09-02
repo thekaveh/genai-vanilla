@@ -30,8 +30,8 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 ### 3.1. Prerequisites
 
 - Docker and Docker Compose
-- Python 3.10+ (for local development)
-- UV package manager (optional, for Python dependency management)
+- Python 3.10+ (required for running start/stop scripts)
+- UV package manager (optional, for better Python dependency management)
 
 #### 3.1.1. Docker Resource Requirements
 
@@ -265,6 +265,24 @@ COMFYUI_SOURCE=localhost
 ./start.sh --cold --base-port 64000 # Fresh start with new ports
 ```
 
+#### Python Script Issues
+
+If the start/stop scripts fail:
+```bash
+# 1. Ensure Python 3.10+ is installed
+python3 --version
+
+# 2. Install UV for better dependency management (optional)
+pip install uv
+
+# 3. Run directly with Python if wrapper fails
+python3 bootstrapper/start.py --help
+python3 bootstrapper/stop.py --help
+
+# 4. Check for missing Python modules (if running without UV)
+pip install pyyaml click rich
+```
+
 ### 3.5. Manual Docker Compose Commands (Alternative)
 
 You can also use Docker Compose commands directly with the unified configuration:
@@ -287,12 +305,18 @@ docker compose --env-file=.env build
 
 #### start.sh Script Details
 
-The `start.sh` script automatically:
+The `start.sh` script is now a thin wrapper that calls the Python implementation:
+1. Detects if UV is available for better dependency management
+2. Calls `bootstrapper/start.py` with all arguments
+3. Falls back to system Python if UV is not installed
+
+The Python implementation automatically:
 1. Copies `.env.example` to `.env` if needed
-2. Generates Supabase encryption keys if missing
+2. Generates ALL encryption keys (Supabase, N8N, SearxNG) when needed
 3. Configures service scaling based on SOURCE variables
 4. Manages port assignments and conflicts
-5. Displays service status and access URLs
+5. Validates service dependencies and auto-resolves conflicts
+6. Displays service status and access URLs
 
 ```bash
 Usage: ./start.sh [options]
@@ -309,7 +333,7 @@ Options:
 **First-time Setup:**
 When running for the first time, the script will automatically:
 - Create the `.env` file from `.env.example`
-- Run `generate_supabase_keys.sh` to generate required JWT keys
+- Generate all required encryption keys (Supabase JWT, N8N, SearxNG)
 - Set all port numbers based on the specified base port
 
 **Cold Start Option:**
@@ -320,9 +344,9 @@ Use the `--cold` option to force a complete reset of the environment:
 This will:
 - Back up your existing `.env` file with a timestamp
 - Create a fresh `.env` file from `.env.example`
-- Generate new Supabase keys
+- Generate new encryption keys for all services
 - Set all port numbers based on the specified base port
-- Remove Docker volumes if specified
+- Perform comprehensive Docker cleanup (containers, volumes, networks)
 
 **Port Assignment Logic:**
 - SUPABASE_DB_PORT = BASE_PORT + 0
@@ -337,13 +361,15 @@ This will:
 - SUPABASE_STUDIO_PORT = BASE_PORT + 9
 - GRAPH_DB_PORT = BASE_PORT + 10
 - GRAPH_DB_DASHBOARD_PORT = BASE_PORT + 11
-- OLLAMA_PORT = BASE_PORT + 12
+- LLM_PROVIDER_PORT = BASE_PORT + 12
 - LOCAL_DEEP_RESEARCHER_PORT = BASE_PORT + 13
 - SEARXNG_PORT = BASE_PORT + 14
 - OPEN_WEB_UI_PORT = BASE_PORT + 15
 - BACKEND_PORT = BASE_PORT + 16
 - N8N_PORT = BASE_PORT + 17
 - COMFYUI_PORT = BASE_PORT + 18
+- WEAVIATE_PORT = BASE_PORT + 19
+- WEAVIATE_GRPC_PORT = BASE_PORT + 20
 
 **Troubleshooting Port Issues:**
 - If services appear to use inconsistent port numbers despite setting a custom base port, make sure to always use the `--env-file=.env` flag with Docker Compose commands
@@ -357,6 +383,11 @@ This will:
 - For detailed troubleshooting: See section 15.3 "Deep Researcher Integration"
 
 #### stop.sh
+
+The `stop.sh` script is now a thin wrapper that calls the Python implementation:
+1. Detects if UV is available for better dependency management
+2. Calls `bootstrapper/stop.py` with all arguments
+3. Falls back to system Python if UV is not installed
 
 This script stops the stack and cleans up resources:
 
@@ -510,7 +541,7 @@ This stack utilizes Supabase Auth (GoTrue) for user authentication and managemen
 
 ### 6.3. Setup and Usage
 
-1.  **Generate Keys:** Before starting the stack for the first time, run the `generate_supabase_keys.sh` script. This will create secure values for `SUPABASE_JWT_SECRET`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` and populate them in your `.env` file.
+1.  **Generate Keys:** The start.py script automatically generates secure Supabase JWT keys during first run or cold start. This creates secure values for `SUPABASE_JWT_SECRET`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_KEY` and populates them in your `.env` file.
 2.  **Client Authentication:** Client applications (like a frontend app interacting with the `backend` service, or the `backend` service itself interacting with Supabase APIs) need to:
     *   Implement a login flow using `supabase-auth` endpoints (e.g., `/auth/v1/token?grant_type=password`).
     *   Store the received JWT securely.
@@ -598,22 +629,22 @@ The Supabase API service uses native PostgREST variables with the `PGRST_` prefi
 
 **IMPORTANT**: Before starting the stack for the first time, you must generate a secure JWT secret and auth tokens:
 
-### Automatic setup (recommended)
+### Automatic Key Generation
 
-Run the included script to automatically generate all required keys:
+All required encryption keys are automatically generated by the Python startup script:
+- Supabase JWT keys (JWT_SECRET, ANON_KEY, SERVICE_KEY)
+- N8N encryption key (48-character hex)
+- SearxNG secret key (64-character hex)
 
-```bash
-# Make the script executable
-chmod +x generate_supabase_keys.sh
+Keys are generated:
+- On first run when .env is created
+- During cold start (--cold flag)
+- When missing keys are detected
 
-# Run the script to generate and set all required keys in your .env file
-./generate_supabase_keys.sh
-```
-
-This script will:
-1. Generate a secure random JWT secret
-2. Create properly signed JWT tokens for both anonymous and service role access
-3. Update your .env file with all three values
+The automatic generation process:
+1. Generates secure random JWT secrets
+2. Creates properly signed JWT tokens for both anonymous and service role access
+3. Updates your .env file with all required values
 
 ### Manual setup (alternative)
 
@@ -2082,14 +2113,28 @@ The project uses Docker named volumes for data persistence and a custom bridge n
 genai-vanilla-stack/
 ├── .env                  # Environment configuration
 ├── .env.example          # Template environment configuration
-├── generate_supabase_keys.sh # Script to generate JWT keys for Supabase
-├── start.sh              # Script to start the stack with configurable ports
-├── stop.sh              # Script to stop the stack and clean up resources
-├── docker-compose.yml    # Main compose file (base networks and volumes)
+├── start.sh                  # Thin wrapper calling Python implementation
+├── stop.sh                   # Thin wrapper calling Python implementation
+├── docker-compose.yml        # Main compose file (base networks and volumes)
 ├── docker-compose.ai-local.yml  # Local Ollama flavor (backward compatibility)
 ├── docker-compose.ai-gpu.yml    # GPU-optimized flavor (backward compatibility)
-├── config/               # Configuration files
-│   └── service-configs.yml  # SERVICE SOURCE matrix configuration
+├── bootstrapper/             # Python implementation and configuration
+│   ├── start.py              # Main startup script
+│   ├── stop.py               # Main stop script
+│   ├── service-configs.yml   # SERVICE SOURCE matrix configuration
+│   ├── core/                 # Core utilities
+│   │   ├── config_parser.py
+│   │   ├── docker_manager.py
+│   │   └── port_manager.py
+│   ├── services/             # Service management
+│   │   ├── source_validator.py
+│   │   ├── service_config.py
+│   │   └── dependency_manager.py
+│   └── utils/                # Utility modules
+│       ├── banner.py
+│       ├── hosts_manager.py
+│       ├── key_generator.py
+│       └── supabase_keys.py
 ├── backend/              # FastAPI backend service
 │   ├── Dockerfile
 │   └── app/
@@ -2126,11 +2171,36 @@ genai-vanilla-stack/
 
 Note: Many services will be pre-packaged and pulled directly in docker-compose.yml without needing separate Dockerfiles.
 
-## 12. Cross-Platform Compatibility
+## 12. Python Migration Benefits
+
+The GenAI Vanilla Stack has been migrated from Bash scripts to Python for improved reliability, maintainability, and cross-platform compatibility.
+
+### 12.1. Cross-Platform Compatibility
+The stack now uses Python for all configuration and management tasks:
+- **Windows Support**: Full compatibility without WSL requirements
+- **macOS Support**: Native execution on Intel and Apple Silicon
+- **Linux Support**: Consistent behavior across all distributions  
+- **No External Dependencies**: Python's built-in libraries handle YAML parsing (no more yq dependency)
+- **Better Error Handling**: Clear error messages and comprehensive validation
+
+### 12.2. Enhanced Features
+- **Integrated Key Generation**: Automatic generation of all required encryption keys (Supabase JWT, N8N, SearxNG)
+- **Service Dependency Management**: Automatic detection and resolution of service dependency conflicts
+- **Port Management**: Robust port assignment with conflict detection and dynamic updates
+- **Configuration Validation**: Comprehensive validation of SOURCE configurations against service matrix
+- **Rich Console Output**: Enhanced progress indicators and colored status messages
+
+### 12.3. Improved Reliability
+- **Atomic Operations**: Configuration changes are applied atomically to prevent inconsistent state
+- **Backup Creation**: Automatic backup of .env files before modifications
+- **Graceful Error Recovery**: Better handling of edge cases and error conditions
+- **State Validation**: Comprehensive validation of system state before operations
+
+## 13. Cross-Platform Compatibility
 
 This project is designed to work across different operating systems:
 
-### 12.1. Line Ending Handling
+### 13.1. Line Ending Handling
 
 - A `.gitattributes` file is included to enforce consistent line endings across platforms
 - All shell scripts use LF line endings (Unix-style) even when checked out on Windows
@@ -3117,7 +3187,9 @@ vanilla-genai/
 ├── docker-compose.yml              # Unified service definitions with SOURCE-based configuration
 ├── docker-compose.ai-local.yml     # Legacy: Local Ollama flavor (backward compatibility)
 ├── docker-compose.ai-gpu.yml       # Legacy: GPU-optimized flavor (backward compatibility)
-├── config/                         # Configuration management
+├── bootstrapper/                   # Python configuration management
+│   ├── start.py                    # Main startup script  
+│   ├── stop.py                     # Main stop script
 │   └── service-configs.yml         # SOURCE matrix for dynamic service configuration
 ```
 
