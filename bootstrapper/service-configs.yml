@@ -492,7 +492,7 @@ adaptive_services:
     
   comfyui-init:
     adapts_to: comfyui
-    # Scales to 1 when comfyui is containerized (container-cpu or container-gpu)
+    # Scales to 1 when comfyui is enabled (handles both local and containerized ComfyUI)
     environment_adaptation:
       COMFYUI_HOST_URL: "${COMFYUI_ENDPOINT}"
     extra_hosts_adaptation: "inherit from comfyui"
@@ -513,6 +513,25 @@ adaptive_services:
     extra_hosts_adaptation: "inherit from llm_provider"
 
 
+
+  # Backend API Service
+  backend:
+    # Containerized Backend API (adaptive service)
+    container:
+      scale: 1
+      environment:
+        # Environment variables will be set by adaptive service logic
+        OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
+        WEAVIATE_URL: "http://weaviate:8080"
+      deploy: {}
+      extra_hosts: []  # Will inherit from llm_provider
+    
+    # Disabled - no Backend API
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
 
 # Service dependency relationships for proper startup ordering
 dependencies:

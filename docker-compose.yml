@@ -716,7 +716,7 @@ services:
       - ${KONG_HTTP_PORT}:8000/tcp
       - ${KONG_HTTPS_PORT}:8443/tcp
     volumes:
-      - ./volumes/api/kong.yml:/home/kong/kong.yml:ro,z
+      - ./volumes/api/kong-dynamic.yml:/home/kong/kong.yml:ro,z
     depends_on:
       redis:
         condition: service_started

@@ -255,12 +255,12 @@ class ServiceConfig:
         else:
             env_vars['OLLAMA_PULL_SCALE'] = '0'
             
-        # COMFYUI_INIT_SCALE: 1 if ComfyUI is container mode, 0 otherwise
+        # COMFYUI_INIT_SCALE: 1 unless ComfyUI is disabled (init handles both local and container)
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
-        if comfyui_source in ['container-cpu', 'container-gpu']:
-            env_vars['COMFYUI_INIT_SCALE'] = '1'
-        else:
+        if comfyui_source == 'disabled':
             env_vars['COMFYUI_INIT_SCALE'] = '0'
+        else:
+            env_vars['COMFYUI_INIT_SCALE'] = '1'
         
         return env_vars
     

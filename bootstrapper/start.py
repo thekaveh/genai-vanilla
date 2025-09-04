@@ -25,6 +25,7 @@ from core.port_manager import PortManager
 from services.source_validator import SourceValidator
 from services.service_config import ServiceConfig
 from services.dependency_manager import DependencyManager
+from utils.source_override_manager import SourceOverrideManager
 
 # Constants matching original Bash script
 DEFAULT_BASE_PORT = 63000  # Default base port from original start.sh
@@ -48,6 +49,7 @@ class GenAIStackStarter:
         self.source_validator = SourceValidator(self.config_parser)
         self.service_config = ServiceConfig(self.config_parser)
         self.dependency_manager = DependencyManager(self.config_parser)
+        self.source_override_manager = SourceOverrideManager(self.config_parser)
         
     def show_banner(self):
         """Display the startup banner."""
@@ -65,12 +67,38 @@ Options:
   --skip-hosts           Skip hosts file checks and setup
   --help                 Show this help message
 
+SOURCE Override Options:
+  --llm-provider-source VALUE   Override LLM provider source
+                                Values: ollama-container-cpu, ollama-container-gpu,
+                                       ollama-localhost, ollama-external, api, disabled
+
+  --comfyui-source VALUE        Override ComfyUI source  
+                                Values: container-cpu, container-gpu,
+                                       localhost, external, disabled
+
+  --weaviate-source VALUE       Override Weaviate vector database source
+                                Values: container, localhost, disabled
+
+  --n8n-source VALUE            Override N8N workflow automation source
+                                Values: container, disabled
+
+  --searxng-source VALUE        Override SearxNG privacy search source
+                                Values: container, disabled
+
 Examples:
-  python start.py                        # Start with default base port (63000)
+  python start.py                        # Start with defaults from .env
   python start.py --base-port 55666      # Start with custom base port
   python start.py --cold                 # Cold start with cleanup
   python start.py --setup-hosts          # Setup hosts entries
   python start.py --skip-hosts           # Skip hosts setup
+  
+  # Override SOURCE configurations:
+  python start.py --llm-provider-source ollama-localhost --comfyui-source localhost
+  python start.py --cold --base-port 55666 --llm-provider-source ollama-container-gpu
+  python start.py --weaviate-source localhost --n8n-source disabled
+
+Note: SOURCE overrides are temporary and only apply to the current session.
+      The next run without arguments will use values from .env file.
 """
         print(usage_text)
         
@@ -103,6 +131,22 @@ Examples:
         # Python YAML parsing replaces yq dependency
         self.banner.show_status_message("Using native Python YAML parsing (replaces yq dependency)", "info")
         
+        return True
+    
+    def apply_source_overrides(self, **kwargs) -> bool:
+        """
+        Apply SOURCE overrides from command-line arguments.
+        
+        Args:
+            **kwargs: Command-line SOURCE override arguments
+            
+        Returns:
+            bool: True if successful
+        """
+        overrides = self.source_override_manager.collect_overrides(**kwargs)
+        if overrides:
+            self.banner.show_section_header("Applying SOURCE Overrides", "🔄")
+            return self.source_override_manager.apply_overrides(overrides)
         return True
         
     def validate_source_configurations(self) -> bool:
@@ -264,7 +308,7 @@ Examples:
                     print(f"    • {key}")
                 print()
                 print("  To fix this issue:")
-                print("    1. Run: ./generate_supabase_keys.sh")
+                print("    1. Run: ./bootstrapper/generate_supabase_keys.sh")
                 print("    2. Then restart this script")
                 print()
                 print("  💡 Tip: The generate_supabase_keys.sh script will create secure JWT keys")
@@ -357,6 +401,55 @@ Examples:
         self.banner.show_section_header("Generating Service Configuration", "⚙️")
         
         return self.service_config.generate_and_update_env()
+    
+    def generate_kong_configuration(self) -> bool:
+        """Generate dynamic Kong configuration based on SOURCE values."""
+        self.banner.show_section_header("Generating Kong Configuration", "🔧")
+        
+        try:
+            from utils.kong_config_generator import KongConfigGenerator
+            generator = KongConfigGenerator(self.config_parser)
+            
+            # Generate configuration
+            kong_config = generator.generate_kong_config()
+            
+            # Validate configuration
+            errors = generator.validate_config(kong_config)
+            if errors:
+                self.banner.show_status_message("Kong configuration validation failed:", "error")
+                for error in errors:
+                    print(f"  • {error}")
+                return False
+            
+            # Write to kong-dynamic.yml
+            config_path = self.root_dir / "volumes/api/kong-dynamic.yml"
+            if not generator.write_config(kong_config, config_path):
+                return False
+            
+            self.banner.show_status_message(f"Kong configuration generated: {config_path}", "success")
+            
+            # Show enabled services
+            services = kong_config.get('services', [])
+            service_names = []
+            for service in services:
+                if 'hosts' in service.get('routes', [{}])[0]:
+                    hosts = service['routes'][0]['hosts']
+                    service_names.extend(hosts)
+                elif service['name'] in ['dashboard', 'backend-api', 'openwebui-api']:
+                    service_names.append(service['name'])
+            
+            if service_names:
+                print(f"  • Enabled services: {len(services)} total")
+                domain_services = [name for name in service_names if '.localhost' in name]
+                if domain_services:
+                    print(f"  • Public domains: {', '.join(domain_services[:3])}" + 
+                          (f" (+{len(domain_services)-3} more)" if len(domain_services) > 3 else ""))
+            
+            return True
+            
+        except Exception as e:
+            self.banner.show_status_message(f"Failed to generate Kong configuration: {e}", "error")
+            return False
         
     def check_service_dependencies(self) -> bool:
         """Check and enforce service dependencies."""
@@ -737,8 +830,26 @@ Examples:
 @click.option('--cold', is_flag=True, help='Perform cold start with cleanup')
 @click.option('--setup-hosts', is_flag=True, help='Setup hosts file entries (requires admin/sudo)')
 @click.option('--skip-hosts', is_flag=True, help='Skip hosts file checks and setup')
+@click.option('--llm-provider-source', 
+              type=click.Choice(['ollama-container-cpu', 'ollama-container-gpu', 'ollama-localhost', 
+                                'ollama-external', 'api', 'disabled'], case_sensitive=False),
+              help='Override LLM_PROVIDER_SOURCE')
+@click.option('--comfyui-source', 
+              type=click.Choice(['container-cpu', 'container-gpu', 'localhost', 
+                                'external', 'disabled'], case_sensitive=False),
+              help='Override COMFYUI_SOURCE')
+@click.option('--weaviate-source', 
+              type=click.Choice(['container', 'localhost', 'disabled'], case_sensitive=False),
+              help='Override WEAVIATE_SOURCE')
+@click.option('--n8n-source', 
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override N8N_SOURCE')
+@click.option('--searxng-source', 
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override SEARXNG_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
-def main(base_port, cold, setup_hosts, skip_hosts, help_usage):
+def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source, 
+         comfyui_source, weaviate_source, n8n_source, searxng_source, help_usage):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -759,6 +870,21 @@ def main(base_port, cold, setup_hosts, skip_hosts, help_usage):
         if not starter.setup_env_file(cold_start=cold, base_port=base_port):
             sys.exit(1)
         
+        # Step 1.6: Apply SOURCE overrides from CLI arguments
+        source_args = {
+            'llm_provider_source': llm_provider_source,
+            'comfyui_source': comfyui_source,
+            'weaviate_source': weaviate_source,
+            'n8n_source': n8n_source,
+            'searxng_source': searxng_source,
+        }
+        if not starter.apply_source_overrides(**source_args):
+            sys.exit(1)
+        
+        # Step 1.7: Cold start cleanup if requested (before port check)
+        if cold:
+            starter.perform_cold_start_cleanup()
+        
         # Step 2: Validate SOURCE configurations
         if not starter.validate_source_configurations():
             sys.exit(1)
@@ -775,7 +901,11 @@ def main(base_port, cold, setup_hosts, skip_hosts, help_usage):
         if not starter.check_service_dependencies():
             sys.exit(1)
         
-        # Step 4.5: Validate Supabase keys (auto-generate for cold start)
+        # Step 4.5: Generate dynamic Kong configuration
+        if not starter.generate_kong_configuration():
+            sys.exit(1)
+        
+        # Step 4.6: Validate Supabase keys (auto-generate for cold start)
         if not starter.validate_supabase_keys(cold_start=cold):
             sys.exit(1)
         
@@ -783,35 +913,31 @@ def main(base_port, cold, setup_hosts, skip_hosts, help_usage):
         if not starter.handle_hosts_configuration(setup_hosts, skip_hosts):
             sys.exit(1)
         
-        # Step 6: Cold start cleanup if requested
-        if cold:
-            starter.perform_cold_start_cleanup()
-        
-        # Step 6.5: Generate encryption keys (improved behavior - always ensures keys exist)
+        # Step 6: Generate encryption keys (improved behavior - always ensures keys exist)
         if not starter.generate_encryption_keys(cold_start=cold):
             sys.exit(1)
         
-        # Step 6.6: Validate localhost services before starting
+        # Step 7: Validate localhost services before starting
         if not starter.validate_localhost_services():
             sys.exit(1)
         
-        # Step 7: Start Docker services (with fresh build for cold start)
+        # Step 8: Start Docker services (with fresh build for cold start)
         if not starter.start_docker_services(cold_start=cold):
             sys.exit(1)
         
-        # Step 8: Show container status and verify ports
+        # Step 9: Show container status and verify ports
         starter.show_container_status_and_verify_ports()
         
-        # Step 9: Display service status table
+        # Step 10: Display service status table
         starter.display_service_status()
         
-        # Step 10: Check ComfyUI models
+        # Step 11: Check ComfyUI models
         starter.check_comfyui_models()
         
-        # Step 11: Show final status and access points
+        # Step 12: Show final status and access points
         starter.show_final_status()
         
-        # Step 12: Show container logs (final step - blocking)
+        # Step 13: Show container logs (final step - blocking)
         starter.show_container_logs()
         
     except KeyboardInterrupt:

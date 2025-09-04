@@ -1,0 +1,211 @@
+_format_version: '2.1'
+_transform: true
+consumers:
+- username: dashboard_user
+  basicauth_credentials:
+  - username: ${DASHBOARD_USERNAME}
+    password: ${DASHBOARD_PASSWORD}
+services:
+- name: auth-v1-open
+  url: http://supabase-auth:9999/verify
+  routes:
+  - name: auth-v1-open
+    strip_path: true
+    paths:
+    - /auth/v1/verify
+  plugins:
+  - name: cors
+- name: auth-v1-open-callback
+  url: http://supabase-auth:9999/callback
+  routes:
+  - name: auth-v1-open-callback
+    strip_path: true
+    paths:
+    - /auth/v1/callback
+  plugins:
+  - name: cors
+- name: auth-v1-open-authorize
+  url: http://supabase-auth:9999/authorize
+  routes:
+  - name: auth-v1-open-authorize
+    strip_path: true
+    paths:
+    - /auth/v1/authorize
+  plugins:
+  - name: cors
+- name: auth-v1
+  url: http://supabase-auth:9999/
+  routes:
+  - name: auth-v1-all
+    strip_path: true
+    paths:
+    - /auth/v1/
+  plugins:
+  - name: cors
+  - name: key-auth
+    config:
+      key_names:
+      - apikey
+- name: rest-v1
+  url: http://supabase-api:3000/
+  routes:
+  - name: rest-v1-all
+    strip_path: true
+    paths:
+    - /rest/v1/
+  plugins:
+  - name: cors
+  - name: key-auth
+    config:
+      key_names:
+      - apikey
+- name: graphql-v1
+  url: http://supabase-api:3000/rpc/graphql
+  routes:
+  - name: graphql-v1-all
+    strip_path: true
+    paths:
+    - /graphql/v1/
+  plugins:
+  - name: cors
+  - name: key-auth
+    config:
+      key_names:
+      - apikey
+- name: realtime-v1-ws
+  url: http://supabase-realtime:4000/socket
+  protocol: ws
+  routes:
+  - name: realtime-v1-ws
+    strip_path: true
+    paths:
+    - /realtime/v1/
+  plugins:
+  - name: cors
+- name: realtime-v1-rest
+  url: http://supabase-realtime:4000/api
+  protocol: http
+  routes:
+  - name: realtime-v1-rest
+    strip_path: true
+    paths:
+    - /realtime/v1/api/
+  plugins:
+  - name: cors
+  - name: key-auth
+    config:
+      key_names:
+      - apikey
+- name: storage-v1
+  url: http://supabase-storage:5000/
+  routes:
+  - name: storage-v1-all
+    strip_path: true
+    paths:
+    - /storage/v1/
+  plugins:
+  - name: cors
+  - name: key-auth
+    config:
+      key_names:
+      - apikey
+- name: meta
+  url: http://supabase-meta:8080/
+  routes:
+  - name: meta-all
+    strip_path: true
+    paths:
+    - /pg/
+  plugins:
+  - name: cors
+  - name: basic-auth
+  - name: acl
+    config:
+      allow:
+      - dashboard_user
+- name: dashboard
+  url: http://supabase-studio:3000/
+  routes:
+  - name: dashboard-all
+    strip_path: false
+    paths:
+    - /
+  plugins:
+  - name: cors
+- name: comfyui-api
+  routes:
+  - name: comfyui-api-all
+    strip_path: false
+    hosts:
+    - comfyui.localhost
+  plugins:
+  - name: cors
+  url: http://host.docker.internal:8000/
+- name: n8n-api
+  url: http://n8n:5678/
+  connect_timeout: 60000
+  write_timeout: 60000
+  read_timeout: 60000
+  routes:
+  - name: n8n-api-all
+    strip_path: false
+    preserve_host: true
+    hosts:
+    - n8n.localhost
+  plugins:
+  - name: cors
+  - name: request-transformer
+    config:
+      add:
+        headers:
+        - 'X-Forwarded-Host: n8n.localhost:${KONG_HTTP_PORT}'
+- name: searxng-api
+  url: http://searxng:8080/
+  routes:
+  - name: searxng-api-all
+    strip_path: false
+    hosts:
+    - search.localhost
+  plugins:
+  - name: cors
+  - name: rate-limiting
+    config:
+      minute: 60
+      hour: 1000
+      policy: local
+- name: weaviate-api
+  routes:
+  - name: weaviate-api-all
+    strip_path: false
+    hosts:
+    - vector.localhost
+  plugins:
+  - name: cors
+  url: http://weaviate:8080/
+- name: neo4j-api
+  routes:
+  - name: neo4j-api-all
+    strip_path: false
+    hosts:
+    - neo4j.localhost
+  plugins:
+  - name: cors
+  url: http://neo4j-graph-db:7474/
+- name: backend-api
+  url: http://backend:8000/
+  routes:
+  - name: backend-api-all
+    strip_path: false
+    hosts:
+    - api.localhost
+  plugins:
+  - name: cors
+- name: openwebui-api
+  url: http://open-web-ui:8080/
+  routes:
+  - name: openwebui-api-all
+    strip_path: false
+    hosts:
+    - chat.localhost
+  plugins:
+  - name: cors
