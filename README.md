@@ -10,10 +10,12 @@ This project provides a solid foundation for building GenAI applications with a 
 
 GenAI Vanilla Stack is a customizable multi-service architecture for AI applications, featuring:
 
-- Multiple deployment flavors using standalone Docker Compose files
-- Modular service architecture with interchangeability between containerized and external services
-- Support for local development and cloud deployment (AWS ECS compatible)
-- Key services including Supabase (PostgreSQL + Meta + Auth + Storage + Studio), Neo4j, Redis, Ollama, FastAPI backend, and Kong API Gateway
+- **Dynamic Service Configuration**: SOURCE-based deployment with CLI overrides
+- **Intelligent Kong Gateway**: Auto-generated routes based on active services  
+- **Cross-Platform Support**: Python-based bootstrapping works on all OS
+- **Flexible Deployment**: Mix containerized, localhost, and external services
+- **Support for GPU acceleration and cloud deployment (AWS ECS compatible)**
+- **Core services**: Supabase ecosystem, Neo4j, Redis, Ollama, FastAPI backend, Kong Gateway
 
 ## 2. Features
 
@@ -24,6 +26,22 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **2.5. Cloud Ready**: Designed for seamless deployment to cloud platforms like AWS ECS
 - **2.6. Environment-based Configuration**: Easy configuration through environment variables
 - **2.7. Explicit Initialization Control**: Uses a dedicated `supabase-db-init` service to manage custom database setup after the base database starts.
+- **2.8. Dynamic Kong Configuration**: Intelligent API Gateway configuration that adapts to your SOURCE settings
+
+### 2.8. Dynamic Kong Configuration
+
+The stack now features intelligent Kong API Gateway configuration that adapts to your SOURCE settings:
+
+- **Automatic Route Generation**: Kong routes are dynamically created based on enabled services
+- **Health Checking**: Localhost services are checked for availability before routing
+- **Adaptive Configuration**: Disabled services automatically have their routes removed
+- **No Manual Configuration**: Replaces the old dual kong.yml/kong-local.yml approach
+
+The dynamic configuration is generated at startup by `bootstrapper/utils/kong_config_generator.py` and includes:
+- Automatic detection of service availability
+- Smart routing for localhost vs container services
+- Proper handling of external service URLs
+- WebSocket support for real-time services
 
 ## 3. Getting Started
 
@@ -151,38 +169,131 @@ cp .env.example .env
 
 The stack uses these primary SOURCE variables in your `.env` file:
 
-- **`LLM_PROVIDER_SOURCE`**: Controls Ollama deployment
+**Services that support localhost SOURCE:**
+- ✅ **`LLM_PROVIDER_SOURCE`**: Controls Ollama deployment
   - `ollama-container-cpu` - Docker container, CPU only (default)
   - `ollama-container-gpu` - Docker container with GPU acceleration
-  - `ollama-localhost` - Use Ollama running on host machine
+  - `ollama-localhost` - Use Ollama running on host machine ✅
   - `api` - Use cloud API providers instead
   - `disabled` - No LLM service
 
-- **`COMFYUI_SOURCE`**: Controls ComfyUI deployment
+- ✅ **`COMFYUI_SOURCE`**: Controls ComfyUI deployment
   - `container-cpu` - Docker container, CPU only (default)
   - `container-gpu` - Docker container with GPU acceleration
-  - `localhost` - Use ComfyUI running on host machine (port 8188)
+  - `localhost` - Use ComfyUI running on host machine (port 8188) ✅
   - `disabled` - No image generation service
 
-- **`WEAVIATE_SOURCE`**: Controls vector database
+- ✅ **`WEAVIATE_SOURCE`**: Controls vector database
   - `container` - Docker container (default)
-  - `localhost` - Use Weaviate on host machine
+  - `localhost` - Use Weaviate on host machine ✅
   - `disabled` - No vector search capabilities
 
-#### Script Options
+**Services that do NOT support localhost SOURCE (container only):**
+- ❌ **`N8N_SOURCE`**: Controls N8N workflow automation
+  - `container` - Docker container only
+  - `disabled` - No workflow automation
+
+- ❌ **`SEARXNG_SOURCE`**: Controls SearxNG privacy search
+  - `container` - Docker container only  
+  - `disabled` - No privacy search engine
+
+- ❌ **`OPEN_WEB_UI_SOURCE`**: Controls Open-WebUI chat interface
+  - `container` - Docker container only
+  - `disabled` - No chat interface
+
+- ❌ **`BACKEND_SOURCE`**: Controls FastAPI backend
+  - `container` - Docker container only
+  - `disabled` - No backend API
+
+### 3.3.1 Command-Line SOURCE Overrides
+
+The start.sh script now supports direct SOURCE configuration via command-line arguments, allowing you to override .env settings without editing files:
+
+#### Available SOURCE Override Arguments:
+
+**--llm-provider-source** (Options: ollama-container-cpu, ollama-container-gpu, ollama-localhost, ollama-external, api, disabled)
+- Controls how LLM services are deployed
+- Example: `./start.sh --llm-provider-source ollama-localhost`
+
+**--comfyui-source** (Options: container-cpu, container-gpu, localhost, external, disabled)
+- Controls ComfyUI image generation deployment
+- Example: `./start.sh --comfyui-source localhost`
+
+**--weaviate-source** (Options: container, localhost, disabled)
+- Controls Weaviate vector database deployment
+- Example: `./start.sh --weaviate-source localhost`
+
+**--n8n-source** (Options: container, disabled)
+- Controls N8N workflow automation deployment
+- Example: `./start.sh --n8n-source disabled`
+
+**--searxng-source** (Options: container, disabled)
+- Controls SearxNG privacy search engine deployment
+- Example: `./start.sh --searxng-source disabled`
+
+#### Common Usage Patterns:
+
+**1. Development with Local AI Services:**
+```bash
+./start.sh --llm-provider-source ollama-localhost \
+          --comfyui-source localhost \
+          --weaviate-source container
+```
+
+**2. Production with GPU Acceleration:**
+```bash
+./start.sh --llm-provider-source ollama-container-gpu \
+          --comfyui-source container-gpu \
+          --base-port 80
+```
+
+**3. Lightweight API-Only Setup:**
+```bash
+./start.sh --llm-provider-source api \
+          --comfyui-source disabled \
+          --weaviate-source disabled \
+          --n8n-source disabled \
+          --searxng-source disabled
+```
+
+**4. Cold Start with Custom Configuration:**
+```bash
+./start.sh --cold \
+          --base-port 55666 \
+          --llm-provider-source ollama-localhost \
+          --comfyui-source localhost \
+          --setup-hosts
+```
+
+**Note:** CLI overrides are temporary and only apply to the current session. The next run without arguments will use values from .env file.
+
+#### Complete Script Reference
 
 ```bash
-# Basic usage
-./start.sh                    # Start with default configuration
+# Basic Operations
+./start.sh                    # Start with .env configuration
+./start.sh --help            # Show all available options
+./start.sh --help-usage      # Show detailed usage examples
 
-# Advanced options  
-./start.sh --base-port 64000  # Use custom port range (64000-64020)
-./start.sh --cold             # Fresh install with new encryption keys
-./start.sh --setup-hosts      # Configure hosts file for localhost services
+# Port and Network Configuration
+./start.sh --base-port 64000  # Use custom port range
+./start.sh --setup-hosts      # Configure /etc/hosts for *.localhost domains
+./start.sh --skip-hosts       # Skip hosts file setup
 
-# Stop options
-./stop.sh                     # Stop services, keep data
-./stop.sh --cold              # Stop services and delete all data
+# Fresh Start Options
+./start.sh --cold             # Complete reset: new keys, cleanup, fresh start
+./stop.sh --cold              # Stop and remove all data
+
+# Service SOURCE Overrides (temporary, session-only)
+./start.sh --llm-provider-source ollama-localhost
+./start.sh --comfyui-source localhost  
+./start.sh --weaviate-source disabled
+./start.sh --n8n-source disabled
+./start.sh --searxng-source disabled
+
+# Combined Examples
+./start.sh --cold --base-port 55666 --llm-provider-source ollama-localhost
+./start.sh --comfyui-source container-gpu --setup-hosts
 ```
 
 #### Service Dependencies
@@ -231,6 +342,17 @@ ollama pull qwen2.5:latest
 ollama pull mxbai-embed-large
 ```
 
+**🎨 ComfyUI Model Management**
+```bash
+# Models are automatically downloaded by comfyui-init service
+# This happens for BOTH container and localhost setups
+# Check download progress:
+docker logs genai-comfyui-init -f
+
+# For localhost ComfyUI, models are still downloaded to ensure consistency
+# The init service manages model placement regardless of SOURCE setting
+```
+
 **🌐 Service Connectivity Issues**
 ```bash
 # Services showing as unhealthy?
@@ -263,6 +385,33 @@ COMFYUI_SOURCE=localhost
 # If everything is broken, start fresh:
 ./stop.sh --cold                    # Remove all data
 ./start.sh --cold --base-port 64000 # Fresh start with new ports
+```
+
+### 3.4.1 Cross-Platform Compatibility
+
+The stack uses Python-based bootstrapping for consistent behavior across platforms:
+
+**Benefits:**
+- ✅ Works on Windows, macOS, and Linux
+- ✅ Automatic dependency resolution
+- ✅ Better error handling and recovery
+- ✅ Consistent port management
+- ✅ Dynamic configuration generation
+
+**Using UV Package Manager (Recommended):**
+```bash
+# Install UV for better dependency management
+pip install uv
+
+# The start.sh script will automatically detect and use UV
+./start.sh  # Automatically uses UV if available
+```
+
+**Direct Python Execution:**
+```bash
+# If shell scripts don't work on your system
+python3 bootstrapper/start.py --help
+python3 bootstrapper/stop.py --help
 ```
 
 #### Python Script Issues
@@ -488,13 +637,13 @@ The project uses two environment files:
 
 **Note on Service Naming:**
 
-The service names used in the `docker-compose.yml` files (e.g., `supabase-auth`, `supabase-api`) differ from the internal service names used within the `kong.yml` declarative configuration (e.g., `auth`, `rest`). The Kong gateway routes requests to the internal service names defined in `kong.yml`, which are mapped to the corresponding Docker Compose service names.
+The service names used in the `docker-compose.yml` files (e.g., `supabase-auth`, `supabase-api`) are mapped to Kong routes through dynamic configuration generation. The Kong gateway routes are automatically generated based on SOURCE values and active services at startup.
 
 ### 5.2. Kong API Gateway Configuration
 
-The Kong API Gateway is used for centralized API management, including routing, authentication, plugin management, and WebSocket proxying for real-time services. It is configured using a declarative configuration file (`kong.yml`).
+The Kong API Gateway is used for centralized API management, including routing, authentication, plugin management, and WebSocket proxying for real-time services. It is configured dynamically based on SOURCE values.
 
-*   **Configuration File:** `./volumes/api/kong.yml` defines the services and routes managed by Kong.
+*   **Dynamic Configuration:** Routes are generated at startup by `bootstrapper/utils/kong_config_generator.py` based on enabled services.
 *   **WebSocket Support:** Kong automatically handles HTTP to WebSocket protocol upgrades for services like n8n and Supabase Realtime.
 *   **Environment Variables:** The following variables are used by the Kong service and must be set in your `.env` file:
     *   `KONG_HTTP_PORT`: Port for Kong's HTTP listener.
@@ -515,7 +664,7 @@ This stack utilizes Supabase Auth (GoTrue) for user authentication and managemen
 
 - **Provider:** Supabase Auth (`supabase-auth` service) handles user registration, login, password management, and JWT issuance.
 - **Method:** Authentication relies on JWTs signed with a shared secret (`SUPABASE_JWT_SECRET`).
-- **Gateway:** The Kong API Gateway (`kong-api-gateway`) acts as the entry point for most API requests, routing them to the appropriate backend services. While Kong can enforce authentication policies, the `key-auth` and `acl` plugins are currently commented out in `kong.yml` due to potential compatibility issues with DB-less mode and the need for further investigation based on official Kong documentation. Authentication is primarily handled by the upstream Supabase services.
+- **Gateway:** The Kong API Gateway (`kong-api-gateway`) acts as the entry point for most API requests, routing them to the appropriate backend services. Authentication policies are dynamically configured based on service requirements. The `key-auth` and `acl` plugins are applied automatically where needed. Authentication is primarily handled by the upstream Supabase services.
 - **Clients:** Services like `supabase-studio` and the `backend` API act as clients, obtaining JWTs from `supabase-auth` and including them in requests to other services via Kong.
 
 ### 6.2. Key Components and Configuration
@@ -2156,9 +2305,17 @@ genai-vanilla-stack/
 │   ├── auth/             # Supabase Auth service (GoTrue) - Uses standard image
 │   ├── api/              # Supabase API service (PostgREST)
 │   └── storage/          # Supabase Storage (if added)
+├── bootstrapper/              # Cross-platform Python bootstrapping
+│   ├── start.py              # Main startup orchestrator
+│   ├── stop.py               # Shutdown orchestrator
+│   ├── generate_supabase_keys.sh  # JWT key generator wrapper
+│   ├── generate_supabase_keys.py  # JWT key generator implementation
+│   ├── services/             # Service configuration
+│   │   └── service_config.py # SOURCE-based service management
+│   └── utils/                # Utility modules
+│       └── kong_config_generator.py # Dynamic Kong configuration
 ├── volumes/              # Docker volumes and configurations
-│   └── api/              # API gateway configurations
-│       └── kong.yml      # Kong declarative configuration file
+│   └── api/              # API configurations (dynamically generated)
 └── docs/                 # Documentation and diagrams
     ├── diagrams/
     │   ├── README.md
@@ -2212,7 +2369,7 @@ The following scripts that run on the host machine (not in containers) have been
 
 - `start.sh` - For starting the stack with configurable ports and SOURCE-based service configuration
 - `stop.sh` - For stopping the stack and clean up resources
-- `generate_supabase_keys.sh` - For generating JWT keys
+- `bootstrapper/generate_supabase_keys.sh` - For generating JWT keys (automatically invoked by start.sh)
 - `docs/diagrams/generate_diagram.sh` - For generating architecture diagrams
 
 These scripts use:
