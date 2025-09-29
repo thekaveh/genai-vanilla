@@ -2,49 +2,66 @@
 # Consolidates all services with SOURCE-based configuration management
 
 networks:
-  backend-bridge-network:
+  backend-network:
+    name: ${PROJECT_NAME}-network
     driver: bridge
 
 # Consolidated volumes from all services
 volumes:
   # Data layer volumes
   supabase-db-data:
+    name: ${PROJECT_NAME}-supabase-db-data
     driver: local
   redis-data:
+    name: ${PROJECT_NAME}-redis-data
     driver: local
   graph-db-data:
+    name: ${PROJECT_NAME}-graph-db-data
     driver: local
   supabase-storage-data:
+    name: ${PROJECT_NAME}-supabase-storage-data
     driver: local
-  
+
   # AI layer volumes
   llm-provider-data:
+    name: ${PROJECT_NAME}-llm-provider-data
     driver: local
   local-deep-researcher-data:
+    name: ${PROJECT_NAME}-local-deep-researcher-data
     driver: local
   searxng-data:
+    name: ${PROJECT_NAME}-searxng-data
     driver: local
   n8n-data:
+    name: ${PROJECT_NAME}-n8n-data
     driver: local
   comfyui-models:
+    name: ${PROJECT_NAME}-comfyui-models
     driver: local
   comfyui-output:
+    name: ${PROJECT_NAME}-comfyui-output
     driver: local
   comfyui-input:
+    name: ${PROJECT_NAME}-comfyui-input
     driver: local
   comfyui-custom-nodes:
+    name: ${PROJECT_NAME}-comfyui-custom-nodes
     driver: local
-  
+
   # App layer volumes
   open-web-ui-data:
+    name: ${PROJECT_NAME}-open-web-ui-data
     driver: local
   backend-data:
+    name: ${PROJECT_NAME}-backend-data
     driver: local
-  
+
   # Vector layer volumes
   weaviate-data:
+    name: ${PROJECT_NAME}-weaviate-data
     driver: local
   weaviate-shared-config:
+    name: ${PROJECT_NAME}-weaviate-shared-config
     driver: local
 
 services:
@@ -67,7 +84,7 @@ services:
     ports:
       - "${SUPABASE_DB_PORT}:5432"
     networks:
-      - backend-bridge-network
+      - backend-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${SUPABASE_DB_USER} -d ${SUPABASE_DB_NAME}"]
       interval: 10s
@@ -93,7 +110,7 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - backend-bridge-network
+      - backend-network
 
   supabase-db-init:
     image: ${SUPABASE_DB_INIT_IMAGE}
@@ -111,7 +128,7 @@ services:
       supabase-db:
         condition: service_healthy
     networks:
-      - backend-bridge-network
+      - backend-network
 
   supabase-meta:
     image: ${SUPABASE_META_IMAGE}
@@ -130,7 +147,7 @@ services:
     ports:
       - "${SUPABASE_META_PORT}:8080"
     networks:
-      - backend-bridge-network
+      - backend-network
 
   supabase-storage:
     image: ${SUPABASE_STORAGE_IMAGE}
@@ -159,7 +176,7 @@ services:
     volumes:
       - supabase-storage-data:/var/lib/storage
     networks:
-      - backend-bridge-network
+      - backend-network
 
   supabase-auth:
     image: ${SUPABASE_AUTH_IMAGE}
@@ -193,7 +210,7 @@ services:
     ports:
       - "${SUPABASE_AUTH_PORT}:9999"
     networks:
-      - backend-bridge-network
+      - backend-network
 
   supabase-api:
     image: ${SUPABASE_API_IMAGE}
@@ -211,7 +228,7 @@ services:
     ports:
       - "${SUPABASE_API_PORT}:3000"
     networks:
-      - backend-bridge-network
+      - backend-network
 
   supabase-realtime:
     image: ${SUPABASE_REALTIME_IMAGE}
@@ -255,7 +272,7 @@ services:
     ports:
       - "${SUPABASE_REALTIME_PORT}:4000"
     networks:
-      - backend-bridge-network
+      - backend-network
 
   neo4j-graph-db:
     build:
@@ -280,7 +297,7 @@ services:
       - ./graph-db/snapshot:/snapshot
       - graph-db-data:/data
     networks:
-      - backend-bridge-network
+      - backend-network
 
   # =============================================================================
   # AI LAYER SERVICES (SOURCE Configurable)
@@ -299,7 +316,7 @@ services:
     deploy:
       replicas: ${OLLAMA_SCALE:-1}
     networks:
-      - backend-bridge-network
+      - backend-network
 
   ollama-pull:
     image: ${OLLAMA_PULL_IMAGE}
@@ -325,7 +342,7 @@ services:
     deploy:
       replicas: ${OLLAMA_PULL_SCALE:-1}
     networks:
-      - backend-bridge-network
+      - backend-network
 
   comfyui-init:
     image: ${COMFYUI_INIT_IMAGE}
@@ -355,7 +372,7 @@ services:
     deploy:
       replicas: ${COMFYUI_INIT_SCALE:-1}
     networks:
-      - backend-bridge-network
+      - backend-network
 
   local-deep-researcher:
     build:
@@ -389,7 +406,7 @@ services:
     volumes:
       - local-deep-researcher-data:/app/data
     networks:
-      - backend-bridge-network
+      - backend-network
 
   searxng:
     image: ${SEARXNG_IMAGE}
@@ -398,7 +415,7 @@ services:
     deploy:
       replicas: ${SEARXNG_SCALE:-1}
     networks:
-      - backend-bridge-network
+      - backend-network
     ports:
       - "${SEARXNG_PORT}:8080"
     volumes:
@@ -473,7 +490,7 @@ services:
     volumes:
       - n8n-data:/home/node/.n8n
     networks:
-      - backend-bridge-network
+      - backend-network
 
   n8n-worker:
     image: ${N8N_IMAGE}
@@ -510,7 +527,7 @@ services:
     volumes:
       - n8n-data:/home/node/.n8n
     networks:
-      - backend-bridge-network
+      - backend-network
 
   n8n-init:
     image: ${N8N_INIT_IMAGE:-alpine:latest}
@@ -530,7 +547,7 @@ services:
       - ./n8n-init/config:/config
       - n8n-data:/n8n-data
     networks:
-      - backend-bridge-network
+      - backend-network
     entrypoint: ["/scripts/init-n8n.sh"]
 
   comfyui:
@@ -568,7 +585,7 @@ services:
     deploy:
       replicas: ${COMFYUI_SCALE:-1}
     networks:
-      - backend-bridge-network
+      - backend-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18188/system_stats"]
       interval: 30s
@@ -576,9 +593,9 @@ services:
       retries: 5
       start_period: 120s
     labels:
-      - "com.genai.service=image-generation"
-      - "com.genai.category=ai"
-      - "com.genai.dependencies=ollama,supabase-storage"
+      - "com.${PROJECT_NAME}.service=image-generation"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.dependencies=ollama,supabase-storage"
 
   # =============================================================================
   # VECTOR LAYER SERVICES
@@ -606,7 +623,7 @@ services:
       - ./weaviate-init/scripts:/scripts
       - weaviate-shared-config:/shared
     networks:
-      - backend-bridge-network
+      - backend-network
     entrypoint: ["/scripts/init-weaviate.sh"]
 
   weaviate:
@@ -643,7 +660,7 @@ services:
       - weaviate-shared-config:/shared
       - ./weaviate-init/scripts:/scripts
     networks:
-      - backend-bridge-network
+      - backend-network
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/.well-known/ready"]
       interval: 10s
@@ -662,7 +679,7 @@ services:
     deploy:
       replicas: ${CLIP_SCALE:-1}
     networks:
-      - backend-bridge-network
+      - backend-network
 
   # =============================================================================
   # APPLICATION LAYER SERVICES
@@ -706,7 +723,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - backend-bridge-network
+      - backend-network
 
   kong-api-gateway:
     container_name: ${PROJECT_NAME}-kong-api-gateway
@@ -759,7 +776,7 @@ services:
       DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
     networks:
-      - backend-bridge-network
+      - backend-network
 
   open-web-ui:
     image: ${OPEN_WEB_UI_IMAGE}
@@ -796,7 +813,7 @@ services:
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
     networks:
-      - backend-bridge-network
+      - backend-network
 
   backend:
     build:
@@ -821,6 +838,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      PROJECT_NAME: ${PROJECT_NAME}
       KONG_URL: http://kong-api-gateway:8000
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
@@ -843,4 +861,4 @@ services:
     ports:
       - "${BACKEND_PORT}:8000"
     networks:
-      - backend-bridge-network
+      - backend-network

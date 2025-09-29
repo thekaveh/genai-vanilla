@@ -10,9 +10,12 @@ from n8n_client import N8nClient
 from research_service import ResearchService
 from comfyui_client import ComfyUIClient
 
+# Get project name from environment
+PROJECT_NAME = os.getenv("PROJECT_NAME", "GenAI Vanilla Stack")
+
 app = FastAPI(
-    title="GenAI Vanilla Stack Backend",
-    description="Backend API for GenAI Vanilla Stack",
+    title=f"{PROJECT_NAME} Backend",
+    description=f"Backend API for {PROJECT_NAME}",
     version="0.1.0",
 )
 
@@ -72,7 +75,7 @@ async def health_check():
 async def root():
     """Root endpoint that returns a welcome message"""
     return {
-        "message": "Welcome to the GenAI Vanilla Stack Backend API",
+        "message": f"Welcome to the {PROJECT_NAME} Backend API",
         "docs_url": "/docs",
     }
 

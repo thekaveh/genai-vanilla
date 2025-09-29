@@ -65,7 +65,7 @@ Examples:
             self.banner.show_status_message(f"Project name: {project_name}", "info")
         else:
             self.banner.show_status_message(".env file not found. Using default configuration.", "warning")
-            project_name = "genai"
+            project_name = self.config_parser.get_project_name()
             
         # Show Docker compose command
         compose_cmd = self.docker_manager.get_compose_command_display()

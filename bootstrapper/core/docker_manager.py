@@ -99,11 +99,15 @@ class DockerManager:
         
         # Build the full command
         full_cmd = compose_cmd.copy()
-        
+
+        # Add project name to ensure consistency with PROJECT_NAME from .env
+        project_name = self.config_parser.get_project_name()
+        full_cmd.extend(['-p', project_name])
+
         # Add --env-file if .env exists and use_env_file is True
         if use_env_file and self.config_parser.env_file_exists():
             full_cmd.extend(['--env-file=.env'])
-            
+
         full_cmd.extend(args)
         
         print(f"      Command: {' '.join(full_cmd)}")
@@ -175,7 +179,7 @@ class DockerManager:
         Returns:
             bool: True if successful or network doesn't exist
         """
-        network_name = f"{project_name}_backend-bridge-network"
+        network_name = f"{project_name}-network"
         
         try:
             result = subprocess.run(
@@ -260,7 +264,7 @@ class DockerManager:
             all_successful = False
         
         print("    - Removing project network (cold start)...")
-        print(f"      Command: docker network rm {project_name}_backend-bridge-network")
+        print(f"      Command: docker network rm {project_name}-network")
         if not self.remove_project_networks(project_name):
             print("      Note: Network may not exist or is already removed")
             

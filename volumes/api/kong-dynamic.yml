@@ -173,24 +173,6 @@ services:
       minute: 60
       hour: 1000
       policy: local
-- name: weaviate-api
-  routes:
-  - name: weaviate-api-all
-    strip_path: false
-    hosts:
-    - vector.localhost
-  plugins:
-  - name: cors
-  url: http://weaviate:8080/
-- name: neo4j-api
-  routes:
-  - name: neo4j-api-all
-    strip_path: false
-    hosts:
-    - neo4j.localhost
-  plugins:
-  - name: cors
-  url: http://neo4j-graph-db:7474/
 - name: backend-api
   url: http://backend:8000/
   routes:
