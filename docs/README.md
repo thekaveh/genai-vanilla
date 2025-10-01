@@ -19,6 +19,7 @@ Welcome to the comprehensive documentation for the GenAI Vanilla Stack.
 - [Neo4j (Graph Database)](services/neo4j.md) - Graph database service
 - [Weaviate (Vector Database)](services/weaviate.md) - Vector database service
 - [Kong (API Gateway)](services/kong.md) - Dynamic API gateway configuration
+- [JupyterHub (Data Science IDE)](services/jupyterhub.md) - Interactive Jupyter Lab environment
 
 ### Deployment Guides
 - [Docker Setup](deployment/docker-setup.md) - Docker configuration and requirements

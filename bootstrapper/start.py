@@ -85,6 +85,9 @@ SOURCE Override Options:
   --searxng-source VALUE        Override SearxNG privacy search source
                                 Values: container, disabled
 
+  --jupyterhub-source VALUE     Override JupyterHub data science IDE source
+                                Values: container, disabled
+
 Examples:
   python start.py                        # Start with defaults from .env
   python start.py --base-port 55666      # Start with custom base port
@@ -710,6 +713,9 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("  SearxNG Search", service_sources.get('SEARXNG_SOURCE', 'container'),
              f"http://localhost:{env_vars.get('SEARXNG_PORT')}",
              env_vars.get('SEARXNG_SCALE', '1')),
+            ("  JupyterHub IDE", service_sources.get('JUPYTERHUB_SOURCE', 'container'),
+             f"http://localhost:{env_vars.get('JUPYTERHUB_PORT')}",
+             env_vars.get('JUPYTERHUB_SCALE', '1')),
         ]
         
         for service_name, source, endpoint, scale in app_services_info:
@@ -759,6 +765,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("kong-api-gateway", "8443", env_vars.get("KONG_HTTPS_PORT", "")),
             ("n8n", "5678", env_vars.get("N8N_PORT", "")),
             ("searxng", "8080", env_vars.get("SEARXNG_PORT", "")),
+            ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", "")),
         ]
         
         # Add conditional services based on their scales
@@ -814,7 +821,12 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         comfyui_scale = env_vars.get("COMFYUI_SCALE", "0")
         if comfyui_scale != "0":
             print(f"  • ComfyUI: http://localhost:{env_vars.get('COMFYUI_PORT')}")
-            
+
+        # JupyterHub only if running
+        jupyterhub_scale = env_vars.get("JUPYTERHUB_SCALE", "0")
+        if jupyterhub_scale != "0":
+            print(f"  • JupyterHub IDE: http://localhost:{env_vars.get('JUPYTERHUB_PORT')}")
+
         print(f"  • Neo4j Browser: http://localhost:{env_vars.get('GRAPH_DB_DASHBOARD_PORT')}")
         print(f"  • Weaviate: http://localhost:{env_vars.get('WEAVIATE_PORT')}/v1")
         
@@ -844,12 +856,16 @@ Note: SOURCE overrides are temporary and only apply to the current session.
 @click.option('--n8n-source', 
               type=click.Choice(['container', 'disabled'], case_sensitive=False),
               help='Override N8N_SOURCE')
-@click.option('--searxng-source', 
+@click.option('--searxng-source',
               type=click.Choice(['container', 'disabled'], case_sensitive=False),
               help='Override SEARXNG_SOURCE')
+@click.option('--jupyterhub-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override JUPYTERHUB_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
-def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source, 
-         comfyui_source, weaviate_source, n8n_source, searxng_source, help_usage):
+def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
+         comfyui_source, weaviate_source, n8n_source, searxng_source,
+         jupyterhub_source, help_usage):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -877,6 +893,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'weaviate_source': weaviate_source,
             'n8n_source': n8n_source,
             'searxng_source': searxng_source,
+            'jupyterhub_source': jupyterhub_source,
         }
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)

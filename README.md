@@ -19,10 +19,11 @@ git clone <your-repository-url> && cd genai-vanilla
 
 # 3. Wait ~5 minutes for AI models to download, then access:
 # 🎨 Open WebUI (Chat): http://localhost:63015
-# 🔧 n8n (Workflows): http://localhost:63002  
+# 🔧 n8n (Workflows): http://localhost:63002
 # 📊 Supabase Studio: http://localhost:63009
 # 🔍 SearxNG (Search): http://localhost:63014
 # 🖼️ ComfyUI: http://comfyui.localhost:63002
+# 📓 JupyterHub (IDE): http://localhost:63048
 
 # Default credentials:
 # Supabase Studio: admin@example.com / changeme123
@@ -97,13 +98,20 @@ graph TB
     Kong --> Supabase[Supabase Studio]
     Kong --> ComfyUI[ComfyUI]
     Kong --> SearxNG[SearxNG]
-    
+    Kong --> JupyterHub[JupyterHub]
+
     OpenWebUI --> Backend[Backend API]
     Backend --> Ollama[Ollama LLM]
     Backend --> Weaviate[Weaviate Vector DB]
     Backend --> Neo4j[Neo4j Graph DB]
     Backend --> Redis[Redis Cache]
     Backend --> PostgreSQL[PostgreSQL]
+
+    JupyterHub --> Ollama
+    JupyterHub --> Weaviate
+    JupyterHub --> Neo4j
+    JupyterHub --> PostgreSQL
+    JupyterHub --> Redis
 ```
 
 ## 2. Getting Started
@@ -161,6 +169,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 - ❌ **SearxNG** (`SEARXNG_SOURCE=container|disabled`) - Privacy search
 - ❌ **Open WebUI** (`OPEN_WEB_UI_SOURCE=container|disabled`) - Chat interface
 - ❌ **Backend API** (`BACKEND_SOURCE=container|disabled`) - FastAPI backend
+- ❌ **JupyterHub** (`JUPYTERHUB_SOURCE=container|disabled`) - Data Science IDE
 
 ## 3. Core Services
 
@@ -173,6 +182,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 | **Supabase Studio** | http://localhost:63009 | Database Management | admin@example.com |
 | **ComfyUI** | http://comfyui.localhost:63002 | Image Generation | None |
 | **SearxNG** | http://search.localhost:63002 | Privacy Search | None |
+| **JupyterHub** | http://localhost:63048 | Data Science IDE | Token (optional) |
 | **Neo4j Browser** | http://localhost:63011 | Graph Database | neo4j / password |
 | **Backend API** | http://localhost:63000 | REST API | API key |
 | **Ollama API** | http://localhost:63004 | LLM API | None |

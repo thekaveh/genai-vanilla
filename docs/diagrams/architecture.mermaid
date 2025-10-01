@@ -77,6 +77,7 @@ graph LR
         backend[Backend API<br/>Adapts to AI Services]:::api
         open-web-ui[Open-WebUI<br/>Chat Interface]:::ui
         supabase-studio[Supabase Studio<br/>Database Admin]:::ui
+        jupyterhub[JupyterHub<br/>Data Science IDE<br/>Adapts to AI Services]:::ui
     end
     
     %% Configuration Flow
@@ -117,7 +118,7 @@ graph LR
     
     %% Styling
     class supabase-db,neo4j-graph-db,weaviate database
-    class supabase-meta,supabase-storage,supabase-auth database  
+    class supabase-meta,supabase-storage,supabase-auth database
     class supabase-api,supabase-realtime,kong-api-gateway,n8n,n8n-worker,searxng,backend api
     class ollama-container,ollama-localhost,ollama-api,comfyui-container,comfyui-localhost,local-deep-researcher,multi2vec-clip-cpu,multi2vec-clip-gpu ai
-    class open-web-ui,supabase-studio ui
+    class open-web-ui,supabase-studio,jupyterhub ui

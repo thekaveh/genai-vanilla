@@ -279,7 +279,11 @@ class ServiceConfig:
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')
         env_vars['LOCAL_DEEP_RESEARCHER_SCALE'] = '0' if researcher_source == 'disabled' else '1'
-        
+
+        # JupyterHub - check SOURCE variable
+        jupyterhub_source = sources.get('JUPYTERHUB_SOURCE', 'container')
+        env_vars['JUPYTERHUB_SCALE'] = '0' if jupyterhub_source == 'disabled' else '1'
+
         return env_vars
     
     def update_env_file(self, env_vars: Dict[str, str], create_backup: bool = True) -> bool:

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **JupyterHub Data Science IDE**: Interactive Jupyter Lab environment with pre-configured AI/ML libraries
+  - 7 sample notebooks demonstrating all service integrations (Ollama, Weaviate, Neo4j, Supabase, ComfyUI, n8n, SearxNG)
+  - Pre-installed libraries: Ollama, LangChain, LlamaIndex, Transformers, Weaviate client, Neo4j driver, and more
+  - Kong routing support via `jupyter.localhost` domain
+  - Persistent workspace with Docker volumes (`jupyterhub-data`)
+  - Adaptive service that auto-configures based on available AI services
+  - CLI option: `--jupyterhub-source [container|disabled]`
+  - Default port: 63048 (offset +48 from base port)
+  - Environment check notebook for service connectivity verification
 - New comprehensive documentation structure in `/docs/`
 - ROADMAP.md with future development plans
 - CHANGELOG.md for tracking project history
@@ -15,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Major README.md restructuring for better usability
 - Improved documentation organization and navigation
+- Architecture diagrams updated to include JupyterHub service
 
 ## [2.0.0] - 2024-12-XX (Python Migration & Modular Architecture)
 

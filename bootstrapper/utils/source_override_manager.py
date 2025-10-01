@@ -27,6 +27,7 @@ class SourceOverrideManager:
             'weaviate_source': 'WEAVIATE_SOURCE',
             'n8n_source': 'N8N_SOURCE',
             'searxng_source': 'SEARXNG_SOURCE',
+            'jupyterhub_source': 'JUPYTERHUB_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

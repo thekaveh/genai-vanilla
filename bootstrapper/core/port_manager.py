@@ -17,7 +17,7 @@ class PortManager:
     # Port mapping based on start.sh update_port() function
     PORT_MAPPING = {
         'SUPABASE_DB_PORT': 0,        # Base port + 0
-        'REDIS_PORT': 1,              # Base port + 1  
+        'REDIS_PORT': 1,              # Base port + 1
         'KONG_HTTP_PORT': 2,          # Base port + 2
         'KONG_HTTPS_PORT': 3,         # Base port + 3
         'SUPABASE_META_PORT': 4,      # Base port + 4
@@ -37,6 +37,7 @@ class PortManager:
         'COMFYUI_PORT': 18,           # Base port + 18
         'WEAVIATE_PORT': 19,          # Base port + 19
         'WEAVIATE_GRPC_PORT': 20,     # Base port + 20
+        'JUPYTERHUB_PORT': 48,        # Base port + 48
     }
     
     def __init__(self, root_dir: Optional[str] = None):

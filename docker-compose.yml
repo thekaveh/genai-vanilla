@@ -64,6 +64,11 @@ volumes:
     name: ${PROJECT_NAME}-weaviate-shared-config
     driver: local
 
+  # JupyterHub volumes
+  jupyterhub-data:
+    name: ${PROJECT_NAME}-jupyterhub-data
+    driver: local
+
 services:
   # =============================================================================
   # DATA LAYER SERVICES (Always Container)
@@ -862,3 +867,71 @@ services:
       - "${BACKEND_PORT}:8000"
     networks:
       - backend-network
+
+  jupyterhub:
+    build:
+      context: ./jupyterhub
+      args:
+        BASE_IMAGE: ${JUPYTERHUB_IMAGE}
+    container_name: ${PROJECT_NAME}-jupyterhub
+    restart: unless-stopped
+    deploy:
+      replicas: ${JUPYTERHUB_SCALE:-1}
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_started
+      ollama:
+        condition: service_started
+      neo4j-graph-db:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # Jupyter Configuration
+      JUPYTER_ENABLE_LAB: "yes"
+      GRANT_SUDO: "yes"
+      JUPYTER_TOKEN: ${JUPYTERHUB_TOKEN}
+
+      # Database Connections (from .env)
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/3
+
+      # AI Services (adaptive - set by bootstrapper)
+      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
+      NEO4J_URI: ${NEO4J_URI:-bolt://neo4j-graph-db:7687}
+      NEO4J_USER: ${GRAPH_DB_USER}
+      NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
+      COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
+
+      # Supabase Integration
+      SUPABASE_URL: http://kong-api-gateway:8000
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+
+      # Additional Services
+      N8N_BASE_URL: http://n8n:5678
+      SEARXNG_URL: http://searxng:8080
+      BACKEND_API_URL: http://backend:8000
+    ports:
+      - "${JUPYTERHUB_PORT}:8888"
+    volumes:
+      - jupyterhub-data:/home/jovyan/work
+      - ./jupyterhub/notebooks:/home/jovyan/notebooks:ro
+      - weaviate-shared-config:/shared:ro
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.${PROJECT_NAME}.service=jupyterhub"
+      - "com.${PROJECT_NAME}.category=application"
+      - "com.${PROJECT_NAME}.tier=app"

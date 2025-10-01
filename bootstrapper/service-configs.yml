@@ -512,6 +512,17 @@ adaptive_services:
       OLLAMA_ENDPOINT: "${OLLAMA_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
+  # JupyterHub Data Science IDE
+  jupyterhub:
+    adapts_to: [llm_provider, weaviate, neo4j-graph-db, comfyui]
+    # Always scales to 0 or 1 based on SOURCE
+    environment_adaptation:
+      OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
+      WEAVIATE_URL: "http://weaviate:8080"
+      NEO4J_URI: "bolt://neo4j-graph-db:7687"
+      COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT}"
+    extra_hosts_adaptation: "inherit from llm_provider"
+
 
 
   # Backend API Service
@@ -525,8 +536,27 @@ adaptive_services:
         WEAVIATE_URL: "http://weaviate:8080"
       deploy: {}
       extra_hosts: []  # Will inherit from llm_provider
-    
+
     # Disabled - no Backend API
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # JupyterHub Data Science IDE
+  jupyterhub:
+    # Containerized JupyterHub (adaptive service)
+    container:
+      scale: 1
+      environment:
+        # Environment variables will be set by adaptive service logic
+        JUPYTER_ENABLE_LAB: "yes"
+        GRANT_SUDO: "yes"
+      deploy: {}
+      extra_hosts: []  # Will inherit from llm_provider
+
+    # Disabled - no JupyterHub
     disabled:
       scale: 0
       environment: {}
@@ -564,6 +594,7 @@ dependencies:
     - local-deep-researcher
     - open-web-ui
     - backend
+    - jupyterhub
 
 # Service dependency relationships
 # Defines which services require other services to function properly
@@ -588,7 +619,12 @@ service_dependencies:
     optional: [weaviate, local-deep-researcher]
     info_message: "Open WebUI enabled - will connect to available optional services (weaviate, local-deep-researcher)"
   
-  # Local Deep Researcher has optional dependencies - will connect if available  
+  # Local Deep Researcher has optional dependencies - will connect if available
   local-deep-researcher:
     optional: [neo4j-graph-db, searxng, n8n, weaviate]
     info_message: "Local Deep Researcher enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate)"
+
+  # JupyterHub has optional dependencies - will connect if available
+  jupyterhub:
+    optional: [neo4j-graph-db, searxng, n8n, weaviate, comfyui]
+    info_message: "JupyterHub enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate, comfyui)"

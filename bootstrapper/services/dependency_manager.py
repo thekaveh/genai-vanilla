@@ -69,6 +69,7 @@ class DependencyManager:
             'neo4j-graph-db': 'NEO4J_SCALE',
             'searxng': 'SEARXNG_SCALE',
             'backend': 'BACKEND_SCALE',
+            'jupyterhub': 'JUPYTERHUB_SCALE',
         }
         
         scale_var = scale_var_mapping.get(service_name)
@@ -83,6 +84,7 @@ class DependencyManager:
                 'neo4j-graph-db': 'NEO4J_GRAPH_DB_SOURCE',
                 'searxng': 'SEARXNG_SOURCE',
                 'backend': 'BACKEND_SOURCE',
+                'jupyterhub': 'JUPYTERHUB_SOURCE',
             }
             
             source_var = source_var_mapping.get(service_name)
@@ -196,6 +198,7 @@ class DependencyManager:
                     'weaviate': 'WEAVIATE_SCALE',
                     'neo4j-graph-db': 'NEO4J_SCALE',
                     'searxng': 'SEARXNG_SCALE',
+                    'jupyterhub': 'JUPYTERHUB_SCALE',
                 }
                 
                 scale_var = scale_var_mapping.get(service_name)

@@ -99,32 +99,35 @@ class KongConfigGenerator:
     def get_all_services(self) -> List[Dict[str, Any]]:
         """
         Get all Kong services based on current SOURCE configurations.
-        
+
         Returns:
             list: List of Kong service configurations
         """
         services = []
-        
+
         # Always-containerized Supabase services
         services.extend(self.get_supabase_services())
-        
+
         # SOURCE-configurable services
         comfyui_service = self.generate_comfyui_service()
         if comfyui_service:
             services.append(comfyui_service)
-            
+
         n8n_service = self.generate_n8n_service()
         if n8n_service:
             services.append(n8n_service)
-            
+
         searxng_service = self.generate_searxng_service()
         if searxng_service:
             services.append(searxng_service)
-            
-        
+
+        jupyterhub_service = self.generate_jupyterhub_service()
+        if jupyterhub_service:
+            services.append(jupyterhub_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
-        
+
         return services
     
     def get_supabase_services(self) -> List[Dict[str, Any]]:
@@ -364,10 +367,10 @@ class KongConfigGenerator:
     def generate_searxng_service(self) -> Optional[Dict[str, Any]]:
         """Generate SearxNG service configuration based on SOURCE."""
         source = self.get_env_value('SEARXNG_SOURCE')
-        
+
         if source == 'disabled':
             return None
-            
+
         return {
             'name': 'searxng-api',
             'url': 'http://searxng:8080/',
@@ -390,7 +393,27 @@ class KongConfigGenerator:
                 }
             ]
         }
-    
+
+    def generate_jupyterhub_service(self) -> Optional[Dict[str, Any]]:
+        """Generate JupyterHub service configuration based on SOURCE."""
+        source = self.get_env_value('JUPYTERHUB_SOURCE')
+
+        if source == 'disabled':
+            return None
+
+        return {
+            'name': 'jupyterhub-api',
+            'url': 'http://jupyterhub:8888/',
+            'routes': [
+                {
+                    'name': 'jupyterhub-api-all',
+                    'strip_path': False,
+                    'hosts': ['jupyter.localhost']
+                }
+            ],
+            'plugins': [{'name': 'cors'}]
+        }
+
     
     
     def get_adaptive_services(self) -> List[Dict[str, Any]]:

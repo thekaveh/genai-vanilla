@@ -18,10 +18,11 @@ class HostsManager:
     # GenAI Stack hostnames - matches get_genai_hosts() from hosts-utils.sh
     GENAI_HOSTS = [
         "n8n.localhost",
-        "api.localhost", 
+        "api.localhost",
         "search.localhost",
         "comfyui.localhost",
-        "chat.localhost"
+        "chat.localhost",
+        "jupyter.localhost"
     ]
     
     def __init__(self):

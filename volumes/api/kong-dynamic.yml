@@ -173,6 +173,15 @@ services:
       minute: 60
       hour: 1000
       policy: local
+- name: jupyterhub-api
+  url: http://jupyterhub:8888/
+  routes:
+  - name: jupyterhub-api-all
+    strip_path: false
+    hosts:
+    - jupyter.localhost
+  plugins:
+  - name: cors
 - name: backend-api
   url: http://backend:8000/
   routes:
