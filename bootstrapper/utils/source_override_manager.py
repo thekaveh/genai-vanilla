@@ -28,6 +28,7 @@ class SourceOverrideManager:
             'n8n_source': 'N8N_SOURCE',
             'searxng_source': 'SEARXNG_SOURCE',
             'jupyterhub_source': 'JUPYTERHUB_SOURCE',
+            'stt_provider_source': 'STT_PROVIDER_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

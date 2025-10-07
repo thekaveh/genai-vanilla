@@ -50,6 +50,10 @@ graph LR
             comfyui-container[ComfyUI Container<br/>CPU/GPU]:::ai
             comfyui-localhost[host.docker.internal:8000<br/>Localhost]:::ai
         end
+        subgraph STTServices[STT_PROVIDER_SOURCE Options]
+            parakeet-gpu[Parakeet GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
+            parakeet-localhost[Parakeet Localhost<br/>Native (Mac MLX or Linux CPU)]:::ai
+        end
         ollama-pull[ollama-pull]:::ai
         comfyui-init[comfyui-init]:::ai
         local-deep-researcher[local-deep-researcher]:::ai

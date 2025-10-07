@@ -48,6 +48,11 @@ volumes:
     name: ${PROJECT_NAME}-comfyui-custom-nodes
     driver: local
 
+  # STT layer volumes
+  stt-provider-gpu-cache:
+    name: ${PROJECT_NAME}-stt-gpu-cache
+    driver: local
+
   # App layer volumes
   open-web-ui-data:
     name: ${PROJECT_NAME}-open-web-ui-data
@@ -406,6 +411,8 @@ services:
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
       # Worker configuration
       LOCAL_DEEP_RESEARCHER_WORKERS: ${LOCAL_DEEP_RESEARCHER_WORKERS:-3}
+      # STT integration
+      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     ports:
       - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
     volumes:
@@ -490,6 +497,8 @@ services:
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
+      # STT integration
+      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     ports:
       - "${N8N_PORT}:5678"
     volumes:
@@ -601,6 +610,56 @@ services:
       - "com.${PROJECT_NAME}.service=image-generation"
       - "com.${PROJECT_NAME}.category=ai"
       - "com.${PROJECT_NAME}.dependencies=ollama,supabase-storage"
+
+  # =============================================================================
+  # STT (SPEECH-TO-TEXT) LAYER (SOURCE Configurable)
+  # =============================================================================
+  # NOTE: Mac users must use parakeet-localhost (MLX requires native macOS execution)
+  #       GPU users can use parakeet-container-gpu (NVIDIA CUDA in Docker)
+
+  # Parakeet GPU (NVIDIA CUDA - Docker Container)
+  parakeet-gpu:
+    profiles:
+      - parakeet-gpu
+      - stt-gpu
+    build:
+      context: ./stt-provider
+      dockerfile: gpu/Dockerfile
+      args:
+        BASE_IMAGE: ${PARAKEET_GPU_IMAGE:-nvcr.io/nvidia/pytorch:25.01-py3}
+    container_name: ${PROJECT_NAME}-parakeet-gpu
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      replicas: ${PARAKEET_GPU_SCALE:-0}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      PARAKEET_MODEL: ${PARAKEET_MODEL:-nvidia/parakeet-tdt-0.6b-v3}
+      PARAKEET_DEVICE: ${PARAKEET_GPU_DEVICE:-cuda}
+      PARAKEET_COMPUTE_TYPE: ${PARAKEET_GPU_COMPUTE_TYPE:-float16}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+    volumes:
+      - stt-provider-gpu-cache:/root/.cache/huggingface
+    ports:
+      - "${STT_PROVIDER_PORT:-10300}:8000"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=speech-to-text"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.backend=cuda"
 
   # =============================================================================
   # VECTOR LAYER SERVICES
@@ -812,6 +871,8 @@ services:
       WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/2"
       REDIS_KEY_PREFIX: "openwebui"
       MODEL_LIST_CACHE_TTL: "300"
+      # STT integration
+      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     volumes:
       - open-web-ui-data:/app/backend/data
       - ./open-webui/tools:/app/backend/data/tools
@@ -859,6 +920,8 @@ services:
       # Vector database integration
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
       WEAVIATE_ENABLED: true
+      # STT integration
+      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data
@@ -907,6 +970,7 @@ services:
       NEO4J_USER: ${GRAPH_DB_USER}
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
+      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
 
       # Supabase Integration
       SUPABASE_URL: http://kong-api-gateway:8000

@@ -1,0 +1,16 @@
+# NVIDIA NeMo for ASR
+nemo_toolkit[asr]>=2.2.0
+
+# Audio processing
+soundfile
+librosa
+numpy
+
+# API Server
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+
+# HuggingFace Hub
+huggingface_hub

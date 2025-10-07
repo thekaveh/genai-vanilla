@@ -196,13 +196,57 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  stt_provider:
+    # GPU-accelerated Parakeet (NVIDIA)
+    parakeet-container-gpu:
+      scale: 1
+      environment:
+        PARAKEET_ENDPOINT: "http://parakeet-gpu:8000"
+        PARAKEET_DEVICE: "${PARAKEET_GPU_DEVICE:-cuda}"
+        PARAKEET_COMPUTE_TYPE: "${PARAKEET_GPU_COMPUTE_TYPE:-float16}"
+        PARAKEET_MODEL: "${PARAKEET_MODEL:-nvidia/parakeet-tdt-0.6b-v3}"
+        NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
+        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+
+    # Local Parakeet on host (Mac with MLX or Linux with CPU/GPU)
+    parakeet-localhost:
+      scale: 0
+      environment:
+        PARAKEET_ENDPOINT: "${PARAKEET_LOCALHOST_URL:-http://host.docker.internal:10300}"
+      deploy: {}
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+    # Disabled
+    disabled:
+      scale: 0
+      environment:
+        PARAKEET_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
+
   n8n:
     # Containerized n8n
     container:
       scale: 1
+      environment:
+        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
+      deploy: {}
+      extra_hosts: []
     # Disabled - no n8n
     disabled:
       scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
 
   searxng:
     # Containerized SearxNG
@@ -451,6 +495,7 @@ source_configurable:
         # Environment variables will be set by adaptive service logic
         OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
         COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT:-http://comfyui:18188}"
+        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
       deploy: {}
       extra_hosts: []  # Will inherit from llm_provider and comfyui
     
@@ -469,6 +514,7 @@ source_configurable:
       environment:
         # Environment variables will be set by adaptive service logic
         LLM_PROVIDER_BASE_URL: "${OLLAMA_ENDPOINT}"
+        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
       deploy: {}
       extra_hosts: []  # Will inherit from llm_provider
     
@@ -498,11 +544,12 @@ adaptive_services:
     extra_hosts_adaptation: "inherit from comfyui"
     
   backend:
-    adapts_to: [llm_provider, weaviate]
+    adapts_to: [llm_provider, weaviate, stt_provider]
     # Always scales to 1 (enabled by default)
     environment_adaptation:
       OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
       WEAVIATE_URL: "http://weaviate:8080"
+      PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
     
   weaviate-init:
@@ -512,15 +559,23 @@ adaptive_services:
       OLLAMA_ENDPOINT: "${OLLAMA_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
+  n8n:
+    adapts_to: [stt_provider]
+    # Scales to 1 when enabled
+    environment_adaptation:
+      PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
+    extra_hosts_adaptation: "inherit from stt_provider"
+
   # JupyterHub Data Science IDE
   jupyterhub:
-    adapts_to: [llm_provider, weaviate, neo4j-graph-db, comfyui]
+    adapts_to: [llm_provider, weaviate, neo4j-graph-db, comfyui, stt_provider]
     # Always scales to 0 or 1 based on SOURCE
     environment_adaptation:
       OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
       WEAVIATE_URL: "http://weaviate:8080"
       NEO4J_URI: "bolt://neo4j-graph-db:7687"
       COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT}"
+      PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
 
@@ -534,6 +589,7 @@ adaptive_services:
         # Environment variables will be set by adaptive service logic
         OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
         WEAVIATE_URL: "http://weaviate:8080"
+        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
       deploy: {}
       extra_hosts: []  # Will inherit from llm_provider
 
@@ -583,6 +639,7 @@ dependencies:
     - supabase-realtime
     - ollama
     - comfyui
+    - parakeet
     - weaviate
     - multi2vec-clip
     - searxng
@@ -602,8 +659,10 @@ service_dependencies:
   # n8n requires weaviate for vector operations and AI workflow nodes
   n8n:
     requires: [weaviate]
+    optional: [parakeet]
     error_message: "n8n disabled: requires weaviate for vector operations and AI workflow nodes. Enable weaviate (WEAVIATE_SOURCE=container) to use n8n workflows with vector capabilities"
-    
+    info_message: "n8n enabled - will connect to available optional services (parakeet)"
+
   # n8n-worker also requires weaviate (inherits from n8n)
   n8n-worker:
     requires: [weaviate]
@@ -611,20 +670,20 @@ service_dependencies:
     
   # Backend has optional dependencies - will connect if available
   backend:
-    optional: [neo4j-graph-db, searxng, n8n, weaviate]
-    info_message: "Backend enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate)"
+    optional: [neo4j-graph-db, searxng, n8n, weaviate, parakeet]
+    info_message: "Backend enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate, parakeet)"
   
   # Open WebUI has optional dependencies - will connect if available
   open-web-ui:
-    optional: [weaviate, local-deep-researcher]
-    info_message: "Open WebUI enabled - will connect to available optional services (weaviate, local-deep-researcher)"
+    optional: [weaviate, local-deep-researcher, parakeet]
+    info_message: "Open WebUI enabled - will connect to available optional services (weaviate, local-deep-researcher, parakeet)"
   
   # Local Deep Researcher has optional dependencies - will connect if available
   local-deep-researcher:
-    optional: [neo4j-graph-db, searxng, n8n, weaviate]
-    info_message: "Local Deep Researcher enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate)"
+    optional: [neo4j-graph-db, searxng, n8n, weaviate, parakeet]
+    info_message: "Local Deep Researcher enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate, parakeet)"
 
   # JupyterHub has optional dependencies - will connect if available
   jupyterhub:
-    optional: [neo4j-graph-db, searxng, n8n, weaviate, comfyui]
-    info_message: "JupyterHub enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate, comfyui)"
+    optional: [neo4j-graph-db, searxng, n8n, weaviate, comfyui, parakeet]
+    info_message: "JupyterHub enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate, comfyui, parakeet)"

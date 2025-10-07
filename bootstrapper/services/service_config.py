@@ -89,7 +89,11 @@ class ServiceConfig:
         # Generate Multi2Vec CLIP configuration
         clip_config = self._generate_clip_config()
         env_vars.update(clip_config)
-        
+
+        # Generate STT Provider configuration
+        stt_config = self._generate_stt_provider_config()
+        env_vars.update(stt_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -206,7 +210,34 @@ class ServiceConfig:
             env_vars['CLIP_DEPLOY_RESOURCES'] = '~'
             
         return env_vars
-    
+
+    def _generate_stt_provider_config(self) -> Dict[str, str]:
+        """Generate STT Provider (Parakeet) configuration."""
+        source_value = self.service_sources.get('STT_PROVIDER_SOURCE', 'disabled')
+        config = self.get_service_config('stt_provider', source_value)
+
+        env_vars = {}
+
+        # Set PARAKEET_ENDPOINT with localhost replacement
+        endpoint = config.get('environment', {}).get('PARAKEET_ENDPOINT', 'http://host.docker.internal:10300')
+        endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
+        env_vars['PARAKEET_ENDPOINT'] = endpoint
+
+        # Set scale and activate profile based on SOURCE
+        if source_value == 'parakeet-container-gpu':
+            env_vars['PARAKEET_GPU_SCALE'] = '1'
+            # Activate parakeet-gpu profile to enable building the GPU service
+            current_profiles = self.service_sources.get('COMPOSE_PROFILES', '')
+            new_profiles = 'parakeet-gpu' if not current_profiles else f"{current_profiles},parakeet-gpu"
+            env_vars['COMPOSE_PROFILES'] = new_profiles
+        elif source_value == 'parakeet-localhost':
+            env_vars['PARAKEET_GPU_SCALE'] = '0'
+        else:  # disabled
+            env_vars['PARAKEET_GPU_SCALE'] = '0'
+            env_vars['PARAKEET_ENDPOINT'] = ''
+
+        return env_vars
+
     def _generate_other_services_config(self) -> Dict[str, str]:
         """Generate configuration for other services."""
         env_vars = {}

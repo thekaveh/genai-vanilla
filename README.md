@@ -38,8 +38,11 @@ git clone <your-repository-url> && cd genai-vanilla
 # Local AI services (faster, less memory)
 ./start.sh --llm-provider-source ollama-localhost --comfyui-source localhost
 
-# GPU acceleration  
-./start.sh --llm-provider-source ollama-container-gpu --comfyui-source container-gpu
+# GPU acceleration
+./start.sh --llm-provider-source ollama-container-gpu --comfyui-source container-gpu --stt-provider-source parakeet-container-gpu
+
+# Enable STT (disabled by default)
+./start.sh --stt-provider-source parakeet-localhost  # Mac MLX or Linux native
 
 # Minimal setup (chat only)
 ./start.sh --n8n-source disabled --searxng-source disabled --weaviate-source disabled
@@ -186,6 +189,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 | **Neo4j Browser** | http://localhost:63011 | Graph Database | neo4j / password |
 | **Backend API** | http://localhost:63000 | REST API | API key |
 | **Ollama API** | http://localhost:63004 | LLM API | None |
+| **Parakeet STT** | http://localhost:10300 | Speech-to-Text | None |
 
 ### 3.2 Database Layer
 - **PostgreSQL (Supabase)** - Primary database with auth, storage, realtime
@@ -196,6 +200,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 ### 3.3 AI Services
 - **Ollama** - Local LLM inference (supports CPU/GPU/localhost)
 - **ComfyUI** - AI image generation with workflows
+- **Parakeet STT** - Speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
 - **Deep Researcher** - AI-powered research assistant
 
 ## 4. Usage Guide
@@ -216,6 +221,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost
 ./start.sh --comfyui-source container-gpu
+./start.sh --stt-provider-source parakeet-localhost  # Mac users must use localhost
 ./start.sh --n8n-source disabled
 
 # Combined examples
