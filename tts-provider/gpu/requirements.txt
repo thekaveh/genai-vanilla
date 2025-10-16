@@ -1,0 +1,12 @@
+# GPU Dockerfile uses pre-built openedai-speech image
+# This file is for reference only - dependencies are included in the base image
+# See: https://github.com/matatonic/openedai-speech
+
+# Core dependencies (included in base image):
+# openedai-speech>=0.18.0
+# fastapi>=0.104.0
+# uvicorn[standard]>=0.24.0
+# TTS>=0.22.0  # Coqui TTS with XTTS v2
+# pydub>=0.25.1
+# torch>=2.0.0
+# torchaudio>=2.0.0

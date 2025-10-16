@@ -91,6 +91,9 @@ SOURCE Override Options:
   --stt-provider-source VALUE   Override STT provider source
                                 Values: parakeet-container-gpu, parakeet-localhost, disabled
 
+  --tts-provider-source VALUE   Override TTS provider source
+                                Values: xtts-container-gpu, xtts-localhost, disabled
+
 Examples:
   python start.py                        # Start with defaults from .env
   python start.py --base-port 55666      # Start with custom base port
@@ -869,10 +872,14 @@ Note: SOURCE overrides are temporary and only apply to the current session.
               type=click.Choice(['parakeet-container-gpu', 'parakeet-localhost',
                                 'disabled'], case_sensitive=False),
               help='Override STT_PROVIDER_SOURCE')
+@click.option('--tts-provider-source',
+              type=click.Choice(['xtts-container-gpu', 'xtts-localhost',
+                                'disabled'], case_sensitive=False),
+              help='Override TTS_PROVIDER_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
-         jupyterhub_source, stt_provider_source, help_usage):
+         jupyterhub_source, stt_provider_source, tts_provider_source, help_usage):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -902,6 +909,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'searxng_source': searxng_source,
             'jupyterhub_source': jupyterhub_source,
             'stt_provider_source': stt_provider_source,
+            'tts_provider_source': tts_provider_source,
         }
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)

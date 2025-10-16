@@ -53,6 +53,14 @@ volumes:
     name: ${PROJECT_NAME}-stt-gpu-cache
     driver: local
 
+  # TTS layer volumes
+  tts-provider-gpu-cache:
+    name: ${PROJECT_NAME}-tts-gpu-cache
+    driver: local
+  tts-voices:
+    name: ${PROJECT_NAME}-tts-voices
+    driver: local
+
   # App layer volumes
   open-web-ui-data:
     name: ${PROJECT_NAME}-open-web-ui-data
@@ -411,8 +419,6 @@ services:
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
       # Worker configuration
       LOCAL_DEEP_RESEARCHER_WORKERS: ${LOCAL_DEEP_RESEARCHER_WORKERS:-3}
-      # STT integration
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     ports:
       - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
     volumes:
@@ -497,8 +503,6 @@ services:
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
-      # STT integration
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     ports:
       - "${N8N_PORT}:5678"
     volumes:
@@ -658,6 +662,53 @@ services:
       start_period: 120s
     labels:
       - "com.${PROJECT_NAME}.service=speech-to-text"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.backend=cuda"
+
+  # =============================================================================
+  # TTS (TEXT-TO-SPEECH) LAYER (SOURCE Configurable)
+  # =============================================================================
+  # NOTE: GPU users can use xtts-container-gpu (NVIDIA CUDA in Docker)
+  #       Any platform can use xtts-localhost (native execution)
+
+  # XTTS v2 GPU (NVIDIA CUDA - Docker Container)
+  xtts-gpu:
+    profiles:
+      - xtts-gpu
+      - tts-gpu
+    image: ${XTTS_GPU_IMAGE:-ghcr.io/matatonic/openedai-speech:latest}
+    container_name: ${PROJECT_NAME}-xtts-gpu
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      replicas: ${XTTS_GPU_SCALE:-0}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      TTS_HOME: /app/voices
+      HF_HOME: /app/cache
+      PRELOAD_MODEL: ${XTTS_MODEL:-tts-1-hd}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+    volumes:
+      - tts-provider-gpu-cache:/app/cache
+      - tts-voices:/app/voices
+    ports:
+      - "${TTS_PROVIDER_PORT:-10400}:8000"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=text-to-speech"
       - "com.${PROJECT_NAME}.category=ai"
       - "com.${PROJECT_NAME}.backend=cuda"
 
@@ -871,8 +922,6 @@ services:
       WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/2"
       REDIS_KEY_PREFIX: "openwebui"
       MODEL_LIST_CACHE_TTL: "300"
-      # STT integration
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
     volumes:
       - open-web-ui-data:/app/backend/data
       - ./open-webui/tools:/app/backend/data/tools
@@ -920,8 +969,9 @@ services:
       # Vector database integration
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
       WEAVIATE_ENABLED: true
-      # STT integration
+      # STT/TTS endpoints (available for future proxy implementation)
       PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
+      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data
@@ -970,7 +1020,10 @@ services:
       NEO4J_USER: ${GRAPH_DB_USER}
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
+      # STT integration
       PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
+      # TTS integration
+      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
 
       # Supabase Integration
       SUPABASE_URL: http://kong-api-gateway:8000

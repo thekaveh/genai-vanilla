@@ -44,6 +44,10 @@ git clone <your-repository-url> && cd genai-vanilla
 # Enable STT (disabled by default)
 ./start.sh --stt-provider-source parakeet-localhost  # Mac MLX or Linux native
 
+# Enable TTS (disabled by default)
+./start.sh --tts-provider-source xtts-localhost      # Any platform native
+./start.sh --tts-provider-source xtts-container-gpu  # NVIDIA GPU Docker
+
 # Minimal setup (chat only)
 ./start.sh --n8n-source disabled --searxng-source disabled --weaviate-source disabled
 
@@ -190,6 +194,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 | **Backend API** | http://localhost:63000 | REST API | API key |
 | **Ollama API** | http://localhost:63004 | LLM API | None |
 | **Parakeet STT** | http://localhost:10300 | Speech-to-Text | None |
+| **XTTS v2 TTS** | http://localhost:10400 | Text-to-Speech | None |
 
 ### 3.2 Database Layer
 - **PostgreSQL (Supabase)** - Primary database with auth, storage, realtime
@@ -201,6 +206,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 - **Ollama** - Local LLM inference (supports CPU/GPU/localhost)
 - **ComfyUI** - AI image generation with workflows
 - **Parakeet STT** - Speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
+- **XTTS v2 TTS** - Text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
 - **Deep Researcher** - AI-powered research assistant
 
 ## 4. Usage Guide
@@ -222,6 +228,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 ./start.sh --llm-provider-source ollama-localhost
 ./start.sh --comfyui-source container-gpu
 ./start.sh --stt-provider-source parakeet-localhost  # Mac users must use localhost
+./start.sh --tts-provider-source xtts-localhost      # Any platform native
 ./start.sh --n8n-source disabled
 
 # Combined examples

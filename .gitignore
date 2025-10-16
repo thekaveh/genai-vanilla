@@ -26,6 +26,7 @@ MANIFEST
 .venv
 env/
 venv/
+*venv/
 ENV/
 env.bak/
 venv.bak/
@@ -99,3 +100,8 @@ tmp/
 
 # Project specific
 CLAUDE.md
+
+# TTS Provider - Cloned repositories
+tts-provider/localhost/openedai-speech/
+tts-provider/localhost/voices/
+tts-provider/localhost/.cache/

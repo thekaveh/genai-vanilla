@@ -94,6 +94,10 @@ class ServiceConfig:
         stt_config = self._generate_stt_provider_config()
         env_vars.update(stt_config)
 
+        # Generate TTS Provider configuration
+        tts_config = self._generate_tts_provider_config()
+        env_vars.update(tts_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -235,6 +239,33 @@ class ServiceConfig:
         else:  # disabled
             env_vars['PARAKEET_GPU_SCALE'] = '0'
             env_vars['PARAKEET_ENDPOINT'] = ''
+
+        return env_vars
+
+    def _generate_tts_provider_config(self) -> Dict[str, str]:
+        """Generate TTS Provider (XTTS v2) configuration."""
+        source_value = self.service_sources.get('TTS_PROVIDER_SOURCE', 'disabled')
+        config = self.get_service_config('tts_provider', source_value)
+
+        env_vars = {}
+
+        # Set XTTS_ENDPOINT with localhost replacement
+        endpoint = config.get('environment', {}).get('XTTS_ENDPOINT', 'http://host.docker.internal:10400')
+        endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
+        env_vars['XTTS_ENDPOINT'] = endpoint
+
+        # Set scale and activate profile based on SOURCE
+        if source_value == 'xtts-container-gpu':
+            env_vars['XTTS_GPU_SCALE'] = '1'
+            # Activate xtts-gpu profile to enable building the GPU service
+            current_profiles = self.service_sources.get('COMPOSE_PROFILES', '')
+            new_profiles = 'xtts-gpu' if not current_profiles else f"{current_profiles},xtts-gpu"
+            env_vars['COMPOSE_PROFILES'] = new_profiles
+        elif source_value == 'xtts-localhost':
+            env_vars['XTTS_GPU_SCALE'] = '0'
+        else:  # disabled
+            env_vars['XTTS_GPU_SCALE'] = '0'
+            env_vars['XTTS_ENDPOINT'] = ''
 
         return env_vars
 

@@ -233,6 +233,41 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  # TTS Provider Service (XTTS v2)
+  tts_provider:
+    # GPU-accelerated XTTS v2 (NVIDIA) via openedai-speech
+    xtts-container-gpu:
+      scale: 1
+      environment:
+        XTTS_ENDPOINT: "http://xtts-gpu:8000"
+        NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
+        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+
+    # Local XTTS v2 on host (any platform with Python)
+    xtts-localhost:
+      scale: 0
+      environment:
+        XTTS_ENDPOINT: "${XTTS_LOCALHOST_URL:-http://host.docker.internal:10400}"
+      deploy: {}
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+    # Disabled
+    disabled:
+      scale: 0
+      environment:
+        XTTS_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
+
   n8n:
     # Containerized n8n
     container:

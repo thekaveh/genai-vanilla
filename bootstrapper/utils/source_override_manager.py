@@ -29,6 +29,7 @@ class SourceOverrideManager:
             'searxng_source': 'SEARXNG_SOURCE',
             'jupyterhub_source': 'JUPYTERHUB_SOURCE',
             'stt_provider_source': 'STT_PROVIDER_SOURCE',
+            'tts_provider_source': 'TTS_PROVIDER_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

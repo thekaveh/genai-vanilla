@@ -54,6 +54,10 @@ graph LR
             parakeet-gpu[Parakeet GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
             parakeet-localhost[Parakeet Localhost<br/>Native (Mac MLX or Linux CPU)]:::ai
         end
+        subgraph TTSServices[TTS_PROVIDER_SOURCE Options]
+            xtts-gpu[XTTS v2 GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
+            xtts-localhost[XTTS v2 Localhost<br/>Native (Any Platform)]:::ai
+        end
         ollama-pull[ollama-pull]:::ai
         comfyui-init[comfyui-init]:::ai
         local-deep-researcher[local-deep-researcher]:::ai

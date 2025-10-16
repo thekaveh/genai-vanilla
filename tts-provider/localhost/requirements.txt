@@ -1,0 +1,35 @@
+# XTTS v2 TTS Server - Localhost Requirements
+# For native execution on Mac/Linux/Windows
+
+# NOTE: openedai-speech is not available as a PyPI package
+# It must be cloned from GitHub: https://github.com/matatonic/openedai-speech
+# These are the dependencies required to run it:
+
+# Web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Logging
+loguru>=0.7.0
+
+# TTS backends
+piper-tts>=1.2.0          # Fast, CPU-friendly TTS
+TTS>=0.22.0               # Coqui TTS with XTTS v2 model
+
+# Language detection and config
+langdetect>=1.0.9
+pyyaml>=6.0
+
+# PyTorch (CPU version - users with GPU should install GPU version separately)
+# For GPU: uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Audio processing
+numpy>=1.22.0,<2.0        # Flexible version to avoid conflicts with TTS
+scipy>=1.10.0
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# Transformers version compatibility
+transformers>=4.40.2,<4.43.0  # XTTS v2 requires BeamSearchScorer from transformers
