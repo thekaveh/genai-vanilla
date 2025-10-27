@@ -45,6 +45,27 @@ class LocalhostValidator:
             'port': 7687,
             'service_name': 'Neo4j',
             'default_port': 7687
+        },
+        'STT_PROVIDER_SOURCE': {
+            'source_values': ['parakeet-localhost'],
+            'check_type': 'http',
+            'port_env_var': 'STT_PROVIDER_PORT',
+            'service_name': 'Parakeet STT',
+            'default_port': 63022
+        },
+        'TTS_PROVIDER_SOURCE': {
+            'source_values': ['xtts-localhost'],
+            'check_type': 'http',
+            'port_env_var': 'TTS_PROVIDER_PORT',
+            'service_name': 'XTTS TTS',
+            'default_port': 63023
+        },
+        'DOC_PROCESSOR_SOURCE': {
+            'source_values': ['docling-localhost'],
+            'check_type': 'http',
+            'port_env_var': 'DOC_PROCESSOR_PORT',
+            'service_name': 'Docling Document Processor',
+            'default_port': 63021
         }
     }
     
@@ -120,25 +141,33 @@ class LocalhostValidator:
         
         if config['check_type'] == 'http':
             # HTTP endpoint validation
-            endpoints = config['endpoints']
+            # For services with port_env_var, dynamically construct endpoint from .env
+            if 'port_env_var' in config:
+                env_vars = self.config_parser.parse_env_file()
+                port = env_vars.get(config['port_env_var'], config['default_port'])
+                endpoints = [f"http://localhost:{port}/health"]
+            else:
+                # Use pre-defined endpoints for services without dynamic ports
+                endpoints = config['endpoints']
+
             accessible = False
-            
+
             for endpoint in endpoints:
                 if self.check_http_endpoint(endpoint):
                     accessible = True
                     messages.append(f"✅ Localhost {service_name} service is accessible at {endpoint}")
                     break
-                    
+
             if not accessible:
                 endpoint_list = ', '.join(endpoints)
                 messages.append(f"⚠️  Warning: {service_name} not detected at {endpoint_list}")
                 messages.append(f"   Make sure {service_name} is running locally before starting the stack")
-                
+
                 # Add specific instructions for ComfyUI
                 if source_var == 'COMFYUI_SOURCE':
                     messages.append("   Please start ComfyUI locally with: python main.py --listen --port 8188")
                     messages.append("   Or refer to the documentation for installation instructions.")
-                    
+
             return accessible, messages
             
         elif config['check_type'] == 'tcp':

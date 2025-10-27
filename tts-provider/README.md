@@ -60,7 +60,7 @@ TTS_PROVIDER_SOURCE=disabled
 ## Test the API
 
 ```bash
-curl -X POST http://localhost:10400/v1/audio/speech \
+curl -X POST http://localhost:63023/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{"model": "tts-1-hd", "input": "Hello world!", "voice": "alloy"}' \
   --output speech.mp3

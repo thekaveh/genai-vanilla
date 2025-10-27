@@ -59,8 +59,10 @@ pip install -r stt-provider/mlx/requirements.txt
 **Step 2: Start STT server (in separate terminal)**
 ```bash
 cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
+
+**Note:** Port 63022 is the default (base_port + 22). It auto-adjusts if you use `--base-port` flag.
 
 **Step 3: Start the stack with STT enabled (in another terminal)**
 ```bash
@@ -86,10 +88,11 @@ pip install -r mlx/requirements.txt
 
 # Run STT server on host
 cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 
 # Configure .env (already set by default)
 STT_PROVIDER_SOURCE=parakeet-localhost
+STT_PROVIDER_PORT=63022  # Auto-updates with --base-port flag
 ```
 
 ### 2. GPU Docker Backend (NVIDIA)
@@ -117,7 +120,7 @@ STT_PROVIDER_SOURCE=disabled
 POST /v1/audio/transcriptions
 
 # Example
-curl -X POST http://localhost:10300/v1/audio/transcriptions \
+curl -X POST http://localhost:63022/v1/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "model=parakeet-tdt-0.6b-v3" \
   -F "language=en" \
@@ -130,7 +133,7 @@ curl -X POST http://localhost:10300/v1/audio/transcriptions \
 POST /v1/audio/transcriptions/advanced
 
 # Example with timestamps
-curl -X POST http://localhost:10300/v1/audio/transcriptions/advanced \
+curl -X POST http://localhost:63022/v1/audio/transcriptions/advanced \
   -F "file=@audio.mp3" \
   -F "return_timestamps=true" \
   -F "word_timestamps=true"
@@ -142,7 +145,7 @@ curl -X POST http://localhost:10300/v1/audio/transcriptions/advanced \
 GET /health
 
 # Example
-curl http://localhost:10300/health
+curl http://localhost:63022/health
 ```
 
 ## Supported Audio Formats
@@ -188,7 +191,7 @@ export PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v3
 
 # Run server
 cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
 
 **GPU (NVIDIA - requires Docker):**

@@ -32,7 +32,7 @@ uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu1
 uv run server.py
 ```
 
-The server will start on `http://0.0.0.0:10400` by default.
+The server will start on `http://0.0.0.0:63023` by default (base_port + 23).
 
 **First run:** Downloads models (~1-2GB). Please be patient (5-10 minutes).
 **Subsequent runs:** Instant startup.
@@ -40,7 +40,7 @@ The server will start on `http://0.0.0.0:10400` by default.
 ### 4. Test the API
 
 ```bash
-curl -X POST http://localhost:10400/v1/audio/speech \
+curl -X POST http://localhost:63023/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{"model": "tts-1-hd", "input": "Hello world!", "voice": "alloy"}' \
   --output speech.mp3
@@ -51,7 +51,7 @@ curl -X POST http://localhost:10400/v1/audio/speech \
 Set environment variables before running:
 
 ```bash
-export TTS_PROVIDER_PORT=10400          # Server port
+export TTS_PROVIDER_PORT=63023          # Server port (auto-adjusts with --base-port flag)
 export PRELOAD_MODEL=tts-1-hd           # Model to preload (tts-1 or tts-1-hd)
 export TTS_HOME=./voices                # Voice files directory
 export HF_HOME=~/.cache/huggingface     # HuggingFace cache
@@ -82,8 +82,11 @@ XTTS v2 supports zero-shot voice cloning with 6 second samples. See main documen
 
 **Port already in use:**
 ```bash
-export TTS_PROVIDER_PORT=10401
+export TTS_PROVIDER_PORT=63099  # Use any available port
 uv run server.py
+
+# Update .env to match
+XTTS_LOCALHOST_URL=http://host.docker.internal:63099
 ```
 
 **GPU not detected:**

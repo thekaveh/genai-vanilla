@@ -98,6 +98,10 @@ class ServiceConfig:
         tts_config = self._generate_tts_provider_config()
         env_vars.update(tts_config)
 
+        # Generate Document Processor configuration
+        doc_config = self._generate_doc_processor_config()
+        env_vars.update(doc_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -266,6 +270,42 @@ class ServiceConfig:
         else:  # disabled
             env_vars['XTTS_GPU_SCALE'] = '0'
             env_vars['XTTS_ENDPOINT'] = ''
+
+        return env_vars
+
+    def _generate_doc_processor_config(self) -> Dict[str, str]:
+        """Generate Document Processor (Docling) configuration."""
+        source_value = self.service_sources.get('DOC_PROCESSOR_SOURCE', 'disabled')
+        config = self.get_service_config('doc_processor', source_value)
+
+        env_vars = {}
+
+        # Set DOCLING_ENDPOINT with localhost replacement (matching STT/TTS pattern)
+        if source_value == 'disabled':
+            env_vars['DOCLING_ENDPOINT'] = ''
+        else:
+            endpoint = config.get('environment', {}).get('DOCLING_ENDPOINT', 'http://host.docker.internal:63021')
+            # For localhost mode, dynamically replace port with actual DOC_PROCESSOR_PORT from .env
+            if source_value == 'docling-localhost':
+                current_env = self.config_parser.parse_env_file()
+                doc_port = current_env.get('DOC_PROCESSOR_PORT', '63021')
+                endpoint = f'http://{self.localhost_host}:{doc_port}'
+            else:
+                # For container mode, just apply localhost_host replacement
+                endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
+            env_vars['DOCLING_ENDPOINT'] = endpoint
+
+        # Set scale and activate profile based on SOURCE
+        if source_value == 'docling-container-gpu':
+            env_vars['DOCLING_GPU_SCALE'] = '1'
+            # Activate docling-gpu and doc-gpu profiles to enable building the GPU service
+            current_profiles = self.service_sources.get('COMPOSE_PROFILES', '')
+            new_profiles = 'docling-gpu,doc-gpu' if not current_profiles else f"{current_profiles},docling-gpu,doc-gpu"
+            env_vars['COMPOSE_PROFILES'] = new_profiles
+        elif source_value == 'docling-localhost':
+            env_vars['DOCLING_GPU_SCALE'] = '0'
+        else:  # disabled
+            env_vars['DOCLING_GPU_SCALE'] = '0'
 
         return env_vars
 

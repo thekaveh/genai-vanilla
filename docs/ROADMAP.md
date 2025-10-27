@@ -28,17 +28,24 @@ The GenAI Vanilla Stack has successfully transitioned to a modular, SOURCE-based
 - Performance optimizations for large datasets
 - Better integration with research workflows
 
-**🎤 Whisper Audio Transcription Service**
-- Speech-to-text capabilities
-- Multiple language support
+**🎤 Speech-to-Text Service (Parakeet)** ✅ COMPLETED
+- Speech-to-text capabilities with NVIDIA Parakeet models
+- 25+ language support
 - Integration with Open WebUI for voice chat
-- Real-time transcription workflows
+- MLX acceleration for Apple Silicon, CUDA for NVIDIA GPUs
 
-**📄 Document Processing Service (Unstructured.io)**
-- PDF, DOCX, HTML parsing
-- Automatic text extraction and chunking
-- Integration with vector database for RAG
-- Support for various document formats
+**🔊 Text-to-Speech Service (XTTS v2)** ✅ COMPLETED
+- High-quality text-to-speech with Coqui XTTS v2
+- Voice cloning capabilities
+- OpenAI-compatible API
+- GPU acceleration support
+
+**📄 Document Processing Service (Docling)** ✅ COMPLETED
+- AI-powered document processing with IBM Docling
+- PDF, DOCX, PPTX, HTML, image parsing
+- Advanced table extraction (DocLayNet + TableFormer)
+- RAG-ready chunking with structure awareness
+- GPU acceleration (4.3x speedup for tables)
 
 #### Infrastructure Improvements
 
@@ -70,11 +77,11 @@ The GenAI Vanilla Stack has successfully transitioned to a modular, SOURCE-based
 - Resource usage visualization
 - Alerting for service issues
 
-**🗣️ Text-to-Speech (Piper TTS)**
-- Local TTS capabilities
-- Integration with chat interfaces
-- Multiple voice models
-- Audio response generation
+**🗣️ Text-to-Speech (Alternative TTS Models)** [Already have XTTS v2 ✅]
+- Additional TTS model support (Piper, etc.)
+- More voice model options
+- Streaming audio capabilities
+- Enhanced voice cloning features
 
 #### Advanced Workflow Features
 

@@ -13,6 +13,8 @@ Welcome to the comprehensive documentation for the GenAI Vanilla Stack.
 - [Ollama (LLM)](services/ollama.md) - Large Language Model service
 - [ComfyUI (Image Generation)](services/comfyui.md) - AI image generation service
 - [STT Provider (Speech-to-Text)](services/stt-provider.md) - NVIDIA Parakeet-TDT speech recognition
+- [TTS Provider (Text-to-Speech)](services/tts-provider.md) - XTTS v2 voice generation
+- [Document Processor (Docling)](services/doc-processor.md) - AI-powered document processing
 - [n8n (Workflow Automation)](services/n8n.md) - Workflow automation platform
 - [Open WebUI (Chat Interface)](services/openwebui.md) - AI chat interface
 - [SearxNG (Privacy Search)](services/searxng.md) - Privacy-focused search engine

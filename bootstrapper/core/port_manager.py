@@ -37,6 +37,9 @@ class PortManager:
         'COMFYUI_PORT': 18,           # Base port + 18
         'WEAVIATE_PORT': 19,          # Base port + 19
         'WEAVIATE_GRPC_PORT': 20,     # Base port + 20
+        'DOC_PROCESSOR_PORT': 21,     # Base port + 21
+        'STT_PROVIDER_PORT': 22,      # Base port + 22
+        'TTS_PROVIDER_PORT': 23,      # Base port + 23
         'JUPYTERHUB_PORT': 48,        # Base port + 48
     }
     

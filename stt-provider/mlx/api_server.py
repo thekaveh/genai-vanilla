@@ -208,5 +208,5 @@ async def transcribe_advanced(
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("STT_PORT", 10300))
+    port = int(os.getenv("STT_PROVIDER_PORT", 63022))
     uvicorn.run(app, host="0.0.0.0", port=port)

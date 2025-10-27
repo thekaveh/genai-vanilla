@@ -58,6 +58,10 @@ graph LR
             xtts-gpu[XTTS v2 GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
             xtts-localhost[XTTS v2 Localhost<br/>Native (Any Platform)]:::ai
         end
+        subgraph DocProcessorServices[DOC_PROCESSOR_SOURCE Options]
+            docling-gpu[Docling GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
+            docling-localhost[Docling Localhost<br/>Native (Any Platform)]:::ai
+        end
         ollama-pull[ollama-pull]:::ai
         comfyui-init[comfyui-init]:::ai
         local-deep-researcher[local-deep-researcher]:::ai

@@ -30,6 +30,7 @@ class SourceOverrideManager:
             'jupyterhub_source': 'JUPYTERHUB_SOURCE',
             'stt_provider_source': 'STT_PROVIDER_SOURCE',
             'tts_provider_source': 'TTS_PROVIDER_SOURCE',
+            'doc_processor_source': 'DOC_PROCESSOR_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

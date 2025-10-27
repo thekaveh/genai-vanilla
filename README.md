@@ -193,8 +193,9 @@ The stack uses **SOURCE variables** to control how services are deployed:
 | **Neo4j Browser** | http://localhost:63011 | Graph Database | neo4j / password |
 | **Backend API** | http://localhost:63000 | REST API | API key |
 | **Ollama API** | http://localhost:63004 | LLM API | None |
-| **Parakeet STT** | http://localhost:10300 | Speech-to-Text | None |
-| **XTTS v2 TTS** | http://localhost:10400 | Text-to-Speech | None |
+| **Parakeet STT** | http://localhost:63022 | Speech-to-Text | None |
+| **XTTS v2 TTS** | http://localhost:63023 | Text-to-Speech | None |
+| **Docling Processor** | http://localhost:63021 | Document Processing | None |
 
 ### 3.2 Database Layer
 - **PostgreSQL (Supabase)** - Primary database with auth, storage, realtime
@@ -207,6 +208,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 - **ComfyUI** - AI image generation with workflows
 - **Parakeet STT** - Speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
 - **XTTS v2 TTS** - Text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
+- **Docling** - AI-powered document processing with table extraction (IBM Docling, GPU-accelerated)
 - **Deep Researcher** - AI-powered research assistant
 
 ## 4. Usage Guide
@@ -227,8 +229,9 @@ The stack uses **SOURCE variables** to control how services are deployed:
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost
 ./start.sh --comfyui-source container-gpu
-./start.sh --stt-provider-source parakeet-localhost  # Mac users must use localhost
-./start.sh --tts-provider-source xtts-localhost      # Any platform native
+./start.sh --stt-provider-source parakeet-localhost    # Mac users must use localhost
+./start.sh --tts-provider-source xtts-localhost        # Any platform native
+./start.sh --doc-processor-source docling-container-gpu # Enable document processing
 ./start.sh --n8n-source disabled
 
 # Combined examples

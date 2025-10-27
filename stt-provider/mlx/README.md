@@ -28,7 +28,7 @@ This installs:
 
 ```bash
 # From stt-provider directory
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
 
 **First run:** Downloads model (~1.2GB) from HuggingFace
@@ -38,10 +38,10 @@ python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
 
 ```bash
 # Health check
-curl http://localhost:10300/health
+curl http://localhost:63022/health
 
 # Transcribe audio
-curl -X POST http://localhost:10300/v1/audio/transcriptions \
+curl -X POST http://localhost:63022/v1/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "response_format=json"
 ```
@@ -51,7 +51,7 @@ curl -X POST http://localhost:10300/v1/audio/transcriptions \
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PARAKEET_MODEL` | `mlx-community/parakeet-tdt-0.6b-v3` | HuggingFace model ID |
-| `STT_PORT` | `10300` | Server port (when running with `python mlx/api_server.py`) |
+| `STT_PROVIDER_PORT` | `63022` | Server port (auto-adjusts with --base-port flag) |
 
 ## API Endpoints
 
@@ -132,16 +132,17 @@ export HUGGING_FACE_HUB_TOKEN=your_token_here
 ```bash
 # Ensure you're in the right directory
 cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
 
 ### Port already in use
 ```bash
-# Use different port
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10301
+# Use different port (if 63022 is in use)
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63099
 
-# Update .env
-PARAKEET_LOCALHOST_URL=http://host.docker.internal:10301
+# Update .env to match
+PARAKEET_LOCALHOST_URL=http://host.docker.internal:63099
+STT_PROVIDER_PORT=63099
 ```
 
 ## References

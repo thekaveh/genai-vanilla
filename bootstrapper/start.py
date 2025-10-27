@@ -94,6 +94,9 @@ SOURCE Override Options:
   --tts-provider-source VALUE   Override TTS provider source
                                 Values: xtts-container-gpu, xtts-localhost, disabled
 
+  --doc-processor-source VALUE  Override document processor source
+                                Values: docling-container-gpu, docling-localhost, disabled
+
 Examples:
   python start.py                        # Start with defaults from .env
   python start.py --base-port 55666      # Start with custom base port
@@ -257,7 +260,9 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             'N8N_PORT',
             'COMFYUI_PORT',
             'WEAVIATE_PORT',
-            'WEAVIATE_GRPC_PORT'
+            'WEAVIATE_GRPC_PORT',
+            'DOC_PROCESSOR_PORT',
+            'JUPYTERHUB_PORT'
         ]
         
         print("  • Unsetting potentially lingering port environment variables...")
@@ -399,6 +404,8 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("ComfyUI Image Generation", "COMFYUI_PORT"),
             ("Weaviate Vector DB (HTTP)", "WEAVIATE_PORT"),
             ("Weaviate Vector DB (gRPC)", "WEAVIATE_GRPC_PORT"),
+            ("Document Processor (Docling)", "DOC_PROCESSOR_PORT"),
+            ("JupyterHub Data Science IDE", "JUPYTERHUB_PORT"),
         ]
         
         for service_name, port_var in port_assignments:
@@ -683,7 +690,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         
         ai_services_info = [
             ("  Ollama", service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu'),
-             env_vars.get('OLLAMA_ENDPOINT', 'http://ollama:11434'), 
+             env_vars.get('OLLAMA_ENDPOINT', 'http://ollama:11434'),
              env_vars.get('OLLAMA_SCALE', '1')),
             ("  ComfyUI", service_sources.get('COMFYUI_SOURCE', 'container-cpu'),
              env_vars.get('COMFYUI_ENDPOINT', 'http://comfyui:18188'),
@@ -693,6 +700,15 @@ Note: SOURCE overrides are temporary and only apply to the current session.
              env_vars.get('WEAVIATE_SCALE', '1')),
             ("  Multi2Vec-CLIP", service_sources.get('MULTI2VEC_CLIP_SOURCE', 'container-cpu'),
              "http://multi2vec-clip:8080", env_vars.get('CLIP_SCALE', '1')),
+            ("  STT Provider (Parakeet)", service_sources.get('STT_PROVIDER_SOURCE', 'disabled'),
+             env_vars.get('PARAKEET_ENDPOINT', ''),
+             env_vars.get('PARAKEET_GPU_SCALE', '0')),
+            ("  TTS Provider (XTTS)", service_sources.get('TTS_PROVIDER_SOURCE', 'disabled'),
+             env_vars.get('XTTS_ENDPOINT', ''),
+             env_vars.get('XTTS_GPU_SCALE', '0')),
+            ("  Doc Processor (Docling)", service_sources.get('DOC_PROCESSOR_SOURCE', 'disabled'),
+             env_vars.get('DOCLING_ENDPOINT', ''),
+             env_vars.get('DOCLING_GPU_SCALE', '0')),
             ("  Local Deep Researcher", service_sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container'),
              f"http://localhost:{env_vars.get('LOCAL_DEEP_RESEARCHER_PORT')}",
              env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
@@ -876,10 +892,14 @@ Note: SOURCE overrides are temporary and only apply to the current session.
               type=click.Choice(['xtts-container-gpu', 'xtts-localhost',
                                 'disabled'], case_sensitive=False),
               help='Override TTS_PROVIDER_SOURCE')
+@click.option('--doc-processor-source',
+              type=click.Choice(['docling-container-gpu', 'docling-localhost',
+                                'disabled'], case_sensitive=False),
+              help='Override DOC_PROCESSOR_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
-         jupyterhub_source, stt_provider_source, tts_provider_source, help_usage):
+         jupyterhub_source, stt_provider_source, tts_provider_source, doc_processor_source, help_usage):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -910,6 +930,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'jupyterhub_source': jupyterhub_source,
             'stt_provider_source': stt_provider_source,
             'tts_provider_source': tts_provider_source,
+            'doc_processor_source': doc_processor_source,
         }
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
