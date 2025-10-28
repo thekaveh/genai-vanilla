@@ -185,17 +185,27 @@ Note: SOURCE overrides are temporary and only apply to the current session.
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None) -> bool:
         """
         Setup .env file from .env.example if needed.
+        Supports custom .env file paths via GENAI_ENV_FILE environment variable.
         Replicates the .env setup logic from the original start.sh.
-        
+
         Args:
             cold_start: Whether this is a cold start
-            
+            base_port: Optional custom base port
+
         Returns:
             bool: True if successful
         """
-        env_file_path = self.root_dir / ".env"
-        env_example_path = self.root_dir / ".env.example"
-        
+        # Use config_parser paths which respect GENAI_ENV_FILE
+        env_file_path = self.config_parser.env_file_path
+        env_example_path = self.config_parser.env_example_path
+
+        # Show which env file we're using if custom
+        if self.config_parser.is_using_custom_env_file():
+            self.banner.show_status_message(
+                f"Using custom env file: {env_file_path}",
+                "info"
+            )
+
         # Check if .env exists, if not or if cold start is requested, create from .env.example
         if not env_file_path.exists() or cold_start:
             if not env_example_path.exists():
@@ -204,32 +214,36 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                     "error"
                 )
                 return False
-            
+
             self.banner.show_section_header("Setting Up Environment", "📋")
-            
+
             if cold_start:
                 self.banner.show_status_message("Creating new .env file from .env.example (cold start)...", "info")
             else:
                 self.banner.show_status_message("Creating new .env file from .env.example", "info")
-            
+
             try:
-                # Copy .env.example to .env
+                # Ensure parent directory exists (important for custom paths)
+                env_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Copy .env.example to target path (default or custom)
                 import shutil
                 shutil.copy2(env_example_path, env_file_path)
-                print(f"  • Copied {env_example_path} to {env_file_path}")
-                
+                print(f"  • Copied {env_example_path}")
+                print(f"  •     to {env_file_path}")
+
                 # Unset potentially lingering port environment variables if cold start and custom base port are used
                 effective_base_port = base_port if base_port is not None else DEFAULT_BASE_PORT
                 if cold_start and effective_base_port != DEFAULT_BASE_PORT:
                     self.unset_port_environment_variables()
-                
+
                 self.banner.show_status_message("Environment file setup completed", "success")
                 return True
-                
+
             except Exception as e:
                 self.banner.show_status_message(f"Failed to create .env file: {e}", "error")
                 return False
-        
+
         return True  # .env already exists and not cold start
         
     def unset_port_environment_variables(self) -> None:

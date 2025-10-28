@@ -17,7 +17,7 @@ class ConfigParser:
     def __init__(self, root_dir: Optional[str] = None):
         """
         Initialize the config parser.
-        
+
         Args:
             root_dir: Root directory containing .env and config files.
                      If None, uses the parent of the bootstrapper directory.
@@ -27,10 +27,57 @@ class ConfigParser:
             self.root_dir = Path(__file__).resolve().parent.parent.parent
         else:
             self.root_dir = Path(root_dir)
-            
+
         self.service_config_path = self.root_dir / "bootstrapper" / "service-configs.yml"
-        self.env_file_path = self.root_dir / ".env"
+
+        # .env.example always lives in repository root
+        self.env_example_path = self.root_dir / ".env.example"
+
+        # .env path can be customized via GENAI_ENV_FILE environment variable
+        self.env_file_path = self._resolve_env_file_path()
+
         self.service_sources = {}
+
+    def _resolve_env_file_path(self) -> Path:
+        """
+        Resolve .env file path from GENAI_ENV_FILE environment variable.
+        Falls back to default .env in repository root if not set.
+
+        This allows users to specify custom .env file locations, useful for:
+        - CI/CD pipelines with secret injection
+        - Multiple deployments with different configurations
+        - Parent projects managing infrastructure config centrally
+
+        Returns:
+            Path: Resolved .env file path
+        """
+        custom_env_path = os.environ.get('GENAI_ENV_FILE', '').strip()
+
+        if custom_env_path:
+            # User specified custom path - resolve and expand
+            resolved_path = Path(custom_env_path).expanduser().resolve()
+            return resolved_path
+
+        # Default: .env in repository root
+        return self.root_dir / ".env"
+
+    def get_env_file_location(self) -> str:
+        """
+        Get human-readable env file location for display.
+
+        Returns:
+            str: Path to the env file being used
+        """
+        return str(self.env_file_path)
+
+    def is_using_custom_env_file(self) -> bool:
+        """
+        Check if using a custom env file path via GENAI_ENV_FILE.
+
+        Returns:
+            bool: True if GENAI_ENV_FILE is set
+        """
+        return bool(os.environ.get('GENAI_ENV_FILE'))
         
     def load_yaml_config(self) -> Dict[str, Any]:
         """
@@ -158,20 +205,26 @@ class ConfigParser:
     def create_env_backup(self) -> str:
         """
         Create a backup of the .env file with timestamp.
-        
+        Works with both default and custom .env file paths.
+        Backup is created in the same directory as the .env file.
+
         Returns:
             str: Path to the backup file
-            
+
         Raises:
             FileNotFoundError: If .env file doesn't exist
         """
         if not self.env_file_exists():
             raise FileNotFoundError("Cannot backup .env file - it doesn't exist")
-            
+
         import datetime
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        backup_path = self.root_dir / f".env.backup.{timestamp}"
-        
+
+        # Create backup in the same directory as the .env file
+        # This ensures backups work correctly with custom paths
+        backup_filename = f"{self.env_file_path.name}.backup.{timestamp}"
+        backup_path = self.env_file_path.parent / backup_filename
+
         import shutil
         shutil.copy2(self.env_file_path, backup_path)
         return str(backup_path)

@@ -276,6 +276,44 @@ See [docs/deployment/gpu-setup.md](docs/deployment/gpu-setup.md) for NVIDIA GPU 
 
 See [docs/development/](docs/development/) for development guides and API documentation.
 
+### 5.4 Using as Infrastructure Foundation
+
+GenAI Vanilla can be used as a git submodule to provide infrastructure for your projects:
+
+```bash
+# Add as submodule in your project
+git submodule add <repository-url> infra
+
+# Configure and start
+cd infra
+cp .env.example .env
+# Edit .env: Set PROJECT_NAME=myproject
+./start.sh
+
+# Access from your application
+# - Docker network: myproject-network
+# - Kong gateway: http://localhost:63002
+# - Direct ports: http://localhost:63000+
+```
+
+**Capabilities:**
+- Infrastructure code separated from application code
+- Upstream updates can be pulled while maintaining local settings
+- Project-specific environment configurations
+- Standard git workflow for contributing changes upstream
+- Multiple isolated instances with separate Docker resources
+
+**Integration Patterns:**
+1. **Docker Network** - Connect your services to `${PROJECT_NAME}-network`
+2. **Kong Gateway** - Use Kong as single entry point (port 63002)
+3. **Direct Access** - Access services via exposed ports
+
+See [docs/deployment/submodule-usage.md](docs/deployment/submodule-usage.md) for the complete guide including:
+- Detailed setup instructions
+- Integration patterns with code examples
+- Contributing back to genai-vanilla
+- Troubleshooting submodule issues
+
 ## 6. Development
 
 ### 6.1 Project Structure
