@@ -99,6 +99,7 @@ tmp/
 .uv/
 
 # Project specific
+.claude/
 CLAUDE.md
 
 # TTS Provider - Cloned repositories
