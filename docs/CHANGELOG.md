@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OpenClaw AI Agent**: AI agent for messaging platforms (WhatsApp, Telegram, Discord, etc.)
+  - Connects to messaging apps for AI-powered chat, file management, and task automation
+  - Web dashboard for administration at `openclaw.localhost`
+  - LLM integration: inherits stack's Ollama endpoint, supports Anthropic/OpenAI API keys
+  - SOURCE options: `container`, `localhost` (Node.js 22+), `disabled` (default)
+  - CLI option: `--openclaw-source [container|localhost|disabled]`
+  - Default ports: 63024 (gateway, offset +24), 63025 (bridge, offset +25)
+  - Kong routing via `openclaw.localhost` subdomain
 - **JupyterHub Data Science IDE**: Interactive Jupyter Lab environment with pre-configured AI/ML libraries
   - 7 sample notebooks demonstrating all service integrations (Ollama, Weaviate, Neo4j, Supabase, ComfyUI, n8n, SearxNG)
   - Pre-installed libraries: Ollama, LangChain, LlamaIndex, Transformers, Weaviate client, Neo4j driver, and more

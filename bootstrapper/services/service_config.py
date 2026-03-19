@@ -102,6 +102,10 @@ class ServiceConfig:
         doc_config = self._generate_doc_processor_config()
         env_vars.update(doc_config)
 
+        # Generate OpenClaw configuration
+        openclaw_config = self._generate_openclaw_config()
+        env_vars.update(openclaw_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -309,6 +313,32 @@ class ServiceConfig:
 
         return env_vars
 
+    def _generate_openclaw_config(self) -> Dict[str, str]:
+        """Generate OpenClaw AI Agent configuration."""
+        source_value = self.service_sources.get('OPENCLAW_SOURCE', 'disabled')
+        config = self.get_service_config('openclaw', source_value)
+
+        env_vars = {}
+
+        # Set OPENCLAW_ENDPOINT with localhost replacement
+        if source_value == 'disabled':
+            env_vars['OPENCLAW_ENDPOINT'] = ''
+            env_vars['OPENCLAW_SCALE'] = '0'
+        elif source_value == 'localhost':
+            current_env = self.config_parser.parse_env_file()
+            openclaw_port = current_env.get('OPENCLAW_GATEWAY_PORT', '63024')
+            endpoint = f'http://{self.localhost_host}:{openclaw_port}'
+            env_vars['OPENCLAW_ENDPOINT'] = endpoint
+            env_vars['OPENCLAW_SCALE'] = '0'
+        else:  # container
+            endpoint = config.get('environment', {}).get(
+                'OPENCLAW_ENDPOINT', 'http://openclaw-gateway:18789')
+            endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
+            env_vars['OPENCLAW_ENDPOINT'] = endpoint
+            env_vars['OPENCLAW_SCALE'] = '1'
+
+        return env_vars
+
     def _generate_other_services_config(self) -> Dict[str, str]:
         """Generate configuration for other services."""
         env_vars = {}
@@ -363,7 +393,14 @@ class ServiceConfig:
             env_vars['COMFYUI_INIT_SCALE'] = '0'
         else:
             env_vars['COMFYUI_INIT_SCALE'] = '1'
-        
+
+        # OPENCLAW_INIT_SCALE: follows OPENCLAW_SCALE (1 when container, 0 otherwise)
+        openclaw_source = self.service_sources.get('OPENCLAW_SOURCE', 'disabled')
+        if openclaw_source == 'container':
+            env_vars['OPENCLAW_INIT_SCALE'] = '1'
+        else:
+            env_vars['OPENCLAW_INIT_SCALE'] = '0'
+
         return env_vars
     
     def _generate_adaptive_services_config(self) -> Dict[str, str]:

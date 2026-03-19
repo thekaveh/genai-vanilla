@@ -304,6 +304,49 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  # OpenClaw AI Agent Service
+  openclaw:
+    # Containerized OpenClaw gateway
+    container:
+      scale: 1
+      environment:
+        OPENCLAW_ENDPOINT: "http://openclaw-gateway:18789"
+      deploy: {}
+      extra_hosts: []
+
+    # Local OpenClaw on host (requires Node.js 22+ and npm install -g openclaw)
+    localhost:
+      scale: 0
+      environment:
+        OPENCLAW_ENDPOINT: "${OPENCLAW_LOCALHOST_URL:-http://host.docker.internal:63024}"
+      deploy: {}
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+    # Disabled
+    disabled:
+      scale: 0
+      environment:
+        OPENCLAW_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
+
+  # OpenClaw Initialization
+  openclaw-init:
+    # Containerized OpenClaw initialization (auto-managed by openclaw)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+    # Disabled - skip initialization
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
   n8n:
     # Containerized n8n
     container:
@@ -662,7 +705,6 @@ adaptive_services:
     extra_hosts_adaptation: "inherit from llm_provider"
 
 
-
   # Backend API Service
   backend:
     # Containerized Backend API (adaptive service)
@@ -730,6 +772,7 @@ dependencies:
     - searxng
     - n8n
     - n8n-worker
+    - openclaw-gateway
   app_tier:
     - kong-api-gateway
     - supabase-studio
@@ -772,3 +815,8 @@ service_dependencies:
   jupyterhub:
     optional: [neo4j-graph-db, searxng, n8n, weaviate, comfyui, parakeet, xtts, docling]
     info_message: "JupyterHub enabled - will connect to available optional services (neo4j, searxng, n8n, weaviate, comfyui, parakeet, xtts, docling)"
+
+  # OpenClaw has optional dependencies - uses LLM provider if available
+  openclaw-gateway:
+    optional: [ollama]
+    info_message: "OpenClaw enabled - will connect to available LLM providers (ollama, anthropic, openai)"

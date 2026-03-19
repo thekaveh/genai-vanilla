@@ -125,6 +125,10 @@ class KongConfigGenerator:
         if jupyterhub_service:
             services.append(jupyterhub_service)
 
+        openclaw_service = self.generate_openclaw_service()
+        if openclaw_service:
+            services.append(openclaw_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -414,8 +418,35 @@ class KongConfigGenerator:
             'plugins': [{'name': 'cors'}]
         }
 
-    
-    
+    def generate_openclaw_service(self) -> Optional[Dict[str, Any]]:
+        """Generate OpenClaw service configuration based on SOURCE."""
+        source = self.get_env_value('OPENCLAW_SOURCE')
+
+        if source == 'disabled':
+            return None
+
+        service = {
+            'name': 'openclaw-api',
+            'routes': [
+                {
+                    'name': 'openclaw-api-all',
+                    'strip_path': False,
+                    'hosts': ['openclaw.localhost']
+                }
+            ],
+            'plugins': [{'name': 'cors'}]
+        }
+
+        # Dynamic URL based on SOURCE
+        if source == 'localhost':
+            port = self.get_env_value('OPENCLAW_GATEWAY_PORT') or '63024'
+            self.check_localhost_service('localhost', int(port), 'OpenClaw')
+            service['url'] = f'http://host.docker.internal:{port}/'
+        else:
+            service['url'] = 'http://openclaw-gateway:18789/'
+
+        return service
+
     def get_adaptive_services(self) -> List[Dict[str, Any]]:
         """Get adaptive services (always containerized when enabled)."""
         services = []

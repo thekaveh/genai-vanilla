@@ -22,7 +22,8 @@ class HostsManager:
         "search.localhost",
         "comfyui.localhost",
         "chat.localhost",
-        "jupyter.localhost"
+        "jupyter.localhost",
+        "openclaw.localhost"
     ]
     
     def __init__(self):

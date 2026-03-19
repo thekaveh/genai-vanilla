@@ -23,6 +23,7 @@ Welcome to the comprehensive documentation for the GenAI Vanilla Stack.
 - [Weaviate (Vector Database)](services/weaviate.md) - Vector database service
 - [Kong (API Gateway)](services/kong.md) - Dynamic API gateway configuration
 - [JupyterHub (Data Science IDE)](services/jupyterhub.md) - Interactive Jupyter Lab environment
+- [OpenClaw (AI Agent)](services/openclaw.md) - AI agent for messaging platforms
 
 ### Deployment Guides
 - [Docker Setup](deployment/docker-setup.md) - Docker configuration and requirements

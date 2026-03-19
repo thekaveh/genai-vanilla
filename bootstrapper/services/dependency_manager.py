@@ -70,6 +70,7 @@ class DependencyManager:
             'searxng': 'SEARXNG_SCALE',
             'backend': 'BACKEND_SCALE',
             'jupyterhub': 'JUPYTERHUB_SCALE',
+            'openclaw-gateway': 'OPENCLAW_SCALE',
         }
         
         scale_var = scale_var_mapping.get(service_name)
@@ -85,6 +86,7 @@ class DependencyManager:
                 'searxng': 'SEARXNG_SOURCE',
                 'backend': 'BACKEND_SOURCE',
                 'jupyterhub': 'JUPYTERHUB_SOURCE',
+                'openclaw-gateway': 'OPENCLAW_SOURCE',
             }
             
             source_var = source_var_mapping.get(service_name)

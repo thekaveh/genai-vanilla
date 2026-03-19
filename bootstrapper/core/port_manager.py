@@ -40,6 +40,8 @@ class PortManager:
         'DOC_PROCESSOR_PORT': 21,     # Base port + 21
         'STT_PROVIDER_PORT': 22,      # Base port + 22
         'TTS_PROVIDER_PORT': 23,      # Base port + 23
+        'OPENCLAW_GATEWAY_PORT': 24,  # Base port + 24
+        'OPENCLAW_BRIDGE_PORT': 25,   # Base port + 25
         'JUPYTERHUB_PORT': 48,        # Base port + 48
     }
     

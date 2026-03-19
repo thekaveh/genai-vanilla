@@ -72,6 +72,14 @@ volumes:
     name: ${PROJECT_NAME}-doc-output
     driver: local
 
+  # OpenClaw volumes
+  openclaw-config:
+    name: ${PROJECT_NAME}-openclaw-config
+    driver: local
+  openclaw-workspace:
+    name: ${PROJECT_NAME}-openclaw-workspace
+    driver: local
+
   # App layer volumes
   open-web-ui-data:
     name: ${PROJECT_NAME}-open-web-ui-data
@@ -424,6 +432,7 @@ services:
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       # LLM Provider connection (adapts to source)
       LLM_PROVIDER_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
       # Search configuration
       SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
       SEARXNG_URL: http://searxng:8080
@@ -787,6 +796,80 @@ services:
       - "com.${PROJECT_NAME}.backend=cuda"
 
   # =============================================================================
+  # AGENT LAYER SERVICES (SOURCE Configurable)
+  # =============================================================================
+
+  # OpenClaw Initialization (volume permissions + gateway config for container mode)
+  openclaw-init:
+    image: ${OPENCLAW_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-openclaw-init
+    restart: "no"
+    deploy:
+      replicas: ${OPENCLAW_INIT_SCALE:-0}
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+    entrypoint:
+      - sh
+      - -c
+      - |
+        apk add --no-cache jq > /dev/null 2>&1
+        CONFIG=/home/node/.openclaw/openclaw.json
+        PATCH='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
+        if [ -f "$$CONFIG" ]; then
+          jq --argjson patch "$$PATCH" '. * $$patch' "$$CONFIG" > "$$CONFIG.tmp" && mv "$$CONFIG.tmp" "$$CONFIG"
+        else
+          echo "$$PATCH" | jq . > "$$CONFIG"
+        fi
+        chown -R 1000:1000 /home/node/.openclaw
+    networks:
+      - backend-network
+
+  # OpenClaw AI Agent Gateway
+  # Web dashboard: http://localhost:${OPENCLAW_GATEWAY_PORT}
+  # CLI access: docker exec -it ${PROJECT_NAME}-openclaw-gateway openclaw <command>
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE}
+    container_name: ${PROJECT_NAME}-openclaw-gateway
+    restart: unless-stopped
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
+    deploy:
+      replicas: ${OPENCLAW_SCALE:-0}
+    depends_on:
+      openclaw-init:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      # LLM Provider Integration (adaptive - inherits from stack)
+      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      OLLAMA_API_KEY: "ollama-local"
+      ANTHROPIC_API_KEY: ${OPENCLAW_ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENCLAW_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
+      # Gateway configuration
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+    ports:
+      - "${OPENCLAW_GATEWAY_PORT:-63024}:18789"
+      - "${OPENCLAW_BRIDGE_PORT:-63025}:18790"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "com.${PROJECT_NAME}.service=ai-agent"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.agent=openclaw"
+
+  # =============================================================================
   # VECTOR LAYER SERVICES
   # =============================================================================
 
@@ -903,6 +986,7 @@ services:
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       AUTH_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      HOSTNAME: 0.0.0.0
     ports:
       - "${SUPABASE_STUDIO_PORT}:3000"
     healthcheck:

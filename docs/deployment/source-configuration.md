@@ -16,6 +16,7 @@ These services can run on your host machine instead of in containers:
 | **Ollama** | `LLM_PROVIDER_SOURCE` | `ollama-localhost` | Faster, uses existing models, less memory |
 | **ComfyUI** | `COMFYUI_SOURCE` | `localhost` | Direct access, custom setups, faster |
 | **Weaviate** | `WEAVIATE_SOURCE` | `localhost` | Custom configuration, performance |
+| **OpenClaw** | `OPENCLAW_SOURCE` | `localhost` | Native performance, existing config |
 
 ### Container-Only Services
 These services only run in Docker containers:
@@ -187,6 +188,47 @@ WEAVIATE_SOURCE=disabled
 - **Use case**: No vector search needed
 - **Pros**: Reduced resource usage
 - **Cons**: No semantic search capabilities
+- **Requirements**: None
+
+### OPENCLAW_SOURCE
+
+#### `container`
+```bash
+OPENCLAW_SOURCE=container
+```
+- **Use case**: Run OpenClaw agent in Docker
+- **Pros**: Easy setup, isolated environment
+- **Cons**: Container resource usage
+- **Requirements**: None
+
+#### `localhost`
+```bash
+OPENCLAW_SOURCE=localhost
+```
+- **Use case**: Use existing OpenClaw installation
+- **Pros**: Native performance, persistent config
+- **Cons**: Manual setup required
+- **Requirements**: Node.js 22+, `npm install -g openclaw`, running `openclaw gateway`
+
+Setup for localhost:
+```bash
+# Install OpenClaw
+npm install -g openclaw
+
+# Run onboarding
+openclaw onboard
+
+# Start the gateway
+openclaw gateway --port 18789
+```
+
+#### `disabled` (Default)
+```bash
+OPENCLAW_SOURCE=disabled
+```
+- **Use case**: No AI agent needed
+- **Pros**: Saves resources
+- **Cons**: No messaging integration
 - **Requirements**: None
 
 ## Configuration Patterns

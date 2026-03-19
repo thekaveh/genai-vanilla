@@ -106,7 +106,9 @@ graph TB
     Kong --> ComfyUI[ComfyUI]
     Kong --> SearxNG[SearxNG]
     Kong --> JupyterHub[JupyterHub]
+    Kong --> OpenClaw[OpenClaw Agent]
 
+    OpenClaw --> Ollama
     OpenWebUI --> Backend[Backend API]
     Backend --> Ollama[Ollama LLM]
     Backend --> Weaviate[Weaviate Vector DB]
@@ -170,6 +172,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 - ✅ **Ollama** (`LLM_PROVIDER_SOURCE=ollama-localhost`) - Use local Ollama installation
 - ✅ **ComfyUI** (`COMFYUI_SOURCE=localhost`) - Use local ComfyUI (port 8188)
 - ✅ **Weaviate** (`WEAVIATE_SOURCE=localhost`) - Use local Weaviate instance
+- ✅ **OpenClaw** (`OPENCLAW_SOURCE=localhost`) - Use local OpenClaw installation
 
 **Container-only services:**
 - ❌ **N8N** (`N8N_SOURCE=container|disabled`) - Workflow automation
@@ -196,6 +199,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 | **Parakeet STT** | http://localhost:63022 | Speech-to-Text | None |
 | **XTTS v2 TTS** | http://localhost:63023 | Text-to-Speech | None |
 | **Docling Processor** | http://localhost:63021 | Document Processing | None |
+| **OpenClaw Agent** | http://openclaw.localhost:63002 | AI Agent (Messaging) | Token (optional) |
 
 ### 3.2 Database Layer
 - **PostgreSQL (Supabase)** - Primary database with auth, storage, realtime
@@ -209,6 +213,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 - **Parakeet STT** - Speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
 - **XTTS v2 TTS** - Text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
 - **Docling** - AI-powered document processing with table extraction (IBM Docling, GPU-accelerated)
+- **OpenClaw** - AI agent for messaging platforms (WhatsApp, Telegram, Discord), file management, and task automation
 - **Deep Researcher** - AI-powered research assistant
 
 ## 4. Usage Guide
@@ -232,6 +237,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 ./start.sh --stt-provider-source parakeet-localhost    # Mac users must use localhost
 ./start.sh --tts-provider-source xtts-localhost        # Any platform native
 ./start.sh --doc-processor-source docling-container-gpu # Enable document processing
+./start.sh --openclaw-source container                 # Enable OpenClaw agent
 ./start.sh --n8n-source disabled
 
 # Combined examples

@@ -66,6 +66,13 @@ class LocalhostValidator:
             'port_env_var': 'DOC_PROCESSOR_PORT',
             'service_name': 'Docling Document Processor',
             'default_port': 63021
+        },
+        'OPENCLAW_SOURCE': {
+            'source_values': ['localhost'],
+            'check_type': 'http',
+            'port_env_var': 'OPENCLAW_GATEWAY_PORT',
+            'service_name': 'OpenClaw Gateway',
+            'default_port': 63024
         }
     }
     

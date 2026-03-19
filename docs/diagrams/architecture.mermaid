@@ -62,8 +62,13 @@ graph LR
             docling-gpu[Docling GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
             docling-localhost[Docling Localhost<br/>Native (Any Platform)]:::ai
         end
+        subgraph OpenClawServices[OPENCLAW_SOURCE Options]
+            openclaw-container[OpenClaw Container<br/>Docker]:::ai
+            openclaw-localhost[OpenClaw Localhost<br/>Native (Node.js)]:::ai
+        end
         ollama-pull[ollama-pull]:::ai
         comfyui-init[comfyui-init]:::ai
+        openclaw-init[openclaw-init]:::ai
         local-deep-researcher[local-deep-researcher]:::ai
         n8n[n8n - Workflow Engine]:::api
         n8n-worker[n8n-worker - Queue Worker]:::api
@@ -132,5 +137,5 @@ graph LR
     class supabase-db,neo4j-graph-db,weaviate database
     class supabase-meta,supabase-storage,supabase-auth database
     class supabase-api,supabase-realtime,kong-api-gateway,n8n,n8n-worker,searxng,backend api
-    class ollama-container,ollama-localhost,ollama-api,comfyui-container,comfyui-localhost,local-deep-researcher,multi2vec-clip-cpu,multi2vec-clip-gpu ai
+    class ollama-container,ollama-localhost,ollama-api,comfyui-container,comfyui-localhost,local-deep-researcher,multi2vec-clip-cpu,multi2vec-clip-gpu,openclaw-container,openclaw-localhost ai
     class open-web-ui,supabase-studio,jupyterhub ui

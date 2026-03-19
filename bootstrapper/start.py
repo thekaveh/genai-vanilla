@@ -97,6 +97,9 @@ SOURCE Override Options:
   --doc-processor-source VALUE  Override document processor source
                                 Values: docling-container-gpu, docling-localhost, disabled
 
+  --openclaw-source VALUE       Override OpenClaw AI agent source
+                                Values: container, localhost, disabled
+
 Examples:
   python start.py                        # Start with defaults from .env
   python start.py --base-port 55666      # Start with custom base port
@@ -419,6 +422,8 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("Weaviate Vector DB (HTTP)", "WEAVIATE_PORT"),
             ("Weaviate Vector DB (gRPC)", "WEAVIATE_GRPC_PORT"),
             ("Document Processor (Docling)", "DOC_PROCESSOR_PORT"),
+            ("OpenClaw Agent (Gateway)", "OPENCLAW_GATEWAY_PORT"),
+            ("OpenClaw Agent (Bridge)", "OPENCLAW_BRIDGE_PORT"),
             ("JupyterHub Data Science IDE", "JUPYTERHUB_PORT"),
         ]
         
@@ -723,6 +728,9 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("  Doc Processor (Docling)", service_sources.get('DOC_PROCESSOR_SOURCE', 'disabled'),
              env_vars.get('DOCLING_ENDPOINT', ''),
              env_vars.get('DOCLING_GPU_SCALE', '0')),
+            ("  OpenClaw Agent", service_sources.get('OPENCLAW_SOURCE', 'disabled'),
+             env_vars.get('OPENCLAW_ENDPOINT', ''),
+             env_vars.get('OPENCLAW_SCALE', '0')),
             ("  Local Deep Researcher", service_sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container'),
              f"http://localhost:{env_vars.get('LOCAL_DEEP_RESEARCHER_PORT')}",
              env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
@@ -910,10 +918,15 @@ Note: SOURCE overrides are temporary and only apply to the current session.
               type=click.Choice(['docling-container-gpu', 'docling-localhost',
                                 'disabled'], case_sensitive=False),
               help='Override DOC_PROCESSOR_SOURCE')
+@click.option('--openclaw-source',
+              type=click.Choice(['container', 'localhost',
+                                'disabled'], case_sensitive=False),
+              help='Override OPENCLAW_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
-         jupyterhub_source, stt_provider_source, tts_provider_source, doc_processor_source, help_usage):
+         jupyterhub_source, stt_provider_source, tts_provider_source,
+         doc_processor_source, openclaw_source, help_usage):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -945,6 +958,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'stt_provider_source': stt_provider_source,
             'tts_provider_source': tts_provider_source,
             'doc_processor_source': doc_processor_source,
+            'openclaw_source': openclaw_source,
         }
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
