@@ -71,8 +71,7 @@ class ServiceConfig:
             
         env_vars = {}
         
-        print("🔧 Generating service environment from YAML configuration...")
-        print(f"🔗 Using '{self.localhost_host}' for localhost service connections")
+        # Silent — details shown in pre-launch summary table
         
         # Generate LLM Provider (Ollama) configuration
         llm_config = self._generate_llm_provider_config()
@@ -446,8 +445,7 @@ class ServiceConfig:
         try:
             # Create backup if requested
             if create_backup:
-                backup_path = self.config_parser.create_env_backup()
-                print(f"📋 Created .env backup: {backup_path}")
+                self.config_parser.create_env_backup()
             
             # Read current .env content
             with open(env_file_path, 'r') as f:
@@ -472,7 +470,6 @@ class ServiceConfig:
             with open(env_file_path, 'w') as f:
                 f.write(updated_content)
                 
-            print("✅ Updated .env file with computed service variables")
             return True
             
         except Exception as e:

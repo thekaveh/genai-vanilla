@@ -32,6 +32,8 @@ class SourceOverrideManager:
             'tts_provider_source': 'TTS_PROVIDER_SOURCE',
             'doc_processor_source': 'DOC_PROCESSOR_SOURCE',
             'openclaw_source': 'OPENCLAW_SOURCE',
+            'neo4j_graph_db_source': 'NEO4J_GRAPH_DB_SOURCE',
+            'multi2vec_clip_source': 'MULTI2VEC_CLIP_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:
@@ -63,15 +65,10 @@ class SourceOverrideManager:
         """
         if not overrides:
             return True
-            
-        print("\n🔄 Applying SOURCE overrides from command-line:")
-        for env_var, value in overrides.items():
-            print(f"  • {env_var} → {value}")
-        
-        # Update .env file with overrides
+
+        # Update .env file with overrides (silent — shown in summary table)
         if self.update_env_file(overrides):
             self.applied_overrides = overrides
-            print("✅ SOURCE overrides applied successfully")
             return True
         
         return False

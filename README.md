@@ -14,7 +14,7 @@ A flexible, modular GenAI project boilerplate with customizable services.
 # 1. Clone the repository
 git clone <your-repository-url> && cd genai-vanilla
 
-# 2. Start everything with defaults (no configuration needed!)
+# 2. Start with the interactive setup wizard (no configuration needed!)
 ./start.sh
 
 # 3. Wait ~5 minutes for AI models to download, then access:
@@ -61,6 +61,21 @@ git clone <your-repository-url> && cd genai-vanilla
 - **Out of memory?** → Increase Docker memory to 10GB+
 - **Can't access *.localhost?** → Run `./start.sh --setup-hosts`
 - **Want fresh start?** → `./stop.sh --cold && ./start.sh --cold`
+
+### 🧙 Interactive Setup Wizard
+
+Running `./start.sh` with no arguments launches an interactive setup wizard that walks you through configuring every service step by step:
+
+- **Step-by-step service configuration** with descriptions and contextual hints (GPU requirements, localhost options, etc.)
+- **Live progress bar** tracking your progress through all configuration steps
+- **Real-time command preview** showing the equivalent CLI command as you make selections
+- **Dependency validation** that warns if you enable a service without its required dependencies
+- **Pre-launch summary table** with all endpoints and access URLs before starting
+- **Keyboard shortcuts**: `Escape` to restart from the beginning, `Ctrl+C` to quit
+
+The wizard covers all configurable services, base port selection, cold start option, and hosts file setup. After reviewing the configuration summary, confirm to launch the stack.
+
+> For advanced users who prefer CLI flags, all options remain available. See [Command Line Interface](#41-command-line-interface) or the [Interactive Setup Wizard Guide](docs/quick-start/interactive-setup-wizard.md).
 
 ## 📖 Table of Contents
 
@@ -221,8 +236,11 @@ The stack uses **SOURCE variables** to control how services are deployed:
 ### 4.1 Command Line Interface
 
 ```bash
-# Basic commands
-./start.sh                    # Start with .env configuration
+# Interactive wizard (recommended for first-time setup)
+./start.sh                    # Launches step-by-step configuration wizard
+
+# Direct commands (skip wizard)
+./start.sh --llm-provider-source ollama-localhost  # Any flag skips wizard
 ./start.sh --help            # Show all options
 ./stop.sh                    # Stop services, keep data
 ./stop.sh --cold             # Stop and remove all data

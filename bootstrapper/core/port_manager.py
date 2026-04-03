@@ -151,8 +151,7 @@ class PortManager:
         try:
             # Create backup if requested
             if create_backup:
-                backup_path = self.config_parser.create_env_backup()
-                print(f"📋 Created .env backup: {backup_path}")
+                self.config_parser.create_env_backup()
             
             # Read current .env file
             with open(env_file_path, 'r') as f:
@@ -173,7 +172,6 @@ class PortManager:
             with open(env_file_path, 'w') as f:
                 f.write(updated_content)
                 
-            print(f"✅ Updated all service ports with base port {base_port}")
             return True
             
         except Exception as e:

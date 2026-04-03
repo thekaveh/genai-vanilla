@@ -5,6 +5,7 @@ Welcome to the comprehensive documentation for the GenAI Vanilla Stack.
 ## 📚 Documentation Structure
 
 ### Quick Start Guides
+- [Interactive Setup Wizard](quick-start/interactive-setup-wizard.md) - Step-by-step guided configuration
 - [Installation Guide](quick-start/installation.md) - Get up and running in 5 minutes
 - [First Run Guide](quick-start/first-run.md) - Your first experience with the stack
 - [Troubleshooting](quick-start/troubleshooting.md) - Common issues and solutions

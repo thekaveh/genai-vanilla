@@ -2,6 +2,10 @@
 
 This guide explains the SOURCE-based configuration system that makes the GenAI Vanilla Stack flexible and modular.
 
+## Interactive Setup Wizard
+
+The easiest way to configure SOURCE variables is the **interactive setup wizard**. Run `./start.sh` with no arguments to launch it. The wizard walks you through each service, shows available options with contextual hints, and validates dependencies in real time. See the [Interactive Setup Wizard Guide](../quick-start/interactive-setup-wizard.md) for details.
+
 ## Understanding SOURCE Variables
 
 SOURCE variables control how each service is deployed - whether in a Docker container, using a localhost installation, connecting to an external service, or disabling the service entirely.

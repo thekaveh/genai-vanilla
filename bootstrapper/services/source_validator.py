@@ -105,43 +105,62 @@ class SourceValidator:
     def validate_source_value(self, service_var: str, source_value: str) -> bool:
         """
         Validate a single SOURCE value against YAML configuration.
-        
+
         Args:
             service_var: SOURCE variable name (e.g., "LLM_PROVIDER_SOURCE")
             source_value: SOURCE value to validate
-            
+
         Returns:
             bool: True if valid
         """
         # Clear validation errors for clean state
         self.validation_errors = []
-        
+
         # Get service mappings dynamically from YAML
         service_mapping = self.get_service_mapping_from_yaml()
         adaptive_services = self.get_adaptive_services_from_yaml()
-        
+
         if service_var in adaptive_services:
-            # Adaptive services only support 'container' source (currently only backend)
-            if source_value != 'container':
-                self.validation_errors.append(
-                    f"❌ {service_var}='{source_value}' is invalid. "
-                    f"Adaptive services only support 'container'"
-                )
-                return False
-            return True
-            
+            # Check if this adaptive service has explicit source options defined
+            # (some adaptive services like jupyterhub have container/disabled options)
+            valid_sources = self._get_adaptive_service_sources(service_var)
+            if not valid_sources:
+                # Also check source_configurable — some services appear in both
+                # (e.g., n8n has adapts_to metadata AND source options)
+                service_key = service_mapping.get(service_var)
+                if service_key:
+                    valid_sources = self.get_valid_sources_for_service(service_key)
+            if valid_sources:
+                if source_value not in valid_sources:
+                    valid_list = ', '.join(sorted(valid_sources))
+                    self.validation_errors.append(
+                        f"❌ {service_var}='{source_value}' is invalid. "
+                        f"Valid options: {valid_list}"
+                    )
+                    return False
+                return True
+            else:
+                # Pure adaptive service — only supports 'container'
+                if source_value != 'container':
+                    self.validation_errors.append(
+                        f"❌ {service_var}='{source_value}' is invalid. "
+                        f"Adaptive services only support 'container'"
+                    )
+                    return False
+                return True
+
         service_key = service_mapping.get(service_var)
         if not service_key:
             self.validation_errors.append(f"❌ Unknown SOURCE variable: {service_var}")
             return False
-            
+
         valid_sources = self.get_valid_sources_for_service(service_key)
         if not valid_sources:
             self.validation_errors.append(
                 f"❌ No valid sources found for service: {service_key}"
             )
             return False
-            
+
         if source_value not in valid_sources:
             valid_list = ', '.join(sorted(valid_sources))
             self.validation_errors.append(
@@ -149,8 +168,37 @@ class SourceValidator:
                 f"Valid options: {valid_list}"
             )
             return False
-            
+
         return True
+
+    def _get_adaptive_service_sources(self, service_var: str) -> Set[str]:
+        """
+        Get valid SOURCE options for an adaptive service that has explicit
+        source-style options (sub-keys with 'scale' config) in its YAML entry.
+
+        Returns:
+            set: Valid SOURCE values, or empty set if pure adaptive service
+        """
+        if not self.yaml_config:
+            return set()
+
+        adaptive_config = self.yaml_config.get('adaptive_services', {})
+        # Derive service key from variable name
+        service_key = service_var.replace('_SOURCE', '').lower().replace('_', '-')
+        # Also try underscore variant
+        service_key_underscore = service_var.replace('_SOURCE', '').lower()
+
+        config = adaptive_config.get(service_key) or adaptive_config.get(service_key_underscore)
+        if not config or not isinstance(config, dict):
+            return set()
+
+        # Check for source-style options (sub-keys whose values contain 'scale')
+        sources = set()
+        for key, value in config.items():
+            if isinstance(value, dict) and 'scale' in value:
+                sources.add(key)
+
+        return sources
         
     def validate_scale_values(self) -> bool:
         """
@@ -259,12 +307,21 @@ class SourceValidator:
         adaptive_services = self.get_adaptive_services_from_yaml()
         
         if service_var in adaptive_services:
+            # Check for explicit source options first
+            adaptive_sources = self._get_adaptive_service_sources(service_var)
+            if not adaptive_sources:
+                # Also check source_configurable
+                sk = service_mapping.get(service_var)
+                if sk:
+                    adaptive_sources = self.get_valid_sources_for_service(sk)
+            if adaptive_sources:
+                return sorted(list(adaptive_sources))
             return ['container']
-            
+
         service_key = service_mapping.get(service_var)
         if not service_key:
             return []
-            
+
         valid_sources = self.get_valid_sources_for_service(service_key)
         return sorted(list(valid_sources))
     

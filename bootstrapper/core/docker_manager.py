@@ -376,17 +376,24 @@ class DockerManager:
         """
         Get the actual external port mapped to a service's internal port.
         Replicates the get_actual_port() function from original start.sh.
-        
+
         Args:
             service: Service name
             internal_port: Internal port number
-            
+
         Returns:
             str: External port number, or empty string if not found
         """
         try:
+            cmd = self.get_compose_command()
+            project_name = self.config_parser.get_project_name()
+            cmd.extend(['-p', project_name])
+            if self.config_parser.env_file_exists():
+                cmd.append('--env-file=.env')
+            cmd.extend(['port', service, internal_port])
+
             result = subprocess.run(
-                [*self.get_compose_command(), '--env-file=.env', 'port', service, internal_port],
+                cmd,
                 cwd=str(self.root_dir),
                 capture_output=True,
                 text=True,

@@ -178,13 +178,13 @@ class SupabaseKeyGenerator:
         """
         print("🔐 Generating SUPABASE_JWT_SECRET...")
         jwt_secret = self.generate_jwt_secret()
-        
+
         print("🔑 Generating SUPABASE_ANON_KEY...")
         anon_key = self.create_jwt_token(jwt_secret, "anon")
-        
+
         print("🔑 Generating SUPABASE_SERVICE_KEY...")
         service_key = self.create_jwt_token(jwt_secret, "service_role")
-        
+
         print("✅ Keys generated.")
         
         return {

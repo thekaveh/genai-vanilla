@@ -100,6 +100,12 @@ SOURCE Override Options:
   --openclaw-source VALUE       Override OpenClaw AI agent source
                                 Values: container, localhost, disabled
 
+  --neo4j-graph-db-source VALUE Override Neo4j graph database source
+                                Values: container, localhost, disabled
+
+  --multi2vec-clip-source VALUE Override Multi2Vec CLIP embeddings source
+                                Values: container-cpu, container-gpu, disabled
+
 Examples:
   python start.py                        # Start with defaults from .env
   python start.py --base-port 55666      # Start with custom base port
@@ -160,29 +166,24 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         """
         overrides = self.source_override_manager.collect_overrides(**kwargs)
         if overrides:
-            self.banner.show_section_header("Applying SOURCE Overrides", "🔄")
             return self.source_override_manager.apply_overrides(overrides)
         return True
         
     def validate_source_configurations(self) -> bool:
         """Validate all SOURCE configurations and scale values against YAML."""
-        self.banner.show_section_header("Validating Configuration", "✓")
-        
-        # Validate SOURCE configurations
+        # Silent on success — errors are shown immediately
         sources_valid = self.source_validator.validate_all_sources()
         if not sources_valid:
             self.source_validator.print_validation_results()
             return False
-            
-        # Validate scale values
+
         scales_valid = self.source_validator.validate_scale_values()
         if not scales_valid:
-            print("❌ Scale validation failed:")
+            self.banner.console.print("[bright_red]❌ Scale validation failed:[/bright_red]")
             for error in self.source_validator.get_validation_errors():
-                print(f"   {error}")
+                self.banner.console.print(f"   {error}")
             return False
-            
-        self.source_validator.print_validation_results()
+
         return True
         
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None) -> bool:
@@ -279,6 +280,10 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             'WEAVIATE_PORT',
             'WEAVIATE_GRPC_PORT',
             'DOC_PROCESSOR_PORT',
+            'STT_PROVIDER_PORT',
+            'TTS_PROVIDER_PORT',
+            'OPENCLAW_GATEWAY_PORT',
+            'OPENCLAW_BRIDGE_PORT',
             'JUPYTERHUB_PORT'
         ]
         
@@ -319,10 +324,10 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                 # For cold start, automatically generate new Supabase keys
                 self.banner.show_section_header("Generating Supabase Keys", "🔐")
                 self.banner.show_status_message("Cold start detected - generating fresh Supabase JWT keys...", "info")
-                
+
                 from utils.supabase_keys import SupabaseKeyGenerator
                 key_generator = SupabaseKeyGenerator(str(self.root_dir))
-                
+
                 if key_generator.generate_and_update_env():
                     self.banner.show_status_message("Supabase keys generated and applied successfully!", "success")
                     return True
@@ -354,9 +359,6 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         if base_port is None:
             base_port = DEFAULT_BASE_PORT
             
-        self.banner.show_section_header("Configuring Ports", "🔌")
-        self.banner.show_status_message(f"Using base port: {base_port}", "info")
-        
         # Validate base port
         if not self.port_manager.validate_base_port(base_port):
             self.banner.show_status_message(
@@ -385,155 +387,68 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         if not self.port_manager.update_env_ports(base_port):
             return False
             
-        # Verify ports were updated correctly (matching original Bash behavior)
-        self.show_verified_port_assignments(base_port)
-            
         return True
-        
-    def show_verified_port_assignments(self, base_port: int) -> None:
-        """Display verified port assignments after updating .env file."""
-        print()
-        self.banner.console.print("🚀 PORT ASSIGNMENTS (verified from .env file):", style="bold bright_white")
-        
-        # Re-read .env file to verify ports were written correctly
-        env_vars = self.config_parser.parse_env_file()
-        
-        # Display all port assignments in the same order as original Bash
-        port_assignments = [
-            ("Supabase PostgreSQL Database", "SUPABASE_DB_PORT"),
-            ("Redis", "REDIS_PORT"),
-            ("Kong HTTP Gateway", "KONG_HTTP_PORT"),
-            ("Kong HTTPS Gateway", "KONG_HTTPS_PORT"),
-            ("Supabase Meta Service", "SUPABASE_META_PORT"),
-            ("Supabase Storage Service", "SUPABASE_STORAGE_PORT"),
-            ("Supabase Auth Service", "SUPABASE_AUTH_PORT"),
-            ("Supabase API (PostgREST)", "SUPABASE_API_PORT"),
-            ("Supabase Realtime", "SUPABASE_REALTIME_PORT"),
-            ("Supabase Studio Dashboard", "SUPABASE_STUDIO_PORT"),
-            ("Neo4j Graph Database (Bolt)", "GRAPH_DB_PORT"),
-            ("Neo4j Graph Database (Dashboard)", "GRAPH_DB_DASHBOARD_PORT"),
-            ("Ollama API", "LLM_PROVIDER_PORT"),
-            ("Local Deep Researcher", "LOCAL_DEEP_RESEARCHER_PORT"),
-            ("SearxNG Privacy Search", "SEARXNG_PORT"),
-            ("Open Web UI", "OPEN_WEB_UI_PORT"),
-            ("Backend API", "BACKEND_PORT"),
-            ("n8n Workflow Automation", "N8N_PORT"),
-            ("ComfyUI Image Generation", "COMFYUI_PORT"),
-            ("Weaviate Vector DB (HTTP)", "WEAVIATE_PORT"),
-            ("Weaviate Vector DB (gRPC)", "WEAVIATE_GRPC_PORT"),
-            ("Document Processor (Docling)", "DOC_PROCESSOR_PORT"),
-            ("OpenClaw Agent (Gateway)", "OPENCLAW_GATEWAY_PORT"),
-            ("OpenClaw Agent (Bridge)", "OPENCLAW_BRIDGE_PORT"),
-            ("JupyterHub Data Science IDE", "JUPYTERHUB_PORT"),
-        ]
-        
-        for service_name, port_var in port_assignments:
-            verified_port = env_vars.get(port_var, 'NOT_SET')
-            print(f"  • {service_name:<35} {verified_port}")
         
     def generate_service_configuration(self) -> bool:
         """Generate and update service configuration."""
-        self.banner.show_section_header("Generating Service Configuration", "⚙️")
-        
         return self.service_config.generate_and_update_env()
     
     def generate_kong_configuration(self) -> bool:
         """Generate dynamic Kong configuration based on SOURCE values."""
-        self.banner.show_section_header("Generating Kong Configuration", "🔧")
-        
         try:
             from utils.kong_config_generator import KongConfigGenerator
             generator = KongConfigGenerator(self.config_parser)
-            
-            # Generate configuration
+
             kong_config = generator.generate_kong_config()
-            
-            # Validate configuration
+
             errors = generator.validate_config(kong_config)
             if errors:
                 self.banner.show_status_message("Kong configuration validation failed:", "error")
                 for error in errors:
-                    print(f"  • {error}")
+                    self.banner.console.print(f"  • {error}")
                 return False
-            
-            # Write to kong-dynamic.yml
+
             config_path = self.root_dir / "volumes/api/kong-dynamic.yml"
             if not generator.write_config(kong_config, config_path):
                 return False
-            
-            self.banner.show_status_message(f"Kong configuration generated: {config_path}", "success")
-            
-            # Show enabled services
-            services = kong_config.get('services', [])
-            service_names = []
-            for service in services:
-                if 'hosts' in service.get('routes', [{}])[0]:
-                    hosts = service['routes'][0]['hosts']
-                    service_names.extend(hosts)
-                elif service['name'] in ['dashboard', 'backend-api', 'openwebui-api']:
-                    service_names.append(service['name'])
-            
-            if service_names:
-                print(f"  • Enabled services: {len(services)} total")
-                domain_services = [name for name in service_names if '.localhost' in name]
-                if domain_services:
-                    print(f"  • Public domains: {', '.join(domain_services[:3])}" + 
-                          (f" (+{len(domain_services)-3} more)" if len(domain_services) > 3 else ""))
-            
+
             return True
-            
+
         except Exception as e:
             self.banner.show_status_message(f"Failed to generate Kong configuration: {e}", "error")
             return False
         
     def check_service_dependencies(self) -> bool:
-        """Check and enforce service dependencies."""
-        self.banner.show_section_header("Checking Service Dependencies", "🔗")
-        
-        # Check dependencies
+        """Check and enforce service dependencies. Silent on success."""
         dependencies_satisfied = self.dependency_manager.check_service_dependencies()
-        
+
         if not dependencies_satisfied:
-            # Show violations
             violations = self.dependency_manager.get_dependency_violations()
-            
             self.banner.show_status_message("Service dependency violations found:", "warning")
             for violation in violations:
-                print(f"   ⚠️  {violation['error_message']}")
-            
-            print()
-            self.banner.show_status_message("Auto-resolving dependency violations...", "info")
-            
-            # Auto-resolve by disabling dependent services
+                self.banner.console.print(f"   ⚠️  {violation['error_message']}")
+
             disabled_services = self.dependency_manager.auto_resolve_dependency_violations()
-            
             if disabled_services:
                 for service in disabled_services:
                     self.banner.show_status_message(f"Auto-disabled {service} due to missing dependencies", "warning")
-                print()
-                self.banner.show_status_message("Dependency violations resolved - restarting with updated configuration", "info")
                 return True
             else:
                 self.banner.show_status_message("Could not auto-resolve dependency violations", "error")
                 return False
-        else:
-            self.banner.show_status_message("All service dependencies satisfied", "success")
-            return True
+
+        return True
         
     def handle_hosts_configuration(self, setup_hosts: bool, skip_hosts: bool) -> bool:
-        """Handle hosts file configuration."""
+        """Handle hosts file configuration. Silent unless setting up or errors."""
         if skip_hosts:
-            self.banner.show_status_message("Skipping hosts file checks", "info")
             return True
-            
-        self.banner.show_section_header("Checking Hosts Configuration", "🌐")
-        
+
         if setup_hosts:
             return self.hosts_manager.setup_hosts_entries()
-        else:
-            # Just check status
-            self.hosts_manager.check_hosts_status()
-            return True
+
+        # Default: silent check, no warnings for missing entries
+        return True
             
     def perform_cold_start_cleanup(self) -> bool:
         """Perform cold start cleanup if requested."""
@@ -571,33 +486,21 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         Returns:
             bool: True if successful
         """
-        self.banner.show_section_header("Generating Encryption Keys", "🔐")
-        
-        # For cold start, regenerate all keys. Otherwise, only generate missing ones.
         force_regenerate = cold_start
-        
-        if force_regenerate:
-            self.banner.show_status_message("Regenerating all encryption keys (cold start)...", "info")
-        else:
-            self.banner.show_status_message("Checking for missing encryption keys...", "info")
-        
+
         try:
             results = self.key_generator.generate_missing_keys(force_regenerate=force_regenerate)
-            
-            # Check results
-            all_successful = all(results.values())
-            
-            if all_successful:
-                self.banner.show_status_message("All encryption keys are ready", "success")
+
+            if all(results.values()):
                 return True
             else:
                 failed_keys = [key for key, success in results.items() if not success]
                 self.banner.show_status_message(
-                    f"Failed to generate some keys: {', '.join(failed_keys)}", 
+                    f"Failed to generate encryption keys: {', '.join(failed_keys)}",
                     "error"
                 )
                 return False
-                
+
         except Exception as e:
             self.banner.show_status_message(f"Error generating encryption keys: {e}", "error")
             return False
@@ -676,99 +579,157 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             self.banner.show_status_message("All services started successfully", "success")
             return True
             
-    def display_service_status(self):
-        """Display the service status table."""
-        self.banner.show_service_table_header()
-        
-        # Get service information
-        service_sources = self.config_parser.parse_service_sources()
+    def show_pre_launch_summary(self) -> bool:
+        """
+        Display the combined configuration summary table with access URLs
+        and hosted endpoints, then prompt for confirmation.
+
+        Returns:
+            bool: True if user confirms, False to cancel.
+        """
+        from rich.table import Table
+        from rich.text import Text
+        from rich.align import Align
+
         env_vars = self.config_parser.parse_env_file()
-        
-        # Display core services
-        self.banner.console.print("🏗️  Infrastructure Tier", style="bold bright_blue")
-        
-        services_info = [
-            ("  Supabase Database", service_sources.get('SUPABASE_DB_SOURCE', 'container'), 
-             f"postgresql://localhost:{env_vars.get('SUPABASE_DB_PORT')}", "1"),
-            ("  Redis Cache", service_sources.get('REDIS_SOURCE', 'container'),
-             f"redis://localhost:{env_vars.get('REDIS_PORT')}", "1"),
-            ("  Kong API Gateway", service_sources.get('KONG_API_GATEWAY_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('KONG_HTTP_PORT')}", "1"),
-            ("  Neo4j Graph Database", service_sources.get('NEO4J_GRAPH_DB_SOURCE', 'container'),
-             f"bolt://localhost:{env_vars.get('GRAPH_DB_PORT')}", 
-             env_vars.get('NEO4J_SCALE', '1')),
+        service_sources = self.config_parser.parse_service_sources()
+        kong_port = env_vars.get('KONG_HTTP_PORT', '63002')
+
+        # Check if hosts entries are configured
+        hosts_configured = set()
+        try:
+            existing_hosts = self.hosts_manager.check_missing_hosts()
+            all_hosts = self.hosts_manager.get_genai_hosts()
+            hosts_configured = set(all_hosts) - set(existing_hosts)
+        except Exception:
+            pass
+
+        # Host-based URL mapping: service display name -> hostname
+        host_url_map = {
+            'n8n': 'n8n.localhost',
+            'Open WebUI': 'chat.localhost',
+            'Backend API': 'api.localhost',
+            'SearxNG': 'search.localhost',
+            'ComfyUI': 'comfyui.localhost',
+            'JupyterHub': 'jupyter.localhost',
+            'OpenClaw': 'openclaw.localhost',
+        }
+
+        # Build the summary table
+        from rich.box import ROUNDED
+        table = Table(
+            title="Configuration Summary",
+            title_style="bold bright_white",
+            box=ROUNDED,
+            border_style="color(240)",
+            header_style="bold bright_blue",
+            show_lines=False,
+            padding=(0, 1),
+        )
+        table.add_column("Service", style="bright_white", min_width=22, justify="left")
+        table.add_column("Source", min_width=20, justify="left")
+        table.add_column("Endpoint", min_width=40, justify="left")
+        table.add_column("Status", min_width=8, justify="left")
+
+        # Service definitions: (display_name, source_var, access_url, scale)
+        services = [
+            # Infrastructure (always on)
+            ("Supabase Database", "SUPABASE_DB_SOURCE",
+             f"postgresql://localhost:{env_vars.get('SUPABASE_DB_PORT', '')}", "1"),
+            ("Supabase Studio", "SUPABASE_STUDIO_SOURCE",
+             f"http://localhost:{env_vars.get('SUPABASE_STUDIO_PORT', '')}", "1"),
+            ("Redis Cache", "REDIS_SOURCE",
+             f"redis://localhost:{env_vars.get('REDIS_PORT', '')}", "1"),
+            ("Kong API Gateway", "KONG_API_GATEWAY_SOURCE",
+             f"http://localhost:{kong_port}", "1"),
+            # Configurable services
+            ("LLM Provider", "LLM_PROVIDER_SOURCE",
+             f"http://localhost:{env_vars.get('LLM_PROVIDER_PORT', '')}", env_vars.get('OLLAMA_SCALE', '0')),
+            ("ComfyUI", "COMFYUI_SOURCE",
+             f"http://localhost:{env_vars.get('COMFYUI_PORT', '')}", env_vars.get('COMFYUI_SCALE', '0')),
+            ("Weaviate", "WEAVIATE_SOURCE",
+             f"http://localhost:{env_vars.get('WEAVIATE_PORT', '')}/v1", env_vars.get('WEAVIATE_SCALE', '0')),
+            ("Multi2Vec CLIP", "MULTI2VEC_CLIP_SOURCE",
+             "", env_vars.get('CLIP_SCALE', '0')),
+            ("Neo4j Graph DB", "NEO4J_GRAPH_DB_SOURCE",
+             f"http://localhost:{env_vars.get('GRAPH_DB_DASHBOARD_PORT', '')}", env_vars.get('NEO4J_SCALE', '0')),
+            ("STT Provider", "STT_PROVIDER_SOURCE",
+             f"http://localhost:{env_vars.get('STT_PROVIDER_PORT', '')}", env_vars.get('PARAKEET_GPU_SCALE', '0')),
+            ("TTS Provider", "TTS_PROVIDER_SOURCE",
+             f"http://localhost:{env_vars.get('TTS_PROVIDER_PORT', '')}", env_vars.get('XTTS_GPU_SCALE', '0')),
+            ("Document Processor", "DOC_PROCESSOR_SOURCE",
+             f"http://localhost:{env_vars.get('DOC_PROCESSOR_PORT', '')}", env_vars.get('DOCLING_GPU_SCALE', '0')),
+            ("OpenClaw", "OPENCLAW_SOURCE",
+             f"http://localhost:{env_vars.get('OPENCLAW_GATEWAY_PORT', '')}", env_vars.get('OPENCLAW_SCALE', '0')),
+            ("n8n", "N8N_SOURCE",
+             f"http://localhost:{env_vars.get('N8N_PORT', '')}", env_vars.get('N8N_SCALE', '0')),
+            ("SearxNG", "SEARXNG_SOURCE",
+             f"http://localhost:{env_vars.get('SEARXNG_PORT', '')}", env_vars.get('SEARXNG_SCALE', '0')),
+            ("JupyterHub", "JUPYTERHUB_SOURCE",
+             f"http://localhost:{env_vars.get('JUPYTERHUB_PORT', '')}", env_vars.get('JUPYTERHUB_SCALE', '0')),
+            # Adaptive services (always container)
+            ("Open WebUI", "OPEN_WEB_UI_SOURCE",
+             f"http://localhost:{env_vars.get('OPEN_WEB_UI_PORT', '')}", env_vars.get('OPEN_WEB_UI_SCALE', '1')),
+            ("Backend API", "BACKEND_SOURCE",
+             f"http://localhost:{env_vars.get('BACKEND_PORT', '')}/docs", env_vars.get('BACKEND_SCALE', '1')),
+            ("Local Deep Researcher", "LOCAL_DEEP_RESEARCHER_SOURCE",
+             f"http://localhost:{env_vars.get('LOCAL_DEEP_RESEARCHER_PORT', '')}", env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
         ]
-        
-        for service_name, source, endpoint, scale in services_info:
-            service_format = "%-25s %-15s %-35s %-8s"
-            service_line = service_format % (service_name, source, endpoint, scale)
-            self.banner.console.print(service_line)
-            
-        print()
-        self.banner.console.print("🤖 AI & ML Tier", style="bold bright_green")
-        
-        ai_services_info = [
-            ("  Ollama", service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu'),
-             env_vars.get('OLLAMA_ENDPOINT', 'http://ollama:11434'),
-             env_vars.get('OLLAMA_SCALE', '1')),
-            ("  ComfyUI", service_sources.get('COMFYUI_SOURCE', 'container-cpu'),
-             env_vars.get('COMFYUI_ENDPOINT', 'http://comfyui:18188'),
-             env_vars.get('COMFYUI_SCALE', '1')),
-            ("  Weaviate Vector DB", service_sources.get('WEAVIATE_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('WEAVIATE_PORT')}",
-             env_vars.get('WEAVIATE_SCALE', '1')),
-            ("  Multi2Vec-CLIP", service_sources.get('MULTI2VEC_CLIP_SOURCE', 'container-cpu'),
-             "http://multi2vec-clip:8080", env_vars.get('CLIP_SCALE', '1')),
-            ("  STT Provider (Parakeet)", service_sources.get('STT_PROVIDER_SOURCE', 'disabled'),
-             env_vars.get('PARAKEET_ENDPOINT', ''),
-             env_vars.get('PARAKEET_GPU_SCALE', '0')),
-            ("  TTS Provider (XTTS)", service_sources.get('TTS_PROVIDER_SOURCE', 'disabled'),
-             env_vars.get('XTTS_ENDPOINT', ''),
-             env_vars.get('XTTS_GPU_SCALE', '0')),
-            ("  Doc Processor (Docling)", service_sources.get('DOC_PROCESSOR_SOURCE', 'disabled'),
-             env_vars.get('DOCLING_ENDPOINT', ''),
-             env_vars.get('DOCLING_GPU_SCALE', '0')),
-            ("  OpenClaw Agent", service_sources.get('OPENCLAW_SOURCE', 'disabled'),
-             env_vars.get('OPENCLAW_ENDPOINT', ''),
-             env_vars.get('OPENCLAW_SCALE', '0')),
-            ("  Local Deep Researcher", service_sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('LOCAL_DEEP_RESEARCHER_PORT')}",
-             env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
-        ]
-        
-        for service_name, source, endpoint, scale in ai_services_info:
-            service_format = "%-25s %-15s %-35s %-8s"
-            service_line = service_format % (service_name, source, endpoint, scale)
-            self.banner.console.print(service_line)
-        
-        print()
-        self.banner.console.print("🌐 Application Tier", style="bold bright_cyan")
-        
-        app_services_info = [
-            ("  Open WebUI", service_sources.get('OPEN_WEB_UI_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('OPEN_WEB_UI_PORT')}",
-             env_vars.get('OPEN_WEB_UI_SCALE', '1')),
-            ("  Backend API", service_sources.get('BACKEND_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('BACKEND_PORT')}",
-             env_vars.get('BACKEND_SCALE', '1')),
-            ("  n8n Workflows", service_sources.get('N8N_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('N8N_PORT')}",
-             env_vars.get('N8N_SCALE', '1')),
-            ("  SearxNG Search", service_sources.get('SEARXNG_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('SEARXNG_PORT')}",
-             env_vars.get('SEARXNG_SCALE', '1')),
-            ("  JupyterHub IDE", service_sources.get('JUPYTERHUB_SOURCE', 'container'),
-             f"http://localhost:{env_vars.get('JUPYTERHUB_PORT')}",
-             env_vars.get('JUPYTERHUB_SCALE', '1')),
-        ]
-        
-        for service_name, source, endpoint, scale in app_services_info:
-            service_format = "%-25s %-15s %-35s %-8s"
-            service_line = service_format % (service_name, source, endpoint, scale)
-            self.banner.console.print(service_line)
-        
-        self.banner.show_service_table_footer()
-        
+
+        for name, source_var, access_url, scale in services:
+            source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
+            status, status_style = self._get_service_status(source, scale)
+            source_style = "color(245)" if source == "disabled" else "color(123)"
+
+            # Build access URL text (possibly with hosted endpoint on second line)
+            url_text = Text()
+            if source != 'disabled':
+                url_text.append(access_url, style="bright_cyan")
+                # Add hosted endpoint if hosts are configured for this service
+                hostname = host_url_map.get(name)
+                if hostname and hostname in hosts_configured:
+                    url_text.append(f"\n{hostname}:{kong_port}", style="bright_green")
+
+            table.add_row(
+                name,
+                Text(source, style=source_style),
+                url_text,
+                Text(status, style=status_style),
+            )
+
+        self.banner.console.print(Align.center(table))
+        self.banner.console.print()
+
+        # Confirmation prompt
+        if sys.stdin.isatty():
+            try:
+                from wizard.prompts import prompt_confirmation
+                return prompt_confirmation()
+            except ImportError:
+                pass
+            response = self.banner.console.input(
+                "  [color(245)]Launch the stack? (Y/n):[/color(245)] "
+            ).strip().lower()
+            return response in ('', 'y', 'yes')
+        return True  # non-TTY: auto-confirm
+
+    @staticmethod
+    def _get_service_status(source: str, scale: str) -> tuple:
+        """Get a status label and style for a service based on source and scale."""
+        if source == 'disabled':
+            return "off", "color(245)"
+        if 'localhost' in source:
+            return "local", "bright_cyan"
+        if 'external' in source:
+            return "external", "bright_yellow"
+        if source == 'api':
+            return "API", "bright_yellow"
+        if 'gpu' in source:
+            return "GPU", "bright_green"
+        if scale == '0':
+            return "off", "color(245)"
+        return "on", "bright_green"
+
     def check_comfyui_models(self):
         """Check ComfyUI local models."""
         self.service_config.check_comfyui_local_models()
@@ -846,39 +807,6 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             print("\n🔄 Log viewing interrupted by user")
             print("   Use 'docker compose logs -f' to view logs again")
         
-    def show_final_status(self):
-        """Display final startup status and instructions."""
-        print()
-        self.banner.console.print("🎯 GenAI Vanilla Stack started successfully!", style="bold bright_green")
-        print()
-        print("🌐 Access your services:")
-        
-        env_vars = self.config_parser.parse_env_file()
-        
-        # Access points matching original Bash script exactly
-        print(f"  • Supabase Studio: http://localhost:{env_vars.get('SUPABASE_STUDIO_PORT')}")
-        print(f"  • Open WebUI: http://localhost:{env_vars.get('OPEN_WEB_UI_PORT')}")
-        print(f"  • Backend API: http://localhost:{env_vars.get('BACKEND_PORT')}/docs")
-        print(f"  • n8n Workflows: http://localhost:{env_vars.get('N8N_PORT')}")
-        
-        # ComfyUI only if running
-        comfyui_scale = env_vars.get("COMFYUI_SCALE", "0")
-        if comfyui_scale != "0":
-            print(f"  • ComfyUI: http://localhost:{env_vars.get('COMFYUI_PORT')}")
-
-        # JupyterHub only if running
-        jupyterhub_scale = env_vars.get("JUPYTERHUB_SCALE", "0")
-        if jupyterhub_scale != "0":
-            print(f"  • JupyterHub IDE: http://localhost:{env_vars.get('JUPYTERHUB_PORT')}")
-
-        print(f"  • Neo4j Browser: http://localhost:{env_vars.get('GRAPH_DB_DASHBOARD_PORT')}")
-        print(f"  • Weaviate: http://localhost:{env_vars.get('WEAVIATE_PORT')}/v1")
-        
-        print()
-        self.banner.console.print("🛑 To stop the stack:", style="bold bright_white")
-        self.banner.console.print("  • Standard stop: ./stop.py")
-        self.banner.console.print("  • Cold stop: ./stop.py --cold")
-        print()
 
 
 @click.command()
@@ -922,11 +850,20 @@ Note: SOURCE overrides are temporary and only apply to the current session.
               type=click.Choice(['container', 'localhost',
                                 'disabled'], case_sensitive=False),
               help='Override OPENCLAW_SOURCE')
+@click.option('--neo4j-graph-db-source',
+              type=click.Choice(['container', 'localhost',
+                                'disabled'], case_sensitive=False),
+              help='Override NEO4J_GRAPH_DB_SOURCE')
+@click.option('--multi2vec-clip-source',
+              type=click.Choice(['container-cpu', 'container-gpu',
+                                'disabled'], case_sensitive=False),
+              help='Override MULTI2VEC_CLIP_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
-         doc_processor_source, openclaw_source, help_usage):
+         doc_processor_source, openclaw_source, neo4j_graph_db_source,
+         multi2vec_clip_source, help_usage):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -935,18 +872,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         starter.show_usage()
         return
     
-    # Show banner
-    starter.show_banner()
-    
     try:
-        # Step 1: Check dependencies
-        if not starter.ensure_dependencies_available():
-            sys.exit(1)
-        
-        # Step 1.5: Setup .env file from .env.example if needed
-        if not starter.setup_env_file(cold_start=cold, base_port=base_port):
-            sys.exit(1)
-        
         # Step 1.6: Apply SOURCE overrides from CLI arguments
         source_args = {
             'llm_provider_source': llm_provider_source,
@@ -959,7 +885,61 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'tts_provider_source': tts_provider_source,
             'doc_processor_source': doc_processor_source,
             'openclaw_source': openclaw_source,
+            'neo4j_graph_db_source': neo4j_graph_db_source,
+            'multi2vec_clip_source': multi2vec_clip_source,
         }
+
+        # Step 0: Early sudo check for CLI --setup-hosts flag
+        if setup_hosts:
+            from utils.system import is_elevated as _is_elevated
+            if not _is_elevated():
+                starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
+                starter.banner.console.print("  [bright_white]Please restart with:[/bright_white] [bright_cyan]sudo ./start.sh --setup-hosts[/bright_cyan]")
+                sys.exit(1)
+
+        # Determine if wizard mode — only when NO flags are provided at all
+        wizard_ran = False
+        no_source_flags = all(v is None for v in source_args.values())
+        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts and not help_usage)
+        will_run_wizard = no_source_flags and no_stack_flags and sys.stdin.isatty()
+
+        # Check dependencies early — silently in wizard mode (wizard clears screen)
+        if not will_run_wizard:
+            if not starter.ensure_dependencies_available():
+                sys.exit(1)
+        else:
+            if not starter.docker_manager.check_docker_available():
+                print("❌ Docker is not available. Please install Docker and ensure it's running.")
+                sys.exit(1)
+
+        if will_run_wizard:
+            try:
+                from wizard.interactive_wizard import InteractiveWizard
+
+                # Setup .env first so wizard can read current defaults
+                if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+                    sys.exit(1)
+
+                wizard = InteractiveWizard(starter.config_parser)
+                wizard_source_args, wizard_stack_options = wizard.run()
+                source_args.update(wizard_source_args)
+                base_port = wizard_stack_options.get('base_port', base_port)
+                cold = wizard_stack_options.get('cold', cold)
+                setup_hosts = wizard_stack_options.get('setup_hosts', setup_hosts)
+                skip_hosts = wizard_stack_options.get('skip_hosts', skip_hosts)
+                wizard_ran = True
+            except ImportError:
+                pass  # InquirerPy not installed — continue with .env defaults
+
+        # Show banner for normal mode (wizard already displayed its own)
+        if not wizard_ran:
+            starter.show_banner()
+
+        # Setup .env file (skipped if wizard already did it)
+        if not wizard_ran:
+            if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+                sys.exit(1)
+
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
         
@@ -1002,24 +982,23 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # Step 7: Validate localhost services before starting
         if not starter.validate_localhost_services():
             sys.exit(1)
-        
+
+        # Show pre-launch summary and get confirmation
+        if not starter.show_pre_launch_summary():
+            starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
+            sys.exit(0)
+
         # Step 8: Start Docker services (with fresh build for cold start)
         if not starter.start_docker_services(cold_start=cold):
             sys.exit(1)
-        
+
         # Step 9: Show container status and verify ports
         starter.show_container_status_and_verify_ports()
-        
-        # Step 10: Display service status table
-        starter.display_service_status()
-        
-        # Step 11: Check ComfyUI models
+
+        # Step 10: Check ComfyUI models
         starter.check_comfyui_models()
-        
-        # Step 12: Show final status and access points
-        starter.show_final_status()
-        
-        # Step 13: Show container logs (final step - blocking)
+
+        # Step 11: Show container logs (final step - blocking)
         starter.show_container_logs()
         
     except KeyboardInterrupt:

@@ -103,7 +103,7 @@ class KeyGenerator:
                 backup_path = self.root_dir / f".env.backup.{timestamp}"
                 import shutil
                 shutil.copy2(self.env_file_path, backup_path)
-                print(f"  • Created .env backup: {backup_path}")
+                pass  # silent backup
             
             # Read current content
             with open(self.env_file_path, 'r') as f:
@@ -145,14 +145,10 @@ class KeyGenerator:
         current_value = self.get_current_env_value('N8N_ENCRYPTION_KEY')
         
         if not force and current_value:
-            print(f"  • N8N encryption key already exists: {current_value[:8]}...")
             return True
-        
-        print("  • Generating n8n encryption key...")
+
         new_key = self.generate_n8n_encryption_key()
-        
         if self.update_env_key('N8N_ENCRYPTION_KEY', new_key):
-            print("  • n8n encryption key generated successfully")
             return True
         else:
             return False
@@ -170,14 +166,10 @@ class KeyGenerator:
         current_value = self.get_current_env_value('SEARXNG_SECRET')
         
         if not force and current_value:
-            print(f"  • SearxNG secret already exists: {current_value[:8]}...")
             return True
-        
-        print("  • Generating SearxNG secret key...")
+
         new_secret = self.generate_searxng_secret()
-        
         if self.update_env_key('SEARXNG_SECRET', new_secret):
-            print("  • SearxNG secret key generated successfully")
             return True
         else:
             return False

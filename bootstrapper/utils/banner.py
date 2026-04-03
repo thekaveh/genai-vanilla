@@ -173,7 +173,7 @@ class BannerDisplay:
             self.console.print(centered_line)
 
         # Add tagline
-        tagline = "🚀 Modularized, Cross-Platform Gen-AI Vanilla Stack"
+        tagline = "🚀 Modularized Cross-Platform Gen-AI Vanilla Stack"
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 
@@ -256,7 +256,7 @@ class BannerDisplay:
             message: Message to display
             status: Status type ("info", "success", "warning", "error")
         """
-        icons = {"info": "📋", "success": "✅", "warning": "⚠️", "error": "❌"}
+        icons = {"info": "📋", "success": "✅", "warning": "⚠️ ", "error": "❌"}
 
         colors = {
             "info": "bright_white",
