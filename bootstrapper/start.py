@@ -589,7 +589,6 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         """
         from rich.table import Table
         from rich.text import Text
-        from rich.align import Align
 
         env_vars = self.config_parser.parse_env_file()
         service_sources = self.config_parser.parse_service_sources()
@@ -616,88 +615,100 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         }
 
         # Build the summary table
-        from rich.box import ROUNDED
+        from rich.box import HEAVY_HEAD
         table = Table(
-            title="Configuration Summary",
+            title="Stack Services Overview",
             title_style="bold bright_white",
-            box=ROUNDED,
+            box=HEAVY_HEAD,
             border_style="color(240)",
-            header_style="bold bright_blue",
-            show_lines=False,
+            header_style="bold bright_white",
+            show_lines=True,
             padding=(0, 1),
+            expand=True,
         )
-        table.add_column("Service", style="bright_white", min_width=22, justify="left")
-        table.add_column("Source", min_width=20, justify="left")
-        table.add_column("Endpoint", min_width=40, justify="left")
-        table.add_column("Status", min_width=8, justify="left")
+        table.add_column("PORT", style="color(248)", justify="left", ratio=1, no_wrap=True)
+        table.add_column("SERVICE", style="color(252)", justify="left", ratio=3, no_wrap=True)
+        table.add_column("SOURCE", style="color(248)", justify="left", ratio=3, no_wrap=True)
+        table.add_column("ALIAS", justify="left", ratio=4, no_wrap=True)
+        table.add_column("STATUS", justify="left", ratio=2, no_wrap=True)
 
-        # Service definitions: (display_name, source_var, access_url, scale)
+        # Service definitions: (name, source_var, port_var, scale_var_or_value)
         services = [
             # Infrastructure (always on)
-            ("Supabase Database", "SUPABASE_DB_SOURCE",
-             f"postgresql://localhost:{env_vars.get('SUPABASE_DB_PORT', '')}", "1"),
-            ("Supabase Studio", "SUPABASE_STUDIO_SOURCE",
-             f"http://localhost:{env_vars.get('SUPABASE_STUDIO_PORT', '')}", "1"),
-            ("Redis Cache", "REDIS_SOURCE",
-             f"redis://localhost:{env_vars.get('REDIS_PORT', '')}", "1"),
-            ("Kong API Gateway", "KONG_API_GATEWAY_SOURCE",
-             f"http://localhost:{kong_port}", "1"),
+            ("Supabase Database", "SUPABASE_DB_SOURCE", "SUPABASE_DB_PORT", "1"),
+            ("Supabase Studio", "SUPABASE_STUDIO_SOURCE", "SUPABASE_STUDIO_PORT", "1"),
+            ("Redis Cache", "REDIS_SOURCE", "REDIS_PORT", "1"),
+            ("Kong API Gateway", "KONG_API_GATEWAY_SOURCE", "KONG_HTTP_PORT", "1"),
             # Configurable services
-            ("LLM Provider", "LLM_PROVIDER_SOURCE",
-             f"http://localhost:{env_vars.get('LLM_PROVIDER_PORT', '')}", env_vars.get('OLLAMA_SCALE', '0')),
-            ("ComfyUI", "COMFYUI_SOURCE",
-             f"http://localhost:{env_vars.get('COMFYUI_PORT', '')}", env_vars.get('COMFYUI_SCALE', '0')),
-            ("Weaviate", "WEAVIATE_SOURCE",
-             f"http://localhost:{env_vars.get('WEAVIATE_PORT', '')}/v1", env_vars.get('WEAVIATE_SCALE', '0')),
-            ("Multi2Vec CLIP", "MULTI2VEC_CLIP_SOURCE",
-             "", env_vars.get('CLIP_SCALE', '0')),
-            ("Neo4j Graph DB", "NEO4J_GRAPH_DB_SOURCE",
-             f"http://localhost:{env_vars.get('GRAPH_DB_DASHBOARD_PORT', '')}", env_vars.get('NEO4J_SCALE', '0')),
-            ("STT Provider", "STT_PROVIDER_SOURCE",
-             f"http://localhost:{env_vars.get('STT_PROVIDER_PORT', '')}", env_vars.get('PARAKEET_GPU_SCALE', '0')),
-            ("TTS Provider", "TTS_PROVIDER_SOURCE",
-             f"http://localhost:{env_vars.get('TTS_PROVIDER_PORT', '')}", env_vars.get('XTTS_GPU_SCALE', '0')),
-            ("Document Processor", "DOC_PROCESSOR_SOURCE",
-             f"http://localhost:{env_vars.get('DOC_PROCESSOR_PORT', '')}", env_vars.get('DOCLING_GPU_SCALE', '0')),
-            ("OpenClaw", "OPENCLAW_SOURCE",
-             f"http://localhost:{env_vars.get('OPENCLAW_GATEWAY_PORT', '')}", env_vars.get('OPENCLAW_SCALE', '0')),
-            ("n8n", "N8N_SOURCE",
-             f"http://localhost:{env_vars.get('N8N_PORT', '')}", env_vars.get('N8N_SCALE', '0')),
-            ("SearxNG", "SEARXNG_SOURCE",
-             f"http://localhost:{env_vars.get('SEARXNG_PORT', '')}", env_vars.get('SEARXNG_SCALE', '0')),
-            ("JupyterHub", "JUPYTERHUB_SOURCE",
-             f"http://localhost:{env_vars.get('JUPYTERHUB_PORT', '')}", env_vars.get('JUPYTERHUB_SCALE', '0')),
-            # Adaptive services (always container)
-            ("Open WebUI", "OPEN_WEB_UI_SOURCE",
-             f"http://localhost:{env_vars.get('OPEN_WEB_UI_PORT', '')}", env_vars.get('OPEN_WEB_UI_SCALE', '1')),
-            ("Backend API", "BACKEND_SOURCE",
-             f"http://localhost:{env_vars.get('BACKEND_PORT', '')}/docs", env_vars.get('BACKEND_SCALE', '1')),
-            ("Local Deep Researcher", "LOCAL_DEEP_RESEARCHER_SOURCE",
-             f"http://localhost:{env_vars.get('LOCAL_DEEP_RESEARCHER_PORT', '')}", env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
+            ("LLM Provider", "LLM_PROVIDER_SOURCE", "LLM_PROVIDER_PORT", env_vars.get('OLLAMA_SCALE', '0')),
+            ("ComfyUI", "COMFYUI_SOURCE", "COMFYUI_PORT", env_vars.get('COMFYUI_SCALE', '0')),
+            ("Weaviate", "WEAVIATE_SOURCE", "WEAVIATE_PORT", env_vars.get('WEAVIATE_SCALE', '0')),
+            ("Multi2Vec CLIP", "MULTI2VEC_CLIP_SOURCE", None, env_vars.get('CLIP_SCALE', '0')),
+            ("Neo4j Graph DB", "NEO4J_GRAPH_DB_SOURCE", "GRAPH_DB_DASHBOARD_PORT", env_vars.get('NEO4J_SCALE', '0')),
+            ("STT Provider", "STT_PROVIDER_SOURCE", "STT_PROVIDER_PORT", env_vars.get('PARAKEET_GPU_SCALE', '0')),
+            ("TTS Provider", "TTS_PROVIDER_SOURCE", "TTS_PROVIDER_PORT", env_vars.get('XTTS_GPU_SCALE', '0')),
+            ("Document Processor", "DOC_PROCESSOR_SOURCE", "DOC_PROCESSOR_PORT", env_vars.get('DOCLING_GPU_SCALE', '0')),
+            ("OpenClaw", "OPENCLAW_SOURCE", "OPENCLAW_GATEWAY_PORT", env_vars.get('OPENCLAW_SCALE', '0')),
+            ("n8n", "N8N_SOURCE", "N8N_PORT", env_vars.get('N8N_SCALE', '0')),
+            ("SearxNG", "SEARXNG_SOURCE", "SEARXNG_PORT", env_vars.get('SEARXNG_SCALE', '0')),
+            ("JupyterHub", "JUPYTERHUB_SOURCE", "JUPYTERHUB_PORT", env_vars.get('JUPYTERHUB_SCALE', '0')),
+            # Adaptive services
+            ("Open WebUI", "OPEN_WEB_UI_SOURCE", "OPEN_WEB_UI_PORT", env_vars.get('OPEN_WEB_UI_SCALE', '1')),
+            ("Backend API", "BACKEND_SOURCE", "BACKEND_PORT", env_vars.get('BACKEND_SCALE', '1')),
+            ("Local Deep Researcher", "LOCAL_DEEP_RESEARCHER_SOURCE", "LOCAL_DEEP_RESEARCHER_PORT", env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
         ]
 
-        for name, source_var, access_url, scale in services:
+        # Sort by port number ascending; services with no port go to the end
+        def _sort_key(svc):
+            name, source_var, port_var, _ = svc
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
-            status, status_style = self._get_service_status(source, scale)
-            source_style = "color(245)" if source == "disabled" else "color(123)"
+            if source == 'disabled' or not port_var:
+                return (2, 99999)  # disabled/no-port at the very end
+            if 'localhost' in source:
+                # Sort localhost by their actual port (after container services)
+                import re
+                lp = GenAIStackStarter._get_localhost_port(name, env_vars)
+                match = re.search(r':(\d+)', lp)
+                return (1, int(match.group(1)) if match else 99999)
+            try:
+                return (0, int(env_vars.get(port_var, '99999')))
+            except ValueError:
+                return (2, 99999)
 
-            # Build access URL text (possibly with hosted endpoint on second line)
-            url_text = Text()
-            if source != 'disabled':
-                url_text.append(access_url, style="bright_cyan")
-                # Add hosted endpoint if hosts are configured for this service
-                hostname = host_url_map.get(name)
-                if hostname and hostname in hosts_configured:
-                    url_text.append(f"\n{hostname}:{kong_port}", style="bright_green")
+        services.sort(key=_sort_key)
+
+        for name, source_var, port_var, scale in services:
+            source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
+            status_text, status_style = self._get_service_status(source, scale)
+            source_style = "color(243)" if source == "disabled" else "color(248)"
+
+            # PORT column
+            if source == 'disabled':
+                port_val = "-"
+            elif 'localhost' in source:
+                # Extract the actual localhost port from the service endpoint in .env
+                port_val = self._get_localhost_port(name, env_vars)
+            elif port_var:
+                port_val = f":{env_vars.get(port_var, '?')}"
+            else:
+                port_val = "-"
+
+            # ALIAS column
+            hostname = host_url_map.get(name)
+            if hostname and hostname in hosts_configured and source != 'disabled':
+                alias_text = Text(f"{hostname}:{kong_port}", style="color(75)")
+            else:
+                alias_text = Text("-", style="color(243)")
 
             table.add_row(
+                port_val,
                 name,
                 Text(source, style=source_style),
-                url_text,
-                Text(status, style=status_style),
+                alias_text,
+                Text(status_text, style=status_style),
             )
 
-        self.banner.console.print(Align.center(table))
+        self.banner.console.print(table)
         self.banner.console.print()
 
         # Confirmation prompt
@@ -714,21 +725,44 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         return True  # non-TTY: auto-confirm
 
     @staticmethod
+    def _get_localhost_port(service_name: str, env_vars: dict) -> str:
+        """Extract the actual localhost port from the service's endpoint env var."""
+        import re
+        # Map service display names to their endpoint env variables
+        endpoint_vars = {
+            'LLM Provider': 'OLLAMA_ENDPOINT',
+            'ComfyUI': 'COMFYUI_ENDPOINT',
+            'Weaviate': 'WEAVIATE_URL',
+            'Neo4j Graph DB': 'NEO4J_URI',
+            'STT Provider': 'PARAKEET_ENDPOINT',
+            'TTS Provider': 'XTTS_ENDPOINT',
+            'Document Processor': 'DOCLING_ENDPOINT',
+            'OpenClaw': 'OPENCLAW_ENDPOINT',
+        }
+        var = endpoint_vars.get(service_name)
+        if var:
+            endpoint = env_vars.get(var, '')
+            match = re.search(r':(\d+)', endpoint)
+            if match:
+                return f":{match.group(1)}"
+        return "-"
+
+    @staticmethod
     def _get_service_status(source: str, scale: str) -> tuple:
-        """Get a status label and style for a service based on source and scale."""
+        """Get a status label with ● indicator and style for a service."""
         if source == 'disabled':
-            return "off", "color(245)"
+            return "● off", "color(245)"
         if 'localhost' in source:
-            return "local", "bright_cyan"
+            return "● local", "bright_cyan"
         if 'external' in source:
-            return "external", "bright_yellow"
+            return "● external", "bright_yellow"
         if source == 'api':
-            return "API", "bright_yellow"
+            return "● API", "bright_yellow"
         if 'gpu' in source:
-            return "GPU", "bright_green"
+            return "● GPU", "bright_green"
         if scale == '0':
-            return "off", "color(245)"
-        return "on", "bright_green"
+            return "● off", "color(245)"
+        return "● on", "bright_green"
 
     def check_comfyui_models(self):
         """Check ComfyUI local models."""
