@@ -102,6 +102,10 @@ tmp/
 .claude/
 CLAUDE.md
 
+.kilo
+opencode.json
+.superpowers
+
 # TTS Provider - Cloned repositories
 tts-provider/localhost/openedai-speech/
 tts-provider/localhost/voices/
