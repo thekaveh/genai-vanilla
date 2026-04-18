@@ -59,8 +59,8 @@ docker logs genai-ollama -f
 
 # For localhost setup, ensure models are pre-downloaded
 ollama serve &
-ollama pull qwen2.5:latest
-ollama pull mxbai-embed-large
+ollama pull qwen3.6:latest
+ollama pull qwen3-embedding:0.6b
 ```
 
 **Out of memory during model loading:**

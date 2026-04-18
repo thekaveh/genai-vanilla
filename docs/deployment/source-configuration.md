@@ -72,8 +72,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 ollama serve &
 
 # Pull required models
-ollama pull qwen2.5:latest
-ollama pull mxbai-embed-large
+ollama pull qwen3.6:latest
+ollama pull qwen3-embedding:0.6b
 ```
 
 #### `ollama-external`

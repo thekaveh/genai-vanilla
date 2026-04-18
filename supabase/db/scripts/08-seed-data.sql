@@ -3,17 +3,17 @@
 
 -- Insert default Ollama models (safe to re-run)
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'mxbai-embed-large' AND provider = 'ollama') THEN
-    INSERT INTO public.llms (name, provider, active, embeddings, content) VALUES
-      ('mxbai-embed-large', 'ollama', true, 10, 0);
+  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'qwen3-embedding:0.6b' AND provider = 'ollama') THEN
+    INSERT INTO public.llms (name, provider, active, vision, embeddings, content, description, size_gb, context_window) VALUES
+      ('qwen3-embedding:0.6b', 'ollama', true, 0, 10, 0, 'Multilingual embedding model supporting 100+ languages, #1 on MTEB multilingual leaderboard', 0.6, 32000);
   END IF;
 END $$;
 
--- Insert qwen3:latest as default content LLM for Local Deep Researcher
+-- Insert qwen3.6:latest as default content LLM for Local Deep Researcher
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'qwen3:latest' AND provider = 'ollama') THEN
-    INSERT INTO public.llms (name, provider, active, embeddings, content, description, size_gb, context_window) VALUES
-      ('qwen3:latest', 'ollama', true, 0, 10, 'Latest generation LLM with 100+ language support and strong reasoning capabilities', 5.2, 40000);
+  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'qwen3.6:latest' AND provider = 'ollama') THEN
+    INSERT INTO public.llms (name, provider, active, vision, embeddings, content, description, size_gb, context_window) VALUES
+      ('qwen3.6:latest', 'ollama', true, 10, 0, 10, 'Multi-modal LLM with vision, 100+ language support, and strong reasoning capabilities', 24, 256000);
   END IF;
 END $$;
 
