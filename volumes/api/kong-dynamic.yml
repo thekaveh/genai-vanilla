@@ -182,15 +182,6 @@ services:
     - jupyter.localhost
   plugins:
   - name: cors
-- name: openclaw-api
-  routes:
-  - name: openclaw-api-all
-    strip_path: false
-    hosts:
-    - openclaw.localhost
-  plugins:
-  - name: cors
-  url: http://openclaw-gateway:18789/
 - name: backend-api
   url: http://backend:8000/
   routes:

@@ -379,12 +379,12 @@ class ServiceConfig:
             weaviate_config = self.get_service_config('weaviate', weaviate_source)
             env_vars['WEAVIATE_INIT_SCALE'] = str(weaviate_config.get('scale', 1))
         
-        # OLLAMA_PULL_SCALE: 1 if LLM provider is container mode, 0 otherwise
+        # OLLAMA_PULL_SCALE: 1 unless LLM provider has no Ollama endpoint (disabled/api)
         llm_source = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
-        if llm_source in ['ollama-container-cpu', 'ollama-container-gpu']:
-            env_vars['OLLAMA_PULL_SCALE'] = '1'
-        else:
+        if llm_source in ['disabled', 'api']:
             env_vars['OLLAMA_PULL_SCALE'] = '0'
+        else:
+            env_vars['OLLAMA_PULL_SCALE'] = '1'
             
         # COMFYUI_INIT_SCALE: 1 unless ComfyUI is disabled (init handles both local and container)
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')

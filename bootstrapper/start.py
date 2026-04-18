@@ -370,18 +370,42 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         # Check for port conflicts
         conflicts = self.port_manager.get_port_conflicts(base_port)
         if conflicts:
-            self.banner.show_status_message("Port conflicts detected:", "warning")
-            for port_var, port in conflicts.items():
-                print(f"  • {port_var}: Port {port} is already in use")
-            
-            # Suggest alternative base port
-            suggested_port = self.port_manager.suggest_available_base_port()
-            if suggested_port:
+            # Check if conflicts are from our own project's containers
+            if self.docker_manager.are_project_containers_running():
                 self.banner.show_status_message(
-                    f"Suggested available base port: {suggested_port}",
+                    "Previous instance detected — stopping existing containers...",
                     "info"
                 )
-            return False
+                stop_result = self.docker_manager.stop_services(
+                    remove_volumes=False, remove_orphans=True
+                )
+                if stop_result != 0:
+                    self.banner.show_status_message(
+                        "Failed to stop previous instance", "error"
+                    )
+                    return False
+
+                self.banner.show_status_message(
+                    "Previous instance stopped successfully", "success"
+                )
+
+                # Re-check ports after cleanup
+                conflicts = self.port_manager.get_port_conflicts(base_port)
+
+            # If conflicts remain, show the original error
+            if conflicts:
+                self.banner.show_status_message("Port conflicts detected:", "warning")
+                for port_var, port in conflicts.items():
+                    print(f"  • {port_var}: Port {port} is already in use")
+
+                # Suggest alternative base port
+                suggested_port = self.port_manager.suggest_available_base_port()
+                if suggested_port:
+                    self.banner.show_status_message(
+                        f"Suggested available base port: {suggested_port}",
+                        "info"
+                    )
+                return False
             
         # Update ports in .env file
         if not self.port_manager.update_env_ports(base_port):

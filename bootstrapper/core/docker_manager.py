@@ -372,6 +372,36 @@ class DockerManager:
         print("🔍 Verifying port mappings from Docker...")
         return self.execute_compose_command(['ps'])
         
+    def are_project_containers_running(self) -> bool:
+        """
+        Check if any containers from this project's Docker Compose stack are currently running.
+
+        Uses 'docker compose ps -q' which returns container IDs of running services.
+        An empty result means no containers are running.
+
+        Returns:
+            bool: True if any project containers are running
+        """
+        try:
+            cmd = self.get_compose_command()
+            project_name = self.config_parser.get_project_name()
+            cmd.extend(['-p', project_name])
+            if self.config_parser.env_file_exists():
+                cmd.append('--env-file=.env')
+            cmd.extend(['ps', '-q'])
+
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                check=False
+            )
+
+            return result.returncode == 0 and bool(result.stdout.strip())
+        except Exception:
+            return False
+
     def get_service_port(self, service: str, internal_port: str) -> str:
         """
         Get the actual external port mapped to a service's internal port.

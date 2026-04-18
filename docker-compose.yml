@@ -29,6 +29,9 @@ volumes:
   local-deep-researcher-data:
     name: ${PROJECT_NAME}-local-deep-researcher-data
     driver: local
+  local-deep-researcher-repo:
+    name: ${PROJECT_NAME}-local-deep-researcher-repo
+    driver: local
   searxng-data:
     name: ${PROJECT_NAME}-searxng-data
     driver: local
@@ -443,6 +446,7 @@ services:
       - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
     volumes:
       - local-deep-researcher-data:/app/data
+      - local-deep-researcher-repo:/app/repo
     networks:
       - backend-network
 

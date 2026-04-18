@@ -1,9 +1,40 @@
 #!/bin/bash
 set -e
 
+REPO_URL="https://github.com/langchain-ai/local-deep-researcher.git"
+REPO_DIR="/app/repo"
+
 echo "Local Deep Researcher: Starting initialization..."
 
+# -------------------------------------------------------------------
+# Fetch latest upstream code (clone on first run, pull on restart)
+# -------------------------------------------------------------------
+echo "Local Deep Researcher: Syncing upstream repository..."
+if [ -d "$REPO_DIR/.git" ]; then
+    echo "Local Deep Researcher: Pulling latest changes..."
+    if git -C "$REPO_DIR" pull --ff-only 2>/dev/null; then
+        echo "Local Deep Researcher: Repository updated successfully"
+    else
+        echo "Local Deep Researcher: Pull failed — re-cloning..."
+        rm -rf "$REPO_DIR"
+        git clone "$REPO_URL" "$REPO_DIR"
+    fi
+else
+    echo "Local Deep Researcher: Cloning repository..."
+    rm -rf "$REPO_DIR"
+    git clone "$REPO_URL" "$REPO_DIR"
+fi
+
+# Copy upstream source into working directory (preserving our custom scripts/config)
+cp -r "$REPO_DIR"/src /app/
+cp "$REPO_DIR"/pyproject.toml /app/
+
+echo "Local Deep Researcher: Installing dependencies..."
+uv pip install --system -r /app/pyproject.toml
+
+# -------------------------------------------------------------------
 # Initialize configuration from database
+# -------------------------------------------------------------------
 echo "Local Deep Researcher: Initializing configuration from database..."
 if ! python3 /app/scripts/init-config.py; then
     echo "Local Deep Researcher: ERROR - Failed to initialize configuration"

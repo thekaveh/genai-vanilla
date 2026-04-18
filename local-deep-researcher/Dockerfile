@@ -14,19 +14,11 @@ RUN apt-get update && apt-get install -y \
 # Install uv for faster Python package management
 RUN pip install uv
 
-# Clone the Local Deep Researcher repository
-RUN git clone https://github.com/langchain-ai/local-deep-researcher.git /tmp/local-deep-researcher && \
-    cp -r /tmp/local-deep-researcher/* /app/ && \
-    rm -rf /tmp/local-deep-researcher
-
-# Install Python dependencies using uv
-RUN uv pip install --system -r pyproject.toml
-
 # Install additional dependencies for our custom integration scripts
 RUN uv pip install --system psycopg2-binary
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/config
+RUN mkdir -p /app/data /app/config /app/repo
 
 # Copy initialization scripts
 COPY scripts/ /app/scripts/
