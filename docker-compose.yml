@@ -1076,8 +1076,22 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
+      WEBUI_ADMIN_EMAIL: ${OPEN_WEB_UI_ADMIN_EMAIL:-admin@localhost}
+      WEBUI_ADMIN_PASSWORD: ${OPEN_WEB_UI_ADMIN_PASSWORD:-admin}
+      WEBUI_ADMIN_NAME: ${OPEN_WEB_UI_ADMIN_NAME:-Admin}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       ENABLE_IMAGE_GENERATION: true
+      # TTS integration (openai-compatible via openedai-speech)
+      AUDIO_TTS_ENGINE: ${OPEN_WEB_UI_TTS_ENGINE:-}
+      AUDIO_TTS_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_TTS_API_URL:-}
+      AUDIO_TTS_OPENAI_API_KEY: "sk-unused"
+      AUDIO_TTS_MODEL: ${XTTS_MODEL:-tts-1-hd}
+      AUDIO_TTS_VOICE: "alloy"
+      # STT integration (openai-compatible via parakeet)
+      AUDIO_STT_ENGINE: ${OPEN_WEB_UI_STT_ENGINE:-}
+      AUDIO_STT_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_STT_API_URL:-}
+      AUDIO_STT_OPENAI_API_KEY: "sk-unused"
+      AUDIO_STT_MODEL: "whisper-1"
       # WebSocket Redis Integration
       ENABLE_WEBSOCKET_SUPPORT: "true"
       WEBSOCKET_MANAGER: "redis"
@@ -1089,6 +1103,33 @@ services:
       - ./open-webui/tools:/app/backend/data/tools
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
+    networks:
+      - backend-network
+
+  open-webui-init:
+    build:
+      context: ./open-webui-init
+      args:
+        BASE_IMAGE: ${OPEN_WEB_UI_INIT_IMAGE:-python:3.11-slim}
+    container_name: ${PROJECT_NAME}-open-webui-init
+    restart: "no"
+    deploy:
+      replicas: ${OPEN_WEB_UI_INIT_SCALE:-1}
+    depends_on:
+      open-web-ui:
+        condition: service_started
+      supabase-db-init:
+        condition: service_completed_successfully
+    environment:
+      WEBUI_URL: http://open-web-ui:8080
+      WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      ADMIN_EMAIL: ${OPEN_WEB_UI_ADMIN_EMAIL:-admin@localhost}
+      ADMIN_PASSWORD: ${OPEN_WEB_UI_ADMIN_PASSWORD:-admin}
+      ADMIN_NAME: ${OPEN_WEB_UI_ADMIN_NAME:-Admin}
+      TOOLS_DIR: /tools
+    volumes:
+      - ./open-webui/tools:/tools:ro
     networks:
       - backend-network
 

@@ -109,8 +109,8 @@ class ServiceConfig:
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
         
-        # Generate adaptive service configurations
-        adaptive_configs = self._generate_adaptive_services_config()
+        # Generate adaptive service configurations (pass accumulated vars for endpoint lookups)
+        adaptive_configs = self._generate_adaptive_services_config(all_env_vars=env_vars)
         env_vars.update(adaptive_configs)
         
         return env_vars
@@ -402,18 +402,31 @@ class ServiceConfig:
 
         return env_vars
     
-    def _generate_adaptive_services_config(self) -> Dict[str, str]:
+    def _generate_adaptive_services_config(self, all_env_vars: Dict[str, str] = None) -> Dict[str, str]:
         """Generate configuration for adaptive services."""
         env_vars = {}
         sources = self.config_parser.parse_service_sources()
-        
+
         # Backend always enabled (no SOURCE check - always runs)
         env_vars['BACKEND_SCALE'] = '1'
-        
+
         # Open WebUI - check SOURCE variable
         webui_source = sources.get('OPEN_WEB_UI_SOURCE', 'container')
         env_vars['OPEN_WEB_UI_SCALE'] = '0' if webui_source == 'disabled' else '1'
-        
+        env_vars['OPEN_WEB_UI_INIT_SCALE'] = '0' if webui_source == 'disabled' else '1'
+
+        # Open WebUI adaptive TTS/STT (set engine and API base URL when provider is enabled)
+        # Read endpoints from already-generated env vars (STT/TTS configs run before adaptive)
+        parent_vars = all_env_vars or {}
+        tts_source = sources.get('TTS_PROVIDER_SOURCE', 'disabled')
+        env_vars['OPEN_WEB_UI_TTS_ENGINE'] = 'openai' if tts_source != 'disabled' else ''
+        xtts_endpoint = parent_vars.get('XTTS_ENDPOINT', '')
+        env_vars['OPEN_WEB_UI_TTS_API_URL'] = f'{xtts_endpoint}/v1' if xtts_endpoint else ''
+        stt_source = sources.get('STT_PROVIDER_SOURCE', 'disabled')
+        env_vars['OPEN_WEB_UI_STT_ENGINE'] = 'openai' if stt_source != 'disabled' else ''
+        parakeet_endpoint = parent_vars.get('PARAKEET_ENDPOINT', '')
+        env_vars['OPEN_WEB_UI_STT_API_URL'] = f'{parakeet_endpoint}/v1' if parakeet_endpoint else ''
+
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')
         env_vars['LOCAL_DEEP_RESEARCHER_SCALE'] = '0' if researcher_source == 'disabled' else '1'

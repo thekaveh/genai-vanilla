@@ -16,12 +16,12 @@ if [ -d "$REPO_DIR/.git" ]; then
         echo "Local Deep Researcher: Repository updated successfully"
     else
         echo "Local Deep Researcher: Pull failed — re-cloning..."
-        rm -rf "$REPO_DIR"
+        rm -rf "$REPO_DIR"/.* "$REPO_DIR"/* 2>/dev/null || true
         git clone "$REPO_URL" "$REPO_DIR"
     fi
 else
     echo "Local Deep Researcher: Cloning repository..."
-    rm -rf "$REPO_DIR"
+    rm -rf "$REPO_DIR"/.* "$REPO_DIR"/* 2>/dev/null || true
     git clone "$REPO_URL" "$REPO_DIR"
 fi
 
