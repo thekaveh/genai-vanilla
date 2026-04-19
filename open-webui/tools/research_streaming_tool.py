@@ -110,8 +110,10 @@ class Tools:
                         "research_topic": query  # Deep Researcher expects 'research_topic' not 'query'
                     },
                     "config": {
-                        "max_loops": 3, 
-                        "search_api": "duckduckgo"
+                        "configurable": {
+                            "max_web_research_loops": 3,
+                            "search_api": "searxng"
+                        }
                     }
                 },
                 timeout=self.valves.timeout
@@ -211,7 +213,7 @@ class Tools:
                 if content:
                     result_parts.append(f"## Detailed Findings\n{content}")
                 
-                sources = result.get('sources', [])
+                sources = result.get('sources_gathered', result.get('sources', []))
                 if sources:
                     result_parts.append("## Sources")
                     source_list = []
@@ -255,7 +257,9 @@ class Tools:
         output.append(f"# {title}")
         
         # Handle different possible response structures
-        if 'final_report' in result:
+        if 'running_summary' in result:
+            output.append(f"\n## Research Report\n{result['running_summary']}")
+        elif 'final_report' in result:
             output.append(f"\n## Research Report\n{result['final_report']}")
         elif 'report' in result:
             output.append(f"\n## Research Report\n{result['report']}")
@@ -266,7 +270,7 @@ class Tools:
             output.append(f"\n## Details\n{content}")
         
         # Extract sources if available
-        sources = result.get('sources', [])
+        sources = result.get('sources_gathered', result.get('sources', []))
         if sources:
             output.append("\n## Sources")
             for i, src in enumerate(sources[:5], 1):

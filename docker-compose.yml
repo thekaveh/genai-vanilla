@@ -1081,6 +1081,7 @@ services:
       WEBUI_ADMIN_NAME: ${OPEN_WEB_UI_ADMIN_NAME:-Admin}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       ENABLE_IMAGE_GENERATION: true
+      IMAGE_GENERATION_ENGINE: comfyui
       # TTS integration (openai-compatible via openedai-speech)
       AUDIO_TTS_ENGINE: ${OPEN_WEB_UI_TTS_ENGINE:-}
       AUDIO_TTS_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_TTS_API_URL:-}

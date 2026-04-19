@@ -90,8 +90,10 @@ class Tools:
                             "research_topic": query  # Deep Researcher expects 'research_topic' not 'query'
                         },
                         "config": {
-                            "max_loops": min(self.valves.max_loops, 2),  # Limit loops for stability
-                            "search_api": self.valves.search_api
+                            "configurable": {
+                                "max_web_research_loops": min(self.valves.max_loops, 3),
+                                "search_api": self.valves.search_api
+                            }
                         }
                     },
                     timeout=self.valves.timeout
@@ -132,7 +134,7 @@ class Tools:
                     content_text = ""
                     
                     # Look for common content fields and extract as text
-                    for key in ['final_report', 'report', 'content', 'summary', 'result', 'answer']:
+                    for key in ['running_summary', 'final_report', 'report', 'content', 'summary', 'result', 'answer']:
                         if key in result_data and result_data[key]:
                             content_text = str(result_data[key])
                             break
@@ -175,7 +177,10 @@ class Tools:
             output.append(f"# {str(title)}")
             
             # Handle different possible response structures
-            if 'final_report' in result:
+            if 'running_summary' in result:
+                content = str(result['running_summary'])
+                output.append(f"\n## Research Report\n{content}")
+            elif 'final_report' in result:
                 content = str(result['final_report'])
                 output.append(f"\n## Research Report\n{content}")
             elif 'report' in result:
@@ -191,7 +196,7 @@ class Tools:
                 output.append(f"\n## Raw Result\n{str(result)}")
             
             # Extract sources if available
-            sources = result.get('sources', [])
+            sources = result.get('sources_gathered', result.get('sources', []))
             if sources and isinstance(sources, list):
                 output.append("\n## Sources")
                 for i, src in enumerate(sources[:5], 1):

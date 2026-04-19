@@ -28,6 +28,7 @@ fi
 # Copy upstream source into working directory (preserving our custom scripts/config)
 cp -r "$REPO_DIR"/src /app/
 cp "$REPO_DIR"/pyproject.toml /app/
+cp "$REPO_DIR"/langgraph.json /app/
 
 echo "Local Deep Researcher: Installing dependencies..."
 uv pip install --system -r /app/pyproject.toml
@@ -83,4 +84,4 @@ fi
 
 # Use the langgraph dev command to start the server
 echo "Local Deep Researcher: Executing langgraph dev command..."
-exec uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --host 0.0.0.0 --port 2024
+exec uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --host 0.0.0.0 --port 2024 --no-reload
