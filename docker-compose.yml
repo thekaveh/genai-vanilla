@@ -1102,6 +1102,7 @@ services:
     volumes:
       - open-web-ui-data:/app/backend/data
       - ./open-webui/tools:/app/backend/data/tools
+      - ./open-webui/functions:/app/backend/data/functions
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
     networks:
@@ -1129,8 +1130,10 @@ services:
       ADMIN_PASSWORD: ${OPEN_WEB_UI_ADMIN_PASSWORD:-admin}
       ADMIN_NAME: ${OPEN_WEB_UI_ADMIN_NAME:-Admin}
       TOOLS_DIR: /tools
+      FUNCTIONS_DIR: /functions
     volumes:
       - ./open-webui/tools:/tools:ro
+      - ./open-webui/functions:/functions:ro
     networks:
       - backend-network
 
@@ -1177,6 +1180,14 @@ services:
       PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
       XTTS_ENDPOINT: ${XTTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # LangMem Memory Configuration
+      LANGMEM_ENABLED: ${LANGMEM_ENABLED:-true}
+      LANGMEM_NAMESPACE: ${LANGMEM_MEMORY_NAMESPACE:-default}
+      LANGMEM_AUTO_CONSOLIDATE: ${LANGMEM_AUTO_CONSOLIDATE:-true}
+      LANGMEM_CONSOLIDATION_INTERVAL: ${LANGMEM_CONSOLIDATION_INTERVAL:-86400}
+      LANGMEM_MAX_FACTS_PER_USER: ${LANGMEM_MAX_FACTS_PER_USER:-1000}
+      LANGMEM_EXTRACTION_MODEL: ${LANGMEM_EXTRACTION_MODEL:-}
+      LANGMEM_EMBEDDING_MODEL: ${LANGMEM_EMBEDDING_MODEL:-}
     volumes:
       - ./backend/app:/app
       - backend-data:/app/data

@@ -91,7 +91,7 @@ graph LR
     subgraph AppLayer[Application Layer - Always Container]
         direction TB
         kong-api-gateway[Kong API Gateway<br/>Centralized Routing]:::api
-        backend[Backend API<br/>Adapts to AI Services]:::api
+        backend[Backend API<br/>Adapts to AI Services<br/>+ LangMem Memory]:::api
         open-web-ui[Open-WebUI<br/>Chat Interface]:::ui
         supabase-studio[Supabase Studio<br/>Database Admin]:::ui
         jupyterhub[JupyterHub<br/>Data Science IDE<br/>Adapts to AI Services]:::ui

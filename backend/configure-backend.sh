@@ -15,6 +15,20 @@ else
   echo "backend: Using default Ollama embedding model: $WEAVIATE_OLLAMA_EMBEDDING_MODEL"
 fi
 
+# LangMem memory configuration
+if [ "${LANGMEM_ENABLED:-true}" = "true" ]; then
+  echo "backend: LangMem memory service enabled"
+  echo "backend: Memory namespace: ${LANGMEM_NAMESPACE:-default}"
+  echo "backend: Max facts per user: ${LANGMEM_MAX_FACTS_PER_USER:-1000}"
+  if [ -n "${LANGMEM_EXTRACTION_MODEL}" ]; then
+    echo "backend: Extraction model: ${LANGMEM_EXTRACTION_MODEL}"
+  else
+    echo "backend: Extraction model: (using default content model)"
+  fi
+else
+  echo "backend: LangMem memory service disabled"
+fi
+
 echo "backend: Configuration applied - starting backend service..."
 
 # Execute the original backend command

@@ -38,6 +38,15 @@ The GenAI Vanilla Stack has grown into a comprehensive, modular platform with 30
 - RAG-ready chunking with structure awareness
 - GPU acceleration (4.3x speedup for tables)
 
+**🧠 LangMem Persistent Memory** ✅
+- Automated fact extraction from conversations via Ollama LLM
+- Semantic memory recall via Weaviate with pgvector fallback
+- Memory consolidation and deduplication (nightly via n8n)
+- Open WebUI tool for manual memory management (remember, recall, forget)
+- Auto-extraction filter for conversations
+- Embedded in Backend service (no separate container)
+- Dual vector backend: Weaviate preferred, pgvector fallback
+
 ---
 
 ### Tier 1: High-Priority Candidates

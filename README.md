@@ -124,12 +124,12 @@ graph TB
     Kong --> OpenClaw[OpenClaw Agent]
 
     OpenClaw --> Ollama
-    OpenWebUI --> Backend[Backend API]
+    OpenWebUI --> Backend[Backend API + LangMem Memory]
     Backend --> Ollama[Ollama LLM]
     Backend --> Weaviate[Weaviate Vector DB]
     Backend --> Neo4j[Neo4j Graph DB]
     Backend --> Redis[Redis Cache]
-    Backend --> PostgreSQL[PostgreSQL]
+    Backend --> PostgreSQL[PostgreSQL + pgvector]
 
     JupyterHub --> Ollama
     JupyterHub --> Weaviate
@@ -230,6 +230,7 @@ The stack uses **SOURCE variables** to control how services are deployed:
 - **Docling** - AI-powered document processing with table extraction (IBM Docling, GPU-accelerated)
 - **OpenClaw** - AI agent for messaging platforms (WhatsApp, Telegram, Discord), file management, and task automation
 - **Deep Researcher** - AI-powered research assistant
+- **LangMem** - Persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
 
 ## 4. Usage Guide
 

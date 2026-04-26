@@ -35,6 +35,10 @@ transformers>=4.39.3
 dspy>=2.4.6
 dspy-ai>=2.4.6
 
+# Memory (LangMem-inspired persistent memory)
+pgvector>=0.3.0
+weaviate-client>=4.0.0
+
 # Graph Database
 neo4j>=5.18.0
 langchain-neo4j>=0.1.0

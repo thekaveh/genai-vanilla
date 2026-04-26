@@ -32,6 +32,14 @@ These services only run in Docker containers:
 | **Open WebUI** | `OPEN_WEB_UI_SOURCE` | `container`, `disabled` | Integrated environment |
 | **Backend API** | `BACKEND_SOURCE` | `container`, `disabled` | Service dependencies |
 
+### Feature Flags (Non-SOURCE)
+
+Some features within services are controlled by feature flags rather than SOURCE variables:
+
+| Feature | Variable | Options | Notes |
+|---------|----------|---------|-------|
+| **LangMem Memory** | `LANGMEM_ENABLED` | `true`, `false` | Persistent conversation memory embedded in the Backend service. See [LangMem docs](../services/langmem.md) |
+
 ## Detailed SOURCE Configurations
 
 ### LLM_PROVIDER_SOURCE (Ollama)

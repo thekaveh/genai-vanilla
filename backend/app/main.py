@@ -9,6 +9,26 @@ import httpx
 from n8n_client import N8nClient
 from research_service import ResearchService
 from comfyui_client import ComfyUIClient
+from uuid import UUID as _UUID
+from memory_service import MemoryService
+from memory_models import (
+    MemoryExtractRequest, MemoryRecallRequest, MemoryConsolidateRequest,
+    MemorySummarizeRequest, MemoryUpdateRequest,
+    MemoryFact, MemoryExtractResponse, MemoryRecallResponse,
+    MemoryConsolidateResponse, MemorySummarizeResponse,
+    MemoryListResponse, MemoryHealthResponse,
+)
+
+
+def _validate_uuid_param(value: str, name: str = "parameter"):
+    """Validate a path parameter is a valid UUID, raise 400 if not."""
+    try:
+        _UUID(value)
+    except (ValueError, AttributeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {name}: must be a valid UUID",
+        )
 
 # Get project name from environment
 PROJECT_NAME = os.getenv("PROJECT_NAME", "GenAI Vanilla Stack")
@@ -88,6 +108,9 @@ research_service = ResearchService()
 
 # Initialize ComfyUI client
 comfyui_client = ComfyUIClient()
+
+# Initialize LangMem memory service
+memory_service = MemoryService()
 
 
 class WorkflowExecuteRequest(BaseModel):
@@ -871,3 +894,174 @@ async def delete_comfyui_model(model_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete model: {str(e)}"
         )
+
+
+# =============================================================================
+# LangMem Memory API Endpoints
+# =============================================================================
+
+@app.post("/memory/extract", response_model=MemoryExtractResponse)
+async def memory_extract(request: MemoryExtractRequest):
+    """Extract and store memory facts from conversation messages."""
+    try:
+        result = await memory_service.extract_facts(
+            user_id=request.user_id,
+            messages=request.messages,
+            namespace=request.namespace,
+            conversation_id=request.conversation_id,
+        )
+        return MemoryExtractResponse(**result)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to extract memories: {str(e)}",
+        )
+
+
+@app.post("/memory/recall", response_model=MemoryRecallResponse)
+async def memory_recall(request: MemoryRecallRequest):
+    """Recall relevant memories for a query using semantic search."""
+    try:
+        result = await memory_service.recall(
+            user_id=request.user_id,
+            query=request.query,
+            namespace=request.namespace,
+            limit=request.limit,
+            min_confidence=request.min_confidence,
+        )
+        return MemoryRecallResponse(**result)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to recall memories: {str(e)}",
+        )
+
+
+@app.post("/memory/consolidate", response_model=MemoryConsolidateResponse)
+async def memory_consolidate(request: MemoryConsolidateRequest):
+    """Consolidate and deduplicate user memories."""
+    try:
+        result = await memory_service.consolidate(user_id=request.user_id)
+        return MemoryConsolidateResponse(**result)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to consolidate memories: {str(e)}",
+        )
+
+
+@app.post("/memory/summarize", response_model=MemorySummarizeResponse)
+async def memory_summarize(request: MemorySummarizeRequest):
+    """Generate a natural-language summary of a user's memory profile."""
+    try:
+        result = await memory_service.summarize(
+            user_id=request.user_id, namespace=request.namespace
+        )
+        return MemorySummarizeResponse(**result)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to summarize memories: {str(e)}",
+        )
+
+
+@app.get("/memory/user/{user_id}", response_model=MemoryListResponse)
+async def memory_list(
+    user_id: str,
+    namespace: str = "default",
+    limit: int = 50,
+    offset: int = 0,
+):
+    """List all active memories for a user."""
+    _validate_uuid_param(user_id, "user_id")
+    try:
+        result = await memory_service.list_memories(
+            user_id=user_id,
+            namespace=namespace,
+            limit=min(limit, 100),
+            offset=max(offset, 0),
+        )
+        return MemoryListResponse(**result)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list memories: {str(e)}",
+        )
+
+
+@app.put("/memory/{memory_id}", response_model=Dict[str, Any])
+async def memory_update(memory_id: str, request: MemoryUpdateRequest):
+    """Update a specific memory fact."""
+    _validate_uuid_param(memory_id, "memory_id")
+    try:
+        updates = request.model_dump(exclude_none=True)
+        result = await memory_service.update_memory(memory_id, updates)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Memory {memory_id} not found",
+            )
+        return {"success": True, "memory": result}
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update memory: {str(e)}",
+        )
+
+
+@app.delete("/memory/{memory_id}", response_model=Dict[str, Any])
+async def memory_delete(memory_id: str):
+    """Delete (deactivate) a specific memory fact."""
+    _validate_uuid_param(memory_id, "memory_id")
+    try:
+        success = await memory_service.delete_memory(memory_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Memory {memory_id} not found",
+            )
+        return {"success": True, "message": "Memory deleted successfully"}
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete memory: {str(e)}",
+        )
+
+
+@app.get("/memory/health", response_model=MemoryHealthResponse)
+async def memory_health_check():
+    """Health check for the LangMem memory service."""
+    result = await memory_service.health_check()
+    return MemoryHealthResponse(**result)
