@@ -4,35 +4,33 @@ A flexible, modular GenAI project boilerplate with customizable services.
 
 ![Architecture Diagram](./docs/images/architecture.png)
 
-> **🚀 Get started in 5 minutes** - Complete AI stack with chat UI, workflow automation, vector database, and privacy search.
+## Quick Start
 
-## 🚀 Quick Start
-
-### Zero to Hero in 5 Minutes
+### First-time setup
 
 ```bash
 # 1. Clone the repository
 git clone <your-repository-url> && cd genai-vanilla
 
-# 2. Start with the interactive setup wizard (no configuration needed!)
+# 2. Start with the interactive setup wizard (no configuration needed)
 ./start.sh
 
 # 3. Wait ~5 minutes for AI models to download, then access:
-# 🎨 Open WebUI (Chat): http://localhost:63015
-# 🔧 n8n (Workflows): http://localhost:63002
-# 📊 Supabase Studio: http://localhost:63009
-# 🔍 SearxNG (Search): http://localhost:63014
-# 🖼️ ComfyUI: http://comfyui.localhost:63002
-# 📓 JupyterHub (IDE): http://localhost:63048
+# Open WebUI (Chat):     http://localhost:63015
+# n8n (Workflows):       http://localhost:63002
+# Supabase Studio:       http://localhost:63009
+# SearxNG (Search):      http://localhost:63014
+# ComfyUI:               http://comfyui.localhost:63002
+# JupyterHub (IDE):      http://localhost:63048
 
 # Default credentials:
 # Supabase Studio: admin@example.com / changeme123
-# n8n: admin@example.com / changeme123
+# n8n:             admin@example.com / changeme123
 ```
 
-**What you get:** A complete AI stack with chat UI, workflow automation, vector database, and privacy search - all running locally with CPU.
+The default configuration runs the full stack on CPU: chat UI, workflow automation, vector database, and privacy search.
 
-### ⚡ Quick Options
+### Common option combinations
 
 ```bash
 # Local AI services (faster, less memory)
@@ -55,29 +53,29 @@ git clone <your-repository-url> && cd genai-vanilla
 ./start.sh --llm-provider-source api --comfyui-source disabled
 ```
 
-### 🆘 Quick Fixes
+### Troubleshooting
 
 - **Port conflicts?** → `./start.sh --base-port 64000`
 - **Out of memory?** → Increase Docker memory to 10GB+
 - **Can't access *.localhost?** → Run `./start.sh --setup-hosts`
 - **Want fresh start?** → `./stop.sh --cold && ./start.sh --cold`
 
-### 🧙 Interactive Setup Wizard
+### Interactive setup wizard
 
-Running `./start.sh` with no arguments launches an interactive setup wizard that walks you through configuring every service step by step:
+Running `./start.sh` with no arguments launches an interactive setup wizard that walks through configuring every service step by step:
 
-- **Step-by-step service configuration** with descriptions and contextual hints (GPU requirements, localhost options, etc.)
-- **Live progress bar** tracking your progress through all configuration steps
-- **Real-time command preview** showing the equivalent CLI command as you make selections
-- **Dependency validation** that warns if you enable a service without its required dependencies
-- **Pre-launch summary table** with all endpoints and access URLs before starting
-- **Keyboard shortcuts**: `Escape` to restart from the beginning, `Ctrl+C` to quit
+- Step-by-step service configuration with descriptions and contextual hints (GPU requirements, localhost options, etc.)
+- Live progress bar tracking your progress through all configuration steps
+- Real-time command preview showing the equivalent CLI command as you make selections
+- Dependency validation that warns if you enable a service without its required dependencies
+- Pre-launch summary table with all endpoints and access URLs before starting
+- Keyboard shortcuts: `Escape` to restart from the beginning, `Ctrl+C` to quit
 
 The wizard covers all configurable services, base port selection, cold start option, and hosts file setup. After reviewing the configuration summary, confirm to launch the stack.
 
-> For advanced users who prefer CLI flags, all options remain available. See [Command Line Interface](#41-command-line-interface) or the [Interactive Setup Wizard Guide](docs/quick-start/interactive-setup-wizard.md).
+> For users who prefer CLI flags, all options remain available. See [Command Line Interface](#41-command-line-interface) or the [Interactive Setup Wizard Guide](docs/quick-start/interactive-setup-wizard.md).
 
-## 📖 Table of Contents
+## Table of contents
 
 - [Overview](#1-overview)
 - [Getting Started](#2-getting-started)
@@ -86,7 +84,7 @@ The wizard covers all configurable services, base port selection, cold start opt
 - [Advanced Configuration](#5-advanced-configuration)
 - [Development](#6-development)
 - [Troubleshooting](#7-troubleshooting)
-- [Documentation](#-documentation)
+- [Documentation](#documentation)
 
 ## 1. Overview
 
@@ -94,23 +92,23 @@ The wizard covers all configurable services, base port selection, cold start opt
 
 GenAI Vanilla Stack is a customizable multi-service architecture for AI applications, featuring:
 
-- **🔧 Dynamic Service Configuration**: SOURCE-based deployment with CLI overrides
-- **🌐 Intelligent Kong Gateway**: Auto-generated routes based on active services  
-- **💻 Cross-Platform Support**: Python-based bootstrapping works on all OS
-- **🔄 Flexible Deployment**: Mix containerized, localhost, and external services
-- **🚀 GPU Ready**: Support for GPU acceleration and cloud deployment (AWS ECS compatible)
-- **🏗️ Core services**: Supabase ecosystem, Neo4j, Redis, Ollama, FastAPI backend, Kong Gateway
+- **Dynamic service configuration**: SOURCE-based deployment with CLI overrides
+- **Kong gateway**: auto-generated routes based on active services
+- **Cross-platform support**: Python-based bootstrapping works on all OS
+- **Flexible deployment**: mix containerized, localhost, and external services
+- **GPU support**: container variants with NVIDIA GPU access for inference services
+- **Core services**: Supabase ecosystem, Neo4j, Redis, Ollama, FastAPI backend, Kong Gateway
 
-### 1.2 Key Features
+### 1.2 Key features
 
-- **API Gateway (Kong)**: Centralized API management with dynamic routing
-- **Real-time Data Sync**: Live database notifications via Supabase Realtime
-- **Flexible Service Sources**: Switch between container/localhost/external/cloud services
-- **Modular Architecture**: Choose service combinations via SOURCE variables
-- **Environment-based Config**: Easy configuration through environment variables
-- **Cross-platform Python Scripts**: Consistent behavior across Windows, macOS, Linux
+- **API gateway (Kong)**: centralized API management with dynamic routing
+- **Real-time data sync**: live database notifications via Supabase Realtime
+- **Flexible service sources**: switch between container, localhost, external, and cloud variants
+- **Modular architecture**: choose service combinations via SOURCE variables
+- **Environment-based config**: configuration through environment variables
+- **Cross-platform Python scripts**: consistent behavior across Windows, macOS, Linux
 
-### 1.3 Architecture Overview
+### 1.3 Architecture overview
 
 ```mermaid
 graph TB
@@ -140,38 +138,38 @@ graph TB
 
 ## 2. Getting Started
 
-### 2.1 Getting Started Summary
+### 2.1 Getting started summary
 
-**New to the stack?** → Use containers with `./start.sh` for the easiest experience  
-**Have local Ollama?** → Use `./start.sh --llm-provider-source ollama-localhost` for better performance  
-**Have NVIDIA GPU?** → Use `./start.sh --comfyui-source container-gpu` for maximum speed  
-**Need cloud APIs?** → Use `./start.sh --llm-provider-source api` for OpenAI/Anthropic integration  
-**Limited resources?** → Disable services with `--n8n-source disabled --searxng-source disabled`
+- **New to the stack?** → Use containers with `./start.sh` for the easiest experience
+- **Have local Ollama?** → Use `./start.sh --llm-provider-source ollama-localhost` for better performance
+- **Have NVIDIA GPU?** → Use `./start.sh --comfyui-source container-gpu` for image generation acceleration
+- **Need cloud APIs?** → Use `./start.sh --llm-provider-source api` for OpenAI/Anthropic integration
+- **Limited resources?** → Disable services with `--n8n-source disabled --searxng-source disabled`
 
-The SOURCE-based configuration system provides a simple and flexible way to customize your deployment.
+The SOURCE-based configuration system controls how each service is deployed.
 
 ### 2.2 Prerequisites
 
-- **Docker & Docker Compose** - Container orchestration
-- **Python 3.10+** - For start/stop scripts
+- **Docker & Docker Compose** — container orchestration
+- **Python 3.10+** — for start/stop scripts
 - **8GB+ RAM** allocated to Docker (12GB recommended)
 - **10GB+ disk space** for Docker volumes
 
-**Install UV (recommended)** for better Python dependency management:
+**Install UV (recommended)** for Python dependency management:
 ```bash
 pip install uv
 ```
 
 ### 2.2 Installation
 
-#### Quick Install (Recommended)
+#### Quick install (recommended)
 ```bash
 git clone <repository-url>
 cd genai-vanilla
-./start.sh  # That's it!
+./start.sh
 ```
 
-#### Custom Configuration
+#### Custom configuration
 ```bash
 # Edit configuration before starting
 cp .env.example .env
@@ -179,62 +177,62 @@ cp .env.example .env
 ./start.sh
 ```
 
-### 2.3 SOURCE System
+### 2.3 SOURCE system
 
-The stack uses **SOURCE variables** to control how services are deployed:
+The stack uses **SOURCE variables** to control how services are deployed.
 
 **Services that support localhost:**
-- ✅ **Ollama** (`LLM_PROVIDER_SOURCE=ollama-localhost`) - Use local Ollama installation
-- ✅ **ComfyUI** (`COMFYUI_SOURCE=localhost`) - Use local ComfyUI (port 8188)
-- ✅ **Weaviate** (`WEAVIATE_SOURCE=localhost`) - Use local Weaviate instance
-- ✅ **OpenClaw** (`OPENCLAW_SOURCE=localhost`) - Use local OpenClaw installation
+- **Ollama** (`LLM_PROVIDER_SOURCE=ollama-localhost`) — use local Ollama installation
+- **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI (port 8188)
+- **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
+- **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
 
 **Container-only services:**
-- ❌ **N8N** (`N8N_SOURCE=container|disabled`) - Workflow automation
-- ❌ **SearxNG** (`SEARXNG_SOURCE=container|disabled`) - Privacy search
-- ❌ **Open WebUI** (`OPEN_WEB_UI_SOURCE=container|disabled`) - Chat interface
-- ❌ **Backend API** (`BACKEND_SOURCE=container|disabled`) - FastAPI backend
-- ❌ **JupyterHub** (`JUPYTERHUB_SOURCE=container|disabled`) - Data Science IDE
+- **n8n** (`N8N_SOURCE=container|disabled`) — workflow automation
+- **SearxNG** (`SEARXNG_SOURCE=container|disabled`) — privacy search
+- **Open WebUI** (`OPEN_WEB_UI_SOURCE=container|disabled`) — chat interface
+- **Backend API** (`BACKEND_SOURCE=container|disabled`) — FastAPI backend
+- **JupyterHub** (`JUPYTERHUB_SOURCE=container|disabled`) — data science IDE
 
 ## 3. Core Services
 
-### 3.1 Service Overview
+### 3.1 Service overview
 
-| Service | URL | Purpose | Auth Required |
+| Service | URL | Purpose | Auth required |
 |---------|-----|---------|---------------|
-| **Open WebUI** | http://localhost:63015 | AI Chat Interface | Create account |
-| **n8n** | http://n8n.localhost:63002 | Workflow Automation | admin@example.com |
-| **Supabase Studio** | http://localhost:63009 | Database Management | admin@example.com |
-| **ComfyUI** | http://comfyui.localhost:63002 | Image Generation | None |
-| **SearxNG** | http://search.localhost:63002 | Privacy Search | None |
-| **JupyterHub** | http://localhost:63048 | Data Science IDE | Token (optional) |
-| **Neo4j Browser** | http://localhost:63011 | Graph Database | neo4j / password |
+| **Open WebUI** | http://localhost:63015 | AI chat interface | Create account |
+| **n8n** | http://n8n.localhost:63002 | Workflow automation | admin@example.com |
+| **Supabase Studio** | http://localhost:63009 | Database management | admin@example.com |
+| **ComfyUI** | http://comfyui.localhost:63002 | Image generation | None |
+| **SearxNG** | http://search.localhost:63002 | Privacy search | None |
+| **JupyterHub** | http://localhost:63048 | Data science IDE | Token (optional) |
+| **Neo4j Browser** | http://localhost:63011 | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63000 | REST API | API key |
 | **Ollama API** | http://localhost:63004 | LLM API | None |
-| **Parakeet STT** | http://localhost:63022 | Speech-to-Text | None |
-| **XTTS v2 TTS** | http://localhost:63023 | Text-to-Speech | None |
-| **Docling Processor** | http://localhost:63021 | Document Processing | None |
-| **OpenClaw Agent** | http://openclaw.localhost:63002 | AI Agent (Messaging) | Token (optional) |
+| **Parakeet STT** | http://localhost:63022 | Speech-to-text | None |
+| **XTTS v2 TTS** | http://localhost:63023 | Text-to-speech | None |
+| **Docling Processor** | http://localhost:63021 | Document processing | None |
+| **OpenClaw Agent** | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
 
-### 3.2 Database Layer
-- **PostgreSQL (Supabase)** - Primary database with auth, storage, realtime
-- **Neo4j** - Graph database for relationships and graph queries  
-- **Weaviate** - Vector database for embeddings and semantic search
-- **Redis** - Cache and message queue
+### 3.2 Database layer
+- **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
+- **Neo4j** — graph database for relationships and graph queries
+- **Weaviate** — vector database for embeddings and semantic search
+- **Redis** — cache and message queue
 
-### 3.3 AI Services
-- **Ollama** - Local LLM inference (supports CPU/GPU/localhost)
-- **ComfyUI** - AI image generation with workflows
-- **Parakeet STT** - Speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
-- **XTTS v2 TTS** - Text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
-- **Docling** - AI-powered document processing with table extraction (IBM Docling, GPU-accelerated)
-- **OpenClaw** - AI agent for messaging platforms (WhatsApp, Telegram, Discord), file management, and task automation
-- **Deep Researcher** - AI-powered research assistant
-- **LangMem** - Persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
+### 3.3 AI services
+- **Ollama** — local LLM inference (supports CPU/GPU/localhost)
+- **ComfyUI** — image generation with workflows
+- **Parakeet STT** — speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
+- **XTTS v2 TTS** — text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
+- **Docling** — document processing with table extraction (IBM Docling, GPU-accelerated)
+- **OpenClaw** — AI agent for messaging platforms (WhatsApp, Telegram, Discord), file management, and task automation
+- **Deep Researcher** — research assistant
+- **LangMem** — persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
 
 ## 4. Usage Guide
 
-### 4.1 Command Line Interface
+### 4.1 Command line interface
 
 ```bash
 # Interactive wizard (recommended for first-time setup)
@@ -263,45 +261,41 @@ The stack uses **SOURCE variables** to control how services are deployed:
 ./start.sh --cold --base-port 55666 --llm-provider-source ollama-localhost
 ```
 
-#### Stop Script Options
+#### Stop script options
 
 ```bash
 # Basic stop commands
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data (destructive!)
+./stop.sh --cold             # Stop and remove all data (destructive)
 ./stop.sh --clean-hosts      # Remove *.localhost entries from hosts file
-./stop.sh --help            # Show all options
+./stop.sh --help             # Show all options
 
-# The --cold option removes all Docker volumes (data loss!)
-# Use with caution - all database data will be permanently deleted
+# The --cold option removes all Docker volumes (data loss).
+# Use with caution — all database data will be permanently deleted.
 ```
 
-### 4.2 Service Access Patterns
+### 4.2 Service access patterns
 
-**Direct Access:**
+**Direct access:**
 - Most services accessible directly via `http://localhost:PORT`
-- Good for development and debugging
+- Suitable for development and debugging
 
-**Kong Gateway Routing:**
+**Kong gateway routing:**
 - Services with `*.localhost` URLs route through Kong
 - Provides centralized authentication and rate limiting
 - Requires hosts file setup: `./start.sh --setup-hosts`
 
 ## 5. Advanced Configuration
 
-### 5.1 Custom Deployments
+### 5.1 Custom deployments
 
 See [docs/deployment/source-configuration.md](docs/deployment/source-configuration.md) for detailed SOURCE configuration guides.
 
-### 5.2 GPU Setup
+### 5.2 GPU setup
 
-See [docs/deployment/gpu-setup.md](docs/deployment/gpu-setup.md) for NVIDIA GPU acceleration setup.
+For NVIDIA GPU acceleration, set the relevant SOURCE variables to a `*-container-gpu` variant (e.g., `LLM_PROVIDER_SOURCE=ollama-container-gpu`, `COMFYUI_SOURCE=container-gpu`, `STT_PROVIDER_SOURCE=parakeet-container-gpu`). See [docs/deployment/source-configuration.md](docs/deployment/source-configuration.md) for the full list of GPU variants per service.
 
-### 5.3 Development Setup
-
-See [docs/development/](docs/development/) for development guides and API documentation.
-
-### 5.4 Using as Infrastructure Foundation
+### 5.3 Using as infrastructure foundation
 
 GenAI Vanilla can be used as a git submodule to provide infrastructure for your projects:
 
@@ -328,10 +322,10 @@ cp .env.example .env
 - Standard git workflow for contributing changes upstream
 - Multiple isolated instances with separate Docker resources
 
-**Integration Patterns:**
-1. **Docker Network** - Connect your services to `${PROJECT_NAME}-network`
-2. **Kong Gateway** - Use Kong as single entry point (port 63002)
-3. **Direct Access** - Access services via exposed ports
+**Integration patterns:**
+1. **Docker network** — connect your services to `${PROJECT_NAME}-network`
+2. **Kong gateway** — use Kong as single entry point (port 63002)
+3. **Direct access** — access services via exposed ports
 
 See [docs/deployment/submodule-usage.md](docs/deployment/submodule-usage.md) for the complete guide including:
 - Detailed setup instructions
@@ -341,78 +335,68 @@ See [docs/deployment/submodule-usage.md](docs/deployment/submodule-usage.md) for
 
 ## 6. Development
 
-### 6.1 Project Structure
+### 6.1 Project structure
 ```
 genai-vanilla/
 ├── bootstrapper/              # Python bootstrapping scripts
 ├── services/                  # Service definitions
 ├── volumes/                   # Persistent data
-├── docs/                      # Detailed documentation
+├── docs/                      # Documentation
 ├── docker-compose.yml         # Main compose file
 ├── .env.example              # Configuration template
 ├── start.sh                  # Start script
 └── stop.sh                   # Stop script
 ```
 
-### 6.2 Adding Services
+### 6.2 Adding services
 
-See [docs/development/adding-services.md](docs/development/adding-services.md) for guide on adding new services to the stack.
+New services are declared in `bootstrapper/service-configs.yml` (under `source_configurable` or `adaptive_services`) and wired into `docker-compose.yml`. The bootstrapper computes ports, generates Kong routes, and adapts dependent services automatically.
 
 ## 7. Troubleshooting
 
-### 7.1 Common Issues
+### 7.1 Common issues
 
-**Port Conflicts:**
+**Port conflicts:**
 ```bash
 ./start.sh --base-port 64000  # Use different port range
 lsof -i :63015               # Check what's using port
 ```
 
-**Memory Issues:**
+**Memory issues:**
 ```bash
 # Increase Docker memory in Docker Desktop
 # Settings → Resources → Memory (set to 10-12GB)
 ```
 
-**Service Health:**
+**Service health:**
 ```bash
 docker compose ps            # Check service status
 docker logs genai-ollama -f  # Check specific service logs
 ```
 
-### 7.2 Detailed Troubleshooting
+### 7.2 Detailed troubleshooting
 
-For comprehensive troubleshooting guides, see [docs/quick-start/troubleshooting.md](docs/quick-start/troubleshooting.md).
+For longer-form troubleshooting guides, see [docs/quick-start/troubleshooting.md](docs/quick-start/troubleshooting.md).
 
-## 📚 Documentation
+## Documentation
 
-### Detailed Documentation
-- [📖 Complete Documentation](docs/README.md) - Full documentation index
-- [⚡ Quick Start Guides](docs/quick-start/) - Installation and first-run guides
-- [🔧 Service Documentation](docs/services/) - Individual service guides
-- [🚀 Deployment Guides](docs/deployment/) - Deployment options and configuration
-- [💻 Development Docs](docs/development/) - Architecture and development guides
-- [⚙️ Operations](docs/operations/) - Monitoring, backup, and maintenance
-- [📋 Reference](docs/reference/) - CLI commands, environment variables, etc.
+- [Documentation index](docs/README.md)
+- [Quick Start guides](docs/quick-start/) — installation and first-run
+- [Service documentation](docs/services/) — individual service guides
+- [Deployment guides](docs/deployment/) — deployment options and configuration
+- [ROADMAP.md](docs/ROADMAP.md) — future development plans
+- [CHANGELOG.md](docs/CHANGELOG.md) — release history
 
-### Additional Resources
-- [🗺️ ROADMAP.md](docs/ROADMAP.md) - Future development plans
-- [📝 CHANGELOG.md](docs/CHANGELOG.md) - Release history and completed features
+## Contributing
 
-## 🤝 Contributing
+Contributions welcome. Open a PR or an issue to propose changes.
 
-We welcome contributions! See [docs/development/contributing.md](docs/development/contributing.md) for guidelines.
-
-## 📄 License
+## License
 
 [MIT License](LICENSE)
 
-## 🆘 Support
+## Support
 
-- 📖 Check the [documentation](docs/README.md)
-- 🐛 Report issues on [GitHub Issues](https://github.com/your-repo/issues)
-- 💬 Ask questions in [GitHub Discussions](https://github.com/your-repo/discussions)
-
----
-
-**GenAI Vanilla Stack** - Your foundation for AI application development 🚀
+- Check the [documentation](docs/README.md)
+- Report issues on [GitHub Issues](https://github.com/your-repo/issues)
+- Ask questions in [GitHub Discussions](https://github.com/your-repo/discussions)

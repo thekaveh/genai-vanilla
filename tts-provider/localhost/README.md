@@ -154,7 +154,7 @@ The server starts quickly, but the first TTS generation request will trigger the
 openedai-speech is a compatibility wrapper that:
 - **Provides**: OpenAI `/v1/audio/speech` API format
 - **Uses**: Coqui XTTS v2 as the backend TTS engine
-- **Enables**: Seamless integration with Open WebUI and other OpenAI-compatible clients
+- **Enables**: integration with Open WebUI and other OpenAI-compatible clients via the OpenAI API shape
 
 ```
 TTS Stack Architecture:

@@ -4,19 +4,20 @@ Docker operations manager for compose commands and Docker availability checking.
 Python implementation of Docker functions from start.sh and stop.sh.
 """
 
+import signal
 import subprocess
-from typing import List, Optional
+from typing import Callable, List, Optional
 from pathlib import Path
 from core.config_parser import ConfigParser
 
 
 class DockerManager:
     """Manages Docker operations and compose commands."""
-    
+
     def __init__(self, root_dir: Optional[str] = None):
         """
         Initialize Docker manager.
-        
+
         Args:
             root_dir: Root directory containing docker-compose files and .env
         """
@@ -25,9 +26,15 @@ class DockerManager:
             self.root_dir = Path(__file__).resolve().parent.parent.parent
         else:
             self.root_dir = Path(root_dir)
-            
+
         self.config_parser = ConfigParser(str(self.root_dir))
         self._compose_cmd = None
+
+        # Callback for the "Command: docker compose …" echo. Defaults to
+        # builtin print so the legacy linear flow is unchanged. The Live
+        # presentation sets this to `app.log` to route the echo through the
+        # log pane in dim style.
+        self._on_command: Callable[[str], None] = print
     
     def detect_docker_compose_command(self) -> str:
         """
@@ -109,9 +116,9 @@ class DockerManager:
             full_cmd.extend(['--env-file=.env'])
 
         full_cmd.extend(args)
-        
-        print(f"      Command: {' '.join(full_cmd)}")
-        
+
+        self._on_command(f"      Command: {' '.join(full_cmd)}")
+
         try:
             # Run the command in the root directory
             # Docker Compose will read the .env file directly via --env-file flag
@@ -122,8 +129,18 @@ class DockerManager:
             )
             return result.returncode
         except Exception as e:
-            print(f"❌ Error executing docker compose command: {e}")
+            self._on_command(f"❌ Error executing docker compose command: {e}")
             return 1
+
+    def set_command_echo_callback(self, callback: Callable[[str], None]) -> None:
+        """
+        Override where 'Command: docker compose …' echoes get routed.
+
+        The Live presentation passes app.log here so command echoes appear
+        in the windowed log pane (in dim style) rather than as raw stdout
+        breaking the alternate screen. Reset to `print` for the legacy flow.
+        """
+        self._on_command = callback
     
     def stop_services(self, remove_volumes: bool = False, remove_orphans: bool = True) -> int:
         """
@@ -238,17 +255,9 @@ class DockerManager:
         return self.detect_docker_compose_command().split()
     
     def perform_cold_start_cleanup(self) -> bool:
-        """
-        Perform comprehensive cold start cleanup as per the original start.sh script.
-        This includes:
-        1. Stop containers and remove orphans
-        2. Remove volumes  
-        3. Remove project network
-        4. Aggressive system prune with volumes
-        5. General system prune
-        
-        Returns:
-            bool: True if all operations succeeded
+        """Stop containers, remove volumes and orphans, drop the project network, and prune the Docker system (twice — once with volumes, once general).
+
+        Returns True if every step succeeded.
         """
         project_name = self.config_parser.get_project_name()
         all_successful = True
@@ -281,15 +290,9 @@ class DockerManager:
         return all_successful
     
     def perform_cold_stop_cleanup(self) -> bool:
-        """
-        Perform comprehensive cold stop cleanup as per the original stop.sh script.
-        This includes:
-        1. Stop containers, remove volumes and orphans
-        2. Remove project networks
-        3. System prune with volumes
-        
-        Returns:
-            bool: True if all operations succeeded
+        """Stop containers, remove volumes and orphans, drop project networks, and prune the Docker system with volumes.
+
+        Returns True if every step succeeded.
         """
         project_name = self.config_parser.get_project_name()
         all_successful = True
@@ -444,16 +447,168 @@ class DockerManager:
         """
         Show container logs using docker compose logs.
         Replicates the 'execute_compose_cmd logs -f' from original start.sh.
-        
+
         Args:
             follow: Whether to follow logs (default True)
-            
+
         Returns:
             int: Return code from the command
         """
         args = ['logs']
         if follow:
             args.append('-f')
-            
+
         print("📋 Container logs (press Ctrl+C to exit):")
         return self.execute_compose_command(args)
+
+    # --- Streaming variants for the Live-region presentation -----------------
+    # These replace the TTY-passthrough `execute_compose_command` for the
+    # log-streaming and long-running build/cleanup phases. Without piping
+    # and line-buffering, the alternate-screen Live region would be torn up
+    # by raw subprocess output.
+
+    def _build_compose_command(self, args: List[str], use_env_file: bool = True) -> List[str]:
+        """
+        Internal helper — build the full `docker compose` argv with project
+        name and --env-file flag, mirroring `execute_compose_command` but
+        without running it. Used by the streaming variants below.
+        """
+        full_cmd = self.detect_docker_compose_command().split()
+        project_name = self.config_parser.get_project_name()
+        full_cmd.extend(['-p', project_name])
+        if use_env_file and self.config_parser.env_file_exists():
+            full_cmd.extend(['--env-file=.env'])
+        full_cmd.extend(args)
+        return full_cmd
+
+    def stream_compose(
+        self,
+        args: List[str],
+        on_line: Callable[[str], None],
+        use_env_file: bool = True,
+    ) -> int:
+        """
+        Run a docker compose command with stdout piped, line-buffered, and
+        forwarded to `on_line` per line. Used for cold-start cleanup, image
+        build, and `up -d` so their output flows into the log pane instead
+        of inheriting (and tearing up) the Live region's alternate screen.
+
+        bufsize=1 + text=True is essential — without it Python block-buffers
+        piped stdout and the log pane stalls then bursts.
+
+        Returns the subprocess exit code.
+        """
+        full_cmd = self._build_compose_command(args, use_env_file=use_env_file)
+        self._on_command(f"      Command: {' '.join(full_cmd)}")
+
+        try:
+            proc = subprocess.Popen(
+                full_cmd,
+                cwd=str(self.root_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+                text=True,
+            )
+        except Exception as e:
+            on_line(f"❌ Error launching docker compose: {e}")
+            return 1
+
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                on_line(line.rstrip("\n"))
+            return proc.wait()
+        except KeyboardInterrupt:
+            return self._terminate_subprocess(proc)
+
+    def stream_logs(self, on_line: Callable[[str], None]) -> int:
+        """
+        Run `docker compose logs -f` with stdout piped and forwarded line
+        by line to `on_line`. Replaces show_container_logs's passthrough
+        behavior when the Live region is active.
+
+        Blocks until the subprocess exits or the caller raises
+        KeyboardInterrupt; on Ctrl+C, sends SIGINT to the subprocess and
+        waits up to 3 s before SIGKILL so the user gets a clean detach.
+        """
+        return self.stream_compose(['logs', '-f'], on_line=on_line)
+
+    @staticmethod
+    def _terminate_subprocess(proc: subprocess.Popen) -> int:
+        """Best-effort clean termination — SIGINT, wait 3 s, then SIGKILL."""
+        try:
+            proc.send_signal(signal.SIGINT)
+            try:
+                return proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                return proc.wait()
+        except Exception:
+            return 1
+
+    def get_services_status(self) -> dict:
+        """
+        Run `docker compose ps --format json` and return a dict of
+        {service_name: state_string}, where state_string is one of
+        "running" | "starting" | "unhealthy" | "stopped".
+
+        Tolerates both line-delimited JSON (Compose ≥ 2.21) and the older
+        single-array shape. Failures (timeout, docker stopped, malformed
+        JSON) return an empty dict so the caller can fall back to .env
+        configured state without crashing.
+        """
+        import json
+
+        full_cmd = self._build_compose_command(['ps', '--format', 'json'])
+        try:
+            result = subprocess.run(
+                full_cmd,
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return {}
+
+        if result.returncode != 0 or not result.stdout.strip():
+            return {}
+
+        # Try parsing as a single JSON array first; fall back to JSONL.
+        entries = []
+        try:
+            parsed = json.loads(result.stdout)
+            entries = parsed if isinstance(parsed, list) else [parsed]
+        except json.JSONDecodeError:
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue  # skip malformed lines, keep going
+
+        snapshot = {}
+        for e in entries:
+            service = e.get("Service") or e.get("Name") or ""
+            if not service:
+                continue
+            state = (e.get("State") or "").lower()
+            health = (e.get("Health") or "").lower()
+
+            if state == "running" and health in ("healthy", "", "none"):
+                snapshot[service] = "running"
+            elif health == "unhealthy":
+                snapshot[service] = "unhealthy"
+            elif health == "starting" or state in ("created", "restarting"):
+                snapshot[service] = "starting"
+            elif state == "exited":
+                snapshot[service] = "stopped"
+            else:
+                # Unknown state — show as starting so the user sees something
+                # is happening rather than a stale "off" dot.
+                snapshot[service] = "starting"
+        return snapshot

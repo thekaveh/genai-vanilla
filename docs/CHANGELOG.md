@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CLI option: `--jupyterhub-source [container|disabled]`
   - Default port: 63048 (offset +48 from base port)
   - Environment check notebook for service connectivity verification
-- New comprehensive documentation structure in `/docs/`
+- New documentation structure under `/docs/`
 - ROADMAP.md with future development plans
 - CHANGELOG.md for tracking project history
 
@@ -34,48 +34,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved documentation organization and navigation
 - Architecture diagrams updated to include JupyterHub service
 
-## [2.0.0] - 2024-12-XX (Python Migration & Modular Architecture)
+## [2.0.0] - 2025-08-31 (Python Migration & Modular Architecture)
 
 ### Added
 
-#### 🐍 Python Migration
+#### Python migration
 - **Cross-platform Python bootstrapper**: Complete migration from Bash to Python for start/stop scripts
 - **UV package manager support**: Automatic detection and use of UV for better dependency management
 - **Enhanced error handling**: Better error messages and recovery mechanisms
 - **Consistent behavior**: Same functionality across Windows, macOS, and Linux
 
-#### 🔧 Dynamic Kong Configuration
+#### Dynamic Kong configuration
 - **Intelligent routing**: Kong routes dynamically generated based on SOURCE values
 - **Health checking**: Automatic localhost service availability checking
 - **Adaptive configuration**: Routes automatically removed for disabled services
 - **No manual configuration**: Replaced static kong.yml/kong-local.yml files
 
-#### 🎛️ CLI SOURCE Overrides
+#### CLI SOURCE overrides
 - **Command-line configuration**: Override .env settings via CLI arguments
 - **Temporary sessions**: CLI overrides don't modify .env file
 - **All SOURCE types supported**: Complete CLI coverage for all service sources
-- **Usage examples**: Comprehensive CLI documentation with common patterns
+- **Usage examples**: CLI documentation with common patterns
 
-#### 🔄 Enhanced Service Management
+#### Enhanced service management
 - **ComfyUI-init for all sources**: Model downloading for both container and localhost setups
 - **Better dependency resolution**: Automatic service dependency management
 - **Improved startup order**: Cold start cleanup moved to proper execution phase
 
 ### Changed
 
-#### 📁 Project Structure
+#### Project structure
 - **Reorganized bootstrapper**: New `bootstrapper/` directory with Python modules
 - **Service utilities**: `bootstrapper/utils/kong_config_generator.py` for dynamic configuration
 - **Moved scripts**: `generate_supabase_keys.sh` relocated to `bootstrapper/`
 - **Modular architecture**: Clear separation of concerns in codebase
 
-#### 🌐 Kong Gateway
+#### Kong gateway
 - **Dynamic route generation**: Routes created based on active services
 - **SOURCE-aware**: Different routing strategies for container/localhost/external sources
 - **WebSocket support**: Proper WebSocket routing for realtime services
 - **Authentication handling**: Dynamic auth configuration per service
 
-#### 🔧 Service Configuration
+#### Service configuration
 - **SOURCE system refinement**: Clear documentation of which services support localhost
 - **Localhost support clarification**: Only Ollama, ComfyUI, and Weaviate support localhost SOURCE
 - **Container-only services**: N8N, SearxNG, Open-WebUI, Backend API are container-only
@@ -83,56 +83,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-#### 🚀 Startup Issues
+#### Startup issues
 - **Cold start port conflicts**: Fixed cleanup order to occur before port checking
 - **Service initialization**: ComfyUI-init now runs for localhost ComfyUI setups
 - **Port management**: Better handling of port conflicts and base port configuration
 
-#### 🔗 Integration Issues
+#### Integration issues
 - **Kong routing**: Fixed localhost service routing through Kong gateway
 - **Service discovery**: Proper health checking for localhost services
 - **Cross-service communication**: Improved service-to-service connectivity
 
-#### 📝 Documentation
+#### Documentation
 - **Corrected SOURCE support**: Fixed incorrect localhost support claims
 - **Updated examples**: All examples reflect new dynamic configuration approach
 - **Consistent terminology**: Standardized language throughout documentation
 
 ### Removed
 
-#### 🗑️ Obsolete Files
+#### Obsolete files
 - **Static Kong configuration**: Removed `volumes/api/kong.yml` and `volumes/api/kong-local.yml`
 - **Dual configuration approach**: Eliminated the "relic" dual Kong config system
 - **Manual route configuration**: Removed need for manual Kong route management
 
-#### 🧹 Cleanup
+#### Cleanup
 - **Unnecessary Kong routes**: Removed routes for Weaviate and Neo4j (not user-facing)
 - **Duplicate documentation**: Consolidated multiple sections about same services
 - **Outdated references**: Removed references to legacy Bash-only approach
 
-## [1.5.0] - 2024-11-XX (Service Integration & Workflow Enhancement)
+## [1.5.0] - 2025-07-29 (Service Integration & Workflow Enhancement)
 
 ### Added
 
-#### 🔄 n8n Workflow Automation
+#### n8n workflow automation
 - **Complete n8n integration**: Workflow automation with queue management
 - **Redis queue backend**: Distributed task processing with n8n-worker
 - **Pre-built workflows**: Ready-to-use AI workflow templates
 - **Kong gateway routing**: Access via n8n.localhost subdomain
 
-#### 🎨 ComfyUI Image Generation
+#### ComfyUI image generation
 - **Full ComfyUI integration**: AI image generation with workflow support
 - **Multiple deployment options**: Container CPU/GPU and localhost support
 - **Model management**: Automatic model downloading and caching
 - **API integration**: REST API access and workflow execution
 
-#### 🔍 SearxNG Privacy Search
+#### SearxNG privacy search
 - **Privacy-focused search**: Local search aggregation without tracking
 - **Multiple search engines**: Aggregated results from various sources
 - **API access**: Programmatic search capabilities for AI workflows
 - **Rate limiting**: Built-in protection against abuse
 
-#### 🤖 Open WebUI Enhancement
+#### Open WebUI enhancement
 - **Research tools integration**: AI-powered research capabilities
 - **ComfyUI tool integration**: Direct image generation from chat
 - **Multi-LLM support**: Support for various LLM providers
@@ -140,48 +140,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-#### 🏗️ Architecture Improvements
+#### Architecture improvements
 - **Service modularity**: Better separation between services
 - **Docker network optimization**: Improved inter-service communication
 - **Volume management**: More efficient data persistence
 - **Resource allocation**: Better memory and CPU management
 
-#### 🔧 Configuration Enhancement
+#### Configuration enhancement
 - **Environment-based scaling**: Services scale based on SOURCE configuration
 - **Dependency management**: Automatic service dependency resolution
 - **Health monitoring**: Better service health checking and recovery
 
 ### Fixed
 
-#### 🐛 Bug Fixes
+#### Bug fixes
 - **Service startup order**: Fixed dependency-based startup sequencing
 - **Memory management**: Resolved OOM issues with large models
 - **Network connectivity**: Fixed inter-service communication issues
 - **Volume permissions**: Resolved file permission problems
 
-## [1.0.0] - 2024-10-XX (Initial Release)
+## [1.0.0] - 2025-04-26 (Initial Release)
 
 ### Added
 
-#### 🌟 Core Foundation
+#### Core foundation
 - **Supabase ecosystem**: Complete database, auth, and storage solution
 - **Kong API Gateway**: Centralized API management and routing
 - **Ollama integration**: Local LLM inference with CPU/GPU support
 - **Docker Compose architecture**: Complete containerized environment
 
-#### 🗄️ Database Services
+#### Database services
 - **PostgreSQL**: Primary database with Supabase extensions
 - **Neo4j**: Graph database for relationship modeling
 - **Redis**: Caching and session management
 - **Real-time subscriptions**: WebSocket-based live data updates
 
-#### 🔐 Authentication & Security
+#### Authentication and security
 - **Supabase Auth**: Complete authentication system
 - **JWT token management**: Secure API access tokens
 - **Role-based access**: User roles and permissions
 - **API key authentication**: Service-to-service security
 
-#### 🛠️ Development Tools
+#### Development tools
 - **Supabase Studio**: Database management interface
 - **Environment configuration**: Flexible .env-based setup
 - **Docker orchestration**: Multi-service container management
@@ -189,13 +189,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Infrastructure
 
-#### 📦 Container Architecture
+#### Container architecture
 - **Service isolation**: Each component in dedicated container
 - **Network segmentation**: Proper Docker networking
 - **Volume persistence**: Data persistence across restarts
 - **Resource management**: Memory and CPU optimization
 
-#### 🔧 Configuration Management
+#### Configuration management
 - **Environment variables**: Centralized configuration
 - **Service discovery**: Automatic service registration
 - **Port management**: Configurable port assignments

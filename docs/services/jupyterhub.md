@@ -1,6 +1,5 @@
 # JupyterHub - Data Science IDE
 
-**Status:** ✅ Production Ready
 **Port:** 63048
 **Category:** Application Tier
 **Dependencies:** PostgreSQL, Redis, Ollama, Weaviate, Neo4j

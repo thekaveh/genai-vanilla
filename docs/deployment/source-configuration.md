@@ -38,7 +38,7 @@ Some features within services are controlled by feature flags rather than SOURCE
 
 | Feature | Variable | Options | Notes |
 |---------|----------|---------|-------|
-| **LangMem Memory** | `LANGMEM_ENABLED` | `true`, `false` | Persistent conversation memory embedded in the Backend service. See [LangMem docs](../services/langmem.md) |
+| **LangMem Memory** | `LANGMEM_ENABLED` | `true`, `false` | Persistent conversation memory embedded in the Backend service. |
 
 ## Detailed SOURCE Configurations
 

@@ -2,7 +2,7 @@
 
 Speech-to-Text service using NVIDIA Parakeet-TDT models with OpenAI-compatible API.
 
-## ⚠️ Important: MLX and Docker Compatibility
+## MLX and Docker compatibility
 
 **MLX (Apple Silicon) requires native macOS execution and cannot run in Docker containers.**
 
@@ -38,7 +38,7 @@ pip install -r stt-provider/mlx/requirements.txt
 **Step 2: Start STT server on host (in separate terminal)**
 ```bash
 cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 10300
+python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
 
 **Step 3: Start the stack with STT enabled**
@@ -86,7 +86,7 @@ Configure the following settings:
 | Setting | Value |
 |---------|-------|
 | **STT Engine** | `OpenAI` |
-| **API Base URL** | `http://host.docker.internal:10300` |
+| **API Base URL** | `http://host.docker.internal:63022` |
 | **API Key** | Leave blank (not required for local service) |
 | **Model** | `parakeet-tdt-0.6b-v3` (optional, uses default if blank) |
 
@@ -112,7 +112,7 @@ Individual users can also configure STT preferences:
 ## Test the API
 
 ```bash
-curl -X POST http://localhost:10300/v1/audio/transcriptions \
+curl -X POST http://localhost:63022/v1/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "response_format=json"
 ```
@@ -124,7 +124,7 @@ curl -X POST http://localhost:10300/v1/audio/transcriptions \
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `STT_PROVIDER_SOURCE` | Service source (parakeet-localhost, parakeet-container-gpu, disabled) | `parakeet-localhost` |
-| `STT_PROVIDER_PORT` | External port | `10300` |
+| `STT_PROVIDER_PORT` | External port | `63022` |
 | `PARAKEET_MODEL` | Model identifier | `nvidia/parakeet-tdt-0.6b-v3` |
 
 ### GPU-Specific (NVIDIA Docker)
@@ -139,7 +139,7 @@ curl -X POST http://localhost:10300/v1/audio/transcriptions \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PARAKEET_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:10300` |
+| `PARAKEET_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:63022` |
 
 ## API Reference
 
@@ -150,7 +150,7 @@ OpenAI-compatible transcription endpoint.
 **Request:**
 
 ```bash
-curl -X POST http://localhost:10300/v1/audio/transcriptions \
+curl -X POST http://localhost:63022/v1/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "model=parakeet-tdt-0.6b-v3" \
   -F "language=en" \
@@ -181,7 +181,7 @@ Advanced endpoint with Parakeet-specific features.
 **Request:**
 
 ```bash
-curl -X POST http://localhost:10300/v1/audio/transcriptions/advanced \
+curl -X POST http://localhost:63022/v1/audio/transcriptions/advanced \
   -F "file=@audio.mp3" \
   -F "return_timestamps=true" \
   -F "word_timestamps=true"
@@ -212,7 +212,7 @@ Health check endpoint.
 **Request:**
 
 ```bash
-curl http://localhost:10300/health
+curl http://localhost:63022/health
 ```
 
 **Response:**
@@ -380,7 +380,7 @@ Connects to Parakeet running on host machine.
 
 **Best for**: Custom installations, development
 
-**Setup**: Run Parakeet locally on port 10300
+**Setup**: Run Parakeet locally on port 63022
 
 ### disabled
 

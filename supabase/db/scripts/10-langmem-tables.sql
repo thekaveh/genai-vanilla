@@ -5,7 +5,7 @@
 -- Core memory facts table - stores extracted facts from conversations
 CREATE TABLE IF NOT EXISTS public.memory_facts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id VARCHAR(255) REFERENCES public."user"(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     namespace VARCHAR(100) NOT NULL DEFAULT 'default',
     content TEXT NOT NULL,
     fact_type VARCHAR(50) NOT NULL DEFAULT 'observation'
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.memory_facts (
 -- Memory extraction sessions - tracks conversation-to-memory processing
 CREATE TABLE IF NOT EXISTS public.memory_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id VARCHAR(255) REFERENCES public."user"(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     conversation_id UUID,
     status VARCHAR(20) NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'running', 'completed', 'failed')),
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.memory_sessions (
 -- Memory consolidation audit log - tracks merge/update/supersede operations
 CREATE TABLE IF NOT EXISTS public.memory_consolidation_log (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id VARCHAR(255) REFERENCES public."user"(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
     action VARCHAR(50) NOT NULL
         CHECK (action IN ('merged', 'updated', 'superseded', 'expired')),
     source_fact_ids UUID[] NOT NULL,

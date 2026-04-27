@@ -2,7 +2,7 @@
 
 OpenAI-compatible Speech-to-Text API using NVIDIA Parakeet-TDT models.
 
-## ⚠️ Important: MLX Docker Limitation
+## MLX Docker limitation
 
 **MLX cannot run in Docker containers.** MLX requires native macOS with Metal GPU support.
 

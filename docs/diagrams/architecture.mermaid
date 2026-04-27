@@ -52,23 +52,24 @@ graph LR
         end
         subgraph STTServices[STT_PROVIDER_SOURCE Options]
             parakeet-gpu[Parakeet GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
-            parakeet-localhost[Parakeet Localhost<br/>Native (Mac MLX or Linux CPU)]:::ai
+            parakeet-localhost["Parakeet Localhost<br/>Native (Mac MLX or Linux CPU)"]:::ai
         end
         subgraph TTSServices[TTS_PROVIDER_SOURCE Options]
             xtts-gpu[XTTS v2 GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
-            xtts-localhost[XTTS v2 Localhost<br/>Native (Any Platform)]:::ai
+            xtts-localhost["XTTS v2 Localhost<br/>Native (Any Platform)"]:::ai
         end
         subgraph DocProcessorServices[DOC_PROCESSOR_SOURCE Options]
             docling-gpu[Docling GPU<br/>NVIDIA CUDA<br/>Docker]:::ai
-            docling-localhost[Docling Localhost<br/>Native (Any Platform)]:::ai
+            docling-localhost["Docling Localhost<br/>Native (Any Platform)"]:::ai
         end
         subgraph OpenClawServices[OPENCLAW_SOURCE Options]
             openclaw-container[OpenClaw Container<br/>Docker]:::ai
-            openclaw-localhost[OpenClaw Localhost<br/>Native (Node.js)]:::ai
+            openclaw-localhost["OpenClaw Localhost<br/>Native (Node.js)"]:::ai
         end
         ollama-pull[ollama-pull]:::ai
         comfyui-init[comfyui-init]:::ai
         openclaw-init[openclaw-init]:::ai
+        openclaw-gateway[openclaw-gateway]:::ai
         local-deep-researcher[local-deep-researcher]:::ai
         n8n[n8n - Workflow Engine]:::api
         n8n-worker[n8n-worker - Queue Worker]:::api
@@ -81,7 +82,7 @@ graph LR
         direction TB
         weaviate-init[weaviate-init]:::database
         weaviate[weaviate - Vector DB<br/>Adapts to Ollama SOURCE]:::database
-        subgraph MultiVecServices[VECTOR_SOURCE Options]
+        subgraph MultiVecServices[MULTI2VEC_CLIP_SOURCE Options]
             multi2vec-clip-cpu[Multi2Vec CLIP<br/>CPU]:::ai
             multi2vec-clip-gpu[Multi2Vec CLIP<br/>GPU]:::ai
         end
@@ -93,6 +94,7 @@ graph LR
         kong-api-gateway[Kong API Gateway<br/>Centralized Routing]:::api
         backend[Backend API<br/>Adapts to AI Services<br/>+ LangMem Memory]:::api
         open-web-ui[Open-WebUI<br/>Chat Interface]:::ui
+        open-webui-init[open-webui-init]:::ui
         supabase-studio[Supabase Studio<br/>Database Admin]:::ui
         jupyterhub[JupyterHub<br/>Data Science IDE<br/>Adapts to AI Services]:::ui
     end
@@ -129,8 +131,8 @@ graph LR
         ContainerNote[container-cpu/container-gpu: Docker containers with CPU/GPU]:::config
         LocalhostNote[localhost: Services on host machine via host.docker.internal]:::config
         ExternalNote[external: Connect to external service URLs]:::config
-        ApiNote[api: Cloud API services (OpenAI, Anthropic, etc.)]:::config
-        DisabledNote[disabled: Service not started (scale=0)]:::config
+        ApiNote["api: Cloud API services (OpenAI, Anthropic, etc.)"]:::config
+        DisabledNote["disabled: Service not started (scale=0)"]:::config
     end
     
     %% Styling

@@ -4,7 +4,7 @@ High-performance text-to-speech service using XTTS v2 with OpenAI-compatible API
 
 ## Overview
 
-The TTS Provider service offers production-ready text-to-speech capabilities with:
+The TTS Provider service offers text-to-speech with:
 
 - **Multiple Backend Support**: GPU (NVIDIA CUDA in Docker) and Native (any platform)
 - **OpenAI-Compatible API**: Drop-in replacement for OpenAI TTS API
@@ -77,7 +77,7 @@ curl -X POST http://localhost:63023/v1/audio/speech \
 
 ## Configuration
 
-See [docs/services/tts-provider.md](../docs/services/tts-provider.md) for comprehensive documentation.
+See [docs/services/tts-provider.md](../docs/services/tts-provider.md) for the full reference.
 
 ## References
 

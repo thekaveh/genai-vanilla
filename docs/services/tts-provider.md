@@ -4,7 +4,7 @@ High-performance text-to-speech service using XTTS v2 with OpenAI-compatible API
 
 ## Overview
 
-The TTS Provider service offers production-ready text-to-speech generation with:
+The TTS Provider service offers text-to-speech generation with:
 
 - **Multiple Backend Support**: GPU (NVIDIA CUDA) and Native (any platform)
 - **SOTA Quality**: XTTS v2 model with natural voice synthesis
@@ -88,7 +88,7 @@ Configure the following settings:
 | Setting | Value |
 |---------|-------|
 | **TTS Engine** | `OpenAI` |
-| **API Base URL** | `http://host.docker.internal:10400` |
+| **API Base URL** | `http://host.docker.internal:63023` |
 | **API Key** | Leave blank (not required for local service) |
 | **Model** | `tts-1-hd` (or `tts-1` for faster/lower quality) |
 | **Voice** | Choose from alloy, echo, fable, onyx, nova, shimmer |
@@ -113,7 +113,7 @@ Individual users can also configure TTS preferences:
 ## Test the API
 
 ```bash
-curl -X POST http://localhost:10400/v1/audio/speech \
+curl -X POST http://localhost:63023/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{
     "model": "tts-1-hd",
@@ -144,7 +144,7 @@ start speech.mp3
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TTS_PROVIDER_SOURCE` | Service source (xtts-container-gpu, xtts-localhost, disabled) | `disabled` |
-| `TTS_PROVIDER_PORT` | External port | `10400` |
+| `TTS_PROVIDER_PORT` | External port | `63023` |
 | `XTTS_MODEL` | Default model | `tts-1-hd` |
 
 ### GPU-Specific (NVIDIA Docker)
@@ -158,7 +158,7 @@ start speech.mp3
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `XTTS_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:10400` |
+| `XTTS_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:63023` |
 
 ## API Reference
 
@@ -169,7 +169,7 @@ OpenAI-compatible text-to-speech endpoint.
 **Request:**
 
 ```bash
-curl -X POST http://localhost:10400/v1/audio/speech \
+curl -X POST http://localhost:63023/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{
     "model": "tts-1-hd",
@@ -200,7 +200,7 @@ List available models.
 **Request:**
 
 ```bash
-curl http://localhost:10400/v1/models
+curl http://localhost:63023/v1/models
 ```
 
 **Response:**
@@ -277,7 +277,7 @@ voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 
 for voice in voices:
     response = requests.post(
-        "http://localhost:10400/v1/audio/speech",
+        "http://localhost:63023/v1/audio/speech",
         json={
             "model": "tts-1-hd",
             "input": f"This is the {voice} voice speaking.",
@@ -433,7 +433,7 @@ uv sync  # Handles version resolution automatically
 
 ### Port Already in Use
 
-**Problem**: Port 10400 is already occupied
+**Problem**: Port 63023 is already occupied
 
 **Solution**:
 ```bash

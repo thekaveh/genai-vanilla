@@ -58,7 +58,7 @@ def check_localhost_service(self, host: str, port: int, service_name: str) -> bo
         with socket.create_connection((host, port), timeout=2):
             return True
     except (socket.error, socket.timeout):
-        print(f"⚠️  {service_name} localhost service not reachable on {host}:{port}")
+        print(f"WARN: {service_name} localhost service not reachable on {host}:{port}")
         return False
 ```
 
@@ -188,4 +188,4 @@ Kong integrates tightly with:
 - **Health Monitoring**: Checks localhost service availability
 - **Dynamic Scaling**: Adapts to enabled/disabled services
 
-For more information on Kong's role in the overall architecture, see [../development/architecture.md](../development/architecture.md).
+For more information on Kong's role in the overall architecture, see the system overview in the project [README](../../README.md) and the architecture diagram at `docs/diagrams/architecture.html`.
