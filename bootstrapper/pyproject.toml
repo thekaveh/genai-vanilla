@@ -2,14 +2,15 @@
 name = "genai-bootstrapper"
 version = "1.0.0"
 description = "GenAI Vanilla Stack bootstrapper - cross-platform startup and management scripts"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "pyyaml>=6.0",           # YAML parsing (replaces yq)
     "python-dotenv>=1.0.0",  # .env file handling
     "rich>=13.0.0",          # Terminal colors, tables, formatting
     "click>=8.1.0",          # CLI argument parsing
     "docker>=7.0.0",         # Docker SDK for compose operations
-    "InquirerPy>=0.3.4",     # Interactive terminal prompts for setup wizard
+    "readchar>=4.0",         # Cross-platform single-keystroke reader for the TUI widgets
+    "textual>=0.85",         # TUI framework — owns the post-wizard streaming-logs phase (LogStreamApp)
 ]
 
 [build-system]

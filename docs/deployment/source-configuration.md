@@ -403,8 +403,10 @@ lsof -i :63015
 
 **Kong routing not working**:
 ```bash
-# Check Kong configuration
-cat volumes/api/kong.yml
+# Kong config is dynamically generated at every startup — to debug routes,
+# inspect the generator + the KONG_* env vars it consumes:
+cat bootstrapper/utils/kong_config_generator.py
+env | grep ^KONG_
 
 # Verify hosts file
 ./start.sh --setup-hosts

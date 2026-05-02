@@ -113,7 +113,7 @@ Kong supports WebSocket connections for real-time services:
 2. **Environment Parsing**: Current .env file is parsed for SOURCE values
 3. **Health Checks**: Localhost services are checked for availability  
 4. **Route Generation**: Only enabled services get routes created
-5. **File Writing**: Configuration written to volumes/api/kong.yml
+5. **File Writing**: Configuration written to volumes/api/kong-dynamic.yml
 6. **Kong Startup**: Kong loads the generated configuration
 
 ## Debugging Kong Configuration
@@ -121,7 +121,7 @@ Kong supports WebSocket connections for real-time services:
 ### View Generated Configuration
 ```bash
 # Check what configuration was generated
-cat volumes/api/kong.yml
+cat volumes/api/kong-dynamic.yml
 
 # View Kong logs
 docker logs genai-kong-api-gateway -f

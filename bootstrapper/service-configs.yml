@@ -704,46 +704,6 @@ adaptive_services:
       DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
-
-  # Backend API Service
-  backend:
-    # Containerized Backend API (adaptive service)
-    container:
-      scale: 1
-      environment:
-        # Environment variables will be set by adaptive service logic
-        OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
-        WEAVIATE_URL: "http://weaviate:8080"
-        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-      deploy: {}
-      extra_hosts: []  # Will inherit from llm_provider
-
-    # Disabled - no Backend API
-    disabled:
-      scale: 0
-      environment: {}
-      deploy: {}
-      extra_hosts: []
-
-  # JupyterHub Data Science IDE
-  jupyterhub:
-    # Containerized JupyterHub (adaptive service)
-    container:
-      scale: 1
-      environment:
-        # Environment variables will be set by adaptive service logic
-        JUPYTER_ENABLE_LAB: "yes"
-        GRANT_SUDO: "yes"
-      deploy: {}
-      extra_hosts: []  # Will inherit from llm_provider
-
-    # Disabled - no JupyterHub
-    disabled:
-      scale: 0
-      environment: {}
-      deploy: {}
-      extra_hosts: []
-
 # Service dependency relationships for proper startup ordering
 dependencies:
   data_tier:

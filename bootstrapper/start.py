@@ -19,17 +19,13 @@ from utils.banner import BannerDisplay
 from utils.hosts_manager import HostsManager
 from utils.key_generator import KeyGenerator
 from utils.localhost_validator import LocalhostValidator
-from core.config_parser import ConfigParser
+from core.config_parser import ConfigParser, DEFAULT_BASE_PORT
 from core.docker_manager import DockerManager
 from core.port_manager import PortManager
 from services.source_validator import SourceValidator
 from services.service_config import ServiceConfig
 from services.dependency_manager import DependencyManager
 from utils.source_override_manager import SourceOverrideManager
-
-# Constants matching original Bash script
-DEFAULT_BASE_PORT = 63000  # Default base port from original start.sh
-
 
 class GenAIStackStarter:
     """Main class for starting the GenAI Stack."""
@@ -50,7 +46,8 @@ class GenAIStackStarter:
         self.service_config = ServiceConfig(self.config_parser)
         self.dependency_manager = DependencyManager(self.config_parser)
         self.source_override_manager = SourceOverrideManager(self.config_parser)
-        
+
+
     def show_banner(self):
         """Display the startup banner."""
         self.banner.show_banner()
@@ -233,8 +230,8 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                 # Copy .env.example to target path (default or custom)
                 import shutil
                 shutil.copy2(env_example_path, env_file_path)
-                print(f"  • Copied {env_example_path}")
-                print(f"  •     to {env_file_path}")
+                self.banner.show_status_message(f"  • Copied {env_example_path}", "info")
+                self.banner.show_status_message(f"  •     to {env_file_path}", "info")
 
                 # Unset potentially lingering port environment variables if cold start and custom base port are used
                 effective_base_port = base_port if base_port is not None else DEFAULT_BASE_PORT
@@ -287,7 +284,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             'JUPYTERHUB_PORT'
         ]
         
-        print("  • Unsetting potentially lingering port environment variables...")
+        self.banner.show_status_message("  • Unsetting potentially lingering port environment variables...", "info")
         for var in port_variables:
             if var in os.environ:
                 del os.environ[var]
@@ -338,17 +335,19 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                 # For regular start, show instructions to generate keys manually
                 self.banner.show_section_header("Missing Supabase Keys", "⚠️")
                 self.banner.show_status_message("Supabase JWT keys are missing!", "warning")
-                print()
-                print("  Missing keys:")
+                self.banner.show_status_message("  Missing keys:", "warning")
                 for key in missing_keys:
-                    print(f"    • {key}")
-                print()
-                print("  To fix this issue:")
-                print("    1. Run: ./bootstrapper/generate_supabase_keys.sh")
-                print("    2. Then restart this script")
-                print()
-                print("  💡 Tip: The generate_supabase_keys.sh script will create secure JWT keys")
-                print("    to generate the required JWT keys for Supabase services.")
+                    self.banner.show_status_message(f"    • {key}", "warning")
+                self.banner.show_status_message("  To fix this issue:", "info")
+                self.banner.show_status_message("    1. Run: ./bootstrapper/generate_supabase_keys.sh", "info")
+                self.banner.show_status_message("    2. Then restart this script", "info")
+                self.banner.show_status_message(
+                    "  💡 Tip: The generate_supabase_keys.sh script will create secure JWT keys",
+                    "info",
+                )
+                self.banner.show_status_message(
+                    "    to generate the required JWT keys for Supabase services.", "info"
+                )
                 return False
         
         return True
@@ -396,7 +395,9 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             if conflicts:
                 self.banner.show_status_message("Port conflicts detected:", "warning")
                 for port_var, port in conflicts.items():
-                    print(f"  • {port_var}: Port {port} is already in use")
+                    self.banner.show_status_message(
+                        f"  • {port_var}: Port {port} is already in use", "warning"
+                    )
 
                 # Suggest alternative base port
                 suggested_port = self.port_manager.suggest_available_base_port()
@@ -478,7 +479,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         """Perform cold start cleanup if requested."""
         self.banner.show_section_header("Cold Start Cleanup", "🧹")
         
-        self.banner.show_status_message("Performing comprehensive cold start cleanup...", "info")
+        self.banner.show_status_message("Performing cold start cleanup...", "info")
         
         # Use the enhanced cold start cleanup
         success = self.docker_manager.perform_cold_start_cleanup()
@@ -548,24 +549,30 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             for source_var, (is_valid, messages) in results.items():
                 config = self.localhost_validator.SERVICE_CHECKS[source_var]
                 service_name = config['service_name']
-                
-                print(f"  • {service_name}:")
+                level = "info" if is_valid else "warning"
+
+                self.banner.show_status_message(f"  • {service_name}:", level)
                 for message in messages:
-                    print(f"    {message}")
-                print()
-                
+                    self.banner.show_status_message(f"    {message}", level)
+
                 if not is_valid:
                     all_valid = False
-            
+
             if all_valid:
                 self.banner.show_status_message("All localhost services are accessible", "success")
             else:
                 self.banner.show_status_message(
-                    "Some localhost services are not accessible (warnings above)", 
+                    "Some localhost services are not accessible (warnings above)",
                     "warning"
                 )
-                print("  • The stack will still start, but affected services may not work correctly")
-                print("  • Please ensure localhost services are running as indicated")
+                self.banner.show_status_message(
+                    "  • The stack will still start, but affected services may not work correctly",
+                    "warning",
+                )
+                self.banner.show_status_message(
+                    "  • Please ensure localhost services are running as indicated",
+                    "warning",
+                )
                 
             return True  # Always continue, just show warnings
             
@@ -611,35 +618,46 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         Returns:
             bool: True if user confirms, False to cancel.
         """
+        table = self.build_pre_launch_summary_table()
+        self.banner.console.print(table)
+        self.banner.console.print()
+
+        # Confirmation prompt — legacy linear flow only. TUI mode runs the
+        # launch confirmation as the wizard's last step; this branch is
+        # reached only when --no-tui or non-TTY.
+        if sys.stdin.isatty():
+            response = self.banner.console.input(
+                "  [color(245)]Launch the stack? (Y/n):[/color(245)] "
+            ).strip().lower()
+            return response in ('', 'y', 'yes')
+        return True  # non-TTY: auto-confirm
+
+    def build_pre_launch_summary_table(self):
+        """
+        Build the configuration summary as a Rich Table renderable —
+        used by the legacy non-TUI flow (`show_pre_launch_summary`). The
+        TUI mode renders the same configuration via `ui.info_box.render_info_box`
+        inside `LogStreamApp` instead of this Rich Table.
+        """
         from rich.table import Table
         from rich.text import Text
+        from rich.box import HEAVY_HEAD
+        from ui.state_builder import all_services, alias_for
 
         env_vars = self.config_parser.parse_env_file()
         service_sources = self.config_parser.parse_service_sources()
         kong_port = env_vars.get('KONG_HTTP_PORT', '63002')
 
-        # Check if hosts entries are configured
-        hosts_configured = set()
+        # Check if hosts entries are configured (yields the set of hostnames
+        # that are PRESENT in /etc/hosts).
+        hosts_present = set()
         try:
-            existing_hosts = self.hosts_manager.check_missing_hosts()
+            existing_missing = self.hosts_manager.check_missing_hosts()
             all_hosts = self.hosts_manager.get_genai_hosts()
-            hosts_configured = set(all_hosts) - set(existing_hosts)
+            hosts_present = set(all_hosts) - set(existing_missing)
         except Exception:
             pass
 
-        # Host-based URL mapping: service display name -> hostname
-        host_url_map = {
-            'n8n': 'n8n.localhost',
-            'Open WebUI': 'chat.localhost',
-            'Backend API': 'api.localhost',
-            'SearxNG': 'search.localhost',
-            'ComfyUI': 'comfyui.localhost',
-            'JupyterHub': 'jupyter.localhost',
-            'OpenClaw': 'openclaw.localhost',
-        }
-
-        # Build the summary table
-        from rich.box import HEAVY_HEAD
         table = Table(
             title="Stack Services Overview",
             title_style="bold bright_white",
@@ -656,43 +674,22 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         table.add_column("ALIAS", justify="left", ratio=4, no_wrap=True)
         table.add_column("STATUS", justify="left", ratio=2, no_wrap=True)
 
-        # Service definitions: (name, source_var, port_var, scale_var_or_value)
-        services = [
-            # Infrastructure (always on)
-            ("Supabase Database", "SUPABASE_DB_SOURCE", "SUPABASE_DB_PORT", "1"),
-            ("Supabase Studio", "SUPABASE_STUDIO_SOURCE", "SUPABASE_STUDIO_PORT", "1"),
-            ("Redis Cache", "REDIS_SOURCE", "REDIS_PORT", "1"),
-            ("Kong API Gateway", "KONG_API_GATEWAY_SOURCE", "KONG_HTTP_PORT", "1"),
-            # Configurable services
-            ("LLM Provider", "LLM_PROVIDER_SOURCE", "LLM_PROVIDER_PORT", env_vars.get('OLLAMA_SCALE', '0')),
-            ("ComfyUI", "COMFYUI_SOURCE", "COMFYUI_PORT", env_vars.get('COMFYUI_SCALE', '0')),
-            ("Weaviate", "WEAVIATE_SOURCE", "WEAVIATE_PORT", env_vars.get('WEAVIATE_SCALE', '0')),
-            ("Multi2Vec CLIP", "MULTI2VEC_CLIP_SOURCE", None, env_vars.get('CLIP_SCALE', '0')),
-            ("Neo4j Graph DB", "NEO4J_GRAPH_DB_SOURCE", "GRAPH_DB_DASHBOARD_PORT", env_vars.get('NEO4J_SCALE', '0')),
-            ("STT Provider", "STT_PROVIDER_SOURCE", "STT_PROVIDER_PORT", env_vars.get('PARAKEET_GPU_SCALE', '0')),
-            ("TTS Provider", "TTS_PROVIDER_SOURCE", "TTS_PROVIDER_PORT", env_vars.get('XTTS_GPU_SCALE', '0')),
-            ("Document Processor", "DOC_PROCESSOR_SOURCE", "DOC_PROCESSOR_PORT", env_vars.get('DOCLING_GPU_SCALE', '0')),
-            ("OpenClaw", "OPENCLAW_SOURCE", "OPENCLAW_GATEWAY_PORT", env_vars.get('OPENCLAW_SCALE', '0')),
-            ("n8n", "N8N_SOURCE", "N8N_PORT", env_vars.get('N8N_SCALE', '0')),
-            ("SearxNG", "SEARXNG_SOURCE", "SEARXNG_PORT", env_vars.get('SEARXNG_SCALE', '0')),
-            ("JupyterHub", "JUPYTERHUB_SOURCE", "JUPYTERHUB_PORT", env_vars.get('JUPYTERHUB_SCALE', '0')),
-            # Adaptive services
-            ("Open WebUI", "OPEN_WEB_UI_SOURCE", "OPEN_WEB_UI_PORT", env_vars.get('OPEN_WEB_UI_SCALE', '1')),
-            ("Backend API", "BACKEND_SOURCE", "BACKEND_PORT", env_vars.get('BACKEND_SCALE', '1')),
-            ("Local Deep Researcher", "LOCAL_DEEP_RESEARCHER_SOURCE", "LOCAL_DEEP_RESEARCHER_PORT", env_vars.get('LOCAL_DEEP_RESEARCHER_SCALE', '1')),
-        ]
+        # Service definitions come from state_builder.all_services() — single
+        # source of truth shared with the TUI info-box (no more inline list
+        # to drift out of sync).
+        services = list(all_services())
 
-        # Sort by port number ascending; services with no port go to the end
+        # Sort by port number ascending; services with no port go to the end.
+        import re as _re
+
         def _sort_key(svc):
-            name, source_var, port_var, _ = svc
+            name, source_var, port_var, _scale_var = svc
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
             if source == 'disabled' or not port_var:
-                return (2, 99999)  # disabled/no-port at the very end
+                return (2, 99999)
             if 'localhost' in source:
-                # Sort localhost by their actual port (after container services)
-                import re
-                lp = GenAIStackStarter._get_localhost_port(name, env_vars)
-                match = re.search(r':(\d+)', lp)
+                lp = self._get_localhost_port(name, env_vars)
+                match = _re.search(r':(\d+)', lp)
                 return (1, int(match.group(1)) if match else 99999)
             try:
                 return (0, int(env_vars.get(port_var, '99999')))
@@ -701,8 +698,9 @@ Note: SOURCE overrides are temporary and only apply to the current session.
 
         services.sort(key=_sort_key)
 
-        for name, source_var, port_var, scale in services:
+        for name, source_var, port_var, scale_var in services:
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
+            scale = env_vars.get(scale_var, '0') if scale_var else '1'
             status_text, status_style = self._get_service_status(source, scale)
             source_style = "color(243)" if source == "disabled" else "color(248)"
 
@@ -710,16 +708,15 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             if source == 'disabled':
                 port_val = "-"
             elif 'localhost' in source:
-                # Extract the actual localhost port from the service endpoint in .env
                 port_val = self._get_localhost_port(name, env_vars)
             elif port_var:
                 port_val = f":{env_vars.get(port_var, '?')}"
             else:
                 port_val = "-"
 
-            # ALIAS column
-            hostname = host_url_map.get(name)
-            if hostname and hostname in hosts_configured and source != 'disabled':
+            # ALIAS column — alias map from state_builder (single source).
+            hostname = alias_for(name)
+            if hostname and hostname in hosts_present and source != 'disabled':
                 alias_text = Text(f"{hostname}:{kong_port}", style="color(75)")
             else:
                 alias_text = Text("-", style="color(243)")
@@ -732,21 +729,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                 Text(status_text, style=status_style),
             )
 
-        self.banner.console.print(table)
-        self.banner.console.print()
-
-        # Confirmation prompt
-        if sys.stdin.isatty():
-            try:
-                from wizard.prompts import prompt_confirmation
-                return prompt_confirmation()
-            except ImportError:
-                pass
-            response = self.banner.console.input(
-                "  [color(245)]Launch the stack? (Y/n):[/color(245)] "
-            ).strip().lower()
-            return response in ('', 'y', 'yes')
-        return True  # non-TTY: auto-confirm
+        return table
 
     @staticmethod
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
@@ -792,23 +775,19 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         """Check ComfyUI local models."""
         self.service_config.check_comfyui_local_models()
         
-    def show_container_status_and_verify_ports(self):
+    def show_container_status_and_verify_ports(self, on_line=None):
         """
         Show container status and verify actual vs expected ports.
         Replicates the verification logic from original start.sh.
+
+        When `on_line` is provided (TUI mode), the redundant `docker compose ps`
+        text dump is dropped and per-service results route through `on_line`
+        with a level keyword ("ok"/"warn"/"error"). When `on_line` is None
+        (legacy mode), behavior is unchanged from the original implementation.
         """
-        print()
-        
-        # Show container status (docker compose ps equivalent)
-        self.docker_manager.show_container_status()
-        
-        # Verify actual port mappings against expected values
-        print()
-        print("🔍 Checking if Docker assigned the expected ports...")
-        
-        # Get expected ports from .env
+        # Get expected ports from .env (used by both branches)
         env_vars = self.config_parser.parse_env_file()
-        
+
         # Service definitions matching original Bash script
         services_to_check = [
             ("supabase-db", "5432", env_vars.get("SUPABASE_DB_PORT", "")),
@@ -830,29 +809,53 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("searxng", "8080", env_vars.get("SEARXNG_PORT", "")),
             ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", "")),
         ]
-        
+
         # Add conditional services based on their scales
         ollama_scale = env_vars.get("OLLAMA_SCALE", "0")
         if ollama_scale != "0":
             services_to_check.append(("ollama", "11434", env_vars.get("LLM_PROVIDER_PORT", "")))
-            
+
         comfyui_scale = env_vars.get("COMFYUI_SCALE", "0")
         if comfyui_scale != "0":
             services_to_check.append(("comfyui", "18188", env_vars.get("COMFYUI_PORT", "")))
-        
-        # Check each service
+
+        if on_line is None:
+            # Legacy linear flow — preserve today's exact behavior including
+            # the `docker compose ps` text dump.
+            print()
+            self.docker_manager.show_container_status()
+            print()
+            print("🔍 Checking if Docker assigned the expected ports...")
+
+            for service_name, internal_port, expected_port in services_to_check:
+                if not expected_port:
+                    continue
+                actual_port = self.docker_manager.get_service_port(service_name, internal_port)
+                if not actual_port:
+                    print(f"  • ❌ {service_name}: Could not determine port mapping")
+                elif actual_port == expected_port:
+                    print(f"  • ✅ {service_name}: Using expected port {expected_port}")
+                else:
+                    print(f"  • ⚠️  {service_name}: Expected port {expected_port} but got {actual_port}")
+            return
+
+        # TUI mode — route per-service lines through on_line, skip the ps dump.
+        # The dots in the anchored box already convey "is the container up";
+        # this verification is specifically about port-mapping correctness.
+        mismatches = 0
         for service_name, internal_port, expected_port in services_to_check:
             if not expected_port:
                 continue
-                
             actual_port = self.docker_manager.get_service_port(service_name, internal_port)
-            
             if not actual_port:
-                print(f"  • ❌ {service_name}: Could not determine port mapping")
+                on_line(f"❌ {service_name}: could not determine port mapping", "error")
+                mismatches += 1
             elif actual_port == expected_port:
-                print(f"  • ✅ {service_name}: Using expected port {expected_port}")
+                on_line(f"✅ {service_name}: port {expected_port} ok", "ok")
             else:
-                print(f"  • ⚠️  {service_name}: Expected port {expected_port} but got {actual_port}")
+                on_line(f"⚠️  {service_name}: expected :{expected_port}, got :{actual_port}", "warn")
+                mismatches += 1
+        return mismatches
                 
     def show_container_logs(self):
         """
@@ -917,11 +920,15 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                                 'disabled'], case_sensitive=False),
               help='Override MULTI2VEC_CLIP_SOURCE')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
+@click.option('--no-tui', is_flag=True,
+              help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
+                   'linear flow with passthrough docker output. Useful for log capture, '
+                   'debugging, and terminals that don\'t support the alternate screen buffer.')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, neo4j_graph_db_source,
-         multi2vec_clip_source, help_usage):
+         multi2vec_clip_source, help_usage, no_tui):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
     starter = GenAIStackStarter()
@@ -970,24 +977,85 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 print("❌ Docker is not available. Please install Docker and ensure it's running.")
                 sys.exit(1)
 
+        # Track whether the wizard ran in TUI mode — drives the post-pipeline
+        # display path (scroll-region pin vs. legacy summary+prompt).
+        tui_capable = False
+
         if will_run_wizard:
-            try:
-                from wizard.interactive_wizard import InteractiveWizard
+            # Setup .env first so wizard can read current defaults.
+            if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+                sys.exit(1)
 
-                # Setup .env first so wizard can read current defaults
-                if not starter.setup_env_file(cold_start=cold, base_port=base_port):
-                    sys.exit(1)
+            # Decide whether to run the wizard at all: TUI (anchored-box,
+            # readchar widgets) when the terminal supports it. Non-TUI shells
+            # have no interactive wizard — they use .env defaults plus any
+            # CLI flags the user passed.
+            from ui.presentation_app import is_tui_capable as _is_tui_capable
+            if _is_tui_capable(no_tui_flag=no_tui):
+                from ui.presentation_app import PresentationApp
+                from ui.state_builder import build_app_state
+                from wizard.tui_wizard import TUIWizard
 
-                wizard = InteractiveWizard(starter.config_parser)
-                wizard_source_args, wizard_stack_options = wizard.run()
-                source_args.update(wizard_source_args)
-                base_port = wizard_stack_options.get('base_port', base_port)
-                cold = wizard_stack_options.get('cold', cold)
-                setup_hosts = wizard_stack_options.get('setup_hosts', setup_hosts)
-                skip_hosts = wizard_stack_options.get('skip_hosts', skip_hosts)
-                wizard_ran = True
-            except ImportError:
-                pass  # InquirerPy not installed — continue with .env defaults
+                state = build_app_state(starter.config_parser, starter.hosts_manager,
+                                        box_mode="wizard")
+                # The wizard's PresentationApp is the ONLY thing that runs
+                # inside Live now. Once the user confirms launch, we tear
+                # Live down and the rest of the flow (pipeline + docker
+                # streaming) runs in plain stdout — natural mouse-wheel
+                # scrollback, no flicker. ANSI scroll-region pinning keeps
+                # the summary visible at the top.
+                wizard_app = PresentationApp(state)
+                wizard_app.__enter__()
+                original_banner = starter.banner
+                try:
+                    starter.banner = wizard_app
+                    starter.docker_manager.set_command_echo_callback(
+                        lambda msg: wizard_app.log(msg.strip(), level="dim")
+                    )
+                    # Route HostsManager status messages through the Live
+                    # region too — the level keyword maps to log levels.
+                    starter.hosts_manager.set_logger(
+                        lambda msg, level="info": wizard_app.log(
+                            msg, level={"warning": "warn", "success": "ok"}.get(level, level)
+                        )
+                    )
+                    wizard = TUIWizard(starter.config_parser, wizard_app)
+                    try:
+                        wizard_source_args, wizard_stack_options = wizard.run()
+                    except KeyboardInterrupt:
+                        wizard_app.log("Setup cancelled.", level="dim")
+                        import time
+                        time.sleep(0.5)
+                        raise
+                    source_args.update(wizard_source_args)
+                    base_port = wizard_stack_options.get('base_port', base_port)
+                    cold = wizard_stack_options.get('cold', cold)
+                    setup_hosts = wizard_stack_options.get('setup_hosts', setup_hosts)
+                    skip_hosts = wizard_stack_options.get('skip_hosts', skip_hosts)
+                    # The wizard's last step is "Launch the stack with this
+                    # configuration?" — bail out cleanly if the user said no.
+                    launch_confirmed = wizard_stack_options.get('launch_confirmed', True)
+                    if not launch_confirmed:
+                        wizard_app.status(message="Launch cancelled", level="warn")
+                        import time
+                        time.sleep(1)
+                        sys.exit(0)
+                    wizard_ran = True
+                    tui_capable = True
+                finally:
+                    # ALWAYS exit Live after the wizard. From here on, the
+                    # rest of the flow runs in plain stdout — pipeline status
+                    # messages print normally; the Textual `LogStreamApp`
+                    # owns the docker streaming phase if `tui_capable`.
+                    wizard_app.__exit__(None, None, None)
+                    starter.banner = original_banner
+                    starter.docker_manager.set_command_echo_callback(print)
+                    starter.hosts_manager.set_logger(None)
+            else:
+                # Non-TUI shells (--no-tui, non-TTY, narrow terminals): no
+                # interactive wizard. The user's existing .env defaults are
+                # used; CLI flags can still override individual sources.
+                pass
 
         # Show banner for normal mode (wizard already displayed its own)
         if not wizard_ran:
@@ -1002,7 +1070,10 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             sys.exit(1)
         
         # Step 1.7: Cold start cleanup if requested (before port check)
-        if cold:
+        # In TUI mode, LogStreamApp does this itself so the noisy
+        # "Container … Removed" output streams INSIDE the boxed log
+        # region. Non-TUI legacy mode runs it here as before.
+        if cold and not tui_capable:
             starter.perform_cold_start_cleanup()
         
         # Step 2: Validate SOURCE configurations
@@ -1041,24 +1112,45 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not starter.validate_localhost_services():
             sys.exit(1)
 
-        # Show pre-launch summary and get confirmation
-        if not starter.show_pre_launch_summary():
-            starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
-            sys.exit(0)
+        # Pre-launch summary + docker streaming.
+        #
+        # TUI mode: hand the screen to a Textual app (LogStreamApp). It
+        # composes the rendered info-box (Static widget, pinned at top)
+        # above a bordered "Streaming Logs" RichLog widget. An async
+        # worker drives `docker compose` build / up / verify / logs and
+        # writes each line into the RichLog via Text.from_ansi() —
+        # native compositing, native scrolling, native ANSI handling.
+        #
+        # Legacy mode (--no-tui, non-TTY, or wizard didn't run): print
+        # the legacy Rich-Table summary, prompt for confirm, then run
+        # the TTY-passthrough docker streaming via execute_compose_command.
+        if tui_capable:
+            from ui.log_stream_app import LogStreamApp
+            from ui.state_builder import build_app_state
+            from ui.info_box import render_info_box
+            import shutil as _shutil
 
-        # Step 8: Start Docker services (with fresh build for cold start)
-        if not starter.start_docker_services(cold_start=cold):
-            sys.exit(1)
+            # Use the SAME stylized info-box the wizard rendered — built
+            # from a fresh AppState reflecting post-pipeline configuration.
+            summary_state = build_app_state(
+                starter.config_parser, starter.hosts_manager, box_mode='normal'
+            )
+            summary_width = _shutil.get_terminal_size().columns
+            summary = render_info_box(summary_state, available_width=summary_width)
 
-        # Step 9: Show container status and verify ports
-        starter.show_container_status_and_verify_ports()
+            LogStreamApp(info_box=summary, starter=starter, cold=cold).run()
+        else:
+            # Legacy linear flow — show the summary table, prompt to
+            # confirm (since the wizard didn't), then stream.
+            if not starter.show_pre_launch_summary():
+                starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
+                sys.exit(0)
+            if not starter.start_docker_services(cold_start=cold):
+                sys.exit(1)
+            starter.show_container_status_and_verify_ports()
+            starter.check_comfyui_models()
+            starter.show_container_logs()
 
-        # Step 10: Check ComfyUI models
-        starter.check_comfyui_models()
-
-        # Step 11: Show container logs (final step - blocking)
-        starter.show_container_logs()
-        
     except KeyboardInterrupt:
         print("\n❌ Startup interrupted by user")
         sys.exit(1)

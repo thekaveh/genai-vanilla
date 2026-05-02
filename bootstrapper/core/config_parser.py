@@ -11,6 +11,12 @@ from typing import Dict, Optional, Any
 from pathlib import Path
 
 
+# Single source of truth for the default base port. Imported by start.py and
+# wizard/tui_wizard.py so both stay in sync. Mirrors the BASE_PORT default
+# from the original start.sh.
+DEFAULT_BASE_PORT = 63000
+
+
 class ConfigParser:
     """Configuration parser for GenAI Stack."""
     

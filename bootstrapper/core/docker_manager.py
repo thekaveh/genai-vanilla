@@ -4,6 +4,7 @@ Docker operations manager for compose commands and Docker availability checking.
 Python implementation of Docker functions from start.sh and stop.sh.
 """
 
+import os
 import signal
 import subprocess
 from typing import Callable, List, Optional
@@ -121,10 +122,15 @@ class DockerManager:
 
         try:
             # Run the command in the root directory
-            # Docker Compose will read the .env file directly via --env-file flag
+            # Docker Compose will read the .env file directly via --env-file flag.
+            # stdin=DEVNULL prevents any terminal keystroke from leaking into
+            # docker's stdin during long-running passthrough commands like
+            # `logs -f` — the keystrokes would otherwise be visible inside an
+            # active scroll region.
             result = subprocess.run(
                 full_cmd,
                 cwd=str(self.root_dir),
+                stdin=subprocess.DEVNULL,
                 check=False
             )
             return result.returncode
@@ -212,25 +218,35 @@ class DockerManager:
     def prune_system(self, remove_volumes: bool = False) -> int:
         """
         Run docker system prune to clean up unused resources.
-        
+
         Args:
             remove_volumes: Whether to also remove volumes (--volumes flag)
-            
+
         Returns:
             int: Return code from the command
         """
         args = ['docker', 'system', 'prune', '-f']
-        
+
         if remove_volumes:
             args.append('--volumes')
-            
-        print(f"      Command: {' '.join(args)}")
-        
+
+        self._on_command(f"      Command: {' '.join(args)}")
+
         try:
-            result = subprocess.run(args, check=False)
-            return result.returncode
+            proc = subprocess.Popen(
+                args,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+                text=True,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                self._on_command(line.rstrip("\n"))
+            return proc.wait()
         except Exception as e:
-            print(f"❌ Error running docker system prune: {e}")
+            self._on_command(f"❌ Error running docker system prune: {e}")
             return 1
     
     def get_compose_command_display(self) -> str:
@@ -257,36 +273,46 @@ class DockerManager:
     def perform_cold_start_cleanup(self) -> bool:
         """Stop containers, remove volumes and orphans, drop the project network, and prune the Docker system (twice — once with volumes, once general).
 
+        All output flows through the registered command-echo callback
+        (`_on_command`) so the wizard's Live region can stream it into
+        the log pane without tearing the alternate screen.
+
         Returns True if every step succeeded.
         """
         project_name = self.config_parser.get_project_name()
         all_successful = True
-        
-        print("    - Stopping and removing containers...")
-        result = self.execute_compose_command(['down', '--remove-orphans'])
+
+        self._on_command("    - Stopping and removing containers...")
+        result = self.stream_compose(
+            ['down', '--remove-orphans'],
+            on_line=self._on_command,
+        )
         if result != 0:
             all_successful = False
-            
-        print("    - Removing volumes (cold start)...")
-        result = self.execute_compose_command(['down', '-v'])
+
+        self._on_command("    - Removing volumes (cold start)...")
+        result = self.stream_compose(
+            ['down', '-v'],
+            on_line=self._on_command,
+        )
         if result != 0:
             all_successful = False
-        
-        print("    - Removing project network (cold start)...")
-        print(f"      Command: docker network rm {project_name}-network")
+
+        self._on_command("    - Removing project network (cold start)...")
+        self._on_command(f"      Command: docker network rm {project_name}-network")
         if not self.remove_project_networks(project_name):
-            print("      Note: Network may not exist or is already removed")
-            
-        print("    - Performing aggressive Docker system prune (cold start)...")
+            self._on_command("      Note: Network may not exist or is already removed")
+
+        self._on_command("    - Performing aggressive Docker system prune (cold start)...")
         result = self.prune_system(remove_volumes=True)
         if result != 0:
             all_successful = False
-            
-        print("    - Performing general Docker system prune...")
+
+        self._on_command("    - Performing general Docker system prune...")
         result = self.prune_system(remove_volumes=False)
         if result != 0:
             all_successful = False
-            
+
         return all_successful
     
     def perform_cold_stop_cleanup(self) -> bool:
@@ -332,36 +358,6 @@ class DockerManager:
         if pull:
             args.append('--pull')
             
-        return self.execute_compose_command(args)
-    
-    def up_with_build(self, detached: bool = True, no_cache: bool = False) -> int:
-        """
-        Start services with build, replicating the fresh build functionality from start.sh.
-        
-        Args:
-            detached: Whether to run in detached mode
-            no_cache: Whether to build without cache
-            
-        Returns:
-            int: Return code from the command
-        """
-        args = ['up']
-        
-        if detached:
-            args.append('-d')
-            
-        args.append('--build')
-        
-        if no_cache:
-            # For no-cache, we need to build first then up
-            print("    - Building services without cache...")
-            build_result = self.build_services(no_cache=True, pull=True)
-            if build_result != 0:
-                return build_result
-            
-            # Then start normally
-            return self.start_services(detached=detached)
-        
         return self.execute_compose_command(args)
     
     def show_container_status(self) -> int:
@@ -467,13 +463,25 @@ class DockerManager:
     # and line-buffering, the alternate-screen Live region would be torn up
     # by raw subprocess output.
 
-    def _build_compose_command(self, args: List[str], use_env_file: bool = True) -> List[str]:
+    def _build_compose_command(
+        self,
+        args: List[str],
+        use_env_file: bool = True,
+        top_level_flags: Optional[List[str]] = None,
+    ) -> List[str]:
         """
         Internal helper — build the full `docker compose` argv with project
         name and --env-file flag, mirroring `execute_compose_command` but
         without running it. Used by the streaming variants below.
+
+        `top_level_flags` are inserted between the `docker compose` binary
+        and the `-p` / `--env-file` flags — i.e. they're docker-compose
+        global flags (like `--ansi=always` or `--progress=plain`) that
+        must come before the subcommand.
         """
         full_cmd = self.detect_docker_compose_command().split()
+        if top_level_flags:
+            full_cmd.extend(top_level_flags)
         project_name = self.config_parser.get_project_name()
         full_cmd.extend(['-p', project_name])
         if use_env_file and self.config_parser.env_file_exists():
@@ -496,19 +504,40 @@ class DockerManager:
         bufsize=1 + text=True is essential — without it Python block-buffers
         piped stdout and the log pane stalls then bursts.
 
+        We pass `--ansi=always` so compose keeps emitting SGR color codes
+        even when stdout isn't a TTY (the default --ansi=auto would strip
+        them). We deliberately do NOT pass `--progress=plain` — compose
+        rejects that combination ("can't use --progress plain while ANSI
+        support is forced"). With `--progress=auto` (the default) compose
+        auto-detects the piped stdout and emits plain line-based progress
+        anyway, so we get plain progress AND colors without the conflict.
+
+        BUILDKIT_PROGRESS=plain in the subprocess env keeps buildkit's
+        own renderer (used during `docker compose build`) on plain
+        output too — buildkit doesn't share compose's --ansi conflict.
+
         Returns the subprocess exit code.
         """
-        full_cmd = self._build_compose_command(args, use_env_file=use_env_file)
+        full_cmd = self._build_compose_command(
+            args,
+            use_env_file=use_env_file,
+            top_level_flags=['--ansi=always'],
+        )
         self._on_command(f"      Command: {' '.join(full_cmd)}")
+
+        env = os.environ.copy()
+        env['BUILDKIT_PROGRESS'] = 'plain'
 
         try:
             proc = subprocess.Popen(
                 full_cmd,
                 cwd=str(self.root_dir),
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 text=True,
+                env=env,
             )
         except Exception as e:
             on_line(f"❌ Error launching docker compose: {e}")

@@ -139,8 +139,9 @@ docker exec genai-backend python -c "import psycopg2; print('DB OK')"
 
 **404 errors for services:**
 ```bash
-# Check Kong configuration
-cat volumes/api/kong.yml
+# Kong config is dynamically generated at startup — inspect the generator
+# (and the KONG_* env vars it consumes) rather than the emitted file:
+cat bootstrapper/utils/kong_config_generator.py
 
 # Verify Kong is running
 docker logs genai-kong-api-gateway -f
@@ -255,8 +256,10 @@ docker logs genai-backend --tail=100 -f
 # Check what SOURCE values are active
 python3 bootstrapper/start.py --help-usage
 
-# View generated Kong configuration
-cat volumes/api/kong.yml | head -50
+# Inspect the dynamic Kong configuration generator (kong.yml is rebuilt
+# on every startup — don't edit by hand; instead trace the inputs):
+cat bootstrapper/utils/kong_config_generator.py | head -80
+env | grep ^KONG_
 
 # Check environment variables
 env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE)_SOURCE"

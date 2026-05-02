@@ -8,13 +8,13 @@ import re
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 from utils.system import detect_os, is_elevated, get_hosts_file_path
 
 
 class HostsManager:
     """Manages hosts file entries for GenAI Stack services."""
-    
+
     # GenAI Stack hostnames - matches get_genai_hosts() from hosts-utils.sh
     GENAI_HOSTS = [
         "n8n.localhost",
@@ -25,10 +25,29 @@ class HostsManager:
         "jupyter.localhost",
         "openclaw.localhost"
     ]
-    
+
     def __init__(self):
         self.hosts_file_path = get_hosts_file_path()
         self.os_type = detect_os()
+        # Optional logger callback (msg, level). When None, falls back to
+        # plain print(). The Live region wires this so output flows through
+        # the log pane instead of tearing the alternate screen.
+        self._logger: Optional[Callable[[str, str], None]] = None
+
+    def set_logger(self, logger: Optional[Callable[[str, str], None]]) -> None:
+        """Inject a (msg, level) callback used by every status message
+        emitted from this class. Pass None to revert to print()."""
+        self._logger = logger
+
+    def _log(self, message: str, level: str = "info") -> None:
+        """Route a status message through the registered logger or print."""
+        if self._logger is not None:
+            try:
+                self._logger(message, level)
+                return
+            except Exception:
+                pass
+        print(message)
         
     def get_genai_hosts(self) -> List[str]:
         """
@@ -125,7 +144,7 @@ class HostsManager:
             if create_backup:
                 backup_path = self._create_hosts_backup(hosts_file_path)
                 if backup_path:
-                    print(f"  • Created backup: {backup_path}")
+                    self._log(f"  • Created backup: {backup_path}", "info")
                     
             # Remove existing GenAI entries first (cleanup)
             self.remove_hosts_entries_silent(hosts_file_path)
@@ -156,8 +175,8 @@ class HostsManager:
         try:
             backup_path = self._create_hosts_backup(hosts_file_path)
             if backup_path:
-                print(f"  • Created backup: {backup_path}")
-            
+                self._log(f"  • Created backup: {backup_path}", "info")
+
             return self.remove_hosts_entries_silent(hosts_file_path)
             
         except Exception:
@@ -190,43 +209,43 @@ class HostsManager:
             bool: True if successful
         """
         if not self.hosts_file_path:
-            print(f"  • ❌ Cannot determine hosts file location for OS: {self.os_type}")
+            self._log(f"  • ❌ Cannot determine hosts file location for OS: {self.os_type}", "error")
             return False
-            
+
         if not Path(self.hosts_file_path).exists():
-            print(f"  • ❌ Hosts file not found: {self.hosts_file_path}")
+            self._log(f"  • ❌ Hosts file not found: {self.hosts_file_path}", "error")
             return False
-            
+
         # Check if we have elevated privileges
         if not is_elevated():
-            print("  • ❌ Administrative privileges required to modify hosts file")
+            self._log("  • ❌ Administrative privileges required to modify hosts file", "error")
             if self.os_type == "windows":
-                print("    Please run as Administrator")
+                self._log("    Please run as Administrator", "error")
             else:
-                print("    Please run with sudo (Linux/macOS) or as Administrator (Windows)")
+                self._log("    Please run with sudo (Linux/macOS) or as Administrator (Windows)", "error")
             return False
-            
-        print("  • Setting up GenAI Stack hosts entries...")
-        print(f"  • Hosts file: {self.hosts_file_path}")
-        
+
+        self._log("  • Setting up GenAI Stack hosts entries...", "info")
+        self._log(f"  • Hosts file: {self.hosts_file_path}", "info")
+
         # Check which entries are missing first
         missing = self.check_missing_hosts()
-        
+
         if not missing:
-            print("  • ✅ All GenAI hosts entries already exist")
+            self._log("  • ✅ All GenAI hosts entries already exist", "success")
             return True
-            
-        print(f"  • Adding missing entries: {', '.join(missing)}")
-        
+
+        self._log(f"  • Adding missing entries: {', '.join(missing)}", "info")
+
         # Add the missing entries
         if self.add_hosts_entries(self.hosts_file_path):
-            print("  • ✅ Hosts entries added successfully")
-            print("  • You can now access services via:")
+            self._log("  • ✅ Hosts entries added successfully", "success")
+            self._log("  • You can now access services via:", "info")
             for host in self.get_genai_hosts():
-                print(f"    - http://{host}")
+                self._log(f"    - http://{host}", "info")
             return True
         else:
-            print("  • ❌ Failed to add hosts entries")
+            self._log("  • ❌ Failed to add hosts entries", "error")
             return False
     
     def cleanup_hosts_entries(self) -> bool:
@@ -238,52 +257,52 @@ class HostsManager:
             bool: True if successful
         """
         if not self.hosts_file_path:
-            print(f"  • ⚠️  Cannot determine hosts file location for OS: {self.os_type}")
+            self._log(f"  • ⚠️  Cannot determine hosts file location for OS: {self.os_type}", "warning")
             return False
-            
+
         if not Path(self.hosts_file_path).exists():
-            print(f"  • ⚠️  Hosts file not found: {self.hosts_file_path}")
+            self._log(f"  • ⚠️  Hosts file not found: {self.hosts_file_path}", "warning")
             return False
-            
+
         # Check if we have elevated privileges
         if not is_elevated():
-            print("  • ❌ Administrative privileges required to modify hosts file")
+            self._log("  • ❌ Administrative privileges required to modify hosts file", "error")
             if self.os_type == "windows":
-                print("    Please run as Administrator")
+                self._log("    Please run as Administrator", "error")
             else:
-                print("    Please run with sudo (Linux/macOS) or as Administrator (Windows)")
-            
-            print("    Or manually remove these entries from hosts file:")
+                self._log("    Please run with sudo (Linux/macOS) or as Administrator (Windows)", "error")
+
+            self._log("    Or manually remove these entries from hosts file:", "info")
             for host in self.get_genai_hosts():
-                print(f"    127.0.0.1 {host}")
+                self._log(f"    127.0.0.1 {host}", "info")
             return False
-            
-        print("  • Removing GenAI Stack hosts file entries...")
-        
+
+        self._log("  • Removing GenAI Stack hosts file entries...", "info")
+
         if self.remove_hosts_entries(self.hosts_file_path):
-            print("  • ✅ Hosts entries removed successfully")
-            print("    The following entries were removed:")
+            self._log("  • ✅ Hosts entries removed successfully", "success")
+            self._log("    The following entries were removed:", "info")
             for host in self.get_genai_hosts():
-                print(f"    127.0.0.1 {host}")
+                self._log(f"    127.0.0.1 {host}", "info")
             return True
         else:
-            print("  • ❌ Failed to remove hosts entries")
+            self._log("  • ❌ Failed to remove hosts entries", "error")
             return False
-    
+
     def check_hosts_status(self) -> None:
         """
         Check and display the status of GenAI hosts entries.
         Used by start.py to show hosts status.
         """
         if not self.hosts_file_path or not Path(self.hosts_file_path).exists():
-            print("  • ⚠️  Cannot access hosts file")
-            print("    Manual setup may be required for subdomain access")
+            self._log("  • ⚠️  Cannot access hosts file", "warning")
+            self._log("    Manual setup may be required for subdomain access", "warning")
             return
-            
+
         missing = self.check_missing_hosts()
-        
+
         if missing:
-            print(f"  • Missing hosts entries: {', '.join(missing)}")
-            print("    Run with --setup-hosts to add them automatically")
+            self._log(f"  • Missing hosts entries: {', '.join(missing)}", "warning")
+            self._log("    Run with --setup-hosts to add them automatically", "info")
         else:
-            print("  • ✅ All required hosts entries are present")
+            self._log("  • ✅ All required hosts entries are present", "success")

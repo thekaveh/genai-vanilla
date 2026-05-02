@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **TUI rebuild — wizard**: Replaced the InquirerPy-based wizard with a Rich `Live` + `readchar` TUI. The new wizard runs as a single anchored info-box at the top of the screen with the active prompt panel rendered inside the same Live region — service prompts, base port, cold start, hosts, and launch confirmation are now wizard steps rather than separate text prompts.
+- **TUI rebuild — streaming logs**: After the user confirms launch, the wizard's Live region tears down and a Textual app (`bootstrapper/ui/log_stream_app.py`) takes over. The same stylized info-box stays pinned at the top while a bordered "Streaming Logs" panel below carries `docker compose` build / up / port-verify / `logs -f` output, with native mouse-wheel scrollback and ANSI colors preserved via `Text.from_ansi`. Press `Ctrl+C` or `q` to detach (the stack keeps running).
+- **Brand customization via `BRAND_*` env vars**: The pinned info-box's title / subtitle metadata (brand name, tagline, version, author, license, repo URL) is now overridable via `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_VERSION`, `BRAND_AUTHOR`, `BRAND_LICENSE`, `BRAND_REPO_URL` in `.env`. Defaults are GenAI Vanilla; forks can rebrand without code changes.
+- **Service-definition consolidation**: `bootstrapper/ui/state_builder.all_services()` is now the single source of truth for the canonical service list, consumed by both the TUI box (`render_info_box`) and the legacy non-TUI summary table (`build_pre_launch_summary_table`). No more duplicated inline service tables.
+- **Single `DEFAULT_BASE_PORT`**: Moved to `bootstrapper/core/config_parser.py` so `start.py` and the wizard import the same constant (was previously declared twice).
+
+### Removed
+- Deleted obsolete bootstrapper modules now folded into the new TUI: `wizard/interactive_wizard.py`, `wizard/prompts.py`, `wizard/ui_renderer.py`, `utils/scroll_pin.py`, `utils/ansi_filter.py`, `ui/services_poller.py`, `ui/confirm_widget.py`. Pruned dead methods (`up_with_build`, `set_service_state`, `apply_service_snapshot`, `clear_status`, `prompt_confirm`), dead palette helpers (`style_for_service_state`, `dot_for_service_state`, `DOT_STARTING`, `DOT_OFF`, `DOT_UNHEALTHY`, `COLOR_STARTING`), and unused state constants / `ServiceEntry` fields (`SERVICE_STATE_*`, `GROUP_*`, `CATEGORY_*`, `state`, `group`, `category`, `is_default_source`, `endpoints`).
+
+### Dependencies
+- Added `textual >= 0.85` (post-wizard log streaming).
+- Added `readchar >= 4.0` (wizard widgets).
+- Removed `InquirerPy`.
+- Bumped `requires-python` from `>=3.8` to `>=3.9` (Textual minimum).
+
 ### Added
 - **OpenClaw AI Agent**: AI agent for messaging platforms (WhatsApp, Telegram, Discord, etc.)
   - Connects to messaging apps for AI-powered chat, file management, and task automation
