@@ -54,11 +54,11 @@ COLOR_DIM = "color(60)"
 COLOR_OFF = COLOR_DIM
 COLOR_SEPARATOR = "color(60)"
 
-# Box border — Tokyo Night's blue accent (#7aa2f7-ish). Distinct from
-# COLOR_DIM so the box edge feels structural and present, not "dead".
-# Pairs with COLOR_TITLE (pale blue-white, bold) for high contrast in
-# the title bar inside this border.
-COLOR_BORDER = "color(75)"
+# Box border — Tokyo Night's `comment` slate-blue (#5f5f87). Restrained,
+# matches the dim/separator tone so the box edge feels structural without
+# competing with the data inside. Pairs with COLOR_TITLE (pale blue-white,
+# bold) for clear contrast in the title bar inside this border.
+COLOR_BORDER = "color(60)"
 
 # COLOR_OK is the "success" log/status level color — same green as
 # COLOR_CONTAINER. Used by `style_for_level('ok'|'success')` in log_pane.
@@ -105,26 +105,22 @@ def color_for_source(name: str) -> str:
 
 # --- Logo gradient (LOGO-ONLY, do not use elsewhere) -----------------------
 
-# Per-character gradient applied to the GenAI Vanilla ASCII logo block in
-# `ui/logo.py`. The blue ramp is RESERVED for the logo — do NOT reach for
-# these colors anywhere else; the four-color box palette (above) stays
-# visually distinct from the logo's gradient.
+# Eight-step DRAMATIC blue gradient applied per LETTER to the GenAI
+# Vanilla ASCII art in `ui/logo.py`. Each letter shape gets a single
+# solid color, producing a left-to-right ramp from a deep saturated
+# midnight navy at the dark end to a soft pale azure at the light end —
+# all squarely in the blue family. This palette is RESERVED for the
+# logo; do NOT reach for these colors elsewhere — the four-color box
+# palette (above) stays visually distinct from the logo's ramp.
 LOGO_GRADIENT = [
-    "color(17)",   # Dark Navy Blue
-    "color(18)",   # Dark Blue
-    "color(19)",   # Medium Dark Blue
-    "color(20)",   # Royal Blue
-    "color(21)",   # Bright Blue
-    "color(26)",   # Blue-Cyan
-    "color(27)",   # Cyan-Blue
-    "color(33)",   # Bright Cyan-Blue
-    "color(39)",   # Light Cyan-Blue
-    "color(45)",   # Cyan
-    "color(51)",   # Bright Cyan
-    "color(87)",   # Light Blue-Cyan
-    "color(123)",  # Light Blue
-    "color(159)",  # Very Light Blue
-    "color(195)",  # Pale Blue
+    "#0A1A55",   # [0]  deep midnight navy (saturated, rich blue)
+    "#14338B",   # [1]  dark royal navy
+    "#1F4FBE",   # [2]  strong royal blue
+    "#316DDF",   # [3]  vivid royal blue
+    "#4F8AED",   # [4]  bright blue
+    "#74A6F4",   # [5]  light blue
+    "#9CC0F9",   # [6]  pale sky blue
+    "#BFD8FD",   # [7]  soft pale azure
 ]
 
 # --- Status dot glyph -------------------------------------------------------

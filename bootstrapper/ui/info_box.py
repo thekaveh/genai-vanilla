@@ -21,7 +21,7 @@ or legacy presentations when the terminal is too small.
 from math import ceil
 from typing import List
 
-from rich.box import HEAVY
+from rich.box import ROUNDED
 from rich.columns import Columns
 from rich.console import Group, RenderableType
 from rich.panel import Panel
@@ -97,8 +97,8 @@ def render_info_box(
         subtitle=_render_subtitle(state),
         subtitle_align="right",
         border_style=palette.COLOR_BORDER,
-        box=HEAVY,
-        padding=(0, 2),
+        box=ROUNDED,
+        padding=(1, 2),
         expand=True,
     )
 
@@ -119,12 +119,15 @@ def render_compact_summary(state: AppState, available_width: int) -> Panel:
 
     body = Group(rollup, _render_footer(state))
 
+    # Compact summary keeps padding=(0, 2) — it's the short-terminal
+    # fallback, vertical breathing room would push it past the height
+    # threshold that triggered this branch in the first place.
     return Panel(
         body,
         title=_render_title(state),
         title_align="left",
         border_style=palette.COLOR_BORDER,
-        box=HEAVY,
+        box=ROUNDED,
         padding=(0, 2),
         expand=True,
     )

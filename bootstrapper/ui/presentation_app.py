@@ -348,7 +348,10 @@ class PresentationApp:
         # Logo — adaptive height by terminal size; may be skipped entirely
         # on short terminals.
         logo_height = _logo.estimated_height(width, height)
-        logo_renderable = _logo.render_logo(width, height) if logo_height else None
+        logo_renderable = (
+            _logo.render_logo(width, height, brand_name=self.state.brand_name)
+            if logo_height else None
+        )
 
         # Info box — full or compact depending on available height.
         if height < 30:
@@ -412,8 +415,10 @@ class PresentationApp:
         else:
             services_rows = n
 
-        # Layout: 2 border + services + optional footer.
-        height = 2 + services_rows
+        # Layout: 2 border + 2 vertical-padding rows + services + optional footer.
+        # The 2 padding rows come from `Panel(..., padding=(1, 2))` in
+        # `info_box.render_info_box` — one blank row above and below the body.
+        height = 2 + 2 + services_rows
         if self.state.env_file_path:
             height += 1
         if self.state.box_mode == "wizard":

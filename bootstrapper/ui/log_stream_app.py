@@ -49,12 +49,13 @@ if TYPE_CHECKING:
 class LogStreamApp(App):
     """Textual app: pinned info-box on top, bordered streaming logs below."""
 
-    # Border + title styling matches the upper info-box (rich.box.HEAVY,
-    # palette.COLOR_BORDER = color(75) ≈ #5FAFFF; title is bold pale-blue
-    # color(189) ≈ #D7D7FF; subtitle is dim slate color(60) ≈ #5F5F87).
-    # Thin scrollbars (size 1) and thin track to match the sleek look of
-    # the upper box. wrap=True on the RichLog removes the unusable
-    # horizontal scrollbar — long lines wrap to the next visual row.
+    # Border + title styling matches the upper info-box (rich.box.ROUNDED,
+    # palette.COLOR_BORDER = color(60) ≈ #5F5F87 — slate-blue, restrained).
+    # Title bar uses bold pale-blue color(189) ≈ #D7D7FF; subtitle uses
+    # the same slate as the border. Thin 1-cell scrollbars and slate
+    # accent match the sleek look of the wizard's box. wrap=True on the
+    # RichLog removes the unusable horizontal scrollbar — long lines
+    # wrap to the next visual row.
     CSS = """
     /* Apply 1-cell scrollbars to ALL widgets, including the implicit
        Screen scrollbar that appears when the user resizes the terminal
@@ -69,7 +70,7 @@ class LogStreamApp(App):
     Screen {
         layout: vertical;
         background: $background;
-        scrollbar-color: #5FAFFF;
+        scrollbar-color: #5F5F87;
         scrollbar-color-hover: #D7D7FF;
         scrollbar-color-active: #D7D7FF;
         scrollbar-background: $background;
@@ -82,14 +83,14 @@ class LogStreamApp(App):
     }
 
     #log-pane {
-        border: heavy #5FAFFF;
+        border: round #5F5F87;
         border-title-color: #D7D7FF;
         border-title-style: bold;
         border-subtitle-color: #5F5F87;
         padding: 0 1;
         margin: 0;
         height: 1fr;
-        scrollbar-color: #5FAFFF;
+        scrollbar-color: #5F5F87;
         scrollbar-color-hover: #D7D7FF;
         scrollbar-color-active: #D7D7FF;
         scrollbar-background: $background;

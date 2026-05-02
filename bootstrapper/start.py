@@ -1125,9 +1125,11 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # the legacy Rich-Table summary, prompt for confirm, then run
         # the TTY-passthrough docker streaming via execute_compose_command.
         if tui_capable:
+            from rich.console import Group as _Group
             from ui.log_stream_app import LogStreamApp
             from ui.state_builder import build_app_state
             from ui.info_box import render_info_box
+            from ui import logo as _logo
             import shutil as _shutil
 
             # Use the SAME stylized info-box the wizard rendered — built
@@ -1135,10 +1137,21 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             summary_state = build_app_state(
                 starter.config_parser, starter.hosts_manager, box_mode='normal'
             )
-            summary_width = _shutil.get_terminal_size().columns
-            summary = render_info_box(summary_state, available_width=summary_width)
+            term_size = _shutil.get_terminal_size()
+            summary = render_info_box(summary_state, available_width=term_size.columns)
 
-            LogStreamApp(info_box=summary, starter=starter, cold=cold).run()
+            # Stack the GENAI VANILLA ASCII banner above the info-box —
+            # same logo the wizard renders. Adapts to terminal size:
+            # full art on tall terminals, 1-line tagline on medium,
+            # nothing on short. The combined Group goes into a single
+            # Static widget inside LogStreamApp.
+            logo_renderable = _logo.render_logo(
+                term_size.columns, term_size.lines,
+                brand_name=summary_state.brand_name,
+            )
+            top_region = _Group(logo_renderable, summary)
+
+            LogStreamApp(info_box=top_region, starter=starter, cold=cold).run()
         else:
             # Legacy linear flow — show the summary table, prompt to
             # confirm (since the wizard didn't), then stream.
