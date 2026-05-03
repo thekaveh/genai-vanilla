@@ -32,8 +32,10 @@ The configuration is generated at startup by `bootstrapper/utils/kong_config_gen
 - `comfyui.localhost` → ComfyUI service (if enabled)
 - `n8n.localhost` → n8n service (if enabled)
 - `search.localhost` → SearxNG service (if enabled)
-- `api.localhost` → Backend API (if enabled)
+- `api.localhost` → Backend API (always-on adaptive core service)
 - `chat.localhost` → Open WebUI (if enabled)
+- `jupyter.localhost` → JupyterHub (if enabled)
+- `openclaw.localhost` → OpenClaw gateway (if enabled)
 
 ## SOURCE-Based Configuration
 
@@ -41,7 +43,7 @@ The configuration is generated at startup by `bootstrapper/utils/kong_config_gen
 ```python
 # Generated based on COMFYUI_SOURCE
 if source == 'localhost':
-    service['url'] = 'http://host.docker.internal:8000/'
+    service['url'] = COMFYUI_LOCALHOST_URL or 'http://host.docker.internal:8000/'
 elif source == 'external':
     service['url'] = external_url
 elif source in ['container-cpu', 'container-gpu']:
@@ -138,6 +140,8 @@ docker exec genai-kong-api-gateway kong config -c /kong.yml dump
 # Test specific routes
 curl -H "Host: comfyui.localhost" http://localhost:63002/
 curl -H "Host: n8n.localhost" http://localhost:63002/
+curl -H "Host: jupyter.localhost" http://localhost:63002/
+curl -H "Host: openclaw.localhost" http://localhost:63002/
 ```
 
 ## Troubleshooting

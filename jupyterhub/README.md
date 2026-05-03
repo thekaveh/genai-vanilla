@@ -220,19 +220,11 @@ Add to Dockerfile:
 RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
 ```
 
-### GPU Access
+### GPU-aware workflows
 
-If using GPU-enabled services:
+JupyterHub itself is configured through `.env` and the stack startup flow. Prefer enabling GPU-backed upstream services through SOURCE variables such as `LLM_PROVIDER_SOURCE=ollama-container-gpu`, `COMFYUI_SOURCE=container-gpu`, or `MULTI2VEC_CLIP_SOURCE=container-gpu`.
 
-```yaml
-deploy:
-  resources:
-    reservations:
-      devices:
-        - driver: nvidia
-          count: 1
-          capabilities: [gpu]
-```
+Avoid direct `docker-compose.yml` edits for normal operation; local compose edits are unsupported experiments and can be invalidated by future stack changes.
 
 ## Resources
 
@@ -242,6 +234,6 @@ deploy:
 
 ## Support
 
-- GitHub Issues: [Report bugs](https://github.com/your-repo/issues)
+- GitHub Issues: [Report bugs](https://github.com/thekaveh/genai-vanilla/issues)
 - Documentation: [Full docs](../docs/README.md)
 - Logs: `docker logs genai-jupyterhub`

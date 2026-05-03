@@ -2,7 +2,9 @@
 
 A flexible, modular GenAI project boilerplate with customizable services.
 
-![Architecture Diagram](./docs/images/architecture.png)
+[![Architecture Diagram](./docs/diagrams/architecture.svg)](./docs/diagrams/architecture.html)
+
+For the richer static architecture view, open [`docs/diagrams/architecture.html`](./docs/diagrams/architecture.html).
 
 ## Quick Start
 
@@ -17,11 +19,16 @@ git clone <your-repository-url> && cd genai-vanilla
 
 # 3. Wait ~5 minutes for AI models to download, then access:
 # Open WebUI (Chat):     http://localhost:63015
-# n8n (Workflows):       http://localhost:63002
+# n8n (Workflows):       http://localhost:63017
 # Supabase Studio:       http://localhost:63009
 # SearxNG (Search):      http://localhost:63014
-# ComfyUI:               http://comfyui.localhost:63002
+# ComfyUI:               http://localhost:63018
 # JupyterHub (IDE):      http://localhost:63048
+#
+# Optional Kong host routes after ./start.sh --setup-hosts:
+# Chat:                  http://chat.localhost:63002
+# n8n:                   http://n8n.localhost:63002
+# ComfyUI:               http://comfyui.localhost:63002
 
 # Default credentials:
 # Supabase Studio: admin@example.com / changeme123
@@ -110,31 +117,9 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 ### 1.3 Architecture overview
 
-```mermaid
-graph TB
-    User[User] --> Kong[Kong Gateway]
-    Kong --> OpenWebUI[Open WebUI]
-    Kong --> N8N[n8n Workflows]
-    Kong --> Supabase[Supabase Studio]
-    Kong --> ComfyUI[ComfyUI]
-    Kong --> SearxNG[SearxNG]
-    Kong --> JupyterHub[JupyterHub]
-    Kong --> OpenClaw[OpenClaw Agent]
+The canonical architecture diagram is the rich static artifact at [`docs/diagrams/architecture.html`](docs/diagrams/architecture.html), with a static SVG preview at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg).
 
-    OpenClaw --> Ollama
-    OpenWebUI --> Backend[Backend API + LangMem Memory]
-    Backend --> Ollama[Ollama LLM]
-    Backend --> Weaviate[Weaviate Vector DB]
-    Backend --> Neo4j[Neo4j Graph DB]
-    Backend --> Redis[Redis Cache]
-    Backend --> PostgreSQL[PostgreSQL + pgvector]
-
-    JupyterHub --> Ollama
-    JupyterHub --> Weaviate
-    JupyterHub --> Neo4j
-    JupyterHub --> PostgreSQL
-    JupyterHub --> Redis
-```
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, Supabase/PostgreSQL, Redis, Neo4j, Weaviate, Ollama, n8n, ComfyUI, JupyterHub, SearxNG, and optional OpenClaw/STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
 
 ## 2. Getting Started
 
@@ -151,7 +136,7 @@ The SOURCE-based configuration system controls how each service is deployed.
 ### 2.2 Prerequisites
 
 - **Docker & Docker Compose** — container orchestration
-- **Python 3.10+** — for start/stop scripts
+- **Python 3.9+** — for start/stop scripts
 - **8GB+ RAM** allocated to Docker (12GB recommended)
 - **10GB+ disk space** for Docker volumes
 
@@ -183,7 +168,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 
 **Services that support localhost:**
 - **Ollama** (`LLM_PROVIDER_SOURCE=ollama-localhost`) — use local Ollama installation
-- **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI (port 8188)
+- **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI via `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
 
@@ -191,28 +176,28 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **n8n** (`N8N_SOURCE=container|disabled`) — workflow automation
 - **SearxNG** (`SEARXNG_SOURCE=container|disabled`) — privacy search
 - **Open WebUI** (`OPEN_WEB_UI_SOURCE=container|disabled`) — chat interface
-- **Backend API** (`BACKEND_SOURCE=container|disabled`) — FastAPI backend
+- **Backend API** (`BACKEND_SOURCE=container`) — always-on adaptive FastAPI backend
 - **JupyterHub** (`JUPYTERHUB_SOURCE=container|disabled`) — data science IDE
 
 ## 3. Core Services
 
 ### 3.1 Service overview
 
-| Service | URL | Purpose | Auth required |
-|---------|-----|---------|---------------|
-| **Open WebUI** | http://localhost:63015 | AI chat interface | Create account |
-| **n8n** | http://n8n.localhost:63002 | Workflow automation | admin@example.com |
-| **Supabase Studio** | http://localhost:63009 | Database management | admin@example.com |
-| **ComfyUI** | http://comfyui.localhost:63002 | Image generation | None |
-| **SearxNG** | http://search.localhost:63002 | Privacy search | None |
-| **JupyterHub** | http://localhost:63048 | Data science IDE | Token (optional) |
-| **Neo4j Browser** | http://localhost:63011 | Graph database | neo4j / password |
-| **Backend API** | http://localhost:63000 | REST API | API key |
-| **Ollama API** | http://localhost:63004 | LLM API | None |
-| **Parakeet STT** | http://localhost:63022 | Speech-to-text | None |
-| **XTTS v2 TTS** | http://localhost:63023 | Text-to-speech | None |
-| **Docling Processor** | http://localhost:63021 | Document processing | None |
-| **OpenClaw Agent** | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
+| Service | Direct URL | Kong URL | Purpose | Auth required |
+|---------|------------|----------|---------|---------------|
+| **Open WebUI** | http://localhost:63015 | http://chat.localhost:63002 | AI chat interface | Create account |
+| **n8n** | http://localhost:63017 | http://n8n.localhost:63002 | Workflow automation | admin@example.com |
+| **Supabase Studio** | http://localhost:63009 | http://localhost:63002 | Database management | admin@example.com |
+| **ComfyUI** | http://localhost:63018 | http://comfyui.localhost:63002 | Image generation | None |
+| **SearxNG** | http://localhost:63014 | http://search.localhost:63002 | Privacy search | None |
+| **JupyterHub** | http://localhost:63048 | http://jupyter.localhost:63002 | Data science IDE | Token (optional) |
+| **Neo4j Browser** | http://localhost:63011 | — | Graph database | neo4j / password |
+| **Backend API** | http://localhost:63016 | http://api.localhost:63002 | REST API | API key |
+| **Ollama API** | http://localhost:63012 | — | LLM API | None |
+| **Parakeet STT** | http://localhost:63022 | — | Speech-to-text | None |
+| **XTTS v2 TTS** | http://localhost:63023 | — | Text-to-speech | None |
+| **Docling Processor** | http://localhost:63021 | — | Document processing | None |
+| **OpenClaw Agent** | http://localhost:63024 | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
 
 ### 3.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -312,7 +297,7 @@ cp .env.example .env
 # Access from your application
 # - Docker network: myproject-network
 # - Kong gateway: http://localhost:63002
-# - Direct ports: http://localhost:63000+
+# - Direct ports: derived from BASE_PORT, default http://localhost:63000+
 ```
 
 **Capabilities:**
@@ -338,14 +323,26 @@ See [docs/deployment/submodule-usage.md](docs/deployment/submodule-usage.md) for
 ### 6.1 Project structure
 ```
 genai-vanilla/
-├── bootstrapper/              # Python bootstrapping scripts
-├── services/                  # Service definitions
-├── volumes/                   # Persistent data
-├── docs/                      # Documentation
+├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
+├── backend/                   # Always-on FastAPI backend service
+├── docs/                      # User, service, deployment, diagram, and planning docs
+├── supabase/                  # Supabase service configuration
+├── graph-db/                  # Neo4j configuration/init assets
+├── jupyterhub/                # JupyterHub image, notebooks, and requirements
+├── n8n/ + n8n-init/           # Workflow automation service and init/import assets
+├── open-webui/ + open-webui-init/ # Chat UI service and initialization assets
+├── ollama-pull/               # Model-pull init container assets
+├── comfyui-init/              # ComfyUI initialization assets
+├── weaviate-init/             # Weaviate schema/config initialization assets
+├── searxng/                   # Search service configuration
+├── local-deep-researcher/     # Local research/orchestration service
+├── doc-processor/             # Docling document processor service
+├── stt-provider/              # Parakeet speech-to-text provider assets
+├── tts-provider/              # XTTS text-to-speech provider assets
 ├── docker-compose.yml         # Main compose file
-├── .env.example              # Configuration template
-├── start.sh                  # Start script
-└── stop.sh                   # Stop script
+├── .env.example               # Configuration template
+├── start.sh                   # Start script
+└── stop.sh                    # Stop script
 ```
 
 ### 6.2 Adding services
@@ -383,7 +380,8 @@ For longer-form troubleshooting guides, see [docs/quick-start/troubleshooting.md
 - [Documentation index](docs/README.md)
 - [Quick Start guides](docs/quick-start/) — installation and first-run
 - [Service documentation](docs/services/) — individual service guides
-- [Deployment guides](docs/deployment/) — deployment options and configuration
+- [Ports and Routes](docs/deployment/ports-and-routes.md) — canonical ports, direct URLs, and Kong routes
+- [Deployment guides](docs/deployment/) — deployment options, ports, routes, and configuration
 - [ROADMAP.md](docs/ROADMAP.md) — future development plans
 - [CHANGELOG.md](docs/CHANGELOG.md) — release history
 
@@ -398,5 +396,5 @@ Contributions welcome. Open a PR or an issue to propose changes.
 ## Support
 
 - Check the [documentation](docs/README.md)
-- Report issues on [GitHub Issues](https://github.com/your-repo/issues)
-- Ask questions in [GitHub Discussions](https://github.com/your-repo/discussions)
+- Report issues on [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues)
+- Ask questions in [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions)

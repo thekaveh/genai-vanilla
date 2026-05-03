@@ -309,8 +309,8 @@ cp .env config_backup.env  # Remove sensitive data before sharing
 
 ### Community Resources
 
-- [GitHub Issues](https://github.com/your-repo/issues) - Bug reports and feature requests
-- [GitHub Discussions](https://github.com/your-repo/discussions) - Questions and community support
+- [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues) - Bug reports and feature requests
+- [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions) - Questions and community support
 - [Documentation](../README.md) - Complete documentation index
 
 ## Recovery Procedures

@@ -172,20 +172,11 @@ Increase Docker memory:
 
 ## Advanced Configuration
 
-### GPU Access
+### GPU-aware workflows
 
-If using GPU-enabled services, add to `docker-compose.yml`:
+JupyterHub itself is configured through `.env` and the stack startup flow. Prefer enabling GPU-backed upstream services through their SOURCE variables, for example `LLM_PROVIDER_SOURCE=ollama-container-gpu`, `COMFYUI_SOURCE=container-gpu`, or `MULTI2VEC_CLIP_SOURCE=container-gpu`.
 
-```yaml
-jupyterhub:
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: 1
-            capabilities: [gpu]
-```
+Avoid direct `docker-compose.yml` edits for normal operation; local compose edits are unsupported experiments and can be overwritten or invalidated by future stack changes.
 
 ### Multi-user Setup
 
@@ -197,17 +188,9 @@ c.JupyterHub.authenticator_class = 'firstuseauthenticator.FirstUseAuthenticator'
 
 ## Architecture
 
-```mermaid
-graph LR
-    JH[JupyterHub] --> Ollama
-    JH --> Weaviate
-    JH --> Neo4j
-    JH --> PostgreSQL
-    JH --> Redis
-    JH --> Supabase
-    JH --> ComfyUI
-    JH --> n8n
-```
+JupyterHub runs inside the Docker Compose network and receives environment variables for the services that are enabled. It can connect to Ollama/API LLMs, Weaviate, Neo4j, PostgreSQL/Supabase, Redis, ComfyUI, n8n, STT/TTS, and document-processing services when those services are available.
+
+For the current high-level stack diagram, see [Architecture Diagram](../diagrams/architecture.html).
 
 ## Resources
 
@@ -219,5 +202,5 @@ graph LR
 ## Support
 
 - **Logs**: `docker logs genai-jupyterhub`
-- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
+- **Issues**: [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues)
 - **Docs**: [Full Documentation](../README.md)

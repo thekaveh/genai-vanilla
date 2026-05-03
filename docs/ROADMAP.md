@@ -339,7 +339,7 @@ Community input on roadmap priorities is welcome:
 - **Contribute code**: help implement roadmap features
 - **Improve documentation**: help document new capabilities
 
-**Join the conversation**: [GitHub Discussions](https://github.com/your-repo/discussions)
+**Join the conversation**: [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions)
 
 ---
 

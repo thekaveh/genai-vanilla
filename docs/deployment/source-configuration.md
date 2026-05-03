@@ -12,7 +12,43 @@ SOURCE variables control how each service is deployed - whether in a Docker cont
 
 ## Service SOURCE Support Matrix
 
+This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`. Detailed prose below focuses on the most common user-facing services; init/internal rows are included here so operators can understand what appears in `.env`.
+
+| SOURCE variable | Default | Options | Category | Notes |
+|---|---|---|---|---|
+| `LLM_PROVIDER_SOURCE` | `ollama-container-cpu` | `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, `api`, `disabled` | User-facing | Main LLM provider mode. |
+| `COMFYUI_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `localhost`, `external`, `disabled` | User-facing | Image generation service. |
+| `WEAVIATE_SOURCE` | `container` | `container`, `localhost`, `disabled` | User-facing | Vector database. |
+| `N8N_SOURCE` | `container` | `container`, `disabled` | User-facing | Workflow automation. |
+| `SEARXNG_SOURCE` | `container` | `container`, `disabled` | User-facing | Privacy metasearch. |
+| `OPENCLAW_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing | AI messaging agent. |
+| `STT_PROVIDER_SOURCE` | `disabled` | `parakeet-container-gpu`, `parakeet-localhost`, `disabled` | User-facing optional | Speech-to-text provider. |
+| `TTS_PROVIDER_SOURCE` | `disabled` | `xtts-container-gpu`, `xtts-localhost`, `disabled` | User-facing optional | Text-to-speech provider. |
+| `DOC_PROCESSOR_SOURCE` | `disabled` | `docling-container-gpu`, `docling-localhost`, `disabled` | User-facing optional | Document processing provider. |
+| `JUPYTERHUB_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Data science notebooks; adaptive integrations. |
+| `MULTI2VEC_CLIP_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `disabled` | User-facing optional | Multimodal Weaviate vectorizer. |
+| `LOCAL_DEEP_RESEARCHER_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Local research/orchestration service. |
+| `OPEN_WEB_UI_SOURCE` | `container` | `container`, `disabled` | Adaptive application | Main chat UI; adapts to LLM provider. |
+| `BACKEND_SOURCE` | `container` | `container` | Adaptive core | Always-on Backend API; not disableable in this remediation track. |
+| `REDIS_SOURCE` | `container` | `container` | Infrastructure | Cache/session/queue service. |
+| `KONG_API_GATEWAY_SOURCE` | `container` | `container` | Infrastructure | API gateway and friendly host routing. |
+| `NEO4J_GRAPH_DB_SOURCE` | `container` | `container`, `localhost`, `disabled` | Infrastructure / user-facing data | Graph database. |
+| `SUPABASE_DB_SOURCE` | `container` | `container` | Infrastructure | PostgreSQL database. |
+| `SUPABASE_META_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase metadata service. |
+| `SUPABASE_STORAGE_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase storage service. |
+| `SUPABASE_AUTH_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase auth service. |
+| `SUPABASE_API_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase REST API. |
+| `SUPABASE_REALTIME_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase realtime service. |
+| `SUPABASE_STUDIO_SOURCE` | `container` | `container`, `disabled` | Infrastructure UI | Supabase admin UI. |
+| `OLLAMA_PULL_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Pulls configured Ollama models when container Ollama is enabled. |
+| `WEAVIATE_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Weaviate schemas/config. |
+| `COMFYUI_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes ComfyUI assets/config. |
+| `N8N_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes/imports n8n workflows. |
+| `OPENCLAW_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes OpenClaw config where applicable. |
+| `SUPABASE_DB_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Supabase database state. |
+
 ### Services Supporting Localhost
+
 These services can run on your host machine instead of in containers:
 
 | Service | SOURCE Variable | Localhost Option | Benefits |
@@ -20,17 +56,15 @@ These services can run on your host machine instead of in containers:
 | **Ollama** | `LLM_PROVIDER_SOURCE` | `ollama-localhost` | Faster, uses existing models, less memory |
 | **ComfyUI** | `COMFYUI_SOURCE` | `localhost` | Direct access, custom setups, faster |
 | **Weaviate** | `WEAVIATE_SOURCE` | `localhost` | Custom configuration, performance |
+| **Neo4j** | `NEO4J_GRAPH_DB_SOURCE` | `localhost` | Use an existing graph database |
 | **OpenClaw** | `OPENCLAW_SOURCE` | `localhost` | Native performance, existing config |
+| **STT Provider** | `STT_PROVIDER_SOURCE` | `parakeet-localhost` | Use a host speech-to-text service |
+| **TTS Provider** | `TTS_PROVIDER_SOURCE` | `xtts-localhost` | Use a host text-to-speech service |
+| **Document Processor** | `DOC_PROCESSOR_SOURCE` | `docling-localhost` | Use a host Docling service |
 
-### Container-Only Services
-These services only run in Docker containers:
+### Container-Only or Stack-Managed Services
 
-| Service | SOURCE Variable | Options | Reason |
-|---------|----------------|---------|--------|
-| **n8n** | `N8N_SOURCE` | `container`, `disabled` | Complex dependencies |
-| **SearxNG** | `SEARXNG_SOURCE` | `container`, `disabled` | Custom config required |
-| **Open WebUI** | `OPEN_WEB_UI_SOURCE` | `container`, `disabled` | Integrated environment |
-| **Backend API** | `BACKEND_SOURCE` | `container`, `disabled` | Service dependencies |
+Container-only and stack-managed services should normally be left at their defaults unless you are intentionally reducing the stack or debugging a specific component. Init service SOURCE variables are usually managed by the startup flow and should not be the first knob users change.
 
 ### Feature Flags (Non-SOURCE)
 
@@ -87,7 +121,7 @@ ollama pull qwen3-embedding:0.6b
 #### `ollama-external`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-external
-OLLAMA_EXTERNAL_URL=https://your-ollama-api.com
+LLM_PROVIDER_EXTERNAL_URL=https://your-ollama-api.example
 ```
 - **Use case**: Remote Ollama instance
 - **Pros**: Shared resources, cloud deployment
@@ -98,10 +132,10 @@ OLLAMA_EXTERNAL_URL=https://your-ollama-api.com
 ```bash
 LLM_PROVIDER_SOURCE=api
 ```
-- **Use case**: Cloud LLM APIs (OpenAI, Anthropic, etc.)
-- **Pros**: No local resources, access to latest models
-- **Cons**: API costs, internet dependency
-- **Requirements**: API keys configured in Open WebUI
+- **Use case**: Cloud LLM APIs configured in Open WebUI or another consuming application
+- **Pros**: No local Ollama resources, access to managed providers
+- **Cons**: API costs, internet dependency, provider-specific setup
+- **Requirements**: Configure provider credentials in the consuming application. This mode disables the container Ollama service; it is not the same as `ollama-external`. Use `LLM_PROVIDER_EXTERNAL_URL` only with `LLM_PROVIDER_SOURCE=ollama-external`.
 
 #### `disabled`
 ```bash
@@ -139,7 +173,7 @@ COMFYUI_SOURCE=localhost
 - **Use case**: Existing ComfyUI installation
 - **Pros**: Custom workflows, existing setups
 - **Cons**: Manual setup required
-- **Requirements**: ComfyUI running on localhost:8188
+- **Requirements**: ComfyUI running locally at `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
 
 Setup for localhost:
 ```bash
@@ -150,14 +184,17 @@ cd ComfyUI
 # Install dependencies
 pip install -r requirements.txt
 
-# Start ComfyUI
-python main.py --port 8188
+# Start ComfyUI on the stack default localhost port
+python main.py --port 8000
+
+# If your local ComfyUI uses the common native/default port 8188 instead, set:
+# COMFYUI_LOCALHOST_URL=http://host.docker.internal:8188
 ```
 
 #### `external`
 ```bash
 COMFYUI_SOURCE=external
-COMFYUI_EXTERNAL_URL=https://your-comfyui-api.com
+COMFYUI_EXTERNAL_URL=https://your-comfyui-api.example
 ```
 - **Use case**: Remote ComfyUI instance
 - **Pros**: Shared GPU resources
@@ -230,8 +267,11 @@ npm install -g openclaw
 # Run onboarding
 openclaw onboard
 
-# Start the gateway
-openclaw gateway --port 18789
+# Start the gateway on the stack default localhost port
+openclaw gateway --port 63024
+
+# If your local OpenClaw uses its native/default port 18789 instead, set:
+# OPENCLAW_LOCALHOST_URL=http://host.docker.internal:18789
 ```
 
 #### `disabled` (Default)
@@ -314,6 +354,7 @@ Persistent configuration for regular use:
 
 ```bash
 # Edit .env file
+BASE_PORT=63000
 LLM_PROVIDER_SOURCE=ollama-localhost
 COMFYUI_SOURCE=container-gpu
 N8N_SOURCE=container
@@ -321,6 +362,8 @@ N8N_SOURCE=container
 # Start with file configuration
 ./start.sh
 ```
+
+`BASE_PORT` is the preferred way to move the whole stack to another port range. Individual `*_PORT` variables are advanced overrides; normal users should change `BASE_PORT` manually or run `./start.sh --base-port <port>`.
 
 ### Using CLI Overrides
 Temporary configuration for testing:
@@ -386,7 +429,8 @@ Understanding which services depend on others:
 ```bash
 # Check if service is running locally
 curl http://localhost:11434/api/tags  # Ollama
-curl http://localhost:8188/           # ComfyUI
+curl http://localhost:8000/           # ComfyUI default localhost URL
+curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_URL to 8188
 
 # Check service logs
 docker logs genai-backend -f

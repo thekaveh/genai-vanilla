@@ -98,8 +98,12 @@ myproject/
 │   ├── start.sh
 │   ├── stop.sh
 │   ├── bootstrapper/
-│   ├── services/
-│   └── ...
+│   ├── docs/services/       # Service documentation
+│   ├── backend/             # Backend service
+│   ├── supabase/            # Supabase config
+│   ├── n8n/                 # n8n config
+│   ├── jupyterhub/          # Notebook environment
+│   └── ...                  # Other top-level service/init directories
 ├── scripts/
 │   ├── start-all.sh         # Start infra + your app
 │   └── stop-all.sh
@@ -232,7 +236,7 @@ Use Kong (port 63002) to access all infrastructure services from your applicatio
 # Python example
 import requests
 
-KONG_BASE = "http://localhost:63002"
+KONG_BASE = "http://localhost:63002"  # default BASE_PORT + 2
 
 # Access Supabase through Kong
 supabase_url = f"{KONG_BASE}/supabase"
@@ -244,7 +248,7 @@ n8n_url = f"{KONG_BASE}/n8n"
 
 ```javascript
 // JavaScript example
-const KONG_BASE = "http://localhost:63002";
+const KONG_BASE = "http://localhost:63002"  # default BASE_PORT + 2;
 
 // Access services through Kong
 const supabaseUrl = `${KONG_BASE}/supabase`;

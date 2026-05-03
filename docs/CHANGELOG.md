@@ -262,4 +262,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-*For more details on any release, see the corresponding [GitHub release](https://github.com/your-repo/releases) or [documentation](docs/README.md).*
+*For more details on any release, see the corresponding [GitHub release](https://github.com/thekaveh/genai-vanilla/releases) or [documentation](README.md).*

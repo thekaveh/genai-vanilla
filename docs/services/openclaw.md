@@ -18,8 +18,8 @@ The OpenClaw service provides an AI-powered agent that connects to messaging app
 
 OpenClaw runs as a single gateway process that:
 
-- Serves the web dashboard on port 18789
-- Manages messaging platform connections (bridge) on port 18790
+- Serves the web dashboard on the configured gateway port. The stack default is 63024 for localhost mode; OpenClaw's native/default port is commonly 18789.
+- Manages messaging platform connections (bridge) on the configured bridge port. The stack default is 63025.
 - Stores configuration in `~/.openclaw/` directory
 - Stores workspace files in `~/.openclaw/workspace/`
 
@@ -80,7 +80,7 @@ openclaw onboard --install-daemon
 
 **Step 3: Start the gateway**
 ```bash
-openclaw gateway --port 18789
+openclaw gateway --port 63024
 ```
 
 **Step 4: Start the stack with OpenClaw localhost**
@@ -91,6 +91,8 @@ openclaw gateway --port 18789
 Or edit `.env`:
 ```bash
 OPENCLAW_SOURCE=localhost
+# Optional: if your local OpenClaw runs on its native/default 18789 instead:
+# OPENCLAW_LOCALHOST_URL=http://host.docker.internal:18789
 ```
 
 ### Disable OpenClaw
@@ -123,7 +125,7 @@ OPENCLAW_SOURCE=disabled
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENCLAW_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:63024` |
+| `OPENCLAW_LOCALHOST_URL` | Local service URL. Default matches the stack port offset; set to `http://host.docker.internal:18789` if your local OpenClaw runs on its native/default port. | `http://host.docker.internal:63024` |
 
 ## LLM Configuration
 

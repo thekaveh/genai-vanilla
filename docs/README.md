@@ -9,6 +9,16 @@ Documentation index for the GenAI Vanilla Stack.
 - [Troubleshooting](quick-start/troubleshooting.md) — common issues and solutions
 
 ### Service documentation
+- [Backend API](services/backend.md) — always-on adaptive FastAPI service
+- [Open WebUI](services/open-webui.md) — main chat UI
+- [Ollama / LLM Provider](services/ollama.md) — local/container/cloud LLM provider modes
+- [ComfyUI](services/comfyui.md) — image generation workflows
+- [Weaviate](services/weaviate.md) — vector database
+- [n8n](services/n8n.md) — workflow automation
+- [SearxNG](services/searxng.md) — privacy metasearch
+- [Redis](services/redis.md) — cache/queue infrastructure
+- [Local Deep Researcher](services/local-deep-researcher.md) — research/orchestration service
+- [Multi2Vec CLIP](services/multi2vec-clip.md) — multimodal vectorization
 - [STT Provider (Speech-to-Text)](services/stt-provider.md) — NVIDIA Parakeet-TDT speech recognition
 - [TTS Provider (Text-to-Speech)](services/tts-provider.md) — XTTS v2 voice generation
 - [Document Processor (Docling)](services/doc-processor.md) — document processing
@@ -20,6 +30,7 @@ Documentation index for the GenAI Vanilla Stack.
 
 ### Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants
+- [Ports and Routes](deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
 - [Using as a Submodule](deployment/submodule-usage.md) — embedding the stack inside another project
 
 ## Related documentation
@@ -40,3 +51,11 @@ If you can't find what you're looking for:
 
 - Found a typo or error? Open a PR.
 - Missing information? Open an issue.
+
+## Maintainer checks
+
+Run local documentation drift checks before committing docs changes:
+
+```bash
+python docs/scripts/check-docs-drift.py
+```
