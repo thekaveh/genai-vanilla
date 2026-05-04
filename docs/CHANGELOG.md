@@ -7,22 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **TUI rebuild — wizard**: Replaced the InquirerPy-based wizard with a Rich `Live` + `readchar` TUI. The new wizard runs as a single anchored info-box at the top of the screen with the active prompt panel rendered inside the same Live region — service prompts, base port, cold start, hosts, and launch confirmation are now wizard steps rather than separate text prompts.
-- **TUI rebuild — streaming logs**: After the user confirms launch, the wizard's Live region tears down and a Textual app (`bootstrapper/ui/log_stream_app.py`) takes over. The same stylized info-box stays pinned at the top while a bordered "Streaming Logs" panel below carries `docker compose` build / up / port-verify / `logs -f` output, with native mouse-wheel scrollback and ANSI colors preserved via `Text.from_ansi`. Press `Ctrl+C` or `q` to detach (the stack keeps running).
-- **Brand customization via `BRAND_*` env vars**: The pinned info-box's title / subtitle metadata (brand name, tagline, version, author, license, repo URL) is now overridable via `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_VERSION`, `BRAND_AUTHOR`, `BRAND_LICENSE`, `BRAND_REPO_URL` in `.env`. Defaults are GenAI Vanilla; forks can rebrand without code changes.
-- **Service-definition consolidation**: `bootstrapper/ui/state_builder.all_services()` is now the single source of truth for the canonical service list, consumed by both the TUI box (`render_info_box`) and the legacy non-TUI summary table (`build_pre_launch_summary_table`). No more duplicated inline service tables.
-- **Single `DEFAULT_BASE_PORT`**: Moved to `bootstrapper/core/config_parser.py` so `start.py` and the wizard import the same constant (was previously declared twice).
-
-### Removed
-- Deleted obsolete bootstrapper modules now folded into the new TUI: `wizard/interactive_wizard.py`, `wizard/prompts.py`, `wizard/ui_renderer.py`, `utils/scroll_pin.py`, `utils/ansi_filter.py`, `ui/services_poller.py`, `ui/confirm_widget.py`. Pruned dead methods (`up_with_build`, `set_service_state`, `apply_service_snapshot`, `clear_status`, `prompt_confirm`), dead palette helpers (`style_for_service_state`, `dot_for_service_state`, `DOT_STARTING`, `DOT_OFF`, `DOT_UNHEALTHY`, `COLOR_STARTING`), and unused state constants / `ServiceEntry` fields (`SERVICE_STATE_*`, `GROUP_*`, `CATEGORY_*`, `state`, `group`, `category`, `is_default_source`, `endpoints`).
-
-### Dependencies
-- Added `textual >= 0.85` (post-wizard log streaming).
-- Added `readchar >= 4.0` (wizard widgets).
-- Removed `InquirerPy`.
-- Bumped `requires-python` from `>=3.8` to `>=3.9` (Textual minimum).
-
 ### Added
 - **OpenClaw AI Agent**: AI agent for messaging platforms (WhatsApp, Telegram, Discord, etc.)
   - Connects to messaging apps for AI-powered chat, file management, and task automation
@@ -41,14 +25,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CLI option: `--jupyterhub-source [container|disabled]`
   - Default port: 63048 (offset +48 from base port)
   - Environment check notebook for service connectivity verification
-- New documentation structure under `/docs/`
-- ROADMAP.md with future development plans
-- CHANGELOG.md for tracking project history
+- **Textual-based bootstrapper TUI**: A single Textual app (`bootstrapper/ui/textual/`) now owns the entire interactive experience — wizard prompts, the CLI-flag launch screen, the pre-launch pipeline (apply overrides → validate → ports → kong → supabase keys → hosts → encryption → localhost), and the live `docker compose` build / up / verify / `logs -f` stream — all rendered in one screen with a pinned info-box, a service overview, and a bordered log pane with filter chips. Press `ctrl+q` to detach (the stack keeps running). `--no-tui` falls back to a linear stdout flow for CI / non-TTY shells.
+- **Brand customization via `BRAND_*` env vars**: The wizard's brand panel and info-box title / subtitle metadata (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_VERSION`, `BRAND_AUTHOR`, `BRAND_AUTHOR_EMAIL`, `BRAND_LICENSE`, `BRAND_REPO_URL` in `.env`. Defaults are GenAI Vanilla; forks can rebrand without code changes.
+- **Always-on Supabase services in the bootstrapper overview**: `Supabase Auth`, `Supabase API`, `Supabase Realtime`, `Supabase Storage`, and `Supabase Meta` are now surfaced as rows in both the Textual `ServiceTable` and the `--no-tui` summary table, alongside Supabase DB and Studio.
+- **`docs/scripts/check-compose-source-deps.py`**: Preventative linter that verifies `docker-compose.yml` does not declare hard `depends_on` edges from any service to a SOURCE-replaceable provider, and that core `depends_on` edges are still in place.
+- **`docs/scripts/check-kong-routes.py`**: Preventative linter that verifies the checked-in Kong fallback config (`volumes/api/kong-dynamic.yml`) matches the documented default routes for `comfyui.localhost`, `n8n.localhost`, `search.localhost`, `jupyter.localhost`, `api.localhost`, and `chat.localhost`.
+- **`docs/deployment/ports-and-routes.md`**: Canonical reference for `BASE_PORT` math, every service's direct localhost URL, and Kong host routes.
+- **Per-service documentation expansion** under `docs/services/`: `backend.md`, `comfyui.md`, `local-deep-researcher.md`, `multi2vec-clip.md`, `n8n.md`, `ollama.md`, `open-webui.md`, `redis.md`, `searxng.md`, `weaviate.md` now have their own pages alongside the existing in-depth docs.
+- **ROADMAP additions**: Tier 1 — unified LLM gateway (LiteLLM, or equivalent) and per-service configuration modularization. Tier 2 — Hermes Agent (Nous Research's programmable agent runtime, with Open WebUI integration link) and MinIO (S3-compatible object storage).
+- New documentation structure under `/docs/`, ROADMAP.md, and this CHANGELOG.
 
 ### Changed
-- Major README.md restructuring for better usability
-- Improved documentation organization and navigation
-- Architecture diagrams updated to include JupyterHub service
+- **Loosened `depends_on` edges for SOURCE-replaceable providers**: `n8n`, `n8n-worker`, and `jupyterhub` no longer hard-depend on `weaviate` (`jupyterhub` also no longer hard-depends on `ollama` or `neo4j-graph-db`); `weaviate` no longer hard-depends on `multi2vec-clip`. `n8n` / `n8n-worker` / `jupyterhub` now depend on `supabase-db-init` instead of `supabase-db`. Optional consumers use `WEAVIATE_URL` (and equivalent endpoint env vars) plus runtime readiness checks instead of static compose dependencies — the stack still starts when those providers are disabled, localhost-backed, or externalized.
+- **Weaviate module configuration now `.env`-driven**: `WEAVIATE_ENABLE_MODULES` and `CLIP_INFERENCE_API` are exposed in `.env.example` and consumed by the Weaviate compose service. Disabling the CLIP provider no longer requires editing `docker-compose.yml` — set `MULTI2VEC_CLIP_SOURCE=disabled`, drop `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES`, and clear `CLIP_INFERENCE_API`.
+- **Service-definition consolidation**: `bootstrapper/ui/state_builder.all_services()` is the single source of truth for the canonical service list, consumed by both the Textual `ServiceTable` and the `--no-tui` summary table. No duplicated inline service tables.
+- **Single `DEFAULT_BASE_PORT`**: Lives in `bootstrapper/core/config_parser.py`; `start.py` and the wizard import the same constant.
+- **README.md restructuring** for better usability and new documentation organization / navigation.
+- **Architecture diagrams updated** to include JupyterHub and other recently added services.
+
+### Removed
+- **Legacy Rich-based bootstrapper UI** (the Rich `Live` + `readchar` wizard, the `Textual` post-wizard log app, and all of their supporting modules): `bootstrapper/ui/presentation_app.py`, `bootstrapper/ui/log_stream_app.py`, `bootstrapper/ui/select_widget.py`, `bootstrapper/ui/number_widget.py`, `bootstrapper/ui/status_ribbon.py`, `bootstrapper/ui/log_pane.py`, `bootstrapper/ui/info_box.py`, `bootstrapper/ui/palette.py`, `bootstrapper/ui/logo.py`, and `bootstrapper/wizard/tui_wizard.py`. The `GENAI_USE_LEGACY_WIZARD=1` env-var fallback that briefly let users opt back into the Rich Live wizard during the migration is also gone.
+- **Earlier obsolete bootstrapper modules folded into the wizard rebuild**: `wizard/interactive_wizard.py`, `wizard/prompts.py`, `wizard/ui_renderer.py`, `utils/scroll_pin.py`, `utils/ansi_filter.py`, `ui/services_poller.py`, `ui/confirm_widget.py`. Pruned dead methods (`up_with_build`, `set_service_state`, `apply_service_snapshot`, `clear_status`, `prompt_confirm`), dead palette helpers (`style_for_service_state`, `dot_for_service_state`, `DOT_STARTING`, `DOT_OFF`, `DOT_UNHEALTHY`, `COLOR_STARTING`), and unused state constants / `ServiceEntry` fields (`SERVICE_STATE_*`, `GROUP_*`, `CATEGORY_*`, `state`, `group`, `category`, `is_default_source`, `endpoints`).
+
+### Fixed
+- **Kong route generator now honors `COMFYUI_LOCALHOST_URL`**: `bootstrapper/utils/kong_config_generator.py` previously hardcoded `http://host.docker.internal:8000/` for the `comfyui-api` route under `COMFYUI_SOURCE=localhost`, ignoring any `.env` override. It now parses `COMFYUI_LOCALHOST_URL` and uses its host:port for both the Kong service URL and the localhost reachability probe (matching the openclaw generator's per-service env-var pattern).
+
+### Dependencies
+- Added `textual >= 0.85` — owns the entire wizard / launch / log-streaming experience.
+- Removed `readchar` (was used by the now-deleted Rich Live prompt widgets).
+- Removed `InquirerPy` (replaced earlier in this `[Unreleased]` cycle).
+- Bumped `requires-python` from `>=3.8` to `>=3.9` (Textual minimum).
 
 ## [2.0.0] - 2025-08-31 (Python Migration & Modular Architecture)
 
