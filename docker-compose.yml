@@ -488,8 +488,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      weaviate:
-        condition: service_started
     deploy:
       replicas: ${N8N_SCALE:-1}
     environment:
@@ -531,6 +529,7 @@ services:
       PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
       XTTS_ENDPOINT: ${XTTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
     ports:
       - "${N8N_PORT}:5678"
     volumes:
@@ -544,12 +543,10 @@ services:
     command: worker
     restart: unless-stopped
     depends_on:
-      supabase-db:
-        condition: service_healthy
+      supabase-db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
-      weaviate:
-        condition: service_started
     deploy:
       replicas: ${N8N_WORKER_SCALE:-1}
     environment:
@@ -911,8 +908,6 @@ services:
         condition: service_healthy
       weaviate-init:
         condition: service_completed_successfully
-      multi2vec-clip:
-        condition: service_started
     deploy:
       replicas: ${WEAVIATE_SCALE:-1}
     extra_hosts:
@@ -922,11 +917,11 @@ services:
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
       DEFAULT_VECTORIZER_MODULE: 'text2vec-ollama'
-      ENABLE_MODULES: 'text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai'
+      ENABLE_MODULES: ${WEAVIATE_ENABLE_MODULES:-text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai}
       CLUSTER_HOSTNAME: 'weaviate'
       OLLAMA_ENDPOINT: ${OLLAMA_ENDPOINT:-http://ollama:11434}
       OPENAI_APIKEY: ${OPENAI_API_KEY:-}
-      CLIP_INFERENCE_API: 'http://multi2vec-clip:8080'
+      CLIP_INFERENCE_API: ${CLIP_INFERENCE_API-http://multi2vec-clip:8080}
     entrypoint: ["/scripts/configure-weaviate.sh", "/bin/weaviate", "--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
     ports:
       - "${WEAVIATE_PORT}:8080"
@@ -1207,16 +1202,10 @@ services:
     deploy:
       replicas: ${JUPYTERHUB_SCALE:-1}
     depends_on:
-      supabase-db:
-        condition: service_healthy
+      supabase-db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
-      weaviate:
-        condition: service_started
-      ollama:
-        condition: service_started
-      neo4j-graph-db:
-        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

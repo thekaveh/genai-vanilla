@@ -215,11 +215,22 @@ COMFYUI_SOURCE=disabled
 #### `container` (Default)
 ```bash
 WEAVIATE_SOURCE=container
+WEAVIATE_URL=http://weaviate:8080
 ```
 - **Use case**: Standard vector database
 - **Pros**: Easy setup, automatic configuration
 - **Cons**: Container resource usage
 - **Requirements**: None
+
+The default stack also enables the optional CLIP vectorizer service:
+
+```bash
+MULTI2VEC_CLIP_SOURCE=container-cpu
+WEAVIATE_ENABLE_MODULES=text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai
+CLIP_INFERENCE_API=http://multi2vec-clip:8080
+```
+
+If `MULTI2VEC_CLIP_SOURCE=disabled`, remove `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES` and set `CLIP_INFERENCE_API=` so Weaviate does not advertise a disabled inference endpoint.
 
 #### `localhost`
 ```bash

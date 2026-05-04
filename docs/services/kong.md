@@ -17,6 +17,14 @@ Unlike traditional static configuration files, the GenAI Vanilla Stack uses dyna
 
 The configuration is generated at startup by `bootstrapper/utils/kong_config_generator.py`.
 
+`volumes/api/kong-dynamic.yml` is mounted by Docker Compose as Kong's declarative config. The checked-in version is a default fallback snapshot for direct `docker compose` use and is aligned with `.env.example` container defaults. `./start.sh` remains the canonical path for SOURCE-aware routing because it regenerates that file before launch.
+
+Validate the fallback snapshot with:
+
+```bash
+python docs/scripts/check-kong-routes.py
+```
+
 ## Service Routing
 
 ### Always-Available Routes (Supabase)

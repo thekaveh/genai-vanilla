@@ -140,7 +140,7 @@ services:
     - comfyui.localhost
   plugins:
   - name: cors
-  url: http://host.docker.internal:8000/
+  url: http://comfyui:18188/
 - name: n8n-api
   url: http://n8n:5678/
   connect_timeout: 60000

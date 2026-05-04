@@ -24,6 +24,11 @@ from ui.state import AppState, ServiceEntry
 _SERVICES = [
     # Always-on infrastructure
     ("Supabase DB",        "SUPABASE_DB_SOURCE",        "SUPABASE_DB_PORT",        None),
+    ("Supabase Auth",      "SUPABASE_AUTH_SOURCE",      "SUPABASE_AUTH_PORT",      None),
+    ("Supabase API",       "SUPABASE_API_SOURCE",       "SUPABASE_API_PORT",       None),
+    ("Supabase Realtime",  "SUPABASE_REALTIME_SOURCE",  "SUPABASE_REALTIME_PORT",  None),
+    ("Supabase Storage",   "SUPABASE_STORAGE_SOURCE",   "SUPABASE_STORAGE_PORT",   None),
+    ("Supabase Meta",      "SUPABASE_META_SOURCE",      "SUPABASE_META_PORT",      None),
     ("Supabase Studio",    "SUPABASE_STUDIO_SOURCE",    "SUPABASE_STUDIO_PORT",    None),
     ("Redis",              "REDIS_SOURCE",              "REDIS_PORT",              None),
     ("Kong API Gateway",   "KONG_API_GATEWAY_SOURCE",   "KONG_HTTP_PORT",          None),

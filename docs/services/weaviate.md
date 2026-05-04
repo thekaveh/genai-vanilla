@@ -23,15 +23,34 @@ Configure this service through `.env`, the interactive wizard, or CLI flags wher
 
 ```bash
 WEAVIATE_SOURCE=<option>
+WEAVIATE_URL=http://weaviate:8080
 ```
 
 Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted changes when the CLI exposes one.
 
+### Multi2Vec CLIP module
+
+The default stack keeps the multimodal CLIP vectorizer enabled:
+
+```bash
+MULTI2VEC_CLIP_SOURCE=container-cpu
+WEAVIATE_ENABLE_MODULES=text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai
+CLIP_INFERENCE_API=http://multi2vec-clip:8080
+```
+
+If you disable the CLIP provider, remove `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES` and leave `CLIP_INFERENCE_API` blank:
+
+```bash
+MULTI2VEC_CLIP_SOURCE=disabled
+WEAVIATE_ENABLE_MODULES=text2vec-ollama,text2vec-openai,generative-ollama,generative-openai
+CLIP_INFERENCE_API=
+```
+
 ## Dependencies and integration
 
-The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, Weaviate, or init containers depending on which SOURCE modes are enabled.
+The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, or init containers depending on which SOURCE modes are enabled.
 
-If a dependency is disabled, adaptive services should degrade where supported. Some implementation-level dependency cleanup is tracked separately as bootstrapper work and is outside this documentation pass.
+Optional consumers should use `WEAVIATE_URL` and perform feature-level readiness checks instead of requiring the Weaviate container as a hard Compose startup dependency. This lets n8n, JupyterHub, and other adaptive services still start when Weaviate is disabled, localhost-backed, or externalized.
 
 ## Troubleshooting
 
