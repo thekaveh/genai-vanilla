@@ -635,9 +635,9 @@ Note: SOURCE overrides are temporary and only apply to the current session.
     def build_pre_launch_summary_table(self):
         """
         Build the configuration summary as a Rich Table renderable —
-        used by the legacy non-TUI flow (`show_pre_launch_summary`). The
-        TUI mode renders the same configuration via `ui.info_box.render_info_box`
-        inside `LogStreamApp` instead of this Rich Table.
+        used by the --no-tui / non-TTY linear flow (`show_pre_launch_summary`).
+        The Textual wizard renders its own info-box and never reaches this
+        table.
         """
         from rich.table import Table
         from rich.text import Text
@@ -977,85 +977,56 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 print("❌ Docker is not available. Please install Docker and ensure it's running.")
                 sys.exit(1)
 
-        # Track whether the wizard ran in TUI mode — drives the post-pipeline
-        # display path (scroll-region pin vs. legacy summary+prompt).
-        tui_capable = False
-
         if will_run_wizard:
             # Setup .env first so wizard can read current defaults.
             if not starter.setup_env_file(cold_start=cold, base_port=base_port):
                 sys.exit(1)
 
-            # Decide whether to run the wizard at all: TUI (anchored-box,
-            # readchar widgets) when the terminal supports it. Non-TUI shells
-            # have no interactive wizard — they use .env defaults plus any
-            # CLI flags the user passed.
-            from ui.presentation_app import is_tui_capable as _is_tui_capable
+            # The Textual wizard owns the entire interactive flow when the
+            # terminal can host it. Non-TUI shells (--no-tui, non-TTY,
+            # narrow terminals) skip the wizard and use the user's .env
+            # defaults plus any CLI flags they passed.
+            from ui.term_caps import is_tui_capable as _is_tui_capable
             if _is_tui_capable(no_tui_flag=no_tui):
-                from ui.presentation_app import PresentationApp
-                from ui.state_builder import build_app_state
-                from wizard.tui_wizard import TUIWizard
+                # Single-Textual-app flow: wizard + pipeline + docker
+                # compose log streaming all run inside one App. start.py
+                # exits when the user detaches.
+                from ui.textual.integration import run_setup_flow
+                rc = run_setup_flow(
+                    starter.config_parser, starter.hosts_manager,
+                    starter=starter,
+                )
+                sys.exit(rc)
 
-                state = build_app_state(starter.config_parser, starter.hosts_manager,
-                                        box_mode="wizard")
-                # The wizard's PresentationApp is the ONLY thing that runs
-                # inside Live now. Once the user confirms launch, we tear
-                # Live down and the rest of the flow (pipeline + docker
-                # streaming) runs in plain stdout — natural mouse-wheel
-                # scrollback, no flicker. ANSI scroll-region pinning keeps
-                # the summary visible at the top.
-                wizard_app = PresentationApp(state)
-                wizard_app.__enter__()
-                original_banner = starter.banner
-                try:
-                    starter.banner = wizard_app
-                    starter.docker_manager.set_command_echo_callback(
-                        lambda msg: wizard_app.log(msg.strip(), level="dim")
-                    )
-                    # Route HostsManager status messages through the Live
-                    # region too — the level keyword maps to log levels.
-                    starter.hosts_manager.set_logger(
-                        lambda msg, level="info": wizard_app.log(
-                            msg, level={"warning": "warn", "success": "ok"}.get(level, level)
-                        )
-                    )
-                    wizard = TUIWizard(starter.config_parser, wizard_app)
-                    try:
-                        wizard_source_args, wizard_stack_options = wizard.run()
-                    except KeyboardInterrupt:
-                        wizard_app.log("Setup cancelled.", level="dim")
-                        import time
-                        time.sleep(0.5)
-                        raise
-                    source_args.update(wizard_source_args)
-                    base_port = wizard_stack_options.get('base_port', base_port)
-                    cold = wizard_stack_options.get('cold', cold)
-                    setup_hosts = wizard_stack_options.get('setup_hosts', setup_hosts)
-                    skip_hosts = wizard_stack_options.get('skip_hosts', skip_hosts)
-                    # The wizard's last step is "Launch the stack with this
-                    # configuration?" — bail out cleanly if the user said no.
-                    launch_confirmed = wizard_stack_options.get('launch_confirmed', True)
-                    if not launch_confirmed:
-                        wizard_app.status(message="Launch cancelled", level="warn")
-                        import time
-                        time.sleep(1)
-                        sys.exit(0)
-                    wizard_ran = True
-                    tui_capable = True
-                finally:
-                    # ALWAYS exit Live after the wizard. From here on, the
-                    # rest of the flow runs in plain stdout — pipeline status
-                    # messages print normally; the Textual `LogStreamApp`
-                    # owns the docker streaming phase if `tui_capable`.
-                    wizard_app.__exit__(None, None, None)
-                    starter.banner = original_banner
-                    starter.docker_manager.set_command_echo_callback(print)
-                    starter.hosts_manager.set_logger(None)
-            else:
-                # Non-TUI shells (--no-tui, non-TTY, narrow terminals): no
-                # interactive wizard. The user's existing .env defaults are
-                # used; CLI flags can still override individual sources.
-                pass
+        # CLI-flag mode + TUI capable: skip the wizard but still use the
+        # Textual launch screen, pre-loaded with the user's CLI args.
+        # Falls through to the linear stdout flow only when --no-tui or
+        # the terminal can't host the TUI. This block must run BEFORE
+        # the banner / setup_env_file / apply_source_overrides pipeline
+        # below so its output stays out of the terminal and ends up
+        # inside the log pane.
+        if not wizard_ran and not no_tui:
+            from ui.term_caps import is_tui_capable as _is_tui_capable
+            if _is_tui_capable(no_tui_flag=no_tui):
+                # Make sure .env exists so the launch screen can build
+                # the Stack overview.
+                if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+                    sys.exit(1)
+                from ui.textual.integration import run_launch_flow
+                stack_options = {
+                    "base_port": base_port,
+                    "cold": cold,
+                    "setup_hosts": setup_hosts,
+                    "skip_hosts": skip_hosts,
+                    "launch_confirmed": True,
+                }
+                rc = run_launch_flow(
+                    starter.config_parser, starter.hosts_manager,
+                    starter=starter,
+                    source_args=source_args,
+                    stack_options=stack_options,
+                )
+                sys.exit(rc)
 
         # Show banner for normal mode (wizard already displayed its own)
         if not wizard_ran:
@@ -1069,11 +1040,11 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
         
-        # Step 1.7: Cold start cleanup if requested (before port check)
-        # In TUI mode, LogStreamApp does this itself so the noisy
-        # "Container … Removed" output streams INSIDE the boxed log
-        # region. Non-TUI legacy mode runs it here as before.
-        if cold and not tui_capable:
+        # Step 1.7: Cold start cleanup if requested (before port check).
+        # TUI-capable runs exit before reaching this point; the Textual
+        # wizard handles cold cleanup inline. This branch only fires for
+        # the --no-tui / non-TTY linear flow.
+        if cold:
             starter.perform_cold_start_cleanup()
         
         # Step 2: Validate SOURCE configurations
@@ -1112,57 +1083,20 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not starter.validate_localhost_services():
             sys.exit(1)
 
-        # Pre-launch summary + docker streaming.
-        #
-        # TUI mode: hand the screen to a Textual app (LogStreamApp). It
-        # composes the rendered info-box (Static widget, pinned at top)
-        # above a bordered "Streaming Logs" RichLog widget. An async
-        # worker drives `docker compose` build / up / verify / logs and
-        # writes each line into the RichLog via Text.from_ansi() —
-        # native compositing, native scrolling, native ANSI handling.
-        #
-        # Legacy mode (--no-tui, non-TTY, or wizard didn't run): print
-        # the legacy Rich-Table summary, prompt for confirm, then run
-        # the TTY-passthrough docker streaming via execute_compose_command.
-        if tui_capable:
-            from rich.console import Group as _Group
-            from ui.log_stream_app import LogStreamApp
-            from ui.state_builder import build_app_state
-            from ui.info_box import render_info_box
-            from ui import logo as _logo
-            import shutil as _shutil
-
-            # Use the SAME stylized info-box the wizard rendered — built
-            # from a fresh AppState reflecting post-pipeline configuration.
-            summary_state = build_app_state(
-                starter.config_parser, starter.hosts_manager, box_mode='normal'
-            )
-            term_size = _shutil.get_terminal_size()
-            summary = render_info_box(summary_state, available_width=term_size.columns)
-
-            # Stack the GENAI VANILLA ASCII banner above the info-box —
-            # same logo the wizard renders. Adapts to terminal size:
-            # full art on tall terminals, 1-line tagline on medium,
-            # nothing on short. The combined Group goes into a single
-            # Static widget inside LogStreamApp.
-            logo_renderable = _logo.render_logo(
-                term_size.columns, term_size.lines,
-                brand_name=summary_state.brand_name,
-            )
-            top_region = _Group(logo_renderable, summary)
-
-            LogStreamApp(info_box=top_region, starter=starter, cold=cold).run()
-        else:
-            # Legacy linear flow — show the summary table, prompt to
-            # confirm (since the wizard didn't), then stream.
-            if not starter.show_pre_launch_summary():
-                starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
-                sys.exit(0)
-            if not starter.start_docker_services(cold_start=cold):
-                sys.exit(1)
-            starter.show_container_status_and_verify_ports()
-            starter.check_comfyui_models()
-            starter.show_container_logs()
+        # Pre-launch summary + docker streaming. TUI-capable runs exit
+        # before reaching this point (the Textual wizard owns its own
+        # summary, confirmation, and live log streaming). This linear
+        # flow runs only for --no-tui / non-TTY contexts: show the
+        # Rich-Table summary, prompt for confirm, then stream docker
+        # output via TTY passthrough.
+        if not starter.show_pre_launch_summary():
+            starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
+            sys.exit(0)
+        if not starter.start_docker_services(cold_start=cold):
+            sys.exit(1)
+        starter.show_container_status_and_verify_ports()
+        starter.check_comfyui_models()
+        starter.show_container_logs()
 
     except KeyboardInterrupt:
         print("\n❌ Startup interrupted by user")

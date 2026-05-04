@@ -164,6 +164,7 @@ def build_app_state(
     tagline = _brand_field(env, "BRAND_TAGLINE", defaults.tagline)
     version = _brand_field(env, "BRAND_VERSION", defaults.version)
     creator = _brand_field(env, "BRAND_AUTHOR", defaults.creator)
+    creator_email = _brand_field(env, "BRAND_AUTHOR_EMAIL", defaults.creator_email)
     license_str = _brand_field(env, "BRAND_LICENSE", defaults.license)
     repo_url = _brand_field(env, "BRAND_REPO_URL", defaults.repo_url)
 
@@ -191,6 +192,7 @@ def build_app_state(
         tagline=tagline,
         version=version,
         creator=creator,
+        creator_email=creator_email,
         license=license_str,
         repo_url=repo_url,
         services=services,

@@ -30,9 +30,10 @@ class AppState:
     # in `state_builder.build_app_state`. Defaults below are the canonical
     # GenAI Vanilla values.
     brand_name: str = "GenAI Vanilla"
-    tagline: str = "AI Development Suite"
+    tagline: str = "Gen-AI Development Suite"
     version: str = ""
     creator: str = "Kaveh Razavi"
+    creator_email: str = "kaveh.razavi@gmail.com"
     license: str = "Apache License 2.0"
     repo_url: str = "github.com/thekaveh/genai-vanilla"
 

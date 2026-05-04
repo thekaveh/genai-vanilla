@@ -1,0 +1,26 @@
+/*
+ * GenAI Vanilla — minimal Textual TCSS theme.
+ *
+ * Per-widget look-and-feel lives in each widget's DEFAULT_CSS so that
+ * styling and behavior travel together. This file only sets the
+ * app-wide screen baseline + scrollbar tokens.
+ */
+
+$bg: #12131e;
+$text: #c0caf5;
+$border_panel: #2b2f4a;
+$accent: #7dcfff;
+
+Screen {
+    background: $bg;
+    color: $text;
+}
+
+* {
+    scrollbar-size-horizontal: 1;
+    scrollbar-size-vertical: 1;
+    scrollbar-color: $border_panel;
+    scrollbar-color-hover: $accent;
+    scrollbar-color-active: $accent;
+    scrollbar-background: $bg;
+}
