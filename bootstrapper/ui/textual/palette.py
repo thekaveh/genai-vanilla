@@ -1,15 +1,9 @@
 """
-Canonical color tokens for the Textual TUI — round-4 plan.
+Canonical color tokens for the Textual TUI.
 
-Every hex code below appears in one of the four reference mockups
-(``bootstrapper/ui/sketches/00{3,4,5,6}/...``). Widgets reference these
-tokens by name; ``theme.css`` exposes them as ``$``-prefixed Textual
-variables.
-
-The legacy Rich palette at ``bootstrapper/ui/palette.py`` keeps its
-``color(N)`` Rich-format constants for the (still-Rich) log_pane and
-status_ribbon renderables. This module is the source of truth for the
-Textual layer.
+Widgets reference these tokens by name; ``theme.css`` exposes them as
+``$``-prefixed Textual variables. This module is the source of truth
+for the bootstrapper UI's color palette.
 """
 
 from __future__ import annotations

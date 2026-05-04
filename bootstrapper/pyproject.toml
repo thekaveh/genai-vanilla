@@ -9,8 +9,7 @@ dependencies = [
     "rich>=13.0.0",          # Terminal colors, tables, formatting
     "click>=8.1.0",          # CLI argument parsing
     "docker>=7.0.0",         # Docker SDK for compose operations
-    "readchar>=4.0",         # Cross-platform single-keystroke reader for the TUI widgets
-    "textual>=0.85",         # TUI framework — owns the post-wizard streaming-logs phase (LogStreamApp)
+    "textual>=0.85",         # TUI framework — owns the wizard, launch, and streaming-logs flows
 ]
 
 [build-system]

@@ -62,8 +62,7 @@ def get_option_hint(option_name: str) -> str:
 
     Pattern-based — not hardcoded per service. If a new option name follows
     existing patterns, it gets the right hint automatically. Consumed by
-    the wizard's Live select widget (`ui/select_widget.py`, driven by
-    `wizard/tui_wizard.py`).
+    the Textual wizard via ``ui/textual/integration.py``.
     """
     if 'container-gpu' in option_name or option_name.endswith('-gpu'):
         return "requires NVIDIA GPU"

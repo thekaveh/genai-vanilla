@@ -12,8 +12,8 @@ from pathlib import Path
 
 
 # Single source of truth for the default base port. Imported by start.py and
-# wizard/tui_wizard.py so both stay in sync. Mirrors the BASE_PORT default
-# from the original start.sh.
+# the Textual wizard (ui/textual/integration.py) so both stay in sync.
+# Mirrors the BASE_PORT default from the original start.sh.
 DEFAULT_BASE_PORT = 63000
 
 
