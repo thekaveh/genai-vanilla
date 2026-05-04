@@ -63,6 +63,36 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Dependency management with UV
 - Improved error handling and logging
 
+**Unified LLM gateway (LiteLLM, or equivalent)**
+- Single OpenAI-compatible entry point fronting every LLM provider the stack can talk to (Ollama containers, Ollama localhost, OpenAI, Anthropic, OpenRouter, Bedrock, Azure, …) — services consume one URL and one API key instead of provider-specific endpoint env vars
+- Reduces today's per-consumer fan-out (Open WebUI, Backend, n8n, JupyterHub, Local Deep Researcher, Weaviate vectorization, future Hermes Agent) to a single configuration surface managed in the gateway
+- LiteLLM (MIT, 12k+ stars) is the leading self-hostable option; alternatives worth tracking are llmgateway and OpenRouter (cloud-only, not self-hosted)
+- Side benefits: provider failover and load balancing, per-consumer rate limits and budgets, request/response logging, and a uniform place to swap models without redeploying downstream services
+
+**Stack integration points:**
+
+Depends on (services LiteLLM would consume):
+- **Ollama** — primary local upstream for the default stack (already deployed)
+- **Supabase (PostgreSQL)** — usage logs, budget tracking, virtual-key persistence (already deployed)
+- **Redis** — response caching and rate-limit state (already deployed)
+
+Consumed by (services that would call LiteLLM):
+- **Open WebUI** — replaces the current `OLLAMA_BASE_URL` / OpenAI-compatible endpoint configuration with one gateway URL
+- **Backend (FastAPI)** — single endpoint for all LLM calls regardless of provider
+- **n8n** — workflows can target one HTTP endpoint instead of branching on provider
+- **JupyterHub** — notebooks point at one endpoint
+- **Local Deep Researcher** — single LLM endpoint
+- **Weaviate** — generative module endpoint (`text2vec-*` / `generative-*` modules)
+- **Hermes Agent** (Tier 2) — agent reasoning calls hit the gateway instead of Ollama directly
+
+**Per-service configuration modularization**
+- Split the current monolithic configs into per-service files: each service owns its compose fragment, its `.env` block, its `service-configs.yml` entry, and (when applicable) its Kong route generator hook
+- Bootstrapper composes the active set at startup based on SOURCE values — same pattern already used for Kong routes
+- Affects: `docker-compose.yml` (~1200 LOC), `bootstrapper/service-configs.yml` (~700 LOC), `.env.example` (~470 LOC), `bootstrapper/utils/kong_config_generator.py`
+- Goals: editing one service's config can't conflict with another's, new services land by adding a directory, and `docs/services/<name>.md` maps 1:1 to the runtime layout
+- Pairs naturally with Python migration completion (shared composition primitives, smaller per-service test surfaces, easier opt-in/out for forks)
+- Pairs naturally with the LiteLLM gateway above: the shape of "one self-contained per-service config block" is exactly what the gateway needs on the LLM consumer side once each service's LLM endpoint becomes a one-line override
+
 **Monitoring stack (Prometheus + Grafana)**
 - Service metrics: request rates, latency percentiles, container health
 - Service performance dashboards
@@ -145,11 +175,48 @@ Consumed by (services that would call RAG-Anything):
 - Migration tools between vector databases
 - User choice in vector database backend
 
+**MinIO (S3-compatible object storage)**
+- High-performance, S3-compatible object storage server (Go, single binary, AGPL-v3 / GNU AGPL with commercial option)
+- Use cases for this stack: scalable storage for ComfyUI outputs, document-processor binaries, model checkpoints, dataset versioning, and n8n / Backend artifact handoff
+- Complements Supabase Storage rather than replacing it: Supabase Storage stays the app-tier file surface (row-level-security uploads, signed URLs); MinIO becomes the artifact-tier surface for high-throughput, large-blob workloads
+
+**Stack integration points:**
+
+Depends on (services MinIO would consume):
+- none — MinIO is a leaf storage service
+
+Consumed by (services that would call MinIO):
+- **ComfyUI** — image-output bucket for generated assets (alternative or complement to the existing Supabase upload path)
+- **Backend (FastAPI)** — large-blob storage for embeddings, document chunks, model checkpoints
+- **n8n** — workflow file inputs and outputs
+- **JupyterHub** — dataset and model artifact persistence from notebooks
+- **Doc Processor (Docling)** — parsed-document and intermediate-artifact persistence
+
 **Enhanced n8n integration**
 - Pre-built AI workflow templates
 - Better integration with vector databases
 - Advanced data processing workflows
 - Custom node development
+
+**Hermes Agent (programmable AI agent for chat & messaging)**
+- AI agent framework by Nous Research exposing programmable agent personas via REST / messaging APIs
+- Open WebUI integration: register Hermes as a custom OpenAI-compatible endpoint — see [Nous Research's user guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui)
+- Complements OpenClaw (already deployed): Hermes provides the agent runtime; OpenClaw provides the messaging-channel surface (WhatsApp / Telegram / Discord)
+
+**Stack integration points:**
+
+Depends on (services Hermes would consume):
+- **Ollama** (or the Tier 1 LiteLLM gateway, once landed) — LLM inference for agent reasoning (already deployed)
+- **ComfyUI** — image generation invoked as a tool from agent personas (already deployed)
+- **TTS provider (XTTS)** — speech output for voice-enabled responses (already deployed)
+- **STT provider (Parakeet)** — speech input for voice-driven conversations (already deployed)
+- **Supabase (PostgreSQL)** — agent memory and conversation history (already deployed)
+
+Consumed by (services that would call Hermes):
+- **Open WebUI** — primary chat surface; Hermes registered as a custom model per the link above
+- **OpenClaw** — bridges Hermes agents to WhatsApp / Telegram / Discord channels
+- **Backend (FastAPI)** — programmatic agent invocation from application code
+- **n8n** — agent-driven automation workflows
 
 **Alternative TTS models (Piper)**
 - Additional TTS model support beyond XTTS v2
