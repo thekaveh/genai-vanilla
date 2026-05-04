@@ -10,6 +10,7 @@ import yaml
 import socket
 from typing import Dict, Any, List, Optional
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class KongConfigGenerator:
@@ -319,9 +320,17 @@ class KongConfigGenerator:
         
         # Dynamic URL based on SOURCE
         if source == 'localhost':
-            # Health check for localhost service
-            self.check_localhost_service('localhost', 8000, 'ComfyUI')
-            service['url'] = 'http://host.docker.internal:8000/'
+            # Honor COMFYUI_LOCALHOST_URL so users with a non-default
+            # localhost port (.env override) get a Kong route that
+            # actually points at their service.
+            localhost_url = (
+                self.get_env_value('COMFYUI_LOCALHOST_URL')
+                or 'http://host.docker.internal:8000'
+            )
+            parsed = urlparse(localhost_url)
+            probe_port = parsed.port or 8000
+            self.check_localhost_service('localhost', probe_port, 'ComfyUI')
+            service['url'] = localhost_url.rstrip('/') + '/'
         elif source == 'external':
             external_url = self.get_env_value('COMFYUI_EXTERNAL_URL')
             if not external_url:
