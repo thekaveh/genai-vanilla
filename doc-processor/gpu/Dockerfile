@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+ARG BASE_IMAGE=pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime
 FROM ${BASE_IMAGE}
 
 WORKDIR /app
