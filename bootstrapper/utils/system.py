@@ -76,6 +76,74 @@ def get_localhost_host() -> str:
         return "host.docker.internal"
 
 
+def detect_container_runtime() -> str:
+    """
+    Detect whether the Docker CLI is backed by Docker Engine or Podman.
+
+    Returns:
+        str: "docker" or "podman"
+    """
+    try:
+        result = subprocess.run(
+            ['docker', 'version'],
+            capture_output=True, text=True, check=False
+        )
+        output = (result.stdout + result.stderr).lower()
+        if 'podman' in output:
+            return "podman"
+    except (FileNotFoundError, OSError):
+        pass
+    return "docker"
+
+
+def resolve_host_gateway_ip() -> str:
+    """
+    Resolve the IP address that containers should use to reach the host.
+
+    For Docker Desktop: returns the literal string "host-gateway" (Docker
+    resolves this at container creation time).
+
+    For Podman: queries the default bridge network gateway IP, which is the
+    host from the container's perspective.
+
+    Returns:
+        str: IP address or "host-gateway"
+    """
+    runtime = detect_container_runtime()
+
+    if runtime == "docker":
+        return "host-gateway"
+
+    # Podman: resolve from bridge network IPAM config
+    try:
+        result = subprocess.run(
+            ['docker', 'network', 'inspect', 'bridge',
+             '--format', '{{range .IPAM.Config}}{{.Gateway}}{{end}}'],
+            capture_output=True, text=True, check=False
+        )
+        gateway = result.stdout.strip()
+        if gateway:
+            return gateway
+    except (FileNotFoundError, OSError):
+        pass
+
+    # Podman fallback: run a throwaway container to read the default route
+    try:
+        result = subprocess.run(
+            ['docker', 'run', '--rm', 'alpine',
+             'sh', '-c', "ip route | awk '/default/{print $3}'"],
+            capture_output=True, text=True, check=False
+        )
+        gateway = result.stdout.strip()
+        if gateway:
+            return gateway
+    except (FileNotFoundError, OSError):
+        pass
+
+    # Ultimate fallback: Podman's typical bridge gateway
+    return "10.88.0.1"
+
+
 def get_hosts_file_path() -> str:
     """
     Get the hosts file path based on the operating system.
