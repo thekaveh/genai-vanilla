@@ -291,66 +291,90 @@ Note: SOURCE overrides are temporary and only apply to the current session.
     
     def validate_supabase_keys(self, cold_start: bool = False) -> bool:
         """
-        Validate that required Supabase JWT keys are present.
-        For cold start, automatically generate new keys if missing.
-        Replicates the Supabase key check from the original start.sh.
-        
+        Ensure required Supabase JWT keys are present.
+
+        Three outcomes:
+          - All three keys present → no-op.
+          - All three keys blank (fresh clone, or post-cold-reset of .env) →
+            auto-generate. No --cold flag required.
+          - Mixed state (some present, some blank) → refuse and direct the
+            user to ./bootstrapper/generate_supabase_keys.sh, since the anon
+            and service keys are HMAC-signed by SUPABASE_JWT_SECRET and the
+            generator always rewrites all three. Auto-regenerating here would
+            silently clobber whatever values the user hand-pasted.
+
         Args:
-            cold_start: Whether this is a cold start (auto-generate keys if needed)
-        
+            cold_start: Phrases the status message only. Auto-generation
+                triggers on the all-blank case regardless of this flag.
+
         Returns:
-            bool: True if all keys are present or generated, False otherwise
+            bool: True if all keys are present or successfully generated.
         """
         env_vars = self.config_parser.parse_env_file()
-        
-        # Check for required Supabase keys
-        supabase_jwt_secret = env_vars.get('SUPABASE_JWT_SECRET', '').strip()
-        supabase_anon_key = env_vars.get('SUPABASE_ANON_KEY', '').strip()
-        supabase_service_key = env_vars.get('SUPABASE_SERVICE_KEY', '').strip()
-        
-        missing_keys = []
-        if not supabase_jwt_secret:
-            missing_keys.append('SUPABASE_JWT_SECRET')
-        if not supabase_anon_key:
-            missing_keys.append('SUPABASE_ANON_KEY')
-        if not supabase_service_key:
-            missing_keys.append('SUPABASE_SERVICE_KEY')
-        
-        if missing_keys:
-            if cold_start:
-                # For cold start, automatically generate new Supabase keys
-                self.banner.show_section_header("Generating Supabase Keys", "🔐")
-                self.banner.show_status_message("Cold start detected - generating fresh Supabase JWT keys...", "info")
 
-                from utils.supabase_keys import SupabaseKeyGenerator
-                key_generator = SupabaseKeyGenerator(str(self.root_dir))
+        keys = {
+            'SUPABASE_JWT_SECRET': env_vars.get('SUPABASE_JWT_SECRET', '').strip(),
+            'SUPABASE_ANON_KEY': env_vars.get('SUPABASE_ANON_KEY', '').strip(),
+            'SUPABASE_SERVICE_KEY': env_vars.get('SUPABASE_SERVICE_KEY', '').strip(),
+        }
+        missing_keys = [name for name, value in keys.items() if not value]
 
-                if key_generator.generate_and_update_env():
-                    self.banner.show_status_message("Supabase keys generated and applied successfully!", "success")
-                    return True
-                else:
-                    self.banner.show_status_message("Failed to generate Supabase keys", "error")
-                    return False
-            else:
-                # For regular start, show instructions to generate keys manually
-                self.banner.show_section_header("Missing Supabase Keys", "⚠️")
-                self.banner.show_status_message("Supabase JWT keys are missing!", "warning")
-                self.banner.show_status_message("  Missing keys:", "warning")
-                for key in missing_keys:
-                    self.banner.show_status_message(f"    • {key}", "warning")
-                self.banner.show_status_message("  To fix this issue:", "info")
-                self.banner.show_status_message("    1. Run: ./bootstrapper/generate_supabase_keys.sh", "info")
-                self.banner.show_status_message("    2. Then restart this script", "info")
-                self.banner.show_status_message(
-                    "  💡 Tip: The generate_supabase_keys.sh script will create secure JWT keys",
-                    "info",
-                )
-                self.banner.show_status_message(
-                    "    to generate the required JWT keys for Supabase services.", "info"
-                )
-                return False
-        
-        return True
+        if not missing_keys:
+            return True
+
+        # Mixed state: some keys set, others blank. Don't auto-regenerate —
+        # the SupabaseKeyGenerator rewrites all three together, which would
+        # destroy whatever the user pasted into the present ones.
+        if len(missing_keys) < len(keys):
+            present_keys = [name for name in keys if name not in missing_keys]
+            self.banner.show_section_header("Inconsistent Supabase Keys", "⚠️")
+            self.banner.show_status_message(
+                "Some Supabase keys are set and others are blank — refusing to "
+                "auto-regenerate to avoid clobbering the values you've already set.",
+                "warning",
+            )
+            self.banner.show_status_message(
+                f"  Present: {', '.join(present_keys)}", "warning",
+            )
+            self.banner.show_status_message(
+                f"  Missing: {', '.join(missing_keys)}", "warning",
+            )
+            self.banner.show_status_message("  To resolve:", "info")
+            self.banner.show_status_message(
+                "    • Run ./bootstrapper/generate_supabase_keys.sh to regenerate "
+                "ALL three (overwrites existing), or",
+                "info",
+            )
+            self.banner.show_status_message(
+                "    • Manually fill in the missing keys in .env so all three "
+                "are populated.",
+                "info",
+            )
+            return False
+
+        self.banner.show_section_header("Generating Supabase Keys", "🔐")
+        if cold_start:
+            self.banner.show_status_message(
+                "Cold start detected - generating fresh Supabase JWT keys...",
+                "info",
+            )
+        else:
+            self.banner.show_status_message(
+                "No Supabase keys found in .env; generating fresh JWT keys...",
+                "info",
+            )
+
+        from utils.supabase_keys import SupabaseKeyGenerator
+        key_generator = SupabaseKeyGenerator(str(self.root_dir))
+
+        if key_generator.generate_and_update_env():
+            self.banner.show_status_message(
+                "Supabase keys generated and applied successfully!", "success"
+            )
+            return True
+
+        self.banner.show_status_message("Failed to generate Supabase keys", "error")
+        return False
         
     def handle_port_configuration(self, base_port: Optional[int]) -> bool:
         """Handle port configuration and updates."""
