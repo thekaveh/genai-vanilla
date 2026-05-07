@@ -67,32 +67,41 @@ def initialize_config():
 
         result = cursor.fetchone()
 
+        # All LLM access goes through the LiteLLM gateway. The DB stores bare
+        # model names per provider; we prefix with the provider name to form a
+        # LiteLLM model identifier (e.g. "ollama/qwen3.6:latest").
+        litellm_base_url = os.getenv("LITELLM_BASE_URL", "http://litellm:4000")
+        litellm_api_key = os.getenv("LITELLM_API_KEY", "")
+
         if result:
             provider, model_name = result
-            print(f"Found active LLM: {provider}/{model_name}")
+            litellm_model = f"{provider}/{model_name}"
+            print(f"Found active LLM: {litellm_model}")
 
-            # Create configuration for Local Deep Researcher
+            # Create configuration for Local Deep Researcher.
+            # llm_provider="openai" tells LangGraph/LangChain to use the
+            # OpenAI-compatible client, which we point at LiteLLM.
             config = {
-                "llm_provider": provider,
-                "local_llm": model_name,
-                "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://ollama:11434"),
+                "llm_provider": "openai",
+                "local_llm": litellm_model,
+                "litellm_base_url": litellm_base_url,
                 "search_api": os.getenv("SEARCH_API", "duckduckgo"),
                 "max_web_research_loops": int(os.getenv("MAX_WEB_RESEARCH_LOOPS", "3")),
                 "fetch_full_page": os.getenv("FETCH_FULL_PAGE", "false").lower()
                 == "true",
             }
 
-            # Ensure config directory exists
             os.makedirs("/app/config", exist_ok=True)
-
-            # Write runtime configuration
             with open("/app/config/runtime_config.json", "w") as f:
                 json.dump(config, f, indent=2)
 
             # Create .env file for Local Deep Researcher
-            env_content = f"""LLM_PROVIDER={provider}
-LOCAL_LLM={model_name}
-OLLAMA_BASE_URL={config["ollama_base_url"]}
+            env_content = f"""LLM_PROVIDER=openai
+LOCAL_LLM={litellm_model}
+OPENAI_API_BASE={litellm_base_url}/v1
+OPENAI_API_KEY={litellm_api_key}
+LITELLM_BASE_URL={litellm_base_url}
+LITELLM_API_KEY={litellm_api_key}
 SEARCH_API={config["search_api"]}
 MAX_WEB_RESEARCH_LOOPS={config["max_web_research_loops"]}
 FETCH_FULL_PAGE={config["fetch_full_page"]}
@@ -103,19 +112,19 @@ DATABASE_URL={database_url}
                 f.write(env_content)
 
             print("Configuration initialized successfully")
-            print(f"Using LLM: {provider}/{model_name}")
-            print(f"Ollama URL: {config['ollama_base_url']}")
+            print(f"Using LLM: {litellm_model}")
+            print(f"LiteLLM URL: {litellm_base_url}")
             print(f"Search API: {config['search_api']}")
 
         else:
             print("WARNING: No active content LLMs found in database")
             print("Creating fallback configuration")
 
-            # Fallback configuration
+            fallback_model = "ollama/qwen3.6:latest"
             fallback_config = {
-                "llm_provider": "ollama",
-                "local_llm": "llama3.2",
-                "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://ollama:11434"),
+                "llm_provider": "openai",
+                "local_llm": fallback_model,
+                "litellm_base_url": litellm_base_url,
                 "search_api": os.getenv("SEARCH_API", "duckduckgo"),
                 "max_web_research_loops": int(os.getenv("MAX_WEB_RESEARCH_LOOPS", "3")),
                 "fetch_full_page": False,
@@ -125,10 +134,12 @@ DATABASE_URL={database_url}
             with open("/app/config/runtime_config.json", "w") as f:
                 json.dump(fallback_config, f, indent=2)
 
-            # Create fallback .env
-            env_content = f"""LLM_PROVIDER=ollama
-LOCAL_LLM=llama3.2
-OLLAMA_BASE_URL={fallback_config["ollama_base_url"]}
+            env_content = f"""LLM_PROVIDER=openai
+LOCAL_LLM={fallback_model}
+OPENAI_API_BASE={litellm_base_url}/v1
+OPENAI_API_KEY={litellm_api_key}
+LITELLM_BASE_URL={litellm_base_url}
+LITELLM_API_KEY={litellm_api_key}
 SEARCH_API={fallback_config["search_api"]}
 MAX_WEB_RESEARCH_LOOPS={fallback_config["max_web_research_loops"]}
 FETCH_FULL_PAGE=false

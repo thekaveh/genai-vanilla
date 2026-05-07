@@ -63,7 +63,7 @@ Services are accessible on ports starting from 63000 (base port):
 - **Supabase Studio**: http://localhost:63009 (base + 9)
 - **Kong API Gateway**: http://localhost:63002 (base + 2)
 - **N8N**: http://localhost:63017 (base + 17)
-- **Ollama**: http://localhost:63012 (base + 12)
+- **LiteLLM Gateway** (LLM front door): http://localhost:63012 (base + 12)
 
 See the startup output for the complete port mapping of all services.
 
@@ -210,7 +210,8 @@ services:
       # Access infrastructure services by container name
       DATABASE_URL: postgresql://postgres:password@myproject-supabase-db:5432/postgres
       REDIS_URL: redis://:password@myproject-redis:6379
-      OLLAMA_URL: http://myproject-ollama:11434
+      LITELLM_BASE_URL: http://myproject-litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
       KONG_URL: http://myproject-kong-api-gateway:8000
     ports:
       - "8080:8080"
@@ -264,7 +265,8 @@ Access services directly via their exposed ports:
 import os
 
 # Development configuration
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:63004")
+LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:63012")
+LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")  # equals LITELLM_MASTER_KEY
 SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:63001")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:63007")
 ```
@@ -593,14 +595,16 @@ jobs:
 Optimize which services start based on your needs:
 
 ```bash
-# In infra/.env, enable only needed services
-SOURCE_SUPABASE=true
-SOURCE_REDIS=true
-SOURCE_OLLAMA=true
+# In infra/.env, choose your LLM upstreams. LiteLLM is always-on; you only
+# pick what it forwards to.
+LLM_PROVIDER_SOURCE=ollama-container-cpu  # or 'none' for cloud-only
+CLOUD_OPENAI_SOURCE=disabled
+CLOUD_ANTHROPIC_SOURCE=disabled
+CLOUD_OPENROUTER_SOURCE=disabled
 
 # Disable unused services
-SOURCE_COMFYUI=false
-SOURCE_DOCLING=false
+COMFYUI_SOURCE=disabled
+DOC_PROCESSOR_SOURCE=disabled
 ```
 
 ## Best Practices

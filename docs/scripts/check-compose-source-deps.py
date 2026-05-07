@@ -44,6 +44,22 @@ REQUIRED_DEPENDS_ON = {
     ("jupyterhub", "redis"),
     ("weaviate", "supabase-db"),
     ("weaviate", "weaviate-init"),
+    # LiteLLM is mandatory and not source-replaceable. Every LLM consumer
+    # hard-depends on it. Ollama remains source-replaceable (see FORBIDDEN
+    # above) — consumers reach Ollama through LiteLLM.
+    ("litellm", "litellm-init"),
+    ("litellm", "supabase-db"),
+    ("litellm", "redis"),
+    ("open-web-ui", "litellm"),
+    ("backend", "litellm"),
+    ("n8n", "litellm"),
+    ("n8n-worker", "litellm"),
+    ("n8n-init", "litellm"),
+    ("jupyterhub", "litellm"),
+    ("local-deep-researcher", "litellm"),
+    ("openclaw-gateway", "litellm"),
+    ("weaviate-init", "litellm"),
+    ("weaviate", "litellm"),
 }
 
 

@@ -76,7 +76,11 @@ class ServiceConfig:
         # Generate LLM Provider (Ollama) configuration
         llm_config = self._generate_llm_provider_config()
         env_vars.update(llm_config)
-        
+
+        # Generate cloud-provider toggles for the LiteLLM gateway
+        cloud_config = self._generate_cloud_providers_config()
+        env_vars.update(cloud_config)
+
         # Generate ComfyUI configuration
         comfyui_config = self._generate_comfyui_config()
         env_vars.update(comfyui_config)
@@ -116,35 +120,68 @@ class ServiceConfig:
         return env_vars
     
     def _generate_llm_provider_config(self) -> Dict[str, str]:
-        """Generate LLM Provider (Ollama) configuration."""
+        """Generate LLM engine (Ollama upstream) configuration.
+
+        Emits LITELLM_OLLAMA_UPSTREAM (consumed by the LiteLLM config template
+        only) plus LITELLM_BASE_URL (consumed by every LLM-using service).
+        OLLAMA_SCALE / OLLAMA_NVIDIA_VISIBLE_DEVICES / OLLAMA_DEPLOY_RESOURCES
+        still gate the upstream Ollama service block in compose.
+        """
         source_value = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
         config = self.get_service_config('llm_provider', source_value)
-        
+
         env_vars = {}
-        
-        # Set scale
+
+        # LiteLLM is mandatory and listens on a fixed internal address.
+        env_vars['LITELLM_BASE_URL'] = 'http://litellm:4000'
+
+        # Set scale (Ollama upstream service replicas)
         scale = config.get('scale', 1)
         env_vars['OLLAMA_SCALE'] = str(scale)
-        
-        # Set endpoint with localhost host replacement
+
+        # Resolve the upstream URL (LiteLLM consumes this when LLM_PROVIDER_SOURCE
+        # is one of the ollama-* values). Empty string when source=none.
         endpoint = config.get('environment', {}).get('OLLAMA_ENDPOINT', 'http://ollama:11434')
         endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
-        env_vars['OLLAMA_ENDPOINT'] = endpoint
-        
+        env_vars['LITELLM_OLLAMA_UPSTREAM'] = endpoint
+
         # Set GPU devices if specified
         gpu_devices = config.get('environment', {}).get('NVIDIA_VISIBLE_DEVICES')
         if gpu_devices:
             env_vars['OLLAMA_NVIDIA_VISIBLE_DEVICES'] = gpu_devices
         else:
             env_vars['OLLAMA_NVIDIA_VISIBLE_DEVICES'] = 'null'
-            
+
         # Set deployment resources
         deploy_resources = config.get('deploy', {})
         if deploy_resources:
             env_vars['OLLAMA_DEPLOY_RESOURCES'] = str(deploy_resources)
         else:
             env_vars['OLLAMA_DEPLOY_RESOURCES'] = '~'
-        
+
+        return env_vars
+
+    def _generate_cloud_providers_config(self) -> Dict[str, str]:
+        """Generate cloud-provider toggle env vars consumed by LiteLLM's config
+        template. Each cloud_* SOURCE is a binary enabled/disabled selector.
+        """
+        env_vars: Dict[str, str] = {}
+
+        provider_to_flag = {
+            'CLOUD_OPENAI_SOURCE': 'LITELLM_OPENAI_ENABLED',
+            'CLOUD_ANTHROPIC_SOURCE': 'LITELLM_ANTHROPIC_ENABLED',
+            'CLOUD_OPENROUTER_SOURCE': 'LITELLM_OPENROUTER_ENABLED',
+        }
+
+        enabled_providers = []
+        for source_var, flag_var in provider_to_flag.items():
+            source_value = self.service_sources.get(source_var, 'disabled')
+            is_enabled = source_value == 'enabled'
+            env_vars[flag_var] = 'true' if is_enabled else 'false'
+            if is_enabled:
+                enabled_providers.append(source_var.removeprefix('CLOUD_').removesuffix('_SOURCE').lower())
+
+        env_vars['LITELLM_ENABLED_PROVIDERS'] = ','.join(enabled_providers)
         return env_vars
     
     def _generate_comfyui_config(self) -> Dict[str, str]:
@@ -192,10 +229,12 @@ class ServiceConfig:
         weaviate_url = weaviate_url.replace('host.docker.internal', self.localhost_host)
         env_vars['WEAVIATE_URL'] = weaviate_url
         
-        # Set Ollama endpoint for Weaviate (inherits from LLM provider)
-        ollama_endpoint = self.service_sources.get('OLLAMA_ENDPOINT', 'http://ollama:11434')
-        env_vars['WEAVIATE_OLLAMA_ENDPOINT'] = ollama_endpoint
-        
+        # Weaviate's text2vec-openai / generative-openai modules talk to LiteLLM.
+        # The base URL goes into per-collection module configs (set by
+        # weaviate-init), not into Weaviate's startup env.
+        env_vars['WEAVIATE_LITELLM_BASE_URL'] = 'http://litellm:4000/v1'
+        env_vars['WEAVIATE_LITELLM_API_KEY'] = self.config_parser.parse_env_file().get('LITELLM_MASTER_KEY', '')
+
         return env_vars
     
     def _generate_clip_config(self) -> Dict[str, str]:
@@ -379,9 +418,11 @@ class ServiceConfig:
             weaviate_config = self.get_service_config('weaviate', weaviate_source)
             env_vars['WEAVIATE_INIT_SCALE'] = str(weaviate_config.get('scale', 1))
         
-        # OLLAMA_PULL_SCALE: 1 unless LLM provider has no Ollama endpoint (disabled/api)
+        # OLLAMA_PULL_SCALE: 1 unless LLM engine has no Ollama upstream (none).
+        # The pull container bypasses LiteLLM and hits Ollama's /api/pull directly,
+        # so it only runs when an Ollama upstream is actually present.
         llm_source = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
-        if llm_source in ['disabled', 'api']:
+        if llm_source == 'none':
             env_vars['OLLAMA_PULL_SCALE'] = '0'
         else:
             env_vars['OLLAMA_PULL_SCALE'] = '1'

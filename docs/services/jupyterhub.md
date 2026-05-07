@@ -2,7 +2,7 @@
 
 **Port:** 63048
 **Category:** Application Tier
-**Dependencies:** PostgreSQL, Redis, Ollama, Weaviate, Neo4j
+**Dependencies:** PostgreSQL, Redis, LiteLLM (gateway to Ollama / cloud LLMs), Weaviate, Neo4j
 
 ---
 
@@ -33,7 +33,7 @@ JUPYTERHUB_SOURCE=disabled
 
 ## Features
 
-- **Pre-installed AI Libraries**: Ollama, LangChain, LlamaIndex, Transformers
+- **Pre-installed AI Libraries**: OpenAI SDK (pointed at LiteLLM), LangChain, LlamaIndex, Transformers
 - **Database Clients**: Weaviate, Neo4j, PostgreSQL, Redis, Supabase
 - **Sample Notebooks**: 7 ready-to-use notebooks demonstrating service integration
 - **Persistent Storage**: All notebooks saved in Docker volumes
@@ -65,7 +65,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | Notebook | Description |
 |----------|-------------|
 | `00_environment_check.ipynb` | Verify all service connections |
-| `01_ollama_basics.ipynb` | LLM inference with Ollama |
+| `01_ollama_basics.ipynb` | LLM inference via the LiteLLM gateway (Ollama upstream) |
 | `02_langchain_rag.ipynb` | RAG pipeline with Weaviate |
 | `03_neo4j_graphs.ipynb` | Knowledge graph queries |
 | `04_supabase_data.ipynb` | Database and storage operations |
@@ -74,16 +74,32 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 
 ## Service Integration Examples
 
-### Connect to Ollama (LLM)
+### Connect to the LLM gateway (LiteLLM)
+
+Every notebook talks to LiteLLM via the OpenAI-compatible API — never to Ollama directly. The container has `OPENAI_API_BASE` and `OPENAI_API_KEY` pre-set from `LITELLM_BASE_URL` and `LITELLM_API_KEY` (which equals `LITELLM_MASTER_KEY`).
 
 ```python
 import os
-from ollama import Client
+from openai import OpenAI
 
-client = Client(host=os.getenv("OLLAMA_BASE_URL"))
-response = client.chat(model="llama3.2", messages=[
-    {"role": "user", "content": "Hello!"}
-])
+client = OpenAI(
+    base_url=os.getenv("OPENAI_API_BASE"),  # e.g. http://litellm:4000/v1
+    api_key=os.getenv("OPENAI_API_KEY"),    # equals $LITELLM_API_KEY
+)
+
+response = client.chat.completions.create(
+    model="ollama/qwen3.6:latest",  # or "gpt-4o", "claude-sonnet-4-6", etc.
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+LangChain users should reach for `ChatOpenAI` / `OpenAIEmbeddings` against the same env vars:
+
+```python
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="ollama/qwen3.6:latest")  # picks up OPENAI_API_BASE / OPENAI_API_KEY
 ```
 
 ### Connect to Weaviate (Vector DB)
@@ -188,7 +204,7 @@ c.JupyterHub.authenticator_class = 'firstuseauthenticator.FirstUseAuthenticator'
 
 ## Architecture
 
-JupyterHub runs inside the Docker Compose network and receives environment variables for the services that are enabled. It can connect to Ollama/API LLMs, Weaviate, Neo4j, PostgreSQL/Supabase, Redis, ComfyUI, n8n, STT/TTS, and document-processing services when those services are available.
+JupyterHub runs inside the Docker Compose network and receives environment variables for the services that are enabled. It reaches LLMs through the always-on LiteLLM gateway (`LITELLM_BASE_URL` / `LITELLM_API_KEY`, also exported as `OPENAI_API_BASE` / `OPENAI_API_KEY`) and connects directly to Weaviate, Neo4j, PostgreSQL/Supabase, Redis, ComfyUI, n8n, STT/TTS, and document-processing services when those services are available.
 
 For the current high-level stack diagram, see [Architecture Diagram](../diagrams/architecture.html).
 

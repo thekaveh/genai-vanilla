@@ -28,7 +28,7 @@ class PortManager:
         'SUPABASE_STUDIO_PORT': 9,    # Base port + 9
         'GRAPH_DB_PORT': 10,          # Base port + 10
         'GRAPH_DB_DASHBOARD_PORT': 11, # Base port + 11
-        'LLM_PROVIDER_PORT': 12,      # Base port + 12
+        'LITELLM_PORT': 12,           # Base port + 12 (LiteLLM gateway, the always-on LLM front door)
         'LOCAL_DEEP_RESEARCHER_PORT': 13, # Base port + 13
         'SEARXNG_PORT': 14,           # Base port + 14
         'OPEN_WEB_UI_PORT': 15,       # Base port + 15

@@ -23,6 +23,9 @@ class SourceOverrideManager:
         # Map CLI argument names to environment variable names
         self.source_mapping = {
             'llm_provider_source': 'LLM_PROVIDER_SOURCE',
+            'cloud_openai_source': 'CLOUD_OPENAI_SOURCE',
+            'cloud_anthropic_source': 'CLOUD_ANTHROPIC_SOURCE',
+            'cloud_openrouter_source': 'CLOUD_OPENROUTER_SOURCE',
             'comfyui_source': 'COMFYUI_SOURCE',
             'weaviate_source': 'WEAVIATE_SOURCE',
             'n8n_source': 'N8N_SOURCE',

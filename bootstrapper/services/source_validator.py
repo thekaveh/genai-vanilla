@@ -259,15 +259,39 @@ class SourceValidator:
             return False
         
         all_valid = True
-        
+
         for service_var, source_value in service_sources.items():
             if not source_value:  # Skip empty values
                 continue
-                
+
             if not self.validate_source_value(service_var, source_value):
                 all_valid = False
-        
+
+        # No-upstream guard: if the local engine is `none` AND every cloud
+        # provider is disabled, LiteLLM has nothing to serve. Refuse to start.
+        if not self._validate_litellm_has_upstream(service_sources):
+            all_valid = False
+
         return all_valid
+
+    def _validate_litellm_has_upstream(self, service_sources: Dict[str, str]) -> bool:
+        """At least one upstream — Ollama engine OR a cloud provider — must be
+        configured, otherwise the LiteLLM gateway has no models to route to.
+        """
+        llm_source = service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
+        cloud_enabled = any(
+            service_sources.get(var, 'disabled') == 'enabled'
+            for var in ('CLOUD_OPENAI_SOURCE', 'CLOUD_ANTHROPIC_SOURCE', 'CLOUD_OPENROUTER_SOURCE')
+        )
+
+        if llm_source == 'none' and not cloud_enabled:
+            self.validation_errors.append(
+                "❌ LiteLLM has no upstream configured. Set LLM_PROVIDER_SOURCE to an "
+                "ollama-* value, or enable at least one of CLOUD_OPENAI_SOURCE / "
+                "CLOUD_ANTHROPIC_SOURCE / CLOUD_OPENROUTER_SOURCE."
+            )
+            return False
+        return True
     
     def get_validation_errors(self) -> List[str]:
         """

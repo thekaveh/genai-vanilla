@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **LiteLLM Gateway** (mandatory core service): always-on OpenAI-compatible front door for every LLM provider. Pinned image `ghcr.io/berriai/litellm:v1.83.14-stable.patch.2`, listening on port 63012 (the slot formerly held by Ollama). Persistence on a dedicated `litellm` database in the existing Supabase Postgres (Prisma migrations run automatically); response caching + rate-limit state in Redis.
+  - **Wizard model**: LiteLLM is a locked tile (no source toggle). A separate **LLM Engine** tile single-selects the local Ollama upstream (`ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, `none`). Three new multi-enable cloud tiles toggle **OpenAI / Anthropic / OpenRouter** providers in LiteLLM's `model_list`. Bootstrapper refuses to start when no upstream is configured (engine=`none` + every cloud disabled).
+  - **CLI flags**: `--llm-provider-source` enum dropped `api`/`disabled`, added `none`. New flags `--cloud-openai-source`, `--cloud-anthropic-source`, `--cloud-openrouter-source` (each `enabled`/`disabled`).
+  - **Master key**: bootstrapper auto-generates `LITELLM_MASTER_KEY` (`sk-…`) on first start and never overwrites it on subsequent runs.
+  - **Documented backup**: Portkey AI Gateway (Apache-2.0) — switch path noted in `docs/services/litellm.md`.
+- **`vllm-container-gpu` upstream** is deferred to a follow-up plan (tracked in ROADMAP).
+### Changed (LiteLLM migration)
+- **Consumer env-var rename (breaking)**: every service that talks to an LLM now reads `LITELLM_BASE_URL` + `LITELLM_API_KEY`. The legacy `OLLAMA_BASE_URL` / `OLLAMA_ENDPOINT` env vars are removed from all consumer compose blocks (`open-web-ui`, `backend`, `n8n`, `n8n-worker`, `n8n-init`, `jupyterhub`, `local-deep-researcher`, `openclaw-gateway`, `weaviate-init`, `weaviate`).
+- **`LLM_PROVIDER_PORT` renamed to `LITELLM_PORT`** (same default 63012). `bootstrapper/core/port_manager.py` and `.env.example` updated.
+- **Backend memory service refactored** (`backend/app/memory_service.py`, `memory_store.py`): switched from Ollama's native `/api/generate` + `/api/embeddings` to LiteLLM's OpenAI-compatible `/v1/chat/completions` + `/v1/embeddings`. All 7 Weaviate collection schemas migrated from `text2vec-ollama` (with `apiEndpoint`) to `text2vec-openai` (with `baseURL` pointed at LiteLLM). New helper `_litellm_complete()` consolidates the chat completion call sites.
+- **Local Deep Researcher** now uses the OpenAI-compatible LangGraph client pointed at LiteLLM (`init-config.py` writes `llm_provider=openai`; entrypoint healthchecks `LITELLM_BASE_URL/health/liveliness`).
+- **Weaviate** default vectorizer is now `text2vec-openai` (LiteLLM-backed). `text2vec-ollama` is left enabled for backward-compat with un-migrated collections.
+- **n8n research workflow** (`searxng-research-workflow.json`) now POSTs to `${LITELLM_BASE_URL}/v1/chat/completions` with `Authorization: Bearer …`; response parsing handles OpenAI's `choices[].message.content` shape.
+- **JupyterHub startup script and notebooks** rewritten to expose `LITELLM_BASE_URL` / `LITELLM_API_KEY` and `OPENAI_API_BASE` / `OPENAI_API_KEY` (so the `openai` Python SDK and LangChain OpenAI clients work unchanged). `01_ollama_basics.ipynb` renamed to `01_litellm_basics.ipynb`. The deeper `ollama.chat` / `ChatOllama` examples in `01_litellm_basics.ipynb` and `02_langchain_rag.ipynb` still need a content rewrite to use `OpenAI()` / `ChatOpenAI()` clients (env vars are correct, code samples need a follow-up pass).
+- **`check-compose-source-deps.py`** gained 12 new `REQUIRED_DEPENDS_ON` tuples enforcing that every LLM consumer hard-depends on `litellm`. Ollama remains in `FORBIDDEN_OPTIONAL_DEPENDS_ON` (still source-replaceable).
+- **Migration note for existing users**: bump your `.env` by either copying the new `.env.example` or running `./start.sh --cold`. `OLLAMA_ENDPOINT` is gone; `LLM_PROVIDER_PORT` becomes `LITELLM_PORT` (same value).
 - **OpenClaw AI Agent**: AI agent for messaging platforms (WhatsApp, Telegram, Discord, etc.)
   - Connects to messaging apps for AI-powered chat, file management, and task automation
   - Web dashboard for administration at `openclaw.localhost`

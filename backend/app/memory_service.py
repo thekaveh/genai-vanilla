@@ -35,7 +35,8 @@ class MemoryService:
     def __init__(self):
         self.enabled = os.getenv("LANGMEM_ENABLED", "true").lower() == "true"
         self.database_url = os.getenv("DATABASE_URL", "")
-        self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+        self.litellm_url = os.getenv("LITELLM_BASE_URL", "http://litellm:4000")
+        self.litellm_api_key = os.getenv("LITELLM_API_KEY", "")
         self.weaviate_url = os.getenv("WEAVIATE_URL", "")
         self.namespace = os.getenv("LANGMEM_NAMESPACE", "default")
         self.max_facts = int(os.getenv("LANGMEM_MAX_FACTS_PER_USER", "1000"))
@@ -56,7 +57,8 @@ class MemoryService:
         self.store = MemoryStore(
             database_url=self.database_url,
             weaviate_url=weaviate,
-            ollama_url=self.ollama_url,
+            litellm_url=self.litellm_url,
+            litellm_api_key=self.litellm_api_key,
             embedding_model=self.embedding_model or None,
         )
         await self.store.initialize()
@@ -71,14 +73,16 @@ class MemoryService:
             raise RuntimeError("LangMem memory service is disabled")
 
     async def _get_extraction_model(self) -> str:
-        """Get the Ollama model to use for fact extraction."""
+        """Get the model identifier (LiteLLM-prefixed) for fact extraction."""
         if self.extraction_model:
             return self.extraction_model
         # Fall back to the default content model from environment
-        default_model = os.getenv("OLLAMA_DEFAULT_MODEL", "")
+        default_model = os.getenv("LITELLM_DEFAULT_MODEL", "")
         if default_model:
             return default_model
-        # Try reading from the ollama_models table (content model)
+        # Try reading from the ollama_models table (content model). The DB
+        # stores bare model names; prefix with `ollama/` to form a LiteLLM
+        # model identifier.
         try:
             conn = await asyncpg.connect(self.database_url)
             try:
@@ -90,12 +94,52 @@ class MemoryService:
                     """
                 )
                 if row:
-                    return row["model_name"]
+                    return f"ollama/{row['model_name']}"
             finally:
                 await conn.close()
         except Exception:
             pass
-        return "qwen3.6"  # Last resort default
+        return "ollama/qwen3.6:latest"  # Last resort default
+
+    async def _litellm_complete(
+        self,
+        model: str,
+        prompt: str,
+        *,
+        json_mode: bool = False,
+        timeout: float = 60.0,
+    ) -> str:
+        """Single-prompt completion through the LiteLLM gateway.
+
+        Wraps LiteLLM's OpenAI-compatible /v1/chat/completions. The previous
+        Ollama-native /api/generate flow used `prompt` + `format=json`; here
+        we use a one-message `messages` array and OpenAI's `response_format`
+        for the JSON-mode equivalent. Returns the assistant content string
+        (empty on missing/malformed responses — caller decides how to recover).
+        """
+        headers = {}
+        if self.litellm_api_key:
+            headers["Authorization"] = f"Bearer {self.litellm_api_key}"
+        body: Dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                f"{self.litellm_url}/v1/chat/completions",
+                json=body,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            choices = result.get("choices") or []
+            if not choices:
+                return ""
+            message = choices[0].get("message") or {}
+            return message.get("content") or ""
 
     async def extract_facts(
         self,
@@ -149,30 +193,22 @@ Extract the facts as JSON:"""
 
             extracted_facts = []
             try:
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    resp = await client.post(
-                        f"{self.ollama_url}/api/generate",
-                        json={
-                            "model": model,
-                            "prompt": extraction_prompt,
-                            "stream": False,
-                            "format": "json",
-                        },
-                    )
-                    resp.raise_for_status()
-                    result = resp.json()
-                    # Some models (e.g. qwen3) put JSON in the thinking field
-                    response_text = result.get("response", "") or result.get("thinking", "") or "[]"
+                response_text = await self._litellm_complete(
+                    model=model,
+                    prompt=extraction_prompt,
+                    json_mode=True,
+                    timeout=60.0,
+                ) or "[]"
 
-                    # Parse the LLM response
-                    parsed = json.loads(response_text)
-                    if isinstance(parsed, dict) and "facts" in parsed:
-                        parsed = parsed["facts"]
-                    if isinstance(parsed, dict) and "content" in parsed:
-                        # Single fact returned as object instead of array
-                        parsed = [parsed]
-                    if isinstance(parsed, list):
-                        extracted_facts = parsed
+                # Parse the LLM response
+                parsed = json.loads(response_text)
+                if isinstance(parsed, dict) and "facts" in parsed:
+                    parsed = parsed["facts"]
+                if isinstance(parsed, dict) and "content" in parsed:
+                    # Single fact returned as object instead of array
+                    parsed = [parsed]
+                if isinstance(parsed, list):
+                    extracted_facts = parsed
             except Exception as e:
                 logger.error(f"Fact extraction LLM call failed: {e}")
                 await conn.execute(
@@ -363,23 +399,16 @@ Extract the facts as JSON:"""
                         for m in memories
                     )
                     model = await self._get_extraction_model()
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        resp = await client.post(
-                            f"{self.ollama_url}/api/generate",
-                            json={
-                                "model": model,
-                                "prompt": (
-                                    f"Given these remembered facts about the user:\n{facts_text}\n\n"
-                                    f"And their current query: \"{query}\"\n\n"
-                                    "Write a brief, natural summary of the relevant memories "
-                                    "(2-3 sentences max). Be concise and factual."
-                                ),
-                                "stream": False,
-                            },
-                        )
-                        resp.raise_for_status()
-                        result = resp.json()
-                        context_summary = result.get("response", "") or result.get("thinking", "")
+                    context_summary = await self._litellm_complete(
+                        model=model,
+                        prompt=(
+                            f"Given these remembered facts about the user:\n{facts_text}\n\n"
+                            f"And their current query: \"{query}\"\n\n"
+                            "Write a brief, natural summary of the relevant memories "
+                            "(2-3 sentences max). Be concise and factual."
+                        ),
+                        timeout=30.0,
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to generate context summary: {e}")
 
@@ -440,36 +469,30 @@ Extract the facts as JSON:"""
 
                 try:
                     model = await self._get_extraction_model()
-                    async with httpx.AsyncClient(timeout=60.0) as client:
-                        resp = await client.post(
-                            f"{self.ollama_url}/api/generate",
-                            json={
-                                "model": model,
-                                "prompt": (
-                                    "Review these memory facts and identify:\n"
-                                    "1. Duplicates (same information, different wording)\n"
-                                    "2. Contradictions (newer fact supersedes older one)\n"
-                                    "3. Facts that can be merged into one\n\n"
-                                    f"Facts:\n{facts_text}\n\n"
-                                    "Return a JSON array of actions. Each action:\n"
-                                    '{"action": "merge"|"supersede", '
-                                    '"source_indices": [int, int], '
-                                    '"keep_index": int, '
-                                    '"reason": "string"}\n'
-                                    "If no consolidation needed, return []."
-                                ),
-                                "stream": False,
-                                "format": "json",
-                            },
-                        )
-                        resp.raise_for_status()
-                        result = resp.json()
-                        response_text = result.get("response", "") or result.get("thinking", "") or "[]"
-                        actions = json.loads(response_text)
-                        if isinstance(actions, dict) and "actions" in actions:
-                            actions = actions["actions"]
-                        if not isinstance(actions, list):
-                            actions = []
+                    consolidation_prompt = (
+                        "Review these memory facts and identify:\n"
+                        "1. Duplicates (same information, different wording)\n"
+                        "2. Contradictions (newer fact supersedes older one)\n"
+                        "3. Facts that can be merged into one\n\n"
+                        f"Facts:\n{facts_text}\n\n"
+                        "Return a JSON array of actions. Each action:\n"
+                        '{"action": "merge"|"supersede", '
+                        '"source_indices": [int, int], '
+                        '"keep_index": int, '
+                        '"reason": "string"}\n'
+                        "If no consolidation needed, return []."
+                    )
+                    response_text = await self._litellm_complete(
+                        model=model,
+                        prompt=consolidation_prompt,
+                        json_mode=True,
+                        timeout=60.0,
+                    ) or "[]"
+                    actions = json.loads(response_text)
+                    if isinstance(actions, dict) and "actions" in actions:
+                        actions = actions["actions"]
+                    if not isinstance(actions, list):
+                        actions = []
                 except Exception as e:
                     logger.warning(f"Consolidation LLM call failed for user {uid}: {e}")
                     continue
@@ -616,23 +639,16 @@ Extract the facts as JSON:"""
 
             try:
                 model = await self._get_extraction_model()
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(
-                        f"{self.ollama_url}/api/generate",
-                        json={
-                            "model": model,
-                            "prompt": (
-                                "Based on these remembered facts about a user, "
-                                "write a concise profile summary (3-5 sentences):\n\n"
-                                f"{facts_text}\n\n"
-                                "Write a natural, helpful summary:"
-                            ),
-                            "stream": False,
-                        },
-                    )
-                    resp.raise_for_status()
-                    result = resp.json()
-                    summary = result.get("response", "") or result.get("thinking", "") or "Unable to generate summary."
+                summary = await self._litellm_complete(
+                    model=model,
+                    prompt=(
+                        "Based on these remembered facts about a user, "
+                        "write a concise profile summary (3-5 sentences):\n\n"
+                        f"{facts_text}\n\n"
+                        "Write a natural, helpful summary:"
+                    ),
+                    timeout=30.0,
+                ) or "Unable to generate summary."
             except Exception as e:
                 logger.warning(f"Summary generation failed: {e}")
                 summary = f"User has {total} stored memories across various topics."

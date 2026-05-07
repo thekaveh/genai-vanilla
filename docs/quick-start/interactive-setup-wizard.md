@@ -18,10 +18,20 @@ The wizard presents each configurable service one at a time, showing all availab
 
 - **Container options** (CPU / GPU) for Docker-based deployment
 - **Localhost options** for using locally installed services
-- **External / API options** for remote or cloud-based services
-- **Disabled** to skip a service entirely
+- **External options** for remote services on your network
+- **Disabled / None** to skip a service or run cloud-only
 
 The current `.env` value is pre-selected as the default for each service, so pressing Enter keeps your existing configuration.
+
+### LLM tiles
+
+The LLM step is split into four tiles:
+
+- **LiteLLM Gateway** — locked / always-on. LiteLLM is the only LLM URL every consumer service ever talks to, so the wizard surfaces it as a fixed tile rather than a SOURCE choice.
+- **LLM Engine** — single-select tile for the local Ollama upstream that LiteLLM forwards to. Options: `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, or `none` (cloud-only).
+- **Cloud — OpenAI** / **Cloud — Anthropic** / **Cloud — OpenRouter** — three independent toggles (`enabled` / `disabled`). Enable as many as you want; each requires the matching API key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) in `.env`.
+
+The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud tile is `disabled` — that combination would leave LiteLLM with nothing to route to.
 
 ### 2. Stack Options
 
@@ -112,7 +122,11 @@ The wizard automatically discovers all configurable services from `service-confi
 
 | Service | Options |
 |---------|---------|
-| LLM Provider (Ollama) | container-cpu, container-gpu, localhost, external, api, disabled |
+| LiteLLM Gateway | locked / always-on (no choice; mandatory front door for every LLM consumer) |
+| LLM Engine (Ollama upstream) | ollama-container-cpu, ollama-container-gpu, ollama-localhost, ollama-external, none |
+| Cloud — OpenAI | enabled, disabled (requires `OPENAI_API_KEY`) |
+| Cloud — Anthropic | enabled, disabled (requires `ANTHROPIC_API_KEY`) |
+| Cloud — OpenRouter | enabled, disabled (requires `OPENROUTER_API_KEY`) |
 | ComfyUI | container-cpu, container-gpu, localhost, external, disabled |
 | Weaviate | container, localhost, disabled |
 | Multi2Vec CLIP | container-cpu, container-gpu, disabled |
@@ -129,7 +143,7 @@ New services added to `service-configs.yml` are automatically picked up by the w
 
 ## Dependency Validation
 
-The wizard validates service dependencies in real time. For example, if you enable n8n but disable Weaviate (which n8n requires), the wizard warns you and offers to either enable the dependency or disable the dependent service.
+The wizard validates service dependencies in real time. For example, if you enable n8n but disable Weaviate (which n8n requires), the wizard warns you and offers to either enable the dependency or disable the dependent service. The same machinery enforces the "LiteLLM must have an upstream" rule (LLM Engine != `none`, or at least one cloud tile is `enabled`).
 
 ## Hosts File Setup
 

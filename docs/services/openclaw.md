@@ -12,7 +12,7 @@ The OpenClaw service provides an AI-powered agent that connects to messaging app
 - **GitHub Monitoring**: Monitor repositories, issues, and pull requests
 - **Command Execution**: Execute commands via messaging interface
 - **Web Dashboard**: Browser-based admin panel for configuration and approvals
-- **Multi-Provider LLM**: Supports Ollama, Anthropic, OpenAI, and many more
+- **Multi-Provider LLM**: Defaults to the stack's LiteLLM gateway (Ollama upstream + cloud providers); direct Anthropic/OpenAI keys still supported as overrides
 
 ## Architecture
 
@@ -23,7 +23,7 @@ OpenClaw runs as a single gateway process that:
 - Stores configuration in `~/.openclaw/` directory
 - Stores workspace files in `~/.openclaw/workspace/`
 
-The gateway connects to LLM providers (Ollama, Anthropic, OpenAI) for AI capabilities and to messaging platforms (WhatsApp, Telegram, etc.) for user interaction.
+For LLM access, OpenClaw points at the stack's **LiteLLM gateway** (`LITELLM_BASE_URL` + `LITELLM_API_KEY`) by default — one URL fronts the Ollama upstream and any enabled cloud providers (OpenAI, Anthropic, OpenRouter). Direct provider keys (`OPENCLAW_OPENAI_API_KEY`, `OPENCLAW_ANTHROPIC_API_KEY`) remain available as overrides for cases where OpenClaw should bypass LiteLLM. The gateway also connects to messaging platforms (WhatsApp, Telegram, etc.) for user interaction.
 
 **Container Mode Initialization**: When running in container mode, an `openclaw-init` container runs first to:
 - Set correct volume permissions (uid 1000/node) on config and workspace volumes
@@ -63,7 +63,7 @@ docker exec -it genai-openclaw-gateway openclaw onboard
 
 **Note:**
 - OpenClaw is **disabled by default** - you must explicitly enable it
-- First run requires onboarding to configure messaging channels and LLM provider
+- First run requires onboarding to configure messaging channels (LLM access is pre-wired through LiteLLM)
 
 ### Localhost Mode (Native)
 
@@ -114,7 +114,18 @@ OPENCLAW_SOURCE=disabled
 | `OPENCLAW_GATEWAY_TOKEN` | Optional token for securing gateway API | `` |
 | `OPENCLAW_SCALE` | Container replicas (set by bootstrapper) | `0` |
 
-### LLM API Keys (Optional Overrides)
+### LLM Configuration
+
+By default OpenClaw is wired into the stack's LiteLLM gateway via:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LITELLM_BASE_URL` | OpenAI-compatible URL of the LiteLLM proxy | `http://litellm:4000` (in-network) |
+| `LITELLM_API_KEY` | Bearer key for LiteLLM (equals `LITELLM_MASTER_KEY`) | auto-generated |
+
+### Optional Direct-Provider Overrides
+
+These bypass LiteLLM and let OpenClaw call providers directly — useful when you want a separate budget/key from the rest of the stack, or to talk to a model LiteLLM doesn't have registered.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -129,15 +140,13 @@ OPENCLAW_SOURCE=disabled
 
 ## LLM Configuration
 
-OpenClaw automatically inherits the stack's LLM provider configuration:
+OpenClaw inherits LLM access from the always-on LiteLLM gateway:
 
-- **Ollama**: Connects to the stack's Ollama endpoint automatically. The `OLLAMA_API_KEY` is set to `"ollama-local"` which activates the Ollama provider in OpenClaw.
-- **Anthropic**: Set `OPENCLAW_ANTHROPIC_API_KEY` in `.env`, or OpenClaw uses the stack-wide key if available.
-- **OpenAI**: Set `OPENCLAW_OPENAI_API_KEY` in `.env`, or falls back to stack-wide `OPENAI_API_KEY`.
+- **Default path (LiteLLM)**: OpenClaw is configured as an OpenAI-compatible client against `LITELLM_BASE_URL` with `LITELLM_API_KEY`. Whatever Ollama / OpenAI / Anthropic / OpenRouter upstreams you've enabled in the stack are routed transparently through LiteLLM. To pick a model, use the model IDs registered in `volumes/litellm/config.yaml` (e.g. `ollama/qwen3.6:latest`, `gpt-4o`, `claude-sonnet-4-6`).
+- **Anthropic override**: Set `OPENCLAW_ANTHROPIC_API_KEY` in `.env` to make OpenClaw call Anthropic directly, bypassing LiteLLM. Without it, OpenClaw uses the stack-wide Anthropic key (if configured) through LiteLLM.
+- **OpenAI override**: Set `OPENCLAW_OPENAI_API_KEY` in `.env` to bypass LiteLLM for OpenAI traffic. Falls back to the stack-wide `OPENAI_API_KEY` when unset.
 
-**Provider Priority**: OpenClaw uses providers in this order: Anthropic > OpenAI > Ollama. If you want to force Ollama usage, ensure no Anthropic/OpenAI keys are set.
-
-**Important**: When connecting to the stack's Ollama, OpenClaw uses the native Ollama API (not `/v1`). Do not add `/v1` to the Ollama URL.
+**Provider Priority**: When direct override keys are present, OpenClaw prefers them in this order: Anthropic direct > OpenAI direct > LiteLLM gateway. To force every request through LiteLLM (recommended for budget tracking and spend logs), leave both `OPENCLAW_*_API_KEY` overrides empty.
 
 ## Web Dashboard
 
@@ -162,8 +171,8 @@ Run OpenClaw CLI commands inside the container:
 # Run onboarding
 docker exec -it genai-openclaw-gateway openclaw onboard
 
-# Configure settings
-docker exec -it genai-openclaw-gateway openclaw config set models.providers.ollama.baseUrl "http://ollama:11434"
+# Configure settings (e.g. point OpenClaw at LiteLLM)
+docker exec -it genai-openclaw-gateway openclaw config set models.providers.openai.baseUrl "http://litellm:4000/v1"
 
 # Check health
 docker exec -it genai-openclaw-gateway openclaw doctor
@@ -223,11 +232,11 @@ No OpenClaw agent (default).
 
 - None (OpenClaw is optional for all services)
 
-### Optional (LLM Providers)
+### LLM access
 
-- **Ollama**: Local LLM inference (auto-configured when available)
-- **Anthropic API**: Cloud LLM (requires API key)
-- **OpenAI API**: Cloud LLM (requires API key)
+- **LiteLLM gateway** (default): Provides Ollama + cloud providers behind a single OpenAI-compatible URL (`LITELLM_BASE_URL`). Always-on; no per-provider wiring needed in OpenClaw.
+- **Anthropic direct** (override): `OPENCLAW_ANTHROPIC_API_KEY`
+- **OpenAI direct** (override): `OPENCLAW_OPENAI_API_KEY`
 
 ## Troubleshooting
 
@@ -250,15 +259,16 @@ No OpenClaw agent (default).
 3. Ensure ports 63024/63025 are not in use
 4. Check Docker has sufficient memory (2GB+ recommended)
 
-### Can't Connect to Ollama
+### Can't See LLM Models
 
-**Problem**: OpenClaw doesn't see Ollama models
+**Problem**: OpenClaw doesn't see any models
 
 **Solution**:
-1. Verify Ollama is running: `curl http://localhost:63012/api/tags`
-2. Check the Ollama endpoint is configured correctly
-3. Run inside container: `docker exec genai-openclaw-gateway openclaw config get models.providers.ollama`
-4. Ensure `OLLAMA_API_KEY` is set (any value activates the provider)
+1. Verify LiteLLM is healthy: `curl http://localhost:63012/health/liveliness`
+2. List the models LiteLLM has registered: `curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63012/v1/models`
+3. Run inside the container: `docker exec genai-openclaw-gateway openclaw config get models.providers.openai`
+4. Confirm `LITELLM_BASE_URL` and `LITELLM_API_KEY` are present in the OpenClaw container environment
+5. If you specifically need Ollama models, ensure `LLM_PROVIDER_SOURCE` is set to one of the `ollama-*` values (not `none`) so LiteLLM has an Ollama upstream to forward to
 
 ### Dashboard Not Loading
 
@@ -287,5 +297,5 @@ lsof -i :63024
 
 - [OpenClaw Documentation](https://docs.openclaw.ai/)
 - [OpenClaw Docker Guide](https://docs.openclaw.ai/install/docker)
-- [OpenClaw Ollama Integration](https://docs.openclaw.ai/providers/ollama)
+- [LiteLLM Gateway](litellm.md) — the OpenAI-compatible front door OpenClaw points at by default
 - [OpenClaw GitHub Repository](https://github.com/openclaw/openclaw)

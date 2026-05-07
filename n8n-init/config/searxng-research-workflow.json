@@ -89,7 +89,7 @@
     },
     {
       "parameters": {
-        "url": "http://ollama:11434/api/generate",
+        "url": "={{ $env.LITELLM_BASE_URL }}/v1/chat/completions",
         "authentication": "none",
         "httpMethod": "POST",
         "sendHeaders": true,
@@ -98,6 +98,10 @@
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.LITELLM_API_KEY }}"
             }
           ]
         },
@@ -108,22 +112,23 @@
           "parameters": [
             {
               "name": "model",
-              "value": "={{ $node['Get AI Model for Summary'].json[0].name }}"
+              "value": "=ollama/{{ $node['Get AI Model for Summary'].json[0].name }}"
             },
             {
-              "name": "prompt",
-              "value": "={{ $json.formatted_prompt }}"
+              "name": "messages",
+              "value": "=[{\"role\":\"user\",\"content\": {{ JSON.stringify($json.formatted_prompt) }} }]"
             },
             {
               "name": "stream",
               "value": false
             },
             {
-              "name": "options",
-              "value": {
-                "temperature": 0.3,
-                "max_tokens": 1000
-              }
+              "name": "temperature",
+              "value": 0.3
+            },
+            {
+              "name": "max_tokens",
+              "value": 1000
             }
           ]
         },
@@ -140,7 +145,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ {\n  \"search_query\": $node['Format Results for AI'].json.search_query,\n  \"total_results_found\": $node['Format Results for AI'].json.total_results,\n  \"results_analyzed\": $node['Format Results for AI'].json.results_count,\n  \"ai_summary\": $json.response,\n  \"model_used\": $node['Get AI Model for Summary'].json[0].name,\n  \"raw_search_results\": $node['Format Results for AI'].json.raw_results.slice(0, 3),\n  \"success\": true,\n  \"timestamp\": new Date().toISOString()\n} }}"
+        "responseBody": "={{ {\n  \"search_query\": $node['Format Results for AI'].json.search_query,\n  \"total_results_found\": $node['Format Results for AI'].json.total_results,\n  \"results_analyzed\": $node['Format Results for AI'].json.results_count,\n  \"ai_summary\": ($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || $json.response,\n  \"model_used\": $node['Get AI Model for Summary'].json[0].name,\n  \"raw_search_results\": $node['Format Results for AI'].json.raw_results.slice(0, 3),\n  \"success\": true,\n  \"timestamp\": new Date().toISOString()\n} }}"
       },
       "id": "a1a1a1a1-6666-6666-6666-666666666666",
       "name": "Return Research Summary",

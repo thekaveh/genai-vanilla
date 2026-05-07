@@ -95,6 +95,8 @@ SVC_SUPABASE  = "#7dcfff"
 SVC_REDIS     = "#98c379"
 SVC_KONG      = "#9a8cc6"
 SVC_OLLAMA    = "#b8a35a"
+SVC_LITELLM   = "#d4a574"   # warmer hue than Ollama, signals the gateway role
+SVC_CLOUD_LLM = "#c89cc4"   # purple-ish for cloud-provider tiles
 SVC_WEAVIATE  = "#6a9aaa"
 SVC_OPENWEBUI = "#89aad4"
 SVC_BACKEND   = "#b8a35a"
@@ -108,7 +110,12 @@ SOURCE_COLORS: Dict[str, str] = {
     "supabase": SVC_SUPABASE,
     "redis": SVC_REDIS,
     "kong": SVC_KONG,
+    "litellm": SVC_LITELLM,
+    "litellm-init": SVC_LITELLM,
     "ollama": SVC_OLLAMA,
+    "cloud_openai": SVC_CLOUD_LLM,
+    "cloud_anthropic": SVC_CLOUD_LLM,
+    "cloud_openrouter": SVC_CLOUD_LLM,
     "weaviate": SVC_WEAVIATE,
     "openwebui": SVC_OPENWEBUI,
     "open-webui": SVC_OPENWEBUI,

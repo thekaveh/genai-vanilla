@@ -2,6 +2,16 @@
 
 This guide covers common issues and their solutions when using the GenAI Vanilla Stack.
 
+## .env Migration (LiteLLM rollout)
+
+If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about missing variables or about port `63012` being unavailable for Ollama. Apply these changes:
+
+- Rename `LLM_PROVIDER_PORT` to `LITELLM_PORT` (still defaults to `63012` — the slot now belongs to the LiteLLM gateway, not Ollama).
+- Remove `OLLAMA_ENDPOINT` and any `OLLAMA_BASE_URL` lines — consumers now read `LITELLM_BASE_URL` and `LITELLM_API_KEY` (where `LITELLM_API_KEY=$LITELLM_MASTER_KEY`).
+- If you previously set `LLM_PROVIDER_SOURCE=api` or `LLM_PROVIDER_SOURCE=disabled`, change it to `LLM_PROVIDER_SOURCE=none` and enable at least one of `CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE`.
+
+The simplest reset is `cp .env.example .env` followed by `./start.sh --cold` — keys are regenerated and every variable is in its current form.
+
 ## Quick Fixes
 
 ### Port Conflicts
@@ -50,22 +60,39 @@ chmod +x start.sh stop.sh
 
 ## Service-Specific Issues
 
-### Ollama Issues
+### LLM Issues (LiteLLM gateway + Ollama upstream)
 
-**Models not downloading:**
+**LiteLLM not responding / consumers can't reach LLMs:**
 ```bash
-# Check Ollama logs
+# Liveness check (no auth required)
+curl http://localhost:63012/health/liveliness
+
+# List registered models (auth required)
+curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63012/v1/models
+
+# Inspect LiteLLM logs
+docker logs genai-litellm -f
+```
+
+**Ollama models not downloading:**
+```bash
+# Check the ollama-pull init container
+docker logs genai-ollama-pull -f
+
+# Or the Ollama container itself
 docker logs genai-ollama -f
 
-# For localhost setup, ensure models are pre-downloaded
+# For localhost setup, pre-download on the host:
 ollama serve &
 ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
+Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http://localhost:63012/v1`) or via `docker exec` for direct `/api/*` calls.
+
 **Out of memory during model loading:**
 ```bash
-# Use smaller models for testing
+# Use a localhost Ollama upstream to free up Docker memory
 ./start.sh --llm-provider-source ollama-localhost
 ollama pull llama2:7b  # Smaller model
 ```
@@ -268,8 +295,9 @@ env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE)_SOURCE"
 ### Network Testing
 
 ```bash
-# Test internal service connectivity
-docker exec genai-backend curl http://genai-ollama:11434/api/tags
+# Test internal service connectivity (LLM goes through LiteLLM, not Ollama directly)
+docker exec genai-backend curl http://genai-litellm:4000/health/liveliness
+docker exec genai-litellm curl http://genai-ollama:11434/api/tags
 docker exec genai-kong-api-gateway curl http://genai-supabase-api:3000/health
 
 # Test external access

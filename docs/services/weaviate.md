@@ -28,13 +28,17 @@ WEAVIATE_URL=http://weaviate:8080
 
 Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted changes when the CLI exposes one.
 
+### Vectorization through LiteLLM
+
+Weaviate's text vectorization talks to the always-on **LiteLLM gateway** via the `text2vec-openai` module. LiteLLM's OpenAI-compatible endpoint (`LITELLM_BASE_URL`) is wired into Weaviate as the OpenAI host, and `OPENAI_APIKEY` inside the Weaviate container is set to `LITELLM_MASTER_KEY`. This means whatever embedding model LiteLLM has registered (Ollama-backed `nomic-embed-text` by default, or a cloud provider's embedding model) is what Weaviate will use — no separate `text2vec-ollama` wiring required. The default vectorizer is now `text2vec-openai`. See [LiteLLM Gateway](litellm.md) for how to register additional embedding models.
+
 ### Multi2Vec CLIP module
 
 The default stack keeps the multimodal CLIP vectorizer enabled:
 
 ```bash
 MULTI2VEC_CLIP_SOURCE=container-cpu
-WEAVIATE_ENABLE_MODULES=text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,multi2vec-clip,generative-openai
 CLIP_INFERENCE_API=http://multi2vec-clip:8080
 ```
 
@@ -42,7 +46,7 @@ If you disable the CLIP provider, remove `multi2vec-clip` from `WEAVIATE_ENABLE_
 
 ```bash
 MULTI2VEC_CLIP_SOURCE=disabled
-WEAVIATE_ENABLE_MODULES=text2vec-ollama,text2vec-openai,generative-ollama,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,generative-openai
 CLIP_INFERENCE_API=
 ```
 

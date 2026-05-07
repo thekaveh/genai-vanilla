@@ -267,7 +267,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             'SUPABASE_STUDIO_PORT',
             'GRAPH_DB_PORT',
             'GRAPH_DB_DASHBOARD_PORT',
-            'LLM_PROVIDER_PORT',
+            'LITELLM_PORT',
             'LOCAL_DEEP_RESEARCHER_PORT',
             'SEARXNG_PORT',
             'OPEN_WEB_UI_PORT',
@@ -418,6 +418,21 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         """Generate and update service configuration."""
         return self.service_config.generate_and_update_env()
     
+    def generate_litellm_configuration(self) -> bool:
+        """Render the LiteLLM proxy config to volumes/litellm/config.yaml.
+
+        Idempotent — preserves user edits unless the file is missing.
+        """
+        try:
+            from utils.litellm_config_generator import LiteLLMConfigGenerator
+            generator = LiteLLMConfigGenerator(self.config_parser)
+            config_path = self.root_dir / "volumes/litellm/config.yaml"
+            generator.write_config(config_path, force=False)
+            return True
+        except Exception as e:
+            self.banner.show_status_message(f"Failed to generate LiteLLM configuration: {e}", "error")
+            return False
+
     def generate_kong_configuration(self) -> bool:
         """Generate dynamic Kong configuration based on SOURCE values."""
         try:
@@ -735,9 +750,11 @@ Note: SOURCE overrides are temporary and only apply to the current session.
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
         """Extract the actual localhost port from the service's endpoint env var."""
         import re
-        # Map service display names to their endpoint env variables
+        # Map service display names to their endpoint env variables.
+        # Mirror of state_builder._LOCALHOST_ENDPOINT_VARS — keep them in sync.
         endpoint_vars = {
-            'LLM Provider': 'OLLAMA_ENDPOINT',
+            'LiteLLM': 'LITELLM_BASE_URL',
+            'LLM Engine': 'LITELLM_OLLAMA_UPSTREAM',
             'ComfyUI': 'COMFYUI_ENDPOINT',
             'Weaviate': 'WEAVIATE_URL',
             'Neo4j Graph DB': 'NEO4J_URI',
@@ -810,10 +827,15 @@ Note: SOURCE overrides are temporary and only apply to the current session.
             ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", "")),
         ]
 
+        # LiteLLM is the always-on LLM front door — its host port is the
+        # canonical LLM-stack port now.
+        services_to_check.append(("litellm", "4000", env_vars.get("LITELLM_PORT", "")))
+
         # Add conditional services based on their scales
         ollama_scale = env_vars.get("OLLAMA_SCALE", "0")
         if ollama_scale != "0":
-            services_to_check.append(("ollama", "11434", env_vars.get("LLM_PROVIDER_PORT", "")))
+            # Ollama upstream is internal-only; no host port mapping to verify.
+            pass
 
         comfyui_scale = env_vars.get("COMFYUI_SCALE", "0")
         if comfyui_scale != "0":
@@ -875,10 +897,20 @@ Note: SOURCE overrides are temporary and only apply to the current session.
 @click.option('--cold', is_flag=True, help='Perform cold start with cleanup')
 @click.option('--setup-hosts', is_flag=True, help='Setup hosts file entries (requires admin/sudo)')
 @click.option('--skip-hosts', is_flag=True, help='Skip hosts file checks and setup')
-@click.option('--llm-provider-source', 
-              type=click.Choice(['ollama-container-cpu', 'ollama-container-gpu', 'ollama-localhost', 
-                                'ollama-external', 'api', 'disabled'], case_sensitive=False),
-              help='Override LLM_PROVIDER_SOURCE')
+@click.option('--llm-provider-source',
+              type=click.Choice(['ollama-container-cpu', 'ollama-container-gpu', 'ollama-localhost',
+                                'ollama-external', 'none'], case_sensitive=False),
+              help='Override LLM_PROVIDER_SOURCE (Ollama upstream for the LiteLLM gateway). '
+                   'Use "none" for cloud-only operation.')
+@click.option('--cloud-openai-source',
+              type=click.Choice(['enabled', 'disabled'], case_sensitive=False),
+              help='Enable/disable the OpenAI cloud provider in LiteLLM (requires OPENAI_API_KEY).')
+@click.option('--cloud-anthropic-source',
+              type=click.Choice(['enabled', 'disabled'], case_sensitive=False),
+              help='Enable/disable the Anthropic cloud provider in LiteLLM (requires ANTHROPIC_API_KEY).')
+@click.option('--cloud-openrouter-source',
+              type=click.Choice(['enabled', 'disabled'], case_sensitive=False),
+              help='Enable/disable the OpenRouter cloud provider in LiteLLM (requires OPENROUTER_API_KEY).')
 @click.option('--comfyui-source', 
               type=click.Choice(['container-cpu', 'container-gpu', 'localhost', 
                                 'external', 'disabled'], case_sensitive=False),
@@ -925,6 +957,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                    'linear flow with passthrough docker output. Useful for log capture, '
                    'debugging, and terminals that don\'t support the alternate screen buffer.')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
+         cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, neo4j_graph_db_source,
@@ -941,6 +974,9 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # Step 1.6: Apply SOURCE overrides from CLI arguments
         source_args = {
             'llm_provider_source': llm_provider_source,
+            'cloud_openai_source': cloud_openai_source,
+            'cloud_anthropic_source': cloud_anthropic_source,
+            'cloud_openrouter_source': cloud_openrouter_source,
             'comfyui_source': comfyui_source,
             'weaviate_source': weaviate_source,
             'n8n_source': n8n_source,
@@ -1066,7 +1102,11 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # Step 4.5: Generate dynamic Kong configuration
         if not starter.generate_kong_configuration():
             sys.exit(1)
-        
+
+        # Step 4.55: Generate LiteLLM proxy config (preserves user edits)
+        if not starter.generate_litellm_configuration():
+            sys.exit(1)
+
         # Step 4.6: Validate Supabase keys (auto-generate for cold start)
         if not starter.validate_supabase_keys(cold_start=cold):
             sys.exit(1)

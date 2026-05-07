@@ -15,7 +15,11 @@ from utils.source_override_manager import SourceOverrideManager
 
 # Display name overrides for services with acronyms or special casing
 DISPLAY_NAME_OVERRIDES = {
-    'llm_provider': 'LLM Provider',
+    'litellm': 'LiteLLM Gateway',
+    'llm_provider': 'LLM Engine',
+    'cloud_openai': 'OpenAI Cloud',
+    'cloud_anthropic': 'Anthropic Cloud',
+    'cloud_openrouter': 'OpenRouter Cloud',
     'stt_provider': 'STT Provider',
     'tts_provider': 'TTS Provider',
     'doc_processor': 'Document Processor',
@@ -31,7 +35,11 @@ DISPLAY_NAME_OVERRIDES = {
 
 # One-line descriptions for each service (used in wizard prompts)
 SERVICE_DESCRIPTIONS = {
-    'llm_provider': 'powers chat, code generation & reasoning',
+    'litellm': 'unified LLM gateway — always-on, fronts every provider',
+    'llm_provider': 'local Ollama upstream the gateway forwards to',
+    'cloud_openai': 'route OpenAI models (GPT-4o, o1, o3) through LiteLLM',
+    'cloud_anthropic': 'route Anthropic Claude models through LiteLLM',
+    'cloud_openrouter': 'route 100+ OpenRouter-aggregated models through LiteLLM',
     'comfyui': 'AI image generation & workflows',
     'weaviate': 'vector database for semantic search & RAG',
     'multi2vec-clip': 'CLIP embeddings for multi-modal search',
@@ -44,6 +52,12 @@ SERVICE_DESCRIPTIONS = {
     'neo4j-graph-db': 'graph database for knowledge graphs',
     'jupyterhub': 'data science IDE with notebooks',
 }
+
+# Services that are always-on and not user-configurable. The wizard renders
+# these as locked tiles (no source dropdown). LiteLLM is mandatory because
+# every consumer relies on its endpoint; the user instead chooses which
+# upstream(s) it forwards to via llm_provider + cloud_* tiles.
+LOCKED_SERVICES = frozenset({'litellm'})
 
 @dataclass
 class ServiceInfo:
@@ -72,10 +86,12 @@ def get_option_hint(option_name: str) -> str:
         return "uses local installation"
     if 'external' in option_name:
         return "remote instance"
-    if option_name == 'api':
-        return "cloud API (OpenAI/Anthropic)"
+    if option_name == 'enabled':
+        return "active in LiteLLM model_list"
     if option_name == 'disabled':
         return "service will not run"
+    if option_name == 'none':
+        return "no local engine — cloud only"
     if option_name == 'container':
         return "Docker container"
     return ""

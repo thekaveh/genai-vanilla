@@ -343,14 +343,78 @@ services:
   # AI LAYER SERVICES (SOURCE Configurable)
   # =============================================================================
 
+  litellm-init:
+    image: ${LITELLM_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-litellm-init
+    restart: "no"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    deploy:
+      replicas: ${LITELLM_INIT_SCALE:-1}
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      LITELLM_DB_NAME: ${LITELLM_DB_NAME:-litellm}
+    volumes:
+      - ./litellm-init/scripts:/scripts
+    entrypoint: ["/scripts/ensure-litellm-db.sh"]
+    networks:
+      - backend-network
+
+  litellm:
+    image: ${LITELLM_IMAGE:-ghcr.io/berriai/litellm:v1.83.14-stable.patch.2}
+    container_name: ${PROJECT_NAME}-litellm
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      litellm-init:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${LITELLM_PORT:-63012}:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${LITELLM_DB_NAME:-litellm}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      STORE_MODEL_IN_DB: "True"
+      USE_PRISMA_MIGRATE: "True"
+      LITELLM_OPENAI_ENABLED: ${LITELLM_OPENAI_ENABLED:-false}
+      LITELLM_ANTHROPIC_ENABLED: ${LITELLM_ANTHROPIC_ENABLED:-false}
+      LITELLM_OPENROUTER_ENABLED: ${LITELLM_OPENROUTER_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - ./volumes/litellm/config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4"]
+    healthcheck:
+      # LiteLLM's image is python:slim-based — no wget/curl. Probe via Python's
+      # stdlib so the check works regardless of installed binaries.
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - backend-network
+
   ollama:
     image: ${LLM_PROVIDER_IMAGE}
     container_name: ${PROJECT_NAME}-ollama
     restart: unless-stopped
     volumes:
       - llm-provider-data:/root/.ollama
-    ports:
-      - "${LLM_PROVIDER_PORT}:11434"
+    # No host port mapping — Ollama is now an internal-only upstream for LiteLLM.
+    # Direct CLI access from host: docker exec -it ${PROJECT_NAME}-ollama ollama <cmd>
     environment:
       NVIDIA_VISIBLE_DEVICES: ${OLLAMA_NVIDIA_VISIBLE_DEVICES:-all}
     deploy:
@@ -375,7 +439,8 @@ services:
       PGDATABASE: ${SUPABASE_DB_NAME}
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-      OLLAMA_HOST_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      # Bypasses LiteLLM by design — model pulls hit Ollama's /api/pull directly.
+      OLLAMA_HOST_URL: ${LITELLM_OLLAMA_UPSTREAM:-http://ollama:11434}
     volumes:
       - ./ollama-pull/scripts:/scripts
     entrypoint: ["/scripts/pull.sh"]
@@ -428,14 +493,16 @@ services:
         condition: service_completed_successfully
       searxng:
         condition: service_healthy
+      litellm:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       # Database connection for LLM config
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      # LLM Provider connection (adapts to source)
-      LLM_PROVIDER_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
-      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      # LLM access through the LiteLLM gateway (single endpoint for every provider).
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
       # Search configuration
       SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
       SEARXNG_URL: http://searxng:8080
@@ -487,6 +554,8 @@ services:
       supabase-db-init:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+      litellm:
         condition: service_healthy
     deploy:
       replicas: ${N8N_SCALE:-1}
@@ -547,6 +616,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      litellm:
+        condition: service_healthy
     deploy:
       replicas: ${N8N_WORKER_SCALE:-1}
     environment:
@@ -579,6 +650,8 @@ services:
     depends_on:
       n8n:
         condition: service_started
+      litellm:
+        condition: service_healthy
     deploy:
       replicas: ${N8N_INIT_SCALE:-1}
     environment:
@@ -638,7 +711,7 @@ services:
     labels:
       - "com.${PROJECT_NAME}.service=image-generation"
       - "com.${PROJECT_NAME}.category=ai"
-      - "com.${PROJECT_NAME}.dependencies=ollama,supabase-storage"
+      - "com.${PROJECT_NAME}.dependencies=litellm,supabase-storage"
 
   # =============================================================================
   # STT (SPEECH-TO-TEXT) LAYER (SOURCE Configurable)
@@ -839,14 +912,18 @@ services:
     depends_on:
       openclaw-init:
         condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       HOME: /home/node
       TERM: xterm-256color
-      # LLM Provider Integration (adaptive - inherits from stack)
-      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
-      OLLAMA_API_KEY: "ollama-local"
+      # LLM access through the LiteLLM gateway
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      # Per-OpenClaw cloud overrides (optional — allow OpenClaw to call cloud
+      # providers directly when explicitly configured; otherwise route via LiteLLM).
       ANTHROPIC_API_KEY: ${OPENCLAW_ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENCLAW_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
       # Gateway configuration
@@ -881,6 +958,8 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
+      litellm:
+        condition: service_healthy
     deploy:
       replicas: ${WEAVIATE_INIT_SCALE:-1}
     extra_hosts:
@@ -891,7 +970,8 @@ services:
       PGDATABASE: ${SUPABASE_DB_NAME}
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-      OLLAMA_ENDPOINT: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
     volumes:
       - ./weaviate-init/scripts:/scripts
       - weaviate-shared-config:/shared
@@ -908,6 +988,8 @@ services:
         condition: service_healthy
       weaviate-init:
         condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
     deploy:
       replicas: ${WEAVIATE_SCALE:-1}
     extra_hosts:
@@ -916,11 +998,15 @@ services:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-      DEFAULT_VECTORIZER_MODULE: 'text2vec-ollama'
-      ENABLE_MODULES: ${WEAVIATE_ENABLE_MODULES:-text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai}
+      # Vectorizers/generators route through LiteLLM (text2vec-openai, generative-openai).
+      # text2vec-ollama is left enabled for backward-compat with un-migrated collections.
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+      ENABLE_MODULES: ${WEAVIATE_ENABLE_MODULES:-text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama}
       CLUSTER_HOSTNAME: 'weaviate'
-      OLLAMA_ENDPOINT: ${OLLAMA_ENDPOINT:-http://ollama:11434}
-      OPENAI_APIKEY: ${OPENAI_API_KEY:-}
+      # Weaviate's text2vec-openai talks to LiteLLM. The collection-level
+      # base URL is set by weaviate-init. OPENAI_APIKEY here is the master
+      # key Weaviate sends to LiteLLM for authentication.
+      OPENAI_APIKEY: ${LITELLM_MASTER_KEY:-}
       CLIP_INFERENCE_API: ${CLIP_INFERENCE_API-http://multi2vec-clip:8080}
     entrypoint: ["/scripts/configure-weaviate.sh", "/bin/weaviate", "--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
     ports:
@@ -1063,12 +1149,19 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      litellm:
+        condition: service_healthy
     deploy:
       replicas: ${OPEN_WEB_UI_SCALE:-1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      # Open WebUI's OpenAI-compatible client points at the LiteLLM gateway.
+      # The gateway exposes every provider behind one /v1 surface.
+      OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      OPENAI_API_KEYS: ${LITELLM_MASTER_KEY}
+      ENABLE_OPENAI_API: "true"
+      ENABLE_OLLAMA_API: "false"
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       WEBUI_SECRET_KEY: ${OPEN_WEB_UI_SECRET_KEY}
       WEBUI_ADMIN_EMAIL: ${OPEN_WEB_UI_ADMIN_EMAIL:-admin@localhost}
@@ -1152,13 +1245,17 @@ services:
         condition: service_started
       kong-api-gateway:
         condition: service_started
+      litellm:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
       PROJECT_NAME: ${PROJECT_NAME}
       KONG_URL: http://kong-api-gateway:8000
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
-      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL:-ollama/nomic-embed-text}
       NEO4J_URI: ${NEO4J_URI:-bolt://neo4j-graph-db:7687}
       NEO4J_USER: ${GRAPH_DB_USER}
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
@@ -1182,6 +1279,7 @@ services:
       LANGMEM_CONSOLIDATION_INTERVAL: ${LANGMEM_CONSOLIDATION_INTERVAL:-86400}
       LANGMEM_MAX_FACTS_PER_USER: ${LANGMEM_MAX_FACTS_PER_USER:-1000}
       LANGMEM_EXTRACTION_MODEL: ${LANGMEM_EXTRACTION_MODEL:-}
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-}
       LANGMEM_EMBEDDING_MODEL: ${LANGMEM_EMBEDDING_MODEL:-}
     volumes:
       - ./backend/app:/app
@@ -1206,6 +1304,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      litellm:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -1218,8 +1318,9 @@ services:
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/3
 
-      # AI Services (adaptive - set by bootstrapper)
-      OLLAMA_BASE_URL: ${OLLAMA_ENDPOINT:-http://ollama:11434}
+      # AI Services — all LLM access goes through the LiteLLM gateway.
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
       NEO4J_URI: ${NEO4J_URI:-bolt://neo4j-graph-db:7687}
       NEO4J_USER: ${GRAPH_DB_USER}

@@ -3,16 +3,19 @@ set -e
 
 echo "backend: Reading dynamic Weaviate configuration..."
 
-# Check if shared config exists
+# Check if shared config exists.
+# weaviate-init writes the embedding model identifier (LiteLLM-prefixed,
+# e.g. "ollama/nomic-embed-text") into /shared/weaviate-config.env on first
+# run. Backend reads it as LITELLM_EMBEDDING_MODEL.
 if [ -f "/shared/weaviate-config.env" ]; then
   echo "backend: Loading dynamic Weaviate configuration"
   . /shared/weaviate-config.env
-  export WEAVIATE_OLLAMA_EMBEDDING_MODEL="$WEAVIATE_OLLAMA_EMBEDDING_MODEL"
-  echo "backend: Using Ollama embedding model: $WEAVIATE_OLLAMA_EMBEDDING_MODEL"
+  export LITELLM_EMBEDDING_MODEL="${LITELLM_EMBEDDING_MODEL:-ollama/nomic-embed-text}"
+  echo "backend: Using LiteLLM embedding model: $LITELLM_EMBEDDING_MODEL"
 else
   echo "backend: Warning - No dynamic Weaviate configuration found"
-  export WEAVIATE_OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
-  echo "backend: Using default Ollama embedding model: $WEAVIATE_OLLAMA_EMBEDDING_MODEL"
+  export LITELLM_EMBEDDING_MODEL="ollama/nomic-embed-text"
+  echo "backend: Using default LiteLLM embedding model: $LITELLM_EMBEDDING_MODEL"
 fi
 
 # LangMem memory configuration

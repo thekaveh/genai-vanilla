@@ -28,7 +28,9 @@ _THEME_PATH = Path(__file__).parent / "theme.css"
 _TAG_BY_KEY = {
     "supabase": "INFRA", "supabase-db": "INFRA", "supabase-studio": "INFRA",
     "redis": "INFRA", "kong": "INFRA", "kong_api_gateway": "INFRA",
+    "litellm": "LLM", "litellm-init": "LLM",
     "llm_provider": "LLM", "ollama": "LLM",
+    "cloud_openai": "LLM", "cloud_anthropic": "LLM", "cloud_openrouter": "LLM",
     "open_webui": "TOOL", "open-webui": "TOOL",
     "comfyui": "ML", "stt_provider": "ML", "tts_provider": "ML",
     "backend": "ML", "doc_processor": "ML", "multi2vec_clip": "ML",
@@ -56,8 +58,9 @@ def _badges_for_option(opt: str, *, recommended: bool = False) -> list[str]:
     if "container-gpu" in s or s.endswith("-gpu"): badges.append("GPU")
     elif "container-cpu" in s or s.endswith("-cpu"): badges.append("CPU")
     if "localhost" in s: badges.append("local")
-    if s == "api": badges.append("cloud")
+    if s == "enabled": badges.append("on")
     if s == "external": badges.append("external")
+    if s == "none": badges.append("cloud-only")
     if s == "disabled": badges.append("disabled")
     return badges
 
@@ -96,7 +99,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # Sort the wizard's service-source questions to match the stack
     # overview's port-ascending order. The overview sorts by the
     # service's *displayed* port — which for localhost sources comes
-    # from the endpoint env var (e.g. OLLAMA_ENDPOINT) and may be very
+    # from the endpoint env var (e.g. LITELLM_BASE_URL) and may be very
     # different from the container offset (a localhost ComfyUI shows
     # :8000, not :63018). So sort by the resolved port, not the offset.
     from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port
@@ -278,7 +281,7 @@ def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
     # Single source of truth for "what port should this service show
     # given its current source": delegates to state_builder.resolve_port
     # which already knows about localhost endpoint vars
-    # (OLLAMA_ENDPOINT, COMFYUI_ENDPOINT, etc.) for localhost sources
+    # (LITELLM_BASE_URL, COMFYUI_ENDPOINT, etc.) for localhost sources
     # and falls back to the container port var otherwise.
     from core.port_manager import PortManager
     from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port

@@ -56,8 +56,8 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 # Minimal setup (chat only)
 ./start.sh --n8n-source disabled --searxng-source disabled --weaviate-source disabled
 
-# Cloud APIs (no local AI)
-./start.sh --llm-provider-source api --comfyui-source disabled
+# Cloud-only LLMs (no local Ollama; LiteLLM gateway routes to cloud providers)
+./start.sh --llm-provider-source none --cloud-openai-source enabled --comfyui-source disabled
 ```
 
 ### Troubleshooting
@@ -104,7 +104,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **Cross-platform support**: Python-based bootstrapping works on all OS
 - **Flexible deployment**: mix containerized, localhost, and external services
 - **GPU support**: container variants with NVIDIA GPU access for inference services
-- **Core services**: Supabase ecosystem, Neo4j, Redis, Ollama, FastAPI backend, Kong Gateway
+- **Core services**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (always-on, fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
 
 ### 1.2 Key features
 
@@ -119,16 +119,16 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 The canonical architecture diagram is the rich static artifact at [`docs/diagrams/architecture.html`](docs/diagrams/architecture.html), with a static SVG preview at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg).
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, Supabase/PostgreSQL, Redis, Neo4j, Weaviate, Ollama, n8n, ComfyUI, JupyterHub, SearxNG, and optional OpenClaw/STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, and optional OpenClaw/STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
 
 ## 2. Getting Started
 
 ### 2.1 Getting started summary
 
 - **New to the stack?** → Use containers with `./start.sh` for the easiest experience
-- **Have local Ollama?** → Use `./start.sh --llm-provider-source ollama-localhost` for better performance
+- **Have local Ollama?** → Use `./start.sh --llm-provider-source ollama-localhost` for better performance (LiteLLM still fronts the upstream)
 - **Have NVIDIA GPU?** → Use `./start.sh --comfyui-source container-gpu` for image generation acceleration
-- **Need cloud APIs?** → Use `./start.sh --llm-provider-source api` for OpenAI/Anthropic integration
+- **Need cloud APIs?** → Use `./start.sh --llm-provider-source none --cloud-openai-source enabled` (or the matching `--cloud-anthropic-source` / `--cloud-openrouter-source` flag) — LiteLLM routes to whichever providers are enabled
 - **Limited resources?** → Disable services with `--n8n-source disabled --searxng-source disabled`
 
 The SOURCE-based configuration system controls how each service is deployed.
@@ -166,8 +166,12 @@ cp .env.example .env
 
 The stack uses **SOURCE variables** to control how services are deployed.
 
-**Services that support localhost:**
-- **Ollama** (`LLM_PROVIDER_SOURCE=ollama-localhost`) — use local Ollama installation
+**LLM access (always through LiteLLM):**
+- **LiteLLM gateway** — always-on; every consumer reads `LITELLM_BASE_URL` + `LITELLM_API_KEY`
+- **Ollama upstream** (`LLM_PROVIDER_SOURCE=ollama-container-cpu|ollama-container-gpu|ollama-localhost|ollama-external|none`) — what LiteLLM forwards to for local inference
+- **Cloud upstreams** (`CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE`) — independent `enabled`/`disabled` toggles; each requires the matching API key
+
+**Other services that support localhost:**
 - **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI via `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
@@ -193,7 +197,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 | **JupyterHub** | http://localhost:63048 | http://jupyter.localhost:63002 | Data science IDE | Token (optional) |
 | **Neo4j Browser** | http://localhost:63011 | — | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63016 | http://api.localhost:63002 | REST API | API key |
-| **Ollama API** | http://localhost:63012 | — | LLM API | None |
+| **LiteLLM Gateway** | http://localhost:63012 | — | OpenAI-compatible LLM front door (Ollama + cloud) | `LITELLM_API_KEY` |
 | **Parakeet STT** | http://localhost:63022 | — | Speech-to-text | None |
 | **XTTS v2 TTS** | http://localhost:63023 | — | Text-to-speech | None |
 | **Docling Processor** | http://localhost:63021 | — | Document processing | None |
@@ -206,7 +210,8 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **Redis** — cache and message queue
 
 ### 3.3 AI services
-- **Ollama** — local LLM inference (supports CPU/GPU/localhost)
+- **LiteLLM Gateway** — always-on OpenAI-compatible front door for every LLM provider in the stack (one URL, one key)
+- **Ollama** — local LLM inference engine behind LiteLLM (supports CPU/GPU/localhost/external/none)
 - **ComfyUI** — image generation with workflows
 - **Parakeet STT** — speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
 - **XTTS v2 TTS** — text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
@@ -367,8 +372,9 @@ lsof -i :63015               # Check what's using port
 
 **Service health:**
 ```bash
-docker compose ps            # Check service status
-docker logs genai-ollama -f  # Check specific service logs
+docker compose ps              # Check service status
+docker logs genai-litellm -f   # Check LLM gateway logs
+docker logs genai-ollama -f    # Check Ollama upstream logs (if enabled)
 ```
 
 ### 7.2 Detailed troubleshooting

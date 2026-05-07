@@ -11,7 +11,8 @@ Documentation index for the GenAI Vanilla Stack.
 ### Service documentation
 - [Backend API](services/backend.md) — always-on adaptive FastAPI service
 - [Open WebUI](services/open-webui.md) — main chat UI
-- [Ollama / LLM Provider](services/ollama.md) — local/container/cloud LLM provider modes
+- [LiteLLM Gateway](services/litellm.md) — always-on OpenAI-compatible front door for every LLM provider
+- [Ollama (LiteLLM upstream)](services/ollama.md) — local LLM engine modes (container CPU/GPU, localhost, external, none)
 - [ComfyUI](services/comfyui.md) — image generation workflows
 - [Weaviate](services/weaviate.md) — vector database
 - [n8n](services/n8n.md) — workflow automation

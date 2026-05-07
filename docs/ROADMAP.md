@@ -38,6 +38,13 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - RAG-ready chunking with structure awareness
 - GPU acceleration (4.3x speedup for tables)
 
+**Unified LLM gateway (LiteLLM)**
+- Always-on OpenAI-compatible front door for every LLM provider. Pinned image: `ghcr.io/berriai/litellm:v1.83.14-stable.patch.2`. Listens on port 63012.
+- Wizard model: locked LiteLLM tile + selectable LLM Engine (single-select Ollama upstream: `ollama-container-cpu/gpu`, `ollama-localhost`, `ollama-external`, `none`) + three multi-enable Cloud tiles (OpenAI, Anthropic, OpenRouter).
+- Bootstrapper auto-generates `LITELLM_MASTER_KEY` on first start and refuses to start when no upstream is configured (engine=none + all cloud disabled).
+- Persistence: dedicated `litellm` database on the existing Supabase Postgres (Prisma migrations run automatically). Redis used for response cache + rate-limit state.
+- Consumers (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw Gateway, Weaviate) all read `LITELLM_BASE_URL` + `LITELLM_API_KEY`. Documented backup option: Portkey AI Gateway.
+
 **LangMem persistent memory**
 - Automated fact extraction from conversations via Ollama LLM
 - Semantic memory recall via Weaviate with pgvector fallback
@@ -63,27 +70,7 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Dependency management with UV
 - Improved error handling and logging
 
-**Unified LLM gateway (LiteLLM, or equivalent)**
-- Single OpenAI-compatible entry point fronting every LLM provider the stack can talk to (Ollama containers, Ollama localhost, OpenAI, Anthropic, OpenRouter, Bedrock, Azure, …) — services consume one URL and one API key instead of provider-specific endpoint env vars
-- Reduces today's per-consumer fan-out (Open WebUI, Backend, n8n, JupyterHub, Local Deep Researcher, Weaviate vectorization, future Hermes Agent) to a single configuration surface managed in the gateway
-- LiteLLM (MIT, 12k+ stars) is the leading self-hostable option; alternatives worth tracking are llmgateway and OpenRouter (cloud-only, not self-hosted)
-- Side benefits: provider failover and load balancing, per-consumer rate limits and budgets, request/response logging, and a uniform place to swap models without redeploying downstream services
-
-**Stack integration points:**
-
-Depends on (services LiteLLM would consume):
-- **Ollama** — primary local upstream for the default stack (already deployed)
-- **Supabase (PostgreSQL)** — usage logs, budget tracking, virtual-key persistence (already deployed)
-- **Redis** — response caching and rate-limit state (already deployed)
-
-Consumed by (services that would call LiteLLM):
-- **Open WebUI** — replaces the current `OLLAMA_BASE_URL` / OpenAI-compatible endpoint configuration with one gateway URL
-- **Backend (FastAPI)** — single endpoint for all LLM calls regardless of provider
-- **n8n** — workflows can target one HTTP endpoint instead of branching on provider
-- **JupyterHub** — notebooks point at one endpoint
-- **Local Deep Researcher** — single LLM endpoint
-- **Weaviate** — generative module endpoint (`text2vec-*` / `generative-*` modules)
-- **Hermes Agent** (Tier 2) — agent reasoning calls hit the gateway instead of Ollama directly
+_Delivered — see "Completed" section below for the LiteLLM gateway entry._
 
 **Per-service configuration modularization**
 - Split the current monolithic configs into per-service files: each service owns its compose fragment, its `.env` block, its `service-configs.yml` entry, and (when applicable) its Kong route generator hook

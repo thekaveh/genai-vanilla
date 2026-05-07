@@ -20,7 +20,7 @@ Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct 
 | Supabase Studio | `SUPABASE_STUDIO_PORT` | +9 | 63009 | `http://localhost:63009` | `http://localhost:63002` | Admin UI; Kong may expose it through the gateway root depending on generated route config. |
 | Neo4j Bolt | `GRAPH_DB_PORT` | +10 | 63010 | `bolt://localhost:63010` | — | Graph database Bolt protocol. |
 | Neo4j Browser | `GRAPH_DB_DASHBOARD_PORT` | +11 | 63011 | `http://localhost:63011` | — | Neo4j browser/dashboard. |
-| Ollama / LLM Provider | `LLM_PROVIDER_PORT` | +12 | 63012 | `http://localhost:63012` | — | Only exposed when container Ollama is enabled. |
+| LiteLLM Gateway | `LITELLM_PORT` | +12 | 63012 | `http://localhost:63012` | — | Always-on OpenAI-compatible front door for every LLM provider. Container Ollama is now an internal-only upstream (no host port). |
 | Local Deep Researcher | `LOCAL_DEEP_RESEARCHER_PORT` | +13 | 63013 | `http://localhost:63013` | — | Research/orchestration service. |
 | SearxNG | `SEARXNG_PORT` | +14 | 63014 | `http://localhost:63014` | `http://search.localhost:63002` | Kong hostname requires hosts setup. |
 | Open WebUI | `OPEN_WEB_UI_PORT` | +15 | 63015 | `http://localhost:63015` | `http://chat.localhost:63002` | Main chat UI. |

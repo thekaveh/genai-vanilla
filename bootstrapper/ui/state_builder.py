@@ -32,8 +32,12 @@ _SERVICES = [
     ("Supabase Studio",    "SUPABASE_STUDIO_SOURCE",    "SUPABASE_STUDIO_PORT",    None),
     ("Redis",              "REDIS_SOURCE",              "REDIS_PORT",              None),
     ("Kong API Gateway",   "KONG_API_GATEWAY_SOURCE",   "KONG_HTTP_PORT",          None),
+    ("LiteLLM",            "LITELLM_SOURCE",            "LITELLM_PORT",            None),
     # Configurable
-    ("LLM Provider",       "LLM_PROVIDER_SOURCE",       "LLM_PROVIDER_PORT",       "OLLAMA_SCALE"),
+    ("LLM Engine",         "LLM_PROVIDER_SOURCE",       None,                      "OLLAMA_SCALE"),
+    ("OpenAI Cloud",       "CLOUD_OPENAI_SOURCE",       None,                      None),
+    ("Anthropic Cloud",    "CLOUD_ANTHROPIC_SOURCE",    None,                      None),
+    ("OpenRouter Cloud",   "CLOUD_OPENROUTER_SOURCE",   None,                      None),
     ("ComfyUI",            "COMFYUI_SOURCE",            "COMFYUI_PORT",            "COMFYUI_SCALE"),
     ("Weaviate",           "WEAVIATE_SOURCE",           "WEAVIATE_PORT",           "WEAVIATE_SCALE"),
     ("Multi2Vec CLIP",     "MULTI2VEC_CLIP_SOURCE",     None,                      "CLIP_SCALE"),
@@ -65,7 +69,8 @@ _HOST_ALIAS = {
 # Endpoint env vars used by localhost services. Mirror of
 # GenAIStackStarter._get_localhost_port (start.py).
 _LOCALHOST_ENDPOINT_VARS = {
-    "LLM Provider": "OLLAMA_ENDPOINT",
+    "LiteLLM": "LITELLM_BASE_URL",
+    "LLM Engine": "LITELLM_OLLAMA_UPSTREAM",
     "ComfyUI": "COMFYUI_ENDPOINT",
     "Weaviate": "WEAVIATE_URL",
     "Neo4j Graph DB": "NEO4J_URI",

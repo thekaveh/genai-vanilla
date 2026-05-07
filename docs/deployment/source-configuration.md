@@ -16,7 +16,11 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 
 | SOURCE variable | Default | Options | Category | Notes |
 |---|---|---|---|---|
-| `LLM_PROVIDER_SOURCE` | `ollama-container-cpu` | `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, `api`, `disabled` | User-facing | Main LLM provider mode. |
+| `LLM_PROVIDER_SOURCE` | `ollama-container-cpu` | `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, `none` | User-facing | Local Ollama upstream behind LiteLLM. Use `none` for cloud-only operation. |
+| `CLOUD_OPENAI_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles OpenAI as a LiteLLM upstream. Requires `OPENAI_API_KEY`. |
+| `CLOUD_ANTHROPIC_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles Anthropic as a LiteLLM upstream. Requires `ANTHROPIC_API_KEY`. |
+| `CLOUD_OPENROUTER_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles OpenRouter as a LiteLLM upstream. Requires `OPENROUTER_API_KEY`. |
+| `LITELLM_SOURCE` | `container` | `container` | Infrastructure / always-on | LiteLLM gateway. Always on; not user-disableable. |
 | `COMFYUI_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `localhost`, `external`, `disabled` | User-facing | Image generation service. |
 | `WEAVIATE_SOURCE` | `container` | `container`, `localhost`, `disabled` | User-facing | Vector database. |
 | `N8N_SOURCE` | `container` | `container`, `disabled` | User-facing | Workflow automation. |
@@ -40,7 +44,8 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `SUPABASE_API_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase REST API. |
 | `SUPABASE_REALTIME_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase realtime service. |
 | `SUPABASE_STUDIO_SOURCE` | `container` | `container`, `disabled` | Infrastructure UI | Supabase admin UI. |
-| `OLLAMA_PULL_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Pulls configured Ollama models when container Ollama is enabled. |
+| `OLLAMA_PULL_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Pulls configured Ollama models when an Ollama upstream is enabled (skipped when `LLM_PROVIDER_SOURCE=none`). |
+| `LITELLM_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Creates the dedicated `litellm` Postgres database on first start. |
 | `WEAVIATE_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Weaviate schemas/config. |
 | `COMFYUI_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes ComfyUI assets/config. |
 | `N8N_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes/imports n8n workflows. |
@@ -53,7 +58,7 @@ These services can run on your host machine instead of in containers:
 
 | Service | SOURCE Variable | Localhost Option | Benefits |
 |---------|----------------|------------------|----------|
-| **Ollama** | `LLM_PROVIDER_SOURCE` | `ollama-localhost` | Faster, uses existing models, less memory |
+| **Ollama** (LiteLLM upstream) | `LLM_PROVIDER_SOURCE` | `ollama-localhost` | Faster, uses existing models, less memory. LiteLLM still fronts the upstream. |
 | **ComfyUI** | `COMFYUI_SOURCE` | `localhost` | Direct access, custom setups, faster |
 | **Weaviate** | `WEAVIATE_SOURCE` | `localhost` | Custom configuration, performance |
 | **Neo4j** | `NEO4J_GRAPH_DB_SOURCE` | `localhost` | Use an existing graph database |
@@ -76,9 +81,13 @@ Some features within services are controlled by feature flags rather than SOURCE
 
 ## Detailed SOURCE Configurations
 
-### LLM_PROVIDER_SOURCE (Ollama)
+### LLM access (LiteLLM gateway + Ollama upstream + cloud toggles)
 
-#### `ollama-container-cpu` (Default)
+LLM access in this stack is split between **LiteLLM** (the always-on OpenAI-compatible gateway every consumer reads) and four configurable upstreams behind it: an Ollama engine plus three cloud providers. See [LiteLLM Gateway](../services/litellm.md) for the consumer-facing surface; the variables below pick what LiteLLM forwards to.
+
+#### `LLM_PROVIDER_SOURCE` — Ollama upstream (single-select)
+
+##### `ollama-container-cpu` (Default)
 ```bash
 LLM_PROVIDER_SOURCE=ollama-container-cpu
 ```
@@ -87,7 +96,7 @@ LLM_PROVIDER_SOURCE=ollama-container-cpu
 - **Cons**: Higher memory usage, slower model loading
 - **Requirements**: None
 
-#### `ollama-container-gpu`
+##### `ollama-container-gpu`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-container-gpu
 ```
@@ -96,7 +105,7 @@ LLM_PROVIDER_SOURCE=ollama-container-gpu
 - **Cons**: Requires NVIDIA GPU + Docker GPU support
 - **Requirements**: NVIDIA Container Toolkit
 
-#### `ollama-localhost`
+##### `ollama-localhost`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-localhost
 ```
@@ -118,7 +127,7 @@ ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
-#### `ollama-external`
+##### `ollama-external`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-external
 LLM_PROVIDER_EXTERNAL_URL=https://your-ollama-api.example
@@ -128,23 +137,31 @@ LLM_PROVIDER_EXTERNAL_URL=https://your-ollama-api.example
 - **Cons**: Network dependency, latency
 - **Requirements**: External Ollama API endpoint
 
-#### `api`
+##### `none`
 ```bash
-LLM_PROVIDER_SOURCE=api
+LLM_PROVIDER_SOURCE=none
 ```
-- **Use case**: Cloud LLM APIs configured in Open WebUI or another consuming application
-- **Pros**: No local Ollama resources, access to managed providers
-- **Cons**: API costs, internet dependency, provider-specific setup
-- **Requirements**: Configure provider credentials in the consuming application. This mode disables the container Ollama service; it is not the same as `ollama-external`. Use `LLM_PROVIDER_EXTERNAL_URL` only with `LLM_PROVIDER_SOURCE=ollama-external`.
+- **Use case**: Cloud-only operation (no local Ollama engine)
+- **Pros**: Minimal local resource usage; LiteLLM forwards everything to enabled cloud providers
+- **Cons**: API costs, internet dependency
+- **Requirements**: At least one of `CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE` must be `enabled`. The bootstrapper refuses to start when `LLM_PROVIDER_SOURCE=none` AND every cloud source is `disabled`.
 
-#### `disabled`
+The legacy values `LLM_PROVIDER_SOURCE=api` and `LLM_PROVIDER_SOURCE=disabled` have been removed — use `none` together with the per-provider cloud toggles below instead.
+
+#### `CLOUD_OPENAI_SOURCE` / `CLOUD_ANTHROPIC_SOURCE` / `CLOUD_OPENROUTER_SOURCE` (multi-toggle)
+
+Each cloud provider is an independent `enabled` / `disabled` switch — turn on as many as you want simultaneously. When a cloud source is enabled, LiteLLM registers the matching curated model list (e.g. `gpt-4o`, `claude-sonnet-4-6`, `openrouter/auto`) and consumers can request those model IDs against `LITELLM_BASE_URL`.
+
 ```bash
-LLM_PROVIDER_SOURCE=disabled
+CLOUD_OPENAI_SOURCE=enabled          # requires OPENAI_API_KEY
+CLOUD_ANTHROPIC_SOURCE=enabled       # requires ANTHROPIC_API_KEY
+CLOUD_OPENROUTER_SOURCE=enabled      # requires OPENROUTER_API_KEY
 ```
-- **Use case**: No LLM services needed
-- **Pros**: Minimal resource usage
-- **Cons**: No AI chat capabilities
-- **Requirements**: None
+
+- **Use case**: Mix-and-match local + cloud, or run cloud-only with `LLM_PROVIDER_SOURCE=none`
+- **Pros**: One URL/key for every consumer; provider failover and spend logging handled by LiteLLM
+- **Cons**: API costs and per-provider quota considerations
+- **Requirements**: The provider's API key must be present in `.env`
 
 ### COMFYUI_SOURCE
 
@@ -222,15 +239,15 @@ WEAVIATE_URL=http://weaviate:8080
 - **Cons**: Container resource usage
 - **Requirements**: None
 
-The default stack also enables the optional CLIP vectorizer service:
+The default stack also enables the optional CLIP vectorizer service. Text vectorization talks to LiteLLM via the `text2vec-openai` module — the OpenAI-compatible URL points at `LITELLM_BASE_URL` and `OPENAI_APIKEY` is set to `LITELLM_MASTER_KEY`. There is no longer a separate `text2vec-ollama` module entry.
 
 ```bash
 MULTI2VEC_CLIP_SOURCE=container-cpu
-WEAVIATE_ENABLE_MODULES=text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,multi2vec-clip,generative-openai
 CLIP_INFERENCE_API=http://multi2vec-clip:8080
 ```
 
-If `MULTI2VEC_CLIP_SOURCE=disabled`, remove `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES` and set `CLIP_INFERENCE_API=` so Weaviate does not advertise a disabled inference endpoint.
+If `MULTI2VEC_CLIP_SOURCE=disabled`, remove `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES` (leaving `text2vec-openai,generative-openai`) and set `CLIP_INFERENCE_API=` so Weaviate does not advertise a disabled inference endpoint.
 
 #### `localhost`
 ```bash
@@ -334,7 +351,8 @@ Benefits:
 Best for testing or resource-constrained environments:
 
 ```bash
-./start.sh --llm-provider-source api \
+./start.sh --llm-provider-source none \
+          --cloud-openai-source enabled \
           --comfyui-source disabled \
           --weaviate-source disabled \
           --n8n-source disabled \
@@ -342,10 +360,12 @@ Best for testing or resource-constrained environments:
 ```
 
 Benefits:
-- Minimal resource usage
-- Cloud-powered AI
+- Minimal resource usage (no local Ollama)
+- Cloud-powered AI through LiteLLM
 - Fast startup
 - Basic chat functionality
+
+Make sure `OPENAI_API_KEY` (or whichever cloud key matches your enabled `CLOUD_*_SOURCE`) is set in `.env`.
 
 ### Mixed Setup
 Combine different approaches for optimal performance:
@@ -392,7 +412,7 @@ Temporary configuration for testing:
 Understanding which services depend on others:
 
 ### Core Dependencies
-- **Open WebUI** → Depends on available LLM (Ollama or API)
+- **Open WebUI / Backend / n8n / JupyterHub / Local Deep Researcher / OpenClaw** → All read `LITELLM_BASE_URL` + `LITELLM_API_KEY` for LLM access. LiteLLM is always-on; the actual upstream is whatever `LLM_PROVIDER_SOURCE` and the `CLOUD_*_SOURCE` toggles select.
 - **Backend API** → Depends on database services (PostgreSQL, Redis)
 - **n8n workflows** → Often use Weaviate for vector operations
 
@@ -439,7 +459,8 @@ Understanding which services depend on others:
 **Service won't start with localhost SOURCE**:
 ```bash
 # Check if service is running locally
-curl http://localhost:11434/api/tags  # Ollama
+curl http://localhost:11434/api/tags  # Ollama (LiteLLM upstream when LLM_PROVIDER_SOURCE=ollama-localhost)
+curl http://localhost:63012/health/liveliness  # LiteLLM gateway (always-on)
 curl http://localhost:8000/           # ComfyUI default localhost URL
 curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_URL to 8188
 
@@ -473,8 +494,9 @@ env | grep ^KONG_
 # Check active SOURCE values
 env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE)_SOURCE"
 
-# Test service connectivity
-docker exec genai-backend curl http://genai-ollama:11434/api/tags
+# Test service connectivity (LLM goes via LiteLLM, not Ollama directly)
+docker exec genai-backend curl http://genai-litellm:4000/health/liveliness
+docker exec genai-litellm curl http://genai-ollama:11434/api/tags
 docker exec genai-kong-api-gateway curl http://genai-comfyui:18188/
 
 # Monitor resource usage

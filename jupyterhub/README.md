@@ -5,7 +5,7 @@ Interactive data science IDE with pre-configured access to all GenAI Vanilla Sta
 ## Overview
 
 JupyterHub provides a Jupyter Lab environment with pre-installed libraries for:
-- LLM integration (Ollama, LangChain, LlamaIndex)
+- LLM integration via the always-on LiteLLM gateway (OpenAI SDK, LangChain, LlamaIndex pointed at `LITELLM_BASE_URL`)
 - Vector databases (Weaviate)
 - Graph databases (Neo4j)
 - Relational databases (PostgreSQL via Supabase)
@@ -51,8 +51,8 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 ## Pre-installed Packages
 
 ### AI/ML Libraries
-- `ollama` - Ollama Python client
-- `langchain` - LLM application framework
+- `openai` - OpenAI SDK (used against the LiteLLM gateway via `OPENAI_API_BASE` / `OPENAI_API_KEY`)
+- `langchain` / `langchain-openai` - LLM application framework (use `ChatOpenAI` / `OpenAIEmbeddings` against the same env vars)
 - `llama-index` - Data framework for LLM applications
 - `transformers` - Hugging Face transformers
 - `sentence-transformers` - Sentence embeddings
@@ -78,7 +78,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | Notebook | Description |
 |----------|-------------|
 | `00_environment_check.ipynb` | Verify all service connections |
-| `01_ollama_basics.ipynb` | LLM integration examples |
+| `01_ollama_basics.ipynb` | LLM integration via the LiteLLM gateway (Ollama upstream) |
 | `02_langchain_rag.ipynb` | RAG pipeline with Weaviate |
 | `03_neo4j_graphs.ipynb` | Knowledge graph queries |
 | `04_supabase_data.ipynb` | Database and storage operations |
@@ -87,17 +87,33 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 
 ## Service Integration
 
-### Ollama (LLM)
+### LLM access (LiteLLM gateway)
+
+Every notebook reaches LLMs through LiteLLM via the OpenAI-compatible API. `OPENAI_API_BASE` and `OPENAI_API_KEY` are pre-set inside the container from `LITELLM_BASE_URL` and `LITELLM_API_KEY` (which equals `LITELLM_MASTER_KEY`).
 
 ```python
 import os
-from ollama import Client
+from openai import OpenAI
 
-client = Client(host=os.getenv("OLLAMA_BASE_URL"))
-response = client.chat(model="llama3.2", messages=[
-    {"role": "user", "content": "Hello!"}
-])
-print(response["message"]["content"])
+client = OpenAI(
+    base_url=os.getenv("OPENAI_API_BASE"),  # e.g. http://litellm:4000/v1
+    api_key=os.getenv("OPENAI_API_KEY"),    # equals $LITELLM_API_KEY
+)
+
+response = client.chat.completions.create(
+    model="ollama/qwen3.6:latest",  # also: gpt-4o, claude-sonnet-4-6, openrouter/auto, ...
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+LangChain users:
+
+```python
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="ollama/qwen3.6:latest")  # picks up OPENAI_API_BASE / OPENAI_API_KEY
+print(llm.invoke("Hello!").content)
 ```
 
 ### Weaviate (Vector DB)
@@ -176,7 +192,7 @@ Check environment variables in a notebook:
 
 ```python
 import os
-print("Ollama:", os.getenv("OLLAMA_BASE_URL"))
+print("LiteLLM:", os.getenv("LITELLM_BASE_URL"), "/", os.getenv("OPENAI_API_BASE"))
 print("Weaviate:", os.getenv("WEAVIATE_URL"))
 print("Neo4j:", os.getenv("NEO4J_URI"))
 ```

@@ -43,11 +43,15 @@ class KeyGenerator:
         """
         Generate SearxNG secret key (64 character hex string).
         Equivalent to: openssl rand -hex 32
-        
+
         Returns:
             str: 64-character hex string
         """
         return secrets.token_hex(32)
+
+    def generate_litellm_master_key(self) -> str:
+        """LiteLLM master key — must start with `sk-` per LiteLLM's contract."""
+        return f"sk-{secrets.token_urlsafe(40)}"
     
     def get_current_env_value(self, key_name: str) -> Optional[str]:
         """
@@ -174,24 +178,38 @@ class KeyGenerator:
         else:
             return False
     
+    def generate_and_update_litellm_master_key(self, force: bool = False) -> bool:
+        """Generate LITELLM_MASTER_KEY when absent. Idempotent: never overwrites
+        an existing key (preserves virtual-key + spend history) unless force=True.
+        """
+        current_value = self.get_current_env_value('LITELLM_MASTER_KEY')
+        if not force and current_value:
+            return True
+        new_key = self.generate_litellm_master_key()
+        return self.update_env_key('LITELLM_MASTER_KEY', new_key)
+
     def generate_missing_keys(self, force_regenerate: bool = False) -> Dict[str, bool]:
         """
         Generate any missing encryption keys.
-        
+
         Args:
             force_regenerate: Force regeneration of existing keys
-            
+
         Returns:
             dict: Dictionary with key names and success status
         """
         results = {}
-        
+
         # Generate N8N encryption key
         results['N8N_ENCRYPTION_KEY'] = self.generate_and_update_n8n_key(force=force_regenerate)
-        
+
         # Generate SearxNG secret
         results['SEARXNG_SECRET'] = self.generate_and_update_searxng_secret(force=force_regenerate)
-        
+
+        # LiteLLM master key — never force-regenerate (would invalidate virtual keys
+        # and orphan spend history). Only generate when absent.
+        results['LITELLM_MASTER_KEY'] = self.generate_and_update_litellm_master_key(force=False)
+
         return results
     
     def validate_keys(self) -> Dict[str, bool]:

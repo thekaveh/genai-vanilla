@@ -34,14 +34,18 @@ class MemoryStore:
         self,
         database_url: str,
         weaviate_url: Optional[str] = None,
-        ollama_url: Optional[str] = None,
+        litellm_url: Optional[str] = None,
+        litellm_api_key: Optional[str] = None,
         embedding_model: Optional[str] = None,
     ):
         self.database_url = database_url
         self.weaviate_url = weaviate_url
-        self.ollama_url = ollama_url or "http://ollama:11434"
+        self.litellm_url = litellm_url or "http://litellm:4000"
+        self.litellm_api_key = litellm_api_key or os.getenv("LITELLM_API_KEY", "")
+        # Embedding model identifier in LiteLLM's model_list
+        # (e.g. "ollama/nomic-embed-text", "openai/text-embedding-3-small").
         self.embedding_model = embedding_model or os.getenv(
-            "WEAVIATE_OLLAMA_EMBEDDING_MODEL", "mxbai-embed-large"
+            "LITELLM_EMBEDDING_MODEL", "ollama/nomic-embed-text"
         )
         self.backend: Optional[str] = None  # "weaviate" or "pgvector"
         self._weaviate_client = None
@@ -92,11 +96,15 @@ class MemoryStore:
             schema = {
                 "class": WEAVIATE_COLLECTION_NAME,
                 "description": "LangMem persistent memory facts",
-                "vectorizer": "text2vec-ollama",
+                "vectorizer": "text2vec-openai",
                 "moduleConfig": {
-                    "text2vec-ollama": {
-                        "model": self.embedding_model,
-                        "apiEndpoint": self.ollama_url,
+                    "text2vec-openai": {
+                        # Strip the LiteLLM provider prefix (text2vec-openai
+                        # expects an OpenAI-style model name; LiteLLM resolves
+                        # the actual provider from its model_list).
+                        "model": self.embedding_model.split("/", 1)[-1],
+                        "baseURL": f"{self.litellm_url}/v1",
+                        "vectorizeClassName": False,
                     }
                 },
                 "properties": [
@@ -110,7 +118,7 @@ class MemoryStore:
                         "dataType": ["text"],
                         "description": "User ID who owns this memory",
                         "moduleConfig": {
-                            "text2vec-ollama": {
+                            "text2vec-openai": {
                                 "skip": True,
                                 "vectorizePropertyName": False,
                             }
@@ -121,7 +129,7 @@ class MemoryStore:
                         "dataType": ["text"],
                         "description": "Memory namespace",
                         "moduleConfig": {
-                            "text2vec-ollama": {
+                            "text2vec-openai": {
                                 "skip": True,
                                 "vectorizePropertyName": False,
                             }
@@ -132,7 +140,7 @@ class MemoryStore:
                         "dataType": ["text"],
                         "description": "Type of fact",
                         "moduleConfig": {
-                            "text2vec-ollama": {
+                            "text2vec-openai": {
                                 "skip": True,
                                 "vectorizePropertyName": False,
                             }
@@ -143,7 +151,7 @@ class MemoryStore:
                         "dataType": ["number"],
                         "description": "Confidence score",
                         "moduleConfig": {
-                            "text2vec-ollama": {
+                            "text2vec-openai": {
                                 "skip": True,
                                 "vectorizePropertyName": False,
                             }
@@ -154,7 +162,7 @@ class MemoryStore:
                         "dataType": ["text"],
                         "description": "Reference to PostgreSQL memory_facts.id",
                         "moduleConfig": {
-                            "text2vec-ollama": {
+                            "text2vec-openai": {
                                 "skip": True,
                                 "vectorizePropertyName": False,
                             }
@@ -165,7 +173,7 @@ class MemoryStore:
                         "dataType": ["boolean"],
                         "description": "Whether the memory is active",
                         "moduleConfig": {
-                            "text2vec-ollama": {
+                            "text2vec-openai": {
                                 "skip": True,
                                 "vectorizePropertyName": False,
                             }
@@ -185,14 +193,23 @@ class MemoryStore:
                 )
 
     async def _generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding vector using Ollama."""
+        """Generate an embedding vector through the LiteLLM gateway.
+
+        Uses LiteLLM's OpenAI-compatible /v1/embeddings endpoint. The model
+        identifier should already include LiteLLM's provider prefix (e.g.
+        "ollama/nomic-embed-text") so LiteLLM can route to the right upstream.
+        """
+        headers = {}
+        if self.litellm_api_key:
+            headers["Authorization"] = f"Bearer {self.litellm_api_key}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"{self.ollama_url}/api/embeddings",
-                json={"model": self.embedding_model, "prompt": text},
+                f"{self.litellm_url}/v1/embeddings",
+                json={"model": self.embedding_model, "input": text},
+                headers=headers,
             )
             resp.raise_for_status()
-            return resp.json()["embedding"]
+            return resp.json()["data"][0]["embedding"]
 
     async def store_embedding(
         self,

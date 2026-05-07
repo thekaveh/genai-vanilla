@@ -43,34 +43,34 @@ if ! python3 /app/scripts/init-config.py; then
     exit 1
 fi
 
-# Wait for Ollama to be available
-echo "Local Deep Researcher: Checking Ollama availability..."
+# Wait for the LiteLLM gateway to be available
+echo "Local Deep Researcher: Checking LiteLLM gateway availability..."
 if [ ! -f /app/.env ]; then
     echo "Local Deep Researcher: ERROR - Configuration file /app/.env not found"
     exit 1
 fi
 
-OLLAMA_URL=$(grep OLLAMA_BASE_URL /app/.env | cut -d'=' -f2)
-if [ -z "$OLLAMA_URL" ]; then
-    echo "Local Deep Researcher: ERROR - OLLAMA_BASE_URL not found in configuration"
+LITELLM_URL=$(grep '^LITELLM_BASE_URL=' /app/.env | cut -d'=' -f2-)
+if [ -z "$LITELLM_URL" ]; then
+    echo "Local Deep Researcher: ERROR - LITELLM_BASE_URL not found in configuration"
     exit 1
 fi
-echo "Local Deep Researcher: Using Ollama at: $OLLAMA_URL"
+echo "Local Deep Researcher: Using LiteLLM at: $LITELLM_URL"
 
-# Wait for Ollama API
+# Wait for LiteLLM /health/liveliness
 max_retries=30
 retry_count=0
-until curl -s --fail "$OLLAMA_URL/" > /dev/null 2>&1; do
+until curl -s --fail "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; do
     retry_count=$((retry_count + 1))
     if [ $retry_count -ge $max_retries ]; then
-        echo "Local Deep Researcher: ERROR - Ollama API not available after $max_retries attempts"
+        echo "Local Deep Researcher: ERROR - LiteLLM not available after $max_retries attempts"
         exit 1
     fi
-    echo "Local Deep Researcher: Waiting for Ollama API (attempt $retry_count/$max_retries)..."
+    echo "Local Deep Researcher: Waiting for LiteLLM (attempt $retry_count/$max_retries)..."
     sleep 5
 done
 
-echo "Local Deep Researcher: Ollama API is available"
+echo "Local Deep Researcher: LiteLLM gateway is available"
 
 # Start the LangGraph server
 echo "Local Deep Researcher: Starting LangGraph development server..."

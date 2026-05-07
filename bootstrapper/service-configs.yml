@@ -5,6 +5,15 @@
 # These services can run in different modes based on SOURCE environment variables
 source_configurable:
   
+  # LLM engine = the upstream Ollama instance LiteLLM forwards to.
+  # The LiteLLM gateway itself is mandatory (see the `litellm:` block below);
+  # this selects what Ollama upstream LiteLLM consumes, and is mutually
+  # exclusive with the cloud_* sources.
+  #
+  # NOTE on the `OLLAMA_ENDPOINT:` key below: the YAML key name is historical;
+  # at runtime, _generate_llm_provider_config() reads this value, applies
+  # host.docker.internal substitution, and writes it to the env var
+  # `LITELLM_OLLAMA_UPSTREAM` (consumed by the LiteLLM config template only).
   llm_provider:
     # Containerized CPU-only Ollama
     ollama-container-cpu:
@@ -13,8 +22,8 @@ source_configurable:
         OLLAMA_ENDPOINT: "http://ollama:11434"
       deploy: {}
       extra_hosts: []
-      
-    # Containerized GPU-accelerated Ollama  
+
+    # Containerized GPU-accelerated Ollama
     ollama-container-gpu:
       scale: 1
       environment:
@@ -27,7 +36,7 @@ source_configurable:
               - driver: nvidia
                 capabilities: [gpu]
       extra_hosts: []
-      
+
     # Local Ollama running on host machine
     ollama-localhost:
       scale: 0
@@ -36,7 +45,7 @@ source_configurable:
       deploy: {}
       extra_hosts:
         - "host.docker.internal:host-gateway"
-        
+
     # External Ollama service
     ollama-external:
       scale: 0
@@ -44,20 +53,66 @@ source_configurable:
         OLLAMA_ENDPOINT: "${LLM_PROVIDER_EXTERNAL_URL}"
       deploy: {}
       extra_hosts: []
-      
-    # API-based Ollama service
-    api:
+
+    # No local engine — LiteLLM serves cloud providers only.
+    # At least one cloud_*_SOURCE must be `enabled` for the bootstrapper to start.
+    none:
       scale: 0
       environment:
-        OLLAMA_ENDPOINT: "http://api.provider.com"  # Configure API endpoint
+        OLLAMA_ENDPOINT: ""
       deploy: {}
       extra_hosts: []
-    
-    # Disabled - no LLM provider
+
+  # LiteLLM gateway — mandatory core service. Always-on. Single source.
+  # The wizard renders this as a locked tile (no source toggle).
+  litellm:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+  # Cloud LLM providers — independent multi-enable toggles. Each provider
+  # contributes its API key to LiteLLM's model_list at config-render time.
+  cloud_openai:
+    enabled:
+      scale: 0   # informational; no compose service backs this
+      environment:
+        LITELLM_OPENAI_ENABLED: "true"
+      deploy: {}
+      extra_hosts: []
     disabled:
       scale: 0
       environment:
-        OLLAMA_ENDPOINT: "http://ollama:11434"  # Default for dependent services
+        LITELLM_OPENAI_ENABLED: "false"
+      deploy: {}
+      extra_hosts: []
+
+  cloud_anthropic:
+    enabled:
+      scale: 0
+      environment:
+        LITELLM_ANTHROPIC_ENABLED: "true"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        LITELLM_ANTHROPIC_ENABLED: "false"
+      deploy: {}
+      extra_hosts: []
+
+  cloud_openrouter:
+    enabled:
+      scale: 0
+      environment:
+        LITELLM_OPENROUTER_ENABLED: "true"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        LITELLM_OPENROUTER_ENABLED: "false"
       deploy: {}
       extra_hosts: []
 
@@ -139,13 +194,17 @@ source_configurable:
         QUERY_DEFAULTS_LIMIT: 25
         AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
         PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-        DEFAULT_VECTORIZER_MODULE: 'text2vec-ollama'
-        ENABLE_MODULES: 'text2vec-ollama,text2vec-openai,multi2vec-clip,generative-ollama,generative-openai'
+        # Vectorizers/generators route through the LiteLLM gateway
+        # (text2vec-openai, generative-openai). text2vec-ollama is left
+        # enabled for backward compatibility with collections that haven't
+        # been migrated yet, but is no longer the default.
+        DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+        ENABLE_MODULES: 'text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama'
         CLUSTER_HOSTNAME: 'weaviate'
-        OPENAI_APIKEY: "${OPENAI_API_KEY:-}"
+        OPENAI_APIKEY: "${LITELLM_MASTER_KEY:-}"
         CLIP_INFERENCE_API: 'http://multi2vec-clip:8080'
         WEAVIATE_URL: "http://weaviate:8080"
-        # OLLAMA_ENDPOINT will be set based on ollama source
+        # text2vec-openai uses LITELLM_BASE_URL (set per-collection at runtime).
       deploy: {}
       extra_hosts: []  # Will inherit from ollama if needed
     
@@ -608,14 +667,16 @@ source_configurable:
     container:
       scale: 1
       environment:
-        # Environment variables will be set by adaptive service logic
-        OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
+        # Open WebUI talks to the LiteLLM gateway via its OpenAI-compatible
+        # client (OPENAI_API_BASE_URLS / OPENAI_API_KEYS, set in compose).
+        OPENAI_API_BASE_URLS: "http://litellm:4000/v1"
+        OPENAI_API_KEYS: "${LITELLM_MASTER_KEY}"
         COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT:-http://comfyui:18188}"
         PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
         XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
         DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
       deploy: {}
-      extra_hosts: []  # Will inherit from llm_provider and comfyui
+      extra_hosts: []  # Will inherit from comfyui
 
     # Disabled - no Open WebUI
     disabled:
@@ -630,13 +691,14 @@ source_configurable:
     container:
       scale: 1
       environment:
-        # Environment variables will be set by adaptive service logic
-        LLM_PROVIDER_BASE_URL: "${OLLAMA_ENDPOINT}"
+        # All LLM access through the LiteLLM gateway.
+        LITELLM_BASE_URL: "http://litellm:4000"
+        LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
         PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
         XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
         DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
       deploy: {}
-      extra_hosts: []  # Will inherit from llm_provider
+      extra_hosts: []
 
     # Disabled - no Local Deep Researcher
     disabled:
@@ -651,9 +713,10 @@ adaptive_services:
   
   ollama-pull:
     adapts_to: llm_provider
-    # Scales to 1 when llm_provider is containerized (ollama-container-cpu or ollama-container-gpu)
+    # Scales to 1 when llm_provider is containerized (ollama-container-cpu or ollama-container-gpu).
+    # Bypasses LiteLLM intentionally — model pulls hit Ollama's /api/pull directly.
     environment_adaptation:
-      OLLAMA_HOST_URL: "${OLLAMA_ENDPOINT}"
+      OLLAMA_HOST_URL: "${LITELLM_OLLAMA_UPSTREAM}"
     extra_hosts_adaptation: "inherit from llm_provider"
     
   comfyui-init:
@@ -667,18 +730,20 @@ adaptive_services:
     adapts_to: [llm_provider, weaviate, stt_provider, tts_provider, doc_processor]
     # Always scales to 1 (enabled by default)
     environment_adaptation:
-      OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
+      LITELLM_BASE_URL: "http://litellm:4000"
+      LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
       WEAVIATE_URL: "http://weaviate:8080"
       PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
       XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
       DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
-    
+
   weaviate-init:
     adapts_to: llm_provider
     # Scales with weaviate (inherits WEAVIATE_SCALE)
     environment_adaptation:
-      OLLAMA_ENDPOINT: "${OLLAMA_ENDPOINT}"
+      LITELLM_BASE_URL: "http://litellm:4000"
+      LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
   n8n:
@@ -695,7 +760,8 @@ adaptive_services:
     adapts_to: [llm_provider, weaviate, neo4j-graph-db, comfyui, stt_provider, tts_provider, doc_processor]
     # Always scales to 0 or 1 based on SOURCE
     environment_adaptation:
-      OLLAMA_BASE_URL: "${OLLAMA_ENDPOINT}"
+      LITELLM_BASE_URL: "http://litellm:4000"
+      LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
       WEAVIATE_URL: "http://weaviate:8080"
       NEO4J_URI: "bolt://neo4j-graph-db:7687"
       COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT}"
@@ -712,6 +778,7 @@ dependencies:
     - neo4j-graph-db
   init_tier:
     - supabase-db-init
+    - litellm-init
     - ollama-pull
     - comfyui-init
     - weaviate-init
@@ -722,6 +789,7 @@ dependencies:
     - supabase-auth
     - supabase-api
     - supabase-realtime
+    - litellm
     - ollama
     - comfyui
     - parakeet
