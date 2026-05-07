@@ -155,8 +155,20 @@ class LiteLLMConfigGenerator:
         return config
 
     def write_config(self, output_path: Path, force: bool = False) -> bool:
-        if output_path.exists() and not force:
-            return False
+        if output_path.exists():
+            if output_path.is_dir():
+                # Docker bind-mount creates an empty directory at the source
+                # path when the file is missing at `docker compose up` time.
+                # Clean that up so we can write a real file in its place.
+                try:
+                    output_path.rmdir()
+                except OSError as e:
+                    raise RuntimeError(
+                        f"{output_path} exists as a non-empty directory; "
+                        "remove it manually before retrying."
+                    ) from e
+            elif not force:
+                return False
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         config = self.generate_config()

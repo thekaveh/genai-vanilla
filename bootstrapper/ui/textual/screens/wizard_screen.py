@@ -577,6 +577,8 @@ class WizardScreen(Screen):
              starter.check_service_dependencies),
             ("Generate Kong configuration",
              starter.generate_kong_configuration),
+            ("Generate LiteLLM configuration",
+             starter.generate_litellm_configuration),
             ("Validate Supabase keys",
              lambda: starter.validate_supabase_keys(cold_start=cold)),
             ("Configure hosts",
