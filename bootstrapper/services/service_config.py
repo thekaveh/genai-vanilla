@@ -233,8 +233,46 @@ class ServiceConfig:
         # Weaviate's text2vec-openai / generative-openai modules talk to LiteLLM.
         # The base URL goes into per-collection module configs (set by
         # weaviate-init), not into Weaviate's startup env.
+        env_file_vars = self.config_parser.parse_env_file()
         env_vars['WEAVIATE_LITELLM_BASE_URL'] = 'http://litellm:4000/v1'
-        env_vars['WEAVIATE_LITELLM_API_KEY'] = self.config_parser.parse_env_file().get('LITELLM_MASTER_KEY', '')
+        env_vars['WEAVIATE_LITELLM_API_KEY'] = env_file_vars.get('LITELLM_MASTER_KEY', '')
+
+        # Multi2Vec CLIP is optional. If its service is disabled/scaled to zero,
+        # Weaviate must not enable the multi2vec-clip module or it will block
+        # startup waiting for a missing remote inference API. Start from the
+        # configured module list so advanced users keep any extra modules while
+        # the CLIP module is toggled to match MULTI2VEC_CLIP_SOURCE.
+        clip_source = self.service_sources.get('MULTI2VEC_CLIP_SOURCE', 'container-cpu')
+        default_modules = (
+            'text2vec-openai,text2vec-ollama,multi2vec-clip,'
+            'generative-openai,generative-ollama'
+        )
+        configured_modules = env_file_vars.get('WEAVIATE_ENABLE_MODULES', default_modules)
+        weaviate_modules = [
+            module.strip()
+            for module in configured_modules.split(',')
+            if module.strip()
+        ]
+
+        if clip_source == 'disabled':
+            weaviate_modules = [
+                module for module in weaviate_modules if module != 'multi2vec-clip'
+            ]
+            env_vars['CLIP_INFERENCE_API'] = ''
+        else:
+            if 'multi2vec-clip' not in weaviate_modules:
+                insert_after = 'text2vec-ollama'
+                insert_index = (
+                    weaviate_modules.index(insert_after) + 1
+                    if insert_after in weaviate_modules
+                    else len(weaviate_modules)
+                )
+                weaviate_modules.insert(insert_index, 'multi2vec-clip')
+            env_vars['CLIP_INFERENCE_API'] = env_file_vars.get(
+                'CLIP_INFERENCE_API', 'http://multi2vec-clip:8080'
+            ) or 'http://multi2vec-clip:8080'
+
+        env_vars['WEAVIATE_ENABLE_MODULES'] = ','.join(weaviate_modules)
 
         return env_vars
     
