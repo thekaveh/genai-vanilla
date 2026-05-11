@@ -7,7 +7,7 @@ Python implementation of generate_service_environment() and related functions fr
 import re
 from typing import Dict, Any, Optional
 from core.config_parser import ConfigParser
-from utils.system import get_localhost_host
+from utils.system import get_localhost_host, resolve_host_gateway_ip
 
 
 class ServiceConfig:
@@ -70,9 +70,10 @@ class ServiceConfig:
             return {}
             
         env_vars = {}
-        
-        # Silent — details shown in pre-launch summary table
-        
+
+        # Resolve host gateway IP for extra_hosts compatibility (Docker vs Podman)
+        env_vars['HOST_GATEWAY_IP'] = resolve_host_gateway_ip()
+
         # Generate LLM Provider (Ollama) configuration
         llm_config = self._generate_llm_provider_config()
         env_vars.update(llm_config)
