@@ -35,12 +35,15 @@ from textual.screen import Screen
 from ..widgets import (
     BrandInfo,
     BrandPanel,
+    CloudApiSummary,
+    CloudApisRow,
     CommandSummary,
     FooterBar,
     InfoBoxState,
     InfoPanel,
     LogFilterChips,
     LogPane,
+    PromptOption,
     PromptPanel,
     PromptStep,
     ServiceRow,
@@ -51,6 +54,7 @@ from ..widgets import (
 
 _SETUP_HINTS = [
     (("↑", "↓"), "navigate"),
+    (("space",), "toggle"),
     (("↵",), "confirm"),
     (("esc",), "back"),
     (("ctrl+q",), "quit & save"),
@@ -75,6 +79,7 @@ class WizardScreen(Screen):
         Binding("down", "move(1)", "Down", priority=True),
         Binding("k", "move(-1)", "Up", priority=True),
         Binding("j", "move(1)", "Down", priority=True),
+        Binding("space", "toggle", "Toggle", priority=True),
         Binding("enter", "confirm", "Confirm", priority=True),
         Binding("escape", "back", "Back", priority=True),
         Binding("ctrl+q", "quit_wizard", "Quit", priority=True),
@@ -111,6 +116,7 @@ class WizardScreen(Screen):
         on_complete: Callable[[dict[str, str]], None] | None = None,
         on_base_port_change: Callable[[int, list[ServiceRow]], list[ServiceRow]] | None = None,
         resolve_port_for_service: Callable[[str, str], str] | None = None,
+        cloud_apis: list[CloudApiSummary] | None = None,
         auto_launch: bool = False,
         prefilled_source_args: dict | None = None,
         prefilled_stack_options: dict | None = None,
@@ -153,18 +159,40 @@ class WizardScreen(Screen):
         self._defaults: dict[str, str] = {
             s.title: (s.default_value or "") for s in steps
         }
+        # Provider-options cache for ``options_provider``-driven steps.
+        # Keyed by step_index → list[PromptOption]. ``_provider_done``
+        # tracks whether the worker has populated the cache, so the
+        # splash branch in ``_load_current_step`` doesn't fire twice.
+        # Cleared on action_back so revisits re-fetch with the (possibly
+        # changed) upstream key.
+        self._provider_cache: dict[int, list] = {}
+        self._provider_done: dict[int, bool] = {}
+        # Generation token incremented every time we invalidate the
+        # cache (action_back, etc.). Each ``_fetch_provider_options``
+        # captures the generation at dispatch and refuses to write its
+        # result if the token has bumped — protects against a slow
+        # fetch (slow API + 5s timeout) writing stale options into a
+        # cache the user has already invalidated by going back and
+        # changing the upstream key.
+        self._fetch_generation: int = 0
 
         self._phase: str = "setup"   # "setup" | "launch"
 
         self._command_summary = CommandSummary()
         self._service_table = ServiceTable(services)
+        self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
+        self._cloud_apis_row = CloudApisRow(self._cloud_apis)
         summaries = [
             ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
             for r in services
         ]
         self._info_panel = InfoPanel(
-            InfoBoxState(brand=self._brand, services=summaries),
-            body_widgets=[self._service_table],
+            InfoBoxState(
+                brand=self._brand,
+                services=summaries,
+                cloud_apis=self._cloud_apis,
+            ),
+            body_widgets=[self._service_table, self._cloud_apis_row],
             title=f" Stack overview · {len(services)} services ",
         )
         self._prompt = PromptPanel()
@@ -176,6 +204,31 @@ class WizardScreen(Screen):
         # them here.
         self._log_chips: LogFilterChips | None = None
         self._log_pane: LogPane | None = None
+
+        # Register a wizard-time warning sink so cloud /v1/models fetch
+        # failures (and similar) land in the launch log + log pane.
+        # The sink is module-level state on integration.py so the
+        # closures in _build_steps_and_rows (built BEFORE this screen
+        # exists) can reach it.
+        try:
+            from .. import integration as _integration_mod
+            _integration_mod._set_wizard_warn_sink(
+                lambda msg: self._safe_log(msg, source="wizard", level="warn")
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Open the session-log tee NOW so wizard-time warnings (cloud
+        # /v1/models fetch failures, etc.) get persisted from the
+        # moment the screen exists. Previously the tee was opened only
+        # in the launch transition, so any setup-phase warning was
+        # silently dropped — contradicting docs that promised the file
+        # captured ``everything the log pane showed plus a few sources
+        # the pane filters out``. The path is announced in the log
+        # pane at launch time when _log_pane finally exists.
+        self._launch_log_fh = None
+        self._launch_log_path = None
+        self._open_launch_log_tee(announce_in_pane=False)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="wizard-body"):
@@ -225,28 +278,116 @@ class WizardScreen(Screen):
 
     # ─── setup phase ─────────────────────────────────────────────────
 
-    def _changed_count(self) -> int:
-        n = 0
-        for title, value in self._selections.items():
-            default = self._defaults.get(title, "")
-            if default and value != default:
-                n += 1
-        return n
+    def _step_should_skip(self, idx: int) -> bool:
+        """Run a step's ``skip_if_prev`` predicate. Exceptions are caught
+        and treated as "don't skip" so a buggy predicate can't crash the
+        wizard. Used by both the forward (``_load_current_step``) and
+        backward (``action_back``) navigation walks.
+        """
+        if not (0 <= idx < len(self._steps)):
+            return False
+        skip = getattr(self._steps[idx], "skip_if_prev", None)
+        if skip is None:
+            return False
+        try:
+            return bool(skip(self._selections))
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _advance_past_skipped(self, direction: int) -> None:
+        """Walk ``self._step_index`` in ``direction`` (+1 forward, -1 backward)
+        past any consecutive skip_if_prev=True steps. Stops at the
+        respective boundary (last step on forward, first step on
+        backward) even if that step is itself skipped — the boundary
+        steps in this wizard never set skip_if_prev, so this is safe.
+        ``len(self._steps)`` bounds the loop so a pathological skip
+        chain can't loop forever.
+        """
+        guard = 0
+        max_iter = len(self._steps)
+        while guard < max_iter and self._step_should_skip(self._step_index):
+            next_idx = self._step_index + direction
+            if direction > 0 and next_idx >= len(self._steps):
+                break
+            if direction < 0 and next_idx < 0:
+                break
+            self._step_index = next_idx
+            guard += 1
 
     def _load_current_step(self) -> None:
+        # Honor skip_if_prev — used by cloud multi-select steps to
+        # bypass themselves when the previous secret step disabled
+        # the provider.
+        self._advance_past_skipped(direction=1)
+
         original = self._steps[self._step_index]
-        step = PromptStep(
-            title=original.title,
+        provider = getattr(original, "options_provider", None)
+
+        # Live options-provider path — render a "⏳ Fetching…" splash
+        # first, then dispatch a worker to run the (potentially HTTP)
+        # options_provider, then re-render with the real options when
+        # it returns. Keeps the UI responsive (Esc still works) instead
+        # of freezing the whole wizard for 5s.
+        provider_pending = (
+            provider is not None
+            and original.kind == "multiselect"
+            and not self._provider_done.get(self._step_index, False)
+        )
+        if provider_pending:
+            # Strip a redundant " Cloud" suffix so the splash reads
+            # "⏳ Fetching OpenAI models…" not "OpenAI Cloud models".
+            provider_name = original.title.split('  ·  ')[0]
+            if provider_name.endswith(" Cloud"):
+                provider_name = provider_name[: -len(" Cloud")]
+            splash_options = [PromptOption(
+                value="__loading__",
+                label=f"⏳ Fetching {provider_name} models…",
+                hint="(usually <2s)",
+            )]
+            self._render_step(original, options=splash_options, is_loading=True)
+            self.run_worker(
+                self._fetch_provider_options(self._step_index, original, provider),
+                exclusive=False, exit_on_error=False,
+            )
+            return
+
+        # Provider already ran (cache hit) OR this step has no provider —
+        # use the cached/static options directly.
+        live_options = self._provider_cache.get(self._step_index, original.options)
+        self._render_step(original, options=live_options)
+
+    def _render_step(self, original: PromptStep, *, options=None, is_loading: bool = False) -> None:
+        """Build a PromptStep instance with display-time-resolved fields
+        and load it into the prompt panel.
+
+        ``is_loading`` is set when this is the splash render between
+        the user reaching a provider-driven step and the worker's
+        options fetch returning. It prefixes the subtitle with an
+        hourglass to match the splash option row.
+        """
+        # Preserve user state across revisits: if this is a multi-select
+        # the user has already answered (e.g. they hit back then forward),
+        # restore their checkbox state from self._selections rather than
+        # reverting to the step's original default_values.
+        live_default_values = list(original.default_values)
+        if original.kind == "multiselect":
+            prior = self._selections.get(original.title)
+            if isinstance(prior, str):
+                live_default_values = [s for s in prior.split(",") if s]
+        live_options = options if options is not None else original.options
+        # ``dataclasses.replace`` carries every field on the dataclass
+        # forward by default — new fields added to PromptStep show up
+        # at display time automatically, no need to update this method
+        # in lock-step. Only the fields that change at render time get
+        # an explicit override.
+        from dataclasses import replace
+        step = replace(
+            original,
             step_index=self._step_index + 1,
             step_total=len(self._steps),
-            heading=original.heading,
-            subtitle=original.subtitle,
-            options=original.options,
-            default_value=original.default_value,
-            service_name=original.service_name,
-            kind=original.kind,
-            number_min=original.number_min,
-            number_max=original.number_max,
+            subtitle=("⏳  " + original.subtitle.lstrip()) if is_loading else original.subtitle,
+            options=live_options,
+            default_values=live_default_values,
         )
         self._prompt.load_step(step)
         if step.service_name:
@@ -259,19 +400,84 @@ class WizardScreen(Screen):
             self._service_table.set_cursor(None)
         self._prompt.clear_conflict()
 
+    async def _fetch_provider_options(
+        self, step_index: int, original: PromptStep, provider,
+    ) -> None:
+        """Run the step's options_provider in a worker, then re-render.
+
+        ``step_index`` is captured at dispatch time so we can detect
+        the user navigating away mid-fetch and avoid stomping the
+        currently-displayed step. ``generation`` is also captured so a
+        late-arriving worker whose cache slot has since been
+        invalidated (action_back) silently drops its result instead of
+        polluting the new cache entry.
+        """
+        sel_snapshot = dict(self._selections)
+        generation = self._fetch_generation
+        try:
+            options = await asyncio.to_thread(provider, sel_snapshot)
+        except Exception:  # noqa: BLE001
+            options = []
+        # Generation drift means action_back ran while we were waiting
+        # — the user may have changed the upstream key, so writing our
+        # results would be wrong. Drop silently. The cache is empty so
+        # on revisit the splash will dispatch a fresh worker.
+        if generation != self._fetch_generation:
+            return
+        # Cache the result so going back-and-forward doesn't re-fetch
+        # within the same wizard run. Cleared on action_back so the
+        # user's revisit always sees a fresh fetch when they return.
+        self._provider_cache[step_index] = options or []
+        self._provider_done[step_index] = True
+        # If the user has navigated away mid-fetch, don't disturb their
+        # current step — but the cache will be ready on revisit.
+        if self._step_index != step_index or self._phase != "setup":
+            return
+        # Re-render with real options on the main thread.
+        self._load_current_step()
+
     def action_move(self, delta: int) -> None:
         if self._phase != "setup":
             return
         self._prompt.move(delta)
 
+    def action_toggle(self) -> None:
+        """Space: toggle the focused row's checkbox in multi-select."""
+        if self._phase != "setup":
+            return
+        self._prompt.toggle_focused()
+
     def action_confirm(self) -> None:
         if self._phase != "setup":
+            return
+        # Suppress confirmation while the splash row is showing for a
+        # provider-driven multiselect — committing now would silently
+        # commit only the step's static default_values (the live
+        # options haven't arrived yet). The splash row's value is the
+        # ``__loading__`` sentinel, which is harmless to commit but
+        # confusing UX-wise. Wait for the worker to populate the cache.
+        step = self._steps[self._step_index]
+        if (
+            step.kind == "multiselect"
+            and getattr(step, "options_provider", None) is not None
+            and not self._provider_done.get(self._step_index, False)
+        ):
             return
         opt = self._prompt.selected_option
         if opt is None:
             return
-        step = self._steps[self._step_index]
         self._selections[step.title] = opt.value
+        # Cloud secret step: live-update the Cloud APIs row in the
+        # overview to reflect the user's choice.
+        if step.kind == "secret" and self._cloud_apis:
+            self._apply_secret_step_to_cloud_apis(step, opt.value)
+        # Cloud multiselect step: an empty CSV ("0 selected") means
+        # the user explicitly de-selected every model. Match the
+        # _selections_to_args policy ("disable provider + wipe key")
+        # by reflecting the disabled state in the overview now,
+        # instead of waiting until launch to surprise the user.
+        if step.kind == "multiselect" and self._cloud_apis:
+            self._apply_models_step_to_cloud_apis(step, opt.value)
         # Service-source step: update that row's source and refresh.
         for row in self._services:
             if step.service_name and row.name == step.service_name:
@@ -297,13 +503,7 @@ class WizardScreen(Screen):
                         return (1, 0)
                 self._services.sort(key=_port_key)
                 self._service_table.set_rows(self._services)
-                summaries = [
-                    ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
-                    for r in self._services
-                ]
-                self._info_panel.update_state(
-                    InfoBoxState(brand=self._brand, services=summaries)
-                )
+                self._refresh_info_panel()
                 break
         # Base-port step: recompute every row's port from the new base.
         if "base port" in step.title.lower() and self._on_base_port_change is not None:
@@ -314,13 +514,7 @@ class WizardScreen(Screen):
             if new_base is not None:
                 self._services = self._on_base_port_change(new_base, self._services)
                 self._service_table.set_rows(self._services)
-                summaries = [
-                    ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
-                    for r in self._services
-                ]
-                self._info_panel.update_state(
-                    InfoBoxState(brand=self._brand, services=summaries)
-                )
+                self._refresh_info_panel()
         self._refresh_command_summary()
         if self._step_index + 1 < len(self._steps):
             self._step_index += 1
@@ -332,7 +526,112 @@ class WizardScreen(Screen):
             if opt.value == "yes":
                 self.run_worker(self._transition_to_launch(), exclusive=True)
 
+    def _refresh_info_panel(self) -> None:
+        """Rebuild the service summaries from self._services and re-emit
+        them + the current cloud_apis state through the InfoPanel.
+
+        Extracted from the four sites that previously inlined the same
+        4-line "summaries = [...]; self._info_panel.update_state(...)"
+        block: action_confirm (service-source branch + base-port branch)
+        and the two cloud overview update helpers below.
+        """
+        summaries = [
+            ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
+            for r in self._services
+        ]
+        self._info_panel.update_state(
+            InfoBoxState(
+                brand=self._brand,
+                services=summaries,
+                cloud_apis=self._cloud_apis,
+            )
+        )
+
+    def _apply_models_step_to_cloud_apis(self, step: PromptStep, value: str) -> None:
+        """Live-update the Cloud APIs overview block after a cloud
+        multiselect step.
+
+        Two cases mirror ``_selections_to_args``:
+          • Empty CSV ("0 selected") → user wants this provider OFF.
+          • Non-empty CSV on a previously-disabled provider whose key
+            is set → auto-promote (same path as the secret step's
+            SECRET_KEEP+disabled+key path; without this, the overview
+            would lag the launch state).
+        """
+        from wizard.llm_steps import cloud_models_title
+        title = step.title or ""
+        target: CloudApiSummary | None = None
+        for entry in self._cloud_apis:
+            if title == cloud_models_title(entry.name):
+                target = entry
+                break
+        if target is None:
+            return
+        csv = (value or "").strip()
+        if csv == "":
+            # Empty selection ⇒ provider gets disabled at launch.
+            target.enabled = False
+            target.key_set = False
+        elif target.key_set and not target.enabled:
+            # Non-empty selection on a previously-disabled provider with
+            # a saved key. _selections_to_args auto-promotes the source
+            # to ``enabled``; mirror that in the overview now.
+            target.enabled = True
+        else:
+            return  # no overview change required
+        self._cloud_apis_row.set_cloud_apis(self._cloud_apis)
+        self._refresh_info_panel()
+
+    def _apply_secret_step_to_cloud_apis(self, step: PromptStep, value: str) -> None:
+        """Live-update the Cloud APIs overview block after a secret step.
+
+        Maps the step title (e.g. ``OpenAI Cloud  ·  API key``) to the
+        matching CloudApiSummary, applies the wizard's sentinel-encoded
+        value, and refreshes the row + footer count line.
+        """
+        # Local imports avoid a hard dependency at module load time.
+        from ..widgets.prompt_panel import SECRET_KEEP, SECRET_CLEAR
+        from wizard.llm_steps import cloud_secret_title
+
+        # Exact title match via the same helper that built the step
+        # title. Keeps the two sides in lockstep — if cloud_secret_title
+        # ever changes format, both producer and consumer move together.
+        title = step.title or ""
+        target: CloudApiSummary | None = None
+        for entry in self._cloud_apis:
+            if title == cloud_secret_title(entry.name):
+                target = entry
+                break
+        if target is None:
+            return
+        if value == SECRET_KEEP:
+            # Auto-promote case: .env had source=disabled but a key is
+            # present. The skip predicate let the multiselect through;
+            # _selections_to_args will flip source to enabled. Mirror
+            # that in the overview so the user sees the correct state
+            # immediately instead of waiting until launch.
+            if target.key_set and not target.enabled:
+                target.enabled = True
+            else:
+                return  # truly nothing changed
+        elif value == SECRET_CLEAR or value == "":
+            target.enabled = False
+            target.key_set = False
+        else:
+            target.enabled = True
+            target.key_set = True
+        self._cloud_apis_row.set_cloud_apis(self._cloud_apis)
+        self._refresh_info_panel()
+
     def _refresh_command_summary(self) -> None:
+        from ..widgets.prompt_panel import SECRET_KEEP, SECRET_CLEAR
+        from wizard.llm_steps import (
+            OLLAMA_CUSTOM_TITLE,
+            OLLAMA_MODELS_TITLE,
+            cloud_models_title,
+            cloud_secret_title,
+        )
+
         flags: list[tuple[str, str]] = []
         # Base-port flag is ALWAYS shown — pinned at the top so the user
         # can see the chosen base port at a glance regardless of whether
@@ -346,6 +645,19 @@ class WizardScreen(Screen):
                 if value:
                     flags.append(("--base-port", value))
                 break
+
+        # Build per-cloud title indexes once so we can match cloud
+        # secret + multiselect steps without scanning the cloud list
+        # for every step. Iterate the canonical CLOUD_PROVIDERS list so
+        # adding a 4th provider doesn't silently miss this site.
+        from utils.cloud_providers import CLOUD_PROVIDERS
+        cloud_secret_titles = {
+            cloud_secret_title(p.name): p.key for p in CLOUD_PROVIDERS
+        }
+        cloud_models_titles = {
+            cloud_models_title(p.name): p.key for p in CLOUD_PROVIDERS
+        }
+
         # All other steps follow.
         for step in self._steps:
             value = self._selections.get(step.title)
@@ -354,16 +666,68 @@ class WizardScreen(Screen):
             default = self._defaults.get(step.title, "")
 
             if step.service_name:
-                # Service source flag — always show once picked.
-                flag = "--" + step.service_name.lower().replace(" ", "-") + "-source"
+                # Service source flag — always show once picked. Derive
+                # from the canonical ``ServiceInfo.key`` carried on the
+                # PromptStep (e.g. ``llm_provider`` → ``--llm-provider-source``).
+                # Falling back to the display-name slug is a bug:
+                # ``LLM Engine`` → ``--llm-engine-source`` is not a real
+                # Click flag and Click rejects it.
+                key = step.service_key or step.service_name.lower().replace(" ", "-")
+                flag = "--" + key.replace("_", "-") + "-source"
                 flags.append((flag, value))
                 continue
 
-            # Skip base-port here (already pinned above) and meta steps
-            # whose value matches the default.
             title_low = step.title.lower()
             if "base port" in title_low:
                 continue
+
+            # Cloud secret step → equivalent --cloud-X-source +
+            # sanitized --X-api-key. Never emit the raw key string.
+            if step.title in cloud_secret_titles:
+                provider = cloud_secret_titles[step.title]
+                if value == SECRET_KEEP:
+                    pass  # no flag — keeping current state
+                elif value == SECRET_CLEAR or value == "":
+                    flags.append((f"--cloud-{provider}-source", "disabled"))
+                else:
+                    flags.append((f"--cloud-{provider}-source", "enabled"))
+                    flags.append((f"--{provider}-api-key", "<set>"))
+                continue
+
+            # Cloud multiselect → --X-models with truncated CSV /
+            # selection count.
+            if step.title in cloud_models_titles:
+                provider = cloud_models_titles[step.title]
+                csv = (value or "").strip()
+                if csv == "":
+                    flags.append((f"--{provider}-models", "(none — provider disabled)"))
+                else:
+                    n = csv.count(",") + 1
+                    short = csv if len(csv) <= 60 else csv[:57] + "..."
+                    flags.append((f"--{provider}-models", f"{n} selected ({short})"))
+                continue
+
+            # Ollama models step (single unified [pulled]/[library] view).
+            # The custom free-text step has its own flag below.
+            if step.title == OLLAMA_MODELS_TITLE:
+                csv = (value or "").strip()
+                if csv == "":
+                    continue
+                n = csv.count(",") + 1
+                short = csv if len(csv) <= 60 else csv[:57] + "..."
+                flags.append(("--ollama-models", f"{n} selected ({short})"))
+                continue
+            if step.title == OLLAMA_CUSTOM_TITLE:
+                if value in (SECRET_KEEP, "", None):
+                    continue
+                if value == SECRET_CLEAR:
+                    flags.append(("--ollama-custom-models", "(cleared)"))
+                else:
+                    short = value if len(value) <= 60 else value[:57] + "..."
+                    flags.append(("--ollama-custom-models", short))
+                continue
+
+            # Meta steps (cold, hosts) — only show when non-default.
             if value == default:
                 continue
             if "cold" in title_low and value == "yes":
@@ -388,12 +752,33 @@ class WizardScreen(Screen):
         if self._phase != "setup":
             return
         if self._step_index > 0:
+            # Walk backwards over any skip_if_prev steps so the user
+            # doesn't land on an auto-skipped page when going back.
             self._step_index -= 1
+            # Invalidate cached options_provider results from the new
+            # step onward — earlier steps' caches still hold (the user's
+            # upstream choices for them haven't changed). This means
+            # going back from step 12 to step 10 doesn't blow away a
+            # cached fetch from step 6.
+            for k in list(self._provider_cache):
+                if k >= self._step_index:
+                    self._provider_cache.pop(k, None)
+                    self._provider_done.pop(k, None)
+            # Bump the generation so any in-flight fetch worker for the
+            # cleared range (or beyond) drops its result instead of
+            # writing back into the now-empty cache.
+            self._fetch_generation += 1
+            self._advance_past_skipped(direction=-1)
             self._load_current_step()
         else:
             self.app.exit()
 
     def action_quit_wizard(self) -> None:
+        # Close the tee on a setup-phase quit so the wizard-time
+        # warnings flushed earlier aren't left in a still-open fh
+        # past process exit. The launch-phase ``finally`` block
+        # already does this; this branch covers the setup-quit path.
+        self._close_launch_log_tee()
         self.app.exit()
 
     # ─── transition ──────────────────────────────────────────────────
@@ -426,6 +811,16 @@ class WizardScreen(Screen):
 
         self._footer.update_hints(_LAUNCH_HINTS)
 
+        # The session log was opened in __init__ so it could capture
+        # wizard-time warnings. Now that the log pane exists, surface
+        # the path as the first user-visible line so the operator can
+        # find it on disk.
+        if self._launch_log_path is not None and self._log_pane is not None:
+            self._log_pane.write_log(
+                f"📝 session log: {self._launch_log_path}",
+                level="info", source="pipeline",
+            )
+
         if self._starter is None:
             return  # wizard-only mode (tests)
 
@@ -433,6 +828,110 @@ class WizardScreen(Screen):
             self._run_pipeline_and_stream(),
             exclusive=False, exit_on_error=False,
         )
+
+    # ─── launch-log tee ──────────────────────────────────────────────
+
+    def _open_launch_log_tee(self, *, announce_in_pane: bool = True) -> None:
+        """Open ``/tmp/genai-vanilla-launch-<ts>.log`` for the duration
+        of the wizard. _write_status / _safe_log mirror their output
+        into this file so a user who quits the wizard still has a
+        record of what happened (cloud /v1/models fetch failures during
+        setup, plus everything compose printed during launch).
+
+        ``announce_in_pane=False`` is used for the early call from
+        ``__init__`` — the log pane doesn't exist yet there. The
+        launch transition does the announce later when the pane is up.
+        """
+        import datetime
+        from pathlib import Path
+        ts = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        path = Path(f"/tmp/genai-vanilla-launch-{ts}.log")
+        try:
+            self._launch_log_path = path
+            self._launch_log_fh = open(path, "w", buffering=1)  # line-buffered
+            self._launch_log_fh.write(f"# genai-vanilla session log — started {ts}\n")
+            self._launch_log_fh.flush()
+            if announce_in_pane and self._log_pane is not None:
+                self._log_pane.write_log(
+                    f"📝 session log: {path}",
+                    level="info", source="pipeline",
+                )
+        except OSError as exc:  # noqa: BLE001
+            self._launch_log_fh = None
+            self._launch_log_path = None
+            if self._log_pane is not None:
+                self._log_pane.write_log(
+                    f"⚠ could not open launch log file: {exc}",
+                    level="warn", source="pipeline",
+                )
+
+    def _close_launch_log_tee(self) -> None:
+        fh = getattr(self, "_launch_log_fh", None)
+        if fh is not None:
+            try:
+                fh.close()
+            except Exception:  # noqa: BLE001
+                pass
+            self._launch_log_fh = None
+        # Drop the wizard warn sink so a stale screen reference can't
+        # leak into a future invocation.
+        try:
+            from .. import integration as _integration_mod
+            _integration_mod._set_wizard_warn_sink(None)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _tee_to_log(self, msg: str, *, source: str = "", level: str = "") -> None:
+        """Append a line to the launch-log file. Best-effort, no raise."""
+        fh = getattr(self, "_launch_log_fh", None)
+        if fh is None:
+            return
+        try:
+            prefix = ""
+            if source or level:
+                prefix = f"[{level or '·'}/{source or '·'}] "
+            fh.write(prefix + (msg or "") + "\n")
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def _capture_failure_compose_logs(self) -> None:
+        """On compose-up failure, dump ``docker compose logs --tail=200``
+        for every service into the launch-log file. The output is NOT
+        echoed to the live log pane (too noisy); only the tee file gets it.
+        """
+        fh = getattr(self, "_launch_log_fh", None)
+        if fh is None or self._starter is None:
+            return
+        try:
+            cmd = self._starter.docker_manager._build_compose_command(
+                ["logs", "--no-color", "--tail=200"],
+                top_level_flags=[],
+            )
+        except Exception:  # noqa: BLE001
+            return
+        fh.write("\n# ─── docker compose logs --tail=200 (post-failure) ───\n")
+        fh.write(f"# {' '.join(cmd)}\n\n")
+        fh.flush()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self._starter.docker_manager.root_dir),
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            assert proc.stdout is not None
+            async for raw in proc.stdout:
+                line = raw.decode(errors="replace").rstrip("\r\n")
+                fh.write(line + "\n")
+            await proc.wait()
+            fh.flush()
+        except Exception as exc:  # noqa: BLE001
+            try:
+                fh.write(f"# capture failed: {exc}\n")
+                fh.flush()
+            except Exception:  # noqa: BLE001
+                pass
 
     def _on_log_filter_change(self, level: str, disabled: set[str]) -> None:
         if self._log_pane is not None:
@@ -469,16 +968,34 @@ class WizardScreen(Screen):
         elif "cyan" in style: level = "info"
         elif "dim" in style: level = "dim"
         self._log_pane.write_styled(text, level=level, source=source)
+        self._tee_to_log(msg, source=source, level=level)
 
     def _safe_log(self, msg: str, *, source: str = "pipeline", level: str = "info") -> None:
-        """Thread-safe write into the LogPane — used by callbacks coming
-        from the pipeline's worker thread."""
+        """Write a log line to the pane + tee file, from any thread.
+
+        Two contexts call this:
+          • Pipeline-step callbacks invoked via ``asyncio.to_thread`` —
+            they run in a worker thread; UI writes must marshal back
+            to the main loop with ``call_from_thread``.
+          • ``_run_compose`` / ``_run_command`` — these are coroutines
+            on the main event loop; ``call_from_thread`` from the
+            same thread silently mis-routes (no UI update). Use a
+            direct call instead.
+
+        Always tee to the launch-log file regardless of thread.
+        """
+        import threading
+        self._tee_to_log(msg, source=source, level=level)
         if self._log_pane is None:
             return
+        on_main = threading.current_thread() is threading.main_thread()
         try:
-            self.app.call_from_thread(
-                self._log_pane.write_log, msg, level=level, source=source,
-            )
+            if on_main:
+                self._log_pane.write_log(msg, level=level, source=source)
+            else:
+                self.app.call_from_thread(
+                    self._log_pane.write_log, msg, level=level, source=source,
+                )
         except Exception:  # noqa: BLE001
             pass
 
@@ -534,8 +1051,12 @@ class WizardScreen(Screen):
         original_execute = starter.docker_manager.execute_compose_command
 
         def _patched_execute(args, use_env_file=True):
+            # ``--ansi=never`` — stdout here is a Popen pipe; with
+            # ``--ansi=always`` compose tries to attach a TTY-based
+            # progress console and fails with "failed to get console:
+            # provided file is not a console". Same fix as _run_compose.
             full_cmd = starter.docker_manager._build_compose_command(
-                args, top_level_flags=["--ansi=always"],
+                args, top_level_flags=["--ansi=never"],
             )
             self._safe_log("$ " + " ".join(full_cmd), source="docker", level="dim")
             try:
@@ -562,6 +1083,15 @@ class WizardScreen(Screen):
         steps = [
             ("Apply source overrides",
              lambda: starter.apply_source_overrides(**(self._source_args or {}))),
+            ("Apply cloud API keys",
+             lambda: starter.apply_cloud_api_keys(
+                 (self._stack_options or {}).get("cloud_api_keys", {})
+             )),
+            ("Apply user model selections",
+             lambda: starter.apply_user_model_selections({
+                 **((self._stack_options or {}).get("cloud_user_models", {}) or {}),
+                 **((self._stack_options or {}).get("ollama_user_models", {}) or {}),
+             })),
             ("Validate source configurations",
              starter.validate_source_configurations),
             # Always clear any port env vars left over from a previous
@@ -626,8 +1156,14 @@ class WizardScreen(Screen):
                                style="bold cyan", source="pipeline")
             rc = await self._run_compose(["up", "-d", "--force-recreate"])
             if rc != 0:
-                self._write_status("❌ Start failed", style="bold red",
-                                   source="pipeline")
+                self._write_status("❌ Start failed — capturing per-service logs to launch log",
+                                   style="bold red", source="pipeline")
+                await self._capture_failure_compose_logs()
+                self._write_status(
+                    f"📝 see {self._launch_log_path or '/tmp/genai-vanilla-launch-*.log'} "
+                    "for full output",
+                    style="bold yellow", source="pipeline",
+                )
                 return
             self._write_status("✅ All services started",
                                style="bold green", source="pipeline")
@@ -675,6 +1211,7 @@ class WizardScreen(Screen):
             except Exception:  # noqa: BLE001
                 pass
             sys.stdout, sys.stderr = old_stdout, old_stderr
+            self._close_launch_log_tee()
 
     async def _cold_cleanup(self) -> None:
         project_name = self._starter.config_parser.get_project_name()
@@ -699,9 +1236,11 @@ class WizardScreen(Screen):
     async def _run_command(
         self, cmd: list[str], *, ignore_errors: bool = False,
     ) -> int:
-        cmd_text = Text("$ " + " ".join(cmd), style="dim")
-        if self._log_pane is not None:
-            self._log_pane.write_styled(cmd_text, level="dim", source="docker")
+        # Route through _safe_log so the launch-log tee picks up
+        # the command and its output. Direct _log_pane.write_* calls
+        # bypass the tee — that's the gap that left the user's first
+        # failure with only the bootstrapper pipeline in the file.
+        self._safe_log("$ " + " ".join(cmd), source="docker", level="dim")
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -716,8 +1255,7 @@ class WizardScreen(Screen):
             assert proc.stdout is not None
             async for raw in proc.stdout:
                 line = raw.decode(errors="replace").rstrip("\r\n")
-                if self._log_pane is not None:
-                    self._log_pane.write_log(line, level="info", source="docker")
+                self._safe_log(line, source="docker", level="info")
             rc = await proc.wait()
             if rc != 0 and not ignore_errors:
                 self._write_status(f"  ↳ exit {rc}", style="dim red",
@@ -736,13 +1274,25 @@ class WizardScreen(Screen):
             raise
 
     async def _run_compose(self, args: list[str]) -> int:
+        # IMPORTANT: stdout is a pipe (no TTY). Don't pass
+        # --ansi=always — it tells compose "I have a TTY, use the
+        # animated progress display". Buildkit then tries to attach
+        # a console to the pipe and fails with
+        #   "failed to get console: provided file is not a console"
+        # → compose up exits 1 with no containers created.
+        # Default ``--ansi=auto`` correctly picks no-ANSI when piped,
+        # which also picks plain progress automatically. We lose
+        # Docker's own coloring in the log pane, but our level-based
+        # coloring still works via _classify_compose_line.
         full_cmd = self._starter.docker_manager._build_compose_command(
-            args, top_level_flags=["--ansi=always"],
+            args, top_level_flags=["--ansi=never"],
         )
         env = {**os.environ, "BUILDKIT_PROGRESS": "plain"}
-        cmd_text = Text("$ " + " ".join(full_cmd), style="dim")
-        if self._log_pane is not None:
-            self._log_pane.write_styled(cmd_text, level="dim", source="docker")
+        # Route through _safe_log so every compose line lands in the
+        # launch-log tee (/tmp/genai-vanilla-launch-*.log). Direct
+        # _log_pane.write_* calls bypassed the tee — image-pull errors
+        # from compose up never reached the file.
+        self._safe_log("$ " + " ".join(full_cmd), source="docker", level="dim")
         try:
             proc = await asyncio.create_subprocess_exec(
                 *full_cmd,
@@ -760,8 +1310,7 @@ class WizardScreen(Screen):
             async for raw in proc.stdout:
                 line = raw.decode(errors="replace").rstrip("\r\n")
                 source, level = _classify_compose_line(line)
-                if self._log_pane is not None:
-                    self._log_pane.write_log(line, level=level, source=source)
+                self._safe_log(line, source=source, level=level)
             return await proc.wait()
         except asyncio.CancelledError:
             with contextlib.suppress(ProcessLookupError):

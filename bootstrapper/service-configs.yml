@@ -7,8 +7,11 @@ source_configurable:
   
   # LLM engine = the upstream Ollama instance LiteLLM forwards to.
   # The LiteLLM gateway itself is mandatory (see the `litellm:` block below);
-  # this selects what Ollama upstream LiteLLM consumes, and is mutually
-  # exclusive with the cloud_* sources.
+  # this selects the optional Ollama upstream. Cloud providers are
+  # independent toggles and can be enabled alongside any Ollama source;
+  # use `LLM_PROVIDER_SOURCE=none` for cloud-only setups (the no-upstream
+  # guard in services/source_validator.py refuses to launch when both
+  # Ollama is `none` AND every cloud provider is disabled).
   #
   # NOTE on the `OLLAMA_ENDPOINT:` key below: the YAML key name is historical;
   # at runtime, _generate_llm_provider_config() reads this value, applies
@@ -778,6 +781,7 @@ dependencies:
     - neo4j-graph-db
   init_tier:
     - supabase-db-init
+    - llm-catalog-init
     - litellm-init
     - ollama-pull
     - comfyui-init

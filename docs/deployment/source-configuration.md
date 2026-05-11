@@ -44,13 +44,13 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `SUPABASE_API_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase REST API. |
 | `SUPABASE_REALTIME_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase realtime service. |
 | `SUPABASE_STUDIO_SOURCE` | `container` | `container`, `disabled` | Infrastructure UI | Supabase admin UI. |
-| `OLLAMA_PULL_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Pulls configured Ollama models when an Ollama upstream is enabled (skipped when `LLM_PROVIDER_SOURCE=none`). |
-| `LITELLM_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Creates the dedicated `litellm` Postgres database on first start. |
 | `WEAVIATE_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Weaviate schemas/config. |
 | `COMFYUI_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes ComfyUI assets/config. |
 | `N8N_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes/imports n8n workflows. |
 | `OPENCLAW_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes OpenClaw config where applicable. |
 | `SUPABASE_DB_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Supabase database state. |
+
+> The `litellm-init` and `llm-catalog-init` containers are mandatory and have no SOURCE toggle — they always run when the stack starts. `litellm-init` provisions the dedicated `litellm` Postgres database and renders `volumes/litellm/config.yaml` from `public.llms`; `llm-catalog-init` UPSERTs the curated catalog and the wizard's `*_USER_MODELS` selections into `public.llms`.
 
 ### Services Supporting Localhost
 
@@ -78,6 +78,21 @@ Some features within services are controlled by feature flags rather than SOURCE
 | Feature | Variable | Options | Notes |
 |---------|----------|---------|-------|
 | **LangMem Memory** | `LANGMEM_ENABLED` | `true`, `false` | Persistent conversation memory embedded in the Backend service. |
+
+### Wizard Model Selections (Non-SOURCE)
+
+The interactive wizard's per-provider multiselects persist as comma-separated env vars in `.env`. Two init containers consume them:
+
+- **`llm-catalog-init`** registers every entry in `public.llms` (the single source of truth for what LiteLLM exposes).
+- **`ollama-pull`** pre-pulls Ollama models (container sources only).
+
+| Variable | Set by | Default | Notes |
+|---|---|---|---|
+| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware; localhost/external rows are badged `[pulled]` / `[library]`). | Default-active baseline (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). | Registered in `public.llms` for every Ollama source. Pulled by `ollama-pull` only for container sources. |
+| `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | Empty. | Comma-separated. Pulled by `ollama-pull` for container sources only. |
+| `OPENAI_USER_MODELS` | OpenAI multiselect (live `/v1/models` fetch). | Curated default-active intersection (gpt-5, gpt-5-mini, text-embedding-3-large) when key valid. | Requires `OPENAI_API_KEY`. |
+| `ANTHROPIC_USER_MODELS` | Anthropic multiselect (live `/v1/models` fetch). | Curated default-active intersection (claude-opus-4-7, claude-sonnet-4-6) when key valid. | Requires `ANTHROPIC_API_KEY`. |
+| `OPENROUTER_USER_MODELS` | OpenRouter multiselect (live `/api/v1/models` fetch). | `openrouter/auto` when reachable. | Requires `OPENROUTER_API_KEY`. |
 
 ## Detailed SOURCE Configurations
 
@@ -150,13 +165,24 @@ The legacy values `LLM_PROVIDER_SOURCE=api` and `LLM_PROVIDER_SOURCE=disabled` h
 
 #### `CLOUD_OPENAI_SOURCE` / `CLOUD_ANTHROPIC_SOURCE` / `CLOUD_OPENROUTER_SOURCE` (multi-toggle)
 
-Each cloud provider is an independent `enabled` / `disabled` switch — turn on as many as you want simultaneously. When a cloud source is enabled, LiteLLM registers the matching curated model list (e.g. `gpt-4o`, `claude-sonnet-4-6`, `openrouter/auto`) and consumers can request those model IDs against `LITELLM_BASE_URL`.
+Each cloud provider is an independent `enabled` / `disabled` switch — turn on as many as you want simultaneously. Consumers request model IDs against `LITELLM_BASE_URL`; LiteLLM routes per-provider based on `public.llms` rows that `llm-catalog-init` activates from the rules below.
 
 ```bash
 CLOUD_OPENAI_SOURCE=enabled          # requires OPENAI_API_KEY
 CLOUD_ANTHROPIC_SOURCE=enabled       # requires ANTHROPIC_API_KEY
 CLOUD_OPENROUTER_SOURCE=enabled      # requires OPENROUTER_API_KEY
 ```
+
+#### Per-provider activation rules (run by `llm-catalog-init` on every `docker compose up`)
+
+| Provider state | `*_USER_MODELS` env var | Existing active rows in `public.llms` | Result |
+|---|---|---|---|
+| `disabled` OR no API key | (any) | (any) | All rows for that provider deactivated. |
+| `enabled` + key | non-empty CSV | (any) | Activate exactly those rows; deactivate everything else for the provider. |
+| `enabled` + key | empty | ≥ 1 | **Keep existing actives** — wizard / hand edits survive re-runs. |
+| `enabled` + key | empty | 0 | Activate the curated `default_active=True` set (gpt-5 + gpt-5-mini + text-embedding-3-large for OpenAI, etc.) so the provider is usable out of the box. |
+
+**Bootstrapper safety net** — `source_validator.enforce_runtime_invariants()` flips `CLOUD_*_SOURCE=enabled` back to `disabled` when the matching API key is empty and prints a warning. This protects against the "looks ready in .env, errors at first request" failure mode.
 
 - **Use case**: Mix-and-match local + cloud, or run cloud-only with `LLM_PROVIDER_SOURCE=none`
 - **Pros**: One URL/key for every consumer; provider failover and spend logging handled by LiteLLM

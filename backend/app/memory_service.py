@@ -73,33 +73,62 @@ class MemoryService:
             raise RuntimeError("LangMem memory service is disabled")
 
     async def _get_extraction_model(self) -> str:
-        """Get the model identifier (LiteLLM-prefixed) for fact extraction."""
+        """Get the model identifier (LiteLLM-prefixed) for fact extraction.
+
+        Resolution order:
+          1. ``self.extraction_model`` (explicit constructor arg).
+          2. ``LITELLM_DEFAULT_MODEL`` env var.
+          3. Highest-priority active content row in ``public.llms``.
+             Per-provider mapping mirrors
+             ``litellm-init/scripts/init.py:render_model_list`` so the
+             returned ID matches what LiteLLM actually exposes.
+          4. Raise ``RuntimeError``.
+
+        Previously fell back to a hardcoded ``ollama/qwen3.6:latest``,
+        which is unroutable in cloud-only setups (Ollama disabled).
+        Raising forces the caller to surface the misconfiguration
+        instead of sending requests to a non-existent route.
+        """
         if self.extraction_model:
             return self.extraction_model
-        # Fall back to the default content model from environment
         default_model = os.getenv("LITELLM_DEFAULT_MODEL", "")
         if default_model:
             return default_model
-        # Try reading from the ollama_models table (content model). The DB
-        # stores bare model names; prefix with `ollama/` to form a LiteLLM
-        # model identifier.
         try:
             conn = await asyncpg.connect(self.database_url)
             try:
                 row = await conn.fetchrow(
                     """
-                    SELECT model_name FROM public.ollama_models
-                    WHERE model_type = 'content' AND active = true
+                    SELECT provider, name FROM public.llms
+                    WHERE active = true AND content > 0
+                    ORDER BY content DESC, created_at DESC
                     LIMIT 1
                     """
                 )
                 if row:
-                    return f"ollama/{row['model_name']}"
+                    provider = (row['provider'] or '').lower()
+                    name = row['name']
+                    if provider == 'ollama':
+                        return f"ollama/{name}"
+                    # openai / anthropic / openrouter all expose the bare
+                    # ``name`` as the model_name in LiteLLM's model_list
+                    # (anthropic's ``model:`` field gets the ``anthropic/``
+                    # prefix internally; the user-facing model_name is bare).
+                    return name
             finally:
                 await conn.close()
-        except Exception:
-            pass
-        return "ollama/qwen3.6:latest"  # Last resort default
+        except Exception as exc:
+            logger.warning(
+                "memory_service: failed to query public.llms for extraction "
+                "model (%s); falling through to RuntimeError",
+                exc,
+            )
+        raise RuntimeError(
+            "No content model available for memory extraction. Set "
+            "LITELLM_DEFAULT_MODEL, or activate at least one row in "
+            "public.llms with content > 0 (e.g. via the wizard or "
+            "`UPDATE public.llms SET active=true WHERE provider='openai' AND name='gpt-5';`)."
+        )
 
     async def _litellm_complete(
         self,

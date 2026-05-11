@@ -1,21 +1,19 @@
 -- 08-seed-data.sql
--- Insert initial data into custom tables
-
--- Insert default Ollama models (safe to re-run)
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'qwen3-embedding:0.6b' AND provider = 'ollama') THEN
-    INSERT INTO public.llms (name, provider, active, vision, embeddings, content, description, size_gb, context_window) VALUES
-      ('qwen3-embedding:0.6b', 'ollama', true, 0, 10, 0, 'Multilingual embedding model supporting 100+ languages, #1 on MTEB multilingual leaderboard', 0.6, 32000);
-  END IF;
-END $$;
-
--- Insert qwen3.6:latest as default content LLM for Local Deep Researcher
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT FROM public.llms WHERE name = 'qwen3.6:latest' AND provider = 'ollama') THEN
-    INSERT INTO public.llms (name, provider, active, vision, embeddings, content, description, size_gb, context_window) VALUES
-      ('qwen3.6:latest', 'ollama', true, 10, 0, 10, 'Multi-modal LLM with vision, 100+ language support, and strong reasoning capabilities', 24, 256000);
-  END IF;
-END $$;
+-- Insert initial data into custom tables.
+--
+-- LLM catalog rows (Ollama, OpenAI, Anthropic, OpenRouter) are NOT
+-- seeded here. ``llm-catalog-init`` is the single source of truth — it
+-- UPSERTs every catalog row from ``bootstrapper/utils/llm_catalog.py``
+-- on every ``docker compose up``, before any consumer queries
+-- ``public.llms`` (compose ``depends_on: service_completed_successfully``
+-- ordering — see the litellm-init, ollama-pull, and backend service
+-- blocks in docker-compose.yml).
+--
+-- Removing the previous in-SQL Ollama seed (qwen3.6:latest,
+-- qwen3-embedding:0.6b, nomic-embed-text) eliminates the drift hazard
+-- where a Python catalog edit had to be mirrored here by hand. The
+-- ``default_active`` flag on those entries in OLLAMA_DEFAULT_CATALOG
+-- now drives their ``active=true`` state.
 
 -- Insert essential ComfyUI models (safe to re-run)
 -- Note: These are popular, freely available models. Users should verify licensing for their use case.

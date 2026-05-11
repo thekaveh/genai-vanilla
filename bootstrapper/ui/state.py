@@ -21,6 +21,22 @@ class ServiceEntry:
 
 
 @dataclass
+class CloudApiEntry:
+    """One cloud LLM provider — API toggle, NOT a service.
+
+    Cloud providers (OpenAI, Anthropic, OpenRouter) contribute env flags +
+    an API key to the LiteLLM gateway. They never run as compose services
+    (scale: 0 in service-configs.yml), so they render in their own block
+    in the stack overview rather than alongside real services.
+    """
+    name: str           # display label, e.g. "OpenAI"
+    source_var: str     # e.g. "CLOUD_OPENAI_SOURCE"
+    api_key_var: str    # e.g. "OPENAI_API_KEY"
+    enabled: bool       # source == "enabled"
+    key_set: bool       # api_key value is non-empty
+
+
+@dataclass
 class AppState:
     """
     Top-level state read by the renderables. Mutated by PresentationApp
@@ -42,6 +58,10 @@ class AppState:
 
     # Services grid — ordered as the user should see them.
     services: List[ServiceEntry] = field(default_factory=list)
+
+    # Cloud LLM provider toggles — rendered separately from `services`,
+    # since they're API credentials routed through LiteLLM, not containers.
+    cloud_apis: List[CloudApiEntry] = field(default_factory=list)
 
     hosts_configured: bool = False
     kong_port: str = "63002"

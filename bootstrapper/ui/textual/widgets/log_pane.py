@@ -10,11 +10,24 @@ cannot escape it.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Iterable
 
 from rich.text import Text
 from textual.widgets import RichLog
+
+from .. import palette as P
+
+
+# Compose v2 with ``--ansi=never`` emits lines like
+#   ``genai-litellm                | <body>``
+# A trailing run of spaces pads the prefix so the ``|`` aligns across
+# services. We split on the first ``|`` after a leading whitespace so
+# we can color the service-name prefix per-source without disturbing
+# the body. ``Container/Network/Volume X Created`` lines (no ``|``)
+# fall through to the plain renderer.
+_COMPOSE_PREFIX_RE = re.compile(r"^([^|]*?\S)(\s*)(\| )(.*)$", re.DOTALL)
 
 
 @dataclass
@@ -124,6 +137,27 @@ class LogPane(RichLog):
         return True
 
     def _write_record(self, rec: _LogRecord) -> None:
+        # If this looks like a docker compose service line —
+        #   ``<container-name>   | <body>``
+        # — color the container-name prefix using the per-service
+        # palette so each service is visually distinguishable in the
+        # stream. The body still gets ANSI parsing in case the service
+        # itself emits color codes.
+        m = _COMPOSE_PREFIX_RE.match(rec.raw)
+        if m and rec.source:
+            head, pad, sep, body = m.groups()
+            color = P.color_for_source(rec.source)
+            text = Text()
+            text.append(head, style=color)
+            text.append(pad)
+            text.append(sep, style=P.TEXT_FAINT)
+            # Body may carry ANSI from the service (e.g. LiteLLM uses
+            # ANSI bold/colors in its own output). Preserve those.
+            text.append_text(Text.from_ansi(body))
+            self.write(text)
+            return
+        # Fallback: plain ANSI-aware render (pipeline status lines,
+        # ``Container X Created`` lines without ``|``, etc.).
         self.write(Text.from_ansi(rec.raw))
 
     def set_filter(self, level: str, disabled_sources: Iterable[str]) -> None:
