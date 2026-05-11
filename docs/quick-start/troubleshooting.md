@@ -12,6 +12,22 @@ If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about m
 
 The simplest reset is `cp .env.example .env` followed by `./start.sh --cold` — keys are regenerated and every variable is in its current form.
 
+## Session Log {#launch-log}
+
+When `./start.sh` runs the Textual TUI, every line is tee'd to a timestamped file — both wizard-time diagnostic events (cloud `/v1/models` fetch failures, Ollama upstream discovery warnings, etc.) and the entire launch phase (build, port verification, `docker compose up`, per-service `logs --tail` on failure):
+
+```
+/tmp/genai-vanilla-launch-<YYYYMMDDTHHMMSS>.log
+```
+
+The most recent log is always:
+
+```bash
+ls -t /tmp/genai-vanilla-launch-*.log | head -1
+```
+
+Inspect it after a failed launch — it captures everything the log pane showed, plus a few sources the pane filters out (e.g. cloud-fetch fallback warnings: `[warn/openai-fetch] live /v1/models returned 0 models — falling back to catalog (cause: HTTP 401)`). The file persists across reboots until your OS rotates `/tmp`; copy it elsewhere if you need to keep it.
+
 ## Quick Fixes
 
 ### Port Conflicts
@@ -280,16 +296,19 @@ docker logs genai-backend --tail=100 -f
 ### Configuration Verification
 
 ```bash
-# Check what SOURCE values are active
-python3 bootstrapper/start.py --help-usage
+# Inspect the SOURCE values currently written to .env
+grep -E '^[A-Z_]+_SOURCE=' .env
+
+# List all available CLI flags (Click-generated help is the source of truth)
+python3 bootstrapper/start.py --help
 
 # Inspect the dynamic Kong configuration generator (kong.yml is rebuilt
 # on every startup — don't edit by hand; instead trace the inputs):
 cat bootstrapper/utils/kong_config_generator.py | head -80
 env | grep ^KONG_
 
-# Check environment variables
-env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE)_SOURCE"
+# Check live environment variables in your shell
+env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE|CLOUD_)_SOURCE"
 ```
 
 ### Network Testing

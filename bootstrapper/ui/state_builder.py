@@ -16,7 +16,7 @@ from typing import Optional
 
 from core.config_parser import ConfigParser
 from utils.hosts_manager import HostsManager
-from ui.state import AppState, ServiceEntry
+from ui.state import AppState, CloudApiEntry, ServiceEntry
 
 
 # Service definitions. Tuple shape: (display_name, source_var, port_var, scale_var)
@@ -35,9 +35,6 @@ _SERVICES = [
     ("LiteLLM",            "LITELLM_SOURCE",            "LITELLM_PORT",            None),
     # Configurable
     ("LLM Engine",         "LLM_PROVIDER_SOURCE",       None,                      "OLLAMA_SCALE"),
-    ("OpenAI Cloud",       "CLOUD_OPENAI_SOURCE",       None,                      None),
-    ("Anthropic Cloud",    "CLOUD_ANTHROPIC_SOURCE",    None,                      None),
-    ("OpenRouter Cloud",   "CLOUD_OPENROUTER_SOURCE",   None,                      None),
     ("ComfyUI",            "COMFYUI_SOURCE",            "COMFYUI_PORT",            "COMFYUI_SCALE"),
     ("Weaviate",           "WEAVIATE_SOURCE",           "WEAVIATE_PORT",           "WEAVIATE_SCALE"),
     ("Multi2Vec CLIP",     "MULTI2VEC_CLIP_SOURCE",     None,                      "CLIP_SCALE"),
@@ -54,6 +51,17 @@ _SERVICES = [
     ("Local Deep Researcher", "LOCAL_DEEP_RESEARCHER_SOURCE", "LOCAL_DEEP_RESEARCHER_PORT", "LOCAL_DEEP_RESEARCHER_SCALE"),
 ]
 
+# Cloud LLM providers — API toggles, NOT services. Single source of
+# truth in utils/cloud_providers.py. They live behind the LiteLLM
+# gateway (no compose service of their own) and render in a dedicated
+# "Cloud APIs" sub-section in the overview, not in the services grid.
+from utils.cloud_providers import CLOUD_PROVIDERS as _CLOUD_PROVIDERS  # noqa: E402
+
+_CLOUD_APIS = [
+    (p.name, p.source_var, p.api_key_var) for p in _CLOUD_PROVIDERS
+]
+
+
 # Display name → hosts.localhost alias. Single source of truth — also
 # consumed by start.py::build_pre_launch_summary_table via alias_for().
 _HOST_ALIAS = {
@@ -66,19 +74,10 @@ _HOST_ALIAS = {
     "OpenClaw": "openclaw.localhost",
 }
 
-# Endpoint env vars used by localhost services. Mirror of
-# GenAIStackStarter._get_localhost_port (start.py).
-_LOCALHOST_ENDPOINT_VARS = {
-    "LiteLLM": "LITELLM_BASE_URL",
-    "LLM Engine": "LITELLM_OLLAMA_UPSTREAM",
-    "ComfyUI": "COMFYUI_ENDPOINT",
-    "Weaviate": "WEAVIATE_URL",
-    "Neo4j Graph DB": "NEO4J_URI",
-    "STT Provider": "PARAKEET_ENDPOINT",
-    "TTS Provider": "XTTS_ENDPOINT",
-    "Document Processor": "DOCLING_ENDPOINT",
-    "OpenClaw": "OPENCLAW_ENDPOINT",
-}
+# Endpoint env vars used by localhost services. Imported privately
+# from utils/endpoint_vars (the single source of truth) for use by
+# state_builder's own port resolver below.
+from utils.endpoint_vars import LOCALHOST_ENDPOINT_VARS as _LOCALHOST_ENDPOINT_VARS  # noqa: E402
 
 # Cached lookup: display name → service definition tuple. Built once at
 # import time. Used by `apply_wizard_selection` to find the metadata for
@@ -142,6 +141,29 @@ def all_services():
     return tuple(_SERVICES)
 
 
+def all_cloud_apis():
+    """
+    Iterate the canonical cloud-API definitions: yields
+    (display_name, source_var, api_key_var) tuples. Single source of
+    truth for the TUI overview, the no-TUI summary, and the wizard's
+    secret-input prompt steps.
+    """
+    return tuple(_CLOUD_APIS)
+
+
+def cloud_api_status_text(enabled: bool, key_set: bool) -> str:
+    """Canonical display string for a cloud-API row's (enabled, key_set)
+    pair. Shared by the Rich pre-launch panel in start.py and the
+    Textual ``CloudApisRow`` so both render paths stay in lockstep —
+    each renderer applies its own styling on top of the same string.
+    """
+    if enabled and key_set:
+        return "enabled · key set ✓"
+    if enabled and not key_set:
+        return "enabled · key MISSING ⚠"
+    return "disabled"
+
+
 def _brand_field(env: dict, env_var: str, fallback: str) -> str:
     """Read a brand metadata value from .env, falling back to the canonical default."""
     value = env.get(env_var)
@@ -183,6 +205,20 @@ def build_app_state(
             alias=alias_for(name),
         ))
 
+    cloud_apis = []
+    for name, source_var, api_key_var in _CLOUD_APIS:
+        source = (
+            service_sources.get(source_var, env.get(source_var, "disabled")) or ""
+        ).strip().lower()
+        key_value = (env.get(api_key_var, "") or "").strip()
+        cloud_apis.append(CloudApiEntry(
+            name=name,
+            source_var=source_var,
+            api_key_var=api_key_var,
+            enabled=(source == "enabled"),
+            key_set=bool(key_value),
+        ))
+
     hosts_configured = False
     if hosts_manager is not None:
         try:
@@ -201,6 +237,7 @@ def build_app_state(
         license=license_str,
         repo_url=repo_url,
         services=services,
+        cloud_apis=cloud_apis,
         hosts_configured=hosts_configured,
         kong_port=env.get("KONG_HTTP_PORT", "63002"),
         env_file_path=env_file_path,

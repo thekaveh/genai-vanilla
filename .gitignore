@@ -71,6 +71,15 @@ logs/
 # Docker volumes
 data/
 
+# Auto-generated runtime artifacts under volumes/ — never hand-edit; the
+# bootstrapper / init containers rewrite these on every ./start.sh.
+# Narrow patterns (file/glob, not directory) so a future hand-checked
+# file under volumes/litellm/ — plugins, custom prompts, anything we
+# might want to track — doesn't get silently hidden by a directory glob.
+volumes/api/kong-dynamic.yml
+volumes/litellm/config.yaml
+volumes/litellm/*.yml
+
 # Environment variables file
 .env
 .env.local

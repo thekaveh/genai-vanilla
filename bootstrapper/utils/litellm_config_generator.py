@@ -1,160 +1,66 @@
 """
-LiteLLM proxy configuration generator.
+LiteLLM proxy configuration STUB writer.
 
-Renders volumes/litellm/config.yaml from environment values. The model_list
-varies based on:
-  - LITELLM_OLLAMA_UPSTREAM (when non-empty, includes Ollama-prefixed models)
-  - LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED / LITELLM_OPENROUTER_ENABLED
-    (each adds a curated set of cloud models)
+The real ``model_list`` is rendered by ``litellm-init/scripts/init.py``
+from ``public.llms WHERE active = true`` on every ``docker compose up``
+— this file produces only a minimal stub on the host so the bind mount
+``./volumes/litellm/config.yaml:/app/config.yaml:ro`` has a file to
+attach to before the init container has run.
 
-Static settings (cache, router, master key, database url) use LiteLLM's
-`os.environ/VAR` form so they resolve at LiteLLM container start.
+What this writer emits:
+  • ``model_list: []`` — to be overwritten by litellm-init.
+  • The static settings block (cache, router, general_settings) —
+    matches what litellm-init writes, so even if the bootstrapper-
+    written stub is somehow loaded by LiteLLM directly (e.g. init
+    container crashed), the settings are sane.
 
-Mirrors the pattern in kong_config_generator.py: build a dict, dump as YAML.
-Writes only when the destination is absent (preserves user edits); pass
-force=True to overwrite.
+What it no longer does:
+  • Hardcode model names. Those live in
+    ``bootstrapper/utils/llm_catalog.py`` as the single source of
+    truth for cloud + Ollama catalogs.
+
+Idempotency rules (see ``write_config``):
+  • Existing file managed by litellm-init (sentinel header + non-empty
+    model_list) → ALWAYS preserved, even with ``force=True``. The
+    previous run's real config survives a re-run that hasn't yet
+    completed a docker compose up.
+  • Missing / stub / corrupt file + ``force=False`` → preserved.
+  • Missing / stub / corrupt file + ``force=True`` → overwritten with
+    a fresh stub. ``start.py`` calls with force=True at every launch.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import yaml
 
-
-DEFAULT_OLLAMA_MODELS = [
-    "qwen3.6:latest",
-    "qwen3-embedding:0.6b",
-    "nomic-embed-text",
-]
-
-DEFAULT_OPENAI_MODELS = [
-    "gpt-4o",
-    "gpt-4o-mini",
-    "o1",
-    "o3-mini",
-]
-
-DEFAULT_ANTHROPIC_MODELS = [
-    "claude-opus-4-7",
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5",
-]
-
-DEFAULT_OPENROUTER_MODELS = [
-    "openrouter/auto",
-    "openrouter/anthropic/claude-sonnet-4-6",
-    "openrouter/openai/gpt-4o",
-]
+from utils.litellm_settings import base_settings
 
 
 class LiteLLMConfigGenerator:
-    """Generates volumes/litellm/config.yaml from environment values."""
+    """Writes a stub ``volumes/litellm/config.yaml`` (settings only)."""
 
     def __init__(self, config_parser):
         self.config_parser = config_parser
-        self.env_vars: Dict[str, str] = {}
-
-    def load_environment_variables(self) -> None:
-        self.env_vars = self.config_parser.parse_env_file()
-
-    def _get(self, key: str, default: str = "") -> str:
-        return self.env_vars.get(key, default)
-
-    def _is_truthy(self, key: str) -> bool:
-        return self._get(key, "false").strip().lower() in ("true", "1", "yes", "enabled")
-
-    def _ollama_entries(self) -> List[Dict[str, Any]]:
-        upstream = self._get("LITELLM_OLLAMA_UPSTREAM", "").strip()
-        if not upstream:
-            return []
-        return [
-            {
-                "model_name": f"ollama/{name}",
-                "litellm_params": {
-                    "model": f"ollama/{name}",
-                    "api_base": upstream,
-                },
-            }
-            for name in DEFAULT_OLLAMA_MODELS
-        ]
-
-    def _openai_entries(self) -> List[Dict[str, Any]]:
-        if not self._is_truthy("LITELLM_OPENAI_ENABLED"):
-            return []
-        return [
-            {
-                "model_name": name,
-                "litellm_params": {
-                    "model": name,
-                    "api_key": "os.environ/OPENAI_API_KEY",
-                },
-            }
-            for name in DEFAULT_OPENAI_MODELS
-        ]
-
-    def _anthropic_entries(self) -> List[Dict[str, Any]]:
-        if not self._is_truthy("LITELLM_ANTHROPIC_ENABLED"):
-            return []
-        return [
-            {
-                "model_name": name,
-                "litellm_params": {
-                    "model": f"anthropic/{name}",
-                    "api_key": "os.environ/ANTHROPIC_API_KEY",
-                },
-            }
-            for name in DEFAULT_ANTHROPIC_MODELS
-        ]
-
-    def _openrouter_entries(self) -> List[Dict[str, Any]]:
-        if not self._is_truthy("LITELLM_OPENROUTER_ENABLED"):
-            return []
-        return [
-            {
-                "model_name": name,
-                "litellm_params": {
-                    "model": name,
-                    "api_key": "os.environ/OPENROUTER_API_KEY",
-                },
-            }
-            for name in DEFAULT_OPENROUTER_MODELS
-        ]
 
     def generate_config(self) -> Dict[str, Any]:
-        self.load_environment_variables()
+        return {"model_list": [], **base_settings()}
 
-        model_list: List[Dict[str, Any]] = []
-        model_list.extend(self._ollama_entries())
-        model_list.extend(self._openai_entries())
-        model_list.extend(self._anthropic_entries())
-        model_list.extend(self._openrouter_entries())
-
-        config: Dict[str, Any] = {
-            "model_list": model_list,
-            "litellm_settings": {
-                "cache": True,
-                "cache_params": {
-                    "type": "redis",
-                    "host": "os.environ/REDIS_HOST",
-                    "port": "os.environ/REDIS_PORT",
-                    "password": "os.environ/REDIS_PASSWORD",
-                },
-                "drop_params": True,
-            },
-            "router_settings": {
-                "redis_host": "os.environ/REDIS_HOST",
-                "redis_port": "os.environ/REDIS_PORT",
-                "redis_password": "os.environ/REDIS_PASSWORD",
-            },
-            "general_settings": {
-                "master_key": "os.environ/LITELLM_MASTER_KEY",
-                "database_url": "os.environ/DATABASE_URL",
-                "store_model_in_db": True,
-            },
-        }
-        return config
+    # Sentinel header written by ``litellm-init/scripts/init.py``. When
+    # we see this on an existing file, the file is the "real" config
+    # rendered from public.llms — leave it alone so re-running
+    # ``./start.sh`` and quitting before docker compose up doesn't
+    # blow away the user's previous active model_list.
+    _LITELLM_INIT_SENTINEL = "# Generated by litellm-init/init.py from public.llms."
 
     def write_config(self, output_path: Path, force: bool = False) -> bool:
+        """Write a stub config.yaml — but only when the existing file
+        is missing, our own stub, or unparseable. If the file is the
+        real model_list rendered by ``litellm-init``, leave it alone:
+        ``litellm-init`` will regenerate it on the next docker compose up.
+
+        Returns True on write, False when the existing file is preserved.
+        """
         if output_path.exists():
             if output_path.is_dir():
                 # Docker bind-mount creates an empty directory at the source
@@ -167,14 +73,49 @@ class LiteLLMConfigGenerator:
                         f"{output_path} exists as a non-empty directory; "
                         "remove it manually before retrying."
                     ) from e
-            elif not force:
-                return False
+            else:
+                # File exists. Decide whether to preserve or overwrite.
+                # If it's the real config (sentinel header present) AND
+                # has a non-empty model_list, preserve it.
+                preserve = self._is_litellm_init_managed(output_path)
+                if preserve:
+                    return False
+                # Stub or corrupt. Without force, also preserve (legacy
+                # behaviour); with force, overwrite below.
+                if not force:
+                    return False
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         config = self.generate_config()
         with open(output_path, "w") as fh:
-            fh.write("# Generated by bootstrapper/utils/litellm_config_generator.py\n")
-            fh.write("# Edit this file to customize model_list, fallbacks, or routing rules.\n")
-            fh.write("# Re-running ./start.sh preserves manual edits unless --regenerate-litellm is passed.\n\n")
+            fh.write("# STUB — generated by bootstrapper/utils/litellm_config_generator.py.\n")
+            fh.write("# The real model_list is rendered by litellm-init from public.llms\n")
+            fh.write("# on every `docker compose up`. Don't edit this stub by hand —\n")
+            fh.write("# change models via the wizard or `psql ... UPDATE public.llms ...`.\n\n")
             yaml.safe_dump(config, fh, sort_keys=False, default_flow_style=False)
         return True
+
+    @classmethod
+    def _is_litellm_init_managed(cls, path: Path) -> bool:
+        """True when the file's first non-empty line is the litellm-init
+        sentinel AND its parsed ``model_list`` is non-empty. This signals
+        ``litellm-init`` rendered it on the last successful run.
+        """
+        try:
+            with open(path, "r") as fh:
+                head = fh.read(2048)  # cheap header peek
+        except OSError:
+            return False
+        if cls._LITELLM_INIT_SENTINEL not in head:
+            return False
+        # Verify the YAML parses and has a non-empty model_list. A
+        # corrupt or empty real config gets overwritten by the stub.
+        try:
+            with open(path, "r") as fh:
+                doc = yaml.safe_load(fh)
+        except (yaml.YAMLError, OSError):
+            return False
+        if not isinstance(doc, dict):
+            return False
+        model_list = doc.get("model_list")
+        return isinstance(model_list, list) and len(model_list) > 0

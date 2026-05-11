@@ -17,9 +17,6 @@ from utils.source_override_manager import SourceOverrideManager
 DISPLAY_NAME_OVERRIDES = {
     'litellm': 'LiteLLM Gateway',
     'llm_provider': 'LLM Engine',
-    'cloud_openai': 'OpenAI Cloud',
-    'cloud_anthropic': 'Anthropic Cloud',
-    'cloud_openrouter': 'OpenRouter Cloud',
     'stt_provider': 'STT Provider',
     'tts_provider': 'TTS Provider',
     'doc_processor': 'Document Processor',
@@ -37,9 +34,6 @@ DISPLAY_NAME_OVERRIDES = {
 SERVICE_DESCRIPTIONS = {
     'litellm': 'unified LLM gateway — always-on, fronts every provider',
     'llm_provider': 'local Ollama upstream the gateway forwards to',
-    'cloud_openai': 'route OpenAI models (GPT-4o, o1, o3) through LiteLLM',
-    'cloud_anthropic': 'route Anthropic Claude models through LiteLLM',
-    'cloud_openrouter': 'route 100+ OpenRouter-aggregated models through LiteLLM',
     'comfyui': 'AI image generation & workflows',
     'weaviate': 'vector database for semantic search & RAG',
     'multi2vec-clip': 'CLIP embeddings for multi-modal search',
@@ -58,6 +52,16 @@ SERVICE_DESCRIPTIONS = {
 # every consumer relies on its endpoint; the user instead chooses which
 # upstream(s) it forwards to via llm_provider + cloud_* tiles.
 LOCKED_SERVICES = frozenset({'litellm'})
+
+# Cloud LLM provider keys. These are NOT regular source-configurable
+# services — they're API credentials routed through LiteLLM (scale: 0,
+# no compose service). The wizard collects an API key for each via
+# bespoke secret-input steps in ui/textual/integration.py rather than
+# the standard "enabled / disabled" tile prompt that auto-discovery
+# would emit. Discover() filters these out so they don't appear twice.
+CLOUD_PROVIDER_KEYS = frozenset({
+    'cloud_openai', 'cloud_anthropic', 'cloud_openrouter',
+})
 
 @dataclass
 class ServiceInfo:
@@ -143,6 +147,11 @@ class ServiceDiscovery:
             # Only include services that have a corresponding CLI flag
             cli_key = key.replace('-', '_') + '_source'
             if cli_key not in self._cli_param_keys:
+                continue
+            # Cloud LLM provider toggles are collected via bespoke
+            # secret-input steps elsewhere — skip the auto-discovered
+            # "enabled / disabled" tile prompt to avoid double-asking.
+            if key in CLOUD_PROVIDER_KEYS:
                 continue
 
             env_var_name = key.upper().replace('-', '_') + '_SOURCE'

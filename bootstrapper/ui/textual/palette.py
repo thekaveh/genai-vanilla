@@ -8,6 +8,7 @@ for the bootstrapper UI's color palette.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Dict
 
 
@@ -96,7 +97,6 @@ SVC_REDIS     = "#98c379"
 SVC_KONG      = "#9a8cc6"
 SVC_OLLAMA    = "#b8a35a"
 SVC_LITELLM   = "#d4a574"   # warmer hue than Ollama, signals the gateway role
-SVC_CLOUD_LLM = "#c89cc4"   # purple-ish for cloud-provider tiles
 SVC_WEAVIATE  = "#6a9aaa"
 SVC_OPENWEBUI = "#89aad4"
 SVC_BACKEND   = "#b8a35a"
@@ -112,10 +112,13 @@ SOURCE_COLORS: Dict[str, str] = {
     "kong": SVC_KONG,
     "litellm": SVC_LITELLM,
     "litellm-init": SVC_LITELLM,
+    # llm-catalog-init populates public.llms (the source of truth
+    # LiteLLM reads at config-render time) — colour-share with LiteLLM
+    # so the two init containers appear visually related in the log
+    # pane. Cloud providers themselves never run as services, so they
+    # never need their own source color in compose output.
+    "llm-catalog-init": SVC_LITELLM,
     "ollama": SVC_OLLAMA,
-    "cloud_openai": SVC_CLOUD_LLM,
-    "cloud_anthropic": SVC_CLOUD_LLM,
-    "cloud_openrouter": SVC_CLOUD_LLM,
     "weaviate": SVC_WEAVIATE,
     "openwebui": SVC_OPENWEBUI,
     "open-webui": SVC_OPENWEBUI,
@@ -188,14 +191,44 @@ PROG_THIN_EMPTY = "▱"
 
 # ─── Helpers ────────────────────────────────────────────────────────────
 def color_for_source(name: str) -> str:
-    """Map a service name → stable hue. Falls back to TEXT for unknowns."""
+    """Map a service name → stable hue. Curated SOURCE_COLORS first;
+    deterministic hash fallback for everything else (jupyterhub,
+    openclaw, local-deep-researcher, …) so every service in the log
+    pane gets a distinguishable color, matching the per-service
+    coloring docker compose used to provide via ``--ansi=always``.
+    Falls back to TEXT only for empty input.
+    """
     if not name:
         return TEXT
     norm = name.lower().strip()
     for key, color in SOURCE_COLORS.items():
         if key in norm:
             return color
-    return TEXT
+    return _hash_color_for(norm)
+
+
+# Stable hue palette for the hash-based fallback. Hues chosen to be
+# visually distinct from the curated SOURCE_COLORS above so a known
+# service and a hash-fallback service rarely collide visually.
+_FALLBACK_HUES = (
+    "#c89cc4",  # purple
+    "#d49a8a",  # warm pink
+    "#a8b89e",  # sage
+    "#7dcfa0",  # light teal
+    "#d4b574",  # amber
+    "#9aa6d4",  # periwinkle
+    "#d49ac4",  # rose
+    "#9ad4c0",  # mint
+)
+
+
+def _hash_color_for(norm: str) -> str:
+    """Pick a deterministic hue for an arbitrary service name. Uses
+    md5 (NOT Python's built-in ``hash``, which is randomized per process)
+    so the same service gets the same color across runs.
+    """
+    h = hashlib.md5(norm.encode("utf-8")).digest()
+    return _FALLBACK_HUES[h[0] % len(_FALLBACK_HUES)]
 
 
 def style_for_level(level: str) -> str:

@@ -242,22 +242,28 @@ class SourceValidator:
         """
         Validate all SOURCE configurations from .env file.
         Replicates the validate_source_values() function from start.sh.
-        
+
         Returns:
             bool: True if all sources are valid
+
+        Note: this method is now read-only. The previous behaviour of
+        auto-disabling cloud providers with missing keys lives in
+        ``enforce_runtime_invariants()`` — call it before
+        ``validate_all_sources()`` if you want the rewrite-then-validate
+        behaviour. ``start.py`` does this in both the linear and TUI
+        pipelines.
         """
         self.validation_errors = []
-        
+
         if not self.load_yaml_config():
             return False
-            
-        # Get all service sources from .env
+
         service_sources = self.config_parser.parse_service_sources()
-        
+
         if not service_sources:
             self.validation_errors.append("❌ No SOURCE configurations found")
             return False
-        
+
         all_valid = True
 
         for service_var, source_value in service_sources.items():
@@ -273,6 +279,71 @@ class SourceValidator:
             all_valid = False
 
         return all_valid
+
+    def enforce_runtime_invariants(self) -> bool:
+        """Repair-style step: rewrite .env to a runnable shape.
+
+        Distinct from ``validate_all_sources()`` which is read-only.
+        Callers that want the side-effecting auto-disable behaviour
+        (e.g. ``start.py``'s pipeline) call this first, then validate.
+        Pure tooling (linters, CI checks, future dry-runs) can call
+        ``validate_all_sources()`` alone without mutating .env.
+
+        Returns:
+            bool: ``True`` if the repair pass either had nothing to do
+            or successfully persisted the rewrite. ``False`` if a
+            required .env write failed — in which case the caller must
+            stop the launch pipeline, because a subsequent
+            ``validate_all_sources()`` would read pre-rewrite state and
+            may pass against values that no longer reflect intent.
+        """
+        return self._enforce_cloud_keys_present()
+
+    def _enforce_cloud_keys_present(self) -> bool:
+        """Auto-disable cloud providers whose API key is empty.
+
+        ``CLOUD_OPENAI_SOURCE=enabled`` with an empty ``OPENAI_API_KEY``
+        looks ready in .env but errors at the first request. Flipping
+        the source back to ``disabled`` keeps the rest of the stack
+        runnable; the user gets a clear warning telling them how to fix
+        it (paste a key in the wizard or set the env var directly).
+        """
+        from utils.cloud_providers import CLOUD_PROVIDERS
+        env_vars = self.config_parser.parse_env_file()
+        rewrites: Dict[str, str] = {}
+        for provider in CLOUD_PROVIDERS:
+            source_var = provider.source_var
+            key_var = provider.api_key_var
+            source = (env_vars.get(source_var, 'disabled') or '').strip().lower()
+            key = (env_vars.get(key_var, '') or '').strip()
+            if source == 'enabled' and not key:
+                print(
+                    f"⚠️  {source_var}=enabled but {key_var} is empty — "
+                    f"auto-disabled. Re-run ./start.sh and paste a key, "
+                    f"or set {key_var} in .env."
+                )
+                rewrites[source_var] = 'disabled'
+        if not rewrites:
+            return True
+        # Persist via the same in-place .env writer used elsewhere so
+        # subsequent reads (and downstream services) see the corrected
+        # value. Importing here keeps source_validator dependency-free
+        # for test contexts.
+        try:
+            from utils.source_override_manager import SourceOverrideManager
+            SourceOverrideManager(self.config_parser).update_env_file(rewrites)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            # A failed repair-pass write is not silently recoverable:
+            # subsequent ``validate_all_sources()`` would read stale
+            # .env and may pass against pre-rewrite values that no
+            # longer reflect intent. Surface the failure as a
+            # validation error and return False so the caller halts.
+            self.validation_errors.append(
+                f"❌ Could not persist cloud-provider auto-disable rewrite: {exc}. "
+                "Manually fix .env (paste keys or set CLOUD_*_SOURCE=disabled) and retry."
+            )
+            return False
 
     def _validate_litellm_has_upstream(self, service_sources: Dict[str, str]) -> bool:
         """At least one upstream — Ollama engine OR a cloud provider — must be

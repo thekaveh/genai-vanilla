@@ -17,13 +17,15 @@ Unlike traditional static configuration files, the GenAI Vanilla Stack uses dyna
 
 The configuration is generated at startup by `bootstrapper/utils/kong_config_generator.py`.
 
-`volumes/api/kong-dynamic.yml` is mounted by Docker Compose as Kong's declarative config. The checked-in version is a default fallback snapshot for direct `docker compose` use and is aligned with `.env.example` container defaults. `./start.sh` remains the canonical path for SOURCE-aware routing because it regenerates that file before launch.
+`volumes/api/kong-dynamic.yml` is **a generated runtime artifact, not a checked-in file**. It is `.gitignore`d, regenerated on every `./start.sh`, and reflects the resolved SOURCE state (containers, localhost, external) at that moment. Direct `docker compose up` from a clean checkout will fail because the bind mount target won't exist — always launch through `./start.sh`, which writes the file before invoking compose.
 
-Validate the fallback snapshot with:
+Validate the default-route **generator contract** (no `./start.sh` needed; the checker materialises a tmp dir with a copy of `.env.example`, runs `kong_config_generator` against it, and verifies the output. Your local `volumes/api/kong-dynamic.yml` is *not* read — its contents depend on your current `.env`, which makes it useless as a regression check):
 
 ```bash
-python docs/scripts/check-kong-routes.py
+uv run --project bootstrapper python docs/scripts/check-kong-routes.py
 ```
+
+Plain `python3 docs/scripts/check-kong-routes.py` works too if `PyYAML` is on your system Python — the checker prints `FAIL import: PyYAML is required to parse Kong config` and exits with status 2 otherwise. The `uv` form is preferred because it uses the project's pinned dependencies.
 
 ## Service Routing
 

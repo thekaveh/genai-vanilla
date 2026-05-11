@@ -23,6 +23,33 @@ from textual.binding import Binding
 _THEME_PATH = Path(__file__).parent / "theme.css"
 
 
+# Module-level sink for wizard-time diagnostic warnings (cloud /v1/models
+# fetch failures, etc.). The WizardScreen populates this with a thin
+# adapter around its ``_safe_log`` once the screen exists; the cloud
+# options_provider closures (built BEFORE the screen) read from it.
+# ``None`` until the screen wires it; closures must guard against that.
+_WIZARD_WARN_SINK = None
+
+
+def _set_wizard_warn_sink(fn) -> None:
+    """Called by WizardScreen.__init__ to register a logger callable
+    of shape ``(msg: str) -> None``. Idempotent; reset to None on
+    screen teardown.
+    """
+    global _WIZARD_WARN_SINK
+    _WIZARD_WARN_SINK = fn
+
+
+def _wizard_warn(msg: str) -> None:
+    fn = _WIZARD_WARN_SINK
+    if fn is None:
+        return
+    try:
+        fn(msg)
+    except Exception:
+        pass
+
+
 # ─── helpers ─────────────────────────────────────────────────────────
 
 _TAG_BY_KEY = {
@@ -30,7 +57,6 @@ _TAG_BY_KEY = {
     "redis": "INFRA", "kong": "INFRA", "kong_api_gateway": "INFRA",
     "litellm": "LLM", "litellm-init": "LLM",
     "llm_provider": "LLM", "ollama": "LLM",
-    "cloud_openai": "LLM", "cloud_anthropic": "LLM", "cloud_openrouter": "LLM",
     "open_webui": "TOOL", "open-webui": "TOOL",
     "comfyui": "ML", "stt_provider": "ML", "tts_provider": "ML",
     "backend": "ML", "doc_processor": "ML", "multi2vec_clip": "ML",
@@ -58,7 +84,6 @@ def _badges_for_option(opt: str, *, recommended: bool = False) -> list[str]:
     if "container-gpu" in s or s.endswith("-gpu"): badges.append("GPU")
     elif "container-cpu" in s or s.endswith("-cpu"): badges.append("CPU")
     if "localhost" in s: badges.append("local")
-    if s == "enabled": badges.append("on")
     if s == "external": badges.append("external")
     if s == "none": badges.append("cloud-only")
     if s == "disabled": badges.append("disabled")
@@ -120,7 +145,14 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     services_info = sorted(services_info, key=_svc_port_key)
 
     steps: list = []
-    total = len(services_info) + 4
+    # Inline step_total values below are illustrative only — Ollama and
+    # cloud sub-steps are spliced in dynamically below, so the count
+    # isn't knowable up-front. The screen recomputes ``step_total`` at
+    # display time from the final ``len(self._steps)`` (see
+    # WizardScreen._render_step / dataclasses.replace), and we
+    # rewrite each step's ``step_total`` once the list is complete
+    # below — so the inline values seeded here never reach the UI.
+    total = 0  # placeholder; rewritten below after the dynamic splice
 
     # Base port is asked FIRST so all subsequent service-port displays
     # reflect the chosen base port immediately.
@@ -136,6 +168,11 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         number_min=1024,
         number_max=65000,
     ))
+
+    # LLM cluster steps (Ollama variants + cloud secret/multiselect
+    # pairs) live in wizard/llm_steps.py; spliced in below right after
+    # the LLM Engine source step so the LLM section reads coherently.
+    from wizard.llm_steps import build_ollama_steps, build_cloud_steps
 
     for i, svc in enumerate(services_info):
         opts = [
@@ -154,7 +191,17 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             heading=f"How should {svc.display_name} run?",
             subtitle=svc.description or "",
             options=opts, default_value=default, service_name=svc.display_name,
+            service_key=svc.key,
         ))
+        # Splice the entire LLM cluster RIGHT AFTER the LLM Engine
+        # source step: Ollama variants, then cloud-provider key+model
+        # pairs. Keeps engine + local + cloud adjacent in the wizard
+        # flow instead of separating them with unrelated service-source
+        # steps. Each spliced sub-step has its own skip_if_prev gating.
+        if svc.display_name == "LLM Engine":
+            steps.extend(build_ollama_steps(env_vars, _wizard_warn))
+            steps.extend(build_cloud_steps(env_vars, _wizard_warn))
+
     steps.append(PromptStep(
         title="Cold start  ·  rebuild", step_index=len(services_info) + 2,
         step_total=total,
@@ -183,7 +230,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         default_value="default", service_name="",
     ))
     steps.append(PromptStep(
-        title="Confirm  ·  launch the stack", step_index=total, step_total=total,
+        title="Confirm  ·  launch the stack", step_index=0, step_total=0,
         heading="Launch the stack with this configuration?",
         subtitle="Last chance to back out — Yes will start docker compose.",
         options=[
@@ -194,7 +241,26 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         default_value="yes", service_name="",
     ))
 
+    # Second pass: now that every dynamically-spliced step is in place,
+    # stamp the final 1-based ``step_index`` and total ``step_total``
+    # so callers that read the seed values (e.g. one-off renders that
+    # bypass WizardScreen._render_step) see correct numbers.
+    total = len(steps)
+    from dataclasses import replace as _dc_replace
+    steps = [
+        _dc_replace(s, step_index=i + 1, step_total=total)
+        for i, s in enumerate(steps)
+    ]
+
     state = build_app_state(config_parser, hosts_manager, box_mode="wizard")
+    # Build the parallel CloudApiSummary list — same data the overview
+    # box renders, derived from .env via state_builder.all_cloud_apis().
+    from .widgets.info_box import CloudApiSummary as _CloudApiSummary
+    cloud_summaries = [
+        _CloudApiSummary(name=ca.name, enabled=ca.enabled, key_set=ca.key_set)
+        for ca in state.cloud_apis
+    ]
+
     # Kong's listener port — every Kong-routed alias URL uses this port
     # (virtual-host routing on a single listener), not the upstream
     # service's own port.
@@ -225,16 +291,120 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         )
         for s in sorted_services
     ]
-    return steps, rows, services_info, current_base_port, state
+    return steps, rows, services_info, current_base_port, state, cloud_summaries
 
 
-def _selections_to_args(selections: dict, services_info, current_base_port: int):
-    """Map wizard selections back to (source_args, stack_options)."""
+def _selections_to_args(
+    selections: dict,
+    services_info,
+    current_base_port: int,
+    env_vars: dict | None = None,
+):
+    """Map wizard selections back to (source_args, stack_options).
+
+    ``env_vars`` is the resolved .env snapshot at wizard-build time;
+    used to auto-promote SECRET_KEEP+disabled+key-already-set into
+    ``--cloud-X-source enabled`` so the multiselect picks aren't inert.
+    """
+    from .widgets.prompt_panel import SECRET_KEEP, SECRET_CLEAR
+    from utils.cloud_providers import CLOUD_PROVIDERS
+    from wizard.llm_steps import (
+        OLLAMA_CUSTOM_TITLE,
+        OLLAMA_MODELS_TITLE,
+        cloud_models_title,
+        cloud_secret_title,
+    )
+    env_vars = env_vars or {}
+
     source_args: dict = {}
     for svc in services_info:
         v = selections.get(f"{svc.display_name}  ·  source")
         if v is None: continue
         source_args[svc.key.replace("-", "_") + "_source"] = v
+
+    # ─── Cloud-provider selections ───────────────────────────────────
+    # Each provider has up to two wizard outputs:
+    #   • Secret step  → API key (or SECRET_KEEP / SECRET_CLEAR sentinel)
+    #   • Multiselect  → comma-separated active model names
+    #
+    # Single pass over the canonical (name, source_var, api_key_var)
+    # tuple lets us keep the per-provider decisions adjacent: the
+    # secret step's enable/disable and the multiselect's
+    # "0 selected → disable" override are reconciled below before we
+    # move on to the next provider.
+    cloud_api_keys: dict = {}
+    cloud_user_models: dict = {}
+    for provider in CLOUD_PROVIDERS:
+        name, source_var, api_key_var = provider.name, provider.source_var, provider.api_key_var
+        cli_arg = source_var.lower()       # CLOUD_OPENAI_SOURCE → cloud_openai_source
+        models_var = f"{name.upper()}_USER_MODELS"
+
+        secret_v = selections.get(cloud_secret_title(name))
+        # Secret-step intent.
+        #   None              → step never visited; leave .env as-is.
+        #   SECRET_KEEP       → user pressed Enter past existing key.
+        #                       Auto-promote source to ``enabled`` IF the
+        #                       .env source was disabled but a key is
+        #                       already present — matches the wizard's
+        #                       skip predicate, which only forwards to
+        #                       the multiselect when it intends to enable.
+        #                       Otherwise leave alone.
+        #   SECRET_CLEAR / "" → disable + wipe key + wipe models.
+        #   real key string   → enable + persist key.
+        if secret_v is None:
+            pass
+        elif secret_v == SECRET_KEEP:
+            existing_source = (env_vars.get(source_var, 'disabled') or '').strip().lower()
+            existing_key = (env_vars.get(api_key_var, '') or '').strip()
+            if existing_source != 'enabled' and existing_key:
+                # Auto-promote: user proceeded past a disabled-with-key
+                # provider, the multiselect rendered → they want it on.
+                source_args[cli_arg] = "enabled"
+        elif secret_v == SECRET_CLEAR or secret_v == "":
+            # User cleared the key → disable provider, wipe key, and
+            # empty the model list so .env doesn't accumulate stale
+            # CSV that's now functionally inert.
+            source_args[cli_arg] = "disabled"
+            cloud_api_keys[api_key_var] = ""
+            cloud_user_models[models_var] = ""
+        else:
+            source_args[cli_arg] = "enabled"
+            cloud_api_keys[api_key_var] = secret_v
+
+        # Multiselect intent (renders only when the provider is
+        # enabled — otherwise skip_if_prev hides the step).
+        models_v = selections.get(cloud_models_title(name))
+        if models_v is None:
+            continue
+        cloud_user_models[models_var] = models_v
+        # Explicit "0 selected" → user walked through the list and
+        # unchecked everything. Treat as "I don't want this provider":
+        # disable the source AND wipe the key for symmetry with
+        # SECRET_CLEAR (otherwise .env would keep a stale key for a
+        # disabled provider, which is misleading).
+        if models_v.strip() == "":
+            source_args[cli_arg] = "disabled"
+            cloud_api_keys[api_key_var] = ""
+
+    # Single unified Ollama models step (replaces the previous
+    # pulled+library split). Container modes show library only;
+    # localhost/external show a merged [pulled]/[library] list. The
+    # CSV is already the user's final selection — no union needed.
+    ollama_user_models: dict = {}
+    models_v = selections.get(OLLAMA_MODELS_TITLE)
+    if models_v is not None:
+        names = sorted({n.strip() for n in models_v.split(",") if n.strip()})
+        ollama_user_models["OLLAMA_USER_MODELS"] = ",".join(names)
+    # Free-text custom models — honor SECRET_KEEP/SECRET_CLEAR
+    # sentinels so an empty Enter on a re-run doesn't silently wipe
+    # an existing OLLAMA_CUSTOM_MODELS value.
+    custom = selections.get(OLLAMA_CUSTOM_TITLE)
+    if custom is not None and custom != SECRET_KEEP:
+        if custom == SECRET_CLEAR:
+            ollama_user_models["OLLAMA_CUSTOM_MODELS"] = ""
+        else:
+            ollama_user_models["OLLAMA_CUSTOM_MODELS"] = custom
+
     bp = selections.get("Base port  ·  range")
     try:
         base_port_val = int(bp) if bp else current_base_port
@@ -247,6 +417,9 @@ def _selections_to_args(selections: dict, services_info, current_base_port: int)
         "base_port": base_port_val, "cold": cold,
         "setup_hosts": (hosts == "setup"), "skip_hosts": (hosts == "skip"),
         "launch_confirmed": launch,
+        "cloud_api_keys": cloud_api_keys,
+        "cloud_user_models": cloud_user_models,
+        "ollama_user_models": ollama_user_models,
     }
 
 
@@ -260,8 +433,8 @@ def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
     from .widgets import BrandInfo
     from .screens.wizard_screen import WizardScreen
 
-    steps, rows, services_info, current_base_port, state = _build_steps_and_rows(
-        config_parser, hosts_manager,
+    steps, rows, services_info, current_base_port, state, cloud_summaries = (
+        _build_steps_and_rows(config_parser, hosts_manager)
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "GenAI Vanilla",
@@ -275,8 +448,14 @@ def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
 
     state_holder = {"interrupted": False, "exit_code": 0}
 
+    # Snapshot env vars at wizard-build time so the cloud auto-promotion
+    # logic in _selections_to_args has the .env state to compare against.
+    _env_snapshot = config_parser.parse_env_file()
+
     def _resolve(selections: dict) -> tuple[dict, dict]:
-        return _selections_to_args(selections, services_info, current_base_port)
+        return _selections_to_args(
+            selections, services_info, current_base_port, _env_snapshot,
+        )
 
     # Single source of truth for "what port should this service show
     # given its current source": delegates to state_builder.resolve_port
@@ -342,6 +521,7 @@ def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
                 stack_options_resolver=_resolve,
                 on_base_port_change=_recompute_ports,
                 resolve_port_for_service=_resolve_port_for_service,
+                cloud_apis=cloud_summaries,
             ))
 
         def action_interrupt(self) -> None:
@@ -375,8 +555,8 @@ def run_launch_flow(
     from core.port_manager import PortManager
     from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port
 
-    _, rows, services_info, current_base_port, state = _build_steps_and_rows(
-        config_parser, hosts_manager,
+    _, rows, services_info, current_base_port, state, cloud_summaries = (
+        _build_steps_and_rows(config_parser, hosts_manager)
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "GenAI Vanilla",
@@ -489,6 +669,7 @@ def run_launch_flow(
                 starter=starter,
                 on_base_port_change=_recompute_ports,
                 resolve_port_for_service=_resolve_port_for_service,
+                cloud_apis=cloud_summaries,
                 auto_launch=True,
                 prefilled_source_args=dict(source_args),
                 prefilled_stack_options=dict(stack_options,

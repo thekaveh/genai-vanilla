@@ -163,24 +163,21 @@ class ServiceConfig:
         return env_vars
 
     def _generate_cloud_providers_config(self) -> Dict[str, str]:
-        """Generate cloud-provider toggle env vars consumed by LiteLLM's config
-        template. Each cloud_* SOURCE is a binary enabled/disabled selector.
+        """Generate cloud-provider toggle env vars consumed by
+        ``llm-catalog-init`` (which gates the active rows it writes
+        per-provider). Each cloud_* SOURCE is a binary enabled/disabled
+        selector. Tuple list lives in utils/cloud_providers.py.
         """
+        from utils.cloud_providers import CLOUD_PROVIDERS
+
         env_vars: Dict[str, str] = {}
-
-        provider_to_flag = {
-            'CLOUD_OPENAI_SOURCE': 'LITELLM_OPENAI_ENABLED',
-            'CLOUD_ANTHROPIC_SOURCE': 'LITELLM_ANTHROPIC_ENABLED',
-            'CLOUD_OPENROUTER_SOURCE': 'LITELLM_OPENROUTER_ENABLED',
-        }
-
         enabled_providers = []
-        for source_var, flag_var in provider_to_flag.items():
-            source_value = self.service_sources.get(source_var, 'disabled')
+        for provider in CLOUD_PROVIDERS:
+            source_value = self.service_sources.get(provider.source_var, 'disabled')
             is_enabled = source_value == 'enabled'
-            env_vars[flag_var] = 'true' if is_enabled else 'false'
+            env_vars[provider.enabled_flag_var] = 'true' if is_enabled else 'false'
             if is_enabled:
-                enabled_providers.append(source_var.removeprefix('CLOUD_').removesuffix('_SOURCE').lower())
+                enabled_providers.append(provider.key)
 
         env_vars['LITELLM_ENABLED_PROVIDERS'] = ','.join(enabled_providers)
         return env_vars
@@ -457,14 +454,17 @@ class ServiceConfig:
             weaviate_config = self.get_service_config('weaviate', weaviate_source)
             env_vars['WEAVIATE_INIT_SCALE'] = str(weaviate_config.get('scale', 1))
         
-        # OLLAMA_PULL_SCALE: 1 unless LLM engine has no Ollama upstream (none).
-        # The pull container bypasses LiteLLM and hits Ollama's /api/pull directly,
-        # so it only runs when an Ollama upstream is actually present.
+        # OLLAMA_PULL_SCALE: 1 only for in-stack ollama-container-* sources.
+        # Host-side Ollama (ollama-localhost / ollama-external) is not
+        # pull-controllable from the stack — sending /api/pull at the
+        # user's host Ollama would surprise them and is what
+        # llm-catalog-init's apply_ollama_selection refuses to register
+        # custom rows for. Source=none has no upstream at all.
         llm_source = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
-        if llm_source == 'none':
-            env_vars['OLLAMA_PULL_SCALE'] = '0'
-        else:
+        if llm_source.startswith('ollama-container-'):
             env_vars['OLLAMA_PULL_SCALE'] = '1'
+        else:
+            env_vars['OLLAMA_PULL_SCALE'] = '0'
             
         # COMFYUI_INIT_SCALE: 1 unless ComfyUI is disabled (init handles both local and container)
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')

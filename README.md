@@ -57,7 +57,9 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 ./start.sh --n8n-source disabled --searxng-source disabled --weaviate-source disabled
 
 # Cloud-only LLMs (no local Ollama; LiteLLM gateway routes to cloud providers)
-./start.sh --llm-provider-source none --cloud-openai-source enabled --comfyui-source disabled
+# The bootstrapper auto-disables a cloud provider whose API key is empty,
+# so pass --openai-api-key on the command line OR set OPENAI_API_KEY in .env first.
+./start.sh --llm-provider-source none --cloud-openai-source enabled --openai-api-key sk-... --comfyui-source disabled
 ```
 
 ### Troubleshooting
@@ -72,11 +74,13 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 Running `./start.sh` with no arguments launches an interactive setup wizard that walks through configuring every service step by step:
 
 - Step-by-step service configuration with descriptions and contextual hints (GPU requirements, localhost options, etc.)
-- Live progress bar tracking your progress through all configuration steps
+- LLM cluster spliced immediately after the LLM Engine step: single unified Ollama models multiselect (source-aware — localhost/external rows are badged `[pulled]` / `[library]`) + a free-text "additional models to pull" step → OpenAI / Anthropic / OpenRouter key + multiselect pairs (live `/v1/models` fetch), keeping engine + local + cloud adjacent in the wizard flow
+- Live `ollama.com/library` scrape (a few hundred entries; exact count depends on the upstream catalog at fetch time) for both container and host-side Ollama sources
 - Real-time command preview showing the equivalent CLI command as you make selections
 - Dependency validation that warns if you enable a service without its required dependencies
 - Pre-launch summary table with all endpoints and access URLs before starting
-- Keyboard shortcuts: `Escape` to restart from the beginning, `Ctrl+C` to quit
+- Color-coded streaming logs once the stack launches, with the full session (wizard warnings + launch phase) tee'd to `/tmp/genai-vanilla-launch-<YYYYMMDDTHHMMSS>.log`
+- Keyboard shortcuts: `Esc` returns to the previous step, `Space` toggles multiselect rows, `Ctrl+Q` quits
 
 The wizard covers all configurable services, base port selection, cold start option, and hosts file setup. After reviewing the configuration summary, confirm to launch the stack.
 
@@ -136,7 +140,7 @@ The SOURCE-based configuration system controls how each service is deployed.
 ### 2.2 Prerequisites
 
 - **Docker & Docker Compose** — container orchestration
-- **Python 3.9+** — for start/stop scripts
+- **Python 3.10+** — for start/stop scripts
 - **8GB+ RAM** allocated to Docker (12GB recommended)
 - **10GB+ disk space** for Docker volumes
 
@@ -249,7 +253,26 @@ The stack uses **SOURCE variables** to control how services are deployed.
 
 # Combined examples
 ./start.sh --cold --base-port 55666 --llm-provider-source ollama-localhost
+
+# Cloud provider keys + models (skip the wizard for cloud config)
+./start.sh \
+  --cloud-openai-source enabled --openai-api-key sk-... \
+  --openai-models "gpt-5,gpt-5-mini,text-embedding-3-large"
+
+# Multi-provider cloud setup
+./start.sh \
+  --cloud-openai-source enabled --openai-api-key sk-... --openai-models gpt-5 \
+  --cloud-anthropic-source enabled --anthropic-api-key sk-ant-... --anthropic-models "claude-opus-4-7,claude-sonnet-4-6" \
+  --cloud-openrouter-source enabled --openrouter-api-key sk-or-... --openrouter-models openrouter/auto
+
+# Ollama model selection (CLI parity with the wizard's multiselects)
+./start.sh \
+  --llm-provider-source ollama-container-cpu \
+  --ollama-models "qwen3.6:latest,nomic-embed-text" \
+  --ollama-custom-models "mistral:7b,phi4:latest"
 ```
+
+`*_USER_MODELS` env vars persist across runs, so you only need to pass the model flags once unless you want to change the active set. Cloud-provider key/source flags also imply `--cloud-X-source enabled` when paired with `--X-api-key`.
 
 #### Stop script options
 

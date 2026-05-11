@@ -51,75 +51,15 @@ class GenAIStackStarter:
     def show_banner(self):
         """Display the startup banner."""
         self.banner.show_banner()
-        
-    def show_usage(self):
-        """Display usage information."""
-        usage_text = """
-Usage: python start.py [options]
 
-Options:
-  --base-port PORT       Set base port for all services (default: 63000)
-  --cold                 Perform cold start with cleanup
-  --setup-hosts          Setup hosts file entries (requires admin/sudo)
-  --skip-hosts           Skip hosts file checks and setup
-  --help                 Show this help message
+    # Note: a hand-written ``show_usage()`` used to live here. Removed
+    # because Click's auto-generated ``--help`` already lists every flag
+    # (defined just above ``def main(...)`` below); maintaining a second
+    # text was a steady source of drift — it lagged the cloud-provider
+    # and live-model flags, and listed an obsolete ``api`` value for
+    # ``--llm-provider-source`` that no longer exists. Click ``--help``
+    # is now the single source of truth.
 
-SOURCE Override Options:
-  --llm-provider-source VALUE   Override LLM provider source
-                                Values: ollama-container-cpu, ollama-container-gpu,
-                                       ollama-localhost, ollama-external, api, disabled
-
-  --comfyui-source VALUE        Override ComfyUI source  
-                                Values: container-cpu, container-gpu,
-                                       localhost, external, disabled
-
-  --weaviate-source VALUE       Override Weaviate vector database source
-                                Values: container, localhost, disabled
-
-  --n8n-source VALUE            Override N8N workflow automation source
-                                Values: container, disabled
-
-  --searxng-source VALUE        Override SearxNG privacy search source
-                                Values: container, disabled
-
-  --jupyterhub-source VALUE     Override JupyterHub data science IDE source
-                                Values: container, disabled
-
-  --stt-provider-source VALUE   Override STT provider source
-                                Values: parakeet-container-gpu, parakeet-localhost, disabled
-
-  --tts-provider-source VALUE   Override TTS provider source
-                                Values: xtts-container-gpu, xtts-localhost, disabled
-
-  --doc-processor-source VALUE  Override document processor source
-                                Values: docling-container-gpu, docling-localhost, disabled
-
-  --openclaw-source VALUE       Override OpenClaw AI agent source
-                                Values: container, localhost, disabled
-
-  --neo4j-graph-db-source VALUE Override Neo4j graph database source
-                                Values: container, localhost, disabled
-
-  --multi2vec-clip-source VALUE Override Multi2Vec CLIP embeddings source
-                                Values: container-cpu, container-gpu, disabled
-
-Examples:
-  python start.py                        # Start with defaults from .env
-  python start.py --base-port 55666      # Start with custom base port
-  python start.py --cold                 # Cold start with cleanup
-  python start.py --setup-hosts          # Setup hosts entries
-  python start.py --skip-hosts           # Skip hosts setup
-  
-  # Override SOURCE configurations:
-  python start.py --llm-provider-source ollama-localhost --comfyui-source localhost
-  python start.py --cold --base-port 55666 --llm-provider-source ollama-container-gpu
-  python start.py --weaviate-source localhost --n8n-source disabled
-
-Note: SOURCE overrides are temporary and only apply to the current session.
-      The next run without arguments will use values from .env file.
-"""
-        print(usage_text)
-        
     def ensure_dependencies_available(self) -> bool:
         """Ensure all required dependencies are available."""
         self.banner.show_section_header("Checking Dependencies", "🔍")
@@ -154,10 +94,10 @@ Note: SOURCE overrides are temporary and only apply to the current session.
     def apply_source_overrides(self, **kwargs) -> bool:
         """
         Apply SOURCE overrides from command-line arguments.
-        
+
         Args:
             **kwargs: Command-line SOURCE override arguments
-            
+
         Returns:
             bool: True if successful
         """
@@ -165,10 +105,65 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         if overrides:
             return self.source_override_manager.apply_overrides(overrides)
         return True
-        
+
+    def apply_cloud_api_keys(self, keys: Dict[str, str]) -> bool:
+        """
+        Persist cloud LLM provider API keys (OPENAI_API_KEY,
+        ANTHROPIC_API_KEY, OPENROUTER_API_KEY) into ``.env``.
+
+        Reuses the in-place .env writer the source-override manager
+        already employs, so format and comment lines are preserved.
+        Empty values are written verbatim — used to clear a key.
+
+        Args:
+            keys: Mapping of env-var name to value (e.g.
+                {'OPENAI_API_KEY': 'sk-...'}). Empty dict is a no-op.
+
+        Returns:
+            bool: True on success (or no-op).
+        """
+        if not keys:
+            return True
+        return self.source_override_manager.update_env_file(keys)
+
+    def apply_user_model_selections(self, selections: Dict[str, str]) -> bool:
+        """
+        Persist user-selected model lists (OPENAI_USER_MODELS,
+        ANTHROPIC_USER_MODELS, OPENROUTER_USER_MODELS, OLLAMA_USER_MODELS,
+        OLLAMA_CUSTOM_MODELS) into ``.env``.
+
+        Values are comma-separated model names. ``llm-catalog-init``
+        consumes them on the next ``docker compose up`` to set the
+        ``active`` flag on the corresponding rows in ``public.llms``.
+
+        Args:
+            selections: Mapping of env-var name to comma-separated
+                model names. Empty dict is a no-op.
+
+        Returns:
+            bool: True on success (or no-op).
+        """
+        if not selections:
+            return True
+        return self.source_override_manager.update_env_file(selections)
+
     def validate_source_configurations(self) -> bool:
-        """Validate all SOURCE configurations and scale values against YAML."""
-        # Silent on success — errors are shown immediately
+        """Validate all SOURCE configurations and scale values against YAML.
+
+        Calls the validator's repair pass first (auto-disables cloud
+        providers with missing keys, etc.), then runs the read-only
+        validation. Splitting the two lets pure-tooling callers
+        (linters, CI dry-runs) run validation alone without mutating
+        .env — see SourceValidator.enforce_runtime_invariants.
+        """
+        # Repair pass — mutates .env when necessary. A failed write
+        # (disk full, permissions, etc.) is not silently recoverable:
+        # halt before the read-only validate pass, which would
+        # otherwise see stale .env.
+        if not self.source_validator.enforce_runtime_invariants():
+            self.source_validator.print_validation_results()
+            return False
+        # Read-only validation pass.
         sources_valid = self.source_validator.validate_all_sources()
         if not sources_valid:
             self.source_validator.print_validation_results()
@@ -443,15 +438,23 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         return self.service_config.generate_and_update_env()
     
     def generate_litellm_configuration(self) -> bool:
-        """Render the LiteLLM proxy config to volumes/litellm/config.yaml.
+        """Write a STUB volumes/litellm/config.yaml so the bind mount has
+        a file to attach to. The real model_list is rendered by
+        ``litellm-init`` from public.llms on every ``docker compose up``.
 
-        Idempotent — preserves user edits unless the file is missing.
+        ``force=True`` here, but the writer is NOT unconditionally
+        destructive — ``LiteLLMConfigGenerator.write_config`` checks
+        for the litellm-init sentinel header + non-empty model_list
+        and preserves that file even with force=True. This protects
+        the previous run's real config across re-runs that haven't
+        yet completed a docker compose up. Stub / corrupt / missing
+        files DO get overwritten. See ``_is_litellm_init_managed``.
         """
         try:
             from utils.litellm_config_generator import LiteLLMConfigGenerator
             generator = LiteLLMConfigGenerator(self.config_parser)
             config_path = self.root_dir / "volumes/litellm/config.yaml"
-            generator.write_config(config_path, force=False)
+            generator.write_config(config_path, force=True)
             return True
         except Exception as e:
             self.banner.show_status_message(f"Failed to generate LiteLLM configuration: {e}", "error")
@@ -681,7 +684,7 @@ Note: SOURCE overrides are temporary and only apply to the current session.
         from rich.table import Table
         from rich.text import Text
         from rich.box import HEAVY_HEAD
-        from ui.state_builder import all_services, alias_for
+        from ui.state_builder import all_services, all_cloud_apis, alias_for, cloud_api_status_text
 
         env_vars = self.config_parser.parse_env_file()
         service_sources = self.config_parser.parse_service_sources()
@@ -768,26 +771,54 @@ Note: SOURCE overrides are temporary and only apply to the current session.
                 Text(status_text, style=status_style),
             )
 
-        return table
+        # Cloud APIs panel — renders below the services table. Cloud
+        # providers don't run as containers (scale: 0) so they don't
+        # belong as rows in the services grid; this keeps them visible
+        # without misleading the user about what's getting started.
+        from rich.console import Group
+        from rich.panel import Panel
+        cloud_lines = []
+        for name, source_var, api_key_var in all_cloud_apis():
+            source = (
+                service_sources.get(source_var, env_vars.get(source_var, 'disabled'))
+                or ''
+            ).strip().lower()
+            key_set = bool((env_vars.get(api_key_var, '') or '').strip())
+            enabled = source == 'enabled'
+            line = Text()
+            line.append(f"  {name:<11}", style="bright_white")
+            # Status string is shared with the Textual CloudApisRow via
+            # state_builder.cloud_api_status_text — only the Rich style
+            # is local to this renderer.
+            if enabled and key_set:
+                style = "bright_green"
+            elif enabled and not key_set:
+                style = "bright_yellow"
+            else:
+                style = "color(243)"
+            line.append(cloud_api_status_text(enabled, key_set), style=style)
+            cloud_lines.append(line)
+        cloud_panel = Panel(
+            Group(*cloud_lines) if cloud_lines else Text("(none)", style="color(243)"),
+            title="[bold bright_white]Cloud APIs[/bold bright_white]  "
+                  "[color(243)](LiteLLM-routed, no containers)[/color(243)]",
+            border_style="color(240)",
+            padding=(0, 1),
+            expand=True,
+        )
+        return Group(table, cloud_panel)
 
     @staticmethod
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
-        """Extract the actual localhost port from the service's endpoint env var."""
+        """Extract the actual localhost port from the service's endpoint env var.
+
+        The display-name → endpoint-env-var mapping lives in
+        ``utils.endpoint_vars`` so the wizard's state builder and this
+        legacy linear-flow renderer can't drift apart.
+        """
         import re
-        # Map service display names to their endpoint env variables.
-        # Mirror of state_builder._LOCALHOST_ENDPOINT_VARS — keep them in sync.
-        endpoint_vars = {
-            'LiteLLM': 'LITELLM_BASE_URL',
-            'LLM Engine': 'LITELLM_OLLAMA_UPSTREAM',
-            'ComfyUI': 'COMFYUI_ENDPOINT',
-            'Weaviate': 'WEAVIATE_URL',
-            'Neo4j Graph DB': 'NEO4J_URI',
-            'STT Provider': 'PARAKEET_ENDPOINT',
-            'TTS Provider': 'XTTS_ENDPOINT',
-            'Document Processor': 'DOCLING_ENDPOINT',
-            'OpenClaw': 'OPENCLAW_ENDPOINT',
-        }
-        var = endpoint_vars.get(service_name)
+        from utils.endpoint_vars import LOCALHOST_ENDPOINT_VARS
+        var = LOCALHOST_ENDPOINT_VARS.get(service_name)
         if var:
             endpoint = env_vars.get(var, '')
             match = re.search(r':(\d+)', endpoint)
@@ -935,6 +966,28 @@ Note: SOURCE overrides are temporary and only apply to the current session.
 @click.option('--cloud-openrouter-source',
               type=click.Choice(['enabled', 'disabled'], case_sensitive=False),
               help='Enable/disable the OpenRouter cloud provider in LiteLLM (requires OPENROUTER_API_KEY).')
+@click.option('--openai-api-key', type=str, default=None,
+              help='OpenAI API key (sk-...). Persists to .env as OPENAI_API_KEY and '
+                   'implies --cloud-openai-source=enabled.')
+@click.option('--anthropic-api-key', type=str, default=None,
+              help='Anthropic API key (sk-ant-...). Persists to .env as ANTHROPIC_API_KEY '
+                   'and implies --cloud-anthropic-source=enabled.')
+@click.option('--openrouter-api-key', type=str, default=None,
+              help='OpenRouter API key (sk-or-...). Persists to .env as OPENROUTER_API_KEY '
+                   'and implies --cloud-openrouter-source=enabled.')
+@click.option('--openai-models', type=str, default=None,
+              help='Comma-separated OpenAI model names to activate (e.g. "gpt-5,gpt-5-mini,o3"). '
+                   'Persists to .env as OPENAI_USER_MODELS; llm-catalog-init activates these in public.llms.')
+@click.option('--anthropic-models', type=str, default=None,
+              help='Comma-separated Anthropic model names to activate. Persists as ANTHROPIC_USER_MODELS.')
+@click.option('--openrouter-models', type=str, default=None,
+              help='Comma-separated OpenRouter model names to activate. Persists as OPENROUTER_USER_MODELS.')
+@click.option('--ollama-models', type=str, default=None,
+              help='Comma-separated Ollama model names to activate from the curated catalog. '
+                   'Persists as OLLAMA_USER_MODELS.')
+@click.option('--ollama-custom-models', type=str, default=None,
+              help='Comma-separated extra Ollama model names to pull (not in catalog). '
+                   'Persists as OLLAMA_CUSTOM_MODELS; ollama-pull fetches them at startup.')
 @click.option('--comfyui-source', 
               type=click.Choice(['container-cpu', 'container-gpu', 'localhost', 
                                 'external', 'disabled'], case_sensitive=False),
@@ -975,26 +1028,90 @@ Note: SOURCE overrides are temporary and only apply to the current session.
               type=click.Choice(['container-cpu', 'container-gpu',
                                 'disabled'], case_sensitive=False),
               help='Override MULTI2VEC_CLIP_SOURCE')
-@click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 @click.option('--no-tui', is_flag=True,
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
                    'debugging, and terminals that don\'t support the alternate screen buffer.')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
+         openai_api_key, anthropic_api_key, openrouter_api_key,
+         openai_models, anthropic_models, openrouter_models,
+         ollama_models, ollama_custom_models,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, neo4j_graph_db_source,
-         multi2vec_clip_source, help_usage, no_tui):
+         multi2vec_clip_source, no_tui):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
-    
+
     starter = GenAIStackStarter()
-    
-    if help_usage:
-        starter.show_usage()
-        return
-    
+
     try:
+        # Cloud LLM provider keys passed via CLI flags. Persisting to
+        # .env happens later, alongside source overrides — gathered
+        # here so the implied --cloud-*-source toggles are applied
+        # together with the explicit ones.
+        cloud_api_keys: Dict[str, str] = {}
+        if openai_api_key is not None:
+            cloud_api_keys['OPENAI_API_KEY'] = openai_api_key
+            if cloud_openai_source is None:
+                cloud_openai_source = 'enabled'
+        if anthropic_api_key is not None:
+            cloud_api_keys['ANTHROPIC_API_KEY'] = anthropic_api_key
+            if cloud_anthropic_source is None:
+                cloud_anthropic_source = 'enabled'
+        if openrouter_api_key is not None:
+            cloud_api_keys['OPENROUTER_API_KEY'] = openrouter_api_key
+            if cloud_openrouter_source is None:
+                cloud_openrouter_source = 'enabled'
+
+        # User-selected model lists from CLI flags. llm-catalog-init
+        # consumes these on the next docker compose up to activate the
+        # matching public.llms rows.
+        user_model_selections: Dict[str, str] = {}
+        if openai_models is not None:
+            user_model_selections['OPENAI_USER_MODELS'] = openai_models
+        if anthropic_models is not None:
+            user_model_selections['ANTHROPIC_USER_MODELS'] = anthropic_models
+        if openrouter_models is not None:
+            user_model_selections['OPENROUTER_USER_MODELS'] = openrouter_models
+        if ollama_models is not None:
+            user_model_selections['OLLAMA_USER_MODELS'] = ollama_models
+        if ollama_custom_models is not None:
+            user_model_selections['OLLAMA_CUSTOM_MODELS'] = ollama_custom_models
+
+        # Warn on cloud --*-models flags passed WITHOUT enabling the
+        # provider. llm-catalog-init deactivates every row of a disabled
+        # provider, so the persisted CSV would be inert. Surface this to
+        # the user instead of silently no-op'ing. The matching key flag
+        # implies enabling above; a bare --openai-models is the case to
+        # warn on. We check the .env-resolved source too — the user may
+        # have already set CLOUD_OPENAI_SOURCE=enabled in .env without
+        # passing --cloud-openai-source on this invocation.
+        try:
+            _existing_env = starter.config_parser.parse_env_file()
+        except Exception:  # noqa: BLE001
+            _existing_env = {}
+        for _models_flag, _source_kwarg, _source_var in (
+            (openai_models,     cloud_openai_source,     'CLOUD_OPENAI_SOURCE'),
+            (anthropic_models,  cloud_anthropic_source,  'CLOUD_ANTHROPIC_SOURCE'),
+            (openrouter_models, cloud_openrouter_source, 'CLOUD_OPENROUTER_SOURCE'),
+        ):
+            if _models_flag is None:
+                continue
+            _effective = (_source_kwarg
+                          or _existing_env.get(_source_var, 'disabled')
+                          or '').strip().lower()
+            if _effective != 'enabled':
+                _provider = _source_var.removeprefix('CLOUD_').removesuffix('_SOURCE').lower()
+                print(
+                    f"⚠️  --{_provider}-models was set but {_source_var}={_effective} — "
+                    f"llm-catalog-init will deactivate every {_provider} row, so the "
+                    f"persisted list won't take effect. Pass --{_provider}-api-key, "
+                    f"--cloud-{_provider}-source=enabled, or set {_source_var}=enabled "
+                    f"in .env.",
+                    file=sys.stderr,
+                )
+
         # Step 1.6: Apply SOURCE overrides from CLI arguments
         source_args = {
             'llm_provider_source': llm_provider_source,
@@ -1022,11 +1139,21 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 starter.banner.console.print("  [bright_white]Please restart with:[/bright_white] [bright_cyan]sudo ./start.sh --setup-hosts[/bright_cyan]")
                 sys.exit(1)
 
-        # Determine if wizard mode — only when NO flags are provided at all
+        # Determine if wizard mode — only when NO flags are provided at all.
+        # Both the model-list flags (--openai-models / --ollama-models / etc.)
+        # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
+        # intent": presence of either means the user is configuring via CLI
+        # and the wizard would silently overwrite their input.
         wizard_ran = False
         no_source_flags = all(v is None for v in source_args.values())
-        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts and not help_usage)
-        will_run_wizard = no_source_flags and no_stack_flags and sys.stdin.isatty()
+        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
+        no_model_flags = not user_model_selections
+        no_key_flags = not cloud_api_keys
+        will_run_wizard = (
+            no_source_flags and no_stack_flags
+            and no_model_flags and no_key_flags
+            and sys.stdin.isatty()
+        )
 
         # Check dependencies early — silently in wizard mode (wizard clears screen)
         if not will_run_wizard:
@@ -1079,6 +1206,23 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     "setup_hosts": setup_hosts,
                     "skip_hosts": skip_hosts,
                     "launch_confirmed": True,
+                    # Forward any CLI-supplied cloud API keys into the
+                    # launch pipeline; the wizard pipeline writes them
+                    # to .env via SourceOverrideManager.update_env_file.
+                    "cloud_api_keys": cloud_api_keys,
+                    # Forward any CLI-supplied user model selections
+                    # (X_USER_MODELS / OLLAMA_CUSTOM_MODELS). Same path
+                    # as the wizard's multiselect output — keys live
+                    # in cloud_user_models/ollama_user_models split,
+                    # but they all flow through apply_user_model_selections.
+                    "cloud_user_models": {
+                        k: v for k, v in user_model_selections.items()
+                        if k.endswith("_USER_MODELS") and not k.startswith("OLLAMA_")
+                    },
+                    "ollama_user_models": {
+                        k: v for k, v in user_model_selections.items()
+                        if k.startswith("OLLAMA_")
+                    },
                 }
                 rc = run_launch_flow(
                     starter.config_parser, starter.hosts_manager,
@@ -1099,7 +1243,17 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
 
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
-        
+
+        # Persist any CLI-supplied cloud API keys to .env. No-op when
+        # the dict is empty.
+        if not starter.apply_cloud_api_keys(cloud_api_keys):
+            sys.exit(1)
+
+        # Persist any CLI-supplied user model selections to .env.
+        # llm-catalog-init reads these on the next docker compose up.
+        if not starter.apply_user_model_selections(user_model_selections):
+            sys.exit(1)
+
         # Step 1.7: Cold start cleanup if requested (before port check).
         # TUI-capable runs exit before reaching this point; the Textual
         # wizard handles cold cleanup inline. This branch only fires for
@@ -1127,7 +1281,9 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not starter.generate_kong_configuration():
             sys.exit(1)
 
-        # Step 4.55: Generate LiteLLM proxy config (preserves user edits)
+        # Step 4.55: Write LiteLLM stub config.yaml so the bind mount has
+        # a file. The real model_list is rendered later by litellm-init
+        # from public.llms — see litellm-init/scripts/init.py.
         if not starter.generate_litellm_configuration():
             sys.exit(1)
 
