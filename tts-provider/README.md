@@ -43,12 +43,13 @@ Chatterbox (voice cloning, GPU required):
 ./start.sh --tts-provider-source chatterbox-container-gpu
 ```
 
-Chatterbox on host (macOS native):
+Chatterbox on host (macOS native via MPS / Linux):
 
 ```bash
-# Terminal 1
-pip install chatterbox-tts-api
-chatterbox-tts-api --host 0.0.0.0 --port 63023
+# Terminal 1 — install from git (no PyPI package):
+git clone https://github.com/travisvn/chatterbox-tts-api
+cd chatterbox-tts-api && uv sync
+PORT=63027 uv run main.py
 
 # Terminal 2
 ./start.sh --tts-provider-source chatterbox-localhost
@@ -67,8 +68,8 @@ the chosen source:
 
 - `AUDIO_TTS_ENGINE=openai`
 - `AUDIO_TTS_OPENAI_API_BASE_URL=${TTS_ENDPOINT}/v1`
-- `AUDIO_TTS_MODEL=hexgrad/Kokoro-82M` (Speaches) or `ResembleAI/chatterbox` (Chatterbox)
-- `AUDIO_TTS_VOICE=af_heart` or `default`
+- `AUDIO_TTS_MODEL=hexgrad/Kokoro-82M` (Speaches) or `chatterbox-tts-1` (Chatterbox)
+- `AUDIO_TTS_VOICE=af_heart` or `alloy`
 
 You can override the model / voice in the Open WebUI admin panel after
 startup — Audio settings.

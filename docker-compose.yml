@@ -814,7 +814,7 @@ services:
     volumes:
       - stt-provider-gpu-cache:/root/.cache/huggingface
     ports:
-      - "${STT_PROVIDER_PORT:-10300}:8000"
+      - "${STT_PROVIDER_PORT:-63022}:8000"
     networks:
       - backend-network
     healthcheck:
@@ -854,20 +854,26 @@ services:
     deploy:
       replicas: ${SPEACHES_SCALE:-0}
     environment:
-      # First-request lazy-load picks these up. Defaults match the env vars
-      # the bootstrapper writes; users can override in .env.
-      DEFAULT_TTS_MODEL: ${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M}
-      DEFAULT_STT_MODEL: ${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}
+      # Speaches lazy-loads models on the first /v1/audio/* request (the
+      # docs/.env.example just guide Open WebUI's AUDIO_TTS_MODEL default).
+      # PRELOAD_MODELS pre-downloads the named models at server startup,
+      # so the first request doesn't pay the cold-start latency — handy
+      # for fresh installs where the user does a curl test right after up.
+      PRELOAD_MODELS: ${SPEACHES_PRELOAD_MODELS:-${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M},${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}}
       HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
       NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
     volumes:
       - speaches-cache:/home/ubuntu/.cache/huggingface
     ports:
-      - "${SPEACHES_PORT:-10326}:8000"
+      - "${SPEACHES_PORT:-63026}:8000"
     networks:
       - backend-network
+    # Healthcheck mirrors upstream's own compose.yaml — Speaches ships
+    # curl and serves /health that returns 200 as soon as Uvicorn is up
+    # (lazy-load means models don't need to be ready). Verified against
+    # speaches-ai/speaches @ 0.9.0-rc.3.
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || curl -f http://localhost:8000/v1/models || exit 1"]
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -887,7 +893,12 @@ services:
     profiles:
       - chatterbox-gpu
       - tts-gpu
-    image: ${CHATTERBOX_IMAGE:-travisvn/chatterbox-tts-api:latest}
+    # NOTE: travisvn/chatterbox-tts-api publishes a `gpu` tag for the
+    # CUDA build (and `cpu` / `latest-cpu` for CPU). There's no
+    # version-locked GPU tag yet (as of 2026-05) — `gpu` is rolling.
+    # Pin to a digest in production: docker pull travisvn/chatterbox-tts-api:gpu
+    # then copy the digest into CHATTERBOX_IMAGE.
+    image: ${CHATTERBOX_IMAGE:-travisvn/chatterbox-tts-api:gpu}
     container_name: ${PROJECT_NAME}-chatterbox
     restart: unless-stopped
     runtime: nvidia
@@ -905,11 +916,13 @@ services:
     volumes:
       - chatterbox-cache:/root/.cache/huggingface
     ports:
-      - "${CHATTERBOX_PORT:-10327}:4123"
+      - "${CHATTERBOX_PORT:-63027}:4123"
     networks:
       - backend-network
+    # Chatterbox's docker/Dockerfile installs curl and exposes /health.
+    # Verified against travisvn/chatterbox-tts-api @ :gpu (2026-05).
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4123/health || curl -f http://localhost:4123/v1/models || exit 1"]
+      test: ["CMD", "curl", "--fail", "http://localhost:4123/health"]
       interval: 30s
       timeout: 10s
       retries: 5

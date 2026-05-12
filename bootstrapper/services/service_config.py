@@ -607,15 +607,20 @@ class ServiceConfig:
         stt_endpoint = parent_vars.get('STT_ENDPOINT', '')
         env_vars['OPEN_WEB_UI_STT_API_URL'] = f'{stt_endpoint}/v1' if stt_endpoint else ''
         # Open WebUI's default TTS model — depends on which engine is active.
+        # service_sources only carries ``*_SOURCE`` vars (see parse_service_sources),
+        # so we read the model knob directly from .env with a hard-coded fallback.
         if tts_source.startswith('speaches-container'):
-            env_vars['OPEN_WEB_UI_TTS_MODEL'] = self.service_sources.get(
-                'SPEACHES_TTS_MODEL',
-                self.config_parser.parse_env_file().get('SPEACHES_TTS_MODEL', 'hexgrad/Kokoro-82M'),
+            speaches_env = self.config_parser.parse_env_file()
+            env_vars['OPEN_WEB_UI_TTS_MODEL'] = speaches_env.get(
+                'SPEACHES_TTS_MODEL', 'hexgrad/Kokoro-82M'
             )
             env_vars['OPEN_WEB_UI_TTS_VOICE'] = 'af_heart'
         elif tts_source.startswith('chatterbox'):
-            env_vars['OPEN_WEB_UI_TTS_MODEL'] = 'ResembleAI/chatterbox'
-            env_vars['OPEN_WEB_UI_TTS_VOICE'] = 'default'
+            # Chatterbox's /v1/audio/speech accepts any model string; the
+            # server uses the loaded checkpoint regardless. "chatterbox-tts-1"
+            # is what its /v1/models endpoint advertises.
+            env_vars['OPEN_WEB_UI_TTS_MODEL'] = 'chatterbox-tts-1'
+            env_vars['OPEN_WEB_UI_TTS_VOICE'] = 'alloy'
         else:
             env_vars['OPEN_WEB_UI_TTS_MODEL'] = ''
             env_vars['OPEN_WEB_UI_TTS_VOICE'] = ''

@@ -63,9 +63,10 @@ Voice cloning via Chatterbox (NVIDIA):
 Voice cloning via Chatterbox (macOS native, MPS):
 
 ```bash
-# Terminal 1
-pip install chatterbox-tts-api
-chatterbox-tts-api --host 0.0.0.0 --port 63023
+# Terminal 1 — no PyPI package, install from git:
+git clone https://github.com/travisvn/chatterbox-tts-api
+cd chatterbox-tts-api && uv sync
+PORT=63027 uv run main.py
 
 # Terminal 2
 ./start.sh --tts-provider-source chatterbox-localhost
@@ -87,10 +88,10 @@ for the full Chatterbox-on-host walkthrough.
 | `SPEACHES_TTS_MODEL` | `hexgrad/Kokoro-82M` | HuggingFace repo of the active TTS model. |
 | `SPEACHES_PORT` | `63026` | Speaches container external port. |
 | `SPEACHES_SCALE` | (auto) | 1 when speaches is active. |
-| `CHATTERBOX_IMAGE` | `travisvn/chatterbox-tts-api:latest` | Unpinned — no stable tag yet. |
-| `CHATTERBOX_MODEL` | `ResembleAI/chatterbox` | HuggingFace repo. |
+| `CHATTERBOX_IMAGE` | `travisvn/chatterbox-tts-api:gpu` | GPU build tag. No version-locked GPU tag yet — pin to a digest for production. |
 | `CHATTERBOX_PORT` | `63027` | Chatterbox container external port. |
-| `CHATTERBOX_LOCALHOST_URL` | `http://host.docker.internal:63023` | URL the stack reaches your host's chatterbox-tts-api on. |
+| `CHATTERBOX_LOCALHOST_URL` | `http://host.docker.internal:63027` | URL the stack reaches your host's chatterbox-tts-api on (matches CHATTERBOX_PORT for symmetry). |
+| `SPEACHES_PRELOAD_MODELS` | (derived from SPEACHES_TTS_MODEL+SPEACHES_STT_MODEL) | Comma-separated list of HF model IDs Speaches downloads at startup. Skips the first-request cold-start. |
 
 ## OpenAI-compatible API
 
@@ -113,22 +114,33 @@ Kokoro voices include `af_heart`, `af_sky`, `am_adam`, `am_michael`,
 voices use the model id `rhasspy/piper-voices` with `voice` set to a Piper
 voice slug.
 
-Chatterbox:
+Chatterbox (registered/built-in voice — JSON):
 
 ```http
 POST http://chatterbox:4123/v1/audio/speech
 Content-Type: application/json
 
 {
-  "model": "ResembleAI/chatterbox",
+  "model": "chatterbox-tts-1",
   "input": "Hello world",
-  "voice": "default",
-  "reference_audio": "/path/to/sample.wav"
+  "voice": "alloy"
 }
 ```
 
-The `reference_audio` field is optional — pass a 5-second WAV to enable
-zero-shot voice cloning.
+Chatterbox voice cloning uses **multipart upload**, not a JSON
+`reference_audio` field. Either pre-register a voice via `POST /voices`
+and reference it by name, or inline-upload the reference WAV:
+
+```bash
+curl -X POST http://chatterbox:4123/v1/audio/speech \
+  -F "input=Hello in this voice." \
+  -F "model=chatterbox-tts-1" \
+  -F "voice_file=@/host/path/to/sample.wav" \
+  --output cloned.wav
+```
+
+See [tts-provider/localhost/README.md](../../tts-provider/localhost/README.md)
+for the full voice-library workflow.
 
 ## Open WebUI integration
 
@@ -138,8 +150,8 @@ on the source you picked:
 - `AUDIO_TTS_ENGINE=openai`
 - `AUDIO_TTS_OPENAI_API_BASE_URL=${TTS_ENDPOINT}/v1`
 - `AUDIO_TTS_OPENAI_API_KEY=sk-unused`
-- `AUDIO_TTS_MODEL` = `hexgrad/Kokoro-82M` (Speaches) or `ResembleAI/chatterbox`
-- `AUDIO_TTS_VOICE` = `af_heart` (Speaches) or `default` (Chatterbox)
+- `AUDIO_TTS_MODEL` = `hexgrad/Kokoro-82M` (Speaches) or `chatterbox-tts-1` (Chatterbox)
+- `AUDIO_TTS_VOICE` = `af_heart` (Speaches) or `alloy` (Chatterbox)
 
 Open WebUI admin → Settings → Audio lets you change voice / model
 post-startup; the env vars are just defaults.

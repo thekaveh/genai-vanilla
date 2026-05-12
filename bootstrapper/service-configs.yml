@@ -261,14 +261,13 @@ source_configurable:
   stt_provider:
     # Speaches CPU — one container exposes BOTH /v1/audio/transcriptions and
     # /v1/audio/speech (OpenAI-compatible). If TTS also picks speaches, the
-    # bootstrapper dedupes to a single running container.
+    # bootstrapper dedupes to a single running container. The compose service
+    # owns the real env wiring (PRELOAD_MODELS, HF_TOKEN, …) — only the
+    # bootstrapper-managed STT_ENDPOINT is set here.
     speaches-container-cpu:
       scale: 1
       environment:
         STT_ENDPOINT: "http://speaches:8000"
-        SPEACHES_TTS_MODEL: "${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M}"
-        SPEACHES_STT_MODEL: "${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}"
-        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
       deploy: {}
       extra_hosts: []
 
@@ -277,10 +276,6 @@ source_configurable:
       scale: 1
       environment:
         STT_ENDPOINT: "http://speaches:8000"
-        SPEACHES_TTS_MODEL: "${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M}"
-        SPEACHES_STT_MODEL: "${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}"
-        NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
-        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
       deploy:
         resources:
           reservations:
@@ -338,14 +333,12 @@ source_configurable:
   # TTS Provider Service
   tts_provider:
     # Speaches CPU — see stt_provider above for full detail. Same container
-    # serves /v1/audio/speech (Kokoro / Piper voices).
+    # serves /v1/audio/speech (Kokoro / Piper voices). Real env wiring is in
+    # compose (PRELOAD_MODELS et al.).
     speaches-container-cpu:
       scale: 1
       environment:
         TTS_ENDPOINT: "http://speaches:8000"
-        SPEACHES_TTS_MODEL: "${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M}"
-        SPEACHES_STT_MODEL: "${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}"
-        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
       deploy: {}
       extra_hosts: []
 
@@ -354,10 +347,6 @@ source_configurable:
       scale: 1
       environment:
         TTS_ENDPOINT: "http://speaches:8000"
-        SPEACHES_TTS_MODEL: "${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M}"
-        SPEACHES_STT_MODEL: "${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}"
-        NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
-        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
       deploy:
         resources:
           reservations:
@@ -367,15 +356,13 @@ source_configurable:
                 capabilities: [gpu]
       extra_hosts: []
 
-    # Chatterbox (Resemble AI) — MIT, 5-sec zero-shot voice cloning,
-    # OpenAI-compatible /v1/audio/speech. Spiritual XTTS successor.
+    # Chatterbox (Resemble AI) — MIT, voice-cloning, OpenAI-compatible
+    # /v1/audio/speech. Spiritual XTTS successor with permissive licensing.
+    # Real env wiring (DEVICE, USE_MULTILINGUAL_MODEL, …) lives in compose.
     chatterbox-container-gpu:
       scale: 1
       environment:
         TTS_ENDPOINT: "http://chatterbox:4123"
-        CHATTERBOX_MODEL: "${CHATTERBOX_MODEL:-ResembleAI/chatterbox}"
-        NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
-        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
       deploy:
         resources:
           reservations:
@@ -385,11 +372,13 @@ source_configurable:
                 capabilities: [gpu]
       extra_hosts: []
 
-    # Chatterbox natively on host (macOS MPS / Linux MPS or CPU)
+    # Chatterbox natively on host (macOS MPS / Linux MPS or CPU). Default
+    # port matches CHATTERBOX_PORT (container variant) for symmetry — only
+    # one of the two is ever running, so they share a port slot.
     chatterbox-localhost:
       scale: 0
       environment:
-        TTS_ENDPOINT: "${CHATTERBOX_LOCALHOST_URL:-http://host.docker.internal:63023}"
+        TTS_ENDPOINT: "${CHATTERBOX_LOCALHOST_URL:-http://host.docker.internal:63027}"
       deploy: {}
       extra_hosts:
         - "host.docker.internal:host-gateway"

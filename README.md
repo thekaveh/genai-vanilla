@@ -204,10 +204,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 | **Neo4j Browser** | http://localhost:63011 | — | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63016 | http://api.localhost:63002 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63012 | — | OpenAI-compatible LLM front door (Ollama + cloud) | `LITELLM_API_KEY` |
-| **STT Provider** | http://localhost:63022 | — | Speech-to-text (Speaches default; Parakeet, whisper.cpp also available) | None |
-| **TTS Provider** | http://localhost:63023 | — | Text-to-speech (Speaches default; Chatterbox for voice cloning) | None |
-| **Speaches (TTS+STT)** | http://localhost:63026 | — | Unified Kokoro/Piper TTS + Faster-Whisper STT in one container | None |
-| **Chatterbox TTS** | http://localhost:63027 | — | Voice-cloning TTS (only running when chatterbox-container-gpu) | None |
+| **Audio (TTS + STT)** | http://localhost:63026 | — | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper) on one port. Engine-specific overrides — Parakeet on `:63022`, Chatterbox on `:63027`, host-side variants on `*_LOCALHOST_URL`. See [docs/services/tts-provider.md](docs/services/tts-provider.md) and [docs/services/stt-provider.md](docs/services/stt-provider.md). | None |
 | **Docling Processor** | http://localhost:63021 | — | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63024 | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
 

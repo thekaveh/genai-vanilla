@@ -23,63 +23,101 @@ gives you Kokoro voices without any localhost setup, just zero voice cloning.
 
 ## Install
 
+Chatterbox-tts-api is NOT published to PyPI — install by cloning the repo.
+Python 3.10+ required.
+
 ```bash
-# Pick whichever Python tool you prefer; the examples use uv. Python 3.10+ required.
-pip install chatterbox-tts chatterbox-tts-api
+git clone https://github.com/travisvn/chatterbox-tts-api
+cd chatterbox-tts-api
+
+# Recommended (uv handles venv automatically):
+uv sync
+
+# Or with stock pip:
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-That installs:
-- `chatterbox-tts` — the model + inference library (PyTorch under the hood)
-- `chatterbox-tts-api` — an OpenAI-compatible HTTP server wrapper
-
-First start downloads the Chatterbox model from HuggingFace (~2 GB). Cached
-under `~/.cache/huggingface/` afterwards.
+The transitive `chatterbox-tts` dependency (Resemble AI's model library) is
+installed from a git source — first install can take a few minutes. Models
+download from HuggingFace on first /v1/audio/speech request (~2 GB total).
 
 ## Run the server
 
+The repo's `main.py` is the entry point. Default port is `4123`; override
+with the `PORT` env var.
+
 ```bash
-# Default port matches CHATTERBOX_LOCALHOST_URL in .env (63023).
-# Change it with --port if 63023 is taken; remember to update .env to match.
-chatterbox-tts-api --host 0.0.0.0 --port 63023
+# Bind on the port the genai-vanilla containers reach you on (63027
+# matches CHATTERBOX_LOCALHOST_URL / CHATTERBOX_PORT defaults).
+PORT=63027 uv run main.py
+# or, after `source .venv/bin/activate`:
+PORT=63027 python main.py
+# or directly via uvicorn:
+uvicorn app.main:app --host 0.0.0.0 --port 63027
 ```
 
-Then in another terminal, point the stack at it:
+Apple Silicon users get MPS automatically via Chatterbox's
+`DEVICE=auto`. Set `DEVICE=mps` explicitly if auto-detection fails, or
+`DEVICE=cpu` to force CPU.
+
+Then in another terminal point the stack at it:
 
 ```bash
 ./start.sh --tts-provider-source chatterbox-localhost
 ```
 
-Optional: change the host URL in `.env`:
+Optional: change the host URL in `.env` if you used a different port:
 
 ```bash
-CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:63023
+CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:63041
 ```
 
 ## Verify
 
 ```bash
-curl -X POST http://localhost:63023/v1/audio/speech \
+curl http://localhost:63027/health         # expect {"status":"healthy"}
+curl http://localhost:63027/v1/models      # expect chatterbox-tts-1 in list
+curl -X POST http://localhost:63027/v1/audio/speech \
   -H 'Content-Type: application/json' \
-  -d '{"model":"ResembleAI/chatterbox","input":"hello world","voice":"default"}' \
+  -d '{"model":"chatterbox-tts-1","input":"hello world","voice":"alloy"}' \
   --output /tmp/test.wav
 file /tmp/test.wav   # expect: RIFF (little-endian) data, WAVE audio
 ```
 
 ## Voice cloning
 
-Drop a 5-second reference WAV anywhere on disk, then pass it via the API:
+Chatterbox supports two voice-cloning paths — neither uses a
+`reference_audio` JSON field (that was XTTS's convention).
+
+**1) Pre-upload a voice into the server's voice library**, then reference
+it by name:
 
 ```bash
-curl -X POST http://localhost:63023/v1/audio/speech \
+# Upload once (multipart). Replace ALICE.wav with any 3–30 sec clean clip.
+curl -X POST http://localhost:63027/voices \
+  -F "name=alice" \
+  -F "file=@ALICE.wav"
+
+# Then call /v1/audio/speech with the registered name:
+curl -X POST http://localhost:63027/v1/audio/speech \
   -H 'Content-Type: application/json' \
-  -d '{
-    "model": "ResembleAI/chatterbox",
-    "input": "Synthesize me in this voice please.",
-    "voice": "default",
-    "reference_audio": "/absolute/path/to/sample.wav"
-  }' \
+  -d '{"model":"chatterbox-tts-1","input":"Synthesize in this voice.","voice":"alice"}' \
   --output cloned.wav
 ```
+
+**2) Inline upload via multipart form** in the speech call itself:
+
+```bash
+curl -X POST http://localhost:63027/v1/audio/speech \
+  -F "input=Synthesize in this voice." \
+  -F "model=chatterbox-tts-1" \
+  -F "voice_file=@ALICE.wav" \
+  --output cloned.wav
+```
+
+See [voice library management](https://github.com/travisvn/chatterbox-tts-api/blob/main/docs/VOICE_LIBRARY_MANAGEMENT.md)
+upstream for the full voice-CRUD surface.
 
 Chatterbox is licensed MIT, so the resulting audio is yours to use commercially.
 

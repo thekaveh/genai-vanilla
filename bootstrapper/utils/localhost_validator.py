@@ -4,10 +4,11 @@ Localhost service validation utilities.
 Validates that localhost services are accessible when configured as SOURCE=localhost.
 """
 
+import re
 import socket
 import urllib.request
 import urllib.error
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 from core.config_parser import ConfigParser
 
 
@@ -46,19 +47,47 @@ class LocalhostValidator:
             'service_name': 'Neo4j',
             'default_port': 7687
         },
+        # STT and TTS providers use per-source configs because each
+        # localhost variant runs a *different* binary with a different port
+        # (read from its own URL env var) and a different health-probe path
+        # (Parakeet MLX has /health, whisper.cpp-server only has /inference
+        # and /load — no health endpoint — so we TCP-probe it instead).
+        # Symmetric story on TTS: Chatterbox exposes /health, so HTTP-probe.
         'STT_PROVIDER_SOURCE': {
-            'source_values': ['parakeet-localhost', 'whisper-cpp-localhost'],
-            'check_type': 'http',
-            'port_env_var': 'STT_PROVIDER_PORT',
-            'service_name': 'STT (host-side)',
-            'default_port': 63022
+            'per_source': {
+                'parakeet-localhost': {
+                    'check_type': 'http',
+                    'url_env_var': 'PARAKEET_LOCALHOST_URL',
+                    'health_path': '/health',
+                    'default_port': 63022,
+                    'service_name': 'Parakeet STT (host-side)',
+                    'hint': 'Start the Parakeet MLX/native server — see stt-provider/mlx/README.md.',
+                },
+                'whisper-cpp-localhost': {
+                    # whisper.cpp's whisper-server has no /health endpoint
+                    # (only /inference and /load). Fall back to a TCP probe
+                    # against the configured port so we at least catch
+                    # "server not running" without false-negatives on the
+                    # unsupported health URL.
+                    'check_type': 'tcp',
+                    'url_env_var': 'WHISPER_CPP_LOCALHOST_URL',
+                    'default_port': 63025,
+                    'service_name': 'whisper.cpp STT (host-side)',
+                    'hint': 'Start whisper-server — see stt-provider/whisper-cpp/README.md.',
+                },
+            },
         },
         'TTS_PROVIDER_SOURCE': {
-            'source_values': ['chatterbox-localhost'],
-            'check_type': 'http',
-            'port_env_var': 'TTS_PROVIDER_PORT',
-            'service_name': 'TTS (host-side)',
-            'default_port': 63023
+            'per_source': {
+                'chatterbox-localhost': {
+                    'check_type': 'http',
+                    'url_env_var': 'CHATTERBOX_LOCALHOST_URL',
+                    'health_path': '/health',
+                    'default_port': 63027,
+                    'service_name': 'Chatterbox TTS (host-side)',
+                    'hint': 'Start the Chatterbox server — see tts-provider/localhost/README.md.',
+                },
+            },
         },
         'DOC_PROCESSOR_SOURCE': {
             'source_values': ['docling-localhost'],
@@ -123,38 +152,89 @@ class LocalhostValidator:
         except Exception:
             return False
             
+    def _resolve_source_config(self, source_var: str, source_value: str) -> Optional[Dict]:
+        """Pick the right SERVICE_CHECKS entry for this source.
+
+        Returns ``None`` if the source isn't one we validate. Handles two
+        shapes:
+
+        * Legacy flat shape — top-level keys (``check_type``, ``service_name``,
+          etc.) shared by every source listed in ``source_values``. Used for
+          all the single-engine services (ComfyUI, Weaviate, Neo4j, …).
+        * Per-source shape — ``per_source: {source_value: {...}}``. Used for
+          STT/TTS providers where each localhost variant runs a different
+          server with its own URL env var, probe protocol, and default port.
+        """
+        if source_var not in self.SERVICE_CHECKS:
+            return None
+        top = self.SERVICE_CHECKS[source_var]
+        if 'per_source' in top:
+            return top['per_source'].get(source_value)
+        if source_value in top.get('source_values', []):
+            return top
+        return None
+
+    @staticmethod
+    def _port_from_url(url: str, fallback: int) -> int:
+        """Extract the port number from a ``host:port[/...]`` URL.
+
+        Falls back to ``fallback`` when the URL has no port (rare). Treats
+        bash-substitution syntax like ``${VAR:-http://host:63025}`` correctly
+        by matching the first ``:digits`` group (same approach
+        state_builder.resolve_port uses for the wizard's port column).
+        """
+        if not url:
+            return fallback
+        match = re.search(r':(\d+)', url)
+        if match:
+            try:
+                return int(match.group(1))
+            except ValueError:
+                pass
+        return fallback
+
     def validate_service(self, source_var: str, source_value: str) -> Tuple[bool, List[str]]:
         """
         Validate a specific service configuration.
-        
+
         Args:
             source_var: SOURCE variable name (e.g., 'COMFYUI_SOURCE')
             source_value: SOURCE value (e.g., 'localhost')
-            
+
         Returns:
             tuple: (is_valid, messages)
         """
-        if source_var not in self.SERVICE_CHECKS:
-            return True, []  # Not a service we validate
-            
-        config = self.SERVICE_CHECKS[source_var]
-        
-        # Check if this source value requires validation
-        if source_value not in config['source_values']:
-            return True, []  # Not a localhost source
-            
+        config = self._resolve_source_config(source_var, source_value)
+        if config is None:
+            return True, []  # Not a localhost source we validate
+
         service_name = config['service_name']
-        messages = []
-        
+        messages: List[str] = []
+
         if config['check_type'] == 'http':
-            # HTTP endpoint validation
-            # For services with port_env_var, dynamically construct endpoint from .env
-            if 'port_env_var' in config:
+            # HTTP endpoint validation. Two ways the endpoint URL is built:
+            #
+            # 1. Per-source: ``url_env_var`` names a URL env var (e.g.
+            #    ``WHISPER_CPP_LOCALHOST_URL=http://host.docker.internal:63025``).
+            #    We extract the port from that URL and append ``health_path``.
+            #    This is the correct path for STT/TTS providers because each
+            #    localhost variant has its own URL env var; using a generic
+            #    ``port_env_var`` would test the wrong port.
+            #
+            # 2. Legacy: ``port_env_var`` names a port env var (e.g.
+            #    ``DOC_PROCESSOR_PORT=63021``), or ``endpoints`` is a hardcoded
+            #    list. Preserved for the single-engine services (ComfyUI,
+            #    Weaviate, …) so this refactor doesn't ripple beyond audio.
+            if 'url_env_var' in config:
+                env_vars = self.config_parser.parse_env_file()
+                url_value = env_vars.get(config['url_env_var'], '')
+                port = self._port_from_url(url_value, config['default_port'])
+                endpoints = [f"http://localhost:{port}{config.get('health_path', '/health')}"]
+            elif 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
                 port = env_vars.get(config['port_env_var'], config['default_port'])
                 endpoints = [f"http://localhost:{port}/health"]
             else:
-                # Use pre-defined endpoints for services without dynamic ports
                 endpoints = config['endpoints']
 
             accessible = False
@@ -170,28 +250,43 @@ class LocalhostValidator:
                 messages.append(f"⚠️  Warning: {service_name} not detected at {endpoint_list}")
                 messages.append(f"   Make sure {service_name} is running locally before starting the stack")
 
-                # Add specific instructions for ComfyUI
-                if source_var == 'COMFYUI_SOURCE':
+                # Per-source hint (set on STT/TTS entries pointing at their localhost docs)
+                hint = config.get('hint')
+                if hint:
+                    messages.append(f"   {hint}")
+                elif source_var == 'COMFYUI_SOURCE':
                     messages.append("   Please start ComfyUI locally with: python main.py --listen --port 8188")
                     messages.append("   Or refer to the documentation for installation instructions.")
 
             return accessible, messages
-            
+
         elif config['check_type'] == 'tcp':
-            # TCP port validation
-            host = config['host']
-            port = config['port']
-            
+            # TCP port validation. Used when the server has no health-style
+            # GET endpoint (whisper-server only has /inference and /load,
+            # both POST-only; a GET probe would return 405, which the HTTP
+            # check treats as "down").
+            if 'url_env_var' in config:
+                env_vars = self.config_parser.parse_env_file()
+                url_value = env_vars.get(config['url_env_var'], '')
+                port = self._port_from_url(url_value, config['default_port'])
+                host = 'localhost'
+            else:
+                host = config['host']
+                port = config['port']
+
             accessible = self.check_tcp_port(host, port)
-            
+
             if accessible:
-                messages.append(f"✅ Localhost {service_name} service is accessible at {host}:{port}")
+                messages.append(f"✅ Localhost {service_name} service is reachable at {host}:{port}")
             else:
                 messages.append(f"⚠️  Warning: {service_name} not detected at {host}:{port}")
                 messages.append(f"   Make sure {service_name} is running locally before starting the stack")
-                
+                hint = config.get('hint')
+                if hint:
+                    messages.append(f"   {hint}")
+
             return accessible, messages
-            
+
         return True, []
         
     def validate_all_localhost_services(self) -> Dict[str, Tuple[bool, List[str]]]:
@@ -214,19 +309,18 @@ class LocalhostValidator:
     def get_localhost_services(self) -> List[Tuple[str, str]]:
         """
         Get list of services configured to use localhost.
-        
+
         Returns:
             list: List of (source_var, source_value) tuples for localhost services
         """
         service_sources = self.config_parser.parse_service_sources()
         localhost_services = []
-        
+
         for source_var, source_value in service_sources.items():
-            if source_var in self.SERVICE_CHECKS:
-                config = self.SERVICE_CHECKS[source_var]
-                if source_value in config['source_values']:
-                    localhost_services.append((source_var, source_value))
-                    
+            # Handles both legacy flat (``source_values``) and per-source shapes.
+            if self._resolve_source_config(source_var, source_value) is not None:
+                localhost_services.append((source_var, source_value))
+
         return localhost_services
         
     def has_localhost_services(self) -> bool:
@@ -257,8 +351,17 @@ class LocalhostValidator:
         all_valid = True
         
         for source_var, (is_valid, messages) in results.items():
-            config = self.SERVICE_CHECKS[source_var]
-            service_name = config['service_name']
+            # Pull service_name from the per-source config when present so
+            # the heading matches what validate_service emitted; fall back
+            # to the legacy top-level service_name for single-engine
+            # entries (ComfyUI, Weaviate, etc.).
+            top = self.SERVICE_CHECKS.get(source_var, {})
+            if 'service_name' in top:
+                service_name = top['service_name']
+            else:
+                source_value = self.config_parser.parse_service_sources().get(source_var, '')
+                cfg = top.get('per_source', {}).get(source_value, {})
+                service_name = cfg.get('service_name', source_var)
             
             print(f"  • {service_name}:")
             for message in messages:
