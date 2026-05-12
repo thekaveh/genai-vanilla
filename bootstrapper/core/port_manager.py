@@ -42,6 +42,8 @@ class PortManager:
         'TTS_PROVIDER_PORT': 23,      # Base port + 23
         'OPENCLAW_GATEWAY_PORT': 24,  # Base port + 24
         'OPENCLAW_BRIDGE_PORT': 25,   # Base port + 25
+        'MINIO_PORT': 26,             # Base port + 26 (MinIO S3 API)
+        'MINIO_CONSOLE_PORT': 27,     # Base port + 27 (MinIO admin console)
         'JUPYTERHUB_PORT': 48,        # Base port + 48
     }
     
