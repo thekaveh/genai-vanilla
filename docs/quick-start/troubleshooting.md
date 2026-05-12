@@ -223,7 +223,7 @@ docker volume prune -f  # BE CAREFUL - removes unused volumes
 
 ```bash
 # Disable memory-heavy services
-./start.sh --n8n-source disabled --weaviate-source disabled
+./start.sh --n8n-source disabled --weaviate-source disabled --minio-source disabled
 
 # Use localhost services to reduce container overhead
 ./start.sh --llm-provider-source ollama-localhost --comfyui-source localhost
@@ -308,7 +308,7 @@ cat bootstrapper/utils/kong_config_generator.py | head -80
 env | grep ^KONG_
 
 # Check live environment variables in your shell
-env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE|CLOUD_)_SOURCE"
+env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE|CLOUD|MINIO)_SOURCE"
 ```
 
 ### Network Testing

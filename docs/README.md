@@ -15,6 +15,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Ollama (LiteLLM upstream)](services/ollama.md) — local LLM engine modes (container CPU/GPU, localhost, external, none)
 - [ComfyUI](services/comfyui.md) — image generation workflows
 - [Weaviate](services/weaviate.md) — vector database
+- [MinIO](services/minio.md) — S3-compatible artifact-tier object storage
 - [n8n](services/n8n.md) — workflow automation
 - [SearxNG](services/searxng.md) — privacy metasearch
 - [Redis](services/redis.md) — cache/queue infrastructure

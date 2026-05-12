@@ -34,6 +34,8 @@ Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct 
 | TTS Provider / XTTS | `TTS_PROVIDER_PORT` | +23 | 63023 | `http://localhost:63023` | — | Optional text-to-speech service. |
 | OpenClaw Gateway | `OPENCLAW_GATEWAY_PORT` | +24 | 63024 | `http://localhost:63024` | `http://openclaw.localhost:63002` | Optional AI agent gateway. |
 | OpenClaw Bridge | `OPENCLAW_BRIDGE_PORT` | +25 | 63025 | `http://localhost:63025` | — | Optional bridge service. |
+| MinIO S3 API | `MINIO_PORT` | +26 | 63026 | `http://localhost:63026` | — | S3-compatible object storage API. |
+| MinIO Console | `MINIO_CONSOLE_PORT` | +27 | 63027 | `http://localhost:63027` | — | MinIO admin console UI. |
 | JupyterHub | `JUPYTERHUB_PORT` | +48 | 63048 | `http://localhost:63048` | `http://jupyter.localhost:63002` | Data science notebook environment. |
 
 ## Hosts-file routes

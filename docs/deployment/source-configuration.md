@@ -23,6 +23,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `LITELLM_SOURCE` | `container` | `container` | Infrastructure / always-on | LiteLLM gateway. Always on; not user-disableable. |
 | `COMFYUI_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `localhost`, `external`, `disabled` | User-facing | Image generation service. |
 | `WEAVIATE_SOURCE` | `container` | `container`, `localhost`, `disabled` | User-facing | Vector database. |
+| `MINIO_SOURCE` | `container` | `container`, `disabled` | User-facing | S3-compatible artifact-tier object storage. |
 | `N8N_SOURCE` | `container` | `container`, `disabled` | User-facing | Workflow automation. |
 | `SEARXNG_SOURCE` | `container` | `container`, `disabled` | User-facing | Privacy metasearch. |
 | `OPENCLAW_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing | AI messaging agent. |
@@ -291,6 +292,30 @@ WEAVIATE_SOURCE=disabled
 - **Use case**: No vector search needed
 - **Pros**: Reduced resource usage
 - **Cons**: No semantic search capabilities
+- **Requirements**: None
+
+### MINIO_SOURCE
+
+#### `container` (Default)
+```bash
+MINIO_SOURCE=container
+MINIO_ENDPOINT=http://minio:9000
+MINIO_PUBLIC_ENDPOINT=http://localhost:63026
+```
+- **Use case**: S3-compatible artifact-tier object storage (ComfyUI outputs, Backend blobs, n8n files, JupyterHub datasets, Doc Processor output)
+- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63027`
+- **Cons**: Container resource usage
+- **Requirements**: None
+
+Consumer code is not auto-wired in the current release — credentials and bucket names are in `.env` so each consumer integration can opt in via env-only changes in a follow-up PR.
+
+#### `disabled`
+```bash
+MINIO_SOURCE=disabled
+```
+- **Use case**: No artifact-tier object storage needed
+- **Pros**: Saves resources; consumers fall back to Supabase Storage / local volumes
+- **Cons**: No S3-compatible artifact surface available
 - **Requirements**: None
 
 ### OPENCLAW_SOURCE
