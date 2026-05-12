@@ -992,10 +992,13 @@ class GenAIStackStarter:
               type=click.Choice(['container-cpu', 'container-gpu', 'localhost', 
                                 'external', 'disabled'], case_sensitive=False),
               help='Override COMFYUI_SOURCE')
-@click.option('--weaviate-source', 
+@click.option('--weaviate-source',
               type=click.Choice(['container', 'localhost', 'disabled'], case_sensitive=False),
               help='Override WEAVIATE_SOURCE')
-@click.option('--n8n-source', 
+@click.option('--minio-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override MinIO source')
+@click.option('--n8n-source',
               type=click.Choice(['container', 'disabled'], case_sensitive=False),
               help='Override N8N_SOURCE')
 @click.option('--searxng-source',
@@ -1037,7 +1040,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
          openai_models, anthropic_models, openrouter_models,
          ollama_models, ollama_custom_models,
-         comfyui_source, weaviate_source, n8n_source, searxng_source,
+         comfyui_source, weaviate_source, minio_source, n8n_source, searxng_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, neo4j_graph_db_source,
          multi2vec_clip_source, no_tui):
@@ -1120,6 +1123,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'cloud_openrouter_source': cloud_openrouter_source,
             'comfyui_source': comfyui_source,
             'weaviate_source': weaviate_source,
+            'minio_source': minio_source,
             'n8n_source': n8n_source,
             'searxng_source': searxng_source,
             'jupyterhub_source': jupyterhub_source,
