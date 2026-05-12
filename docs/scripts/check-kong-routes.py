@@ -46,6 +46,11 @@ EXPECTED_HOST_ROUTES = {
     "jupyter.localhost": "http://jupyterhub:8888/",
     "api.localhost": "http://backend:8000/",
     "chat.localhost": "http://open-web-ui:8080/",
+    # Hermes Agent's web dashboard. Default-on (HERMES_SOURCE=container,
+    # HERMES_DASHBOARD_ENABLED=true), so the generator emits this route
+    # for .env.example. If the default ever flips to disabled, drop this
+    # entry from the expected map.
+    "hermes.localhost": "http://hermes:9119/",
     # openclaw is opt-in: .env.example defaults OPENCLAW_SOURCE=disabled, so
     # the generator omits its route. Add an opt-in check separately if the
     # default ever flips to OPENCLAW_SOURCE=container.

@@ -42,6 +42,8 @@ class PortManager:
         'TTS_PROVIDER_PORT': 23,      # Base port + 23
         'OPENCLAW_GATEWAY_PORT': 24,  # Base port + 24
         'OPENCLAW_BRIDGE_PORT': 25,   # Base port + 25
+        'HERMES_API_PORT': 26,        # Base port + 26 (Hermes OpenAI-compatible API)
+        'HERMES_DASHBOARD_PORT': 27,  # Base port + 27 (Hermes web dashboard)
         'JUPYTERHUB_PORT': 48,        # Base port + 48
     }
     

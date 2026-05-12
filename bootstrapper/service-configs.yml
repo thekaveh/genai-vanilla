@@ -420,7 +420,6 @@ source_configurable:
       scale: 1
       environment:
         HERMES_ENDPOINT: "http://hermes:8642"
-        HERMES_DASHBOARD_URL: "http://hermes:9119"
       deploy: {}
       extra_hosts: []
 
@@ -431,7 +430,6 @@ source_configurable:
       scale: 0
       environment:
         HERMES_ENDPOINT: "${HERMES_LOCALHOST_URL:-http://host.docker.internal:63026}"
-        HERMES_DASHBOARD_URL: ""  # operator manages dashboard on host
       deploy: {}
       extra_hosts:
         - "host.docker.internal:host-gateway"
@@ -441,7 +439,6 @@ source_configurable:
       scale: 0
       environment:
         HERMES_ENDPOINT: ""
-        HERMES_DASHBOARD_URL: ""
       deploy: {}
       extra_hosts: []
 

@@ -71,6 +71,7 @@ class DependencyManager:
             'backend': 'BACKEND_SCALE',
             'jupyterhub': 'JUPYTERHUB_SCALE',
             'openclaw-gateway': 'OPENCLAW_SCALE',
+            'hermes': 'HERMES_SCALE',
         }
         
         scale_var = scale_var_mapping.get(service_name)
@@ -87,6 +88,7 @@ class DependencyManager:
                 'backend': 'BACKEND_SOURCE',
                 'jupyterhub': 'JUPYTERHUB_SOURCE',
                 'openclaw-gateway': 'OPENCLAW_SOURCE',
+                'hermes': 'HERMES_SOURCE',
             }
             
             source_var = source_var_mapping.get(service_name)

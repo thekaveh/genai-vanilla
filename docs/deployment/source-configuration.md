@@ -26,6 +26,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `N8N_SOURCE` | `container` | `container`, `disabled` | User-facing | Workflow automation. |
 | `SEARXNG_SOURCE` | `container` | `container`, `disabled` | User-facing | Privacy metasearch. |
 | `OPENCLAW_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing | AI messaging agent. |
+| `HERMES_SOURCE` | `container` | `container`, `localhost`, `disabled` | User-facing | Programmable AI agent runtime (Nous Research). Routes reasoning through LiteLLM and appears as the `hermes-agent` model to every consumer. |
 | `STT_PROVIDER_SOURCE` | `disabled` | `parakeet-container-gpu`, `parakeet-localhost`, `disabled` | User-facing optional | Speech-to-text provider. |
 | `TTS_PROVIDER_SOURCE` | `disabled` | `xtts-container-gpu`, `xtts-localhost`, `disabled` | User-facing optional | Text-to-speech provider. |
 | `DOC_PROCESSOR_SOURCE` | `disabled` | `docling-container-gpu`, `docling-localhost`, `disabled` | User-facing optional | Document processing provider. |
@@ -48,6 +49,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `COMFYUI_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes ComfyUI assets/config. |
 | `N8N_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes/imports n8n workflows. |
 | `OPENCLAW_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes OpenClaw config where applicable. |
+| `HERMES_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Renders `/opt/data/config.yaml` for Hermes from environment (model, TTS, STT, ComfyUI host override). |
 | `SUPABASE_DB_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Supabase database state. |
 
 > The `litellm-init` and `llm-catalog-init` containers are mandatory and have no SOURCE toggle — they always run when the stack starts. `litellm-init` provisions the dedicated `litellm` Postgres database and renders `volumes/litellm/config.yaml` from `public.llms`; `llm-catalog-init` UPSERTs the curated catalog and the wizard's `*_USER_MODELS` selections into `public.llms`.
@@ -63,6 +65,7 @@ These services can run on your host machine instead of in containers:
 | **Weaviate** | `WEAVIATE_SOURCE` | `localhost` | Custom configuration, performance |
 | **Neo4j** | `NEO4J_GRAPH_DB_SOURCE` | `localhost` | Use an existing graph database |
 | **OpenClaw** | `OPENCLAW_SOURCE` | `localhost` | Native performance, existing config |
+| **Hermes Agent** | `HERMES_SOURCE` | `localhost` | Operate your real machine (shell, browser, microphone); host-installed Hermes |
 | **STT Provider** | `STT_PROVIDER_SOURCE` | `parakeet-localhost` | Use a host speech-to-text service |
 | **TTS Provider** | `TTS_PROVIDER_SOURCE` | `xtts-localhost` | Use a host text-to-speech service |
 | **Document Processor** | `DOC_PROCESSOR_SOURCE` | `docling-localhost` | Use a host Docling service |
@@ -336,6 +339,51 @@ OPENCLAW_SOURCE=disabled
 - **Pros**: Saves resources
 - **Cons**: No messaging integration
 - **Requirements**: None
+
+### HERMES_SOURCE
+
+The programmable AI agent runtime by Nous Research. Hermes reasons over the LiteLLM gateway and exposes an OpenAI-compatible API; `litellm-init` auto-registers `hermes-agent` as a model in the gateway when `HERMES_SOURCE != disabled`, so Open-WebUI / n8n / backend / jupyterhub / openclaw all see Hermes for free.
+
+See [Hermes Agent](../services/hermes.md) for the full service doc.
+
+#### `container` (Default)
+```bash
+HERMES_SOURCE=container
+```
+- **Use case**: Run Hermes as a stack service consumed by Open-WebUI, n8n, OpenClaw, etc.
+- **Pros**: Easy setup, isolated environment, available to every consumer without per-service wiring
+- **Cons**: ~2–4 GB RAM, ~5.66 GB image on disk, no GPU required
+- **Requirements**: `HERMES_DEFAULT_MODEL` must reference a model with ≥64K context window (stock Ollama defaults to 4096 — pull with `--ctx-size 65536` or use a cloud model)
+
+#### `localhost`
+```bash
+HERMES_SOURCE=localhost
+```
+- **Use case**: Hermes operates your real dev machine — read/write your real files, drive your real browser, use a real microphone for voice mode
+- **Pros**: Native shell/browser/audio access; bigger context budget; React/Ink TUI as a daily-driver
+- **Cons**: Manual install per host; consumers still reach it via the same `HERMES_ENDPOINT` (auto-set to `http://host.docker.internal:<port>`)
+- **Requirements**: Host-installed Hermes (`curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh`), then `hermes gateway run`
+
+Setup for localhost:
+```bash
+# Install Hermes on the host
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh
+
+# Start the gateway on the stack default localhost port
+hermes gateway run
+
+# If your local Hermes uses a different port, set:
+# HERMES_LOCALHOST_URL=http://host.docker.internal:<your-port>
+```
+
+#### `disabled`
+```bash
+HERMES_SOURCE=disabled
+```
+- **Use case**: No agent runtime needed; consumers see only direct LLM models in the LiteLLM dropdown
+- **Pros**: Saves ~5.66 GB image disk and 2–4 GB RAM
+- **Cons**: No agent loop, skills, voice, or programmable behaviour
+- **Requirements**: None — `litellm-init` automatically omits the `hermes-agent` row from the model_list when disabled
 
 ## Configuration Patterns
 

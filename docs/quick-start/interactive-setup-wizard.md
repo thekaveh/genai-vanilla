@@ -195,6 +195,7 @@ The wizard automatically discovers all configurable services from `service-confi
 | TTS Provider (XTTS) | container-gpu, localhost, disabled |
 | Document Processor (Docling) | container-gpu, localhost, disabled |
 | OpenClaw | container, localhost, disabled |
+| Hermes Agent | container, localhost, disabled |
 | n8n | container, disabled |
 | SearxNG | container, disabled |
 | JupyterHub | container, disabled |

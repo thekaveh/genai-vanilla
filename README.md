@@ -123,7 +123,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 The canonical architecture diagram is the rich static artifact at [`docs/diagrams/architecture.html`](docs/diagrams/architecture.html), with a static SVG preview at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg).
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, and optional OpenClaw/STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
 
 ## 2. Getting Started
 
@@ -179,6 +179,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI via `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
+- **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes via `HERMES_LOCALHOST_URL` (default `http://host.docker.internal:63026`); useful when Hermes should drive your real shell, browser, or microphone
 
 **Container-only services:**
 - **n8n** (`N8N_SOURCE=container|disabled`) — workflow automation
@@ -206,6 +207,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 | **XTTS v2 TTS** | http://localhost:63023 | — | Text-to-speech | None |
 | **Docling Processor** | http://localhost:63021 | — | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63024 | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
+| **Hermes Agent** | http://localhost:63026 (API), http://localhost:63027 (dashboard) | http://hermes.localhost:63002 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
 
 ### 3.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -221,6 +223,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **XTTS v2 TTS** — text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
 - **Docling** — document processing with table extraction (IBM Docling, GPU-accelerated)
 - **OpenClaw** — AI agent for messaging platforms (WhatsApp, Telegram, Discord), file management, and task automation
+- **Hermes Agent** — programmable AI agent runtime (Nous Research) with skills, memory, voice, and tool use; routes reasoning through LiteLLM and appears as the `hermes-agent` model to every consumer
 - **Deep Researcher** — research assistant
 - **LangMem** — persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
 
@@ -249,6 +252,8 @@ The stack uses **SOURCE variables** to control how services are deployed.
 ./start.sh --tts-provider-source xtts-localhost        # Any platform native
 ./start.sh --doc-processor-source docling-container-gpu # Enable document processing
 ./start.sh --openclaw-source container                 # Enable OpenClaw agent
+./start.sh --hermes-source localhost                   # Use a host-installed Hermes
+./start.sh --hermes-source disabled                    # Skip Hermes entirely
 ./start.sh --n8n-source disabled
 
 # Combined examples
