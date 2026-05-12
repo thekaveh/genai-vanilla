@@ -33,7 +33,7 @@ from utils.llm_catalog import (
     ollama_entries,
 )
 from utils.ollama_discovery import list_pulled_models
-from utils.ollama_library import list_library_models
+from utils.ollama_library import OllamaLibraryEntry, list_library_entries
 from utils.cloud_providers import CLOUD_PROVIDERS
 
 from ui.textual.widgets.prompt_panel import (
@@ -52,11 +52,6 @@ LLM_ENGINE_TITLE = "LLM Engine  ·  source"
 # show a merged list with [pulled] / [library] badges.
 OLLAMA_MODELS_TITLE = "Ollama  ·  models"
 OLLAMA_CUSTOM_TITLE = "Ollama  ·  additional models to pull"
-
-# Backward-compat aliases for any external consumers grepping the old
-# names. Internal call sites have all moved to OLLAMA_MODELS_TITLE.
-OLLAMA_LIVE_TITLE = OLLAMA_MODELS_TITLE
-OLLAMA_CATALOG_TITLE = OLLAMA_MODELS_TITLE
 
 
 def cloud_secret_title(provider_name: str) -> str:
@@ -128,20 +123,142 @@ def build_ollama_steps(
             return url
         return ""
 
-    def _build_library_options(library_names: List[str]) -> List[PromptOption]:
-        """Map a list of library names to PromptOptions, merging in
-        catalog metadata (description / curated badges) when available.
+    # Recency cutoff for the two-bucket sort. Models updated within
+    # this many days of the scrape are "recent" (sorted to the top by
+    # pulls); older models drop into the legacy bucket. 365 days
+    # picked deliberately so the boundary lines up with the relative
+    # "1 year ago" string Ollama emits on the listing page.
+    _LEGACY_THRESHOLD_DAYS = 365
+
+    # Curated-catalog badge → capability alias. The curated catalog
+    # uses the plural form ``embeddings`` (an older convention), the
+    # live scrape uses the singular ``embedding`` (Ollama's published
+    # capability tag). They mean the same thing — dedupe to the
+    # capability form so a row doesn't show both side-by-side.
+    _CAPABILITY_ALIASES = {"embeddings": "embedding"}
+
+    def _merge_badges(
+        *,
+        status: str | None,
+        capabilities: frozenset[str],
+        curated: list[str],
+        legacy: bool,
+    ) -> list[str]:
+        """Compose a row's final badge list, deduping overlapping
+        capability terms (alias-aware) and prepending status / legacy
+        markers in a stable order.
+
+        Output order: ``[status?, legacy?, *sorted_capabilities, *curated]``.
+        Curated badges that alias to an already-present capability
+        (e.g. ``embeddings`` ↔ ``embedding``) are dropped so the row
+        never shows ``[embedding] [embeddings]``.
+        """
+        seen: set[str] = set()
+        out: list[str] = []
+        if status:
+            out.append(status); seen.add(status)
+        if legacy:
+            out.append("legacy"); seen.add("legacy")
+        for cap in sorted(capabilities):
+            if cap in seen:
+                continue
+            out.append(cap); seen.add(cap)
+        for b in curated:
+            canonical = _CAPABILITY_ALIASES.get(b, b)
+            if canonical in seen:
+                continue
+            out.append(b); seen.add(canonical)
+        return out
+
+    def _compose_hint(description: str, updated: str) -> str:
+        """Hint line: curated description + relative-time annotation.
+
+        Both halves are optional; the joiner is shown only when both
+        sides are non-empty so we don't render lonely separators.
+        """
+        parts: list[str] = []
+        if description:
+            parts.append(description)
+        if updated:
+            parts.append(f"updated {updated}")
+        return "  ·  ".join(parts)
+
+    def _is_legacy(entry: OllamaLibraryEntry) -> bool:
+        # Unknown age (None) is treated as recent — better than
+        # banishing every model to the legacy bucket when an upstream
+        # wording change breaks the relative-time parser.
+        return entry.age_days is not None and entry.age_days >= _LEGACY_THRESHOLD_DAYS
+
+    def _sort_key(opt: PromptOption) -> tuple:
+        # Two-bucket sort: recent (bucket 0) first, legacy (bucket 1)
+        # last. Within each bucket: by pull count descending, then
+        # alphabetical. The ``legacy`` badge is the bucket marker
+        # added by the caller — keeps PromptOption agnostic of
+        # OllamaLibraryEntry fields.
+        return (
+            1 if "legacy" in opt.badges else 0,
+            -opt.pulls,
+            opt.value,
+        )
+
+    def _build_library_options(
+        library_entries: List[OllamaLibraryEntry],
+    ) -> List[PromptOption]:
+        """Map :class:`OllamaLibraryEntry` rows to :class:`PromptOption`,
+        merging in catalog metadata (description / curated badges)
+        when available and surfacing capability tags + sizes + pulls.
+
+        Badge order: status (optional) → legacy (optional) → sorted
+        capabilities → curated badges (deduped against capabilities).
         """
         curated_meta = {e.name: e for e in ollama_entries()}
         opts: List[PromptOption] = []
-        for name in library_names:
-            meta = curated_meta.get(name)
+        for entry in library_entries:
+            meta = curated_meta.get(entry.name)
+            curated_badges = list(meta.badges) if meta else []
+            badges = _merge_badges(
+                status=None,
+                capabilities=entry.capabilities,
+                curated=curated_badges,
+                legacy=_is_legacy(entry),
+            )
             opts.append(PromptOption(
-                value=name, label=name,
-                hint=meta.description if meta else "",
-                badges=list(meta.badges) if meta else [],
+                value=entry.name, label=entry.name,
+                hint=_compose_hint(
+                    meta.description if meta else "",
+                    entry.updated,
+                ),
+                badges=badges,
+                pulls=entry.pulls,
+                sizes=entry.sizes,
             ))
         return opts
+
+    def _catalog_fallback_entries() -> List[OllamaLibraryEntry]:
+        """Synthesize :class:`OllamaLibraryEntry` rows from the curated
+        catalog. Used when the live ollama.com/library scrape fails so
+        the wizard still surfaces *some* tags (only ``embedding`` /
+        ``vision`` can be inferred from the catalog's structured
+        capability flags — ``thinking`` / ``tools`` / ``audio`` aren't
+        in CatalogEntry, so the fallback rows simply omit them).
+        Sizes and pulls aren't recoverable from the catalog, so both
+        default to empty / 0.
+        """
+        out: List[OllamaLibraryEntry] = []
+        for e in ollama_entries():
+            caps: set[str] = set()
+            if getattr(e, "embeddings", 0) > 0:
+                caps.add("embedding")
+            if getattr(e, "vision", 0) > 0:
+                caps.add("vision")
+            out.append(OllamaLibraryEntry(
+                name=e.name,
+                capabilities=frozenset(caps),
+                sizes=(),
+                pulls=0,
+                updated="",
+            ))
+        return out
 
     def _merged_ollama_options(selections: dict) -> List[PromptOption]:
         """Build the unified Ollama models option list.
@@ -167,25 +284,29 @@ def build_ollama_steps(
         src = _selected_llm_source(env_vars, selections)
 
         # Library scrape is shared by every source.
-        library_names = list_library_models(timeout=5.0)
-        if not library_names:
+        library_entries = list_library_entries(timeout=5.0)
+        if not library_entries:
             _warn(
                 "[warn/ollama-fetch] ollama.com/library scrape returned no entries "
                 "— falling back to curated OLLAMA_DEFAULT_CATALOG"
             )
-            curated = [e.name for e in ollama_entries()]
-            library_names = curated  # may still be empty in pathological cases
+            library_entries = _catalog_fallback_entries()
 
         if not _is_localhost_or_external(src):
             # Container modes: library only. Nothing to merge.
-            if not library_names:
+            if not library_entries:
                 return [PromptOption(
                     value="",
                     label="(catalog unreachable — ollama.com/library scrape failed)",
                     hint="check network access; ollama-pull will pull whatever is active in public.llms",
                     badges=[],
                 )]
-            return _build_library_options(library_names)
+            opts = _build_library_options(library_entries)
+            # Two-bucket sort: recent first (sorted by pulls desc),
+            # legacy (updated > 365 days ago) second. Within each
+            # bucket: pulls desc, alphabetical tiebreak.
+            opts.sort(key=_sort_key)
+            return opts
 
         # Localhost/external: merge /api/tags + library.
         url = _ollama_upstream_for_wizard(selections)
@@ -205,35 +326,53 @@ def build_ollama_steps(
                 )
 
         pulled_set = set(pulled_names)
-        library_set = set(library_names)
+        library_by_name = {e.name: e for e in library_entries}
         curated_meta = {e.name: e for e in ollama_entries()}
 
         opts: List[PromptOption] = []
         # 1. Pulled-but-not-in-library: rare (custom local builds, dev
-        #    versions). Show first so the user sees them on screen one.
+        #    versions). These have no scrape data — pulls=0, sizes=(),
+        #    age unknown, so they neither get a ``legacy`` badge nor
+        #    surface near the top. They drop to the alphabetical tail.
         for name in pulled_names:
-            if name in library_set:
+            if name in library_by_name:
                 continue
             meta = curated_meta.get(name)
+            curated_badges = list(meta.badges) if meta else []
             opts.append(PromptOption(
                 value=name, label=name,
                 hint=meta.description if meta else "(local model, not in public library)",
-                badges=["pulled"] + (list(meta.badges) if meta else []),
+                badges=_merge_badges(
+                    status="pulled",
+                    capabilities=frozenset(),
+                    curated=curated_badges,
+                    legacy=False,
+                ),
             ))
-        # 2. Library entries (in scrape order). Items also pulled get
-        #    the ``pulled`` badge prepended; library-only get ``library``.
-        for name in library_names:
-            meta = curated_meta.get(name)
-            base_badges = list(meta.badges) if meta else []
-            if name in pulled_set:
-                badges = ["pulled"] + base_badges
-            else:
-                badges = ["library"] + base_badges
+        # 2. Library entries — items also pulled get the ``pulled``
+        #    status badge prepended; library-only get ``library``.
+        #    Capability tags, sizes, pulls, and age flow from the
+        #    OllamaLibraryEntry.
+        for entry in library_entries:
+            meta = curated_meta.get(entry.name)
+            curated_badges = list(meta.badges) if meta else []
+            status = "pulled" if entry.name in pulled_set else "library"
             opts.append(PromptOption(
-                value=name, label=name,
-                hint=meta.description if meta else "",
-                badges=badges,
+                value=entry.name, label=entry.name,
+                hint=_compose_hint(
+                    meta.description if meta else "",
+                    entry.updated,
+                ),
+                badges=_merge_badges(
+                    status=status,
+                    capabilities=entry.capabilities,
+                    curated=curated_badges,
+                    legacy=_is_legacy(entry),
+                ),
+                pulls=entry.pulls,
+                sizes=entry.sizes,
             ))
+        opts.sort(key=_sort_key)
         if not opts:
             return [PromptOption(
                 value="",
@@ -255,7 +394,9 @@ def build_ollama_steps(
                 "Container: full ollama.com/library catalog (ollama-pull fetches checked at startup). "
                 "Localhost/external: merged list — [pulled] = on disk, [library] = available; "
                 "registering a [library]-only entry requires you to `ollama pull <name>` on the host. "
-                "Space toggles, Enter confirms."
+                "Recent models first (by pull count); [legacy] = updated > 1 year ago. "
+                "Sizes are approximate Q4-quantization disk footprint (real downloads ±10-15%). "
+                "Capability filter chips above. Space toggles, Enter confirms."
             ),
             options=[],
             default_values=ollama_default_values,
@@ -263,6 +404,11 @@ def build_ollama_steps(
             kind="multiselect",
             skip_if_prev=lambda sel: not _selected_llm_source(env_vars, sel).startswith("ollama-"),
             options_provider=_merged_ollama_options,
+            # Capability filter chips. Exact label set matches the
+            # ``x-test-capability`` values observed on ollama.com/library
+            # — keep these lowercase and aligned with what the parser
+            # in utils/ollama_library.py extracts.
+            filter_tags=("embedding", "thinking", "vision", "tools", "audio"),
         ),
         PromptStep(
             title=OLLAMA_CUSTOM_TITLE,
