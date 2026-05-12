@@ -66,6 +66,7 @@ class DependencyManager:
             'n8n': 'N8N_SCALE',
             'n8n-worker': 'N8N_SCALE',  # n8n-worker uses same scale as n8n
             'weaviate': 'WEAVIATE_SCALE',
+            'minio': 'MINIO_SCALE',
             'neo4j-graph-db': 'NEO4J_SCALE',
             'searxng': 'SEARXNG_SCALE',
             'backend': 'BACKEND_SCALE',
@@ -81,6 +82,7 @@ class DependencyManager:
             # Map service names to SOURCE variables
             source_var_mapping = {
                 'weaviate': 'WEAVIATE_SOURCE',
+                'minio': 'MINIO_SOURCE',
                 'n8n': 'N8N_SOURCE',
                 'neo4j-graph-db': 'NEO4J_GRAPH_DB_SOURCE',
                 'searxng': 'SEARXNG_SOURCE',
@@ -198,6 +200,7 @@ class DependencyManager:
                 scale_var_mapping = {
                     'backend': 'BACKEND_SCALE',
                     'weaviate': 'WEAVIATE_SCALE',
+                    'minio': 'MINIO_SCALE',
                     'neo4j-graph-db': 'NEO4J_SCALE',
                     'searxng': 'SEARXNG_SCALE',
                     'jupyterhub': 'JUPYTERHUB_SCALE',

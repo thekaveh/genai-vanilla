@@ -104,6 +104,7 @@ SVC_COMFYUI   = "#98c379"
 SVC_NEO4J     = "#6a9aaa"
 SVC_N8N       = "#89aad4"
 SVC_SEARXNG   = "#7dcfff"
+SVC_MINIO     = "#c97b9a"   # warm magenta — distinct from data-tier blues
 SVC_DISABLED  = "#565f89"
 
 SOURCE_COLORS: Dict[str, str] = {
@@ -127,6 +128,8 @@ SOURCE_COLORS: Dict[str, str] = {
     "neo4j": SVC_NEO4J,
     "n8n": SVC_N8N,
     "searxng": SVC_SEARXNG,
+    "minio": SVC_MINIO,
+    "minio-init": SVC_MINIO,
     "disabled": SVC_DISABLED,
 }
 
@@ -143,6 +146,7 @@ COLOR_SRC_COMFYUI   = SVC_COMFYUI
 COLOR_SRC_NEO4J     = SVC_NEO4J
 COLOR_SRC_N8N       = SVC_N8N
 COLOR_SRC_SEARXNG   = SVC_SEARXNG
+COLOR_SRC_MINIO     = SVC_MINIO
 
 # ─── Gradient stops (approximated via multi-color spans in TUI) ─────────
 LOGO_GRADIENT = ["#4a9eff", "#7dcfff", "#a8d4e6", "#7dcfff"]   # 4-stop
