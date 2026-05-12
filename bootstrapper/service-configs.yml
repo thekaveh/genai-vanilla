@@ -717,6 +717,22 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  # MinIO initialization (provisions buckets + IAM policies + service accounts)
+  minio-init:
+    # Containerized MinIO initialization (auto-managed by minio)
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+    # Disabled - skip initialization
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
   # Kong API Gateway
   kong-api-gateway:
     # Containerized Kong (only option)
