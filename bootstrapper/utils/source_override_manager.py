@@ -28,6 +28,7 @@ class SourceOverrideManager:
             'cloud_openrouter_source': 'CLOUD_OPENROUTER_SOURCE',
             'comfyui_source': 'COMFYUI_SOURCE',
             'weaviate_source': 'WEAVIATE_SOURCE',
+            'minio_source': 'MINIO_SOURCE',
             'n8n_source': 'N8N_SOURCE',
             'searxng_source': 'SEARXNG_SOURCE',
             'jupyterhub_source': 'JUPYTERHUB_SOURCE',
