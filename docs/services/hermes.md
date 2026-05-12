@@ -1,6 +1,6 @@
 # Hermes Agent
 
-**Port:** 63026 (API), 63027 (dashboard)
+**Port:** 63028 (API), 63029 (dashboard)
 **SOURCE variable:** `HERMES_SOURCE`
 **SOURCE options:** container, localhost, disabled
 
@@ -34,8 +34,8 @@ Key facts:
 
 | Path | URL | Notes |
 |---|---|---|
-| OpenAI-compatible API (direct) | `http://localhost:63026` | Bearer token: `${HERMES_API_KEY}`. Same surface as OpenAI's `/v1/chat/completions`. |
-| Dashboard (direct) | `http://localhost:63027` | Web admin UI for skills, sessions, model config. |
+| OpenAI-compatible API (direct) | `http://localhost:63028` | Bearer token: `${HERMES_API_KEY}`. Same surface as OpenAI's `/v1/chat/completions`. |
+| Dashboard (direct) | `http://localhost:63029` | Web admin UI for skills, sessions, model config. |
 | Dashboard (Kong) | `http://hermes.localhost:63002` | Requires `./start.sh --setup-hosts`. |
 | Internal DNS (other containers) | `http://hermes:8642` | Reachable from LiteLLM, n8n, backend, jupyterhub, openclaw. |
 
@@ -65,8 +65,8 @@ environment. When the underlying service is enabled, Hermes gets:
 | Hermes feature | Stack service | Mechanism |
 |---|---|---|
 | LLM reasoning | LiteLLM | `model.provider: custom`, `base_url: http://litellm:4000/v1` |
-| TTS (text-to-speech) | XTTS (openedai-speech) | `tts.provider: openai`, `base_url: http://xtts-gpu:8000/v1` |
-| STT (speech-to-text) | Parakeet | `stt.provider: openai`, `base_url: http://parakeet-gpu:8000/v1` |
+| TTS (text-to-speech) | Speaches (Kokoro/Piper, default) / Chatterbox (voice cloning) | `tts.provider: openai`, `base_url: ${TTS_ENDPOINT}/v1` — auto-set from the active TTS engine (e.g. `http://speaches:8000/v1` or `http://chatterbox:4123/v1`) |
+| STT (speech-to-text) | Speaches (Faster-Whisper, default) / Parakeet (NVIDIA NeMo) / whisper.cpp (Apple Silicon) | `stt.provider: openai`, `base_url: ${STT_ENDPOINT}/v1` — auto-set from the active STT engine |
 | Web search | SearXNG | `search.provider: searxng`, `base_url: http://searxng:8080` |
 | Image generation | ComfyUI | Skill override at `/opt/data/skills/creative-comfyui-host-override.md` pinning the bundled `creative-comfyui` skill to `http://comfyui:18188` (Hermes's default is hardcoded to `127.0.0.1:8188`). |
 
@@ -79,8 +79,8 @@ degradation; no failure.
 ```bash
 HERMES_SOURCE=container             # container | localhost | disabled
 HERMES_IMAGE=nousresearch/hermes-agent:0.13.0
-HERMES_API_PORT=63026
-HERMES_DASHBOARD_PORT=63027
+HERMES_API_PORT=63028
+HERMES_DASHBOARD_PORT=63029
 HERMES_DASHBOARD_ENABLED=true
 HERMES_DEFAULT_MODEL=               # blank = LiteLLM default; MUST be >=64K-context
 HERMES_CONTEXT_LENGTH=65536         # hard floor; leave alone
@@ -155,8 +155,8 @@ Depends on (must be alive for Hermes to be useful):
 
 Optionally consumes (wired automatically when the SOURCE != disabled):
 
-- **XTTS** (`TTS_PROVIDER_SOURCE`)
-- **Parakeet** (`STT_PROVIDER_SOURCE`)
+- **TTS provider** (`TTS_PROVIDER_SOURCE`) — Speaches / Chatterbox / disabled
+- **STT provider** (`STT_PROVIDER_SOURCE`) — Speaches / Parakeet / whisper.cpp / disabled
 - **ComfyUI** (`COMFYUI_SOURCE`)
 - **SearXNG** (`SEARXNG_SOURCE`)
 
@@ -185,7 +185,7 @@ docker compose logs hermes-init   # one-shot config rendering
 
 # Verify the OpenAI-compatible API is up
 HERMES_KEY=$(grep ^HERMES_API_KEY .env | cut -d= -f2)
-curl -fsS http://localhost:63026/v1/models \
+curl -fsS http://localhost:63028/v1/models \
   -H "Authorization: Bearer ${HERMES_KEY}" | jq .
 
 # Verify hermes-agent appears in LiteLLM's model_list

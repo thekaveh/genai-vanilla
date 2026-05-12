@@ -19,6 +19,7 @@ from .info_box import (
 )
 from .log_filter_chips import LogFilterChips
 from .log_pane import LogPane
+from .multiselect_filter_chips import FilterChanged, MultiselectFilterChips
 from .option_row import OptionRow
 from .prompt_panel import PromptOption, PromptPanel, PromptStep
 from .service_table import ServiceRow, ServiceTable
@@ -34,12 +35,14 @@ __all__ = [
     "CommandSummary",
     "ConflictAction",
     "DependencyConflict",
+    "FilterChanged",
     "FilterInput",
     "FooterBar",
     "InfoBoxState",
     "InfoPanel",
     "LogFilterChips",
     "LogPane",
+    "MultiselectFilterChips",
     "OptionRow",
     "PromptOption",
     "PromptPanel",

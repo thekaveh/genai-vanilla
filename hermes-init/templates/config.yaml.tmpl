@@ -16,24 +16,30 @@ model:
   api_key: ${LITELLM_MASTER_KEY}
   context_length: ${HERMES_CONTEXT_LENGTH}
 
-# ─── TTS — XTTS via openedai-speech ───────────────────────────────────
+# ─── TTS — engine-neutral OpenAI-compatible endpoint ─────────────────
+# Wires to whatever TTS provider the stack has enabled today: Speaches
+# (Kokoro/Piper), Chatterbox (voice cloning), or any future engine that
+# exposes /v1/audio/speech.
 # BEGIN-TTS
 tts:
   provider: openai
-  base_url: ${XTTS_INTERNAL_URL}/v1
+  base_url: ${TTS_INTERNAL_URL}/v1
   api_key: not-required
   model: tts-1-hd
   voice: alloy
 # END-TTS
 
-# ─── STT — Parakeet via OpenAI-compatible whisper endpoint ────────────
-# Hermes documents base_url override for the OpenAI TTS provider; the
-# STT override is not explicitly documented and may need a fallback to
-# command-type provider. See docs/services/hermes.md "Known caveats".
+# ─── STT — engine-neutral OpenAI-compatible endpoint ─────────────────
+# Wires to whatever STT provider the stack has enabled: Speaches
+# (Faster-Whisper), Parakeet (NVIDIA NeMo), whisper.cpp, or any future
+# engine exposing /v1/audio/transcriptions. Hermes documents the
+# base_url override for the OpenAI TTS provider; the STT override is
+# not explicitly documented and may need a fallback to a command-type
+# provider. See docs/services/hermes.md "Known caveats".
 # BEGIN-STT
 stt:
   provider: openai
-  base_url: ${PARAKEET_INTERNAL_URL}/v1
+  base_url: ${STT_INTERNAL_URL}/v1
   api_key: not-required
   model: whisper-1
 # END-STT

@@ -496,7 +496,7 @@ class KongConfigGenerator:
         }
 
         if source == 'localhost':
-            port = self.get_env_value('HERMES_DASHBOARD_PORT') or '63027'
+            port = self.get_env_value('HERMES_DASHBOARD_PORT') or '63029'
             self.check_localhost_service('localhost', int(port), 'Hermes Dashboard')
             service['url'] = f'http://host.docker.internal:{port}/'
         else:  # container

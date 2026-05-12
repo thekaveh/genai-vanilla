@@ -58,14 +58,27 @@ The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud pr
 
 A single unified multi-select shown for every `ollama-*` source. The option list is **source-aware**:
 
-- **`ollama-container-*`** — only the live scrape of `https://ollama.com/library` (a few hundred entries). Nothing is pulled yet (the in-stack container isn't running at wizard time), so the library is the primary discovery surface. The `ollama-pull` init container fetches checked entries at startup.
-- **`ollama-localhost`** / **`ollama-external`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a badge:
-  - `[pulled]` — the model is on disk on your upstream right now. Checking activates it in `public.llms` and LiteLLM serves it immediately.
-  - `[library]` — the model exists in the public catalog but is **not** pulled on your upstream. Checking it registers a row in `public.llms` for routing, but you must `ollama pull <name>` on the host yourself before requests will succeed.
+- **`ollama-container-*`** — only the live scrape of `https://ollama.com/library` (~230 entries). Nothing is pulled yet (the in-stack container isn't running at wizard time), so the library is the primary discovery surface. The `ollama-pull` init container fetches checked entries at startup.
+- **`ollama-localhost`** / **`ollama-external`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — checking registers a `public.llms` row but you must `ollama pull <name>` on the host yourself).
+
+Each row surfaces four additional columns scraped from `ollama.com/library`:
+
+- **Capability badges** — `[embedding]`, `[thinking]`, `[vision]`, `[tools]`, `[audio]`. Pulled from each model card's `x-test-capability` spans; a model may carry zero, one, or several.
+- **Size column** — every variant's approximate Q4 on-disk footprint (e.g. `4.8GB · 42GB · 243GB` for `llama3.1`'s 8b/70b/405b tags). Converted from Ollama's published parameter count via `params × 0.6 bytes/param` (Q4_K_M rule of thumb); real downloads are ±10–15% of the figure shown. On narrow terminals the column compresses to the first three variants + `…`, then drops entirely below the pull-count column.
+- **Pull count** — far right, muted, in `K`/`M`/`B` format (e.g. `114.2M`).
+- **`[legacy]` badge** — applied to any model whose `Updated …` timestamp on ollama.com is ≥ 1 year ago.
+
+**Filter chips** appear above the list: `Filter  [ALL]  embedding  thinking  vision  tools  audio`. Click a chip (single-select) to narrow the list to that capability; click `ALL` to reset. Filtering is a view operation only — rows you've already checked stay checked when hidden and reappear when the filter is cleared.
+
+**Sort order**: two buckets, recent first.
+1. Models updated within the last 365 days, sorted descending by total pull count.
+2. Models older than 365 days (the `[legacy]` bucket), same sort.
+
+This pushes year-old hits like `llama3.1` (114M pulls but updated a year ago) below newer-but-popular models like `deepseek-r1`, `gemma3`, and `qwen3`. The bucket boundary is signalled visually by the `[legacy]` badge and the `updated X ago` annotation in the hint line.
 
 Selections persist as `OLLAMA_USER_MODELS`.
 
-When the library scrape fails (rare), the wizard falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). When `/api/tags` fails for a localhost/external source, the merge degrades to library-only with a warning in the session log.
+When the library scrape fails (rare), the wizard falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). Capability tags and sizes aren't recoverable in fallback (the catalog only carries `embedding` / `vision` flags); the `[legacy]` badge is suppressed because age data is unavailable. When `/api/tags` fails for a localhost/external source, the merge degrades to library-only with a warning in the session log.
 
 The default-active baseline is already activated in `public.llms` from `08-seed-data.sql`, so checking items here is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour:
 
@@ -191,8 +204,8 @@ The wizard automatically discovers all configurable services from `service-confi
 | Weaviate | container, localhost, disabled |
 | Multi2Vec CLIP | container-cpu, container-gpu, disabled |
 | Neo4j Graph DB | container, localhost, disabled |
-| STT Provider (Parakeet) | container-gpu, localhost, disabled |
-| TTS Provider (XTTS) | container-gpu, localhost, disabled |
+| STT Provider | speaches-container-cpu, speaches-container-gpu, parakeet-container-gpu, parakeet-localhost, whisper-cpp-localhost, disabled |
+| TTS Provider | speaches-container-cpu, speaches-container-gpu, chatterbox-container-gpu, chatterbox-localhost, disabled |
 | Document Processor (Docling) | container-gpu, localhost, disabled |
 | OpenClaw | container, localhost, disabled |
 | Hermes Agent | container, localhost, disabled |

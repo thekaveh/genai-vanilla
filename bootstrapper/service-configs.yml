@@ -259,11 +259,37 @@ source_configurable:
       extra_hosts: []
 
   stt_provider:
-    # GPU-accelerated Parakeet (NVIDIA)
+    # Speaches CPU — one container exposes BOTH /v1/audio/transcriptions and
+    # /v1/audio/speech (OpenAI-compatible). If TTS also picks speaches, the
+    # bootstrapper dedupes to a single running container. The compose service
+    # owns the real env wiring (PRELOAD_MODELS, HF_TOKEN, …) — only the
+    # bootstrapper-managed STT_ENDPOINT is set here.
+    speaches-container-cpu:
+      scale: 1
+      environment:
+        STT_ENDPOINT: "http://speaches:8000"
+      deploy: {}
+      extra_hosts: []
+
+    # Speaches GPU — CUDA build of the same image, same dual-purpose API
+    speaches-container-gpu:
+      scale: 1
+      environment:
+        STT_ENDPOINT: "http://speaches:8000"
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+
+    # GPU-accelerated Parakeet (NVIDIA NeMo) — CC-BY-4.0, SOTA for EN/EU
     parakeet-container-gpu:
       scale: 1
       environment:
-        PARAKEET_ENDPOINT: "http://parakeet-gpu:8000"
+        STT_ENDPOINT: "http://parakeet-gpu:8000"
         PARAKEET_DEVICE: "${PARAKEET_GPU_DEVICE:-cuda}"
         PARAKEET_COMPUTE_TYPE: "${PARAKEET_GPU_COMPUTE_TYPE:-float16}"
         PARAKEET_MODEL: "${PARAKEET_MODEL:-nvidia/parakeet-tdt-0.6b-v3}"
@@ -282,7 +308,16 @@ source_configurable:
     parakeet-localhost:
       scale: 0
       environment:
-        PARAKEET_ENDPOINT: "${PARAKEET_LOCALHOST_URL:-http://host.docker.internal:63022}"
+        STT_ENDPOINT: "${PARAKEET_LOCALHOST_URL:-http://host.docker.internal:63022}"
+      deploy: {}
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+    # whisper.cpp on host — first-class Apple Silicon (Metal + Core ML / ANE)
+    whisper-cpp-localhost:
+      scale: 0
+      environment:
+        STT_ENDPOINT: "${WHISPER_CPP_LOCALHOST_URL:-http://host.docker.internal:63025}"
       deploy: {}
       extra_hosts:
         - "host.docker.internal:host-gateway"
@@ -291,19 +326,27 @@ source_configurable:
     disabled:
       scale: 0
       environment:
-        PARAKEET_ENDPOINT: ""
+        STT_ENDPOINT: ""
       deploy: {}
       extra_hosts: []
 
-  # TTS Provider Service (XTTS v2)
+  # TTS Provider Service
   tts_provider:
-    # GPU-accelerated XTTS v2 (NVIDIA) via openedai-speech
-    xtts-container-gpu:
+    # Speaches CPU — see stt_provider above for full detail. Same container
+    # serves /v1/audio/speech (Kokoro / Piper voices). Real env wiring is in
+    # compose (PRELOAD_MODELS et al.).
+    speaches-container-cpu:
       scale: 1
       environment:
-        XTTS_ENDPOINT: "http://xtts-gpu:8000"
-        NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
-        HF_TOKEN: "${HUGGING_FACE_HUB_TOKEN}"
+        TTS_ENDPOINT: "http://speaches:8000"
+      deploy: {}
+      extra_hosts: []
+
+    # Speaches GPU
+    speaches-container-gpu:
+      scale: 1
+      environment:
+        TTS_ENDPOINT: "http://speaches:8000"
       deploy:
         resources:
           reservations:
@@ -313,11 +356,29 @@ source_configurable:
                 capabilities: [gpu]
       extra_hosts: []
 
-    # Local XTTS v2 on host (any platform with Python)
-    xtts-localhost:
+    # Chatterbox (Resemble AI) — MIT, voice-cloning, OpenAI-compatible
+    # /v1/audio/speech. Spiritual XTTS successor with permissive licensing.
+    # Real env wiring (DEVICE, USE_MULTILINGUAL_MODEL, …) lives in compose.
+    chatterbox-container-gpu:
+      scale: 1
+      environment:
+        TTS_ENDPOINT: "http://chatterbox:4123"
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+
+    # Chatterbox natively on host (macOS MPS / Linux MPS or CPU). Default
+    # port matches CHATTERBOX_PORT (container variant) for symmetry — only
+    # one of the two is ever running, so they share a port slot.
+    chatterbox-localhost:
       scale: 0
       environment:
-        XTTS_ENDPOINT: "${XTTS_LOCALHOST_URL:-http://host.docker.internal:63023}"
+        TTS_ENDPOINT: "${CHATTERBOX_LOCALHOST_URL:-http://host.docker.internal:63027}"
       deploy: {}
       extra_hosts:
         - "host.docker.internal:host-gateway"
@@ -326,7 +387,7 @@ source_configurable:
     disabled:
       scale: 0
       environment:
-        XTTS_ENDPOINT: ""
+        TTS_ENDPOINT: ""
       deploy: {}
       extra_hosts: []
 
@@ -429,7 +490,7 @@ source_configurable:
     localhost:
       scale: 0
       environment:
-        HERMES_ENDPOINT: "${HERMES_LOCALHOST_URL:-http://host.docker.internal:63026}"
+        HERMES_ENDPOINT: "${HERMES_LOCALHOST_URL:-http://host.docker.internal:63028}"
       deploy: {}
       extra_hosts:
         - "host.docker.internal:host-gateway"
@@ -460,8 +521,8 @@ source_configurable:
     container:
       scale: 1
       environment:
-        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-        XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
+        STT_ENDPOINT: "${STT_ENDPOINT}"
+        TTS_ENDPOINT: "${TTS_ENDPOINT}"
         DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
       deploy: {}
       extra_hosts: []
@@ -721,8 +782,8 @@ source_configurable:
         OPENAI_API_BASE_URLS: "http://litellm:4000/v1"
         OPENAI_API_KEYS: "${LITELLM_MASTER_KEY}"
         COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT:-http://comfyui:18188}"
-        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-        XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
+        STT_ENDPOINT: "${STT_ENDPOINT}"
+        TTS_ENDPOINT: "${TTS_ENDPOINT}"
         DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
       deploy: {}
       extra_hosts: []  # Will inherit from comfyui
@@ -743,8 +804,8 @@ source_configurable:
         # All LLM access through the LiteLLM gateway.
         LITELLM_BASE_URL: "http://litellm:4000"
         LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
-        PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-        XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
+        STT_ENDPOINT: "${STT_ENDPOINT}"
+        TTS_ENDPOINT: "${TTS_ENDPOINT}"
         DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
       deploy: {}
       extra_hosts: []
@@ -782,8 +843,8 @@ adaptive_services:
       LITELLM_BASE_URL: "http://litellm:4000"
       LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
       WEAVIATE_URL: "http://weaviate:8080"
-      PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-      XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
+      STT_ENDPOINT: "${STT_ENDPOINT}"
+      TTS_ENDPOINT: "${TTS_ENDPOINT}"
       DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
@@ -802,8 +863,8 @@ adaptive_services:
     # omit the matching provider block (graceful degradation when
     # a dependency is disabled).
     environment_adaptation:
-      XTTS_INTERNAL_URL: "${XTTS_ENDPOINT}"
-      PARAKEET_INTERNAL_URL: "${PARAKEET_ENDPOINT}"
+      TTS_INTERNAL_URL: "${TTS_ENDPOINT}"
+      STT_INTERNAL_URL: "${STT_ENDPOINT}"
       COMFYUI_INTERNAL_URL: "${COMFYUI_ENDPOINT}"
       SEARXNG_INTERNAL_URL: "http://searxng:8080"  # SearXNG has no SOURCE-driven endpoint var
     extra_hosts_adaptation: "none"
@@ -820,8 +881,8 @@ adaptive_services:
     adapts_to: [stt_provider, tts_provider, doc_processor]
     # Scales to 1 when enabled
     environment_adaptation:
-      PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-      XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
+      STT_ENDPOINT: "${STT_ENDPOINT}"
+      TTS_ENDPOINT: "${TTS_ENDPOINT}"
       DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
     extra_hosts_adaptation: "inherit from stt_provider, tts_provider, doc_processor"
 
@@ -835,8 +896,8 @@ adaptive_services:
       WEAVIATE_URL: "http://weaviate:8080"
       NEO4J_URI: "bolt://neo4j-graph-db:7687"
       COMFYUI_BASE_URL: "${COMFYUI_ENDPOINT}"
-      PARAKEET_ENDPOINT: "${PARAKEET_ENDPOINT}"
-      XTTS_ENDPOINT: "${XTTS_ENDPOINT}"
+      STT_ENDPOINT: "${STT_ENDPOINT}"
+      TTS_ENDPOINT: "${TTS_ENDPOINT}"
       DOCLING_ENDPOINT: "${DOCLING_ENDPOINT}"
     extra_hosts_adaptation: "inherit from llm_provider"
 

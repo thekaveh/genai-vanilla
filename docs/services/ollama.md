@@ -53,13 +53,24 @@ If `LLM_PROVIDER_SOURCE=none`, the stack still starts as long as at least one of
 
 The interactive wizard surfaces **one** Ollama model multi-select (and a free-text "additional to pull" step for container sources). The option list is source-aware so the user never sees two near-duplicate pages:
 
-- **`ollama-container-*`** — the multi-select shows the live `https://ollama.com/library` scrape (a few hundred entries; exact count depends on the upstream catalog at fetch time). Nothing is pulled yet — the in-stack container is launched after wizard exit — so the library is the only meaningful discovery surface. The `ollama-pull` init container fetches checked entries on first start.
-- **`ollama-localhost`** / **`ollama-external`** — the multi-select **merges** `/api/tags` (already-pulled on your upstream) with the library scrape. Each row carries a badge:
-  - `[pulled]` — on disk on your upstream right now. Checking activates it in `public.llms`; LiteLLM serves it on the next render.
-  - `[library]` — exists in the public catalog but not pulled. Checking it registers a routable row in `public.llms`, but you must `ollama pull <name>` on the host yourself before requests will succeed (otherwise LiteLLM returns 404 from the upstream).
+- **`ollama-container-*`** — the multi-select shows the live `https://ollama.com/library` scrape (~230 entries; exact count depends on the upstream catalog at fetch time). Nothing is pulled yet — the in-stack container is launched after wizard exit — so the library is the only meaningful discovery surface. The `ollama-pull` init container fetches checked entries on first start.
+- **`ollama-localhost`** / **`ollama-external`** — the multi-select **merges** `/api/tags` (already-pulled on your upstream) with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — registering requires `ollama pull <name>` on the host before requests succeed).
+
+Every row enriched with metadata scraped from each model card on `ollama.com/library`:
+
+- **Capability badges** (`[embedding]`, `[thinking]`, `[vision]`, `[tools]`, `[audio]`) — extracted from each card's `x-test-capability` spans. Drive both the visual tag column and the filter chip row above the list.
+- **Size column** — every variant's approximate disk size, computed from Ollama's published parameter count (`8b`, `70b`, …) via `params × 0.6 bytes/param` (Q4_K_M quantization rule of thumb). Real downloads are within ±10–15% of the figure shown (`8b → 4.8GB`, `70b → 42GB`, `0.6b → 360MB`). On narrow terminals the column compresses to the first three variants + `…`, then drops entirely.
+- **Pull count** — far right, muted, formatted in `K`/`M`/`B`.
+- **`[legacy]` badge** — applied to any model whose `Updated …` timestamp is ≥ 365 days. Demoted below recent models in the sort order; visually muted.
+
+**Filter chip row** above the list: single-select chips for `ALL · embedding · thinking · vision · tools · audio`. Picking a chip narrows the visible list to that capability; rows you've already checked are preserved across filter switches.
+
+**Sort order** — two recency buckets, recent first, each sorted descending by total pulls:
+1. Recent (updated within 365 days).
+2. Legacy (`[legacy]` badge, updated > 365 days ago).
 
 Failure modes degrade gracefully:
-- Library scrape down → falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). Logged in the session log.
+- Library scrape down → falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). Capability tags and sizes are not recoverable; `[legacy]` is suppressed in fallback because no age data is available. Logged in the session log.
 - `/api/tags` unreachable → merged view degrades to library-only with a warning. Logged.
 - Both down → placeholder row explains what to fix.
 

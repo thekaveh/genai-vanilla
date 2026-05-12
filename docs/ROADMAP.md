@@ -19,17 +19,20 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Sample notebooks for all service integrations
 - Persistent workspace with Docker volumes
 
-**Speech-to-Text service (Parakeet)**
-- Speech-to-text with NVIDIA Parakeet models
-- 25+ language support
+**Speech-to-Text layer (pluggable)**
+- OpenAI-compatible `/v1/audio/transcriptions` across all backends
+- Speaches (Faster-Whisper) — CPU-friendly default, multilingual
+- NVIDIA Parakeet-TDT — CC-BY-4.0 SOTA for English/EU langs
+- whisper.cpp — first-class Apple Silicon (Metal + Core ML / ANE)
+- Parakeet-MLX — alternative macOS-native option
 - Integration with Open WebUI for voice chat
-- MLX acceleration for Apple Silicon, CUDA for NVIDIA GPUs
 
-**Text-to-Speech service (XTTS v2)**
-- Text-to-speech with Coqui XTTS v2
-- Voice cloning capabilities
-- OpenAI-compatible API
-- GPU acceleration support
+**Text-to-Speech layer (pluggable)**
+- OpenAI-compatible `/v1/audio/speech` across all backends
+- Speaches (Kokoro + Piper voices) — CPU-friendly default
+- Chatterbox (Resemble AI, MIT) — 5-sec zero-shot voice cloning, 23 langs
+- Previously shipped with XTTS v2 (CPML / non-commercial) — retired
+  2026-05 after the openedai-speech upstream archived its image
 
 **Document processing service (Docling)**
 - Document processing with IBM Docling
@@ -188,22 +191,40 @@ Consumed by (services that would call MinIO):
 **Hermes Agent (programmable AI agent for chat & messaging)** ✓ **shipped**
 
 Lives in [docs/services/hermes.md](services/hermes.md). Shipped as the
-`hermes` service (`nousresearch/hermes-agent:0.13.0`) plus `hermes-init`
-companion. Registered in the LiteLLM model catalog as `hermes-agent`, so
-every consumer (Open-WebUI, n8n, backend, jupyterhub, openclaw) sees it
-in the model dropdown automatically. Dashboard exposed at
-`http://hermes.localhost:63002`.
+`hermes` service (`nousresearch/hermes-agent:latest` — upstream publishes
+only `latest` + per-commit `sha-<digest>` tags, no semver; production
+pins via `HERMES_IMAGE=nousresearch/hermes-agent:sha-...`) plus
+`hermes-init` companion. Registered in the LiteLLM model catalog as
+`hermes-agent`, so every consumer (Open-WebUI, n8n, backend, jupyterhub,
+openclaw) sees it in the model dropdown automatically. Dashboard exposed
+at `http://hermes.localhost:63002`.
+
+Consumes (when enabled, via the LiteLLM gateway and `hermes-init`'s
+config.yaml rendering):
+- **LiteLLM gateway** — required; Hermes reasons over `http://litellm:4000/v1`
+- **ComfyUI** — image generation invoked as a tool from agent personas (auto-wired via skill-override file)
+- **TTS provider (Speaches / Chatterbox)** — speech output for voice-enabled responses (`TTS_ENDPOINT`)
+- **STT provider (Speaches / Parakeet / whisper.cpp)** — speech input for voice-driven conversations (`STT_ENDPOINT`)
+- **SearXNG** — web search tool (no API key required)
+
+Consumed by:
+- **Open WebUI** — primary chat surface; `hermes-agent` appears in the model dropdown via LiteLLM
+- **OpenClaw** — bridges Hermes agents to WhatsApp / Telegram / Discord channels
+- **Backend (FastAPI)** — programmatic agent invocation from application code
+- **n8n** — agent-driven automation workflows
 
 Correction to the prior Tier-2 sketch: Hermes is **file-based**, not
 Postgres-backed. The earlier line claiming Supabase as a Hermes dependency
 was wrong — Hermes persists everything under `/opt/data` (the `hermes-data`
 named volume). Supabase is not in Hermes's dependency set.
 
-**Alternative TTS models (Piper)**
-- Additional TTS model support beyond XTTS v2
-- More voice model options
-- Streaming audio capabilities
-- Voice cloning features
+**Alternative TTS/STT engines (already explored)**
+- Piper — shipped via Speaches's bundled CPU-friendly path
+- Voice cloning — shipped via Chatterbox (`chatterbox-container-gpu` /
+  `chatterbox-localhost`)
+- Streaming audio — Speaches and Chatterbox both expose chunked output
+- Future candidates: Orpheus-TTS (streaming, GPU-only), SenseVoice (50+
+  langs with emotion labels), Higgs Audio v2
 
 ---
 

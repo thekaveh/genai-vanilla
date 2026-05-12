@@ -70,15 +70,15 @@ mkdir -p "${DATA_DIR}" "${SKILLS_DIR}"
 export HERMES_DEFAULT_MODEL="${HERMES_DEFAULT_MODEL:-}"
 export HERMES_CONTEXT_LENGTH="${HERMES_CONTEXT_LENGTH:-65536}"
 export LITELLM_MASTER_KEY="${LITELLM_MASTER_KEY:-}"
-export XTTS_INTERNAL_URL="${XTTS_INTERNAL_URL:-}"
-export PARAKEET_INTERNAL_URL="${PARAKEET_INTERNAL_URL:-}"
+export TTS_INTERNAL_URL="${TTS_INTERNAL_URL:-}"
+export STT_INTERNAL_URL="${STT_INTERNAL_URL:-}"
 export COMFYUI_INTERNAL_URL="${COMFYUI_INTERNAL_URL:-}"
 export SEARXNG_INTERNAL_URL="${SEARXNG_INTERNAL_URL:-}"
 
 # Build the variable list explicitly so envsubst only touches the
 # ones we know about.
 VARS='${HERMES_DEFAULT_MODEL} ${HERMES_CONTEXT_LENGTH} ${LITELLM_MASTER_KEY}
-${XTTS_INTERNAL_URL} ${PARAKEET_INTERNAL_URL} ${COMFYUI_INTERNAL_URL}
+${TTS_INTERNAL_URL} ${STT_INTERNAL_URL} ${COMFYUI_INTERNAL_URL}
 ${SEARXNG_INTERNAL_URL}'
 
 if [[ ! -f "${TEMPLATE_DIR}/config.yaml.tmpl" ]]; then
@@ -104,8 +104,8 @@ strip_block() {
   fi
 }
 
-strip_block TTS    XTTS_INTERNAL_URL
-strip_block STT    PARAKEET_INTERNAL_URL
+strip_block TTS    TTS_INTERNAL_URL
+strip_block STT    STT_INTERNAL_URL
 strip_block SEARCH SEARXNG_INTERNAL_URL
 
 # Atomic write so a crash mid-write doesn't leave a partial config.

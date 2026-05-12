@@ -27,11 +27,16 @@ from typing import Callable
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical, VerticalScroll
+from textual.containers import Container, VerticalScroll
 from textual.widgets import Input, Static
 
 from .. import palette as P
 from .dependency_conflict import ConflictAction, DependencyConflict
+from .multiselect_filter_chips import (
+    ALL_KEY as FILTER_ALL_KEY,
+    FilterChanged,
+    MultiselectFilterChips,
+)
 from .option_row import OptionRow
 
 
@@ -58,6 +63,12 @@ class PromptOption:
     label: str
     hint: str = ""
     badges: list[str] = field(default_factory=list)
+    # Display-only enrichments populated by the Ollama models step from
+    # ``utils.ollama_library.OllamaLibraryEntry``. Default empty so every
+    # other multiselect step (cloud /v1/models, source pickers, …) is
+    # unaffected and OptionRow simply skips the columns.
+    pulls: int = 0                  # 0 ⇒ unknown ⇒ not rendered
+    sizes: tuple[str, ...] = ()     # () ⇒ unknown ⇒ not rendered
 
 
 @dataclass
@@ -104,6 +115,12 @@ class PromptStep:
     # this to distinguish "existing key + provider already enabled"
     # from "existing key + provider currently disabled; Enter enables".
     secret_keep_hint: str | None = None
+    # Tags shown as single-select filter chips above a multiselect's
+    # option list. Empty ⇒ no filter row is mounted (default for every
+    # step that isn't Ollama models). When non-empty, the wizard renders
+    # ``[ALL] tag1 tag2 …`` and filters visible options by membership
+    # in ``PromptOption.badges``.
+    filter_tags: tuple[str, ...] = ()
 
 
 def _progress_braille(step: int, total: int, width: int = 10) -> str:
@@ -172,6 +189,7 @@ class PromptPanel(Container):
         padding-top: 1;
     }
     PromptPanel > #conflict-slot { height: auto; }
+    PromptPanel > #filter-slot { height: auto; }
     """
 
     def __init__(self, *, id: str | None = None) -> None:
@@ -179,6 +197,10 @@ class PromptPanel(Container):
         self._heading = Static("", classes="prompt-heading")
         self._subtitle = Static("", classes="prompt-subtitle")
         self._spacer2 = Static("", classes="prompt-spacer-2")
+        # Container for the (optional) MultiselectFilterChips widget;
+        # populated in load_step() only when the step carries
+        # ``filter_tags``. Empty for every other step.
+        self._filter_slot = Container(id="filter-slot")
         # VerticalScroll (not plain Vertical) so long option lists
         # (Ollama library scrape can be ~230 entries) get a scrollbar
         # and a clipped viewport; otherwise the cursor moves down past
@@ -201,14 +223,26 @@ class PromptPanel(Container):
         self._step: PromptStep | None = None
         self._selected_index = 0
         # Set of option.value strings currently checked when the
-        # active step is a multi-select.
+        # active step is a multi-select. Filter-tag-agnostic — switching
+        # filters never mutates this set, so a row that was checked
+        # under one filter stays checked when re-revealed by another.
         self._checked_values: set[str] = set()
+        # Multi-select filter state. ``_filter_tag`` is the chip key
+        # currently active ("all" or one of step.filter_tags).
+        # ``_visible_indices`` maps display position → step.options
+        # absolute index. For non-multiselect / no-filter steps these
+        # remain in their default state and ``_selected_index`` keeps
+        # its original absolute-index semantics.
+        self._filter_tag: str = "all"
+        self._visible_indices: list[int] = []
+        self._filter_chips: "MultiselectFilterChips | None" = None
         self._on_change: Callable[[int, PromptOption], None] | None = None
 
     def compose(self) -> ComposeResult:
         yield self._heading
         yield self._subtitle
         yield self._spacer2
+        yield self._filter_slot
         yield self._option_list
         yield self._number_slot
         yield self._conflict_slot
@@ -353,10 +387,13 @@ class PromptPanel(Container):
             # Checkbox list — Space toggles the focused row, Enter
             # confirms the entire selection. Uses the existing
             # _option_list container with OptionRow widgets in
-            # multi=True mode.
+            # multi=True mode. When the step declares ``filter_tags``,
+            # a MultiselectFilterChips row is mounted above the list
+            # and ``_selected_index`` becomes a display-position index
+            # into ``_visible_indices`` instead of an absolute index
+            # into ``step.options``.
             self._hide_number_widgets()
             self._hide_secret_widgets()
-            self._selected_index = 0
             # Intersect default_values with the *visible* option set.
             # Without this, defaults that aren't in step.options (e.g. a
             # cloud account that no longer has access to a previously-
@@ -365,22 +402,14 @@ class PromptPanel(Container):
             # _checked_values and leak into the saved CSV at confirm.
             visible_values = {opt.value for opt in step.options}
             self._checked_values = set(step.default_values or []) & visible_values
-            # OptionRow has no ``id=`` so the sync remove/mount pair
-            # is safe — Textual only raises DuplicateIds when two
-            # widgets in the same tree share an explicit id. The
-            # persistent Input widgets above (#number-input,
-            # #secret-input) carry IDs and therefore went through the
-            # await-friendly hide/show path instead.
-            self._option_list.remove_children()
-            for i, opt in enumerate(step.options):
-                self._option_list.mount(OptionRow(
-                    opt.label,
-                    hint=opt.hint,
-                    badges=opt.badges,
-                    selected=(i == self._selected_index),
-                    multi=True,
-                    checked=(opt.value in self._checked_values),
-                ))
+            # Reset the filter on every (re-)entry into a multiselect
+            # step. Persistence across step navigations would be a
+            # follow-up; the default "show everything" is the least
+            # surprising entry state.
+            self._filter_tag = FILTER_ALL_KEY
+            self._mount_filter_chips(step.filter_tags)
+            self._selected_index = 0
+            self._mount_multiselect_rows()
             return
 
         # Default options-list step
@@ -419,6 +448,124 @@ class PromptPanel(Container):
             self._secret_input.display = False
         if self._secret_hint is not None:
             self._secret_hint.display = False
+
+    # ─── filter chips + visible-index helpers ───────────────────────────
+
+    def _mount_filter_chips(self, tags: tuple[str, ...]) -> None:
+        """Show (or hide) the filter-chip row above the option list."""
+        self._filter_slot.remove_children()
+        if not tags:
+            self._filter_chips = None
+            return
+        self._filter_chips = MultiselectFilterChips(
+            tags, active=self._filter_tag,
+        )
+        self._filter_slot.mount(self._filter_chips)
+
+    def _compute_visible_indices(self) -> list[int]:
+        """Indices into ``step.options`` that match ``self._filter_tag``.
+
+        ``"all"`` (or no step / no options) yields every index.
+        Otherwise, indices whose option's ``badges`` list contains the
+        active tag. The tag namespace lives in ``PromptOption.badges``
+        for symmetry with the existing status badges (``pulled``,
+        ``library``, ``default``) — capability tags from
+        ``ollama_library`` get prepended there too.
+        """
+        if not self._step or not self._step.options:
+            return []
+        tag = (self._filter_tag or FILTER_ALL_KEY).strip().lower()
+        if tag == FILTER_ALL_KEY:
+            return list(range(len(self._step.options)))
+        return [
+            i for i, opt in enumerate(self._step.options)
+            if tag in opt.badges
+        ]
+
+    def _mount_multiselect_rows(self) -> None:
+        """Re-render the option list given the current filter state.
+
+        Called on initial step load and on every ``FilterChanged``.
+        Cursor (``_selected_index``) is clamped to the visible range;
+        callers that want to restore the cursor onto a specific value
+        do so before calling this method.
+        """
+        if self._step is None:
+            return
+        self._visible_indices = self._compute_visible_indices()
+        # OptionRow has no ``id=`` so the sync remove/mount pair is
+        # safe — Textual only raises DuplicateIds when two widgets in
+        # the same tree share an explicit id.
+        self._option_list.remove_children()
+        if not self._visible_indices:
+            # Empty filter — show a non-toggleable placeholder. Uses
+            # the same sentinel value as the loading splash so
+            # ``toggle_focused`` already short-circuits it.
+            self._option_list.mount(OptionRow(
+                "(no models match this filter)",
+                selected=False,
+                multi=False,
+            ))
+            self._selected_index = 0
+            return
+        # Clamp cursor to the visible range.
+        if not (0 <= self._selected_index < len(self._visible_indices)):
+            self._selected_index = 0
+        for disp_i, abs_i in enumerate(self._visible_indices):
+            opt = self._step.options[abs_i]
+            self._option_list.mount(OptionRow(
+                opt.label,
+                hint=opt.hint,
+                badges=opt.badges,
+                selected=(disp_i == self._selected_index),
+                multi=True,
+                checked=(opt.value in self._checked_values),
+                sizes=opt.sizes,
+                pulls=opt.pulls,
+            ))
+
+    def on_filter_changed(self, event: FilterChanged) -> None:
+        """Handle a chip click bubbling up from MultiselectFilterChips.
+
+        Saves the currently-focused option value, applies the new
+        filter, re-mounts visible rows, and restores the cursor to
+        the same value if it's still visible (otherwise lands on the
+        first visible row). The checked-set is filter-agnostic, so
+        rows hidden by the new filter stay checked and reappear when
+        the user switches back.
+        """
+        if (
+            self._step is None
+            or self._step.kind != "multiselect"
+            or not self._step.filter_tags
+        ):
+            return
+        prev_value: str | None = None
+        if self._visible_indices and 0 <= self._selected_index < len(self._visible_indices):
+            prev_value = self._step.options[
+                self._visible_indices[self._selected_index]
+            ].value
+        self._filter_tag = event.tag
+        if self._filter_chips is not None:
+            self._filter_chips.set_active(event.tag)
+        # Recompute visible set then restore cursor.
+        new_visible = (
+            list(range(len(self._step.options)))
+            if event.tag == FILTER_ALL_KEY
+            else [
+                i for i, opt in enumerate(self._step.options)
+                if event.tag in opt.badges
+            ]
+        )
+        new_selected = 0
+        if prev_value is not None:
+            for disp_i, abs_i in enumerate(new_visible):
+                if self._step.options[abs_i].value == prev_value:
+                    new_selected = disp_i
+                    break
+        self._selected_index = new_selected
+        self._mount_multiselect_rows()
+        event.stop()
 
     def clear_conflict(self) -> None:
         self._conflict_slot.remove_children()
@@ -496,7 +643,21 @@ class PromptPanel(Container):
     def move(self, delta: int) -> None:
         if not self._step or not self._step.options:
             return
-        n = len(self._step.options)
+        # For a filtered multiselect, ``_selected_index`` is a
+        # display-position index into ``_visible_indices`` — navigate
+        # within the visible subset only. The earlier guard collapsed
+        # to ``len(step.options)`` when ``_visible_indices`` was empty,
+        # which silently advanced the cursor through hidden rows when
+        # the user picked a filter chip with zero matches (the
+        # placeholder row "(no models match this filter)" was the only
+        # thing visible). Branch on ``filter_tags`` alone so an empty
+        # visible set returns early.
+        if self._step.kind == "multiselect" and self._step.filter_tags:
+            n = len(self._visible_indices)
+        else:
+            n = len(self._step.options)
+        if n == 0:
+            return
         new = (self._selected_index + delta) % n
         if new == self._selected_index:
             return
@@ -559,8 +720,20 @@ class PromptPanel(Container):
             return
         if not self._step.options:
             return
-        idx = max(0, min(self._selected_index, len(self._step.options) - 1))
-        opt = self._step.options[idx]
+        # Translate the display-position cursor to an absolute index
+        # into ``step.options``. For a filtered step with zero
+        # matches the visible list is the placeholder row only — bail
+        # out so Space doesn't silently toggle ``step.options[0]``
+        # under the user's invisible cursor.
+        if self._step.filter_tags:
+            if not self._visible_indices:
+                return
+            disp_idx = max(0, min(self._selected_index, len(self._visible_indices) - 1))
+            abs_idx = self._visible_indices[disp_idx]
+        else:
+            disp_idx = max(0, min(self._selected_index, len(self._step.options) - 1))
+            abs_idx = disp_idx
+        opt = self._step.options[abs_idx]
         # Don't toggle the temporary "⏳ Fetching…" splash row that
         # appears while a provider-driven options list is loading.
         # The sentinel value is set by WizardScreen._load_current_step.
@@ -573,5 +746,5 @@ class PromptPanel(Container):
             self._checked_values.add(opt.value)
             new_state = True
         rows = list(self._option_list.query(OptionRow))
-        if 0 <= idx < len(rows):
-            rows[idx].set_checked(new_state)
+        if 0 <= disp_idx < len(rows):
+            rows[disp_idx].set_checked(new_state)
