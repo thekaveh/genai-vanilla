@@ -21,14 +21,15 @@ Documentation index for the GenAI Vanilla Stack.
 - [Redis](services/redis.md) — cache/queue infrastructure
 - [Local Deep Researcher](services/local-deep-researcher.md) — research/orchestration service
 - [Multi2Vec CLIP](services/multi2vec-clip.md) — multimodal vectorization
-- [STT Provider (Speech-to-Text)](services/stt-provider.md) — NVIDIA Parakeet-TDT speech recognition
-- [TTS Provider (Text-to-Speech)](services/tts-provider.md) — XTTS v2 voice generation
+- [STT Provider (Speech-to-Text)](services/stt-provider.md) — pluggable: Speaches (Faster-Whisper, default), Parakeet-TDT, whisper.cpp
+- [TTS Provider (Text-to-Speech)](services/tts-provider.md) — pluggable: Speaches (Kokoro/Piper, default), Chatterbox (voice cloning)
 - [Document Processor (Docling)](services/doc-processor.md) — document processing
 - [Supabase Ecosystem](services/supabase.md) — database, auth, and storage services
 - [Neo4j (Graph Database)](services/neo4j.md) — graph database service
 - [Kong (API Gateway)](services/kong.md) — dynamic API gateway configuration
 - [JupyterHub (Data Science IDE)](services/jupyterhub.md) — interactive Jupyter Lab environment
 - [OpenClaw (AI Agent)](services/openclaw.md) — AI agent for messaging platforms
+- [Hermes Agent](services/hermes.md) — programmable AI agent runtime (Nous Research)
 
 ### Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants

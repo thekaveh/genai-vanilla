@@ -30,12 +30,16 @@ Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct 
 | Weaviate HTTP | `WEAVIATE_PORT` | +19 | 63019 | `http://localhost:63019` | — | Vector database REST endpoint. |
 | Weaviate gRPC | `WEAVIATE_GRPC_PORT` | +20 | 63020 | `localhost:63020` | — | Vector database gRPC endpoint. |
 | Document Processor / Docling | `DOC_PROCESSOR_PORT` | +21 | 63021 | `http://localhost:63021` | — | Optional document processing service. |
-| STT Provider / Parakeet | `STT_PROVIDER_PORT` | +22 | 63022 | `http://localhost:63022` | — | Optional speech-to-text service. |
-| TTS Provider / XTTS | `TTS_PROVIDER_PORT` | +23 | 63023 | `http://localhost:63023` | — | Optional text-to-speech service. |
+| STT Provider (wizard slot) | `STT_PROVIDER_PORT` | +22 | 63022 | `http://localhost:63022` | — | Wizard display slot. Bootstrapper rewrites it to match the active source — `SPEACHES_PORT` for Speaches, this slot for Parakeet, or the port inside `*_LOCALHOST_URL` for host-side variants. |
+| TTS Provider (wizard slot) | `TTS_PROVIDER_PORT` | +23 | 63023 | `http://localhost:63023` | — | Wizard display slot. Bootstrapper rewrites it to `SPEACHES_PORT` (Speaches), `CHATTERBOX_PORT` (Chatterbox), or the URL-port for `chatterbox-localhost`. |
 | OpenClaw Gateway | `OPENCLAW_GATEWAY_PORT` | +24 | 63024 | `http://localhost:63024` | `http://openclaw.localhost:63002` | Optional AI agent gateway. |
 | OpenClaw Bridge | `OPENCLAW_BRIDGE_PORT` | +25 | 63025 | `http://localhost:63025` | — | Optional bridge service. |
-| MinIO S3 API | `MINIO_PORT` | +26 | 63026 | `http://localhost:63026` | — | S3-compatible object storage API. |
-| MinIO Console | `MINIO_CONSOLE_PORT` | +27 | 63027 | `http://localhost:63027` | — | MinIO admin console UI. |
+| Speaches (TTS+STT) | `SPEACHES_PORT` | +26 | 63026 | `http://localhost:63026` | — | Unified TTS+STT — Kokoro/Piper voices + Faster-Whisper transcription. Runs when either `TTS_PROVIDER_SOURCE` or `STT_PROVIDER_SOURCE` selects a `speaches-*` value. |
+| Chatterbox TTS | `CHATTERBOX_PORT` | +27 | 63027 | `http://localhost:63027` | — | Voice-cloning TTS (Resemble AI Chatterbox). Runs when `TTS_PROVIDER_SOURCE=chatterbox-container-gpu`. |
+| Hermes Agent API | `HERMES_API_PORT` | +28 | 63028 | `http://localhost:63028` | — | OpenAI-compatible API. Bearer token in `HERMES_API_KEY`. |
+| Hermes Agent Dashboard | `HERMES_DASHBOARD_PORT` | +29 | 63029 | `http://localhost:63029` | `http://hermes.localhost:63002` | Web admin UI (skills, sessions, model config). |
+| MinIO S3 API | `MINIO_PORT` | +30 | 63030 | `http://localhost:63030` | — | S3-compatible object storage API. |
+| MinIO Console | `MINIO_CONSOLE_PORT` | +31 | 63031 | `http://localhost:63031` | — | MinIO admin console UI. |
 | JupyterHub | `JUPYTERHUB_PORT` | +48 | 63048 | `http://localhost:63048` | `http://jupyter.localhost:63002` | Data science notebook environment. |
 
 ## Hosts-file routes
@@ -51,6 +55,7 @@ Current documented Kong hostnames:
 - `api.localhost`
 - `chat.localhost`
 - `comfyui.localhost`
+- `hermes.localhost`
 - `jupyter.localhost`
 - `n8n.localhost`
 - `openclaw.localhost`

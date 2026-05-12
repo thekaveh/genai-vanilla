@@ -289,6 +289,14 @@ class SourceValidator:
         Pure tooling (linters, CI checks, future dry-runs) can call
         ``validate_all_sources()`` alone without mutating .env.
 
+        Currently performs:
+          - ``_migrate_legacy_tts_stt_sources()`` — flips deprecated
+            ``xtts-*`` source values to their maintained successors so
+            users who pulled the new bootstrapper against an older .env
+            don't fail validation against an archived image.
+          - ``_enforce_cloud_keys_present()`` — auto-disables cloud
+            providers whose API key is empty.
+
         Returns:
             bool: ``True`` if the repair pass either had nothing to do
             or successfully persisted the rewrite. ``False`` if a
@@ -297,7 +305,96 @@ class SourceValidator:
             ``validate_all_sources()`` would read pre-rewrite state and
             may pass against values that no longer reflect intent.
         """
-        return self._enforce_cloud_keys_present()
+        # Run migration first so the later cloud-keys pass sees the
+        # post-migration .env (no functional overlap today, but cheaper
+        # to keep migrations as the outermost layer for future passes
+        # that might depend on each other's rewrites).
+        tts_stt_ok = self._migrate_legacy_tts_stt_sources()
+        cloud_ok = self._enforce_cloud_keys_present()
+        return tts_stt_ok and cloud_ok
+
+    def _migrate_legacy_tts_stt_sources(self) -> bool:
+        """Auto-rewrite TTS/STT source values from the pre-Speaches era.
+
+        Background: the previous TTS path used ``ghcr.io/matatonic/openedai-
+        speech`` which was archived 2026-01-04, and the previous voice-cloning
+        TTS path used XTTS-v2 whose weights are CPML / non-commercial. Both
+        were replaced — Speaches for the everyday TTS+STT path, Chatterbox
+        (Resemble AI, MIT) for voice cloning. The wizard catalog no longer
+        offers ``xtts-container-gpu`` or ``xtts-localhost`` as valid sources,
+        so any .env carrying those values would fail validation. This pass
+        flips them to the closest maintained equivalent and prints a one-line
+        notice so the user knows what changed.
+        """
+        env_vars = self.config_parser.parse_env_file()
+        rewrites: Dict[str, str] = {}
+
+        tts_source = (env_vars.get('TTS_PROVIDER_SOURCE', '') or '').strip()
+        if tts_source == 'xtts-container-gpu':
+            rewrites['TTS_PROVIDER_SOURCE'] = 'speaches-container-gpu'
+            print(
+                "ℹ️  TTS_PROVIDER_SOURCE=xtts-container-gpu auto-migrated to "
+                "speaches-container-gpu (openedai-speech was archived 2026-01-04). "
+                "See docs/services/tts-provider.md."
+            )
+        elif tts_source == 'xtts-localhost':
+            rewrites['TTS_PROVIDER_SOURCE'] = 'chatterbox-localhost'
+            print(
+                "ℹ️  TTS_PROVIDER_SOURCE=xtts-localhost auto-migrated to "
+                "chatterbox-localhost. Run `pip install chatterbox-tts-api` on the "
+                "host and start its server — see tts-provider/localhost/README.md."
+            )
+
+        if rewrites:
+            try:
+                from utils.source_override_manager import SourceOverrideManager
+                SourceOverrideManager(self.config_parser).update_env_file(rewrites)
+            except Exception as exc:  # noqa: BLE001
+                self.validation_errors.append(
+                    f"❌ Could not persist TTS/STT migration rewrite: {exc}. "
+                    "Manually edit .env: set TTS_PROVIDER_SOURCE to a current value "
+                    "(speaches-container-cpu, speaches-container-gpu, "
+                    "chatterbox-container-gpu, chatterbox-localhost, or disabled)."
+                )
+                return False
+
+        # Clean up stale auto-managed lines from old .env files. These were
+        # written by the previous bootstrapper and are now dead. Leaving them
+        # is harmless but confusing during debugging.
+        self._strip_lines_from_env([
+            'XTTS_ENDPOINT', 'PARAKEET_ENDPOINT', 'XTTS_GPU_SCALE'
+        ])
+        return True
+
+    def _strip_lines_from_env(self, var_names: List[str]) -> None:
+        """Remove any ``VAR=…`` line whose key matches ``var_names`` from .env.
+
+        Best-effort: failures here don't fail the launch pipeline because
+        leftover stale env lines are inert (no consumer reads them after
+        this change).
+        """
+        env_file = self.config_parser.env_file_path
+        if not env_file.exists():
+            return
+        try:
+            with open(env_file, 'r') as f:
+                lines = f.readlines()
+            keep = []
+            stripped_any = False
+            for line in lines:
+                # Match ``VAR=`` at line start (ignoring leading whitespace).
+                # We do NOT touch commented lines or lines that mention the
+                # var in passing — we only remove assignments.
+                lhs = line.split('=', 1)[0].strip()
+                if lhs in var_names:
+                    stripped_any = True
+                    continue
+                keep.append(line)
+            if stripped_any:
+                with open(env_file, 'w') as f:
+                    f.writelines(keep)
+        except Exception:  # noqa: BLE001
+            pass  # silent — not critical
 
     def _enforce_cloud_keys_present(self) -> bool:
         """Auto-disable cloud providers whose API key is empty.

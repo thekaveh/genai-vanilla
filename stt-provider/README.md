@@ -1,264 +1,133 @@
-# STT Provider - Speech-to-Text Service
+# STT Provider Service
 
-OpenAI-compatible Speech-to-Text API using NVIDIA Parakeet-TDT models.
+Pluggable speech-to-text layer. All backends expose an OpenAI-compatible
+`/v1/audio/transcriptions` endpoint so Open WebUI, n8n, and the backend API
+can use them interchangeably.
 
-## MLX Docker limitation
+## Available backends
 
-**MLX cannot run in Docker containers.** MLX requires native macOS with Metal GPU support.
+| `STT_PROVIDER_SOURCE` | Engine | License | Runs on |
+|---|---|---|---|
+| `speaches-container-cpu` | Speaches (Faster-Whisper inside) | MIT | Linux + macOS Docker, CPU |
+| `speaches-container-gpu` | Speaches CUDA build | MIT | NVIDIA |
+| `parakeet-container-gpu` | NVIDIA Parakeet-TDT (NeMo) | CC-BY-4.0 | NVIDIA |
+| `parakeet-localhost` | Parakeet-MLX or native Parakeet | NVIDIA Open Model | macOS MLX (best) / Linux |
+| `whisper-cpp-localhost` | whisper.cpp | MIT | macOS Metal+Core ML (best) / Linux |
+| `disabled` | none | — | — |
 
-- **Mac users**: Use `STT_PROVIDER_SOURCE=parakeet-localhost` and run MLX natively
-- **GPU users**: Use `STT_PROVIDER_SOURCE=parakeet-container-gpu` for Docker NVIDIA
+The default for fresh installs is **`speaches-container-cpu`** — works on
+every platform with no host install. The first transcription request pulls
+the Faster-Whisper model (~466 MB for distil-large-v3) and caches it under
+the `speaches-cache` volume.
 
-## Overview
+For Mac users who care about transcription speed, **`whisper-cpp-localhost`**
+is the fastest option (Metal + Core ML / ANE), followed by
+**`parakeet-localhost`** with parakeet-mlx. The Parakeet path remains the
+SOTA-quality choice for English/European languages.
 
-This service provides high-performance speech-to-text transcription with support for:
-
-- **Localhost backend** - For Mac MLX (Metal) or Linux (CPU/custom GPU), run natively on host
-- **GPU Docker backend** - For NVIDIA GPUs with CUDA acceleration in containers
-- **25+ languages** - Multilingual support (Parakeet-TDT v3)
-- **Word-level timestamps** - Precise timestamp information
-- **OpenAI-compatible API** - Drop-in replacement for Whisper API
-
-## Architecture
+## Directory layout
 
 ```
 stt-provider/
-├── mlx/              # Apple Silicon MLX implementation
-│   ├── api_server.py # OpenAI-compatible FastAPI server
-│   └── requirements.txt # Dependencies (includes parakeet-mlx)
-├── gpu/              # NVIDIA GPU implementation (Docker)
+├── mlx/                Apple Silicon MLX server for Parakeet (parakeet-localhost)
+│   ├── api_server.py
+│   ├── README.md
+│   └── requirements.txt
+├── gpu/                NVIDIA CUDA container build for Parakeet (parakeet-container-gpu)
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── transcribe.py
-└── shared/           # Common utilities
-    ├── api_server.py # FastAPI REST server template
+├── whisper-cpp/        whisper.cpp host install notes (whisper-cpp-localhost)
+│   └── README.md
+└── shared/             Common server scaffolding
+    ├── api_server.py
     └── utils.py
-
-Note: The MLX server uses the official parakeet-mlx library as its backend.
 ```
 
-## Performance
+The Speaches path doesn't have a directory here because it's an
+off-the-shelf container — see [docker-compose.yml](../docker-compose.yml)
+service `speaches` for the runtime config.
 
-### MLX (Apple Silicon)
-- **Speed**: 300x real-time on M2 Ultra
-- **Memory**: ~2GB RAM
-- **Example**: 3-hour podcast → 1 minute transcription
+## Quick start
 
-### GPU (NVIDIA)
-- **Speed**: 3380x real-time on A100
-- **Memory**: ~2GB VRAM (minimum)
-- **Example**: 1 hour audio → 1 second transcription
+Speaches (default — already enabled in `.env.example`):
 
-## Quick Start (Mac Users)
-
-**Step 1: Install dependencies**
 ```bash
-pip install -r stt-provider/mlx/requirements.txt
-```
-
-**Step 2: Start STT server (in separate terminal)**
-```bash
-cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
-```
-
-**Note:** Port 63022 is the default (base_port + 22). It auto-adjusts if you use `--base-port` flag.
-
-**Step 3: Start the stack with STT enabled (in another terminal)**
-```bash
-./start.sh --stt-provider-source parakeet-localhost
-```
-
-**Note:**
-- STT is **disabled by default** - you must explicitly enable it with `--stt-provider-source parakeet-localhost`
-- First run downloads the model (~1.2GB) and takes 5-10 minutes
-- Subsequent runs are instant
-- Alternative: Edit `.env` and set `STT_PROVIDER_SOURCE=parakeet-localhost` for permanent enable
-
----
-
-## Backend Options
-
-### 1. Localhost Backend (Mac or Linux Native)
-
-**For Mac users with MLX:**
-```bash
-# Install dependencies
-pip install -r mlx/requirements.txt
-
-# Run STT server on host
-cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
-
-# Configure .env (already set by default)
-STT_PROVIDER_SOURCE=parakeet-localhost
-STT_PROVIDER_PORT=63022  # Auto-updates with --base-port flag
-```
-
-### 2. GPU Docker Backend (NVIDIA)
-
-**For GPU users:**
-```bash
-# Configure .env
-STT_PROVIDER_SOURCE=parakeet-container-gpu
-
-# Start with docker
 ./start.sh
+curl -X POST http://localhost:63026/v1/audio/transcriptions \
+  -F file=@sample.wav -F model=whisper-1
 ```
 
-### 3. Disabled
+Parakeet on NVIDIA GPU:
 
 ```bash
-STT_PROVIDER_SOURCE=disabled
-```
-
-## API Endpoints
-
-### OpenAI-Compatible Endpoint
-
-```bash
-POST /v1/audio/transcriptions
-
-# Example
-curl -X POST http://localhost:63022/v1/audio/transcriptions \
-  -F "file=@audio.mp3" \
-  -F "model=parakeet-tdt-0.6b-v3" \
-  -F "language=en" \
-  -F "response_format=json"
-```
-
-### Advanced Endpoint
-
-```bash
-POST /v1/audio/transcriptions/advanced
-
-# Example with timestamps
-curl -X POST http://localhost:63022/v1/audio/transcriptions/advanced \
-  -F "file=@audio.mp3" \
-  -F "return_timestamps=true" \
-  -F "word_timestamps=true"
-```
-
-### Health Check
-
-```bash
-GET /health
-
-# Example
-curl http://localhost:63022/health
-```
-
-## Supported Audio Formats
-
-- WAV (.wav)
-- FLAC (.flac)
-- MP3 (.mp3)
-- M4A (.m4a)
-- OGG (.ogg)
-- OPUS (.opus)
-
-## Supported Languages (v3)
-
-English, Spanish, French, German, Italian, Portuguese, Polish, Dutch, Russian, Ukrainian, Czech, Slovak, Croatian, Slovenian, Estonian, Latvian, Lithuanian, Romanian, Bulgarian, Greek, Hungarian, Finnish, Swedish, Danish, Norwegian
-
-## Model Selection
-
-```bash
-# v3 (multilingual, 25 languages) - Default
-PARAKEET_MODEL=nvidia/parakeet-tdt-0.6b-v3
-
-# v2 (English-only, slightly faster)
-PARAKEET_MODEL=nvidia/parakeet-tdt-0.6b-v2
-```
-
-## Development
-
-### Building GPU Container
-
-```bash
-docker build -f stt-provider/gpu/Dockerfile -t parakeet-gpu .
-```
-
-### Running Locally
-
-**Mac (MLX):**
-```bash
-# Install dependencies
-pip install -r mlx/requirements.txt
-
-# Set model (optional, defaults to v3)
-export PARAKEET_MODEL=mlx-community/parakeet-tdt-0.6b-v3
-
-# Run server
-cd stt-provider
-python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
-```
-
-**GPU (NVIDIA - requires Docker):**
-```bash
-# Use the stack's Docker setup
 ./start.sh --stt-provider-source parakeet-container-gpu
 ```
 
-## Integration
-
-### Open WebUI
-
-Configure voice input to use STT endpoint:
-
-```
-STT_ENDPOINT=http://parakeet:8000
-```
-
-### n8n Workflows
-
-Use HTTP Request node:
-
-```
-POST http://parakeet:8000/v1/audio/transcriptions
-```
-
-### JupyterHub Notebooks
-
-```python
-import requests
-
-with open("audio.mp3", "rb") as f:
-    response = requests.post(
-        "http://parakeet:8000/v1/audio/transcriptions",
-        files={"file": f},
-        data={"response_format": "json"}
-    )
-
-print(response.json()["text"])
-```
-
-## Troubleshooting
-
-### Model Download Issues
-
-Models are downloaded automatically on first run. If download fails:
-
-1. Check Hugging Face Hub access
-2. Set `HUGGING_FACE_HUB_TOKEN` if needed
-3. Check disk space (~3GB required)
-
-### Performance Issues
-
-- **MLX**: Ensure Metal acceleration is enabled
-- **GPU**: Verify CUDA drivers and GPU visibility
-- **Memory**: Reduce audio length or increase available RAM/VRAM
-
-### Audio Format Issues
-
-Convert unsupported formats:
+Parakeet on macOS MLX:
 
 ```bash
-ffmpeg -i input.m4a -ar 16000 output.wav
+# Terminal 1
+pip install -r stt-provider/mlx/requirements.txt
+cd stt-provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
+
+# Terminal 2
+./start.sh --stt-provider-source parakeet-localhost
 ```
+
+whisper.cpp on macOS (Metal + Core ML):
+
+```bash
+# Terminal 1
+brew install whisper-cpp
+bash $(brew --prefix)/share/whisper-cpp/models/download-ggml-model.sh large-v3
+whisper-server --host 0.0.0.0 --port 63025 \
+  --model "$(brew --prefix)/share/whisper-cpp/models/ggml-large-v3.bin" \
+  --inference-path /v1/audio/transcriptions
+
+# Terminal 2
+./start.sh --stt-provider-source whisper-cpp-localhost
+```
+
+See [whisper-cpp/README.md](whisper-cpp/README.md) for the full whisper.cpp
+walk-through and Linux build instructions.
+
+Disable STT entirely:
+
+```bash
+./start.sh --stt-provider-source disabled
+```
+
+## Performance reference
+
+| Backend + hardware | Realtime factor (lower is faster) |
+|---|---|
+| Speaches CPU (Faster-Whisper distil-large-v3) on M2 Pro | ~0.3× |
+| Speaches GPU (CUDA, large-v3) on RTX 4090 | ~0.05× |
+| whisper.cpp Metal+CoreML (large-v3) on M2 Pro | ~0.1× |
+| Parakeet-MLX (v3) on M2 Ultra | ~0.003× (300× realtime) |
+| Parakeet CUDA (v3) on A100 | ~0.0003× (3380× realtime) |
+
+## How Open WebUI is wired
+
+The bootstrapper sets these env vars on the open-web-ui container based on
+the chosen source:
+
+- `AUDIO_STT_ENGINE=openai`
+- `AUDIO_STT_OPENAI_API_BASE_URL=${STT_ENDPOINT}/v1`
+- `AUDIO_STT_MODEL=whisper-1` (the OpenAI-compatible model name all engines accept)
+
+You can change the model name in the Open WebUI admin panel — Audio settings.
+
+## Full configuration reference
+
+See [docs/services/stt-provider.md](../docs/services/stt-provider.md).
 
 ## References
 
+- [Speaches](https://github.com/speaches-ai/speaches)
+- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)
 - [NVIDIA Parakeet-TDT v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
-- [NVIDIA Parakeet-TDT v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)
-- [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text)
+- [parakeet-mlx](https://github.com/senstella/parakeet-mlx)
+- [whisper.cpp upstream](https://github.com/ggml-org/whisper.cpp)
+- [OpenAI Whisper API spec](https://platform.openai.com/docs/guides/speech-to-text)

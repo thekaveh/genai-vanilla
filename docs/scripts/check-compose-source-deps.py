@@ -58,6 +58,8 @@ REQUIRED_DEPENDS_ON = {
     ("jupyterhub", "litellm"),
     ("local-deep-researcher", "litellm"),
     ("openclaw-gateway", "litellm"),
+    ("hermes-init", "litellm"),
+    ("hermes", "litellm"),
     ("weaviate-init", "litellm"),
     ("weaviate", "litellm"),
 }

@@ -19,17 +19,20 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Sample notebooks for all service integrations
 - Persistent workspace with Docker volumes
 
-**Speech-to-Text service (Parakeet)**
-- Speech-to-text with NVIDIA Parakeet models
-- 25+ language support
+**Speech-to-Text layer (pluggable)**
+- OpenAI-compatible `/v1/audio/transcriptions` across all backends
+- Speaches (Faster-Whisper) — CPU-friendly default, multilingual
+- NVIDIA Parakeet-TDT — CC-BY-4.0 SOTA for English/EU langs
+- whisper.cpp — first-class Apple Silicon (Metal + Core ML / ANE)
+- Parakeet-MLX — alternative macOS-native option
 - Integration with Open WebUI for voice chat
-- MLX acceleration for Apple Silicon, CUDA for NVIDIA GPUs
 
-**Text-to-Speech service (XTTS v2)**
-- Text-to-speech with Coqui XTTS v2
-- Voice cloning capabilities
-- OpenAI-compatible API
-- GPU acceleration support
+**Text-to-Speech layer (pluggable)**
+- OpenAI-compatible `/v1/audio/speech` across all backends
+- Speaches (Kokoro + Piper voices) — CPU-friendly default
+- Chatterbox (Resemble AI, MIT) — 5-sec zero-shot voice cloning, 23 langs
+- Previously shipped with XTTS v2 (CPML / non-commercial) — retired
+  2026-05 after the openedai-speech upstream archived its image
 
 **Document processing service (Docling)**
 - Document processing with IBM Docling
@@ -57,7 +60,7 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 **MinIO object storage (artifact tier)**
 - S3-compatible artifact-tier storage server (Go, AGPL-v3). Pinned to `minio/minio:RELEASE.2025-10-15T17-29-55Z` (security floor — service-account CVE fix).
 - Five pre-provisioned buckets — `comfyui`, `backend`, `n8n`, `jupyter`, `docling` — each with a scoped service-account credential surfaced as `MINIO_<NAME>_ACCESS_KEY` / `MINIO_<NAME>_SECRET_KEY` in `.env`.
-- Admin console at `http://localhost:63027`; S3 API at `http://localhost:63026` (host) / `http://minio:9000` (internal).
+- Admin console at `http://localhost:63031`; S3 API at `http://localhost:63030` (host) / `http://minio:9000` (internal).
 - Complements Supabase Storage rather than replacing it. Per-consumer wiring (ComfyUI, Backend, n8n, JupyterHub, Doc Processor) ships in dedicated follow-up PRs — credentials and bucket names are in `.env` from day one for opt-in by env-only change.
 
 ---
@@ -174,31 +177,43 @@ Consumed by (services that would call RAG-Anything):
 - Advanced data processing workflows
 - Custom node development
 
-**Hermes Agent (programmable AI agent for chat & messaging)**
-- AI agent framework by Nous Research exposing programmable agent personas via REST / messaging APIs
-- Open WebUI integration: register Hermes as a custom OpenAI-compatible endpoint — see [Nous Research's user guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui)
-- Complements OpenClaw (already deployed): Hermes provides the agent runtime; OpenClaw provides the messaging-channel surface (WhatsApp / Telegram / Discord)
+**Hermes Agent (programmable AI agent for chat & messaging)** ✓ **shipped**
 
-**Stack integration points:**
+Lives in [docs/services/hermes.md](services/hermes.md). Shipped as the
+`hermes` service (`nousresearch/hermes-agent:latest` — upstream publishes
+only `latest` + per-commit `sha-<digest>` tags, no semver; production
+pins via `HERMES_IMAGE=nousresearch/hermes-agent:sha-...`) plus
+`hermes-init` companion. Registered in the LiteLLM model catalog as
+`hermes-agent`, so every consumer (Open-WebUI, n8n, backend, jupyterhub,
+openclaw) sees it in the model dropdown automatically. Dashboard exposed
+at `http://hermes.localhost:63002`.
 
-Depends on (services Hermes would consume):
-- **Ollama** (or the Tier 1 LiteLLM gateway, once landed) — LLM inference for agent reasoning (already deployed)
-- **ComfyUI** — image generation invoked as a tool from agent personas (already deployed)
-- **TTS provider (XTTS)** — speech output for voice-enabled responses (already deployed)
-- **STT provider (Parakeet)** — speech input for voice-driven conversations (already deployed)
-- **Supabase (PostgreSQL)** — agent memory and conversation history (already deployed)
+Consumes (when enabled, via the LiteLLM gateway and `hermes-init`'s
+config.yaml rendering):
+- **LiteLLM gateway** — required; Hermes reasons over `http://litellm:4000/v1`
+- **ComfyUI** — image generation invoked as a tool from agent personas (auto-wired via skill-override file)
+- **TTS provider (Speaches / Chatterbox)** — speech output for voice-enabled responses (`TTS_ENDPOINT`)
+- **STT provider (Speaches / Parakeet / whisper.cpp)** — speech input for voice-driven conversations (`STT_ENDPOINT`)
+- **SearXNG** — web search tool (no API key required)
 
-Consumed by (services that would call Hermes):
-- **Open WebUI** — primary chat surface; Hermes registered as a custom model per the link above
+Consumed by:
+- **Open WebUI** — primary chat surface; `hermes-agent` appears in the model dropdown via LiteLLM
 - **OpenClaw** — bridges Hermes agents to WhatsApp / Telegram / Discord channels
 - **Backend (FastAPI)** — programmatic agent invocation from application code
 - **n8n** — agent-driven automation workflows
 
-**Alternative TTS models (Piper)**
-- Additional TTS model support beyond XTTS v2
-- More voice model options
-- Streaming audio capabilities
-- Voice cloning features
+Correction to the prior Tier-2 sketch: Hermes is **file-based**, not
+Postgres-backed. The earlier line claiming Supabase as a Hermes dependency
+was wrong — Hermes persists everything under `/opt/data` (the `hermes-data`
+named volume). Supabase is not in Hermes's dependency set.
+
+**Alternative TTS/STT engines (already explored)**
+- Piper — shipped via Speaches's bundled CPU-friendly path
+- Voice cloning — shipped via Chatterbox (`chatterbox-container-gpu` /
+  `chatterbox-localhost`)
+- Streaming audio — Speaches and Chatterbox both expose chunked output
+- Future candidates: Orpheus-TTS (streaming, GPU-only), SenseVoice (50+
+  langs with emotion labels), Higgs Audio v2
 
 ---
 

@@ -56,12 +56,12 @@ volumes:
     name: ${PROJECT_NAME}-stt-gpu-cache
     driver: local
 
-  # TTS layer volumes
-  tts-provider-gpu-cache:
-    name: ${PROJECT_NAME}-tts-gpu-cache
+  # TTS / unified speech layer volumes
+  speaches-cache:
+    name: ${PROJECT_NAME}-speaches-cache
     driver: local
-  tts-voices:
-    name: ${PROJECT_NAME}-tts-voices
+  chatterbox-cache:
+    name: ${PROJECT_NAME}-chatterbox-cache
     driver: local
 
   # DOC layer volumes
@@ -81,6 +81,12 @@ volumes:
     driver: local
   openclaw-workspace:
     name: ${PROJECT_NAME}-openclaw-workspace
+    driver: local
+
+  # Hermes Agent volume — file-based persistence for /opt/data
+  # (config.yaml, sessions/, memories/, skills/, auth.json, logs/).
+  hermes-data:
+    name: ${PROJECT_NAME}-hermes-data
     driver: local
 
   # App layer volumes
@@ -472,6 +478,11 @@ services:
       # cloud-only setups. See .env.example LITELLM_OLLAMA_UPSTREAM.
       LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
+      # Hermes Agent passthrough — when HERMES_SOURCE != disabled,
+      # litellm-init/init.py appends a hermes-agent model row whose
+      # api_base is HERMES_ENDPOINT/v1. Empty/disabled → no row.
+      HERMES_SOURCE: ${HERMES_SOURCE:-disabled}
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
     volumes:
       - ./litellm-init/scripts:/scripts:ro
       - ./volumes/litellm:/litellm-config:rw
@@ -512,6 +523,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Hermes Agent — the `hermes-agent` model_list row (appended by
+      # litellm-init/init.py when HERMES_SOURCE != disabled) references
+      # ``os.environ/HERMES_API_KEY`` for its bearer token.
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
       # NOTE: LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED /
       # LITELLM_OPENROUTER_ENABLED are NOT passed here — they're
       # consumed only by ``llm-catalog-init`` to gate which provider
@@ -721,11 +736,17 @@ services:
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
-      # STT/TTS/DOC endpoints (available for workflows)
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      # STT/TTS/DOC endpoints (available for workflows). Engine-agnostic
+      # names; resolve to whichever provider the user picked in the wizard
+      # (Speaches, Parakeet, Chatterbox, whisper.cpp, …).
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
+      # Hermes Agent endpoint for HTTP-Request nodes (LiteLLM route is
+      # `hermes-agent`; direct route bypasses the gateway for webhook/dashboard).
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
     ports:
       - "${N8N_PORT}:5678"
     volumes:
@@ -876,7 +897,7 @@ services:
     volumes:
       - stt-provider-gpu-cache:/root/.cache/huggingface
     ports:
-      - "${STT_PROVIDER_PORT:-10300}:8000"
+      - "${STT_PROVIDER_PORT:-63022}:8000"
     networks:
       - backend-network
     healthcheck:
@@ -891,22 +912,81 @@ services:
       - "com.${PROJECT_NAME}.backend=cuda"
 
   # =============================================================================
-  # TTS (TEXT-TO-SPEECH) LAYER (SOURCE Configurable)
+  # SPEACHES — UNIFIED TTS + STT LAYER (SOURCE Configurable)
   # =============================================================================
-  # NOTE: GPU users can use xtts-container-gpu (NVIDIA CUDA in Docker)
-  #       Any platform can use xtts-localhost (native execution)
+  # One container exposes both /v1/audio/speech (Kokoro + Piper voices) and
+  # /v1/audio/transcriptions (Faster-Whisper). Activated by the bootstrapper
+  # when EITHER TTS_PROVIDER_SOURCE or STT_PROVIDER_SOURCE selects a
+  # speaches-* variant; if both pick it, the dedup logic in service_config
+  # leaves SPEACHES_SCALE=1 (one container, two endpoints).
+  #
+  # CPU build (default) runs on Linux + macOS Docker Desktop.
+  # GPU build (CUDA) is activated by the speaches-gpu profile.
 
-  # XTTS v2 GPU (NVIDIA CUDA - Docker Container)
-  xtts-gpu:
+  speaches:
     profiles:
-      - xtts-gpu
+      - speaches-cpu
+      - speaches-gpu
+      - tts-cpu
       - tts-gpu
-    image: ${XTTS_GPU_IMAGE:-ghcr.io/matatonic/openedai-speech:latest}
-    container_name: ${PROJECT_NAME}-xtts-gpu
+      - stt-cpu
+      - stt-gpu
+    image: ${SPEACHES_IMAGE:-ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu}
+    container_name: ${PROJECT_NAME}-speaches
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPEACHES_SCALE:-0}
+    environment:
+      # Speaches lazy-loads models on the first /v1/audio/* request (the
+      # docs/.env.example just guide Open WebUI's AUDIO_TTS_MODEL default).
+      # PRELOAD_MODELS pre-downloads the named models at server startup,
+      # so the first request doesn't pay the cold-start latency — handy
+      # for fresh installs where the user does a curl test right after up.
+      PRELOAD_MODELS: ${SPEACHES_PRELOAD_MODELS:-${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M},${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+    volumes:
+      - speaches-cache:/home/ubuntu/.cache/huggingface
+    ports:
+      - "${SPEACHES_PORT:-63026}:8000"
+    networks:
+      - backend-network
+    # Healthcheck mirrors upstream's own compose.yaml — Speaches ships
+    # curl and serves /health that returns 200 as soon as Uvicorn is up
+    # (lazy-load means models don't need to be ready). Verified against
+    # speaches-ai/speaches @ 0.9.0-rc.3.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=speech-tts-stt"
+      - "com.${PROJECT_NAME}.category=ai"
+
+  # =============================================================================
+  # CHATTERBOX (voice-cloning TTS, GPU only)
+  # =============================================================================
+  # Resemble AI's Chatterbox — MIT-licensed, 5-sec zero-shot voice cloning,
+  # OpenAI-compatible /v1/audio/speech. Activated when
+  # TTS_PROVIDER_SOURCE=chatterbox-container-gpu.
+
+  chatterbox:
+    profiles:
+      - chatterbox-gpu
+      - tts-gpu
+    # NOTE: travisvn/chatterbox-tts-api publishes a `gpu` tag for the
+    # CUDA build (and `cpu` / `latest-cpu` for CPU). There's no
+    # version-locked GPU tag yet (as of 2026-05) — `gpu` is rolling.
+    # Pin to a digest in production: docker pull travisvn/chatterbox-tts-api:gpu
+    # then copy the digest into CHATTERBOX_IMAGE.
+    image: ${CHATTERBOX_IMAGE:-travisvn/chatterbox-tts-api:gpu}
+    container_name: ${PROJECT_NAME}-chatterbox
     restart: unless-stopped
     runtime: nvidia
     deploy:
-      replicas: ${XTTS_GPU_SCALE:-0}
+      replicas: ${CHATTERBOX_SCALE:-0}
       resources:
         reservations:
           devices:
@@ -914,24 +994,22 @@ services:
               count: 1
               capabilities: [gpu]
     environment:
-      TTS_HOME: /app/voices
-      HF_HOME: /app/cache
-      PRELOAD_MODEL: ${XTTS_MODEL:-tts-1-hd}
-      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
       HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
     volumes:
-      - tts-provider-gpu-cache:/app/cache
-      - tts-voices:/app/voices
+      - chatterbox-cache:/root/.cache/huggingface
     ports:
-      - "${TTS_PROVIDER_PORT:-10400}:8000"
+      - "${CHATTERBOX_PORT:-63027}:4123"
     networks:
       - backend-network
+    # Chatterbox's docker/Dockerfile installs curl and exposes /health.
+    # Verified against travisvn/chatterbox-tts-api @ :gpu (2026-05).
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      test: ["CMD", "curl", "--fail", "http://localhost:4123/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     labels:
       - "com.${PROJECT_NAME}.service=text-to-speech"
       - "com.${PROJECT_NAME}.category=ai"
@@ -1055,6 +1133,10 @@ services:
       OPENAI_API_KEY: ${OPENCLAW_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
       # Gateway configuration
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      # Hermes Agent — OpenClaw is the channel adapter (WhatsApp/Telegram/
+      # Discord), Hermes is the agent runtime. Empty when HERMES_SOURCE=disabled.
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
     volumes:
       - openclaw-config:/home/node/.openclaw
       - openclaw-workspace:/home/node/.openclaw/workspace
@@ -1073,6 +1155,115 @@ services:
       - "com.${PROJECT_NAME}.service=ai-agent"
       - "com.${PROJECT_NAME}.category=ai"
       - "com.${PROJECT_NAME}.agent=openclaw"
+
+  # Hermes Agent — initialization
+  #
+  # Renders /opt/data/config.yaml from environment (LiteLLM endpoint,
+  # TTS / STT / ComfyUI / SearXNG URLs — engine-neutral so it works with
+  # Speaches, Chatterbox, Parakeet, whisper.cpp, or any future addition)
+  # and drops a skill-override that redirects the bundled creative-comfyui
+  # skill at our internal ComfyUI service. Runs once per `docker compose up`;
+  # exits 0.
+  hermes-init:
+    image: ${HERMES_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-hermes-init
+    restart: "no"
+    deploy:
+      replicas: ${HERMES_INIT_SCALE:-0}
+    depends_on:
+      litellm:
+        condition: service_healthy
+    environment:
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      HERMES_DEFAULT_MODEL: ${HERMES_DEFAULT_MODEL:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      HERMES_CONTEXT_LENGTH: ${HERMES_CONTEXT_LENGTH:-65536}
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+      # Conditional integrations — empty string means "skip this provider".
+      # Bootstrapper sets these based on the matching SOURCE.
+      TTS_INTERNAL_URL: ${TTS_INTERNAL_URL:-}
+      STT_INTERNAL_URL: ${STT_INTERNAL_URL:-}
+      COMFYUI_INTERNAL_URL: ${COMFYUI_INTERNAL_URL:-}
+      SEARXNG_INTERNAL_URL: ${SEARXNG_INTERNAL_URL:-}
+    volumes:
+      - hermes-data:/opt/data
+      - ./hermes-init/scripts:/scripts:ro
+      - ./hermes-init/templates:/templates:ro
+    networks:
+      - backend-network
+    labels:
+      - "com.${PROJECT_NAME}.service=hermes-init"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.agent=hermes"
+
+  # Hermes Agent — programmable AI agent runtime (Nous Research)
+  # API:       http://localhost:${HERMES_API_PORT}
+  # Dashboard: http://localhost:${HERMES_DASHBOARD_PORT}  (when enabled)
+  # Kong:      http://hermes.localhost:${KONG_HTTP_PORT}  (with --setup-hosts)
+  #
+  # File-based persistence — everything under /opt/data (mounted from
+  # the hermes-data named volume): config.yaml, sessions/, memories/,
+  # skills/, auth.json, logs/. No Postgres / Redis dependency.
+  #
+  # Hermes itself talks to LiteLLM at http://litellm:4000/v1; downstream
+  # consumers see Hermes as the `hermes-agent` model in the same LiteLLM
+  # catalog (registered by litellm-init when HERMES_SOURCE != disabled).
+  hermes:
+    image: ${HERMES_IMAGE:-nousresearch/hermes-agent:latest}
+    container_name: ${PROJECT_NAME}-hermes
+    restart: unless-stopped
+    deploy:
+      replicas: ${HERMES_SCALE:-0}
+      resources:
+        limits:
+          memory: ${HERMES_MEMORY_LIMIT:-4g}
+          cpus: "${HERMES_CPU_LIMIT:-2.0}"
+    depends_on:
+      hermes-init:
+        condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+      # Web dashboard
+      HERMES_DASHBOARD: ${HERMES_DASHBOARD_ENABLED:-true}
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: "9119"
+      # OpenAI-compatible API server (what LiteLLM and clients connect to)
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_KEY: ${HERMES_API_KEY:-}
+      API_SERVER_CORS_ORIGINS: "*"
+      # Provider keys forwarded so config.yaml custom_providers can
+      # resolve at runtime.
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - hermes-data:/opt/data
+    ports:
+      - "${HERMES_API_PORT:-63028}:8642"
+      - "${HERMES_DASHBOARD_PORT:-63029}:9119"
+    networks:
+      - backend-network
+    healthcheck:
+      # `wget` ships with the upstream image; `curl` does not.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8642/v1/models --header=\"Authorization: Bearer ${HERMES_API_KEY}\" >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    command: ["gateway", "run"]
+    labels:
+      - "com.${PROJECT_NAME}.service=ai-agent"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.agent=hermes"
 
   # =============================================================================
   # VECTOR LAYER SERVICES
@@ -1297,13 +1488,16 @@ services:
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       ENABLE_IMAGE_GENERATION: true
       IMAGE_GENERATION_ENGINE: comfyui
-      # TTS integration (openai-compatible via openedai-speech)
+      # TTS integration (OpenAI-compatible — Speaches/Chatterbox/etc.)
+      # Engine, base URL, model, and voice are all set by the bootstrapper
+      # based on the chosen TTS_PROVIDER_SOURCE; see
+      # bootstrapper/services/service_config.py::_generate_adaptive_services_config
       AUDIO_TTS_ENGINE: ${OPEN_WEB_UI_TTS_ENGINE:-}
       AUDIO_TTS_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_TTS_API_URL:-}
       AUDIO_TTS_OPENAI_API_KEY: "sk-unused"
-      AUDIO_TTS_MODEL: ${XTTS_MODEL:-tts-1-hd}
-      AUDIO_TTS_VOICE: "alloy"
-      # STT integration (openai-compatible via parakeet)
+      AUDIO_TTS_MODEL: ${OPEN_WEB_UI_TTS_MODEL:-}
+      AUDIO_TTS_VOICE: ${OPEN_WEB_UI_TTS_VOICE:-}
+      # STT integration (OpenAI-compatible — Speaches/Parakeet/whisper.cpp)
       AUDIO_STT_ENGINE: ${OPEN_WEB_UI_STT_ENGINE:-}
       AUDIO_STT_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_STT_API_URL:-}
       AUDIO_STT_OPENAI_API_KEY: "sk-unused"
@@ -1395,10 +1589,15 @@ services:
       # Vector database integration
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
       WEAVIATE_ENABLED: true
-      # STT/TTS/DOC endpoints (available for future proxy implementation)
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      # STT/TTS/DOC endpoints (available for future proxy implementation).
+      # Engine-agnostic; see wizard for the active provider.
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # Hermes Agent — for code paths that want the agent loop directly
+      # (LiteLLM-routed `hermes-agent` model is the default surface).
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
       # LangMem Memory Configuration
       LANGMEM_ENABLED: ${LANGMEM_ENABLED:-true}
       LANGMEM_NAMESPACE: ${LANGMEM_MEMORY_NAMESPACE:-default}
@@ -1453,12 +1652,17 @@ services:
       NEO4J_USER: ${GRAPH_DB_USER}
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
-      # STT integration
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      # TTS integration
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      # STT integration (engine-agnostic — Speaches/Parakeet/whisper.cpp)
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      # TTS integration (engine-agnostic — Speaches/Chatterbox)
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       # DOC integration
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # Hermes Agent — notebooks can hit the agent's webhook adapter or
+      # OpenAI-compatible API directly; LiteLLM-routed `hermes-agent`
+      # is the default surface for `from openai import OpenAI` paths.
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
 
       # Supabase Integration
       SUPABASE_URL: http://kong-api-gateway:8000

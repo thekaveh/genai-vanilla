@@ -38,12 +38,16 @@ class PortManager:
         'WEAVIATE_PORT': 19,          # Base port + 19
         'WEAVIATE_GRPC_PORT': 20,     # Base port + 20
         'DOC_PROCESSOR_PORT': 21,     # Base port + 21
-        'STT_PROVIDER_PORT': 22,      # Base port + 22
-        'TTS_PROVIDER_PORT': 23,      # Base port + 23
+        'STT_PROVIDER_PORT': 22,      # Base port + 22 — wizard display slot (set per-source by service_config)
+        'TTS_PROVIDER_PORT': 23,      # Base port + 23 — wizard display slot
         'OPENCLAW_GATEWAY_PORT': 24,  # Base port + 24
         'OPENCLAW_BRIDGE_PORT': 25,   # Base port + 25
-        'MINIO_PORT': 26,             # Base port + 26 (MinIO S3 API)
-        'MINIO_CONSOLE_PORT': 27,     # Base port + 27 (MinIO admin console)
+        'SPEACHES_PORT': 26,          # Base port + 26 — speaches container (TTS+STT)
+        'CHATTERBOX_PORT': 27,        # Base port + 27 — chatterbox container (TTS voice cloning)
+        'HERMES_API_PORT': 28,        # Base port + 28 (Hermes OpenAI-compatible API)
+        'HERMES_DASHBOARD_PORT': 29,  # Base port + 29 (Hermes web dashboard)
+        'MINIO_PORT': 30,             # Base port + 30 (MinIO S3 API)
+        'MINIO_CONSOLE_PORT': 31,     # Base port + 31 (MinIO admin console)
         'JUPYTERHUB_PORT': 48,        # Base port + 48
     }
     

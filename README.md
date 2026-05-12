@@ -24,7 +24,7 @@ git clone <your-repository-url> && cd genai-vanilla
 # SearxNG (Search):      http://localhost:63014
 # ComfyUI:               http://localhost:63018
 # JupyterHub (IDE):      http://localhost:63048
-# MinIO Console:         http://localhost:63027
+# MinIO Console:         http://localhost:63031
 #
 # Optional Kong host routes after ./start.sh --setup-hosts:
 # Chat:                  http://chat.localhost:63002
@@ -45,14 +45,16 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 ./start.sh --llm-provider-source ollama-localhost --comfyui-source localhost
 
 # GPU acceleration
-./start.sh --llm-provider-source ollama-container-gpu --comfyui-source container-gpu --stt-provider-source parakeet-container-gpu
+./start.sh --llm-provider-source ollama-container-gpu --comfyui-source container-gpu --stt-provider-source speaches-container-gpu
 
-# Enable STT (disabled by default)
-./start.sh --stt-provider-source parakeet-localhost  # Mac MLX or Linux native
+# Pick a different STT engine (Speaches is the default)
+./start.sh --stt-provider-source parakeet-container-gpu   # SOTA NVIDIA (CC-BY-4.0)
+./start.sh --stt-provider-source whisper-cpp-localhost    # Best on macOS — Metal + Core ML
+./start.sh --stt-provider-source parakeet-localhost       # Parakeet-MLX (macOS) or native Linux
 
-# Enable TTS (disabled by default)
-./start.sh --tts-provider-source xtts-localhost      # Any platform native
-./start.sh --tts-provider-source xtts-container-gpu  # NVIDIA GPU Docker
+# Pick a different TTS engine (Speaches is the default)
+./start.sh --tts-provider-source chatterbox-container-gpu  # Voice cloning, NVIDIA
+./start.sh --tts-provider-source chatterbox-localhost      # Voice cloning, macOS MPS / Linux
 
 # Minimal setup (chat only)
 ./start.sh --n8n-source disabled --searxng-source disabled --weaviate-source disabled
@@ -124,7 +126,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 The canonical architecture diagram is the rich static artifact at [`docs/diagrams/architecture.html`](docs/diagrams/architecture.html), with a static SVG preview at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg).
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, and optional OpenClaw/STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing services. It is intentionally maintained as a static generated artifact for now rather than a Mermaid source.
 
 ## 2. Getting Started
 
@@ -180,6 +182,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI via `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
+- **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes via `HERMES_LOCALHOST_URL` (default `http://host.docker.internal:63028`); useful when Hermes should drive your real shell, browser, or microphone
 
 **Container-only services:**
 - **n8n** (`N8N_SOURCE=container|disabled`) — workflow automation
@@ -203,11 +206,11 @@ The stack uses **SOURCE variables** to control how services are deployed.
 | **Neo4j Browser** | http://localhost:63011 | — | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63016 | http://api.localhost:63002 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63012 | — | OpenAI-compatible LLM front door (Ollama + cloud) | `LITELLM_API_KEY` |
-| **Parakeet STT** | http://localhost:63022 | — | Speech-to-text | None |
-| **XTTS v2 TTS** | http://localhost:63023 | — | Text-to-speech | None |
+| **Audio (TTS + STT)** | http://localhost:63026 | — | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper) on one port. Engine-specific overrides — Parakeet on `:63022`, Chatterbox on `:63027`, host-side variants on `*_LOCALHOST_URL`. See [docs/services/tts-provider.md](docs/services/tts-provider.md) and [docs/services/stt-provider.md](docs/services/stt-provider.md). | None |
 | **Docling Processor** | http://localhost:63021 | — | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63024 | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
-| **MinIO Console** | http://localhost:63027 | — | S3-compatible object storage admin UI | `minioadmin` / `MINIO_ROOT_PASSWORD` |
+| **Hermes Agent** | http://localhost:63028 (API), http://localhost:63029 (dashboard) | http://hermes.localhost:63002 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
+| **MinIO Console** | http://localhost:63031 | — | S3-compatible object storage admin UI | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 
 ### 3.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -220,10 +223,11 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **LiteLLM Gateway** — always-on OpenAI-compatible front door for every LLM provider in the stack (one URL, one key)
 - **Ollama** — local LLM inference engine behind LiteLLM (supports CPU/GPU/localhost/external/none)
 - **ComfyUI** — image generation with workflows
-- **Parakeet STT** — speech-to-text with NVIDIA Parakeet-TDT (localhost for Mac MLX, Docker for NVIDIA GPU)
-- **XTTS v2 TTS** — text-to-speech with voice cloning (NVIDIA GPU in Docker or native on any platform)
+- **STT layer** — pluggable speech-to-text: Speaches (default, Faster-Whisper inside, CPU-friendly), NVIDIA Parakeet-TDT (SOTA EN/EU), whisper.cpp localhost (best on Apple Silicon)
+- **TTS layer** — pluggable text-to-speech: Speaches (default, Kokoro + Piper voices), Chatterbox (voice cloning, MIT-licensed)
 - **Docling** — document processing with table extraction (IBM Docling, GPU-accelerated)
 - **OpenClaw** — AI agent for messaging platforms (WhatsApp, Telegram, Discord), file management, and task automation
+- **Hermes Agent** — programmable AI agent runtime (Nous Research) with skills, memory, voice, and tool use; routes reasoning through LiteLLM and appears as the `hermes-agent` model to every consumer
 - **Deep Researcher** — research assistant
 - **LangMem** — persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
 
@@ -248,10 +252,12 @@ The stack uses **SOURCE variables** to control how services are deployed.
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost
 ./start.sh --comfyui-source container-gpu
-./start.sh --stt-provider-source parakeet-localhost    # Mac users must use localhost
-./start.sh --tts-provider-source xtts-localhost        # Any platform native
+./start.sh --stt-provider-source whisper-cpp-localhost  # Best on Apple Silicon
+./start.sh --tts-provider-source chatterbox-localhost   # Voice cloning, native
 ./start.sh --doc-processor-source docling-container-gpu # Enable document processing
 ./start.sh --openclaw-source container                 # Enable OpenClaw agent
+./start.sh --hermes-source localhost                   # Use a host-installed Hermes
+./start.sh --hermes-source disabled                    # Skip Hermes entirely
 ./start.sh --n8n-source disabled
 
 # Combined examples
@@ -309,7 +315,7 @@ See [docs/deployment/source-configuration.md](docs/deployment/source-configurati
 
 ### 5.2 GPU setup
 
-For NVIDIA GPU acceleration, set the relevant SOURCE variables to a `*-container-gpu` variant (e.g., `LLM_PROVIDER_SOURCE=ollama-container-gpu`, `COMFYUI_SOURCE=container-gpu`, `STT_PROVIDER_SOURCE=parakeet-container-gpu`). See [docs/deployment/source-configuration.md](docs/deployment/source-configuration.md) for the full list of GPU variants per service.
+For NVIDIA GPU acceleration, set the relevant SOURCE variables to a `*-container-gpu` variant (e.g., `LLM_PROVIDER_SOURCE=ollama-container-gpu`, `COMFYUI_SOURCE=container-gpu`, `STT_PROVIDER_SOURCE=speaches-container-gpu` or `parakeet-container-gpu`, `TTS_PROVIDER_SOURCE=speaches-container-gpu` or `chatterbox-container-gpu`). See [docs/deployment/source-configuration.md](docs/deployment/source-configuration.md) for the full list of GPU variants per service.
 
 ### 5.3 Using as infrastructure foundation
 
@@ -368,8 +374,8 @@ genai-vanilla/
 ├── searxng/                   # Search service configuration
 ├── local-deep-researcher/     # Local research/orchestration service
 ├── doc-processor/             # Docling document processor service
-├── stt-provider/              # Parakeet speech-to-text provider assets
-├── tts-provider/              # XTTS text-to-speech provider assets
+├── stt-provider/              # Speech-to-text providers (Parakeet GPU/MLX, whisper.cpp host notes)
+├── tts-provider/              # Text-to-speech providers (Chatterbox localhost setup)
 ├── docker-compose.yml         # Main compose file
 ├── .env.example               # Configuration template
 ├── start.sh                   # Start script

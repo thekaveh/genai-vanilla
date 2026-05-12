@@ -1,87 +1,87 @@
 # TTS Provider Service
 
-High-performance text-to-speech service using XTTS v2 with OpenAI-compatible API via openedai-speech.
+Pluggable text-to-speech layer. All backends expose an OpenAI-compatible
+`/v1/audio/speech` endpoint so Open WebUI, n8n, and the backend API can use
+them interchangeably.
 
-## Overview
+## Available backends
 
-The TTS Provider service offers text-to-speech with:
+| `TTS_PROVIDER_SOURCE` | Engine | License | Runs on |
+|---|---|---|---|
+| `speaches-container-cpu` | Speaches (Kokoro + Piper) | MIT | Linux + macOS Docker, CPU |
+| `speaches-container-gpu` | Speaches (CUDA build) | MIT | NVIDIA |
+| `chatterbox-container-gpu` | Resemble AI Chatterbox | MIT | NVIDIA (≥8 GB) |
+| `chatterbox-localhost` | Chatterbox natively | MIT | macOS MPS / Linux (any) |
+| `disabled` | none | — | — |
 
-- **Multiple Backend Support**: GPU (NVIDIA CUDA in Docker) and Native (any platform)
-- **OpenAI-Compatible API**: Drop-in replacement for OpenAI TTS API
-- **High Quality**: XTTS v2 model with natural voice synthesis
-- **Voice Cloning**: Zero-shot voice cloning with 6-second samples
-- **16 Languages**: Multilingual support
-- **Multiple Voices**: 6 OpenAI-compatible voices (alloy, echo, fable, onyx, nova, shimmer)
-- **Dual Models**: tts-1 (Piper/fast) and tts-1-hd (XTTS v2/quality)
+The default for fresh installs is **`speaches-container-cpu`** — works on
+every platform with no localhost setup, downloads a small Kokoro model
+(~90 MB) on first request.
 
-## Quick Start
+For voice cloning (5-second zero-shot), pick a Chatterbox variant. For pure
+container-only setups on NVIDIA, `chatterbox-container-gpu`. For Apple
+Silicon where MPS gives ~10× speedup over the Docker CPU path, install
+Chatterbox natively and use `chatterbox-localhost` — see
+[localhost/README.md](localhost/README.md).
 
-### GPU Users (NVIDIA CUDA)
+## Quick start
 
-**Edit `.env`:**
-```bash
-TTS_PROVIDER_SOURCE=xtts-container-gpu
-```
+Speaches (default — already enabled in `.env.example`):
 
-**Start the stack:**
 ```bash
 ./start.sh
+# wait for the speaches container to come healthy (~60s on first run)
+curl http://localhost:63026/v1/audio/speech \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"model":"hexgrad/Kokoro-82M","input":"hello","voice":"af_heart"}' \
+  --output speech.wav
 ```
 
-### Any Platform (Localhost)
-
-**Step 1: Clone openedai-speech**
-```bash
-cd tts-provider/localhost
-git clone https://github.com/matatonic/openedai-speech.git
-```
-
-**Step 2: Install dependencies**
-```bash
-uv sync
-```
-
-**Step 3: Start TTS server (separate terminal)**
-```bash
-uv run server.py
-```
-
-**Step 4: Start the stack**
-```bash
-./start.sh --tts-provider-source xtts-localhost
-```
-
-### Disable TTS
+Chatterbox (voice cloning, GPU required):
 
 ```bash
-TTS_PROVIDER_SOURCE=disabled
+./start.sh --tts-provider-source chatterbox-container-gpu
 ```
 
-## Test the API
+Chatterbox on host (macOS native via MPS / Linux):
 
 ```bash
-curl -X POST http://localhost:63023/v1/audio/speech \
-  -H "Content-Type: application/json" \
-  -d '{"model": "tts-1-hd", "input": "Hello world!", "voice": "alloy"}' \
-  --output speech.mp3
+# Terminal 1 — install from git (no PyPI package):
+git clone https://github.com/travisvn/chatterbox-tts-api
+cd chatterbox-tts-api && uv sync
+PORT=63027 uv run main.py
+
+# Terminal 2
+./start.sh --tts-provider-source chatterbox-localhost
 ```
 
-**Note:** First API request downloads XTTS v2 models (~1-2GB, takes 5-10 minutes). Subsequent requests are instant.
+Disable:
 
-## Quick Tips
+```bash
+./start.sh --tts-provider-source disabled
+```
 
-- **Dependencies fixed**: Run `uv sync` to install correct versions (transformers 4.40.2-4.43.0, numpy <2.0)
-- **TOS auto-accepted**: Server automatically accepts Coqui license (`COQUI_TOS_AGREED=1`)
-- **Model downloads**: Happen on first API request, not server startup
-- **Troubleshooting**: See [localhost README](localhost/README.md#troubleshooting) for dependency issues
+## How Open WebUI is wired
 
-## Configuration
+The bootstrapper sets these env vars on the open-web-ui container based on
+the chosen source:
 
-See [docs/services/tts-provider.md](../docs/services/tts-provider.md) for the full reference.
+- `AUDIO_TTS_ENGINE=openai`
+- `AUDIO_TTS_OPENAI_API_BASE_URL=${TTS_ENDPOINT}/v1`
+- `AUDIO_TTS_MODEL=hexgrad/Kokoro-82M` (Speaches) or `chatterbox-tts-1` (Chatterbox)
+- `AUDIO_TTS_VOICE=af_heart` or `alloy`
+
+You can override the model / voice in the Open WebUI admin panel after
+startup — Audio settings.
+
+## Full configuration reference
+
+See [docs/services/tts-provider.md](../docs/services/tts-provider.md).
 
 ## References
 
-- [openedai-speech GitHub](https://github.com/matatonic/openedai-speech)
-- [Coqui TTS GitHub](https://github.com/coqui-ai/TTS)
-- [XTTS v2 Model Card](https://huggingface.co/coqui/XTTS-v2)
-- [OpenAI Audio API](https://platform.openai.com/docs/guides/text-to-speech)
+- [Speaches](https://github.com/speaches-ai/speaches) — bundled Kokoro + Piper + Faster-Whisper
+- [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
+- [Chatterbox upstream](https://github.com/resemble-ai/chatterbox)
+- [chatterbox-tts-api server](https://github.com/travisvn/chatterbox-tts-api)
+- [OpenAI Audio API spec](https://platform.openai.com/docs/guides/text-to-speech)

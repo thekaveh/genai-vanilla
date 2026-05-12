@@ -23,7 +23,8 @@ class HostsManager:
         "comfyui.localhost",
         "chat.localhost",
         "jupyter.localhost",
-        "openclaw.localhost"
+        "openclaw.localhost",
+        "hermes.localhost",
     ]
 
     def __init__(self):

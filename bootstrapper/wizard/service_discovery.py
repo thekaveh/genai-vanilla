@@ -28,6 +28,7 @@ DISPLAY_NAME_OVERRIDES = {
     'multi2vec-clip': 'Multi2Vec CLIP',
     'minio': 'MinIO',
     'openclaw': 'OpenClaw',
+    'hermes': 'Hermes Agent',
     'weaviate': 'Weaviate',
 }
 
@@ -42,6 +43,7 @@ SERVICE_DESCRIPTIONS = {
     'tts_provider': 'text-to-speech synthesis',
     'doc_processor': 'document parsing & extraction',
     'openclaw': 'AI agent for messaging platforms',
+    'hermes': 'programmable AI agent runtime (Nous Research)',
     'n8n': 'workflow automation & integrations',
     'searxng': 'privacy-focused search engine',
     'neo4j-graph-db': 'graph database for knowledge graphs',

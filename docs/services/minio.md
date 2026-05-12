@@ -8,8 +8,8 @@ S3-compatible object storage for the artifact tier of the stack. Complements Sup
 |---|---|
 | S3 API (internal) | `http://minio:9000` |
 | Admin console (internal) | `http://minio:9001` |
-| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `63026`) |
-| Admin console (host) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `63027`) |
+| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `63030`) |
+| Admin console (host) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `63031`) |
 
 ## Default credentials
 

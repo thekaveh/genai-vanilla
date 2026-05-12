@@ -46,6 +46,7 @@ Plain `python3 docs/scripts/check-kong-routes.py` works too if `PyYAML` is on yo
 - `chat.localhost` → Open WebUI (if enabled)
 - `jupyter.localhost` → JupyterHub (if enabled)
 - `openclaw.localhost` → OpenClaw gateway (if enabled)
+- `hermes.localhost` → Hermes Agent web dashboard (if `HERMES_SOURCE != disabled` and `HERMES_DASHBOARD_ENABLED=true`)
 
 ## SOURCE-Based Configuration
 
@@ -152,6 +153,7 @@ curl -H "Host: comfyui.localhost" http://localhost:63002/
 curl -H "Host: n8n.localhost" http://localhost:63002/
 curl -H "Host: jupyter.localhost" http://localhost:63002/
 curl -H "Host: openclaw.localhost" http://localhost:63002/
+curl -H "Host: hermes.localhost" http://localhost:63002/
 ```
 
 ## Troubleshooting
