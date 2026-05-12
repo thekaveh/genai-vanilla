@@ -86,7 +86,11 @@ class ServiceConfig:
         comfyui_config = self._generate_comfyui_config()
         env_vars.update(comfyui_config)
         
-        # Generate Weaviate configuration 
+        # Generate MinIO configuration
+        minio_config = self._generate_minio_config()
+        env_vars.update(minio_config)
+
+        # Generate Weaviate configuration
         weaviate_config = self._generate_weaviate_config()
         env_vars.update(weaviate_config)
         
@@ -211,6 +215,30 @@ class ServiceConfig:
         
         return env_vars
     
+    def _generate_minio_config(self) -> Dict[str, str]:
+        """Generate MinIO env vars from service-configs.yml."""
+        source_value = self.service_sources.get('MINIO_SOURCE', 'container')
+        config = self.get_service_config('minio', source_value)
+        env_vars: Dict[str, str] = {}
+
+        # Scale follows the source variant directly.
+        env_vars['MINIO_SCALE'] = str(config.get('scale', 1))
+
+        # MINIO_ENDPOINT — internal Compose-network URL; written as-is from YAML.
+        env_vars['MINIO_ENDPOINT'] = config.get('environment', {}).get('MINIO_ENDPOINT', '')
+
+        # MINIO_PUBLIC_ENDPOINT — host URL that may contain a ${MINIO_PORT} token
+        # from service-configs.yml; expand it against the current .env value.
+        public_template = config.get('environment', {}).get('MINIO_PUBLIC_ENDPOINT', '')
+        if public_template:
+            current_env = self.config_parser.parse_env_file()
+            minio_port = current_env.get('MINIO_PORT', '63026')
+            env_vars['MINIO_PUBLIC_ENDPOINT'] = public_template.replace('${MINIO_PORT}', minio_port)
+        else:
+            env_vars['MINIO_PUBLIC_ENDPOINT'] = ''
+
+        return env_vars
+
     def _generate_weaviate_config(self) -> Dict[str, str]:
         """Generate Weaviate configuration."""
         source_value = self.service_sources.get('WEAVIATE_SOURCE', 'container')

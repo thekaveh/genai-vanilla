@@ -276,6 +276,8 @@ class GenAIStackStarter:
             'TTS_PROVIDER_PORT',
             'OPENCLAW_GATEWAY_PORT',
             'OPENCLAW_BRIDGE_PORT',
+            'MINIO_PORT',
+            'MINIO_CONSOLE_PORT',
             'JUPYTERHUB_PORT'
         ]
         
