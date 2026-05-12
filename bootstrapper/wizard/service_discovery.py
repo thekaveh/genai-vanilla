@@ -26,6 +26,7 @@ DISPLAY_NAME_OVERRIDES = {
     'jupyterhub': 'JupyterHub',
     'neo4j-graph-db': 'Neo4j Graph DB',
     'multi2vec-clip': 'Multi2Vec CLIP',
+    'minio': 'MinIO',
     'openclaw': 'OpenClaw',
     'weaviate': 'Weaviate',
 }
@@ -45,6 +46,7 @@ SERVICE_DESCRIPTIONS = {
     'searxng': 'privacy-focused search engine',
     'neo4j-graph-db': 'graph database for knowledge graphs',
     'jupyterhub': 'data science IDE with notebooks',
+    'minio': 'S3-compatible artifact-tier object storage',
 }
 
 # Services that are always-on and not user-configurable. The wizard renders

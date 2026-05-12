@@ -37,6 +37,7 @@ _SERVICES = [
     ("LLM Engine",         "LLM_PROVIDER_SOURCE",       None,                      "OLLAMA_SCALE"),
     ("ComfyUI",            "COMFYUI_SOURCE",            "COMFYUI_PORT",            "COMFYUI_SCALE"),
     ("Weaviate",           "WEAVIATE_SOURCE",           "WEAVIATE_PORT",           "WEAVIATE_SCALE"),
+    ("MinIO",              "MINIO_SOURCE",              "MINIO_PORT",              "MINIO_SCALE"),
     ("Multi2Vec CLIP",     "MULTI2VEC_CLIP_SOURCE",     None,                      "CLIP_SCALE"),
     ("Neo4j Graph DB",     "NEO4J_GRAPH_DB_SOURCE",     "GRAPH_DB_DASHBOARD_PORT", "NEO4J_SCALE"),
     ("STT Provider",       "STT_PROVIDER_SOURCE",       "STT_PROVIDER_PORT",       "PARAKEET_GPU_SCALE"),

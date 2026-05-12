@@ -61,7 +61,7 @@ _TAG_BY_KEY = {
     "comfyui": "ML", "stt_provider": "ML", "tts_provider": "ML",
     "backend": "ML", "doc_processor": "ML", "multi2vec_clip": "ML",
     "multi2vec-clip": "ML",
-    "weaviate": "DATA", "neo4j": "DATA", "neo4j_graph_db": "DATA",
+    "weaviate": "DATA", "minio": "DATA", "neo4j": "DATA", "neo4j_graph_db": "DATA",
     "neo4j-graph-db": "DATA",
     "n8n": "TOOL", "searxng": "TOOL", "openclaw": "TOOL", "jupyterhub": "TOOL",
 }
