@@ -54,6 +54,12 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Embedded in Backend service (no separate container)
 - Dual vector backend: Weaviate preferred, pgvector fallback
 
+**MinIO object storage (artifact tier)**
+- S3-compatible artifact-tier storage server (Go, AGPL-v3). Pinned to `minio/minio:RELEASE.2025-10-15T17-29-55Z` (security floor — service-account CVE fix).
+- Five pre-provisioned buckets — `comfyui`, `backend`, `n8n`, `jupyter`, `docling` — each with a scoped service-account credential surfaced as `MINIO_<NAME>_ACCESS_KEY` / `MINIO_<NAME>_SECRET_KEY` in `.env`.
+- Admin console at `http://localhost:63027`; S3 API at `http://localhost:63026` (host) / `http://minio:9000` (internal).
+- Complements Supabase Storage rather than replacing it. Per-consumer wiring (ComfyUI, Backend, n8n, JupyterHub, Doc Processor) ships in dedicated follow-up PRs — credentials and bucket names are in `.env` from day one for opt-in by env-only change.
+
 ---
 
 ### Tier 1: high-priority candidates
@@ -161,23 +167,6 @@ Consumed by (services that would call RAG-Anything):
 - Comparative performance analysis
 - Migration tools between vector databases
 - User choice in vector database backend
-
-**MinIO (S3-compatible object storage)**
-- High-performance, S3-compatible object storage server (Go, single binary, AGPL-v3 / GNU AGPL with commercial option)
-- Use cases for this stack: scalable storage for ComfyUI outputs, document-processor binaries, model checkpoints, dataset versioning, and n8n / Backend artifact handoff
-- Complements Supabase Storage rather than replacing it: Supabase Storage stays the app-tier file surface (row-level-security uploads, signed URLs); MinIO becomes the artifact-tier surface for high-throughput, large-blob workloads
-
-**Stack integration points:**
-
-Depends on (services MinIO would consume):
-- none — MinIO is a leaf storage service
-
-Consumed by (services that would call MinIO):
-- **ComfyUI** — image-output bucket for generated assets (alternative or complement to the existing Supabase upload path)
-- **Backend (FastAPI)** — large-blob storage for embeddings, document chunks, model checkpoints
-- **n8n** — workflow file inputs and outputs
-- **JupyterHub** — dataset and model artifact persistence from notebooks
-- **Doc Processor (Docling)** — parsed-document and intermediate-artifact persistence
 
 **Enhanced n8n integration**
 - Pre-built AI workflow templates
