@@ -227,15 +227,26 @@ class ServiceConfig:
         # MINIO_ENDPOINT — internal Compose-network URL; written as-is from YAML.
         env_vars['MINIO_ENDPOINT'] = config.get('environment', {}).get('MINIO_ENDPOINT', '')
 
-        # MINIO_PUBLIC_ENDPOINT — host URL that may contain a ${MINIO_PORT} token
-        # from service-configs.yml; expand it against the current .env value.
+        # MINIO_PUBLIC_ENDPOINT — host S3 API URL; may contain a ${MINIO_PORT} token
+        # from service-configs.yml. Expand against the current .env value.
+        current_env = self.config_parser.parse_env_file()
         public_template = config.get('environment', {}).get('MINIO_PUBLIC_ENDPOINT', '')
         if public_template:
-            current_env = self.config_parser.parse_env_file()
             minio_port = current_env.get('MINIO_PORT', '63026')
             env_vars['MINIO_PUBLIC_ENDPOINT'] = public_template.replace('${MINIO_PORT}', minio_port)
         else:
             env_vars['MINIO_PUBLIC_ENDPOINT'] = ''
+
+        # MINIO_PUBLIC_CONSOLE_ENDPOINT — host console URL; may contain a
+        # ${MINIO_CONSOLE_PORT} token from service-configs.yml. Used by MinIO's
+        # MINIO_BROWSER_REDIRECT_URL — must point at the console (port 9001 / host
+        # MINIO_CONSOLE_PORT), NOT the S3 API.
+        console_template = config.get('environment', {}).get('MINIO_PUBLIC_CONSOLE_ENDPOINT', '')
+        if console_template:
+            console_port = current_env.get('MINIO_CONSOLE_PORT', '63027')
+            env_vars['MINIO_PUBLIC_CONSOLE_ENDPOINT'] = console_template.replace('${MINIO_CONSOLE_PORT}', console_port)
+        else:
+            env_vars['MINIO_PUBLIC_CONSOLE_ENDPOINT'] = ''
 
         return env_vars
 
