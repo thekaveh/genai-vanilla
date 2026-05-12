@@ -1,197 +1,122 @@
-# XTTS v2 TTS Server - Localhost Mode
+# Chatterbox TTS — localhost mode
 
-Run openedai-speech TTS server natively on your host machine (any platform).
+Run [Resemble AI Chatterbox](https://github.com/resemble-ai/chatterbox) natively
+on your host machine and have the stack reach it via `host.docker.internal`.
 
-## Quick Start
+This is the recommended TTS path when you want **zero-shot voice cloning**
+(5-second reference audio) without using a GPU container — Chatterbox runs on
+macOS MPS (Apple Silicon) and Linux CPU/MPS/CUDA.
 
-### 1. Clone openedai-speech
+## Why localhost instead of container
 
-```bash
-cd tts-provider/localhost
-git clone https://github.com/matatonic/openedai-speech.git
-```
+- **macOS users**: Chatterbox uses MPS for acceleration; that doesn't work
+  through Docker Desktop. Running natively is ~10× faster.
+- **Limited GPU**: the container variant (`chatterbox-container-gpu`) needs
+  ≥8 GB VRAM. The localhost variant can fall back to CPU if MPS / CUDA isn't
+  available (slow but functional).
+- **Voice management**: keeping voice samples on the host makes them easier
+  to manage than mounting volumes into the container.
 
-**Note:** openedai-speech is not available as a PyPI package, so it must be cloned from GitHub.
+If you just want a TTS service that works out of the box on any platform with
+no setup, use `TTS_PROVIDER_SOURCE=speaches-container-cpu` instead — Speaches
+gives you Kokoro voices without any localhost setup, just zero voice cloning.
 
-### 2. Install Dependencies
-
-```bash
-uv sync
-```
-
-This installs all required dependencies (fastapi, uvicorn, piper-tts, TTS/XTTS v2, torch, etc.)
-
-**For GPU acceleration (NVIDIA CUDA):**
-```bash
-uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
-### 3. Start the Server
+## Install
 
 ```bash
-uv run server.py
+# Pick whichever Python tool you prefer; the examples use uv. Python 3.10+ required.
+pip install chatterbox-tts chatterbox-tts-api
 ```
 
-The server will start on `http://0.0.0.0:63023` by default (base_port + 23).
+That installs:
+- `chatterbox-tts` — the model + inference library (PyTorch under the hood)
+- `chatterbox-tts-api` — an OpenAI-compatible HTTP server wrapper
 
-**First run:** Downloads models (~1-2GB). Please be patient (5-10 minutes).
-**Subsequent runs:** Instant startup.
+First start downloads the Chatterbox model from HuggingFace (~2 GB). Cached
+under `~/.cache/huggingface/` afterwards.
 
-### 4. Test the API
+## Run the server
+
+```bash
+# Default port matches CHATTERBOX_LOCALHOST_URL in .env (63023).
+# Change it with --port if 63023 is taken; remember to update .env to match.
+chatterbox-tts-api --host 0.0.0.0 --port 63023
+```
+
+Then in another terminal, point the stack at it:
+
+```bash
+./start.sh --tts-provider-source chatterbox-localhost
+```
+
+Optional: change the host URL in `.env`:
+
+```bash
+CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:63023
+```
+
+## Verify
 
 ```bash
 curl -X POST http://localhost:63023/v1/audio/speech \
-  -H "Content-Type: application/json" \
-  -d '{"model": "tts-1-hd", "input": "Hello world!", "voice": "alloy"}' \
-  --output speech.mp3
+  -H 'Content-Type: application/json' \
+  -d '{"model":"ResembleAI/chatterbox","input":"hello world","voice":"default"}' \
+  --output /tmp/test.wav
+file /tmp/test.wav   # expect: RIFF (little-endian) data, WAVE audio
 ```
 
-## Configuration
+## Voice cloning
 
-Set environment variables before running:
+Drop a 5-second reference WAV anywhere on disk, then pass it via the API:
 
 ```bash
-export TTS_PROVIDER_PORT=63023          # Server port (auto-adjusts with --base-port flag)
-export PRELOAD_MODEL=tts-1-hd           # Model to preload (tts-1 or tts-1-hd)
-export TTS_HOME=./voices                # Voice files directory
-export HF_HOME=~/.cache/huggingface     # HuggingFace cache
+curl -X POST http://localhost:63023/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "ResembleAI/chatterbox",
+    "input": "Synthesize me in this voice please.",
+    "voice": "default",
+    "reference_audio": "/absolute/path/to/sample.wav"
+  }' \
+  --output cloned.wav
 ```
 
-## Available Models
+Chatterbox is licensed MIT, so the resulting audio is yours to use commercially.
 
-- **tts-1**: Piper TTS (fast, CPU-friendly, lower quality)
-- **tts-1-hd**: XTTS v2 (high quality, GPU-accelerated, voice cloning)
+## Performance reference
 
-## Available Voices
-
-OpenAI-compatible voices:
-- **alloy** - Neutral, balanced
-- **echo** - Male, clear
-- **fable** - British accent
-- **onyx** - Deep male
-- **nova** - Female, energetic
-- **shimmer** - Soft female
-
-## Voice Cloning
-
-XTTS v2 supports zero-shot voice cloning with 6 second samples. See main documentation for details.
+| Hardware | Approx. realtime factor (lower is faster) |
+|---|---|
+| M2 Pro, MPS | 0.4–0.6× (faster than realtime) |
+| M2 Pro, CPU only | 4–6× |
+| NVIDIA RTX 4090 | 0.1× |
 
 ## Troubleshooting
 
-### Common Issues
+**MPS not detected on macOS** — `chatterbox-tts` will print `Using CPU`.
+Reinstall PyTorch with MPS support: `pip install --upgrade --force-reinstall torch torchaudio`.
 
-**Port already in use:**
-```bash
-export TTS_PROVIDER_PORT=63099  # Use any available port
-uv run server.py
-
-# Update .env to match
-XTTS_LOCALHOST_URL=http://host.docker.internal:63099
-```
-
-**GPU not detected:**
-```bash
-# Install CUDA-enabled PyTorch
-uv pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
-**Model download fails:**
-```bash
-# Set HuggingFace token if needed
-export HF_TOKEN=your_token_here
-uv run server.py
-```
-
-### Dependency Version Issues
-
-**Problem**: `ImportError: cannot import name 'BeamSearchScorer' from 'transformers'`
-
-**Cause**: Newer versions of transformers (4.43+) moved `BeamSearchScorer`, breaking XTTS v2 compatibility.
-
-**Solution**:
-```bash
-# Our pyproject.toml pins transformers to 4.40.2-4.43.0
-uv sync  # Reinstalls correct version
-
-# If issue persists:
-uv pip install "transformers==4.42.4" --force-reinstall
-```
-
-**Problem**: Numpy version conflicts during installation
-
-**Cause**: TTS library requires numpy <2.0, but some dependencies try to install numpy 2.x
-
-**Solution**:
-```bash
-# Our pyproject.toml pins numpy to 1.22.0-2.0 range
-uv sync  # Handles version resolution automatically
-```
-
-## Performance
-
-- **CPU**: ~2-5x real-time (slow but works)
-- **GPU**: ~0.3-0.5x real-time (fast, recommended)
-- **Model size**: ~2GB for XTTS v2, ~200MB for Piper
-
-## Technical Details
-
-### Automatic TOS Acceptance
-
-The server automatically accepts Coqui TTS license terms by setting `COQUI_TOS_AGREED=1`. This prevents interactive prompts during model downloads.
-
-**By using this service, you agree to the [Coqui Public Model License (CPML)](https://coqui.ai/cpml).**
-
-### Model Download Behavior
-
-- **Server startup**: Fast (no model downloads)
-- **First API request**: Downloads XTTS v2 model (~1-2GB, takes 5-10 minutes)
-- **Subsequent requests**: Instant (models cached in `~/.cache/huggingface/`)
-
-The server starts quickly, but the first TTS generation request will trigger the model download.
-
-### Why openedai-speech?
-
-openedai-speech is a compatibility wrapper that:
-- **Provides**: OpenAI `/v1/audio/speech` API format
-- **Uses**: Coqui XTTS v2 as the backend TTS engine
-- **Enables**: integration with Open WebUI and other OpenAI-compatible clients via the OpenAI API shape
-
-```
-TTS Stack Architecture:
-┌─────────────────────┐
-│   Open WebUI        │  (expects OpenAI API)
-└──────────┬──────────┘
-           │ POST /v1/audio/speech
-┌──────────▼──────────┐
-│  openedai-speech    │  (wrapper/adapter)
-└──────────┬──────────┘
-           │
-┌──────────▼──────────┐
-│  Coqui XTTS v2      │  (TTS engine)
-└─────────────────────┘
-```
-
-Both GPU Docker and localhost modes use openedai-speech for API compatibility.
-
-## Integration with GenAI Stack
-
-When using `TTS_PROVIDER_SOURCE=xtts-localhost`, ensure this server is running:
+**Port already in use** — pick a different port:
 
 ```bash
-# Terminal 1: Start TTS server
-cd tts-provider/localhost
-git clone https://github.com/matatonic/openedai-speech.git  # First time only
-uv sync  # First time only (or after updates)
-uv run server.py
-
-# Terminal 2: Start the stack
-./start.sh --tts-provider-source xtts-localhost
+chatterbox-tts-api --host 0.0.0.0 --port 63041
+# then in .env:
+CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:63041
 ```
 
-**Note:** The git clone and uv sync commands only need to be run once during initial setup.
+**First request times out** — the model downloads on first call (~2 GB).
+Pre-warm by running the curl test above with `--max-time 600`.
 
 ## References
 
-- [openedai-speech GitHub](https://github.com/matatonic/openedai-speech)
-- [Coqui TTS Documentation](https://github.com/coqui-ai/TTS)
-- [XTTS v2 Model Card](https://huggingface.co/coqui/XTTS-v2)
+- [Chatterbox upstream](https://github.com/resemble-ai/chatterbox)
+- [chatterbox-tts-api server](https://github.com/travisvn/chatterbox-tts-api)
+- [Chatterbox model card](https://huggingface.co/ResembleAI/chatterbox)
+
+## Historical note
+
+This directory previously hosted a server.py wrapper for openedai-speech /
+XTTS v2. That stack was retired in this release because the upstream image
+(`ghcr.io/matatonic/openedai-speech`) was archived on 2026-01-04 and XTTS-v2
+weights are CPML / non-commercial. `git log -- tts-provider/localhost/` has
+the old setup if you need to compare configurations.

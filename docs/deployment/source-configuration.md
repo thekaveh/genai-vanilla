@@ -26,8 +26,8 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `N8N_SOURCE` | `container` | `container`, `disabled` | User-facing | Workflow automation. |
 | `SEARXNG_SOURCE` | `container` | `container`, `disabled` | User-facing | Privacy metasearch. |
 | `OPENCLAW_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing | AI messaging agent. |
-| `STT_PROVIDER_SOURCE` | `disabled` | `parakeet-container-gpu`, `parakeet-localhost`, `disabled` | User-facing optional | Speech-to-text provider. |
-| `TTS_PROVIDER_SOURCE` | `disabled` | `xtts-container-gpu`, `xtts-localhost`, `disabled` | User-facing optional | Text-to-speech provider. |
+| `STT_PROVIDER_SOURCE` | `speaches-container-cpu` | `speaches-container-cpu`, `speaches-container-gpu`, `parakeet-container-gpu`, `parakeet-localhost`, `whisper-cpp-localhost`, `disabled` | User-facing optional | Speech-to-text provider. Speaches is the CPU-friendly default; Parakeet remains for SOTA NVIDIA; whisper.cpp is the best Apple Silicon native option. |
+| `TTS_PROVIDER_SOURCE` | `speaches-container-cpu` | `speaches-container-cpu`, `speaches-container-gpu`, `chatterbox-container-gpu`, `chatterbox-localhost`, `disabled` | User-facing optional | Text-to-speech provider. Speaches serves Kokoro/Piper voices; Chatterbox adds 5-sec zero-shot voice cloning. |
 | `DOC_PROCESSOR_SOURCE` | `disabled` | `docling-container-gpu`, `docling-localhost`, `disabled` | User-facing optional | Document processing provider. |
 | `JUPYTERHUB_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Data science notebooks; adaptive integrations. |
 | `MULTI2VEC_CLIP_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `disabled` | User-facing optional | Multimodal Weaviate vectorizer. |
@@ -63,8 +63,8 @@ These services can run on your host machine instead of in containers:
 | **Weaviate** | `WEAVIATE_SOURCE` | `localhost` | Custom configuration, performance |
 | **Neo4j** | `NEO4J_GRAPH_DB_SOURCE` | `localhost` | Use an existing graph database |
 | **OpenClaw** | `OPENCLAW_SOURCE` | `localhost` | Native performance, existing config |
-| **STT Provider** | `STT_PROVIDER_SOURCE` | `parakeet-localhost` | Use a host speech-to-text service |
-| **TTS Provider** | `TTS_PROVIDER_SOURCE` | `xtts-localhost` | Use a host text-to-speech service |
+| **STT Provider** | `STT_PROVIDER_SOURCE` | `parakeet-localhost`, `whisper-cpp-localhost` | Run STT natively (best on Apple Silicon — Metal+ANE for whisper.cpp, MLX for Parakeet) |
+| **TTS Provider** | `TTS_PROVIDER_SOURCE` | `chatterbox-localhost` | Run Chatterbox voice cloning natively (macOS MPS / Linux) |
 | **Document Processor** | `DOC_PROCESSOR_SOURCE` | `docling-localhost` | Use a host Docling service |
 
 ### Container-Only or Stack-Managed Services
