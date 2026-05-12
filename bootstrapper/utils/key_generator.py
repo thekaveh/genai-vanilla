@@ -13,7 +13,9 @@ from typing import Optional, Dict
 
 class KeyGenerator:
     """Generates and manages encryption keys for GenAI Stack services."""
-    
+
+    MINIO_CONSUMERS = ("COMFYUI", "BACKEND", "N8N", "JUPYTER", "DOCLING")
+
     def __init__(self, root_dir: Optional[str] = None):
         """
         Initialize key generator.
@@ -52,7 +54,20 @@ class KeyGenerator:
     def generate_litellm_master_key(self) -> str:
         """LiteLLM master key — must start with `sk-` per LiteLLM's contract."""
         return f"sk-{secrets.token_urlsafe(40)}"
-    
+
+    def generate_minio_root_password(self) -> str:
+        """MinIO root password — 32-char URL-safe random."""
+        return secrets.token_urlsafe(24)
+
+    def generate_minio_access_key(self) -> str:
+        """MinIO service-account access key — 20-char uppercase alphanumeric (S3 convention)."""
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return "".join(secrets.choice(alphabet) for _ in range(20))
+
+    def generate_minio_secret_key(self) -> str:
+        """MinIO service-account secret key — 40-char URL-safe random."""
+        return secrets.token_urlsafe(30)
+
     def get_current_env_value(self, key_name: str) -> Optional[str]:
         """
         Get current value of an environment variable from .env file.
@@ -188,6 +203,35 @@ class KeyGenerator:
         new_key = self.generate_litellm_master_key()
         return self.update_env_key('LITELLM_MASTER_KEY', new_key)
 
+    def generate_and_update_minio_root_password(self, force: bool = False) -> bool:
+        """Generate MINIO_ROOT_PASSWORD when absent. Hand-edits stick unless force=True."""
+        current_value = self.get_current_env_value('MINIO_ROOT_PASSWORD')
+        if not force and current_value:
+            return True
+        new_value = self.generate_minio_root_password()
+        return self.update_env_key('MINIO_ROOT_PASSWORD', new_value)
+
+    def generate_and_update_minio_consumer_keys(self, force: bool = False) -> Dict[str, bool]:
+        """Generate MINIO_<NAME>_ACCESS_KEY + MINIO_<NAME>_SECRET_KEY for every consumer in
+        MINIO_CONSUMERS, only when blank. Returns a per-variable success map.
+        """
+        results: Dict[str, bool] = {}
+        for consumer in self.MINIO_CONSUMERS:
+            access_var = f'MINIO_{consumer}_ACCESS_KEY'
+            secret_var = f'MINIO_{consumer}_SECRET_KEY'
+
+            if force or not self.get_current_env_value(access_var):
+                results[access_var] = self.update_env_key(access_var, self.generate_minio_access_key())
+            else:
+                results[access_var] = True
+
+            if force or not self.get_current_env_value(secret_var):
+                results[secret_var] = self.update_env_key(secret_var, self.generate_minio_secret_key())
+            else:
+                results[secret_var] = True
+
+        return results
+
     def generate_missing_keys(self, force_regenerate: bool = False) -> Dict[str, bool]:
         """
         Generate any missing encryption keys.
@@ -209,6 +253,14 @@ class KeyGenerator:
         # LiteLLM master key — never force-regenerate (would invalidate virtual keys
         # and orphan spend history). Only generate when absent.
         results['LITELLM_MASTER_KEY'] = self.generate_and_update_litellm_master_key(force=False)
+
+        # MinIO root password — never force-regenerate (would lock out console + break
+        # provisioning). Only generate when absent.
+        results['MINIO_ROOT_PASSWORD'] = self.generate_and_update_minio_root_password(force=False)
+
+        # MinIO per-consumer service-account credentials — only generate when absent.
+        # Rotating these means re-running minio-init, which is a deliberate operator action.
+        results.update(self.generate_and_update_minio_consumer_keys(force=False))
 
         return results
     
