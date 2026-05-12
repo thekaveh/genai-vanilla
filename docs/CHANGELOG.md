@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (MinIO artifact-tier object storage)
+- **MinIO object storage**: S3-compatible artifact-tier storage service with five pre-provisioned buckets (`comfyui`, `backend`, `n8n`, `jupyter`, `docling`) and scoped service-account credentials surfaced as `MINIO_<NAME>_ACCESS_KEY` / `MINIO_<NAME>_SECRET_KEY` in `.env`. Admin console at `http://localhost:63027`; S3 API at `http://localhost:63026`. Consumer code is unchanged in this release; each consumer integration ships in a dedicated follow-up. Pinned to `minio/minio:RELEASE.2025-10-15T17-29-55Z` (security-floor — service-account CVE fix).
+- **`minio-init` provisioner**: one-shot container running `minio/mc` that creates buckets, named IAM policies (`<consumer>-policy`), and service accounts on every `./start.sh`. Idempotent — re-runs are no-ops.
+- **Bootstrapper integration**: `MINIO_PORT=63026` / `MINIO_CONSOLE_PORT=63027` registered in `PortManager.PORT_MAPPING` (recomputed correctly under `--base-port`); `KeyGenerator` extended with `MINIO_ROOT_PASSWORD` + 10 per-consumer service-account credentials (idempotent — hand-edits stick); `--minio-source [container|disabled]` Click flag plumbed through `SourceOverrideManager`; wizard surfaces MinIO as a DATA-tier service via `service-configs.yml` + display-name / description / tag registrations.
+
 ### Added (wizard rework — DB-driven model_list, live model lists, multi-select prompts)
 - **`public.llms` is now the single source of truth for the LiteLLM `model_list`**. Removed the hardcoded model lists in `bootstrapper/utils/litellm_config_generator.py`; the bootstrapper now writes only a stub `volumes/litellm/config.yaml` with empty `model_list`. The real config is rendered on every `docker compose up` by `litellm-init/scripts/init.py` from `SELECT … FROM public.llms WHERE active = true`.
 - **`llm-catalog-init` container** (`llm-catalog-init/Dockerfile` + `scripts/sync-catalog.py`, python:3.12-slim): runs between `supabase-db-init` and `ollama-pull`/`litellm-init`. UPSERTs the curated catalog from `bootstrapper/utils/llm_catalog.py` and applies wizard / `.env`-driven model selections (`OPENAI_USER_MODELS`, `ANTHROPIC_USER_MODELS`, `OPENROUTER_USER_MODELS`, `OLLAMA_USER_MODELS`, `OLLAMA_CUSTOM_MODELS`). Pre-flight check verifies the `(provider, name)` unique constraint exists.
@@ -125,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`docs/scripts/check-kong-routes.py`**: Preventative linter that verifies the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) produces the documented default routes for `comfyui.localhost`, `n8n.localhost`, `search.localhost`, `jupyter.localhost`, `api.localhost`, and `chat.localhost`. (Initially validated a checked-in Kong fallback file; rewritten later in this same release to invoke the generator against `.env.example` in a tmp dir — see the matching entry under `### Changed`. Both entries describe the same checker; the file is now generated-only.)
 - **`docs/deployment/ports-and-routes.md`**: Canonical reference for `BASE_PORT` math, every service's direct localhost URL, and Kong host routes.
 - **Per-service documentation expansion** under `docs/services/`: `backend.md`, `comfyui.md`, `local-deep-researcher.md`, `multi2vec-clip.md`, `n8n.md`, `ollama.md`, `open-webui.md`, `redis.md`, `searxng.md`, `weaviate.md` now have their own pages alongside the existing in-depth docs.
-- **ROADMAP additions**: Tier 1 — unified LLM gateway (LiteLLM, or equivalent) and per-service configuration modularization. Tier 2 — Hermes Agent (Nous Research's programmable agent runtime, with Open WebUI integration link) and MinIO (S3-compatible object storage).
+- **ROADMAP additions**: Tier 1 — unified LLM gateway (LiteLLM, or equivalent) and per-service configuration modularization. Tier 2 — Hermes Agent (Nous Research's programmable agent runtime, with Open WebUI integration link).
 - New documentation structure under `/docs/`, ROADMAP.md, and this CHANGELOG.
 
 ### Changed
