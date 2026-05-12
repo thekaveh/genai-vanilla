@@ -63,7 +63,7 @@ _TAG_BY_KEY = {
     "multi2vec-clip": "ML",
     "weaviate": "DATA", "neo4j": "DATA", "neo4j_graph_db": "DATA",
     "neo4j-graph-db": "DATA",
-    "n8n": "TOOL", "searxng": "TOOL", "openclaw": "TOOL", "jupyterhub": "TOOL",
+    "n8n": "TOOL", "searxng": "TOOL", "openclaw": "TOOL", "hermes": "TOOL", "jupyterhub": "TOOL",
 }
 
 

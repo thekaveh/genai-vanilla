@@ -28,6 +28,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Kong (API Gateway)](services/kong.md) — dynamic API gateway configuration
 - [JupyterHub (Data Science IDE)](services/jupyterhub.md) — interactive Jupyter Lab environment
 - [OpenClaw (AI Agent)](services/openclaw.md) — AI agent for messaging platforms
+- [Hermes Agent](services/hermes.md) — programmable AI agent runtime (Nous Research)
 
 ### Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants

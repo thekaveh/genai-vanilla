@@ -130,6 +130,10 @@ class KongConfigGenerator:
         if openclaw_service:
             services.append(openclaw_service)
 
+        hermes_service = self.generate_hermes_service()
+        if hermes_service:
+            services.append(hermes_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -453,6 +457,50 @@ class KongConfigGenerator:
             service['url'] = f'http://host.docker.internal:{port}/'
         else:
             service['url'] = 'http://openclaw-gateway:18789/'
+
+        return service
+
+    def generate_hermes_service(self) -> Optional[Dict[str, Any]]:
+        """Generate Hermes Agent service configuration based on SOURCE.
+
+        Kong routes traffic to the Hermes dashboard (port 9119), NOT to
+        the OpenAI-compatible API (port 8642). Reason: the API is reached
+        by other containers via internal DNS (http://hermes:8642) and
+        doesn't need a Kong route; the dashboard is a browser UI and
+        benefits from the hermes.localhost alias.
+
+        Gated on:
+          - HERMES_SOURCE != disabled
+          - HERMES_DASHBOARD_ENABLED is truthy (when false, no dashboard
+            to route to — drop the route to avoid a 502).
+        """
+        source = self.get_env_value('HERMES_SOURCE')
+
+        if source == 'disabled':
+            return None
+
+        dashboard_enabled = self.get_env_value('HERMES_DASHBOARD_ENABLED', 'true').lower()
+        if dashboard_enabled not in ('true', '1', 'yes', 'on'):
+            return None
+
+        service = {
+            'name': 'hermes-dashboard',
+            'routes': [
+                {
+                    'name': 'hermes-dashboard-all',
+                    'strip_path': False,
+                    'hosts': ['hermes.localhost']
+                }
+            ],
+            'plugins': [{'name': 'cors'}]
+        }
+
+        if source == 'localhost':
+            port = self.get_env_value('HERMES_DASHBOARD_PORT') or '63027'
+            self.check_localhost_service('localhost', int(port), 'Hermes Dashboard')
+            service['url'] = f'http://host.docker.internal:{port}/'
+        else:  # container
+            service['url'] = 'http://hermes:9119/'
 
         return service
 

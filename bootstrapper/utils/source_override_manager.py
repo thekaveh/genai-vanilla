@@ -35,6 +35,7 @@ class SourceOverrideManager:
             'tts_provider_source': 'TTS_PROVIDER_SOURCE',
             'doc_processor_source': 'DOC_PROCESSOR_SOURCE',
             'openclaw_source': 'OPENCLAW_SOURCE',
+            'hermes_source': 'HERMES_SOURCE',
             'neo4j_graph_db_source': 'NEO4J_GRAPH_DB_SOURCE',
             'multi2vec_clip_source': 'MULTI2VEC_CLIP_SOURCE',
         }

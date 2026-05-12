@@ -188,6 +188,25 @@ class KeyGenerator:
         new_key = self.generate_litellm_master_key()
         return self.update_env_key('LITELLM_MASTER_KEY', new_key)
 
+    def generate_hermes_api_key(self) -> str:
+        """Hermes API server bearer key. Hermes requires >= 8 chars but doesn't
+        prescribe a format; a URL-safe 32-byte token is consistent with
+        LITELLM_MASTER_KEY's strength (no `sk-` prefix — Hermes has no contract
+        around it).
+        """
+        return secrets.token_urlsafe(32)
+
+    def generate_and_update_hermes_api_key(self, force: bool = False) -> bool:
+        """Generate HERMES_API_KEY when absent. Idempotent: existing keys are
+        preserved so already-running Hermes sessions / saved Open-WebUI client
+        config keep working across re-runs.
+        """
+        current_value = self.get_current_env_value('HERMES_API_KEY')
+        if not force and current_value:
+            return True
+        new_key = self.generate_hermes_api_key()
+        return self.update_env_key('HERMES_API_KEY', new_key)
+
     def generate_missing_keys(self, force_regenerate: bool = False) -> Dict[str, bool]:
         """
         Generate any missing encryption keys.
@@ -209,6 +228,12 @@ class KeyGenerator:
         # LiteLLM master key — never force-regenerate (would invalidate virtual keys
         # and orphan spend history). Only generate when absent.
         results['LITELLM_MASTER_KEY'] = self.generate_and_update_litellm_master_key(force=False)
+
+        # Hermes API bearer key — same posture as LITELLM_MASTER_KEY: only
+        # generate when absent. The LiteLLM model_list's hermes-agent row
+        # references it via os.environ/HERMES_API_KEY, so rotating it
+        # without restarting the LiteLLM container would break routing.
+        results['HERMES_API_KEY'] = self.generate_and_update_hermes_api_key(force=False)
 
         return results
     

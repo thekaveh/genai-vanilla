@@ -81,6 +81,14 @@ LITELLM_DB_NAME = os.environ.get("LITELLM_DB_NAME", "litellm")
 
 LITELLM_OLLAMA_UPSTREAM = os.environ.get("LITELLM_OLLAMA_UPSTREAM", "http://ollama:11434").strip()
 
+# Hermes Agent — appended as a `hermes-agent` model_list entry when
+# HERMES_SOURCE != disabled. Hermes is a *runtime* (programmable agent
+# loop), not a model provider, so it's deliberately kept out of the
+# llm_catalog / public.llms taxonomy and stitched in here. Open-WebUI,
+# n8n, backend, jupyterhub all see it for free via LiteLLM.
+HERMES_SOURCE = os.environ.get("HERMES_SOURCE", "disabled").strip().lower()
+HERMES_ENDPOINT = os.environ.get("HERMES_ENDPOINT", "").strip()
+
 CONFIG_OUT = Path(os.environ.get("LITELLM_CONFIG_OUT", "/litellm-config/config.yaml"))
 
 
@@ -199,14 +207,53 @@ def render_model_list(active_rows: list[tuple[str, str]]) -> list[dict[str, Any]
     return out
 
 
+def hermes_model_entry() -> dict[str, Any] | None:
+    """Return a model_list entry for `hermes-agent` when Hermes is alive.
+
+    Returns None when HERMES_SOURCE is disabled OR HERMES_ENDPOINT is
+    empty (which the bootstrapper sets for disabled / unresolved
+    sources). Uses LiteLLM's openai-compatible passthrough — Hermes
+    speaks the same /v1/chat/completions surface as OpenAI, so
+    `model: openai/<name>` + `api_base` + `api_key` is sufficient.
+
+    The leading `openai/` prefix is LiteLLM-specific routing syntax —
+    Hermes itself sees the request as a normal chat-completion call.
+    """
+    if HERMES_SOURCE == "disabled" or not HERMES_ENDPOINT:
+        return None
+    # Trim trailing slash, append /v1 if not already present.
+    base = HERMES_ENDPOINT.rstrip("/")
+    if not base.endswith("/v1"):
+        base = f"{base}/v1"
+    return {
+        "model_name": "hermes-agent",
+        "litellm_params": {
+            "model": "openai/hermes-agent",
+            "api_base": base,
+            "api_key": "os.environ/HERMES_API_KEY",
+        },
+    }
+
+
 def render_config(active_rows: list[tuple[str, str]]) -> dict[str, Any]:
     """Build the complete config.yaml dict (model_list + settings).
     The settings half comes from bootstrapper/utils/litellm_settings.py
     via the bind-mounted /catalog dir — single source of truth shared
     with the bootstrapper's host-side stub writer.
+
+    Hermes Agent is stitched in here (rather than via public.llms) —
+    see hermes_model_entry() and its comment.
     """
+    model_list = render_model_list(active_rows)
+    hermes_entry = hermes_model_entry()
+    if hermes_entry is not None:
+        model_list.append(hermes_entry)
+        print(
+            f"  ↳ appended hermes-agent entry → {hermes_entry['litellm_params']['api_base']}",
+            flush=True,
+        )
     return {
-        "model_list": render_model_list(active_rows),
+        "model_list": model_list,
         **_load_shared_settings(),
     }
 

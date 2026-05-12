@@ -27,6 +27,7 @@ DISPLAY_NAME_OVERRIDES = {
     'neo4j-graph-db': 'Neo4j Graph DB',
     'multi2vec-clip': 'Multi2Vec CLIP',
     'openclaw': 'OpenClaw',
+    'hermes': 'Hermes Agent',
     'weaviate': 'Weaviate',
 }
 
@@ -41,6 +42,7 @@ SERVICE_DESCRIPTIONS = {
     'tts_provider': 'text-to-speech synthesis',
     'doc_processor': 'document parsing & extraction',
     'openclaw': 'AI agent for messaging platforms',
+    'hermes': 'programmable AI agent runtime (Nous Research)',
     'n8n': 'workflow automation & integrations',
     'searxng': 'privacy-focused search engine',
     'neo4j-graph-db': 'graph database for knowledge graphs',

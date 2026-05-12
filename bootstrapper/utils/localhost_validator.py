@@ -73,6 +73,13 @@ class LocalhostValidator:
             'port_env_var': 'OPENCLAW_GATEWAY_PORT',
             'service_name': 'OpenClaw Gateway',
             'default_port': 63024
+        },
+        'HERMES_SOURCE': {
+            'source_values': ['localhost'],
+            'check_type': 'http',
+            'port_env_var': 'HERMES_API_PORT',
+            'service_name': 'Hermes Agent',
+            'default_port': 63026
         }
     }
     

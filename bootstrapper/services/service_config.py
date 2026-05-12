@@ -110,6 +110,10 @@ class ServiceConfig:
         openclaw_config = self._generate_openclaw_config()
         env_vars.update(openclaw_config)
 
+        # Generate Hermes Agent configuration
+        hermes_config = self._generate_hermes_config()
+        env_vars.update(hermes_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -387,6 +391,38 @@ class ServiceConfig:
 
         return env_vars
 
+    def _generate_hermes_config(self) -> Dict[str, str]:
+        """Generate Hermes Agent (programmable AI agent runtime) configuration.
+
+        Mirrors _generate_openclaw_config(): drives HERMES_SCALE and
+        HERMES_ENDPOINT from HERMES_SOURCE, with localhost replacement
+        for cross-platform host-gateway addressing. HERMES_INIT_SCALE
+        is set in _generate_other_services_config() to keep init-scale
+        logic centralized.
+        """
+        source_value = self.service_sources.get('HERMES_SOURCE', 'container')
+        config = self.get_service_config('hermes', source_value)
+
+        env_vars: Dict[str, str] = {}
+
+        if source_value == 'disabled':
+            env_vars['HERMES_ENDPOINT'] = ''
+            env_vars['HERMES_SCALE'] = '0'
+        elif source_value == 'localhost':
+            current_env = self.config_parser.parse_env_file()
+            hermes_port = current_env.get('HERMES_API_PORT', '63026')
+            endpoint = f'http://{self.localhost_host}:{hermes_port}'
+            env_vars['HERMES_ENDPOINT'] = endpoint
+            env_vars['HERMES_SCALE'] = '0'
+        else:  # container
+            endpoint = config.get('environment', {}).get(
+                'HERMES_ENDPOINT', 'http://hermes:8642')
+            endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
+            env_vars['HERMES_ENDPOINT'] = endpoint
+            env_vars['HERMES_SCALE'] = '1'
+
+        return env_vars
+
     def _generate_openclaw_config(self) -> Dict[str, str]:
         """Generate OpenClaw AI Agent configuration."""
         source_value = self.service_sources.get('OPENCLAW_SOURCE', 'disabled')
@@ -479,6 +515,16 @@ class ServiceConfig:
             env_vars['OPENCLAW_INIT_SCALE'] = '1'
         else:
             env_vars['OPENCLAW_INIT_SCALE'] = '0'
+
+        # HERMES_INIT_SCALE: follows HERMES_SCALE (1 when container, 0 otherwise).
+        # Localhost and disabled both skip the init container — for localhost,
+        # the operator owns the on-host config file; for disabled, there's
+        # nothing to initialize.
+        hermes_source = self.service_sources.get('HERMES_SOURCE', 'container')
+        if hermes_source == 'container':
+            env_vars['HERMES_INIT_SCALE'] = '1'
+        else:
+            env_vars['HERMES_INIT_SCALE'] = '0'
 
         return env_vars
     

@@ -185,25 +185,19 @@ Consumed by (services that would call MinIO):
 - Advanced data processing workflows
 - Custom node development
 
-**Hermes Agent (programmable AI agent for chat & messaging)**
-- AI agent framework by Nous Research exposing programmable agent personas via REST / messaging APIs
-- Open WebUI integration: register Hermes as a custom OpenAI-compatible endpoint — see [Nous Research's user guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui)
-- Complements OpenClaw (already deployed): Hermes provides the agent runtime; OpenClaw provides the messaging-channel surface (WhatsApp / Telegram / Discord)
+**Hermes Agent (programmable AI agent for chat & messaging)** ✓ **shipped**
 
-**Stack integration points:**
+Lives in [docs/services/hermes.md](services/hermes.md). Shipped as the
+`hermes` service (`nousresearch/hermes-agent:0.13.0`) plus `hermes-init`
+companion. Registered in the LiteLLM model catalog as `hermes-agent`, so
+every consumer (Open-WebUI, n8n, backend, jupyterhub, openclaw) sees it
+in the model dropdown automatically. Dashboard exposed at
+`http://hermes.localhost:63002`.
 
-Depends on (services Hermes would consume):
-- **Ollama** (or the Tier 1 LiteLLM gateway, once landed) — LLM inference for agent reasoning (already deployed)
-- **ComfyUI** — image generation invoked as a tool from agent personas (already deployed)
-- **TTS provider (XTTS)** — speech output for voice-enabled responses (already deployed)
-- **STT provider (Parakeet)** — speech input for voice-driven conversations (already deployed)
-- **Supabase (PostgreSQL)** — agent memory and conversation history (already deployed)
-
-Consumed by (services that would call Hermes):
-- **Open WebUI** — primary chat surface; Hermes registered as a custom model per the link above
-- **OpenClaw** — bridges Hermes agents to WhatsApp / Telegram / Discord channels
-- **Backend (FastAPI)** — programmatic agent invocation from application code
-- **n8n** — agent-driven automation workflows
+Correction to the prior Tier-2 sketch: Hermes is **file-based**, not
+Postgres-backed. The earlier line claiming Supabase as a Hermes dependency
+was wrong — Hermes persists everything under `/opt/data` (the `hermes-data`
+named volume). Supabase is not in Hermes's dependency set.
 
 **Alternative TTS models (Piper)**
 - Additional TTS model support beyond XTTS v2

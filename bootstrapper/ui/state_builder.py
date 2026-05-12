@@ -43,6 +43,7 @@ _SERVICES = [
     ("TTS Provider",       "TTS_PROVIDER_SOURCE",       "TTS_PROVIDER_PORT",       "XTTS_GPU_SCALE"),
     ("Document Processor", "DOC_PROCESSOR_SOURCE",      "DOC_PROCESSOR_PORT",      "DOCLING_GPU_SCALE"),
     ("OpenClaw",           "OPENCLAW_SOURCE",           "OPENCLAW_GATEWAY_PORT",   "OPENCLAW_SCALE"),
+    ("Hermes Agent",       "HERMES_SOURCE",             "HERMES_API_PORT",         "HERMES_SCALE"),
     ("n8n",                "N8N_SOURCE",                "N8N_PORT",                "N8N_SCALE"),
     ("SearxNG",            "SEARXNG_SOURCE",            "SEARXNG_PORT",            "SEARXNG_SCALE"),
     ("JupyterHub",         "JUPYTERHUB_SOURCE",         "JUPYTERHUB_PORT",         "JUPYTERHUB_SCALE"),
@@ -72,6 +73,7 @@ _HOST_ALIAS = {
     "ComfyUI": "comfyui.localhost",
     "JupyterHub": "jupyter.localhost",
     "OpenClaw": "openclaw.localhost",
+    "Hermes Agent": "hermes.localhost",
 }
 
 # Endpoint env vars used by localhost services. Imported privately

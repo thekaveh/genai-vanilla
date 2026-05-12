@@ -33,4 +33,5 @@ LOCALHOST_ENDPOINT_VARS: Dict[str, str] = {
     "TTS Provider":      "XTTS_ENDPOINT",
     "Document Processor": "DOCLING_ENDPOINT",
     "OpenClaw":          "OPENCLAW_ENDPOINT",
+    "Hermes Agent":      "HERMES_ENDPOINT",
 }

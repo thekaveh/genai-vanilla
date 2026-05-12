@@ -409,6 +409,55 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  # Hermes Agent — programmable AI agent runtime by Nous Research.
+  # File-based persistence (no Postgres / Redis dependency); reasons over
+  # the LiteLLM gateway. Downstream consumers see Hermes as the
+  # `hermes-agent` model in LiteLLM's catalog (registered by litellm-init
+  # when HERMES_SOURCE != disabled).
+  hermes:
+    # Containerized Hermes gateway + dashboard
+    container:
+      scale: 1
+      environment:
+        HERMES_ENDPOINT: "http://hermes:8642"
+        HERMES_DASHBOARD_URL: "http://hermes:9119"
+      deploy: {}
+      extra_hosts: []
+
+    # Local Hermes on host. Install: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh`
+    # then run `hermes gateway run`. Useful when Hermes needs to drive
+    # the real shell / browser / microphone.
+    localhost:
+      scale: 0
+      environment:
+        HERMES_ENDPOINT: "${HERMES_LOCALHOST_URL:-http://host.docker.internal:63026}"
+        HERMES_DASHBOARD_URL: ""  # operator manages dashboard on host
+      deploy: {}
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+
+    # Disabled
+    disabled:
+      scale: 0
+      environment:
+        HERMES_ENDPOINT: ""
+        HERMES_DASHBOARD_URL: ""
+      deploy: {}
+      extra_hosts: []
+
+  # Hermes Initialization (auto-managed by hermes)
+  hermes-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
   n8n:
     # Containerized n8n
     container:
@@ -749,6 +798,27 @@ adaptive_services:
       LITELLM_API_KEY: "${LITELLM_MASTER_KEY}"
     extra_hosts_adaptation: "inherit from llm_provider"
 
+  hermes-init:
+    adapts_to: [stt_provider, tts_provider, comfyui, searxng]
+    # Reads each downstream service's endpoint and bakes them into
+    # /opt/data/config.yaml. Empty values cause the init script to
+    # omit the matching provider block (graceful degradation when
+    # a dependency is disabled).
+    environment_adaptation:
+      XTTS_INTERNAL_URL: "${XTTS_ENDPOINT}"
+      PARAKEET_INTERNAL_URL: "${PARAKEET_ENDPOINT}"
+      COMFYUI_INTERNAL_URL: "${COMFYUI_ENDPOINT}"
+      SEARXNG_INTERNAL_URL: "http://searxng:8080"  # SearXNG has no SOURCE-driven endpoint var
+    extra_hosts_adaptation: "none"
+
+  hermes:
+    adapts_to: [llm_provider]
+    # Hermes itself only needs LiteLLM directly. The init container
+    # handles the per-feature URL wiring (above).
+    environment_adaptation:
+      LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY}"
+    extra_hosts_adaptation: "inherit from llm_provider"
+
   n8n:
     adapts_to: [stt_provider, tts_provider, doc_processor]
     # Scales to 1 when enabled
@@ -805,6 +875,7 @@ dependencies:
     - n8n
     - n8n-worker
     - openclaw-gateway
+    - hermes
   app_tier:
     - kong-api-gateway
     - supabase-studio
@@ -852,3 +923,10 @@ service_dependencies:
   openclaw-gateway:
     optional: [ollama]
     info_message: "OpenClaw enabled - will connect to available LLM providers (ollama, anthropic, openai)"
+
+  # Hermes uses LiteLLM for reasoning; STT/TTS/ComfyUI/SearXNG are pure
+  # opt-in capabilities (config dropped from /opt/data/config.yaml when
+  # the underlying service is disabled — Hermes still functions).
+  hermes:
+    optional: [parakeet, xtts, comfyui, searxng]
+    info_message: "Hermes enabled - will wire optional services into /opt/data/config.yaml when available (parakeet, xtts, comfyui, searxng)"

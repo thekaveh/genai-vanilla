@@ -276,6 +276,8 @@ class GenAIStackStarter:
             'TTS_PROVIDER_PORT',
             'OPENCLAW_GATEWAY_PORT',
             'OPENCLAW_BRIDGE_PORT',
+            'HERMES_API_PORT',
+            'HERMES_DASHBOARD_PORT',
             'JUPYTERHUB_PORT'
         ]
         
@@ -1020,6 +1022,10 @@ class GenAIStackStarter:
               type=click.Choice(['container', 'localhost',
                                 'disabled'], case_sensitive=False),
               help='Override OPENCLAW_SOURCE')
+@click.option('--hermes-source',
+              type=click.Choice(['container', 'localhost',
+                                'disabled'], case_sensitive=False),
+              help='Override HERMES_SOURCE')
 @click.option('--neo4j-graph-db-source',
               type=click.Choice(['container', 'localhost',
                                 'disabled'], case_sensitive=False),
@@ -1039,7 +1045,8 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          ollama_models, ollama_custom_models,
          comfyui_source, weaviate_source, n8n_source, searxng_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
-         doc_processor_source, openclaw_source, neo4j_graph_db_source,
+         doc_processor_source, openclaw_source, hermes_source,
+         neo4j_graph_db_source,
          multi2vec_clip_source, no_tui):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
@@ -1127,6 +1134,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'tts_provider_source': tts_provider_source,
             'doc_processor_source': doc_processor_source,
             'openclaw_source': openclaw_source,
+            'hermes_source': hermes_source,
             'neo4j_graph_db_source': neo4j_graph_db_source,
             'multi2vec_clip_source': multi2vec_clip_source,
         }
