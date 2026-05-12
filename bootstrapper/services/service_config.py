@@ -508,6 +508,15 @@ class ServiceConfig:
         else:
             env_vars['OPENCLAW_INIT_SCALE'] = '0'
 
+        # MINIO_INIT_SCALE: follows MINIO_SOURCE (1 when container, 0 when disabled)
+        # Critical: without this, minio-init blocks on a never-healthy minio when
+        # MinIO is disabled, hanging compose-up indefinitely.
+        minio_source = self.service_sources.get('MINIO_SOURCE', 'container')
+        if minio_source == 'container':
+            env_vars['MINIO_INIT_SCALE'] = '1'
+        else:
+            env_vars['MINIO_INIT_SCALE'] = '0'
+
         return env_vars
     
     def _generate_adaptive_services_config(self, all_env_vars: Dict[str, str] = None) -> Dict[str, str]:

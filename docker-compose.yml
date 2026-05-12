@@ -348,6 +348,8 @@ services:
     image: ${MINIO_IMAGE}
     container_name: ${PROJECT_NAME}-minio
     restart: unless-stopped
+    deploy:
+      replicas: ${MINIO_SCALE:-1}
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -359,8 +361,6 @@ services:
       - "${MINIO_CONSOLE_PORT}:9001"
     volumes:
       - minio-data:/data
-    deploy:
-      replicas: ${MINIO_SCALE:-1}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -374,6 +374,8 @@ services:
     image: ${MINIO_INIT_IMAGE}
     container_name: ${PROJECT_NAME}-minio-init
     restart: "no"
+    deploy:
+      replicas: ${MINIO_INIT_SCALE:-1}
     depends_on:
       minio:
         condition: service_healthy
