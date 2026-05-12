@@ -274,6 +274,8 @@ class GenAIStackStarter:
             'DOC_PROCESSOR_PORT',
             'STT_PROVIDER_PORT',
             'TTS_PROVIDER_PORT',
+            'SPEACHES_PORT',
+            'CHATTERBOX_PORT',
             'OPENCLAW_GATEWAY_PORT',
             'OPENCLAW_BRIDGE_PORT',
             'JUPYTERHUB_PORT'
@@ -1005,11 +1007,14 @@ class GenAIStackStarter:
               type=click.Choice(['container', 'disabled'], case_sensitive=False),
               help='Override JUPYTERHUB_SOURCE')
 @click.option('--stt-provider-source',
-              type=click.Choice(['parakeet-container-gpu', 'parakeet-localhost',
-                                'disabled'], case_sensitive=False),
+              type=click.Choice(['speaches-container-cpu', 'speaches-container-gpu',
+                                'parakeet-container-gpu', 'parakeet-localhost',
+                                'whisper-cpp-localhost', 'disabled'],
+                                case_sensitive=False),
               help='Override STT_PROVIDER_SOURCE')
 @click.option('--tts-provider-source',
-              type=click.Choice(['xtts-container-gpu', 'xtts-localhost',
+              type=click.Choice(['speaches-container-cpu', 'speaches-container-gpu',
+                                'chatterbox-container-gpu', 'chatterbox-localhost',
                                 'disabled'], case_sensitive=False),
               help='Override TTS_PROVIDER_SOURCE')
 @click.option('--doc-processor-source',

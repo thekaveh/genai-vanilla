@@ -47,17 +47,17 @@ class LocalhostValidator:
             'default_port': 7687
         },
         'STT_PROVIDER_SOURCE': {
-            'source_values': ['parakeet-localhost'],
+            'source_values': ['parakeet-localhost', 'whisper-cpp-localhost'],
             'check_type': 'http',
             'port_env_var': 'STT_PROVIDER_PORT',
-            'service_name': 'Parakeet STT',
+            'service_name': 'STT (host-side)',
             'default_port': 63022
         },
         'TTS_PROVIDER_SOURCE': {
-            'source_values': ['xtts-localhost'],
+            'source_values': ['chatterbox-localhost'],
             'check_type': 'http',
             'port_env_var': 'TTS_PROVIDER_PORT',
-            'service_name': 'XTTS TTS',
+            'service_name': 'TTS (host-side)',
             'default_port': 63023
         },
         'DOC_PROCESSOR_SOURCE': {

@@ -94,12 +94,14 @@ class ServiceConfig:
         clip_config = self._generate_clip_config()
         env_vars.update(clip_config)
 
-        # Generate STT Provider configuration
-        stt_config = self._generate_stt_provider_config()
+        # Generate STT and TTS Provider configuration.
+        # We pass the running env_vars dict through both so the TTS pass sees
+        # any SPEACHES_SCALE / COMPOSE_PROFILES that STT already set — this is
+        # how the speaches dedup avoids double-adding profile or scale.
+        stt_config = self._generate_stt_provider_config(shared_env=env_vars)
         env_vars.update(stt_config)
 
-        # Generate TTS Provider configuration
-        tts_config = self._generate_tts_provider_config()
+        tts_config = self._generate_tts_provider_config(shared_env=env_vars)
         env_vars.update(tts_config)
 
         # Generate Document Processor configuration
@@ -297,59 +299,154 @@ class ServiceConfig:
             
         return env_vars
 
-    def _generate_stt_provider_config(self) -> Dict[str, str]:
-        """Generate STT Provider (Parakeet) configuration."""
+    def _add_compose_profile(self, env_vars: Dict[str, str], profile: str) -> None:
+        """Append a docker-compose profile to COMPOSE_PROFILES idempotently.
+
+        Reads the running tally from ``env_vars`` first (so multiple generators
+        in a single pass can stack additions) and falls back to whatever the
+        user pre-seeded in .env. Skips the add if ``profile`` is already
+        present. Used by the speaches dedup path — if both TTS and STT pick
+        speaches, both generators try to add the same profile and we don't
+        want it duplicated in COMPOSE_PROFILES.
+        """
+        current = env_vars.get('COMPOSE_PROFILES',
+                               self.service_sources.get('COMPOSE_PROFILES', '')) or ''
+        existing = [p for p in current.split(',') if p]
+        if profile in existing:
+            return
+        existing.append(profile)
+        env_vars['COMPOSE_PROFILES'] = ','.join(existing)
+
+    def _generate_stt_provider_config(self, shared_env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        """Generate STT Provider configuration.
+
+        ``shared_env`` carries env vars accumulated by earlier generators so
+        we can stack COMPOSE_PROFILES additions correctly (and so the TTS
+        generator, when it runs next, sees that SPEACHES_SCALE is already 1).
+        """
         source_value = self.service_sources.get('STT_PROVIDER_SOURCE', 'disabled')
         config = self.get_service_config('stt_provider', source_value)
 
-        env_vars = {}
+        env_vars: Dict[str, str] = dict(shared_env or {})
 
-        # Set PARAKEET_ENDPOINT with localhost replacement
-        endpoint = config.get('environment', {}).get('PARAKEET_ENDPOINT', 'http://host.docker.internal:10300')
+        # Default: STT not running (zero scale, blank endpoint). Each
+        # branch below flips the bits it owns. The provider-level scale
+        # is consumed by the wizard ServiceTable to colour the row.
+        env_vars.setdefault('STT_PROVIDER_SCALE', '0')
+
+        # Endpoint comes from the YAML entry; for ``http://host.docker.internal``
+        # URLs we swap in the platform-correct gateway hostname.
+        endpoint = config.get('environment', {}).get('STT_ENDPOINT', '')
         endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
-        env_vars['PARAKEET_ENDPOINT'] = endpoint
+        env_vars['STT_ENDPOINT'] = endpoint
 
-        # Set scale and activate profile based on SOURCE
-        if source_value == 'parakeet-container-gpu':
+        if source_value.startswith('speaches-container'):
+            env_vars['SPEACHES_SCALE'] = '1'
+            profile = 'speaches-gpu' if source_value.endswith('-gpu') else 'speaches-cpu'
+            self._add_compose_profile(env_vars, profile)
+            # Mirror the speaches external port into the wizard's STT slot
+            # so the row shows the right :port without resorting to a
+            # per-source port_var in state_builder.
+            speaches_port = self._resolved_env('SPEACHES_PORT', env_vars)
+            if speaches_port:
+                env_vars['STT_PROVIDER_PORT'] = speaches_port
+            env_vars['STT_PROVIDER_SCALE'] = '1'
+            # Parakeet stays off in this branch.
+            env_vars.setdefault('PARAKEET_GPU_SCALE', '0')
+        elif source_value == 'parakeet-container-gpu':
             env_vars['PARAKEET_GPU_SCALE'] = '1'
-            # Activate parakeet-gpu profile to enable building the GPU service
-            current_profiles = self.service_sources.get('COMPOSE_PROFILES', '')
-            new_profiles = 'parakeet-gpu' if not current_profiles else f"{current_profiles},parakeet-gpu"
-            env_vars['COMPOSE_PROFILES'] = new_profiles
-        elif source_value == 'parakeet-localhost':
+            self._add_compose_profile(env_vars, 'parakeet-gpu')
+            env_vars['STT_PROVIDER_SCALE'] = '1'
+            env_vars.setdefault('SPEACHES_SCALE', '0')
+        elif source_value in ('parakeet-localhost', 'whisper-cpp-localhost'):
             env_vars['PARAKEET_GPU_SCALE'] = '0'
+            env_vars.setdefault('SPEACHES_SCALE', '0')
+            # STT_PROVIDER_SCALE stays 0 — wizard reads port from URL
         else:  # disabled
             env_vars['PARAKEET_GPU_SCALE'] = '0'
-            env_vars['PARAKEET_ENDPOINT'] = ''
+            env_vars.setdefault('SPEACHES_SCALE', '0')
+            env_vars['STT_ENDPOINT'] = ''
 
         return env_vars
 
-    def _generate_tts_provider_config(self) -> Dict[str, str]:
-        """Generate TTS Provider (XTTS v2) configuration."""
+    def _generate_tts_provider_config(self, shared_env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        """Generate TTS Provider configuration.
+
+        See ``_generate_stt_provider_config`` for the role of ``shared_env``;
+        same dedup pattern, applied symmetrically.
+        """
         source_value = self.service_sources.get('TTS_PROVIDER_SOURCE', 'disabled')
         config = self.get_service_config('tts_provider', source_value)
 
-        env_vars = {}
+        env_vars: Dict[str, str] = dict(shared_env or {})
+        env_vars.setdefault('TTS_PROVIDER_SCALE', '0')
 
-        # Set XTTS_ENDPOINT with localhost replacement
-        endpoint = config.get('environment', {}).get('XTTS_ENDPOINT', 'http://host.docker.internal:10400')
+        endpoint = config.get('environment', {}).get('TTS_ENDPOINT', '')
         endpoint = endpoint.replace('host.docker.internal', self.localhost_host)
-        env_vars['XTTS_ENDPOINT'] = endpoint
+        env_vars['TTS_ENDPOINT'] = endpoint
 
-        # Set scale and activate profile based on SOURCE
-        if source_value == 'xtts-container-gpu':
-            env_vars['XTTS_GPU_SCALE'] = '1'
-            # Activate xtts-gpu profile to enable building the GPU service
-            current_profiles = self.service_sources.get('COMPOSE_PROFILES', '')
-            new_profiles = 'xtts-gpu' if not current_profiles else f"{current_profiles},xtts-gpu"
-            env_vars['COMPOSE_PROFILES'] = new_profiles
-        elif source_value == 'xtts-localhost':
-            env_vars['XTTS_GPU_SCALE'] = '0'
+        if source_value.startswith('speaches-container'):
+            # If STT also picked speaches, SPEACHES_SCALE is already 1 and
+            # the profile is already in COMPOSE_PROFILES — both adds are
+            # idempotent. If STT picked something else, this is the only
+            # place speaches gets activated.
+            env_vars['SPEACHES_SCALE'] = '1'
+            wanted_profile = 'speaches-gpu' if source_value.endswith('-gpu') else 'speaches-cpu'
+            stt_source = self.service_sources.get('STT_PROVIDER_SOURCE', 'disabled')
+            if stt_source.startswith('speaches-container'):
+                # Mixed cpu/gpu: GPU wins. Remove cpu profile if present;
+                # add gpu. Either source value already added its own profile,
+                # so we only re-add when the resolved winner differs.
+                stt_is_gpu = stt_source.endswith('-gpu')
+                tts_is_gpu = source_value.endswith('-gpu')
+                if stt_is_gpu != tts_is_gpu:
+                    wanted_profile = 'speaches-gpu'
+                    self._remove_compose_profile(env_vars, 'speaches-cpu')
+                    print(
+                        "ℹ️  Speaches CPU/GPU mismatch between TTS_PROVIDER_SOURCE "
+                        f"({source_value}) and STT_PROVIDER_SOURCE ({stt_source}); "
+                        "using speaches-gpu for both."
+                    )
+            self._add_compose_profile(env_vars, wanted_profile)
+            speaches_port = self._resolved_env('SPEACHES_PORT', env_vars)
+            if speaches_port:
+                env_vars['TTS_PROVIDER_PORT'] = speaches_port
+            env_vars['TTS_PROVIDER_SCALE'] = '1'
+            env_vars.setdefault('CHATTERBOX_SCALE', '0')
+        elif source_value == 'chatterbox-container-gpu':
+            env_vars['CHATTERBOX_SCALE'] = '1'
+            self._add_compose_profile(env_vars, 'chatterbox-gpu')
+            chatterbox_port = self._resolved_env('CHATTERBOX_PORT', env_vars)
+            if chatterbox_port:
+                env_vars['TTS_PROVIDER_PORT'] = chatterbox_port
+            env_vars['TTS_PROVIDER_SCALE'] = '1'
+            env_vars.setdefault('SPEACHES_SCALE', '0')
+        elif source_value == 'chatterbox-localhost':
+            env_vars['CHATTERBOX_SCALE'] = '0'
+            env_vars.setdefault('SPEACHES_SCALE', '0')
         else:  # disabled
-            env_vars['XTTS_GPU_SCALE'] = '0'
-            env_vars['XTTS_ENDPOINT'] = ''
+            env_vars['CHATTERBOX_SCALE'] = '0'
+            env_vars.setdefault('SPEACHES_SCALE', '0')
+            env_vars['TTS_ENDPOINT'] = ''
 
         return env_vars
+
+    def _remove_compose_profile(self, env_vars: Dict[str, str], profile: str) -> None:
+        """Drop a profile from COMPOSE_PROFILES if present (no-op otherwise)."""
+        current = env_vars.get('COMPOSE_PROFILES',
+                               self.service_sources.get('COMPOSE_PROFILES', '')) or ''
+        existing = [p for p in current.split(',') if p and p != profile]
+        env_vars['COMPOSE_PROFILES'] = ','.join(existing)
+
+    def _resolved_env(self, var: str, env_vars: Dict[str, str]) -> str:
+        """Look up ``var`` in this run's accumulated env, then .env, then ''.
+
+        Used by the TTS/STT generators to read the speaches/chatterbox port
+        slots that the port allocator wrote earlier in the pipeline.
+        """
+        if var in env_vars:
+            return env_vars[var]
+        return self.config_parser.parse_env_file().get(var, '')
 
     def _generate_doc_processor_config(self) -> Dict[str, str]:
         """Generate Document Processor (Docling) configuration."""
@@ -496,16 +593,32 @@ class ServiceConfig:
         env_vars['OPEN_WEB_UI_INIT_SCALE'] = '0' if webui_source == 'disabled' else '1'
 
         # Open WebUI adaptive TTS/STT (set engine and API base URL when provider is enabled)
-        # Read endpoints from already-generated env vars (STT/TTS configs run before adaptive)
+        # Read endpoints from already-generated env vars (STT/TTS configs run before adaptive).
+        # All current TTS/STT engines (Speaches, Chatterbox, Parakeet, whisper.cpp) expose
+        # an OpenAI-compatible /v1/audio/{speech,transcriptions} surface, so the engine name
+        # is uniformly 'openai' — only the API base URL differs.
         parent_vars = all_env_vars or {}
         tts_source = sources.get('TTS_PROVIDER_SOURCE', 'disabled')
         env_vars['OPEN_WEB_UI_TTS_ENGINE'] = 'openai' if tts_source != 'disabled' else ''
-        xtts_endpoint = parent_vars.get('XTTS_ENDPOINT', '')
-        env_vars['OPEN_WEB_UI_TTS_API_URL'] = f'{xtts_endpoint}/v1' if xtts_endpoint else ''
+        tts_endpoint = parent_vars.get('TTS_ENDPOINT', '')
+        env_vars['OPEN_WEB_UI_TTS_API_URL'] = f'{tts_endpoint}/v1' if tts_endpoint else ''
         stt_source = sources.get('STT_PROVIDER_SOURCE', 'disabled')
         env_vars['OPEN_WEB_UI_STT_ENGINE'] = 'openai' if stt_source != 'disabled' else ''
-        parakeet_endpoint = parent_vars.get('PARAKEET_ENDPOINT', '')
-        env_vars['OPEN_WEB_UI_STT_API_URL'] = f'{parakeet_endpoint}/v1' if parakeet_endpoint else ''
+        stt_endpoint = parent_vars.get('STT_ENDPOINT', '')
+        env_vars['OPEN_WEB_UI_STT_API_URL'] = f'{stt_endpoint}/v1' if stt_endpoint else ''
+        # Open WebUI's default TTS model — depends on which engine is active.
+        if tts_source.startswith('speaches-container'):
+            env_vars['OPEN_WEB_UI_TTS_MODEL'] = self.service_sources.get(
+                'SPEACHES_TTS_MODEL',
+                self.config_parser.parse_env_file().get('SPEACHES_TTS_MODEL', 'hexgrad/Kokoro-82M'),
+            )
+            env_vars['OPEN_WEB_UI_TTS_VOICE'] = 'af_heart'
+        elif tts_source.startswith('chatterbox'):
+            env_vars['OPEN_WEB_UI_TTS_MODEL'] = 'ResembleAI/chatterbox'
+            env_vars['OPEN_WEB_UI_TTS_VOICE'] = 'default'
+        else:
+            env_vars['OPEN_WEB_UI_TTS_MODEL'] = ''
+            env_vars['OPEN_WEB_UI_TTS_VOICE'] = ''
 
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')

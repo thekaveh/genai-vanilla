@@ -56,12 +56,12 @@ volumes:
     name: ${PROJECT_NAME}-stt-gpu-cache
     driver: local
 
-  # TTS layer volumes
-  tts-provider-gpu-cache:
-    name: ${PROJECT_NAME}-tts-gpu-cache
+  # TTS / unified speech layer volumes
+  speaches-cache:
+    name: ${PROJECT_NAME}-speaches-cache
     driver: local
-  tts-voices:
-    name: ${PROJECT_NAME}-tts-voices
+  chatterbox-cache:
+    name: ${PROJECT_NAME}-chatterbox-cache
     driver: local
 
   # DOC layer volumes
@@ -657,9 +657,11 @@ services:
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
-      # STT/TTS/DOC endpoints (available for workflows)
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      # STT/TTS/DOC endpoints (available for workflows). Engine-agnostic
+      # names; resolve to whichever provider the user picked in the wizard
+      # (Speaches, Parakeet, Chatterbox, whisper.cpp, …).
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
     ports:
@@ -827,22 +829,70 @@ services:
       - "com.${PROJECT_NAME}.backend=cuda"
 
   # =============================================================================
-  # TTS (TEXT-TO-SPEECH) LAYER (SOURCE Configurable)
+  # SPEACHES — UNIFIED TTS + STT LAYER (SOURCE Configurable)
   # =============================================================================
-  # NOTE: GPU users can use xtts-container-gpu (NVIDIA CUDA in Docker)
-  #       Any platform can use xtts-localhost (native execution)
+  # One container exposes both /v1/audio/speech (Kokoro + Piper voices) and
+  # /v1/audio/transcriptions (Faster-Whisper). Activated by the bootstrapper
+  # when EITHER TTS_PROVIDER_SOURCE or STT_PROVIDER_SOURCE selects a
+  # speaches-* variant; if both pick it, the dedup logic in service_config
+  # leaves SPEACHES_SCALE=1 (one container, two endpoints).
+  #
+  # CPU build (default) runs on Linux + macOS Docker Desktop.
+  # GPU build (CUDA) is activated by the speaches-gpu profile.
 
-  # XTTS v2 GPU (NVIDIA CUDA - Docker Container)
-  xtts-gpu:
+  speaches:
     profiles:
-      - xtts-gpu
+      - speaches-cpu
+      - speaches-gpu
+      - tts-cpu
       - tts-gpu
-    image: ${XTTS_GPU_IMAGE:-ghcr.io/matatonic/openedai-speech:latest}
-    container_name: ${PROJECT_NAME}-xtts-gpu
+      - stt-cpu
+      - stt-gpu
+    image: ${SPEACHES_IMAGE:-ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu}
+    container_name: ${PROJECT_NAME}-speaches
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPEACHES_SCALE:-0}
+    environment:
+      # First-request lazy-load picks these up. Defaults match the env vars
+      # the bootstrapper writes; users can override in .env.
+      DEFAULT_TTS_MODEL: ${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M}
+      DEFAULT_STT_MODEL: ${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+    volumes:
+      - speaches-cache:/home/ubuntu/.cache/huggingface
+    ports:
+      - "${SPEACHES_PORT:-10326}:8000"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || curl -f http://localhost:8000/v1/models || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=speech-tts-stt"
+      - "com.${PROJECT_NAME}.category=ai"
+
+  # =============================================================================
+  # CHATTERBOX (voice-cloning TTS, GPU only)
+  # =============================================================================
+  # Resemble AI's Chatterbox — MIT-licensed, 5-sec zero-shot voice cloning,
+  # OpenAI-compatible /v1/audio/speech. Activated when
+  # TTS_PROVIDER_SOURCE=chatterbox-container-gpu.
+
+  chatterbox:
+    profiles:
+      - chatterbox-gpu
+      - tts-gpu
+    image: ${CHATTERBOX_IMAGE:-travisvn/chatterbox-tts-api:latest}
+    container_name: ${PROJECT_NAME}-chatterbox
     restart: unless-stopped
     runtime: nvidia
     deploy:
-      replicas: ${XTTS_GPU_SCALE:-0}
+      replicas: ${CHATTERBOX_SCALE:-0}
       resources:
         reservations:
           devices:
@@ -850,24 +900,20 @@ services:
               count: 1
               capabilities: [gpu]
     environment:
-      TTS_HOME: /app/voices
-      HF_HOME: /app/cache
-      PRELOAD_MODEL: ${XTTS_MODEL:-tts-1-hd}
-      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
       HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
     volumes:
-      - tts-provider-gpu-cache:/app/cache
-      - tts-voices:/app/voices
+      - chatterbox-cache:/root/.cache/huggingface
     ports:
-      - "${TTS_PROVIDER_PORT:-10400}:8000"
+      - "${CHATTERBOX_PORT:-10327}:4123"
     networks:
       - backend-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4123/health || curl -f http://localhost:4123/v1/models || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     labels:
       - "com.${PROJECT_NAME}.service=text-to-speech"
       - "com.${PROJECT_NAME}.category=ai"
@@ -1233,13 +1279,16 @@ services:
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       ENABLE_IMAGE_GENERATION: true
       IMAGE_GENERATION_ENGINE: comfyui
-      # TTS integration (openai-compatible via openedai-speech)
+      # TTS integration (OpenAI-compatible — Speaches/Chatterbox/etc.)
+      # Engine, base URL, model, and voice are all set by the bootstrapper
+      # based on the chosen TTS_PROVIDER_SOURCE; see
+      # bootstrapper/services/service_config.py::_generate_adaptive_services_config
       AUDIO_TTS_ENGINE: ${OPEN_WEB_UI_TTS_ENGINE:-}
       AUDIO_TTS_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_TTS_API_URL:-}
       AUDIO_TTS_OPENAI_API_KEY: "sk-unused"
-      AUDIO_TTS_MODEL: ${XTTS_MODEL:-tts-1-hd}
-      AUDIO_TTS_VOICE: "alloy"
-      # STT integration (openai-compatible via parakeet)
+      AUDIO_TTS_MODEL: ${OPEN_WEB_UI_TTS_MODEL:-}
+      AUDIO_TTS_VOICE: ${OPEN_WEB_UI_TTS_VOICE:-}
+      # STT integration (OpenAI-compatible — Speaches/Parakeet/whisper.cpp)
       AUDIO_STT_ENGINE: ${OPEN_WEB_UI_STT_ENGINE:-}
       AUDIO_STT_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_STT_API_URL:-}
       AUDIO_STT_OPENAI_API_KEY: "sk-unused"
@@ -1331,9 +1380,10 @@ services:
       # Vector database integration
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
       WEAVIATE_ENABLED: true
-      # STT/TTS/DOC endpoints (available for future proxy implementation)
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      # STT/TTS/DOC endpoints (available for future proxy implementation).
+      # Engine-agnostic; see wizard for the active provider.
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       # LangMem Memory Configuration
       LANGMEM_ENABLED: ${LANGMEM_ENABLED:-true}
@@ -1389,10 +1439,10 @@ services:
       NEO4J_USER: ${GRAPH_DB_USER}
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
-      # STT integration
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      # TTS integration
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      # STT integration (engine-agnostic — Speaches/Parakeet/whisper.cpp)
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      # TTS integration (engine-agnostic — Speaches/Chatterbox)
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       # DOC integration
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
 
