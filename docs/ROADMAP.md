@@ -19,17 +19,20 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Sample notebooks for all service integrations
 - Persistent workspace with Docker volumes
 
-**Speech-to-Text service (Parakeet)**
-- Speech-to-text with NVIDIA Parakeet models
-- 25+ language support
+**Speech-to-Text layer (pluggable)**
+- OpenAI-compatible `/v1/audio/transcriptions` across all backends
+- Speaches (Faster-Whisper) — CPU-friendly default, multilingual
+- NVIDIA Parakeet-TDT — CC-BY-4.0 SOTA for English/EU langs
+- whisper.cpp — first-class Apple Silicon (Metal + Core ML / ANE)
+- Parakeet-MLX — alternative macOS-native option
 - Integration with Open WebUI for voice chat
-- MLX acceleration for Apple Silicon, CUDA for NVIDIA GPUs
 
-**Text-to-Speech service (XTTS v2)**
-- Text-to-speech with Coqui XTTS v2
-- Voice cloning capabilities
-- OpenAI-compatible API
-- GPU acceleration support
+**Text-to-Speech layer (pluggable)**
+- OpenAI-compatible `/v1/audio/speech` across all backends
+- Speaches (Kokoro + Piper voices) — CPU-friendly default
+- Chatterbox (Resemble AI, MIT) — 5-sec zero-shot voice cloning, 23 langs
+- Previously shipped with XTTS v2 (CPML / non-commercial) — retired
+  2026-05 after the openedai-speech upstream archived its image
 
 **Document processing service (Docling)**
 - Document processing with IBM Docling
@@ -195,8 +198,8 @@ Consumed by (services that would call MinIO):
 Depends on (services Hermes would consume):
 - **Ollama** (or the Tier 1 LiteLLM gateway, once landed) — LLM inference for agent reasoning (already deployed)
 - **ComfyUI** — image generation invoked as a tool from agent personas (already deployed)
-- **TTS provider (XTTS)** — speech output for voice-enabled responses (already deployed)
-- **STT provider (Parakeet)** — speech input for voice-driven conversations (already deployed)
+- **TTS provider (Speaches / Chatterbox)** — speech output for voice-enabled responses (already deployed)
+- **STT provider (Speaches / Parakeet / whisper.cpp)** — speech input for voice-driven conversations (already deployed)
 - **Supabase (PostgreSQL)** — agent memory and conversation history (already deployed)
 
 Consumed by (services that would call Hermes):
@@ -205,11 +208,13 @@ Consumed by (services that would call Hermes):
 - **Backend (FastAPI)** — programmatic agent invocation from application code
 - **n8n** — agent-driven automation workflows
 
-**Alternative TTS models (Piper)**
-- Additional TTS model support beyond XTTS v2
-- More voice model options
-- Streaming audio capabilities
-- Voice cloning features
+**Alternative TTS/STT engines (already explored)**
+- Piper — shipped via Speaches's bundled CPU-friendly path
+- Voice cloning — shipped via Chatterbox (`chatterbox-container-gpu` /
+  `chatterbox-localhost`)
+- Streaming audio — Speaches and Chatterbox both expose chunked output
+- Future candidates: Orpheus-TTS (streaming, GPU-only), SenseVoice (50+
+  langs with emotion labels), Higgs Audio v2
 
 ---
 

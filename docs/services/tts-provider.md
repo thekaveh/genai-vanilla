@@ -10,8 +10,8 @@ API consume them uniformly.
 |---|---|---|---|---|
 | `speaches-container-cpu` (default) | Speaches → Kokoro / Piper | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu` | MIT | Linux + macOS Docker, CPU |
 | `speaches-container-gpu` | Speaches → Kokoro / Piper | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda` | MIT | NVIDIA |
-| `chatterbox-container-gpu` | Resemble AI Chatterbox | `travisvn/chatterbox-tts-api:latest` | MIT | NVIDIA (≥8 GB) |
-| `chatterbox-localhost` | Resemble AI Chatterbox | — (`pip install chatterbox-tts-api`) | MIT | macOS MPS / Linux |
+| `chatterbox-container-gpu` | Resemble AI Chatterbox | `travisvn/chatterbox-tts-api:gpu` | MIT | NVIDIA (≥8 GB) |
+| `chatterbox-localhost` | Resemble AI Chatterbox | — (git clone + `uv run main.py`) | MIT | macOS MPS / Linux |
 | `disabled` | — | — | — | — |
 
 Speaches dedupes when both `TTS_PROVIDER_SOURCE` and `STT_PROVIDER_SOURCE`

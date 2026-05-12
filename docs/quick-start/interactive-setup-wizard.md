@@ -204,8 +204,8 @@ The wizard automatically discovers all configurable services from `service-confi
 | Weaviate | container, localhost, disabled |
 | Multi2Vec CLIP | container-cpu, container-gpu, disabled |
 | Neo4j Graph DB | container, localhost, disabled |
-| STT Provider (Parakeet) | container-gpu, localhost, disabled |
-| TTS Provider (XTTS) | container-gpu, localhost, disabled |
+| STT Provider | speaches-container-cpu, speaches-container-gpu, parakeet-container-gpu, parakeet-localhost, whisper-cpp-localhost, disabled |
+| TTS Provider | speaches-container-cpu, speaches-container-gpu, chatterbox-container-gpu, chatterbox-localhost, disabled |
 | Document Processor (Docling) | container-gpu, localhost, disabled |
 | OpenClaw | container, localhost, disabled |
 | n8n | container, disabled |

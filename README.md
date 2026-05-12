@@ -366,8 +366,8 @@ genai-vanilla/
 ├── searxng/                   # Search service configuration
 ├── local-deep-researcher/     # Local research/orchestration service
 ├── doc-processor/             # Docling document processor service
-├── stt-provider/              # Parakeet speech-to-text provider assets
-├── tts-provider/              # XTTS text-to-speech provider assets
+├── stt-provider/              # Speech-to-text providers (Parakeet GPU/MLX, whisper.cpp host notes)
+├── tts-provider/              # Text-to-speech providers (Chatterbox localhost setup)
 ├── docker-compose.yml         # Main compose file
 ├── .env.example               # Configuration template
 ├── start.sh                   # Start script
