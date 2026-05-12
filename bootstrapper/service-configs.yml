@@ -707,6 +707,23 @@ source_configurable:
       deploy: {}
       extra_hosts: []
 
+  # MinIO S3-compatible object storage
+  minio:
+    container:
+      scale: 1
+      environment:
+        MINIO_ENDPOINT: http://minio:9000
+        MINIO_PUBLIC_ENDPOINT: http://localhost:${MINIO_PORT}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        MINIO_ENDPOINT: ""
+        MINIO_PUBLIC_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
+
   # n8n Init
   n8n-init:
     # Containerized n8n initialization
@@ -988,3 +1005,8 @@ service_dependencies:
   hermes:
     optional: [parakeet, xtts, comfyui, searxng]
     info_message: "Hermes enabled - will wire optional services into /opt/data/config.yaml when available (parakeet, xtts, comfyui, searxng)"
+
+  # MinIO S3-compatible object storage
+  minio:
+    requires: []
+    optional: []
