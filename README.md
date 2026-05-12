@@ -24,6 +24,7 @@ git clone <your-repository-url> && cd genai-vanilla
 # SearxNG (Search):      http://localhost:63014
 # ComfyUI:               http://localhost:63018
 # JupyterHub (IDE):      http://localhost:63048
+# MinIO Console:         http://localhost:63027
 #
 # Optional Kong host routes after ./start.sh --setup-hosts:
 # Chat:                  http://chat.localhost:63002
@@ -206,11 +207,13 @@ The stack uses **SOURCE variables** to control how services are deployed.
 | **XTTS v2 TTS** | http://localhost:63023 | — | Text-to-speech | None |
 | **Docling Processor** | http://localhost:63021 | — | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63024 | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
+| **MinIO Console** | http://localhost:63027 | — | S3-compatible object storage admin UI | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 
 ### 3.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
 - **Neo4j** — graph database for relationships and graph queries
 - **Weaviate** — vector database for embeddings and semantic search
+- **MinIO** — S3-compatible artifact-tier object storage (ComfyUI outputs, Backend blobs, n8n files, JupyterHub datasets, Doc Processor output). Complements Supabase Storage rather than replacing it.
 - **Redis** — cache and message queue
 
 ### 3.3 AI services
