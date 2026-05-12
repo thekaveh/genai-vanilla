@@ -1041,8 +1041,6 @@ services:
   # ComfyUI service. Runs once per `docker compose up`; exits 0.
   hermes-init:
     image: ${HERMES_INIT_IMAGE:-alpine:latest}
-    build:
-      context: ./hermes-init
     container_name: ${PROJECT_NAME}-hermes-init
     restart: "no"
     deploy:

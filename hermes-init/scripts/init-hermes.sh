@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # init-hermes.sh — render /opt/data/config.yaml (and supporting files)
 # from environment, then exit. Runs before the hermes service starts
 # (see docker-compose.yml depends_on).
@@ -20,6 +20,27 @@
 # Exits non-zero on any unexpected condition so docker compose surfaces
 # the failure instead of letting hermes start with a broken config.
 
+# ─── Bootstrap ─────────────────────────────────────────────────────
+# Runs on bare alpine — the rest of the script uses bashisms (indirect
+# expansion, [[ ... ]]) and pipes (pipefail). Mirrors the openclaw-init /
+# weaviate-init pattern: install runtime deps via apk-add, then re-exec
+# under bash. Idempotent: apk-add is a no-op when packages are already
+# present (e.g. on container restart, or when the user pre-bakes them
+# into a custom HERMES_INIT_IMAGE).
+#
+# The HERMES_INIT_BOOTSTRAPPED sentinel prevents an infinite re-exec
+# loop if for some reason bash itself triggers a re-read of this script.
+set -eu
+if [ "${HERMES_INIT_BOOTSTRAPPED:-0}" != "1" ]; then
+  apk add --no-cache bash gettext curl jq ca-certificates >/dev/null 2>&1
+  HERMES_INIT_BOOTSTRAPPED=1
+  export HERMES_INIT_BOOTSTRAPPED
+  exec bash -- "$0" "$@"
+fi
+
+# ─── Bash body ─────────────────────────────────────────────────────
+# Re-executed under bash from here on; pipefail and bash-only features
+# (indirect expansion, [[ ]]) become available.
 set -euo pipefail
 
 DATA_DIR=/opt/data
