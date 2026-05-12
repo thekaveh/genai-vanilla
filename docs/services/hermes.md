@@ -22,6 +22,13 @@ Key facts:
 - **64K-context floor** — Hermes preflight-checks the model's context
   window. `HERMES_DEFAULT_MODEL` MUST be a ≥64K-context model. Stock Ollama
   models default to 4096 — use `--ctx-size 65536` or a cloud model.
+- **Disk footprint** — verified at **~5.66 GB** on `linux/amd64` and
+  `linux/arm64` (the image is multi-arch — works on Apple Silicon and
+  standard Linux servers). Plan-time estimates put it at 2.6 GB; the
+  actual size is over 2x that. Plan disk space accordingly.
+- **Bundles 87 default skills** — synced into `~/.hermes/skills/` on every
+  container start. Our `creative-comfyui-host-override.md` file is added
+  alongside them and takes precedence per Hermes's skill resolver.
 
 ## Access
 
@@ -96,6 +103,18 @@ for scripted changes.
 
 ## Known caveats
 
+- **`HERMES_UID` cannot be `0`** — the upstream entrypoint runs
+  `usermod -u $HERMES_UID hermes` to remap the in-container user, which
+  fails with `usermod: UID '0' already exists` (root). Stack default is
+  `10000`; keep it non-zero.
+- **Gateway warning on first boot** — the gateway logs
+  `WARNING gateway.run: No user allowlists configured. All unauthorized
+  users will be denied.` This is about Hermes's *messaging-platform*
+  allowlists (Telegram, Discord, etc.), NOT the OpenAI-compatible API
+  surface. Set `GATEWAY_ALLOW_ALL_USERS=true` in `~/.hermes/.env`, or
+  configure per-platform allowlists (`TELEGRAM_ALLOWED_USERS=...`,
+  `DISCORD_ALLOWED_USERS=...`) when wiring messaging channels through
+  OpenClaw.
 - **Image tag scheme — `latest` + per-commit `sha-...`, no semver** —
   upstream publishes only the moving `latest` tag and immutable
   `sha-<commit>` tags (no `v0.13.0`-style semver). Default ships
