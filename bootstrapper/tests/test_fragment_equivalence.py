@@ -45,12 +45,18 @@ def _render(compose_file: Path) -> dict:
             f".env does not exist at {ENV_FILE}. Run `cp .env.example .env` "
             f"locally to enable this test."
         )
+    # -p genai matches the runtime invocation (./start.sh passes the project
+    # name from .env). Without it, the rendered `name:` field defaults to the
+    # parent directory, which causes baseline drift when the worktree is on a
+    # different path than where the baseline was captured.
     result = subprocess.run(
         [
             "docker",
             "compose",
             "--env-file",
             str(ENV_FILE),
+            "-p",
+            "genai",
             "-f",
             str(compose_file),
             "config",

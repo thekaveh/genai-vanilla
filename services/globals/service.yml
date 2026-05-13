@@ -35,6 +35,31 @@ env:
   - name: BRAND_REPO_URL
     default: "https://github.com/vanilla-genai/genai-vanilla"
 
+  # GPU + production-tuning vars — system-wide knobs not owned by any one
+  # service. NVIDIA_VISIBLE_DEVICES is read by every GPU-aware container
+  # (parakeet, speaches, chatterbox, docling). PROD_ENV_* are deploy.resources
+  # caps consumed by backend, comfyui, n8n fragment blocks.
+  - name: NVIDIA_VISIBLE_DEVICES
+    default: all
+    description: "Host-side GPU visibility. Forwarded into every NVIDIA-runtime container."
+  - name: PROD_ENV_CPUS
+    default: 2
+    description: "Default container CPU cap (cores). Per-service overrides below."
+  - name: PROD_ENV_MEM_LIMIT
+    default: 8g
+  - name: PROD_ENV_BACKEND_CPUS
+    default: 1
+  - name: PROD_ENV_BACKEND_MEM_LIMIT
+    default: 2g
+  - name: PROD_ENV_N8N_CPUS
+    default: 1
+  - name: PROD_ENV_N8N_MEM_LIMIT
+    default: 2g
+  - name: PROD_ENV_COMFYUI_CPUS
+    default: 2
+  - name: PROD_ENV_COMFYUI_MEM_LIMIT
+    default: 4g
+
 depends_on:
   required: []
   optional: []

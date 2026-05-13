@@ -64,8 +64,8 @@ env:
     auto_managed: true
     description: "Resolved per WEAVIATE_SOURCE. Consumed by n8n, backend, jupyterhub."
   - name: WEAVIATE_OLLAMA_ENDPOINT
-    auto_managed: true
-    description: "Computed by hook to mirror OLLAMA_ENDPOINT."
+    default: "http://ollama:11434"
+    description: "User-settable. Mirrors what Weaviate's text2vec-ollama vectorizer hits; matches OLLAMA_ENDPOINT for container source, but the user adjusts manually for ollama-localhost/external (consistent with main's behavior)."
   - name: WEAVIATE_LITELLM_BASE_URL
     auto_managed: true
     default: "http://litellm:4000/v1"

@@ -66,6 +66,29 @@ REQUIRED_DEPENDS_ON = {
 
 
 def load_compose() -> dict:
+    """Load the merged compose shape.
+
+    The top-level docker-compose.yml uses `include:` to pull in per-service
+    fragments under services/<name>/compose.yml. yaml.safe_load on the raw
+    file would only see the empty `services:` block at the top, so we
+    delegate to `docker compose config` which renders the merged shape.
+    Falls back to raw parse if the docker CLI is not available (CI lint
+    can run without a docker daemon — but the rendered shape is what
+    matters for dependency checks).
+    """
+    import subprocess  # local import — keeps script importable without docker
+
+    env_file = ROOT / ".env"
+    args = ["docker", "compose"]
+    if env_file.is_file():
+        args.extend(["--env-file", str(env_file)])
+    args.extend(["-f", str(COMPOSE_FILE), "config"])
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return yaml.safe_load(result.stdout) or {}
+    except FileNotFoundError:
+        pass  # docker not on PATH; fall through to raw read
     with COMPOSE_FILE.open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
 

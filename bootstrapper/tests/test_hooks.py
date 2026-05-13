@@ -58,14 +58,18 @@ def test_comfyui_cpu_has_no_deploy_resources():
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def test_weaviate_mirrors_ollama_endpoint():
+def test_weaviate_does_not_overwrite_ollama_endpoint():
+    """WEAVIATE_OLLAMA_ENDPOINT is user-settable on main — the hook must not
+    overwrite it (or auto-mirror OLLAMA_ENDPOINT, which would break parity
+    with main's UX where the user adjusts it for ollama-localhost/external)."""
     env = {
         "OLLAMA_ENDPOINT": "http://host.docker.internal:11434",
+        "WEAVIATE_OLLAMA_ENDPOINT": "http://my-custom-ollama:11434",
         "LITELLM_MASTER_KEY": "sk-test",
         "MULTI2VEC_CLIP_SOURCE": "container-cpu",
     }
     weaviate.apply(env)
-    assert env["WEAVIATE_OLLAMA_ENDPOINT"] == "http://host.docker.internal:11434"
+    assert env["WEAVIATE_OLLAMA_ENDPOINT"] == "http://my-custom-ollama:11434"
     assert env["WEAVIATE_LITELLM_API_KEY"] == "sk-test"
     assert env["WEAVIATE_LITELLM_BASE_URL"] == "http://litellm:4000/v1"
 

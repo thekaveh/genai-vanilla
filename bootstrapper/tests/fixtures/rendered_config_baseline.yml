@@ -1,4 +1,4 @@
-name: configuration-modularization
+name: genai
 services:
   backend:
     build:

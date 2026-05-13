@@ -14,7 +14,9 @@ from __future__ import annotations
 
 
 def apply(env: dict[str, str]) -> dict[str, str]:
-    env["WEAVIATE_OLLAMA_ENDPOINT"] = env.get("OLLAMA_ENDPOINT", "")
+    # WEAVIATE_OLLAMA_ENDPOINT is intentionally NOT touched here — main
+    # treats it as a user-settable .env value (default http://ollama:11434).
+    # Auto-mirroring OLLAMA_ENDPOINT would break parity with main's UX.
 
     # WEAVIATE_LITELLM_BASE_URL: in-container default is fine; the in-stack
     # URL is what Weaviate uses when calling LiteLLM from inside the network.
