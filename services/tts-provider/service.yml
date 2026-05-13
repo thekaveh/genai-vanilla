@@ -51,12 +51,8 @@ env:
   - name: TTS_ENDPOINT
     auto_managed: true
     description: "Resolved per TTS_PROVIDER_SOURCE. Consumed by n8n, backend, jupyterhub, open-webui, hermes-init (as TTS_INTERNAL_URL — owned by services/hermes/)."
-  # Open WebUI's TTS-engine plumbing
-  - name: OPEN_WEB_UI_TTS_MODEL
-    default: ""
-    description: "Model name Open WebUI sends to /v1/audio/speech. Empty = engine default."
-  - name: OPEN_WEB_UI_TTS_VOICE
-    default: ""
+  # OPEN_WEB_UI_TTS_MODEL / OPEN_WEB_UI_TTS_VOICE — moved to services/open-webui/ (Tier 2.G4).
+  # Only Open WebUI reads them; they belong in its manifest, not here.
 
 depends_on:
   required: []

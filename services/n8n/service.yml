@@ -58,9 +58,11 @@ env:
     default: container
   - name: N8N_INIT_NODES
     default: "n8n-nodes-comfyui,@ksc1234/n8n-nodes-comfyui-image-to-image,n8n-nodes-mcp"
-  - name: TZ
-    default: UTC
-    description: "Timezone (shared across services that schedule jobs)."
+  # TZ is intentionally NOT declared here. main's .env.example doesn't expose
+  # it; n8n's compose has `GENERIC_TIMEZONE: ${TZ:-UTC}` which falls back to
+  # UTC when TZ is unset. Declaring TZ on the manifest would force a value
+  # into .env.example that doesn't match main's UX (which treats it as an
+  # OS-environment passthrough only).
   - name: N8N_SCALE
     auto_managed: true
   - name: N8N_WORKER_SCALE

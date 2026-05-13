@@ -54,9 +54,15 @@ env:
     default: 300
   - name: OPEN_WEB_UI_TTS_ENGINE
     default: ""
-    description: "Set by bootstrapper when xtts/parakeet are enabled."
+    description: "Set by bootstrapper when speaches/chatterbox are enabled."
   - name: OPEN_WEB_UI_STT_ENGINE
     default: ""
+  - name: OPEN_WEB_UI_TTS_MODEL
+    default: ""
+    description: "Model name Open WebUI sends to /v1/audio/speech. Empty = engine default."
+  - name: OPEN_WEB_UI_TTS_VOICE
+    default: ""
+    description: "Voice id. Empty = engine default."
   - name: OPEN_WEB_UI_TTS_API_URL
     auto_managed: true
   - name: OPEN_WEB_UI_STT_API_URL
