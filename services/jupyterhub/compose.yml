@@ -31,9 +31,14 @@ services:
       NEO4J_USER: ${GRAPH_DB_USER}
       NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # Hermes Agent — direct path for `from openai import OpenAI` users.
+      # Empty when HERMES_SOURCE=disabled.
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+
       SUPABASE_URL: http://kong-api-gateway:8000
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}

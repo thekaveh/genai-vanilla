@@ -1,0 +1,65 @@
+# services/minio/compose.yml — MinIO object storage + bucket init
+services:
+  minio:
+    image: ${MINIO_IMAGE}
+    container_name: ${PROJECT_NAME}-minio
+    restart: unless-stopped
+    deploy:
+      replicas: ${MINIO_SCALE:-1}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_REGION: ${MINIO_REGION}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_PUBLIC_CONSOLE_ENDPOINT}
+    ports:
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
+  minio-init:
+    image: ${MINIO_INIT_IMAGE}
+    container_name: ${PROJECT_NAME}-minio-init
+    restart: "no"
+    deploy:
+      replicas: ${MINIO_INIT_SCALE:-1}
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET_COMFYUI: ${MINIO_BUCKET_COMFYUI}
+      MINIO_COMFYUI_ACCESS_KEY: ${MINIO_COMFYUI_ACCESS_KEY}
+      MINIO_COMFYUI_SECRET_KEY: ${MINIO_COMFYUI_SECRET_KEY}
+      MINIO_BUCKET_BACKEND: ${MINIO_BUCKET_BACKEND}
+      MINIO_BACKEND_ACCESS_KEY: ${MINIO_BACKEND_ACCESS_KEY}
+      MINIO_BACKEND_SECRET_KEY: ${MINIO_BACKEND_SECRET_KEY}
+      MINIO_BUCKET_N8N: ${MINIO_BUCKET_N8N}
+      MINIO_N8N_ACCESS_KEY: ${MINIO_N8N_ACCESS_KEY}
+      MINIO_N8N_SECRET_KEY: ${MINIO_N8N_SECRET_KEY}
+      MINIO_BUCKET_JUPYTER: ${MINIO_BUCKET_JUPYTER}
+      MINIO_JUPYTER_ACCESS_KEY: ${MINIO_JUPYTER_ACCESS_KEY}
+      MINIO_JUPYTER_SECRET_KEY: ${MINIO_JUPYTER_SECRET_KEY}
+      MINIO_BUCKET_DOCLING: ${MINIO_BUCKET_DOCLING}
+      MINIO_DOCLING_ACCESS_KEY: ${MINIO_DOCLING_ACCESS_KEY}
+      MINIO_DOCLING_SECRET_KEY: ${MINIO_DOCLING_SECRET_KEY}
+    volumes:
+      - ../../minio-init/scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "/scripts/init-minio.sh"]
+    networks:
+      - backend-network
+
+volumes:
+  minio-data:
+    name: ${PROJECT_NAME}-minio-data
+    driver: local

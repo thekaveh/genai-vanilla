@@ -1,6 +1,17 @@
 # services/parakeet/service.yml — NVIDIA Parakeet STT
+#
+# Parakeet is one of three STT engines. The STT_PROVIDER_SOURCE var lives
+# here (its historic home) and enumerates ALL valid STT options across
+# engines: parakeet-*, speaches-*, whisper-cpp-localhost, disabled. Some
+# of these options activate sibling services (speaches-* turns on the
+# speaches container via services.hooks.speaches; whisper-cpp-localhost
+# is host-only).
+#
+# Engine-neutral consumers (n8n, backend, jupyterhub, open-webui,
+# hermes-init) reference `${STT_ENDPOINT}` — set by whichever option is
+# active.
 name: parakeet
-label: "Parakeet (speech-to-text, NVIDIA)"
+label: "Parakeet (NVIDIA STT engine)"
 category: ai
 docs: docs/services/parakeet.md
 
@@ -13,31 +24,55 @@ images:
     container: parakeet-gpu
     notes: "Used as BASE_IMAGE in stt-provider/gpu/Dockerfile."
 
+# STT source set — enumerates EVERY STT option, not just parakeet's own.
+# Mirrors how `bootstrapper/service-configs.yml` groups them under one
+# `stt_provider:` key. Cross-engine effects (e.g. speaches-* setting
+# STT_ENDPOINT to the speaches container URL) are computed declaratively
+# below; SPEACHES_SCALE is set by services.hooks.speaches (multi-input).
 sources:
   var: STT_PROVIDER_SOURCE
-  default: disabled
+  default: speaches-container-cpu
   options:
+    - id: speaches-container-cpu
+      label: "Speaches (CPU, unified TTS + STT)"
+      effects:
+        PARAKEET_GPU_SCALE: 0
+        STT_ENDPOINT: "http://speaches:8000"
+    - id: speaches-container-gpu
+      label: "Speaches (GPU, NVIDIA)"
+      effects:
+        PARAKEET_GPU_SCALE: 0
+        STT_ENDPOINT: "http://speaches:8000"
+    - id: parakeet-container-gpu
+      label: "Parakeet (NVIDIA, container GPU)"
+      effects:
+        PARAKEET_GPU_SCALE: 1
+        STT_ENDPOINT: "http://parakeet-gpu:8000"
+    - id: parakeet-localhost
+      label: "Parakeet (host, Mac MLX or Linux CPU/GPU)"
+      effects:
+        PARAKEET_GPU_SCALE: 0
+        STT_ENDPOINT: "${PARAKEET_LOCALHOST_URL}"
+    - id: whisper-cpp-localhost
+      label: "whisper.cpp (host, Apple Silicon Metal/ANE)"
+      effects:
+        PARAKEET_GPU_SCALE: 0
+        STT_ENDPOINT: "${WHISPER_CPP_LOCALHOST_URL}"
     - id: disabled
       label: "Disabled"
       effects:
         PARAKEET_GPU_SCALE: 0
-        PARAKEET_ENDPOINT: ""
-    - id: parakeet-localhost
-      label: "Host (existing Parakeet on this machine)"
-      effects:
-        PARAKEET_GPU_SCALE: 0
-        PARAKEET_ENDPOINT: "${PARAKEET_LOCALHOST_URL}"
-    - id: parakeet-container-gpu
-      label: "Container (GPU, NVIDIA)"
-      effects:
-        PARAKEET_GPU_SCALE: 1
-        PARAKEET_ENDPOINT: "http://parakeet-gpu:8000"
+        STT_ENDPOINT: ""
 
 env:
   - name: STT_PROVIDER_SOURCE
-    default: disabled
+    default: speaches-container-cpu
   - name: STT_PROVIDER_PORT
     default: 63022
+    description: "Wizard display slot. Real per-engine ports live on their own manifests (PARAKEET_*, SPEACHES_*, etc.)."
+  - name: STT_PROVIDER_SCALE
+    auto_managed: true
+    description: "Aggregate STT scale across all engines. Reserved for future use."
   - name: PARAKEET_MODEL
     default: "nvidia/parakeet-tdt-0.6b-v3"
   - name: PARAKEET_GPU_DEVICE
@@ -46,14 +81,18 @@ env:
     default: float16
   - name: PARAKEET_LOCALHOST_URL
     default: "http://host.docker.internal:63022"
+  - name: WHISPER_CPP_LOCALHOST_URL
+    default: "http://host.docker.internal:63025"
+    description: "Used when STT_PROVIDER_SOURCE=whisper-cpp-localhost."
   - name: HUGGING_FACE_HUB_TOKEN
     default: ""
     secret: true
-    description: "Shared by parakeet, xtts, docling for model downloads."
+    description: "Shared by parakeet, speaches, chatterbox, docling for model downloads. Consumed by ${HUGGING_FACE_HUB_TOKEN} interpolation in those services' compose blocks; owned here as its historic home."
   - name: PARAKEET_GPU_SCALE
     auto_managed: true
-  - name: PARAKEET_ENDPOINT
+  - name: STT_ENDPOINT
     auto_managed: true
+    description: "Resolved per STT_PROVIDER_SOURCE. Consumed by n8n, backend, jupyterhub, open-webui, hermes-init (the latter as STT_INTERNAL_URL — owned by services/hermes/)."
 
 depends_on:
   required: []

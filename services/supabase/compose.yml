@@ -169,8 +169,21 @@ services:
       RLIMIT_NOFILE: 65536
       ERL_AFLAGS: "-proto_dist inet_tcp"
       HOSTNAME: supabase-realtime
-      LIBCLUSTER_STRATEGY: "Cluster.Strategy.Gossip"
-      LIBCLUSTER_TOPOLOGIES: '[]'
+      # The upstream image hardcodes ``Cluster.Strategy.DNSPoll`` (the
+      # ``fly6pn`` topology) and ignores ``LIBCLUSTER_*`` overrides.
+      # Its DNS query is read from ``DNS_NODES``; when unset, libcluster
+      # logs ``query or basename param is invalid: query: nil`` every
+      # 5 seconds. Pointing at the container's own hostname resolves —
+      # but DNSPoll then tries to Erlang-connect to ``realtime@<IP>``,
+      # which our ``HOSTNAME=supabase-realtime`` Erlang node doesn't
+      # answer for, producing a new ``unable to connect to`` warning
+      # at the same cadence.
+      # The single-node workaround is to point ``DNS_NODES`` at a name
+      # under the reserved ``.invalid`` TLD (RFC 6761) so DNS resolves
+      # to nothing. DNSPoll's empty-peer-list path is silent, while
+      # the env var is still set (which is what libcluster checks for
+      # "configured-ness").
+      DNS_NODES: supabase-realtime-noop.invalid
       APP_NAME: realtime
     ports:
       - "${SUPABASE_REALTIME_PORT}:4000"

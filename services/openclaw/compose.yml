@@ -51,6 +51,10 @@ services:
       OPENAI_API_KEY: ${OPENCLAW_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
       # Gateway configuration
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      # Hermes Agent — OpenClaw is the channel adapter (WhatsApp/Telegram/
+      # Discord), Hermes is the agent runtime. Empty when HERMES_SOURCE=disabled.
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
     volumes:
       - openclaw-config:/home/node/.openclaw
       - openclaw-workspace:/home/node/.openclaw/workspace

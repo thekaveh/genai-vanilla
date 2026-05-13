@@ -1,0 +1,42 @@
+# services/chatterbox/service.yml — Chatterbox (Resemble AI voice-cloning TTS, GPU)
+#
+# MIT-licensed, 5-sec zero-shot voice cloning. Activated when
+# TTS_PROVIDER_SOURCE=chatterbox-container-gpu (the chatterbox-localhost
+# variant uses the host's own install — no container).
+#
+# Like speaches, this manifest has NO `sources:` block — its activation
+# is driven externally by TTS_PROVIDER_SOURCE (owned by tts-provider).
+# The hook (`bootstrapper/services/hooks/chatterbox.py`) writes
+# CHATTERBOX_SCALE based on TTS_PROVIDER_SOURCE.
+name: chatterbox
+label: "Chatterbox (voice-cloning TTS, GPU)"
+category: ai
+docs: docs/services/tts-provider.md
+
+containers:
+  - chatterbox
+
+images:
+  - var: CHATTERBOX_IMAGE
+    default: "travisvn/chatterbox-tts-api:gpu"
+    container: chatterbox
+    notes: "Rolling :gpu tag. Pin to a digest in production via `docker pull travisvn/chatterbox-tts-api:gpu` + paste the digest."
+
+env:
+  - name: CHATTERBOX_PORT
+    default: 63027
+    description: "Slot +27."
+  - name: CHATTERBOX_LOCALHOST_URL
+    default: "http://host.docker.internal:63027"
+    description: "Used when TTS_PROVIDER_SOURCE=chatterbox-localhost."
+  - name: CHATTERBOX_SCALE
+    auto_managed: true
+    description: "Computed by services.hooks.chatterbox from TTS_PROVIDER_SOURCE."
+
+hook: services.hooks.chatterbox
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

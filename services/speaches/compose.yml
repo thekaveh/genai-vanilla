@@ -1,0 +1,59 @@
+# services/speaches/compose.yml — Speaches (unified TTS + STT)
+services:
+  speaches:
+    profiles:
+      - speaches-cpu
+      - speaches-gpu
+      - tts-cpu
+      - tts-gpu
+      - stt-cpu
+      - stt-gpu
+    image: ${SPEACHES_IMAGE:-ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu}
+    container_name: ${PROJECT_NAME}-speaches
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPEACHES_SCALE:-0}
+    environment:
+      # Speaches lazy-loads models on the first /v1/audio/* request, so
+      # we ship with no preload by default. Two reasons:
+      #   1. PRELOAD_MODELS is typed ``list[str]`` on the upstream
+      #      Config; pydantic_settings' EnvSettingsSource decodes the
+      #      value through ``json.loads`` → it MUST be a JSON array
+      #      literal (``[]`` here for "none"). A bare CSV string blows
+      #      up at boot with ``JSONDecodeError: Expecting value``.
+      #   2. Names in PRELOAD_MODELS must match Speaches' internal
+      #      ``executor_registry`` ids, NOT raw HuggingFace ids — e.g.
+      #      ``kokoro`` not ``hexgrad/Kokoro-82M``. ``SPEACHES_TTS_MODEL``
+      #      / ``SPEACHES_STT_MODEL`` below are the model NAMES Open
+      #      WebUI sends to /v1/audio/* at request time, which is a
+      #      different namespace.
+      # To preload anyway, edit this line with a literal JSON array of
+      # registry-ids, e.g.
+      #   PRELOAD_MODELS: '["kokoro","Systran/faster-distil-whisper-large-v3"]'
+      PRELOAD_MODELS: '[]'
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+    volumes:
+      - speaches-cache:/home/ubuntu/.cache/huggingface
+    ports:
+      - "${SPEACHES_PORT:-63026}:8000"
+    networks:
+      - backend-network
+    # Healthcheck mirrors upstream's own compose.yaml — Speaches ships
+    # curl and serves /health that returns 200 as soon as Uvicorn is up
+    # (lazy-load means models don't need to be ready). Verified against
+    # speaches-ai/speaches @ 0.9.0-rc.3.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=speech-tts-stt"
+      - "com.${PROJECT_NAME}.category=ai"
+
+volumes:
+  speaches-cache:
+    name: ${PROJECT_NAME}-speaches-cache
+    driver: local

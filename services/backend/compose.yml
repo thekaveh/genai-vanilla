@@ -22,6 +22,16 @@ services:
         condition: service_started
       litellm:
         condition: service_healthy
+      # Wait for weaviate-init to write /shared/weaviate-config.env
+      # before configure-backend.sh tries to source it. Without this,
+      # backend starts in parallel with weaviate-init, finds the file
+      # missing, and logs ``Warning - No dynamic Weaviate configuration
+      # found`` plus a fallback embedding model — fine for most flows,
+      # but masks a real race where the LITELLM_EMBEDDING_MODEL the
+      # backend ends up using disagrees with what Weaviate eventually
+      # gets configured with.
+      weaviate-init:
+        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
@@ -44,9 +54,13 @@ services:
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
       WEAVIATE_ENABLED: true
       # STT/TTS/DOC endpoints (available for future proxy implementation)
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # Hermes Agent — optional direct path (LiteLLM-routed `hermes-agent`
+      # model is the default surface). Empty when HERMES_SOURCE=disabled.
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
       # LangMem Memory Configuration
       LANGMEM_ENABLED: ${LANGMEM_ENABLED:-true}
       LANGMEM_NAMESPACE: ${LANGMEM_MEMORY_NAMESPACE:-default}

@@ -1,0 +1,65 @@
+# services/tts-provider/service.yml — virtual manifest owning TTS_PROVIDER_SOURCE
+#
+# TTS is engine-agnostic post-XTTS-retirement. The actual engines are
+# `services/speaches/` (CPU+GPU, unified with STT) and
+# `services/chatterbox/` (GPU, voice-cloning). This virtual manifest is
+# the single source-of-truth for which engine is active.
+#
+# Parallel to how parakeet owns STT_PROVIDER_SOURCE — except here TTS has
+# no "primary" engine, so the source toggle lives on a virtual manifest
+# rather than on any one container.
+name: tts-provider
+label: "TTS provider (text-to-speech engine selector)"
+category: ai
+virtual: true
+containers: []
+
+sources:
+  var: TTS_PROVIDER_SOURCE
+  default: speaches-container-cpu
+  options:
+    - id: speaches-container-cpu
+      label: "Speaches (CPU, unified TTS + STT)"
+      effects:
+        TTS_ENDPOINT: "http://speaches:8000"
+    - id: speaches-container-gpu
+      label: "Speaches (GPU, NVIDIA)"
+      effects:
+        TTS_ENDPOINT: "http://speaches:8000"
+    - id: chatterbox-container-gpu
+      label: "Chatterbox (GPU, voice cloning)"
+      effects:
+        TTS_ENDPOINT: "http://chatterbox:4123"
+    - id: chatterbox-localhost
+      label: "Chatterbox (host install)"
+      effects:
+        TTS_ENDPOINT: "${CHATTERBOX_LOCALHOST_URL}"
+    - id: disabled
+      label: "Disabled"
+      effects:
+        TTS_ENDPOINT: ""
+
+env:
+  - name: TTS_PROVIDER_SOURCE
+    default: speaches-container-cpu
+  - name: TTS_PROVIDER_PORT
+    default: 63023
+    description: "Wizard display slot. Real engine port lives on its own container manifest."
+  - name: TTS_PROVIDER_SCALE
+    auto_managed: true
+    description: "Aggregate scale across all TTS engines. Reserved for future use."
+  - name: TTS_ENDPOINT
+    auto_managed: true
+    description: "Resolved per TTS_PROVIDER_SOURCE. Consumed by n8n, backend, jupyterhub, open-webui, hermes-init (as TTS_INTERNAL_URL — owned by services/hermes/)."
+  # Open WebUI's TTS-engine plumbing
+  - name: OPEN_WEB_UI_TTS_MODEL
+    default: ""
+    description: "Model name Open WebUI sends to /v1/audio/speech. Empty = engine default."
+  - name: OPEN_WEB_UI_TTS_VOICE
+    default: ""
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

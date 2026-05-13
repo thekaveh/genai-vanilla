@@ -26,6 +26,9 @@ services:
       supabase-storage:
         condition: service_started
         required: true
+      weaviate-init:
+        condition: service_completed_successfully
+        required: true
     deploy:
       replicas: 1
     environment:
@@ -33,6 +36,8 @@ services:
       COMFYUI_ENABLED: "true"
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       DOCLING_ENDPOINT: ""
+      HERMES_API_KEY: ""
+      HERMES_ENDPOINT: ""
       KONG_URL: http://kong-api-gateway:8000
       LANGMEM_AUTO_CONSOLIDATE: "true"
       LANGMEM_CONSOLIDATION_INTERVAL: "86400"
@@ -49,14 +54,14 @@ services:
       NEO4J_PASSWORD: neo4j_password
       NEO4J_URI: bolt://neo4j-graph-db:7687
       NEO4J_USER: neo4j
-      PARAKEET_ENDPOINT: ""
       PROJECT_NAME: genai
       REDIS_URL: redis://:redis_password@redis:6379/0
+      STT_ENDPOINT: ""
       SUPABASE_ANON_KEY: ""
       SUPABASE_SERVICE_KEY: ""
+      TTS_ENDPOINT: ""
       WEAVIATE_ENABLED: "true"
       WEAVIATE_URL: http://weaviate:8080
-      XTTS_ENDPOINT: ""
     extra_hosts:
       - host.docker.internal=host-gateway
     networks:
@@ -189,6 +194,116 @@ services:
         source: comfyui-models
         target: /models
         volume: {}
+  hermes:
+    command:
+      - gateway
+      - run
+    container_name: genai-hermes
+    depends_on:
+      hermes-init:
+        condition: service_completed_successfully
+        required: true
+      litellm:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      ANTHROPIC_API_KEY: ""
+      API_SERVER_CORS_ORIGINS: '*'
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_KEY: ""
+      HERMES_DASHBOARD: "true"
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: "9119"
+      HERMES_DASHBOARD_TUI: "1"
+      HERMES_GID: "10000"
+      HERMES_UID: "10000"
+      LITELLM_MASTER_KEY: ""
+      OPENAI_API_KEY: ""
+      OPENROUTER_API_KEY: ""
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY" http://127.0.0.1:8642/v1/models >/dev/null'
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
+    image: nousresearch/hermes-agent:latest
+    labels:
+      com.genai.agent: hermes
+      com.genai.category: ai
+      com.genai.service: ai-agent
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8642
+        published: "63028"
+        protocol: tcp
+      - mode: ingress
+        target: 9119
+        published: "63029"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: hermes-data
+        target: /opt/data
+        volume: {}
+  hermes-init:
+    container_name: genai-hermes-init
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /scripts/init-hermes.sh
+    environment:
+      COMFYUI_INTERNAL_URL: ""
+      HERMES_API_KEY: ""
+      HERMES_CONTEXT_LENGTH: "65536"
+      HERMES_DEFAULT_MODEL: ""
+      HERMES_GID: "10000"
+      HERMES_UID: "10000"
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_MASTER_KEY: ""
+      SEARXNG_INTERNAL_URL: ""
+      STT_INTERNAL_URL: ""
+      TTS_INTERNAL_URL: ""
+    image: alpine:latest
+    labels:
+      com.genai.agent: hermes
+      com.genai.category: ai
+      com.genai.service: hermes-init
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: volume
+        source: hermes-data
+        target: /opt/data
+        volume: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/hermes-init/scripts
+        target: /scripts
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/hermes-init/templates
+        target: /templates
+        read_only: true
+        bind: {}
   jupyterhub:
     build:
       context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/jupyterhub
@@ -214,6 +329,8 @@ services:
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       DOCLING_ENDPOINT: ""
       GRANT_SUDO: "yes"
+      HERMES_API_KEY: ""
+      HERMES_ENDPOINT: ""
       JUPYTER_ENABLE_LAB: "yes"
       JUPYTER_TOKEN: '# Optional: Set token for authentication (empty = generate on start)'
       LITELLM_API_KEY: ""
@@ -222,14 +339,14 @@ services:
       NEO4J_PASSWORD: neo4j_password
       NEO4J_URI: bolt://neo4j-graph-db:7687
       NEO4J_USER: neo4j
-      PARAKEET_ENDPOINT: ""
       REDIS_URL: redis://:redis_password@redis:6379/3
       SEARXNG_URL: http://searxng:8080
+      STT_ENDPOINT: ""
       SUPABASE_ANON_KEY: ""
       SUPABASE_SERVICE_KEY: ""
       SUPABASE_URL: http://kong-api-gateway:8000
+      TTS_ENDPOINT: ""
       WEAVIATE_URL: http://weaviate:8080
-      XTTS_ENDPOINT: ""
     extra_hosts:
       - host.docker.internal=host-gateway
     healthcheck:
@@ -357,6 +474,7 @@ services:
     environment:
       ANTHROPIC_API_KEY: ""
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/litellm
+      HERMES_API_KEY: ""
       LITELLM_MASTER_KEY: ""
       OPENAI_API_KEY: ""
       OPENROUTER_API_KEY: ""
@@ -407,6 +525,8 @@ services:
     deploy:
       replicas: 1
     environment:
+      HERMES_ENDPOINT: ""
+      HERMES_SOURCE: container
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
       LITELLM_DB_NAME: litellm
       LITELLM_OLLAMA_UPSTREAM: http://ollama:11434
@@ -520,6 +640,87 @@ services:
         source: local-deep-researcher-repo
         target: /app/repo
         volume: {}
+  minio:
+    command:
+      - server
+      - /data
+      - --console-address
+      - :9001
+    container_name: genai-minio
+    deploy:
+      replicas: 1
+    environment:
+      MINIO_BROWSER_REDIRECT_URL: ""
+      MINIO_REGION: us-east-1
+      MINIO_ROOT_PASSWORD: ""
+      MINIO_ROOT_USER: minioadmin
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:9000/minio/health/live
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 9000
+        published: "63030"
+        protocol: tcp
+      - mode: ingress
+        target: 9001
+        published: "63031"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: minio-data
+        target: /data
+        volume: {}
+  minio-init:
+    container_name: genai-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /bin/sh
+      - /scripts/init-minio.sh
+    environment:
+      MINIO_BACKEND_ACCESS_KEY: ""
+      MINIO_BACKEND_SECRET_KEY: ""
+      MINIO_BUCKET_BACKEND: backend
+      MINIO_BUCKET_COMFYUI: comfyui
+      MINIO_BUCKET_DOCLING: docling
+      MINIO_BUCKET_JUPYTER: jupyter
+      MINIO_BUCKET_N8N: n8n
+      MINIO_COMFYUI_ACCESS_KEY: ""
+      MINIO_COMFYUI_SECRET_KEY: ""
+      MINIO_DOCLING_ACCESS_KEY: ""
+      MINIO_DOCLING_SECRET_KEY: ""
+      MINIO_JUPYTER_ACCESS_KEY: ""
+      MINIO_JUPYTER_SECRET_KEY: ""
+      MINIO_N8N_ACCESS_KEY: ""
+      MINIO_N8N_SECRET_KEY: ""
+      MINIO_ROOT_PASSWORD: ""
+      MINIO_ROOT_USER: minioadmin
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/minio-init/scripts
+        target: /scripts
+        read_only: true
+        bind: {}
   multi2vec-clip:
     container_name: genai-multi2vec-clip
     depends_on:
@@ -560,6 +761,8 @@ services:
       DOCLING_ENDPOINT: ""
       EXECUTIONS_MODE: queue
       GENERIC_TIMEZONE: UTC
+      HERMES_API_KEY: ""
+      HERMES_ENDPOINT: ""
       N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63002
       N8N_AUTH_ENABLED: "true"
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true"
@@ -577,16 +780,26 @@ services:
       NODE_ENV: development
       NODE_OPTIONS: --max_old_space_size=512
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
-      PARAKEET_ENDPOINT: ""
       QUEUE_BULL_REDIS_DB: "0"
       QUEUE_BULL_REDIS_HOST: redis
       QUEUE_BULL_REDIS_PASSWORD: redis_password
       QUEUE_BULL_REDIS_PORT: "6379"
       QUEUE_HEALTH_CHECK_ACTIVE: "true"
+      STT_ENDPOINT: ""
+      TTS_ENDPOINT: ""
       VUE_APP_URL_BASE_API: http://n8n.localhost:63002/
       WEAVIATE_URL: http://weaviate:8080
       WEBHOOK_URL: http://n8n.localhost:63002/
-      XTTS_ENDPOINT: ""
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -qO-
+        - http://127.0.0.1:5678/healthz
+      timeout: 5s
+      interval: 15s
+      retries: 10
+      start_period: 1m30s
     image: n8nio/n8n:latest
     networks:
       backend-network: null
@@ -641,6 +854,9 @@ services:
     container_name: genai-n8n-worker
     depends_on:
       litellm:
+        condition: service_healthy
+        required: true
+      n8n:
         condition: service_healthy
         required: true
       redis:
@@ -794,10 +1010,10 @@ services:
       AUDIO_STT_OPENAI_API_BASE_URL: ""
       AUDIO_STT_OPENAI_API_KEY: sk-unused
       AUDIO_TTS_ENGINE: ""
-      AUDIO_TTS_MODEL: tts-1-hd
+      AUDIO_TTS_MODEL: ""
       AUDIO_TTS_OPENAI_API_BASE_URL: ""
       AUDIO_TTS_OPENAI_API_KEY: sk-unused
-      AUDIO_TTS_VOICE: alloy
+      AUDIO_TTS_VOICE: ""
       COMFYUI_BASE_URL: http://comfyui:18188
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       ENABLE_IMAGE_GENERATION: "true"
@@ -898,6 +1114,8 @@ services:
       replicas: 0
     environment:
       ANTHROPIC_API_KEY: ""
+      HERMES_API_KEY: ""
+      HERMES_ENDPOINT: ""
       HOME: /home/node
       LITELLM_API_KEY: ""
       LITELLM_BASE_URL: http://litellm:4000
@@ -1208,13 +1426,12 @@ services:
       DB_PORT: "5432"
       DB_SLOT: supabase_realtime_slot
       DB_USER: supabase_admin
+      DNS_NODES: supabase-realtime-noop.invalid
       ERL_AFLAGS: -proto_dist inet_tcp
       HOSTNAME: supabase-realtime
       IP_VERSION: ipv4
       JWT_ROLE: service_role
       JWT_SECRET: ""
-      LIBCLUSTER_STRATEGY: Cluster.Strategy.Gossip
-      LIBCLUSTER_TOPOLOGIES: '[]'
       PORT: "4000"
       REPLICATION_MODE: RLS
       RLIMIT_NOFILE: "65536"
@@ -1445,6 +1662,9 @@ volumes:
   graph-db-data:
     name: genai-graph-db-data
     driver: local
+  hermes-data:
+    name: genai-hermes-data
+    driver: local
   jupyterhub-data:
     name: genai-jupyterhub-data
     driver: local
@@ -1456,6 +1676,9 @@ volumes:
     driver: local
   local-deep-researcher-repo:
     name: genai-local-deep-researcher-repo
+    driver: local
+  minio-data:
+    name: genai-minio-data
     driver: local
   n8n-data:
     name: genai-n8n-data

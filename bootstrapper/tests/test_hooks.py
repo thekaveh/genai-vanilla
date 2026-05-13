@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from services.hooks import comfyui, cloud_providers, openclaw, weaviate
+from services.hooks import (
+    chatterbox,
+    cloud_providers,
+    comfyui,
+    openclaw,
+    speaches,
+    weaviate,
+)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -149,3 +156,54 @@ def test_openclaw_per_source(source, scale, init_scale, endpoint):
     assert env["OPENCLAW_SCALE"] == scale
     assert env["OPENCLAW_INIT_SCALE"] == init_scale
     assert env["OPENCLAW_ENDPOINT"] == endpoint
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# speaches — activated by EITHER STT_PROVIDER_SOURCE or TTS_PROVIDER_SOURCE
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "stt,tts,expected_scale",
+    [
+        ("speaches-container-cpu", "speaches-container-cpu", "1"),
+        ("speaches-container-cpu", "disabled",                "1"),
+        ("disabled",               "speaches-container-cpu", "1"),
+        ("speaches-container-gpu", "chatterbox-container-gpu","1"),
+        ("parakeet-container-gpu", "chatterbox-container-gpu","0"),
+        ("disabled",               "disabled",                "0"),
+        ("whisper-cpp-localhost",  "disabled",                "0"),
+    ],
+)
+def test_speaches_activation_per_source_pair(stt, tts, expected_scale):
+    env = {"STT_PROVIDER_SOURCE": stt, "TTS_PROVIDER_SOURCE": tts}
+    speaches.apply(env)
+    assert env["SPEACHES_SCALE"] == expected_scale
+
+
+def test_speaches_missing_keys_default_to_disabled():
+    env = {}
+    speaches.apply(env)
+    assert env["SPEACHES_SCALE"] == "0"
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# chatterbox — activated only by TTS_PROVIDER_SOURCE=chatterbox-container-gpu
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "tts,expected_scale",
+    [
+        ("chatterbox-container-gpu",  "1"),
+        ("chatterbox-localhost",      "0"),
+        ("speaches-container-cpu",    "0"),
+        ("speaches-container-gpu",    "0"),
+        ("disabled",                  "0"),
+        ("",                          "0"),
+    ],
+)
+def test_chatterbox_activation_per_tts_source(tts, expected_scale):
+    env = {"TTS_PROVIDER_SOURCE": tts}
+    chatterbox.apply(env)
+    assert env["CHATTERBOX_SCALE"] == expected_scale

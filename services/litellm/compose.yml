@@ -60,6 +60,11 @@ services:
       # cloud-only setups. See .env.example LITELLM_OLLAMA_UPSTREAM.
       LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
+      # Hermes Agent passthrough — when HERMES_SOURCE != disabled,
+      # litellm-init/init.py appends a hermes-agent model row whose
+      # api_base is HERMES_ENDPOINT/v1. Empty/disabled → no row.
+      HERMES_SOURCE: ${HERMES_SOURCE:-disabled}
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
     volumes:
       - ../../litellm-init/scripts:/scripts:ro
       - ../../volumes/litellm:/litellm-config:rw
@@ -100,6 +105,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Hermes Agent — the `hermes-agent` model_list row (appended by
+      # litellm-init/init.py when HERMES_SOURCE != disabled) references
+      # ``os.environ/HERMES_API_KEY`` for its bearer token.
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
       # NOTE: LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED /
       # LITELLM_OPENROUTER_ENABLED are NOT passed here — they're
       # consumed only by ``llm-catalog-init`` to gate which provider

@@ -1,0 +1,49 @@
+# services/chatterbox/compose.yml — Chatterbox (Resemble AI voice-cloning TTS)
+services:
+  chatterbox:
+    profiles:
+      - chatterbox-gpu
+      - tts-gpu
+    # NOTE: travisvn/chatterbox-tts-api publishes a `gpu` tag for the
+    # CUDA build (and `cpu` / `latest-cpu` for CPU). There's no
+    # version-locked GPU tag yet (as of 2026-05) — `gpu` is rolling.
+    # Pin to a digest in production: docker pull travisvn/chatterbox-tts-api:gpu
+    # then copy the digest into CHATTERBOX_IMAGE.
+    image: ${CHATTERBOX_IMAGE:-travisvn/chatterbox-tts-api:gpu}
+    container_name: ${PROJECT_NAME}-chatterbox
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      replicas: ${CHATTERBOX_SCALE:-0}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+    volumes:
+      - chatterbox-cache:/root/.cache/huggingface
+    ports:
+      - "${CHATTERBOX_PORT:-63027}:4123"
+    networks:
+      - backend-network
+    # Chatterbox's docker/Dockerfile installs curl and exposes /health.
+    # Verified against travisvn/chatterbox-tts-api @ :gpu (2026-05).
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:4123/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    labels:
+      - "com.${PROJECT_NAME}.service=text-to-speech"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.backend=cuda"
+
+volumes:
+  chatterbox-cache:
+    name: ${PROJECT_NAME}-chatterbox-cache
+    driver: local

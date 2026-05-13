@@ -1,6 +1,6 @@
 # docker-compose.yml — thin top-level shell
 #
-# This file is the entry point for `docker compose`. It merges the 19
+# This file is the entry point for `docker compose`. It merges the
 # per-service fragments under services/<name>/compose.yml via the native
 # `include:` directive, plus the global `backend-network` definition.
 #
@@ -14,16 +14,17 @@
 #     v2.20+. Minimum documented version is v2.20; v2.26+ recommended.
 #
 # Adding a service: create services/<name>/{service.yml, compose.yml}, add
-# the include line below, and run `./start.sh` (Phase D's bootstrapper
+# the include line below, and run `./start.sh` (the deferred bootstrapper
 # refactor will auto-discover includes from the manifests instead).
 
 include:
-  # Globals + data tier
+  # Data tier
   - services/supabase/compose.yml
   - services/redis/compose.yml
+  - services/minio/compose.yml
   - services/neo4j/compose.yml
 
-  # LLM tier (cloud-providers has no compose fragment — virtual manifest)
+  # LLM tier (cloud-providers + tts-provider are virtual; no compose fragment)
   - services/litellm/compose.yml
   - services/ollama/compose.yml
 
@@ -31,7 +32,8 @@ include:
   - services/weaviate/compose.yml
   - services/comfyui/compose.yml
   - services/parakeet/compose.yml
-  - services/xtts/compose.yml
+  - services/speaches/compose.yml
+  - services/chatterbox/compose.yml
   - services/docling/compose.yml
 
   # App tier
@@ -42,6 +44,7 @@ include:
   - services/local-deep-researcher/compose.yml
   - services/jupyterhub/compose.yml
   - services/openclaw/compose.yml
+  - services/hermes/compose.yml
 
   # Gateway last (depends on everything else it routes to)
   - services/kong/compose.yml

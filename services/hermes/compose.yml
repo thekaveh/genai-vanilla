@@ -1,0 +1,139 @@
+# services/hermes/compose.yml — Hermes Agent runtime + init
+services:
+  # Hermes Agent — initialization
+  #
+  # Renders /opt/data/config.yaml from environment (LiteLLM endpoint,
+  # TTS / STT / ComfyUI / SearXNG URLs — engine-neutral so it works with
+  # Speaches, Chatterbox, Parakeet, whisper.cpp, or any future addition)
+  # and drops a skill-override that redirects the bundled creative-comfyui
+  # skill at our internal ComfyUI service. Runs once per `docker compose up`;
+  # exits 0.
+  hermes-init:
+    image: ${HERMES_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-hermes-init
+    restart: "no"
+    deploy:
+      replicas: ${HERMES_INIT_SCALE:-0}
+    depends_on:
+      litellm:
+        condition: service_healthy
+    environment:
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      HERMES_DEFAULT_MODEL: ${HERMES_DEFAULT_MODEL:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      HERMES_CONTEXT_LENGTH: ${HERMES_CONTEXT_LENGTH:-65536}
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+      # Conditional integrations — empty string means "skip this provider".
+      # Bootstrapper sets these based on the matching SOURCE.
+      TTS_INTERNAL_URL: ${TTS_INTERNAL_URL:-}
+      STT_INTERNAL_URL: ${STT_INTERNAL_URL:-}
+      COMFYUI_INTERNAL_URL: ${COMFYUI_INTERNAL_URL:-}
+      SEARXNG_INTERNAL_URL: ${SEARXNG_INTERNAL_URL:-}
+    volumes:
+      - hermes-data:/opt/data
+      - ../../hermes-init/scripts:/scripts:ro
+      - ../../hermes-init/templates:/templates:ro
+    networks:
+      - backend-network
+    # WITHOUT this entrypoint, the alpine container starts with no
+    # command, exits 0 in ~150ms, and ``docker compose ps`` happily
+    # reports ``Exited (0)`` — looking like the init ran. It didn't:
+    # /opt/data/config.yaml is never rendered, the hermes container
+    # then falls back to its image's bundled default (which routes to
+    # ``openrouter.ai`` with no key) and 401-spams the log every
+    # invocation. Matches the weaviate-init / openclaw-init pattern.
+    entrypoint: ["/scripts/init-hermes.sh"]
+    labels:
+      - "com.${PROJECT_NAME}.service=hermes-init"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.agent=hermes"
+
+  # Hermes Agent — programmable AI agent runtime (Nous Research)
+  # API:       http://localhost:${HERMES_API_PORT}
+  # Dashboard: http://localhost:${HERMES_DASHBOARD_PORT}  (when enabled)
+  # Kong:      http://hermes.localhost:${KONG_HTTP_PORT}  (with --setup-hosts)
+  #
+  # File-based persistence — everything under /opt/data (mounted from
+  # the hermes-data named volume): config.yaml, sessions/, memories/,
+  # skills/, auth.json, logs/. No Postgres / Redis dependency.
+  #
+  # Hermes itself talks to LiteLLM at http://litellm:4000/v1; downstream
+  # consumers see Hermes as the `hermes-agent` model in the same LiteLLM
+  # catalog (registered by litellm-init when HERMES_SOURCE != disabled).
+  hermes:
+    image: ${HERMES_IMAGE:-nousresearch/hermes-agent:latest}
+    container_name: ${PROJECT_NAME}-hermes
+    restart: unless-stopped
+    deploy:
+      replicas: ${HERMES_SCALE:-0}
+      resources:
+        limits:
+          memory: ${HERMES_MEMORY_LIMIT:-4g}
+          cpus: "${HERMES_CPU_LIMIT:-2.0}"
+    depends_on:
+      hermes-init:
+        condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+      # Web dashboard
+      HERMES_DASHBOARD: ${HERMES_DASHBOARD_ENABLED:-true}
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: "9119"
+      # Embed an in-browser Chat tab in the dashboard (uses
+      # PTY+WebSocket to wrap a ``hermes --tui`` session). Lets users
+      # talk to the agent directly from the dashboard without needing
+      # Open WebUI / curl. Upstream documents this as
+      # ``HERMES_DASHBOARD_TUI=1`` (or the ``--tui`` CLI flag);
+      # ``ptyprocess`` is already in the image. Default on; flip to
+      # ``0`` via .env if you want a read-only dashboard.
+      HERMES_DASHBOARD_TUI: ${HERMES_DASHBOARD_TUI:-1}
+      # OpenAI-compatible API server (what LiteLLM and clients connect to)
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_KEY: ${HERMES_API_KEY:-}
+      API_SERVER_CORS_ORIGINS: "*"
+      # Provider keys forwarded so config.yaml custom_providers can
+      # resolve at runtime.
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - hermes-data:/opt/data
+    ports:
+      - "${HERMES_API_PORT:-63028}:8642"
+      - "${HERMES_DASHBOARD_PORT:-63029}:9119"
+    networks:
+      - backend-network
+    healthcheck:
+      # nousresearch/hermes-agent ships ``curl`` (and ``python3``);
+      # NOT ``wget`` or ``python``. The historic ``wget`` probe failed
+      # with ``wget: not found`` and a python-wrapped probe failed with
+      # ``python: not found`` because /usr/bin only has the versioned
+      # ``python3`` binary. ``curl`` is the simplest, dependency-free
+      # path. Auth header reads ``API_SERVER_KEY`` from container env
+      # to stay consistent with whatever Hermes is configured with.
+      test: ["CMD-SHELL", "curl --fail --silent --show-error -H \"Authorization: Bearer $$API_SERVER_KEY\" http://127.0.0.1:8642/v1/models >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    command: ["gateway", "run"]
+    labels:
+      - "com.${PROJECT_NAME}.service=ai-agent"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.agent=hermes"
+
+# Hermes Agent volume — file-based persistence for /opt/data
+# (config.yaml, sessions/, memories/, skills/, auth.json, logs/).
+volumes:
+  hermes-data:
+    name: ${PROJECT_NAME}-hermes-data
+    driver: local

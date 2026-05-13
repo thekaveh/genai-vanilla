@@ -49,16 +49,34 @@ services:
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
       # STT/TTS/DOC endpoints (available for workflows)
-      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
-      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
+      # Hermes Agent — direct path (LiteLLM-routed model is at
+      # `hermes-agent`; direct route bypasses the gateway for webhook/dashboard).
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
     ports:
       - "${N8N_PORT}:5678"
     volumes:
       - n8n-data:/home/node/.n8n
     networks:
       - backend-network
+    # Gating ``n8n-worker`` on this healthcheck serialises the TypeORM
+    # migrations. Without it, n8n and n8n-worker start together, both
+    # try to run ``CreateWorkflowHistoryTable*`` (and friends) against
+    # the shared ``n8n`` schema, and one loses on
+    # ``pg_type_typname_nsp_index`` (duplicate enum type). n8n then
+    # restarts and recovers, but the boot logs scream errors. The
+    # ``/healthz`` endpoint returns 200 as soon as n8n's own migration
+    # phase finishes — exactly the right gate.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5678/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
 
   n8n-worker:
     image: ${N8N_IMAGE}
@@ -71,6 +89,13 @@ services:
       redis:
         condition: service_healthy
       litellm:
+        condition: service_healthy
+      # Wait for n8n's main process to finish its TypeORM migrations
+      # before the worker starts running them concurrently. Without
+      # this gate, both containers attempt schema migrations against
+      # the same n8n schema and one loses on a duplicate-type race
+      # (see the n8n service healthcheck comment).
+      n8n:
         condition: service_healthy
     deploy:
       replicas: ${N8N_WORKER_SCALE:-1}
