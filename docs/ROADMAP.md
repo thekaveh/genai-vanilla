@@ -72,13 +72,12 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 
 _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 
-**Per-service configuration modularization**
-- Split the current monolithic configs into per-service files: each service owns its compose fragment, its `.env` block, its `service-configs.yml` entry, and (when applicable) its Kong route generator hook
-- Bootstrapper composes the active set at startup based on SOURCE values — same pattern already used for Kong routes
-- Affects: `docker-compose.yml` (~1200 LOC), `bootstrapper/service-configs.yml` (~700 LOC), `.env.example` (~470 LOC), `bootstrapper/utils/kong_config_generator.py`
-- Goals: editing one service's config can't conflict with another's, new services land by adding a directory, and `docs/services/<name>.md` maps 1:1 to the runtime layout
-- Pairs naturally with Python migration completion (shared composition primitives, smaller per-service test surfaces, easier opt-in/out for forks)
-- Pairs naturally with the LiteLLM gateway above: the shape of "one self-contained per-service config block" is exactly what the gateway needs on the LLM consumer side once each service's LLM endpoint becomes a one-line override
+**Per-service configuration modularization** — ✅ delivered (Phases A–E, May 2026)
+- Compose: 1,425-line monolithic `docker-compose.yml` → 52-line thin `include:`-shell that pulls in `services/<name>/compose.yml` fragments (one per service family — supabase, redis, neo4j, litellm, ollama, weaviate, comfyui, n8n, open-webui, backend, searxng, jupyterhub, parakeet, xtts, docling, openclaw, local-deep-researcher, kong, plus a virtual cloud-providers and globals manifest).
+- Manifests: `services/<name>/service.yml` is the single source of truth for env vars (with auto_managed/secret flags), source variants (declarative `effects:`), image refs, and dependencies. JSON-schema-validated.
+- Hooks: `bootstrapper/services/hooks/{comfyui,weaviate,openclaw,cloud_providers}.py` handle the 4 cases whose auto-managed logic is too rich for pure declarative effects.
+- Safety nets: `bootstrapper/services/manifest_validator.py` (8 cross-manifest checks), `tools/validate_fragments.py` CLI lint with `--check-env-example`, and `tests/test_fragment_equivalence.py` (golden `rendered_config_baseline.yml` diff — byte-equivalence proven across the 34-container stack).
+- Open follow-up: wire the bootstrapper's `service_config.py`/`source_validator.py`/`dependency_manager.py`/`ui/state_builder.py`/`wizard/llm_steps.py`/`start.py` to read manifests instead of `bootstrapper/service-configs.yml` (the latter is currently marked DEPRECATED but still operational).
 
 **Monitoring stack (Prometheus + Grafana)**
 - Service metrics: request rates, latency percentiles, container health

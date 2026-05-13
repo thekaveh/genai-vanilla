@@ -1,0 +1,73 @@
+# services/open-webui/service.yml — Open WebUI + init
+name: open-webui
+label: "Open WebUI (chat interface)"
+category: app
+docs: docs/services/open-webui.md
+
+containers:
+  - open-web-ui
+  - open-webui-init
+
+images:
+  - var: OPEN_WEB_UI_IMAGE
+    default: "dyrnq/open-webui:latest"
+    container: open-web-ui
+  - var: OPEN_WEB_UI_INIT_IMAGE
+    default: "python:3.11-slim"
+    container: open-webui-init
+
+sources:
+  var: OPEN_WEB_UI_SOURCE
+  default: container
+  options:
+    - id: container
+      label: "Container"
+      effects:
+        OPEN_WEB_UI_SCALE: 1
+        OPEN_WEB_UI_INIT_SCALE: 1
+    - id: disabled
+      label: "Disabled"
+      effects:
+        OPEN_WEB_UI_SCALE: 0
+        OPEN_WEB_UI_INIT_SCALE: 0
+
+env:
+  - name: OPEN_WEB_UI_SOURCE
+    default: container
+  - name: OPEN_WEB_UI_PORT
+    default: 63015
+  - name: OPEN_WEB_UI_SECRET_KEY
+    default: secret
+    secret: true
+  - name: OPEN_WEB_UI_ADMIN_EMAIL
+    default: "admin@localhost"
+  - name: OPEN_WEB_UI_ADMIN_PASSWORD
+    default: admin
+    secret: true
+  - name: OPEN_WEB_UI_ADMIN_NAME
+    default: Admin
+  - name: OPEN_WEB_UI_WEBSOCKET_SUPPORT
+    default: true
+  - name: OPEN_WEB_UI_REDIS_DB
+    default: 2
+  - name: OPEN_WEB_UI_MODEL_CACHE_TTL
+    default: 300
+  - name: OPEN_WEB_UI_TTS_ENGINE
+    default: ""
+    description: "Set by bootstrapper when xtts/parakeet are enabled."
+  - name: OPEN_WEB_UI_STT_ENGINE
+    default: ""
+  - name: OPEN_WEB_UI_TTS_API_URL
+    auto_managed: true
+  - name: OPEN_WEB_UI_STT_API_URL
+    auto_managed: true
+  - name: OPEN_WEB_UI_SCALE
+    auto_managed: true
+  - name: OPEN_WEB_UI_INIT_SCALE
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

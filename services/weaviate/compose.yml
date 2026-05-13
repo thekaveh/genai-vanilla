@@ -1,0 +1,96 @@
+# services/weaviate/compose.yml — Weaviate + init + CLIP
+services:
+  weaviate-init:
+    image: ${WEAVIATE_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-weaviate-init
+    restart: "no"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+    deploy:
+      replicas: ${WEAVIATE_INIT_SCALE:-1}
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+    volumes:
+      - ../../weaviate-init/scripts:/scripts
+      - weaviate-shared-config:/shared
+    networks:
+      - backend-network
+    entrypoint: ["/scripts/init-weaviate.sh"]
+
+  weaviate:
+    image: ${WEAVIATE_IMAGE}
+    container_name: ${PROJECT_NAME}-weaviate
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      weaviate-init:
+        condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
+    deploy:
+      replicas: ${WEAVIATE_SCALE:-1}
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      # Vectorizers/generators route through LiteLLM (text2vec-openai, generative-openai).
+      # text2vec-ollama is left enabled for backward-compat with un-migrated collections.
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+      ENABLE_MODULES: ${WEAVIATE_ENABLE_MODULES:-text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama}
+      CLUSTER_HOSTNAME: 'weaviate'
+      # Weaviate's text2vec-openai talks to LiteLLM. The collection-level
+      # base URL is set by weaviate-init. OPENAI_APIKEY here is the master
+      # key Weaviate sends to LiteLLM for authentication.
+      OPENAI_APIKEY: ${LITELLM_MASTER_KEY:-}
+      CLIP_INFERENCE_API: ${CLIP_INFERENCE_API-http://multi2vec-clip:8080}
+    entrypoint: ["/scripts/configure-weaviate.sh", "/bin/weaviate", "--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
+    ports:
+      - "${WEAVIATE_PORT}:8080"
+      - "${WEAVIATE_GRPC_PORT}:50051"
+    volumes:
+      - weaviate-data:/var/lib/weaviate
+      - weaviate-shared-config:/shared
+      - ../../weaviate-init/scripts:/scripts
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  multi2vec-clip:
+    image: ${MULTI2VEC_CLIP_IMAGE}
+    container_name: ${PROJECT_NAME}-multi2vec-clip
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      ENABLE_CUDA: ${CLIP_ENABLE_CUDA:-0}
+    deploy:
+      replicas: ${CLIP_SCALE:-1}
+    networks:
+      - backend-network
+
+volumes:
+  weaviate-data:
+    name: ${PROJECT_NAME}-weaviate-data
+    driver: local
+  weaviate-shared-config:
+    name: ${PROJECT_NAME}-weaviate-shared-config
+    driver: local

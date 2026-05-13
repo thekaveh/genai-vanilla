@@ -1,0 +1,44 @@
+# services/backend/service.yml — FastAPI backend (always-on adaptive)
+name: backend
+label: "Backend API (FastAPI)"
+category: app
+docs: docs/services/backend.md
+
+containers:
+  - backend
+
+images:
+  - var: BACKEND_IMAGE
+    default: "python:3.12"
+    container: backend
+
+env:
+  - name: BACKEND_SOURCE
+    default: container
+    description: "Adaptive core service; always container. Single-option."
+  - name: BACKEND_PORT
+    default: 63016
+  - name: BACKEND_SCALE
+    auto_managed: true
+    description: "Always 1 (BACKEND_SOURCE is single-valued)."
+  - name: LANGMEM_ENABLED
+    default: true
+  - name: LANGMEM_MEMORY_NAMESPACE
+    default: default
+  - name: LANGMEM_AUTO_CONSOLIDATE
+    default: true
+  - name: LANGMEM_CONSOLIDATION_INTERVAL
+    default: 86400
+  - name: LANGMEM_MAX_FACTS_PER_USER
+    default: 1000
+  - name: LANGMEM_EXTRACTION_MODEL
+    default: ""
+    description: "LiteLLM model id (empty = highest-priority active content model from public.llms)."
+  - name: LANGMEM_EMBEDDING_MODEL
+    default: ""
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

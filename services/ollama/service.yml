@@ -1,0 +1,96 @@
+# services/ollama/service.yml — Ollama local LLM engine + model puller
+name: ollama
+label: "Ollama (local LLM engine)"
+category: llm
+docs: docs/services/ollama.md
+
+containers:
+  - ollama
+  - ollama-pull
+
+images:
+  - var: LLM_PROVIDER_IMAGE
+    default: "ollama/ollama:latest"
+    container: ollama
+  - var: OLLAMA_PULL_IMAGE
+    default: "alpine:latest"
+    container: ollama-pull
+
+sources:
+  var: LLM_PROVIDER_SOURCE
+  default: ollama-container-cpu
+  options:
+    - id: ollama-container-cpu
+      label: "Container (CPU)"
+      effects:
+        OLLAMA_SCALE: 1
+        OLLAMA_PULL_SCALE: 1
+        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
+        OLLAMA_ENDPOINT: "http://ollama:11434"
+        LITELLM_OLLAMA_UPSTREAM: "http://ollama:11434"
+    - id: ollama-container-gpu
+      label: "Container (GPU, NVIDIA)"
+      effects:
+        OLLAMA_SCALE: 1
+        OLLAMA_PULL_SCALE: 1
+        OLLAMA_NVIDIA_VISIBLE_DEVICES: "all"
+        OLLAMA_ENDPOINT: "http://ollama:11434"
+        LITELLM_OLLAMA_UPSTREAM: "http://ollama:11434"
+    - id: ollama-localhost
+      label: "Host (existing Ollama on this machine)"
+      effects:
+        OLLAMA_SCALE: 0
+        OLLAMA_PULL_SCALE: 0
+        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
+        OLLAMA_ENDPOINT: "http://host.docker.internal:11434"
+        LITELLM_OLLAMA_UPSTREAM: "http://host.docker.internal:11434"
+    - id: ollama-external
+      label: "External (custom URL)"
+      requires: [LLM_PROVIDER_EXTERNAL_URL]
+      effects:
+        OLLAMA_SCALE: 0
+        OLLAMA_PULL_SCALE: 0
+        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
+        OLLAMA_ENDPOINT: "${LLM_PROVIDER_EXTERNAL_URL}"
+        LITELLM_OLLAMA_UPSTREAM: "${LLM_PROVIDER_EXTERNAL_URL}"
+    - id: none
+      label: "Disabled (cloud-only)"
+      effects:
+        OLLAMA_SCALE: 0
+        OLLAMA_PULL_SCALE: 0
+        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
+        OLLAMA_ENDPOINT: ""
+        LITELLM_OLLAMA_UPSTREAM: ""
+
+env:
+  - name: LLM_PROVIDER_SOURCE
+    default: ollama-container-cpu
+  - name: LLM_PROVIDER_EXTERNAL_URL
+    default: ""
+    description: "Required when LLM_PROVIDER_SOURCE=ollama-external."
+  - name: OLLAMA_USER_MODELS
+    default: ""
+    description: "Comma-separated Ollama model names the wizard activated."
+  - name: OLLAMA_CUSTOM_MODELS
+    default: ""
+    description: "Free-text extra Ollama models pulled in container-* sources."
+  - name: OLLAMA_DEPLOY_RESOURCES
+    default: "~"
+    description: "Reserved for future GPU deploy block. Currently '~' (null)."
+  - name: OLLAMA_SCALE
+    auto_managed: true
+  - name: OLLAMA_PULL_SCALE
+    auto_managed: true
+  - name: OLLAMA_NVIDIA_VISIBLE_DEVICES
+    auto_managed: true
+  - name: OLLAMA_ENDPOINT
+    auto_managed: true
+  - name: LITELLM_OLLAMA_UPSTREAM
+    auto_managed: true
+    description: "Ollama URL the LiteLLM gateway forwards Ollama-routed requests to. Owned by ollama because the value flips with LLM_PROVIDER_SOURCE; consumed by litellm-init when rendering its config.yaml."
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

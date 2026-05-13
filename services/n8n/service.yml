@@ -1,0 +1,75 @@
+# services/n8n/service.yml — n8n + worker + init
+name: n8n
+label: "n8n (workflow automation)"
+category: app
+docs: docs/services/n8n.md
+
+containers:
+  - n8n
+  - n8n-worker
+  - n8n-init
+
+images:
+  - var: N8N_IMAGE
+    default: "n8nio/n8n:latest"
+    container: n8n
+  - var: N8N_INIT_IMAGE
+    default: "alpine:latest"
+    container: n8n-init
+
+sources:
+  var: N8N_SOURCE
+  default: container
+  options:
+    - id: container
+      label: "Container"
+      effects:
+        N8N_SCALE: 1
+        N8N_WORKER_SCALE: 1
+        N8N_INIT_SCALE: 1
+    - id: disabled
+      label: "Disabled"
+      effects:
+        N8N_SCALE: 0
+        N8N_WORKER_SCALE: 0
+        N8N_INIT_SCALE: 0
+
+env:
+  - name: N8N_SOURCE
+    default: container
+  - name: N8N_PORT
+    default: 63017
+  - name: N8N_ENCRYPTION_KEY
+    default: "your-random-encryption-key"
+    secret: true
+  - name: N8N_AUTH_ENABLED
+    default: true
+  - name: N8N_HOST
+    default: "n8n.localhost"
+  - name: N8N_PROTOCOL
+    default: http
+  - name: N8N_EXECUTIONS_MODE
+    default: queue
+  - name: N8N_COMMUNITY_PACKAGES_ENABLED
+    default: true
+  - name: N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE
+    default: true
+  - name: N8N_INIT_SOURCE
+    default: container
+  - name: N8N_INIT_NODES
+    default: "n8n-nodes-comfyui,@ksc1234/n8n-nodes-comfyui-image-to-image,n8n-nodes-mcp"
+  - name: TZ
+    default: UTC
+    description: "Timezone (shared across services that schedule jobs)."
+  - name: N8N_SCALE
+    auto_managed: true
+  - name: N8N_WORKER_SCALE
+    auto_managed: true
+  - name: N8N_INIT_SCALE
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

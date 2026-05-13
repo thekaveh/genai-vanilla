@@ -1,0 +1,67 @@
+# services/cloud-providers/service.yml — virtual manifest (no compose fragment)
+#
+# Cloud providers (OpenAI, Anthropic, OpenRouter) are routed through the
+# LiteLLM gateway — there is no container backing them. This virtual manifest
+# owns the toggles, API keys, and user-model selections so they have a clear
+# home in the modular layout. The bootstrapper's per-service hook
+# (services.hooks.cloud_providers) derives the LITELLM_*_ENABLED flags and
+# LITELLM_ENABLED_PROVIDERS list from the three CLOUD_*_SOURCE toggles.
+name: cloud-providers
+label: "Cloud LLM providers (OpenAI, Anthropic, OpenRouter)"
+category: llm
+docs: docs/services/cloud-providers.md
+
+# Virtual manifest: no containers, no compose fragment. The bootstrapper
+# skips virtual manifests when assembling the include list.
+virtual: true
+containers: []
+
+env:
+  # OpenAI
+  - name: CLOUD_OPENAI_SOURCE
+    default: disabled
+    description: "Options: enabled, disabled."
+  - name: OPENAI_API_KEY
+    default: ""
+    secret: true
+  - name: OPENAI_USER_MODELS
+    default: ""
+    description: "Comma-separated OpenAI model names the wizard activated."
+  # Anthropic
+  - name: CLOUD_ANTHROPIC_SOURCE
+    default: disabled
+  - name: ANTHROPIC_API_KEY
+    default: ""
+    secret: true
+  - name: ANTHROPIC_USER_MODELS
+    default: ""
+  # OpenRouter
+  - name: CLOUD_OPENROUTER_SOURCE
+    default: disabled
+  - name: OPENROUTER_API_KEY
+    default: ""
+    secret: true
+  - name: OPENROUTER_USER_MODELS
+    default: ""
+  # Aggregates derived from the three sources
+  - name: LITELLM_OPENAI_ENABLED
+    auto_managed: true
+    description: "Derived from CLOUD_OPENAI_SOURCE."
+  - name: LITELLM_ANTHROPIC_ENABLED
+    auto_managed: true
+  - name: LITELLM_OPENROUTER_ENABLED
+    auto_managed: true
+  - name: LITELLM_ENABLED_PROVIDERS
+    auto_managed: true
+    description: "Comma-separated lowercase list of enabled cloud providers."
+
+# The aggregation logic spans three SOURCE vars (one per provider). That
+# multi-input shape doesn't fit the per-source effects map cleanly, so we
+# use a hook. See bootstrapper/services/hooks/cloud_providers.py (Phase D).
+hook: services.hooks.cloud_providers
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

@@ -1,0 +1,42 @@
+# services/globals/service.yml — global, non-service-specific env vars
+#
+# Virtual manifest. Owns vars that don't belong to any one service:
+#   - PROJECT_NAME, BASE_PORT, HOST_GATEWAY_IP (infrastructure)
+#   - BRAND_* (TUI branding)
+# These appear at the top of the assembled .env.example.
+name: globals
+label: "Globals (project + branding)"
+category: infra
+virtual: true
+containers: []
+
+env:
+  - name: PROJECT_NAME
+    default: genai
+    description: "Project identifier. Used as container/volume/network name prefix."
+  - name: BASE_PORT
+    default: 63000
+    description: "Base port. Every service's *_PORT derives from this + a fixed offset."
+  - name: HOST_GATEWAY_IP
+    auto_managed: true
+    default: host-gateway
+    description: "Computed by the bootstrapper. Docker: 'host-gateway' sentinel. Podman: literal IP."
+  # Branding (TUI wizard)
+  - name: BRAND_NAME
+    default: "GenAI Vanilla Stack"
+  - name: BRAND_TAGLINE
+    default: "An opinionated, modular, source-configurable AI stack."
+  - name: BRAND_VERSION
+    default: "0.1.0"
+  - name: BRAND_AUTHOR
+    default: "Kaveh Razavi"
+  - name: BRAND_LICENSE
+    default: MIT
+  - name: BRAND_REPO_URL
+    default: "https://github.com/vanilla-genai/genai-vanilla"
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

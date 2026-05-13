@@ -1,0 +1,1489 @@
+name: configuration-modularization
+services:
+  backend:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/backend
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: python:3.12
+    container_name: genai-backend
+    depends_on:
+      kong-api-gateway:
+        condition: service_started
+        required: true
+      litellm:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_started
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+      supabase-realtime:
+        condition: service_started
+        required: true
+      supabase-storage:
+        condition: service_started
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      COMFYUI_BASE_URL: http://comfyui:18188
+      COMFYUI_ENABLED: "true"
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DOCLING_ENDPOINT: ""
+      KONG_URL: http://kong-api-gateway:8000
+      LANGMEM_AUTO_CONSOLIDATE: "true"
+      LANGMEM_CONSOLIDATION_INTERVAL: "86400"
+      LANGMEM_EMBEDDING_MODEL: '# Embedding model for pgvector fallback (empty = use stack default)'
+      LANGMEM_ENABLED: "true"
+      LANGMEM_EXTRACTION_MODEL: '# LiteLLM model identifier for fact extraction (e.g. ollama/qwen3.6:latest); empty = pick highest-priority active content model from public.llms'
+      LANGMEM_MAX_FACTS_PER_USER: "1000"
+      LANGMEM_NAMESPACE: default
+      LITELLM_API_KEY: ""
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_DEFAULT_MODEL: ""
+      LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
+      N8N_BASE_URL: http://n8n:5678
+      NEO4J_PASSWORD: neo4j_password
+      NEO4J_URI: bolt://neo4j-graph-db:7687
+      NEO4J_USER: neo4j
+      PARAKEET_ENDPOINT: ""
+      PROJECT_NAME: genai
+      REDIS_URL: redis://:redis_password@redis:6379/0
+      SUPABASE_ANON_KEY: ""
+      SUPABASE_SERVICE_KEY: ""
+      WEAVIATE_ENABLED: "true"
+      WEAVIATE_URL: http://weaviate:8080
+      XTTS_ENDPOINT: ""
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "63016"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/backend/app
+        target: /app
+        bind: {}
+      - type: volume
+        source: backend-data
+        target: /app/data
+        volume: {}
+      - type: volume
+        source: weaviate-shared-config
+        target: /shared
+        volume: {}
+  comfyui:
+    container_name: genai-comfyui
+    depends_on:
+      redis:
+        condition: service_started
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+      supabase-storage:
+        condition: service_started
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      AUTO_UPDATE: "false"
+      COMFYUI_ARGS: --listen
+      COMFYUI_PORT_HOST: "8188"
+      COMFYUI_UPLOAD_TO_SUPABASE: "true"
+      DISABLE_NATPMP: "1"
+      ENABLE_QUICKTUNNEL: "false"
+      SERVERLESS: "false"
+      SUPABASE_ANON_KEY: ""
+      SUPABASE_STORAGE_BUCKET: comfyui-images
+      SUPABASE_URL: http://kong-api-gateway:8000/comfyui
+      WEB_ENABLE_AUTH: "false"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:18188/system_stats
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 2m0s
+    image: ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7
+    labels:
+      com.genai.category: ai
+      com.genai.dependencies: litellm,supabase-storage
+      com.genai.service: image-generation
+    networks:
+      backend-network: null
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        target: 18188
+        published: "63018"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: comfyui-models
+        target: /opt/ComfyUI/models
+        volume: {}
+      - type: volume
+        source: comfyui-output
+        target: /opt/ComfyUI/output
+        volume: {}
+      - type: volume
+        source: comfyui-input
+        target: /opt/ComfyUI/input
+        volume: {}
+      - type: volume
+        source: comfyui-custom-nodes
+        target: /opt/ComfyUI/custom_nodes
+        volume: {}
+      - type: bind
+        source: /Users/kaveh/Documents/ComfyUI/models
+        target: /host_models
+        bind: {}
+  comfyui-init:
+    container_name: genai-comfyui-init
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /scripts/download_models.sh
+    environment:
+      COMFYUI_HOST_URL: http://comfyui:18188
+      COMFYUI_MODEL_SET: minimal
+      COMFYUI_MODELS_PATH: /models
+      IS_LOCAL_COMFYUI: "false"
+      PGDATABASE: postgres
+      PGHOST: supabase-db
+      PGPASSWORD: password
+      PGPORT: "5432"
+      PGUSER: supabase_admin
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: alpine:latest
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/comfyui-init/scripts
+        target: /scripts
+        bind: {}
+      - type: volume
+        source: comfyui-models
+        target: /models
+        volume: {}
+  jupyterhub:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/jupyterhub
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: jupyter/datascience-notebook:python-3.11
+    container_name: genai-jupyterhub
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      BACKEND_API_URL: http://backend:8000
+      COMFYUI_BASE_URL: http://comfyui:18188
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DOCLING_ENDPOINT: ""
+      GRANT_SUDO: "yes"
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: '# Optional: Set token for authentication (empty = generate on start)'
+      LITELLM_API_KEY: ""
+      LITELLM_BASE_URL: http://litellm:4000
+      N8N_BASE_URL: http://n8n:5678
+      NEO4J_PASSWORD: neo4j_password
+      NEO4J_URI: bolt://neo4j-graph-db:7687
+      NEO4J_USER: neo4j
+      PARAKEET_ENDPOINT: ""
+      REDIS_URL: redis://:redis_password@redis:6379/3
+      SEARXNG_URL: http://searxng:8080
+      SUPABASE_ANON_KEY: ""
+      SUPABASE_SERVICE_KEY: ""
+      SUPABASE_URL: http://kong-api-gateway:8000
+      WEAVIATE_URL: http://weaviate:8080
+      XTTS_ENDPOINT: ""
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8888/api
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    labels:
+      com.genai.category: application
+      com.genai.service: jupyterhub
+      com.genai.tier: app
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8888
+        published: "63048"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: jupyterhub-data
+        target: /home/jovyan/work
+        volume: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/jupyterhub/notebooks
+        target: /home/jovyan/notebooks
+        read_only: true
+        bind: {}
+      - type: volume
+        source: weaviate-shared-config
+        target: /shared
+        read_only: true
+        volume: {}
+  kong-api-gateway:
+    container_name: genai-kong-api-gateway
+    depends_on:
+      redis:
+        condition: service_started
+        required: true
+      supabase-api:
+        condition: service_started
+        required: true
+      supabase-auth:
+        condition: service_started
+        required: true
+      supabase-meta:
+        condition: service_started
+        required: true
+      supabase-realtime:
+        condition: service_started
+        required: true
+      supabase-storage:
+        condition: service_started
+        required: true
+    environment:
+      DASHBOARD_PASSWORD: kong_password
+      DASHBOARD_USERNAME: kong_admin
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_NGINX_HTTP_UPSTREAM_KEEPALIVE: "16"
+      KONG_NGINX_HTTP_UPSTREAM_KEEPALIVE_REQUESTS: "100"
+      KONG_NGINX_HTTP_UPSTREAM_KEEPALIVE_TIMEOUT: 60s
+      KONG_NGINX_PROXY_CHUNKED_TRANSFER_ENCODING: "on"
+      KONG_NGINX_PROXY_KEEPALIVE_TIMEOUT: "300"
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERING: "off"
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_NGINX_PROXY_PROXY_CACHE: "off"
+      KONG_NGINX_PROXY_TCP_NODELAY: "on"
+      KONG_NGINX_PROXY_TCP_NOPUSH: "on"
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,rate-limiting
+      KONG_PROXY_READ_TIMEOUT: "300"
+      KONG_PROXY_SEND_TIMEOUT: "300"
+      KONG_REDIS_HOST: redis
+      KONG_REDIS_PASSWORD: redis_password
+      KONG_REDIS_PORT: "6379"
+      SUPABASE_ANON_KEY: ""
+      SUPABASE_SERVICE_KEY: ""
+    image: kong:3.9.0
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8000
+        published: "63002"
+        protocol: tcp
+      - mode: ingress
+        target: 8443
+        published: "63003"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/volumes/api/kong-dynamic.yml
+        target: /home/kong/kong.yml
+        read_only: true
+        bind:
+          selinux: z
+  litellm:
+    command:
+      - --config
+      - /app/config.yaml
+      - --port
+      - "4000"
+      - --num_workers
+      - "4"
+    container_name: genai-litellm
+    depends_on:
+      litellm-init:
+        condition: service_completed_successfully
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+      supabase-db:
+        condition: service_healthy
+        required: true
+    environment:
+      ANTHROPIC_API_KEY: ""
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/litellm
+      LITELLM_MASTER_KEY: ""
+      OPENAI_API_KEY: ""
+      OPENROUTER_API_KEY: ""
+      REDIS_HOST: redis
+      REDIS_PASSWORD: redis_password
+      REDIS_PORT: "6379"
+      STORE_MODEL_IN_DB: "True"
+      USE_PRISMA_MIGRATE: "True"
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status == 200 else 1)
+      timeout: 5s
+      interval: 10s
+      retries: 12
+      start_period: 30s
+    image: ghcr.io/berriai/litellm:v1.83.14-stable.patch.2
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 4000
+        published: "63012"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/volumes/litellm/config.yaml
+        target: /app/config.yaml
+        read_only: true
+        bind: {}
+  litellm-init:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/litellm-init
+      dockerfile: Dockerfile
+    container_name: genai-litellm-init
+    depends_on:
+      llm-catalog-init:
+        condition: service_completed_successfully
+        required: true
+      supabase-db:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      LITELLM_CONFIG_OUT: /litellm-config/config.yaml
+      LITELLM_DB_NAME: litellm
+      LITELLM_OLLAMA_UPSTREAM: http://ollama:11434
+      PGDATABASE: postgres
+      PGHOST: supabase-db
+      PGPASSWORD: password
+      PGPORT: "5432"
+      PGUSER: supabase_admin
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/litellm-init/scripts
+        target: /scripts
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/volumes/litellm
+        target: /litellm-config
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/bootstrapper/utils
+        target: /catalog
+        read_only: true
+        bind: {}
+  llm-catalog-init:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/llm-catalog-init
+      dockerfile: Dockerfile
+    container_name: genai-llm-catalog-init
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      ANTHROPIC_API_KEY: ""
+      ANTHROPIC_USER_MODELS: ""
+      LITELLM_ANTHROPIC_ENABLED: "false"
+      LITELLM_OPENAI_ENABLED: "false"
+      LITELLM_OPENROUTER_ENABLED: "false"
+      LLM_PROVIDER_SOURCE: ollama-container-cpu
+      OLLAMA_CUSTOM_MODELS: ""
+      OLLAMA_USER_MODELS: ""
+      OPENAI_API_KEY: ""
+      OPENAI_USER_MODELS: ""
+      OPENROUTER_API_KEY: ""
+      OPENROUTER_USER_MODELS: ""
+      PGDATABASE: postgres
+      PGHOST: supabase-db
+      PGPASSWORD: password
+      PGPORT: "5432"
+      PGUSER: supabase_admin
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/llm-catalog-init/scripts
+        target: /scripts
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/bootstrapper/utils
+        target: /catalog
+        read_only: true
+        bind: {}
+  local-deep-researcher:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/local-deep-researcher
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: python:3.11-slim
+    container_name: genai-local-deep-researcher
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      searxng:
+        condition: service_healthy
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      LITELLM_API_KEY: ""
+      LITELLM_BASE_URL: http://litellm:4000
+      LOCAL_DEEP_RESEARCHER_WORKERS: "3"
+      MAX_WEB_RESEARCH_LOOPS: "3"
+      SEARCH_API: searxng
+      SEARXNG_URL: http://searxng:8080
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 2024
+        published: "63013"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: local-deep-researcher-data
+        target: /app/data
+        volume: {}
+      - type: volume
+        source: local-deep-researcher-repo
+        target: /app/repo
+        volume: {}
+  multi2vec-clip:
+    container_name: genai-multi2vec-clip
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      ENABLE_CUDA: "0"
+    image: semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32
+    networks:
+      backend-network: null
+    restart: unless-stopped
+  n8n:
+    container_name: genai-n8n
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      DB_POSTGRESDB_DATABASE: postgres
+      DB_POSTGRESDB_HOST: supabase-db
+      DB_POSTGRESDB_PASSWORD: password
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_SCHEMA: n8n
+      DB_POSTGRESDB_USER: supabase_admin
+      DB_SCHEMA: n8n
+      DB_TYPE: postgresdb
+      DOCLING_ENDPOINT: ""
+      EXECUTIONS_MODE: queue
+      GENERIC_TIMEZONE: UTC
+      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63002
+      N8N_AUTH_ENABLED: "true"
+      N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: "true"
+      N8N_COMMUNITY_PACKAGES_ENABLED: "true"
+      N8N_EDITOR_BASE_URL: http://n8n.localhost:63002
+      N8N_ENCRYPTION_KEY: your-random-encryption-key
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_HOST: n8n.localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_PROXY_HOPS: "1"
+      N8N_PUSH_BACKEND: websocket
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_SECURE_COOKIE: "false"
+      NODE_ENV: development
+      NODE_OPTIONS: --max_old_space_size=512
+      OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: "true"
+      PARAKEET_ENDPOINT: ""
+      QUEUE_BULL_REDIS_DB: "0"
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PASSWORD: redis_password
+      QUEUE_BULL_REDIS_PORT: "6379"
+      QUEUE_HEALTH_CHECK_ACTIVE: "true"
+      VUE_APP_URL_BASE_API: http://n8n.localhost:63002/
+      WEAVIATE_URL: http://weaviate:8080
+      WEBHOOK_URL: http://n8n.localhost:63002/
+      XTTS_ENDPOINT: ""
+    image: n8nio/n8n:latest
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 5678
+        published: "63017"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: n8n-data
+        target: /home/node/.n8n
+        volume: {}
+  n8n-init:
+    container_name: genai-n8n-init
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      n8n:
+        condition: service_started
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /scripts/init-n8n.sh
+    environment:
+      N8N_HOST: n8n
+      N8N_INIT_NODES: n8n-nodes-comfyui,@ksc1234/n8n-nodes-comfyui-image-to-image,n8n-nodes-mcp
+      N8N_PORT: "5678"
+    image: alpine:latest
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/n8n-init/scripts
+        target: /scripts
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/n8n-init/config
+        target: /config
+        bind: {}
+      - type: volume
+        source: n8n-data
+        target: /n8n-data
+        volume: {}
+  n8n-worker:
+    command:
+      - worker
+    container_name: genai-n8n-worker
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      DB_POSTGRESDB_DATABASE: postgres
+      DB_POSTGRESDB_HOST: supabase-db
+      DB_POSTGRESDB_PASSWORD: password
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_SCHEMA: n8n
+      DB_POSTGRESDB_USER: supabase_admin
+      DB_SCHEMA: n8n
+      DB_TYPE: postgresdb
+      EXECUTIONS_MODE: queue
+      N8N_ENCRYPTION_KEY: your-random-encryption-key
+      N8N_RUNNERS_ENABLED: "true"
+      NODE_ENV: development
+      QUEUE_BULL_REDIS_DB: "0"
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PASSWORD: redis_password
+      QUEUE_BULL_REDIS_PORT: "6379"
+      QUEUE_HEALTH_CHECK_ACTIVE: "true"
+    image: n8nio/n8n:latest
+    networks:
+      backend-network: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: n8n-data
+        target: /home/node/.n8n
+        volume: {}
+  neo4j-graph-db:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/graph-db
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: neo4j:5.19.0
+    container_name: genai-neo4j-graph-db
+    deploy:
+      replicas: 1
+    environment:
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_AUTH: neo4j/neo4j_password
+      NEO4J_browser_remote__content__hostname__whitelist: '*'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_server_default__advertised__address: neo4j-graph-db
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 7687
+        published: "63010"
+        protocol: tcp
+      - mode: ingress
+        target: 7474
+        published: "63011"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/graph-db/scripts
+        target: /scripts
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/graph-db/snapshot
+        target: /snapshot
+        bind: {}
+      - type: volume
+        source: graph-db-data
+        target: /data
+        volume: {}
+  ollama:
+    container_name: genai-ollama
+    deploy:
+      replicas: 1
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "null"
+    image: ollama/ollama:latest
+    networks:
+      backend-network: null
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: llm-provider-data
+        target: /root/.ollama
+        volume: {}
+  ollama-pull:
+    container_name: genai-ollama-pull
+    depends_on:
+      llm-catalog-init:
+        condition: service_completed_successfully
+        required: true
+      ollama:
+        condition: service_started
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /scripts/pull.sh
+    environment:
+      OLLAMA_HOST_URL: http://ollama:11434
+      PGDATABASE: postgres
+      PGHOST: supabase-db
+      PGPASSWORD: password
+      PGPORT: "5432"
+      PGUSER: supabase_admin
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: alpine:latest
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/ollama-pull/scripts
+        target: /scripts
+        read_only: true
+        bind: {}
+  open-web-ui:
+    container_name: genai-open-web-ui
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+      supabase-realtime:
+        condition: service_started
+        required: true
+      supabase-storage:
+        condition: service_started
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      AUDIO_STT_ENGINE: ""
+      AUDIO_STT_MODEL: whisper-1
+      AUDIO_STT_OPENAI_API_BASE_URL: ""
+      AUDIO_STT_OPENAI_API_KEY: sk-unused
+      AUDIO_TTS_ENGINE: ""
+      AUDIO_TTS_MODEL: tts-1-hd
+      AUDIO_TTS_OPENAI_API_BASE_URL: ""
+      AUDIO_TTS_OPENAI_API_KEY: sk-unused
+      AUDIO_TTS_VOICE: alloy
+      COMFYUI_BASE_URL: http://comfyui:18188
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      ENABLE_IMAGE_GENERATION: "true"
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "true"
+      ENABLE_WEBSOCKET_SUPPORT: "true"
+      IMAGE_GENERATION_ENGINE: comfyui
+      MODEL_LIST_CACHE_TTL: "300"
+      OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      OPENAI_API_KEYS: ""
+      REDIS_KEY_PREFIX: openwebui
+      WEBSOCKET_MANAGER: redis
+      WEBSOCKET_REDIS_URL: redis://:redis_password@redis:6379/2
+      WEBUI_ADMIN_EMAIL: admin@localhost
+      WEBUI_ADMIN_NAME: Admin
+      WEBUI_ADMIN_PASSWORD: admin
+      WEBUI_SECRET_KEY: secret
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: dyrnq/open-webui:latest
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "63015"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: open-web-ui-data
+        target: /app/backend/data
+        volume: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/tools
+        target: /app/backend/data/tools
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/functions
+        target: /app/backend/data/functions
+        bind: {}
+  open-webui-init:
+    build:
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui-init
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: python:3.11-slim
+    container_name: genai-open-webui-init
+    depends_on:
+      open-web-ui:
+        condition: service_started
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      ADMIN_EMAIL: admin@localhost
+      ADMIN_NAME: Admin
+      ADMIN_PASSWORD: admin
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      FUNCTIONS_DIR: /functions
+      TOOLS_DIR: /tools
+      WEBUI_SECRET_KEY: secret
+      WEBUI_URL: http://open-web-ui:8080
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/tools
+        target: /tools
+        read_only: true
+        bind: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/functions
+        target: /functions
+        read_only: true
+        bind: {}
+  openclaw-gateway:
+    command:
+      - node
+      - openclaw.mjs
+      - gateway
+      - --allow-unconfigured
+      - --bind
+      - lan
+    container_name: genai-openclaw-gateway
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      openclaw-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      ANTHROPIC_API_KEY: ""
+      HOME: /home/node
+      LITELLM_API_KEY: ""
+      LITELLM_BASE_URL: http://litellm:4000
+      OPENAI_API_KEY: ""
+      OPENCLAW_GATEWAY_TOKEN: ""
+      TERM: xterm-256color
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:18789/healthz
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 20s
+    image: ghcr.io/openclaw/openclaw:latest
+    labels:
+      com.genai.agent: openclaw
+      com.genai.category: ai
+      com.genai.service: ai-agent
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 18789
+        published: "63024"
+        protocol: tcp
+      - mode: ingress
+        target: 18790
+        published: "63025"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: openclaw-config
+        target: /home/node/.openclaw
+        volume: {}
+      - type: volume
+        source: openclaw-workspace
+        target: /home/node/.openclaw/workspace
+        volume: {}
+  openclaw-init:
+    container_name: genai-openclaw-init
+    deploy:
+      replicas: 0
+    entrypoint:
+      - sh
+      - -c
+      - |
+        apk add --no-cache jq > /dev/null 2>&1
+        CONFIG=/home/node/.openclaw/openclaw.json
+        PATCH='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
+        if [ -f "$$CONFIG" ]; then
+          jq --argjson patch "$$PATCH" '. * $$patch' "$$CONFIG" > "$$CONFIG.tmp" && mv "$$CONFIG.tmp" "$$CONFIG"
+        else
+          echo "$$PATCH" | jq . > "$$CONFIG"
+        fi
+        chown -R 1000:1000 /home/node/.openclaw
+    image: alpine:latest
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: volume
+        source: openclaw-config
+        target: /home/node/.openclaw
+        volume: {}
+      - type: volume
+        source: openclaw-workspace
+        target: /home/node/.openclaw/workspace
+        volume: {}
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - redis_password
+    container_name: genai-redis
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - -a
+        - redis_password
+        - ping
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: redis:7.2-alpine
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 6379
+        published: "63001"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: redis-data
+        target: /data
+        volume: {}
+  searxng:
+    container_name: genai-searxng
+    depends_on:
+      redis:
+        condition: service_healthy
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    environment:
+      FORCE_OWNERSHIP: "1"
+      SEARXNG_BASE_URL: http://localhost:63014
+      SEARXNG_SECRET: ""
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:8080/healthz
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: searxng/searxng:latest
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "63014"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/searxng/config
+        target: /etc/searxng
+        bind: {}
+      - type: volume
+        source: searxng-data
+        target: /var/cache/searxng
+        volume: {}
+  supabase-api:
+    container_name: genai-supabase-api
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_SCHEMA: public,storage,auth
+      PGRST_DB_URI: postgres://supabase_admin:password@supabase-db:5432/postgres
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_JWT_SECRET: ""
+    image: postgrest/postgrest:v12.2.10
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "63007"
+        protocol: tcp
+    restart: unless-stopped
+  supabase-auth:
+    container_name: genai-supabase-auth
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      API_EXTERNAL_URL: http://supabase-auth:9999
+      DB_NAMESPACE: auth
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_admin:password@supabase-db:5432/postgres
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_SECRET: ""
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /confirm
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /email-change
+      GOTRUE_MAILER_URLPATHS_INVITE: /invite
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /recover
+      GOTRUE_SITE_NAME: Local Supabase
+      GOTRUE_SITE_URL: http://supabase-studio:3000
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@example.com
+      GOTRUE_SMTP_HOST: localhost
+      GOTRUE_SMTP_PASS: ""
+      GOTRUE_SMTP_PORT: "1025"
+      GOTRUE_SMTP_SENDER_NAME: Supabase Auth
+      GOTRUE_SMTP_USER: ""
+    image: supabase/gotrue:v2.171.0
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 9999
+        published: "63006"
+        protocol: tcp
+    restart: unless-stopped
+  supabase-db:
+    container_name: genai-supabase-db
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: supabase_admin
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U supabase_admin -d postgres
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: supabase/postgres:17.4.1.016
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 5432
+        published: "63000"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: supabase-db-data
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/supabase/db/snapshot
+        target: /snapshot
+        bind: {}
+  supabase-db-init:
+    container_name: genai-supabase-db-init
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+        required: true
+    entrypoint:
+      - /scripts/db-init-runner.sh
+    environment:
+      PGDATABASE: postgres
+      PGHOST: supabase-db
+      PGPASSWORD: password
+      PGUSER: supabase_admin
+    image: postgres:15-alpine
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/supabase/db/scripts
+        target: /scripts
+        bind: {}
+  supabase-meta:
+    container_name: genai-supabase-meta
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_NAME: postgres
+      PG_META_DB_PASSWORD: password
+      PG_META_DB_PORT: "5432"
+      PG_META_DB_USER: supabase_admin
+      PG_META_PORT: "8080"
+    image: supabase/postgres-meta:v0.88.9
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "63004"
+        protocol: tcp
+    restart: unless-stopped
+  supabase-realtime:
+    container_name: genai-supabase-realtime
+    depends_on:
+      supabase-api:
+        condition: service_started
+        required: true
+      supabase-auth:
+        condition: service_started
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      APP_NAME: realtime
+      DB_CHANNEL_ENABLED: "true"
+      DB_HOST: supabase-db
+      DB_NAME: postgres
+      DB_PASSWORD: password
+      DB_PORT: "5432"
+      DB_SLOT: supabase_realtime_slot
+      DB_USER: supabase_admin
+      ERL_AFLAGS: -proto_dist inet_tcp
+      HOSTNAME: supabase-realtime
+      IP_VERSION: ipv4
+      JWT_ROLE: service_role
+      JWT_SECRET: ""
+      LIBCLUSTER_STRATEGY: Cluster.Strategy.Gossip
+      LIBCLUSTER_TOPOLOGIES: '[]'
+      PORT: "4000"
+      REPLICATION_MODE: RLS
+      RLIMIT_NOFILE: "65536"
+      SECRET_KEY_BASE: ""
+      SECURE_CHANNELS: "true"
+    image: supabase/realtime:v2.33.72
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 4000
+        published: "63008"
+        protocol: tcp
+    restart: unless-stopped
+  supabase-storage:
+    container_name: genai-supabase-storage
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      ANON_KEY: ""
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      FILE_SIZE_LIMIT: "52428800"
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      FILE_STORAGE_PATH: /var/lib/storage
+      GOTRUE_URL: http://supabase-auth:9999
+      JWT_SECRET: ""
+      PGRST_JWT_SECRET: ""
+      POSTGREST_URL: http://supabase-api:3000
+      PROJECT_REF: default
+      REGION: local
+      SERVICE_KEY: ""
+      STORAGE_BACKEND: file
+      TENANT_ID: stub
+    image: supabase/storage-api:v1.22.7
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 5000
+        published: "63005"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: supabase-storage-data
+        target: /var/lib/storage
+        volume: {}
+  supabase-studio:
+    container_name: genai-supabase-studio
+    depends_on:
+      kong-api-gateway:
+        condition: service_started
+        required: true
+      supabase-api:
+        condition: service_started
+        required: true
+      supabase-auth:
+        condition: service_started
+        required: true
+      supabase-db-init:
+        condition: service_completed_successfully
+        required: true
+      supabase-meta:
+        condition: service_started
+        required: true
+      supabase-realtime:
+        condition: service_started
+        required: true
+      supabase-storage:
+        condition: service_started
+        required: true
+    environment:
+      AUTH_JWT_SECRET: ""
+      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DEFAULT_ORGANIZATION_NAME: genai
+      HOSTNAME: 0.0.0.0
+      POSTGRES_PASSWORD: password
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      SUPABASE_ANON_KEY: ""
+      SUPABASE_PUBLIC_URL: http://localhost:63002
+      SUPABASE_SERVICE_KEY: ""
+      SUPABASE_URL: http://kong-api-gateway:8000
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e 'require("net").createConnection({port:3000,host:"localhost"},()=>process.exit(0)).on("error",()=>process.exit(1))'
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 30s
+    image: supabase/studio:latest
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "63009"
+        protocol: tcp
+    restart: unless-stopped
+  weaviate:
+    container_name: genai-weaviate
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      supabase-db:
+        condition: service_healthy
+        required: true
+      weaviate-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /scripts/configure-weaviate.sh
+      - /bin/weaviate
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --scheme
+      - http
+    environment:
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      CLIP_INFERENCE_API: http://multi2vec-clip:8080
+      CLUSTER_HOSTNAME: weaviate
+      DEFAULT_VECTORIZER_MODULE: text2vec-openai
+      ENABLE_MODULES: text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama
+      OPENAI_APIKEY: ""
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      QUERY_DEFAULTS_LIMIT: "25"
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:8080/v1/.well-known/ready
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: cr.weaviate.io/semitechnologies/weaviate:1.27.5
+    networks:
+      backend-network: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "63019"
+        protocol: tcp
+      - mode: ingress
+        target: 50051
+        published: "63020"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: weaviate-data
+        target: /var/lib/weaviate
+        volume: {}
+      - type: volume
+        source: weaviate-shared-config
+        target: /shared
+        volume: {}
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/weaviate-init/scripts
+        target: /scripts
+        bind: {}
+  weaviate-init:
+    container_name: genai-weaviate-init
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
+      supabase-db:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 1
+    entrypoint:
+      - /scripts/init-weaviate.sh
+    environment:
+      LITELLM_API_KEY: ""
+      LITELLM_BASE_URL: http://litellm:4000
+      PGDATABASE: postgres
+      PGHOST: supabase-db
+      PGPASSWORD: password
+      PGPORT: "5432"
+      PGUSER: supabase_admin
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: alpine:latest
+    networks:
+      backend-network: null
+    restart: "no"
+    volumes:
+      - type: bind
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/weaviate-init/scripts
+        target: /scripts
+        bind: {}
+      - type: volume
+        source: weaviate-shared-config
+        target: /shared
+        volume: {}
+networks:
+  backend-network:
+    name: genai-network
+    driver: bridge
+volumes:
+  backend-data:
+    name: genai-backend-data
+    driver: local
+  comfyui-custom-nodes:
+    name: genai-comfyui-custom-nodes
+    driver: local
+  comfyui-input:
+    name: genai-comfyui-input
+    driver: local
+  comfyui-models:
+    name: genai-comfyui-models
+    driver: local
+  comfyui-output:
+    name: genai-comfyui-output
+    driver: local
+  graph-db-data:
+    name: genai-graph-db-data
+    driver: local
+  jupyterhub-data:
+    name: genai-jupyterhub-data
+    driver: local
+  llm-provider-data:
+    name: genai-llm-provider-data
+    driver: local
+  local-deep-researcher-data:
+    name: genai-local-deep-researcher-data
+    driver: local
+  local-deep-researcher-repo:
+    name: genai-local-deep-researcher-repo
+    driver: local
+  n8n-data:
+    name: genai-n8n-data
+    driver: local
+  open-web-ui-data:
+    name: genai-open-web-ui-data
+    driver: local
+  openclaw-config:
+    name: genai-openclaw-config
+    driver: local
+  openclaw-workspace:
+    name: genai-openclaw-workspace
+    driver: local
+  redis-data:
+    name: genai-redis-data
+    driver: local
+  searxng-data:
+    name: genai-searxng-data
+    driver: local
+  supabase-db-data:
+    name: genai-supabase-db-data
+    driver: local
+  supabase-storage-data:
+    name: genai-supabase-storage-data
+    driver: local
+  weaviate-data:
+    name: genai-weaviate-data
+    driver: local
+  weaviate-shared-config:
+    name: genai-weaviate-shared-config
+    driver: local

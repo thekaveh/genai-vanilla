@@ -1,0 +1,120 @@
+# services/litellm/compose.yml — LiteLLM gateway + catalog/init pipeline
+services:
+  llm-catalog-init:
+    build: ../../llm-catalog-init
+    container_name: ${PROJECT_NAME}-llm-catalog-init
+    restart: "no"
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      LLM_PROVIDER_SOURCE: ${LLM_PROVIDER_SOURCE:-ollama-container-cpu}
+      LITELLM_OPENAI_ENABLED: ${LITELLM_OPENAI_ENABLED:-false}
+      LITELLM_ANTHROPIC_ENABLED: ${LITELLM_ANTHROPIC_ENABLED:-false}
+      LITELLM_OPENROUTER_ENABLED: ${LITELLM_OPENROUTER_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_USER_MODELS: ${OPENAI_USER_MODELS:-}
+      ANTHROPIC_USER_MODELS: ${ANTHROPIC_USER_MODELS:-}
+      OPENROUTER_USER_MODELS: ${OPENROUTER_USER_MODELS:-}
+      OLLAMA_USER_MODELS: ${OLLAMA_USER_MODELS:-}
+      OLLAMA_CUSTOM_MODELS: ${OLLAMA_CUSTOM_MODELS:-}
+    volumes:
+      - ../../llm-catalog-init/scripts:/scripts:ro
+      # Catalog module mounted as a SIBLING dir, not as a file inside
+      # the /scripts mount. Docker's behavior with file-on-dir overlays
+      # is platform-dependent and was the root cause of a silent
+      # init-chain failure on first launch. Sibling mount is unambiguous.
+      - ../../bootstrapper/utils:/catalog:ro
+    networks:
+      - backend-network
+
+  litellm-init:
+    build: ../../litellm-init
+    container_name: ${PROJECT_NAME}-litellm-init
+    restart: "no"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      llm-catalog-init:
+        condition: service_completed_successfully
+    deploy:
+      replicas: ${LITELLM_INIT_SCALE:-1}
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      LITELLM_DB_NAME: ${LITELLM_DB_NAME:-litellm}
+      # ``${VAR-default}`` (no colon) — fall back to default ONLY when
+      # LITELLM_OLLAMA_UPSTREAM is unset. An empty value means "no
+      # Ollama upstream" (LLM_PROVIDER_SOURCE=none); the ``:-`` form
+      # would silently substitute the default for empty too, breaking
+      # cloud-only setups. See .env.example LITELLM_OLLAMA_UPSTREAM.
+      LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
+      LITELLM_CONFIG_OUT: /litellm-config/config.yaml
+    volumes:
+      - ../../litellm-init/scripts:/scripts:ro
+      - ../../volumes/litellm:/litellm-config:rw
+      # Sibling mount of bootstrapper/utils so /catalog/litellm_settings.py
+      # (the shared settings dict) is reachable from init.py. Same
+      # rationale as llm-catalog-init's /catalog mount.
+      - ../../bootstrapper/utils:/catalog:ro
+    networks:
+      - backend-network
+
+  litellm:
+    image: ${LITELLM_IMAGE:-ghcr.io/berriai/litellm:v1.83.14-stable.patch.2}
+    container_name: ${PROJECT_NAME}-litellm
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      litellm-init:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    ports:
+      - "${LITELLM_PORT:-63012}:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${LITELLM_DB_NAME:-litellm}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      STORE_MODEL_IN_DB: "True"
+      USE_PRISMA_MIGRATE: "True"
+      # Cloud-provider keys — required at request time. The LiteLLM
+      # proxy resolves ``os.environ/OPENAI_API_KEY`` etc. from its
+      # config.yaml at request time, so these must be available on the
+      # container for routes pointing at cloud upstreams.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # NOTE: LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED /
+      # LITELLM_OPENROUTER_ENABLED are NOT passed here — they're
+      # consumed only by ``llm-catalog-init`` to gate which provider
+      # rows in public.llms get activated. The LiteLLM proxy's own
+      # config comes entirely from /app/config.yaml.
+    volumes:
+      - ../../volumes/litellm/config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4"]
+    healthcheck:
+      # LiteLLM's image is python:slim-based — no wget/curl. Probe via Python's
+      # stdlib so the check works regardless of installed binaries.
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - backend-network

@@ -1,0 +1,44 @@
+# services/jupyterhub/service.yml — JupyterHub data-science notebook
+name: jupyterhub
+label: "JupyterHub (data science notebooks)"
+category: app
+docs: docs/services/jupyterhub.md
+
+containers:
+  - jupyterhub
+
+images:
+  - var: JUPYTERHUB_IMAGE
+    default: "jupyter/datascience-notebook:python-3.11"
+    container: jupyterhub
+
+sources:
+  var: JUPYTERHUB_SOURCE
+  default: container
+  options:
+    - id: container
+      label: "Container"
+      effects:
+        JUPYTERHUB_SCALE: 1
+    - id: disabled
+      label: "Disabled"
+      effects:
+        JUPYTERHUB_SCALE: 0
+
+env:
+  - name: JUPYTERHUB_SOURCE
+    default: container
+  - name: JUPYTERHUB_PORT
+    default: 63048
+  - name: JUPYTERHUB_TOKEN
+    default: ""
+    secret: true
+    description: "Optional. Empty = generate on start."
+  - name: JUPYTERHUB_SCALE
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

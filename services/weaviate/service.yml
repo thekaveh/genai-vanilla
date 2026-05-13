@@ -1,0 +1,95 @@
+# services/weaviate/service.yml — Weaviate + init + CLIP multimodal
+name: weaviate
+label: "Weaviate (vector database)"
+category: ai
+docs: docs/services/weaviate.md
+
+containers:
+  - weaviate
+  - weaviate-init
+  - multi2vec-clip
+
+images:
+  - var: WEAVIATE_IMAGE
+    default: "cr.weaviate.io/semitechnologies/weaviate:1.27.5"
+    container: weaviate
+  - var: WEAVIATE_INIT_IMAGE
+    default: "alpine:latest"
+    container: weaviate-init
+  - var: MULTI2VEC_CLIP_IMAGE
+    default: "semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32"
+    container: multi2vec-clip
+
+sources:
+  var: WEAVIATE_SOURCE
+  default: container
+  options:
+    - id: container
+      label: "Container (in-stack Weaviate)"
+      effects:
+        WEAVIATE_SCALE: 1
+        WEAVIATE_INIT_SCALE: 1
+        WEAVIATE_URL: "http://weaviate:8080"
+    - id: localhost
+      label: "Host (existing Weaviate on this machine)"
+      effects:
+        WEAVIATE_SCALE: 0
+        WEAVIATE_INIT_SCALE: 0
+        WEAVIATE_URL: "http://host.docker.internal:8080"
+    - id: disabled
+      label: "Disabled"
+      effects:
+        WEAVIATE_SCALE: 0
+        WEAVIATE_INIT_SCALE: 0
+        WEAVIATE_URL: ""
+
+env:
+  - name: WEAVIATE_SOURCE
+    default: container
+  - name: WEAVIATE_PORT
+    default: 63019
+  - name: WEAVIATE_GRPC_PORT
+    default: 63020
+  - name: WEAVIATE_INIT_SOURCE
+    default: container
+    description: "Auto-managed by weaviate. Container/disabled."
+  - name: MULTI2VEC_CLIP_SOURCE
+    default: container-cpu
+    description: "Options: container-cpu, container-gpu, disabled. (Effects driven by hook.)"
+  - name: WEAVIATE_ENABLE_MODULES
+    default: "text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama"
+  - name: CLIP_INFERENCE_API
+    default: "http://multi2vec-clip:8080"
+  - name: WEAVIATE_URL
+    auto_managed: true
+    description: "Resolved per WEAVIATE_SOURCE. Consumed by n8n, backend, jupyterhub."
+  - name: WEAVIATE_OLLAMA_ENDPOINT
+    auto_managed: true
+    description: "Computed by hook to mirror OLLAMA_ENDPOINT."
+  - name: WEAVIATE_LITELLM_BASE_URL
+    auto_managed: true
+    default: "http://litellm:4000/v1"
+    description: "Computed by hook from LITELLM_PORT + BASE_PORT."
+  - name: WEAVIATE_LITELLM_API_KEY
+    auto_managed: true
+    secret: true
+    description: "Mirror of LITELLM_MASTER_KEY for Weaviate's vectorizer auth."
+  - name: WEAVIATE_SCALE
+    auto_managed: true
+  - name: WEAVIATE_INIT_SCALE
+    auto_managed: true
+  - name: CLIP_SCALE
+    auto_managed: true
+    description: "Computed from MULTI2VEC_CLIP_SOURCE."
+  - name: CLIP_ENABLE_CUDA
+    auto_managed: true
+  - name: CLIP_DEPLOY_RESOURCES
+    default: "~"
+
+hook: services.hooks.weaviate
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

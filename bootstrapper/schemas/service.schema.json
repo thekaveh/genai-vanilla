@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genai-vanilla/schemas/service.schema.json",
+  "title": "Service Manifest",
+  "description": "Schema for services/<name>/service.yml. Each file is the single source of truth for one service family — what previously lived split across docker-compose.yml, .env.example, and bootstrapper/service-configs.yml.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "label", "category", "env"],
+  "properties": {
+    "virtual": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, this manifest has no compose fragment. Used for logical groupings like cloud-providers (routed through LiteLLM, no container of their own). Virtual manifests MAY omit `containers` and MUST NOT have a services/<name>/compose.yml."
+    },
+    "name": {
+      "type": "string",
+      "description": "Folder name under services/. Must match the parent directory name. Kebab-case.",
+      "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$"
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable label shown in the TUI wizard."
+    },
+    "category": {
+      "type": "string",
+      "enum": ["data", "llm", "ai", "app", "infra"],
+      "description": "Wizard grouping. data=DB/cache/storage; llm=LLM gateway/engine; ai=vector/STT/TTS/image-gen/doc; app=user-facing service; infra=gateway/observability."
+    },
+    "docs": {
+      "type": "string",
+      "description": "Optional pointer to docs/services/<name>.md (or similar)."
+    },
+    "containers": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "description": "Every container name in this family's compose.yml. The manifest_validator asserts this matches compose.yml's services keys 1:1. May be empty when `virtual: true`."
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["var", "default", "container"],
+        "properties": {
+          "var": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "Env var name that holds the image reference (interpolated as ${VAR} in compose.yml)."
+          },
+          "default": {
+            "type": "string",
+            "description": "Default image reference (e.g. 'ollama/ollama:latest')."
+          },
+          "container": {
+            "type": "string",
+            "description": "Which container in this manifest uses this image. Must appear in `containers`."
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["var", "default", "options"],
+      "description": "Optional SOURCE-variant block. Omit for services without source variation (e.g. redis, kong).",
+      "properties": {
+        "var": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "SOURCE env var name (e.g. LLM_PROVIDER_SOURCE)."
+        },
+        "default": {
+          "type": "string",
+          "description": "Default source id. Must match one of options[].id."
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "description": "Source value (e.g. 'ollama-container-cpu')."
+              },
+              "label": { "type": "string" },
+              "requires": {
+                "type": "array",
+                "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+                "description": "Env vars that MUST be non-empty when this source is selected (e.g. LLM_PROVIDER_EXTERNAL_URL for ollama-external)."
+              },
+              "effects": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    { "type": "string" },
+                    { "type": "integer" },
+                    { "type": "number" },
+                    { "type": "boolean" }
+                  ]
+                },
+                "description": "Env vars this source assigns when active. Values may be literal scalars or ${VAR}-references resolved after all manifests load."
+              }
+            }
+          }
+        }
+      }
+    },
+    "env": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "UPPER_SNAKE_CASE env var name. Must be globally unique across all manifests."
+          },
+          "default": {
+            "description": "Default value emitted into .env.example. Scalar only.",
+            "anyOf": [
+              { "type": "string" },
+              { "type": "integer" },
+              { "type": "number" },
+              { "type": "boolean" }
+            ]
+          },
+          "description": { "type": "string" },
+          "auto_managed": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the variable is computed at runtime (by source effects or a hook) and is NOT emitted into .env.example with a default. Still documented."
+          },
+          "secret": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, treated as sensitive (.env.example default is empty; never logged in plain text)."
+          }
+        }
+      }
+    },
+    "depends_on": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "description": "Other service-manifest names this one CANNOT run without. Logical dependency — compose-level depends_on still lives in compose.yml."
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+        }
+      }
+    },
+    "exports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "consumers"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "Env var this manifest produces and other services read."
+          },
+          "consumers": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "description": "Service-manifest names that consume the exported value."
+          }
+        }
+      },
+      "description": "Documents the cross-service env-var contract. Validator asserts each exported name appears in this manifest's env declarations (or is produced by source effects)."
+    },
+    "hook": {
+      "type": "string",
+      "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)+$",
+      "description": "Dotted Python module path (e.g. 'services.hooks.comfyui') for a callable that runs AFTER declarative effects and may mutate auto_managed env vars."
+    }
+  }
+}

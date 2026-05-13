@@ -1,0 +1,72 @@
+# services/redis/service.yml
+#
+# Manifest for the Redis cache/queue. First service carved out of the
+# monolithic docker-compose.yml under Phase B of the configuration
+# modularization. Redis has a single container, no source variants, and is
+# consumed by half the stack (n8n, kong, open-webui, backend, local-deep-
+# researcher).
+#
+# This manifest is NOT yet wired into start.py — the bootstrapper still
+# reads bootstrapper/service-configs.yml as its live source of truth.
+# That swap happens in Phase D once every service is carved out.
+
+name: redis
+label: "Redis (cache & queue)"
+category: data
+docs: docs/services/redis.md
+
+containers:
+  - redis
+
+images:
+  - var: REDIS_IMAGE
+    default: "redis:7.2-alpine"
+    container: redis
+    notes: "Bumping the redis version: change this default and rerun ./start.sh."
+
+env:
+  - name: REDIS_SOURCE
+    default: container
+    description: |
+      Single-option source toggle. Redis only ever runs as a container.
+      Kept as an env entry (rather than a sources: block) so the wizard
+      does not render a one-option dropdown. The legacy source validator
+      still expects REDIS_SOURCE=container until Phase D.
+  - name: REDIS_PORT
+    default: 63001
+    description: "Host port. Container port is always 6379."
+  - name: REDIS_PASSWORD
+    default: redis_password
+    secret: true
+    description: |
+      Used by every consumer (n8n queue, kong rate-limit cache,
+      open-webui websocket store, backend session/queue, local-deep-
+      researcher worker queue). The default is for fresh-install
+      convenience only; rotate before any deployment.
+  - name: REDIS_URL
+    default: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+    description: |
+      Default connection string (database index 0). Consumers that need a
+      different DB index build their own URL (open-webui uses /2,
+      local-deep-researcher uses /3). REDIS_PASSWORD is substituted at
+      compose-interpolation time.
+
+# Manifest-level depends_on is intentionally empty: redis's compose-level
+# depends_on (supabase-db-init, condition: service_completed_successfully)
+# is a STARTUP-ORDERING concern that lives in compose.yml. The validator's
+# logical-dependency closure check fires only against manifests we've
+# already carved out, so depending on `supabase` here today would error
+# until the supabase manifest exists (Phase C).
+depends_on:
+  required: []
+  optional: []
+
+# Exports declare the env-var contract redis offers to other services.
+# Consumer lists are advisory documentation; the validator only checks
+# that each named consumer is itself a known manifest. Until the consumer
+# manifests exist (Phase C), this stays empty so the validator stays clean.
+#
+# The compose-time wiring (KONG_REDIS_HOST: redis, REDIS_URL: ${REDIS_URL},
+# WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/2", etc.)
+# continues to work via the flat .env regardless of this exports list.
+exports: []

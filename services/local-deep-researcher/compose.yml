@@ -1,0 +1,43 @@
+# services/local-deep-researcher/compose.yml
+services:
+  local-deep-researcher:
+    build:
+      context: ../../local-deep-researcher
+      args:
+        BASE_IMAGE: ${LOCAL_DEEP_RESEARCHER_IMAGE}
+    container_name: ${PROJECT_NAME}-local-deep-researcher
+    restart: unless-stopped
+    deploy:
+      replicas: ${LOCAL_DEEP_RESEARCHER_SCALE:-1}
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      searxng:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
+      SEARXNG_URL: http://searxng:8080
+      MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
+      LOCAL_DEEP_RESEARCHER_WORKERS: ${LOCAL_DEEP_RESEARCHER_WORKERS:-3}
+    ports:
+      - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
+    volumes:
+      - local-deep-researcher-data:/app/data
+      - local-deep-researcher-repo:/app/repo
+    networks:
+      - backend-network
+
+volumes:
+  local-deep-researcher-data:
+    name: ${PROJECT_NAME}-local-deep-researcher-data
+    driver: local
+  local-deep-researcher-repo:
+    name: ${PROJECT_NAME}-local-deep-researcher-repo
+    driver: local

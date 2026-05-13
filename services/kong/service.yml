@@ -1,0 +1,33 @@
+# services/kong/service.yml — Kong API gateway
+name: kong
+label: "Kong (API gateway)"
+category: infra
+docs: docs/services/kong.md
+
+containers:
+  - kong-api-gateway
+
+images:
+  - var: KONG_API_GATEWAY_IMAGE
+    default: "kong:3.9.0"
+    container: kong-api-gateway
+
+env:
+  - name: KONG_API_GATEWAY_SOURCE
+    default: container
+    description: "Single-option (container only)."
+  - name: KONG_HTTP_PORT
+    default: 63002
+  - name: KONG_HTTPS_PORT
+    default: 63003
+  - name: DASHBOARD_USERNAME
+    default: kong_admin
+  - name: DASHBOARD_PASSWORD
+    default: kong_password
+    secret: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

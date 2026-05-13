@@ -1,0 +1,51 @@
+# services/ollama/compose.yml — Ollama engine + model puller
+services:
+  ollama:
+    image: ${LLM_PROVIDER_IMAGE}
+    container_name: ${PROJECT_NAME}-ollama
+    restart: unless-stopped
+    volumes:
+      - llm-provider-data:/root/.ollama
+    # No host port mapping — Ollama is now an internal-only upstream for LiteLLM.
+    # Direct CLI access from host: docker exec -it ${PROJECT_NAME}-ollama ollama <cmd>
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${OLLAMA_NVIDIA_VISIBLE_DEVICES:-all}
+    deploy:
+      replicas: ${OLLAMA_SCALE:-1}
+    networks:
+      - backend-network
+
+  ollama-pull:
+    image: ${OLLAMA_PULL_IMAGE}
+    container_name: ${PROJECT_NAME}-ollama-pull
+    restart: "no"
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      llm-catalog-init:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
+      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      # Bypasses LiteLLM by design — model pulls hit Ollama's /api/pull directly.
+      # ``${VAR-default}`` form: see comment in litellm-init service.
+      OLLAMA_HOST_URL: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
+    volumes:
+      - ../../ollama-pull/scripts:/scripts:ro
+    entrypoint: ["/scripts/pull.sh"]
+    deploy:
+      replicas: ${OLLAMA_PULL_SCALE:-1}
+    networks:
+      - backend-network
+
+volumes:
+  llm-provider-data:
+    name: ${PROJECT_NAME}-llm-provider-data
+    driver: local
