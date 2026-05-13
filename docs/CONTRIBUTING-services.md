@@ -128,3 +128,30 @@ diff bootstrapper/tests/fixtures/rendered_config_baseline.yml /tmp/actual.yml
 docker compose --env-file .env -f docker-compose.yml config > \
     bootstrapper/tests/fixtures/rendered_config_baseline.yml
 ```
+
+
+## `services/_user/` overlay slot (downstream submodule consumers)
+
+Downstream forks that consume this repo as a git submodule may want to layer
+additional services without modifying the upstream tree. Drop them under
+`services/_user/<name>/`:
+
+```
+services/
+├── _user/                    # gitignored upstream; tracked downstream
+│   └── my-extra-service/
+│       ├── service.yml
+│       └── compose.yml
+├── supabase/
+├── ollama/
+└── …
+```
+
+The default manifest loader (`bootstrapper.services.manifests.load_manifests`)
+skips directories whose name starts with `_`, so `_user/` is invisible to the
+core stack. A downstream `start.sh` wrapper can call
+`load_manifests(services_dir / "_user")` and merge the results into its own
+runtime — the manifest schema and the synthesizer are the same.
+
+This slot is reserved by convention; the upstream `.gitignore` excludes
+`services/_user/` so the directory never leaks into a fork's PRs.

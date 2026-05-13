@@ -246,10 +246,10 @@ Avoid direct `docker-compose.yml` edits for normal operation; local compose edit
 
 - [Jupyter Lab Documentation](https://jupyterlab.readthedocs.io/)
 - [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
-- [GenAI Vanilla Stack Docs](../docs/README.md)
+- [GenAI Vanilla Stack Docs](../../../docs/README.md)
 
 ## Support
 
 - GitHub Issues: [Report bugs](https://github.com/thekaveh/genai-vanilla/issues)
-- Documentation: [Full docs](../docs/README.md)
+- Documentation: [Full docs](../../../docs/README.md)
 - Logs: `docker logs genai-jupyterhub`

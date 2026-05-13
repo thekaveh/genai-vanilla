@@ -361,30 +361,59 @@ See [docs/deployment/submodule-usage.md](docs/deployment/submodule-usage.md) for
 ```
 genai-vanilla/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
-├── backend/                   # Always-on FastAPI backend service
+│   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
+│   ├── schemas/               # JSON Schemas for service.yml manifests
+│   ├── tests/                 # ~140 tests (loader, validator, byte-equiv, source-permutation, hooks)
+│   ├── tools/                 # validate_fragments CLI lint
+│   └── start.py / stop.py     # Entry points
+├── services/                  # One folder per service family — single source of truth
+│   ├── _order.yml             # Canonical wizard + .env.example ordering
+│   ├── globals/               # Project-wide vars (PROJECT_NAME, BASE_PORT, BRAND_*, tier ordering)
+│   ├── supabase/              # supabase-db, db-init, meta, storage, auth, api, realtime, studio
+│   │   ├── service.yml        # Manifest: env vars, source variants, deps, runtime_sc slice
+│   │   ├── compose.yml        # Compose fragment for the family
+│   │   └── db/                # SQL init scripts + snapshots (bind-mounted into supabase-db-init)
+│   ├── litellm/               # LiteLLM gateway + init + catalog-init
+│   │   ├── service.yml
+│   │   ├── compose.yml
+│   │   ├── init/              # litellm-init Dockerfile + scripts (config.yaml renderer)
+│   │   └── catalog-init/      # llm-catalog-init Dockerfile + scripts (public.llms UPSERT)
+│   ├── ollama/                # ollama + ollama-pull (with pull/ scripts subfolder)
+│   ├── weaviate/              # weaviate + multi2vec-clip + weaviate-init
+│   ├── comfyui/               # comfyui + comfyui-init (with init/ scripts subfolder)
+│   ├── n8n/                   # n8n + n8n-worker + n8n-init (with init/ assets, workflows-stage/)
+│   ├── open-webui/            # open-web-ui + open-webui-init (with extras/ tools+functions)
+│   ├── hermes/                # hermes + hermes-init (with init/ scripts & templates)
+│   ├── minio/                 # minio + minio-init (with init/ bucket provisioning scripts)
+│   ├── backend/               # FastAPI backend (with app/ source code)
+│   ├── jupyterhub/            # JupyterHub (with build/ Dockerfile + notebooks)
+│   ├── neo4j/                 # Neo4j (with build/ Dockerfile + scripts)
+│   ├── parakeet/              # STT engine (parakeet-gpu, with provider/ source code)
+│   ├── speaches/              # Unified TTS+STT engine (CPU/GPU)
+│   ├── chatterbox/            # TTS engine (GPU, voice cloning)
+│   ├── tts-provider/          # Virtual manifest — TTS source selector (with provider/ host notes)
+│   ├── docling/               # Document processor (with provider/ source code)
+│   ├── searxng/               # SearXNG (with config/ settings.yml)
+│   ├── local-deep-researcher/ # Research agent (with build/ Dockerfile)
+│   ├── openclaw/              # OpenClaw agent gateway + init
+│   ├── kong/                  # Kong API gateway
+│   ├── cloud-providers/       # Virtual manifest — OpenAI/Anthropic/OpenRouter toggles
+│   └── _user/                 # (Gitignored) downstream submodule consumers' overlay slot
 ├── docs/                      # User, service, deployment, diagram, and planning docs
-├── supabase/                  # Supabase service configuration
-├── graph-db/                  # Neo4j configuration/init assets
-├── jupyterhub/                # JupyterHub image, notebooks, and requirements
-├── n8n/ + n8n-init/           # Workflow automation service and init/import assets
-├── open-webui/ + open-webui-init/ # Chat UI service and initialization assets
-├── ollama-pull/               # Model-pull init container assets
-├── comfyui-init/              # ComfyUI initialization assets
-├── weaviate-init/             # Weaviate schema/config initialization assets
-├── searxng/                   # Search service configuration
-├── local-deep-researcher/     # Local research/orchestration service
-├── doc-processor/             # Docling document processor service
-├── stt-provider/              # Speech-to-text providers (Parakeet GPU/MLX, whisper.cpp host notes)
-├── tts-provider/              # Text-to-speech providers (Chatterbox localhost setup)
-├── docker-compose.yml         # Main compose file
-├── .env.example               # Configuration template
-├── start.sh                   # Start script
-└── stop.sh                    # Stop script
+│   ├── CONTRIBUTING-services.md  # How to add a new service to the modular layout
+│   └── …
+├── scripts/                   # Top-level utility scripts (e.g. migration helpers)
+├── docker-compose.yml         # ~55-line thin shell — include: list pulling each fragment
+├── .env.example               # Configuration template (hand-maintained; kept in sync with manifests by tests)
+├── start.sh / stop.sh         # Entry points
+└── .github/workflows/         # CI: services-lint (validator, byte-equiv, source-permutation)
 ```
+
+Top-level is intentionally minimal: `bootstrapper/`, `docs/`, `scripts/`, `services/`. Every service lives entirely under its `services/<name>/` folder — init scripts, source code, build context, config files — so opening a service folder shows everything that defines it.
 
 ### 6.2 Adding services
 
-New services are declared in `bootstrapper/service-configs.yml` (under `source_configurable` or `adaptive_services`) and wired into `docker-compose.yml`. The bootstrapper computes ports, generates Kong routes, and adapts dependent services automatically.
+New services are declared by creating `services/<name>/{service.yml, compose.yml}` and adding the fragment to the `include:` list in `docker-compose.yml`. The manifest's `runtime_sc:` block declares per-source scale/environment/deploy/extra_hosts; `bootstrapper/services/sc_synthesizer.py` concatenates these slices into the dict that the bootstrapper consumes at startup. See [docs/CONTRIBUTING-services.md](docs/CONTRIBUTING-services.md) for the full walkthrough.
 
 ## 7. Troubleshooting
 

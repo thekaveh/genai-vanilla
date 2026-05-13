@@ -138,8 +138,8 @@ services:
       N8N_PORT: 5678
       N8N_INIT_NODES: ${N8N_INIT_NODES:-n8n-nodes-comfyui,@ksc1234/n8n-nodes-comfyui-image-to-image,n8n-nodes-mcp}
     volumes:
-      - ../../n8n-init/scripts:/scripts
-      - ../../n8n-init/config:/config
+      - ./init/scripts:/scripts
+      - ./init/config:/config
       - n8n-data:/n8n-data
     networks:
       - backend-network

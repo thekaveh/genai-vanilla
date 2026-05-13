@@ -11,7 +11,7 @@ services:
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - supabase-db-data:/var/lib/postgresql/data
-      - ../../supabase/db/snapshot:/snapshot
+      - ./db/snapshot:/snapshot
     ports:
       - "${SUPABASE_DB_PORT}:5432"
     networks:
@@ -32,7 +32,7 @@ services:
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       PGDATABASE: ${SUPABASE_DB_NAME}
     volumes:
-      - ../../supabase/db/scripts:/scripts
+      - ./db/scripts:/scripts
     entrypoint: ["/scripts/db-init-runner.sh"]
     depends_on:
       supabase-db:

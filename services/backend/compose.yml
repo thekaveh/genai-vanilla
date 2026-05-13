@@ -2,7 +2,7 @@
 services:
   backend:
     build:
-      context: ../../backend
+      context: ./app
       args:
         BASE_IMAGE: ${BACKEND_IMAGE}
     container_name: ${PROJECT_NAME}-backend
@@ -71,7 +71,7 @@ services:
       LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-}
       LANGMEM_EMBEDDING_MODEL: ${LANGMEM_EMBEDDING_MODEL:-}
     volumes:
-      - ../../backend/app:/app
+      - ./app/app:/app
       - backend-data:/app/data
       - weaviate-shared-config:/shared
     ports:

@@ -22,7 +22,7 @@ services:
       IS_LOCAL_COMFYUI: ${IS_LOCAL_COMFYUI:-false}
       COMFYUI_MODEL_SET: ${COMFYUI_MODEL_SET:-minimal}
     volumes:
-      - ../../comfyui-init/scripts:/scripts
+      - ./init/scripts:/scripts
       - comfyui-models:/models
     entrypoint: ["/scripts/download_models.sh"]
     deploy:

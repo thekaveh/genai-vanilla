@@ -33,8 +33,8 @@ services:
       SEARXNG_INTERNAL_URL: ${SEARXNG_INTERNAL_URL:-}
     volumes:
       - hermes-data:/opt/data
-      - ../../hermes-init/scripts:/scripts:ro
-      - ../../hermes-init/templates:/templates:ro
+      - ./init/scripts:/scripts:ro
+      - ./init/templates:/templates:ro
     networks:
       - backend-network
     # WITHOUT this entrypoint, the alpine container starts with no

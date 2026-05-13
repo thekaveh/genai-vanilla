@@ -5,7 +5,7 @@ services:
       - docling-gpu
       - doc-gpu
     build:
-      context: ../../doc-processor
+      context: ./provider
       dockerfile: gpu/Dockerfile
       args:
         BASE_IMAGE: ${DOCLING_GPU_IMAGE:-pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime}

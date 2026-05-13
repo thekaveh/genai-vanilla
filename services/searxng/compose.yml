@@ -11,7 +11,7 @@ services:
     ports:
       - "${SEARXNG_PORT}:8080"
     volumes:
-      - ../../searxng/config:/etc/searxng:rw
+      - ./config:/etc/searxng:rw
       - searxng-data:/var/cache/searxng
     environment:
       - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT}

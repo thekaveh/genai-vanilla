@@ -38,7 +38,7 @@ services:
       # ``${VAR-default}`` form: see comment in litellm-init service.
       OLLAMA_HOST_URL: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
     volumes:
-      - ../../ollama-pull/scripts:/scripts:ro
+      - ./pull/scripts:/scripts:ro
     entrypoint: ["/scripts/pull.sh"]
     deploy:
       replicas: ${OLLAMA_PULL_SCALE:-1}

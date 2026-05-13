@@ -2,7 +2,7 @@ name: genai
 services:
   backend:
     build:
-      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/backend
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/backend/app
       dockerfile: Dockerfile
       args:
         BASE_IMAGE: python:3.12
@@ -74,7 +74,7 @@ services:
     restart: unless-stopped
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/backend/app
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/backend/app/app
         target: /app
         bind: {}
       - type: volume
@@ -187,7 +187,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/comfyui-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/comfyui/init/scripts
         target: /scripts
         bind: {}
       - type: volume
@@ -295,18 +295,18 @@ services:
         target: /opt/data
         volume: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/hermes-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/hermes/init/scripts
         target: /scripts
         read_only: true
         bind: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/hermes-init/templates
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/hermes/init/templates
         target: /templates
         read_only: true
         bind: {}
   jupyterhub:
     build:
-      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/jupyterhub
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/jupyterhub/build
       dockerfile: Dockerfile
       args:
         BASE_IMAGE: jupyter/datascience-notebook:python-3.11
@@ -377,7 +377,7 @@ services:
         target: /home/jovyan/work
         volume: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/jupyterhub/notebooks
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/jupyterhub/build/notebooks
         target: /home/jovyan/notebooks
         read_only: true
         bind: {}
@@ -512,7 +512,7 @@ services:
         bind: {}
   litellm-init:
     build:
-      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/litellm-init
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/litellm/init
       dockerfile: Dockerfile
     container_name: genai-litellm-init
     depends_on:
@@ -540,7 +540,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/litellm-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/litellm/init/scripts
         target: /scripts
         read_only: true
         bind: {}
@@ -555,7 +555,7 @@ services:
         bind: {}
   llm-catalog-init:
     build:
-      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/llm-catalog-init
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/litellm/catalog-init
       dockerfile: Dockerfile
     container_name: genai-llm-catalog-init
     depends_on:
@@ -585,7 +585,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/llm-catalog-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/litellm/catalog-init/scripts
         target: /scripts
         read_only: true
         bind: {}
@@ -596,7 +596,7 @@ services:
         bind: {}
   local-deep-researcher:
     build:
-      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/local-deep-researcher
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/local-deep-researcher/build
       dockerfile: Dockerfile
       args:
         BASE_IMAGE: python:3.11-slim
@@ -717,7 +717,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/minio-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/minio/init/scripts
         target: /scripts
         read_only: true
         bind: {}
@@ -837,11 +837,11 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/n8n-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/n8n/init/scripts
         target: /scripts
         bind: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/n8n-init/config
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/n8n/init/config
         target: /config
         bind: {}
       - type: volume
@@ -896,7 +896,7 @@ services:
         volume: {}
   neo4j-graph-db:
     build:
-      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/graph-db
+      context: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/neo4j/build
       dockerfile: Dockerfile
       args:
         BASE_IMAGE: neo4j:5.19.0
@@ -923,11 +923,11 @@ services:
     restart: unless-stopped
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/graph-db/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/neo4j/build/scripts
         target: /scripts
         bind: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/graph-db/snapshot
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/neo4j/build/snapshot
         target: /snapshot
         bind: {}
       - type: volume
@@ -980,7 +980,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/ollama-pull/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/ollama/pull/scripts
         target: /scripts
         read_only: true
         bind: {}
@@ -1048,11 +1048,11 @@ services:
         target: /app/backend/data
         volume: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/tools
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/open-webui/extras/tools
         target: /app/backend/data/tools
         bind: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/functions
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/open-webui/extras/functions
         target: /app/backend/data/functions
         bind: {}
   open-webui-init:
@@ -1085,12 +1085,12 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/tools
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/open-webui/extras/tools
         target: /tools
         read_only: true
         bind: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/open-webui/functions
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/open-webui/extras/functions
         target: /functions
         read_only: true
         bind: {}
@@ -1264,7 +1264,7 @@ services:
     restart: unless-stopped
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/searxng/config
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/searxng/config
         target: /etc/searxng
         bind: {}
       - type: volume
@@ -1358,7 +1358,7 @@ services:
         target: /var/lib/postgresql/data
         volume: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/supabase/db/snapshot
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/supabase/db/snapshot
         target: /snapshot
         bind: {}
   supabase-db-init:
@@ -1380,7 +1380,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/supabase/db/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/supabase/db/scripts
         target: /scripts
         bind: {}
   supabase-meta:
@@ -1600,7 +1600,7 @@ services:
         target: /shared
         volume: {}
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/weaviate-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/weaviate/init/scripts
         target: /scripts
         bind: {}
   weaviate-init:
@@ -1632,7 +1632,7 @@ services:
     restart: "no"
     volumes:
       - type: bind
-        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/weaviate-init/scripts
+        source: /Users/kaveh/repos/genai-vanilla/.claude/worktrees/configuration-modularization/services/weaviate/init/scripts
         target: /scripts
         bind: {}
       - type: volume

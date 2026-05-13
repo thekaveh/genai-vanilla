@@ -68,9 +68,9 @@ cd stt-provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63
 ./start.sh --stt-provider-source parakeet-localhost
 ```
 
-See [stt-provider/whisper-cpp/README.md](../../stt-provider/whisper-cpp/README.md)
+See [stt-provider/whisper-cpp/README.md](../../services/parakeet/provider/whisper-cpp/README.md)
 for the whisper.cpp walkthrough and Linux build instructions, or
-[stt-provider/mlx/README.md](../../stt-provider/mlx/README.md) for Parakeet-MLX.
+[stt-provider/mlx/README.md](../../services/parakeet/provider/mlx/README.md) for Parakeet-MLX.
 
 ## Environment variables
 

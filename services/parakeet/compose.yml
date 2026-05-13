@@ -5,7 +5,7 @@ services:
       - parakeet-gpu
       - stt-gpu
     build:
-      context: ../../stt-provider
+      context: ./provider
       dockerfile: gpu/Dockerfile
       args:
         BASE_IMAGE: ${PARAKEET_GPU_IMAGE:-nvcr.io/nvidia/pytorch:25.01-py3}

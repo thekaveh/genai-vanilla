@@ -53,8 +53,8 @@ services:
       MODEL_LIST_CACHE_TTL: "300"
     volumes:
       - open-web-ui-data:/app/backend/data
-      - ../../open-webui/tools:/app/backend/data/tools
-      - ../../open-webui/functions:/app/backend/data/functions
+      - ./extras/tools:/app/backend/data/tools
+      - ./extras/functions:/app/backend/data/functions
     ports:
       - "${OPEN_WEB_UI_PORT}:8080"
     networks:
@@ -84,8 +84,8 @@ services:
       TOOLS_DIR: /tools
       FUNCTIONS_DIR: /functions
     volumes:
-      - ../../open-webui/tools:/tools:ro
-      - ../../open-webui/functions:/functions:ro
+      - ./extras/tools:/tools:ro
+      - ./extras/functions:/functions:ro
     networks:
       - backend-network
 

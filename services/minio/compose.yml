@@ -54,7 +54,7 @@ services:
       MINIO_DOCLING_ACCESS_KEY: ${MINIO_DOCLING_ACCESS_KEY}
       MINIO_DOCLING_SECRET_KEY: ${MINIO_DOCLING_SECRET_KEY}
     volumes:
-      - ../../minio-init/scripts:/scripts:ro
+      - ./init/scripts:/scripts:ro
     entrypoint: ["/bin/sh", "/scripts/init-minio.sh"]
     networks:
       - backend-network

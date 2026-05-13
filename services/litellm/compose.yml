@@ -1,7 +1,7 @@
 # services/litellm/compose.yml — LiteLLM gateway + catalog/init pipeline
 services:
   llm-catalog-init:
-    build: ../../llm-catalog-init
+    build: ./catalog-init
     container_name: ${PROJECT_NAME}-llm-catalog-init
     restart: "no"
     depends_on:
@@ -26,7 +26,7 @@ services:
       OLLAMA_USER_MODELS: ${OLLAMA_USER_MODELS:-}
       OLLAMA_CUSTOM_MODELS: ${OLLAMA_CUSTOM_MODELS:-}
     volumes:
-      - ../../llm-catalog-init/scripts:/scripts:ro
+      - ./catalog-init/scripts:/scripts:ro
       # Catalog module mounted as a SIBLING dir, not as a file inside
       # the /scripts mount. Docker's behavior with file-on-dir overlays
       # is platform-dependent and was the root cause of a silent
@@ -36,7 +36,7 @@ services:
       - backend-network
 
   litellm-init:
-    build: ../../litellm-init
+    build: ./init
     container_name: ${PROJECT_NAME}-litellm-init
     restart: "no"
     depends_on:
@@ -66,7 +66,7 @@ services:
       HERMES_SOURCE: ${HERMES_SOURCE:-disabled}
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
     volumes:
-      - ../../litellm-init/scripts:/scripts:ro
+      - ./init/scripts:/scripts:ro
       - ../../volumes/litellm:/litellm-config:rw
       # Sibling mount of bootstrapper/utils so /catalog/litellm_settings.py
       # (the shared settings dict) is reachable from init.py. Same

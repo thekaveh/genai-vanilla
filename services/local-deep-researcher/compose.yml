@@ -2,7 +2,7 @@
 services:
   local-deep-researcher:
     build:
-      context: ../../local-deep-researcher
+      context: ./build
       args:
         BASE_IMAGE: ${LOCAL_DEEP_RESEARCHER_IMAGE}
     container_name: ${PROJECT_NAME}-local-deep-researcher

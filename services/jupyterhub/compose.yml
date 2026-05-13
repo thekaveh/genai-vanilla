@@ -2,7 +2,7 @@
 services:
   jupyterhub:
     build:
-      context: ../../jupyterhub
+      context: ./build
       args:
         BASE_IMAGE: ${JUPYTERHUB_IMAGE}
     container_name: ${PROJECT_NAME}-jupyterhub
@@ -49,7 +49,7 @@ services:
       - "${JUPYTERHUB_PORT}:8888"
     volumes:
       - jupyterhub-data:/home/jovyan/work
-      - ../../jupyterhub/notebooks:/home/jovyan/notebooks:ro
+      - ./build/notebooks:/home/jovyan/notebooks:ro
       - weaviate-shared-config:/shared:ro
     networks:
       - backend-network

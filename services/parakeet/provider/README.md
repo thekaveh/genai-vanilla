@@ -45,7 +45,7 @@ stt-provider/
 ```
 
 The Speaches path doesn't have a directory here because it's an
-off-the-shelf container — see [docker-compose.yml](../docker-compose.yml)
+off-the-shelf container — see [docker-compose.yml](../../../docker-compose.yml)
 service `speaches` for the runtime config.
 
 ## Quick start
@@ -121,7 +121,7 @@ You can change the model name in the Open WebUI admin panel — Audio settings.
 
 ## Full configuration reference
 
-See [docs/services/stt-provider.md](../docs/services/stt-provider.md).
+See [docs/services/stt-provider.md](../../../docs/services/stt-provider.md).
 
 ## References
 

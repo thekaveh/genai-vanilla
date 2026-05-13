@@ -2,7 +2,7 @@
 services:
   neo4j-graph-db:
     build:
-      context: ../../graph-db
+      context: ./build
       args:
         BASE_IMAGE: ${NEO4J_GRAPH_DB_IMAGE}
     container_name: ${PROJECT_NAME}-neo4j-graph-db
@@ -19,8 +19,8 @@ services:
       - "${GRAPH_DB_PORT}:7687"
       - "${GRAPH_DB_DASHBOARD_PORT}:7474"
     volumes:
-      - ../../graph-db/scripts:/scripts
-      - ../../graph-db/snapshot:/snapshot
+      - ./build/scripts:/scripts
+      - ./build/snapshot:/snapshot
       - graph-db-data:/data
     networks:
       - backend-network

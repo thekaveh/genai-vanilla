@@ -72,7 +72,7 @@ PORT=63027 uv run main.py
 ./start.sh --tts-provider-source chatterbox-localhost
 ```
 
-See [tts-provider/localhost/README.md](../../tts-provider/localhost/README.md)
+See [tts-provider/localhost/README.md](../../services/tts-provider/provider/localhost/README.md)
 for the full Chatterbox-on-host walkthrough.
 
 ## Environment variables
@@ -139,7 +139,7 @@ curl -X POST http://chatterbox:4123/v1/audio/speech \
   --output cloned.wav
 ```
 
-See [tts-provider/localhost/README.md](../../tts-provider/localhost/README.md)
+See [tts-provider/localhost/README.md](../../services/tts-provider/provider/localhost/README.md)
 for the full voice-library workflow.
 
 ## Open WebUI integration
