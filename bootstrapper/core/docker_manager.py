@@ -81,7 +81,7 @@ class DockerManager:
     def check_docker_available(self) -> bool:
         """
         Check if Docker is available.
-        
+
         Returns:
             bool: True if Docker is available
         """
@@ -90,6 +90,52 @@ class DockerManager:
             return True
         except RuntimeError:
             return False
+
+    # Minimum Compose version for the per-service modular layout. v2.20+ is
+    # the floor (top-level `include:` directive + cross-include depends_on
+    # merging). v2.26+ is documented as recommended because earlier 2.2x
+    # releases had several `include:` + `profiles:` interaction bugs.
+    MIN_COMPOSE_VERSION = (2, 20, 0)
+    RECOMMENDED_COMPOSE_VERSION = (2, 26, 0)
+
+    def check_compose_version(self) -> tuple[bool, str]:
+        """Check that Docker Compose meets the modular-layout floor.
+
+        Returns:
+            (ok, message): ok=True if version ≥ MIN_COMPOSE_VERSION. message
+            is a human-readable status string suitable for logging.
+        """
+        try:
+            cmd = self.detect_docker_compose_command().split() + ["version", "--short"]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=False, timeout=10
+            )
+            if result.returncode != 0:
+                return False, f"docker compose version failed: {result.stderr.strip()}"
+            raw = result.stdout.strip().lstrip("v")
+            parts = raw.split(".")
+            major = int(parts[0])
+            minor = int(parts[1]) if len(parts) > 1 else 0
+            # Strip pre-release suffixes off the patch number (e.g. "1-rc1" → 1).
+            patch_str = parts[2] if len(parts) > 2 else "0"
+            patch = int(patch_str.split("-")[0].split("+")[0])
+            actual = (major, minor, patch)
+            actual_str = ".".join(str(p) for p in actual)
+            min_str = ".".join(str(p) for p in self.MIN_COMPOSE_VERSION)
+            rec_str = ".".join(str(p) for p in self.RECOMMENDED_COMPOSE_VERSION)
+            if actual < self.MIN_COMPOSE_VERSION:
+                return False, (
+                    f"Docker Compose v{actual_str} is below the minimum v{min_str} required "
+                    f"for the modular `services/` layout. Upgrade Docker Desktop or Compose."
+                )
+            if actual < self.RECOMMENDED_COMPOSE_VERSION:
+                return True, (
+                    f"Docker Compose v{actual_str} meets the minimum but v{rec_str}+ is "
+                    f"recommended (avoids known `include:` + `profiles:` bugs in earlier 2.2x)."
+                )
+            return True, f"Docker Compose v{actual_str} OK."
+        except Exception as e:
+            return False, f"Could not detect Docker Compose version: {e}"
     
     def execute_compose_command(self, args: List[str], use_env_file: bool = True) -> int:
         """

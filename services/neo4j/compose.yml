@@ -1,0 +1,31 @@
+# services/neo4j/compose.yml
+services:
+  neo4j-graph-db:
+    build:
+      context: ../../graph-db
+      args:
+        BASE_IMAGE: ${NEO4J_GRAPH_DB_IMAGE}
+    container_name: ${PROJECT_NAME}-neo4j-graph-db
+    restart: unless-stopped
+    deploy:
+      replicas: ${NEO4J_SCALE:-1}
+    environment:
+      NEO4J_AUTH: ${GRAPH_DB_AUTH}
+      NEO4J_server_default__advertised__address: "neo4j-graph-db"
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_browser_remote__content__hostname__whitelist: "*"
+    ports:
+      - "${GRAPH_DB_PORT}:7687"
+      - "${GRAPH_DB_DASHBOARD_PORT}:7474"
+    volumes:
+      - ../../graph-db/scripts:/scripts
+      - ../../graph-db/snapshot:/snapshot
+      - graph-db-data:/data
+    networks:
+      - backend-network
+
+volumes:
+  graph-db-data:
+    name: ${PROJECT_NAME}-graph-db-data
+    driver: local

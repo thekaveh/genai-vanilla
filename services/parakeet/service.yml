@@ -1,0 +1,62 @@
+# services/parakeet/service.yml — NVIDIA Parakeet STT
+name: parakeet
+label: "Parakeet (speech-to-text, NVIDIA)"
+category: ai
+docs: docs/services/parakeet.md
+
+containers:
+  - parakeet-gpu
+
+images:
+  - var: PARAKEET_GPU_IMAGE
+    default: "nvcr.io/nvidia/pytorch:25.01-py3"
+    container: parakeet-gpu
+    notes: "Used as BASE_IMAGE in stt-provider/gpu/Dockerfile."
+
+sources:
+  var: STT_PROVIDER_SOURCE
+  default: disabled
+  options:
+    - id: disabled
+      label: "Disabled"
+      effects:
+        PARAKEET_GPU_SCALE: 0
+        PARAKEET_ENDPOINT: ""
+    - id: parakeet-localhost
+      label: "Host (existing Parakeet on this machine)"
+      effects:
+        PARAKEET_GPU_SCALE: 0
+        PARAKEET_ENDPOINT: "${PARAKEET_LOCALHOST_URL}"
+    - id: parakeet-container-gpu
+      label: "Container (GPU, NVIDIA)"
+      effects:
+        PARAKEET_GPU_SCALE: 1
+        PARAKEET_ENDPOINT: "http://parakeet-gpu:8000"
+
+env:
+  - name: STT_PROVIDER_SOURCE
+    default: disabled
+  - name: STT_PROVIDER_PORT
+    default: 63022
+  - name: PARAKEET_MODEL
+    default: "nvidia/parakeet-tdt-0.6b-v3"
+  - name: PARAKEET_GPU_DEVICE
+    default: cuda
+  - name: PARAKEET_GPU_COMPUTE_TYPE
+    default: float16
+  - name: PARAKEET_LOCALHOST_URL
+    default: "http://host.docker.internal:63022"
+  - name: HUGGING_FACE_HUB_TOKEN
+    default: ""
+    secret: true
+    description: "Shared by parakeet, xtts, docling for model downloads."
+  - name: PARAKEET_GPU_SCALE
+    auto_managed: true
+  - name: PARAKEET_ENDPOINT
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

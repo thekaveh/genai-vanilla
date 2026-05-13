@@ -1,0 +1,46 @@
+# services/local-deep-researcher/service.yml — Local Deep Researcher
+name: local-deep-researcher
+label: "Local Deep Researcher (LangGraph research agent)"
+category: app
+docs: docs/services/local-deep-researcher.md
+
+containers:
+  - local-deep-researcher
+
+images:
+  - var: LOCAL_DEEP_RESEARCHER_IMAGE
+    default: "python:3.11-slim"
+    container: local-deep-researcher
+
+sources:
+  var: LOCAL_DEEP_RESEARCHER_SOURCE
+  default: container
+  options:
+    - id: container
+      label: "Container"
+      effects:
+        LOCAL_DEEP_RESEARCHER_SCALE: 1
+    - id: disabled
+      label: "Disabled"
+      effects:
+        LOCAL_DEEP_RESEARCHER_SCALE: 0
+
+env:
+  - name: LOCAL_DEEP_RESEARCHER_SOURCE
+    default: container
+  - name: LOCAL_DEEP_RESEARCHER_PORT
+    default: 63013
+  - name: LOCAL_DEEP_RESEARCHER_LOOPS
+    default: 3
+  - name: LOCAL_DEEP_RESEARCHER_SEARCH_API
+    default: searxng
+  - name: LOCAL_DEEP_RESEARCHER_WORKERS
+    default: 3
+  - name: LOCAL_DEEP_RESEARCHER_SCALE
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

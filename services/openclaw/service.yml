@@ -1,0 +1,74 @@
+# services/openclaw/service.yml — OpenClaw AI agent gateway + init
+name: openclaw
+label: "OpenClaw (AI agent gateway)"
+category: app
+docs: docs/services/openclaw.md
+
+containers:
+  - openclaw-gateway
+  - openclaw-init
+
+images:
+  - var: OPENCLAW_IMAGE
+    default: "ghcr.io/openclaw/openclaw:latest"
+    container: openclaw-gateway
+  - var: OPENCLAW_INIT_IMAGE
+    default: "alpine:latest"
+    container: openclaw-init
+
+sources:
+  var: OPENCLAW_SOURCE
+  default: disabled
+  options:
+    - id: disabled
+      label: "Disabled"
+      effects:
+        OPENCLAW_SCALE: 0
+        OPENCLAW_INIT_SCALE: 0
+        OPENCLAW_ENDPOINT: ""
+    - id: container
+      label: "Container"
+      effects:
+        OPENCLAW_SCALE: 1
+        OPENCLAW_INIT_SCALE: 1
+        OPENCLAW_ENDPOINT: "http://openclaw-gateway:18789"
+    - id: localhost
+      label: "Host (existing OpenClaw on this machine)"
+      effects:
+        OPENCLAW_SCALE: 0
+        OPENCLAW_INIT_SCALE: 0
+        OPENCLAW_ENDPOINT: "${OPENCLAW_LOCALHOST_URL}"
+
+env:
+  - name: OPENCLAW_SOURCE
+    default: disabled
+  - name: OPENCLAW_GATEWAY_PORT
+    default: 63024
+  - name: OPENCLAW_BRIDGE_PORT
+    default: 63025
+  - name: OPENCLAW_GATEWAY_TOKEN
+    default: ""
+    secret: true
+  - name: OPENCLAW_LOCALHOST_URL
+    default: "http://host.docker.internal:63024"
+  - name: OPENCLAW_INIT_SOURCE
+    default: container
+  - name: OPENCLAW_ANTHROPIC_API_KEY
+    default: ""
+    secret: true
+    description: "Optional per-OpenClaw Anthropic override."
+  - name: OPENCLAW_OPENAI_API_KEY
+    default: ""
+    secret: true
+  - name: OPENCLAW_SCALE
+    auto_managed: true
+  - name: OPENCLAW_INIT_SCALE
+    auto_managed: true
+  - name: OPENCLAW_ENDPOINT
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

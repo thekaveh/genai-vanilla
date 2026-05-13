@@ -1,0 +1,64 @@
+# services/docling/compose.yml — Docling GPU container
+services:
+  docling-gpu:
+    profiles:
+      - docling-gpu
+      - doc-gpu
+    build:
+      context: ../../doc-processor
+      dockerfile: gpu/Dockerfile
+      args:
+        BASE_IMAGE: ${DOCLING_GPU_IMAGE:-pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime}
+    container_name: ${PROJECT_NAME}-docling-gpu
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      replicas: ${DOCLING_GPU_SCALE:-0}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      DOCLING_DEVICE: ${DOCLING_GPU_DEVICE:-cuda}
+      DOCLING_MODEL_PATH: /models
+      DOCLING_OUTPUT_FORMAT: ${DOCLING_OUTPUT_FORMAT:-markdown}
+      DOCLING_USE_OCR: ${DOCLING_USE_OCR:-auto}
+      DOCLING_TABLE_MODE: ${DOCLING_TABLE_MODE:-accurate}
+      DOCLING_MAX_FILE_SIZE: ${DOCLING_MAX_FILE_SIZE:-52428800}
+      DOCLING_ENABLE_FORMULAS: ${DOCLING_ENABLE_FORMULAS:-true}
+      DOCLING_ENABLE_CODE_BLOCKS: ${DOCLING_ENABLE_CODE_BLOCKS:-true}
+      DOCLING_CHUNK_SIZE: ${DOCLING_CHUNK_SIZE:-512}
+      DOCLING_CHUNK_OVERLAP: ${DOCLING_CHUNK_OVERLAP:-50}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+    volumes:
+      - doc-processor-gpu-cache:/root/.cache/huggingface
+      - doc-processor-models:/models
+      - doc-processor-output:/output
+    ports:
+      - "${DOC_PROCESSOR_PORT}:8000"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=document-processing"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.backend=cuda"
+
+volumes:
+  doc-processor-gpu-cache:
+    name: ${PROJECT_NAME}-doc-gpu-cache
+    driver: local
+  doc-processor-models:
+    name: ${PROJECT_NAME}-doc-models
+    driver: local
+  doc-processor-output:
+    name: ${PROJECT_NAME}-doc-output
+    driver: local

@@ -1,0 +1,69 @@
+# services/neo4j/service.yml — Neo4j graph database
+name: neo4j
+label: "Neo4j (graph database)"
+category: data
+docs: docs/services/neo4j.md
+
+containers:
+  - neo4j-graph-db
+
+images:
+  - var: NEO4J_GRAPH_DB_IMAGE
+    default: "neo4j:5.19.0"
+    container: neo4j-graph-db
+    notes: "Used as build-arg BASE_IMAGE in graph-db/Dockerfile."
+
+sources:
+  var: NEO4J_GRAPH_DB_SOURCE
+  default: container
+  options:
+    - id: container
+      label: "Container (in-stack Neo4j)"
+      effects:
+        NEO4J_SCALE: 1
+        NEO4J_URI: "bolt://neo4j-graph-db:7687"
+    - id: localhost
+      label: "Host (use existing Neo4j on this machine)"
+      effects:
+        NEO4J_SCALE: 0
+        NEO4J_URI: "bolt://host.docker.internal:7687"
+    - id: disabled
+      label: "Disabled"
+      effects:
+        NEO4J_SCALE: 0
+        NEO4J_URI: ""
+
+env:
+  - name: NEO4J_GRAPH_DB_SOURCE
+    default: container
+    description: "Neo4j deployment source. Drives NEO4J_SCALE and NEO4J_URI."
+  - name: GRAPH_DB_HOST
+    default: graph-db
+    description: "Internal hostname (only relevant for container source)."
+  - name: GRAPH_DB_PORT
+    default: 63010
+    description: "Host port for Neo4j bolt (container port 7687)."
+  - name: GRAPH_DB_DASHBOARD_PORT
+    default: 63011
+    description: "Host port for Neo4j browser dashboard (container port 7474)."
+  - name: GRAPH_DB_USER
+    default: neo4j
+  - name: GRAPH_DB_PASSWORD
+    default: neo4j_password
+    secret: true
+  - name: GRAPH_DB_AUTH
+    default: "neo4j/neo4j_password"
+    secret: true
+    description: "Neo4j auth in username/password format."
+  - name: NEO4J_URI
+    auto_managed: true
+    description: "Computed from NEO4J_GRAPH_DB_SOURCE. Read by backend/jupyterhub."
+  - name: NEO4J_SCALE
+    auto_managed: true
+    description: "Replicas: 1 for container, 0 otherwise."
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

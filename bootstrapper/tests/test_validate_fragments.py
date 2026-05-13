@@ -1,0 +1,146 @@
+"""Tests for bootstrapper.tools.validate_fragments (the CI lint entry point)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from tools.validate_fragments import run
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Manifest-validation mode
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_empty_services_dir_exits_clean(tmp_path: Path, capsys):
+    (tmp_path / "services").mkdir()
+    exit_code = run(project_root=tmp_path, check_env_example=False)
+    assert exit_code == 0
+
+
+def test_no_services_dir_exits_clean(tmp_path: Path, capsys):
+    # Phase A: the services/ folder may not exist yet.
+    exit_code = run(project_root=tmp_path, check_env_example=False)
+    assert exit_code == 0
+
+
+def test_valid_manifest_exits_clean(
+    tmp_path: Path, services_root, write_manifest, minimal_manifest_dict, capsys
+):
+    # The fixtures already created `services_root` inside their own tmp_path.
+    # Build our own structure under this test's tmp_path instead.
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "services").mkdir()
+    (project / "services" / "redis").mkdir()
+    import yaml
+
+    (project / "services" / "redis" / "service.yml").write_text(
+        yaml.safe_dump(minimal_manifest_dict("redis"))
+    )
+    exit_code = run(project_root=project, check_env_example=False)
+    assert exit_code == 0
+
+
+def test_broken_manifest_exits_nonzero(tmp_path: Path, capsys):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "services" / "redis").mkdir(parents=True)
+    (project / "services" / "redis" / "service.yml").write_text("name: redis\n")  # missing required fields
+    exit_code = run(project_root=project, check_env_example=False)
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert "redis" in (captured.out + captured.err)
+
+
+def test_cross_manifest_issue_exits_nonzero(tmp_path: Path, capsys):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "services").mkdir()
+    import yaml
+
+    # Both services declare the same env var → duplicate_env_var.
+    for name in ["redis", "alt"]:
+        d = project / "services" / name
+        d.mkdir()
+        (d / "service.yml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": name,
+                    "label": f"{name}",
+                    "category": "data",
+                    "containers": [name],
+                    "env": [{"name": "SHARED_PORT", "default": 1}],
+                }
+            )
+        )
+    exit_code = run(project_root=project, check_env_example=False)
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert "SHARED_PORT" in (captured.out + captured.err)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# --check-env-example mode
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_check_env_example_matches_committed_file(
+    tmp_path: Path, capsys
+):
+    """If the committed .env.example matches the assembled output → exit 0."""
+    from services.env_assembler import assemble_env_example
+    from services.manifests import load_manifests
+    import yaml
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "services").mkdir()
+    redis_dir = project / "services" / "redis"
+    redis_dir.mkdir()
+    (redis_dir / "service.yml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "redis",
+                "label": "Redis",
+                "category": "data",
+                "containers": ["redis"],
+                "env": [{"name": "REDIS_PORT", "default": 6379}],
+            }
+        )
+    )
+    manifests = load_manifests(project / "services")
+    expected = assemble_env_example(manifests)
+    (project / ".env.example").write_text(expected)
+
+    exit_code = run(project_root=project, check_env_example=True)
+    assert exit_code == 0
+
+
+def test_check_env_example_drift_exits_nonzero(tmp_path: Path, capsys):
+    """If the committed .env.example does not match → exit non-zero with diff."""
+    import yaml
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "services").mkdir()
+    redis_dir = project / "services" / "redis"
+    redis_dir.mkdir()
+    (redis_dir / "service.yml").write_text(
+        yaml.safe_dump(
+            {
+                "name": "redis",
+                "label": "Redis",
+                "category": "data",
+                "containers": ["redis"],
+                "env": [{"name": "REDIS_PORT", "default": 6379}],
+            }
+        )
+    )
+    (project / ".env.example").write_text("# this is stale\n")
+    exit_code = run(project_root=project, check_env_example=True)
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert "drift" in (captured.out + captured.err).lower() or "diff" in (captured.out + captured.err).lower()

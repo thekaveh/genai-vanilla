@@ -1,0 +1,79 @@
+# services/openclaw/compose.yml — OpenClaw agent gateway + init
+services:
+  openclaw-init:
+    image: ${OPENCLAW_INIT_IMAGE:-alpine:latest}
+    container_name: ${PROJECT_NAME}-openclaw-init
+    restart: "no"
+    deploy:
+      replicas: ${OPENCLAW_INIT_SCALE:-0}
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+    entrypoint:
+      - sh
+      - -c
+      - |
+        apk add --no-cache jq > /dev/null 2>&1
+        CONFIG=/home/node/.openclaw/openclaw.json
+        PATCH='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
+        if [ -f "$$CONFIG" ]; then
+          jq --argjson patch "$$PATCH" '. * $$patch' "$$CONFIG" > "$$CONFIG.tmp" && mv "$$CONFIG.tmp" "$$CONFIG"
+        else
+          echo "$$PATCH" | jq . > "$$CONFIG"
+        fi
+        chown -R 1000:1000 /home/node/.openclaw
+    networks:
+      - backend-network
+
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE}
+    container_name: ${PROJECT_NAME}-openclaw-gateway
+    restart: unless-stopped
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
+    deploy:
+      replicas: ${OPENCLAW_SCALE:-0}
+    depends_on:
+      openclaw-init:
+        condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      # LLM access through the LiteLLM gateway
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      # Per-OpenClaw cloud overrides (optional — allow OpenClaw to call cloud
+      # providers directly when explicitly configured; otherwise route via LiteLLM).
+      ANTHROPIC_API_KEY: ${OPENCLAW_ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENCLAW_OPENAI_API_KEY:-${OPENAI_API_KEY:-}}
+      # Gateway configuration
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+    ports:
+      - "${OPENCLAW_GATEWAY_PORT:-63024}:18789"
+      - "${OPENCLAW_BRIDGE_PORT:-63025}:18790"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "com.${PROJECT_NAME}.service=ai-agent"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.agent=openclaw"
+
+volumes:
+  openclaw-config:
+    name: ${PROJECT_NAME}-openclaw-config
+    driver: local
+  openclaw-workspace:
+    name: ${PROJECT_NAME}-openclaw-workspace
+    driver: local

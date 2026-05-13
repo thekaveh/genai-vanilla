@@ -1,0 +1,49 @@
+# services/parakeet/compose.yml — Parakeet STT GPU container
+services:
+  parakeet-gpu:
+    profiles:
+      - parakeet-gpu
+      - stt-gpu
+    build:
+      context: ../../stt-provider
+      dockerfile: gpu/Dockerfile
+      args:
+        BASE_IMAGE: ${PARAKEET_GPU_IMAGE:-nvcr.io/nvidia/pytorch:25.01-py3}
+    container_name: ${PROJECT_NAME}-parakeet-gpu
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      replicas: ${PARAKEET_GPU_SCALE:-0}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      PARAKEET_MODEL: ${PARAKEET_MODEL:-nvidia/parakeet-tdt-0.6b-v3}
+      PARAKEET_DEVICE: ${PARAKEET_GPU_DEVICE:-cuda}
+      PARAKEET_COMPUTE_TYPE: ${PARAKEET_GPU_COMPUTE_TYPE:-float16}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+    volumes:
+      - stt-provider-gpu-cache:/root/.cache/huggingface
+    ports:
+      - "${STT_PROVIDER_PORT:-10300}:8000"
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    labels:
+      - "com.${PROJECT_NAME}.service=speech-to-text"
+      - "com.${PROJECT_NAME}.category=ai"
+      - "com.${PROJECT_NAME}.backend=cuda"
+
+volumes:
+  stt-provider-gpu-cache:
+    name: ${PROJECT_NAME}-stt-gpu-cache
+    driver: local

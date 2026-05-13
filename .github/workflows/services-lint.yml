@@ -1,0 +1,88 @@
+name: services-lint
+
+# Lints and tests the per-service modular configuration layout.
+#
+# Phase E gates:
+#   - manifest validator (8 cross-manifest checks)
+#   - unit tests (loader, validator, assembler, hooks, validate_fragments CLI)
+#   - compose merge (`docker compose -f docker-compose.yml config -q`)
+#   - byte-equivalence vs the golden baseline at
+#     bootstrapper/tests/fixtures/rendered_config_baseline.yml
+#   - source-permutation matrix (every SOURCE value × compose config)
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - "docker-compose.yml"
+      - "bootstrapper/services/**"
+      - "bootstrapper/schemas/**"
+      - "bootstrapper/tools/**"
+      - "bootstrapper/tests/**"
+      - "bootstrapper/pyproject.toml"
+      - "bootstrapper/uv.lock"
+      - ".env.example"
+      - ".github/workflows/services-lint.yml"
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Manifest lint + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        working-directory: bootstrapper
+        run: uv sync --extra dev
+
+      - name: Run unit tests (loader, validator, assembler, hooks, CLI)
+        working-directory: bootstrapper
+        run: uv run pytest tests/ -q --ignore=tests/test_fragment_equivalence.py --ignore=tests/test_source_permutations.py
+
+      - name: Lint manifests
+        working-directory: bootstrapper
+        run: uv run python -m tools.validate_fragments
+
+  compose-equivalence:
+    name: Compose merge + byte-equivalence + source-permutation matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        working-directory: bootstrapper
+        run: uv sync --extra dev
+
+      - name: Materialize .env from .env.example
+        # Compose interpolation reads .env at the project root. The matrix
+        # tests then override one SOURCE var at a time in a tmp file.
+        run: cp .env.example .env
+
+      - name: Compose merge sanity (docker compose config -q)
+        run: docker compose --env-file .env -f docker-compose.yml config -q
+
+      - name: Byte-equivalence test vs golden baseline
+        working-directory: bootstrapper
+        run: uv run pytest tests/test_fragment_equivalence.py -q
+
+      - name: Source-permutation matrix (every SOURCE value × compose config)
+        working-directory: bootstrapper
+        run: uv run pytest tests/test_source_permutations.py -q

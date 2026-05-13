@@ -1,0 +1,109 @@
+# services/comfyui/service.yml — ComfyUI image generation + init
+name: comfyui
+label: "ComfyUI (image generation)"
+category: ai
+docs: docs/services/comfyui.md
+
+containers:
+  - comfyui
+  - comfyui-init
+
+images:
+  - var: COMFYUI_IMAGE
+    default: "ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7"
+    container: comfyui
+    notes: "Use latest-cuda for GPU."
+  - var: COMFYUI_INIT_IMAGE
+    default: "alpine:latest"
+    container: comfyui-init
+
+sources:
+  var: COMFYUI_SOURCE
+  default: container-cpu
+  options:
+    - id: container-cpu
+      label: "Container (CPU)"
+      effects:
+        COMFYUI_SCALE: 1
+        COMFYUI_INIT_SCALE: 1
+    - id: container-gpu
+      label: "Container (GPU, NVIDIA)"
+      effects:
+        COMFYUI_SCALE: 1
+        COMFYUI_INIT_SCALE: 1
+    - id: localhost
+      label: "Host (existing ComfyUI on this machine)"
+      effects:
+        COMFYUI_SCALE: 0
+        COMFYUI_INIT_SCALE: 0
+    - id: external
+      label: "External (custom URL)"
+      requires: [COMFYUI_EXTERNAL_URL]
+      effects:
+        COMFYUI_SCALE: 0
+        COMFYUI_INIT_SCALE: 0
+    - id: disabled
+      label: "Disabled"
+      effects:
+        COMFYUI_SCALE: 0
+        COMFYUI_INIT_SCALE: 0
+
+env:
+  - name: COMFYUI_SOURCE
+    default: container-cpu
+  - name: COMFYUI_INIT_SOURCE
+    default: container
+  - name: COMFYUI_PORT
+    default: 63018
+  - name: COMFYUI_LOCALHOST_URL
+    default: "http://host.docker.internal:8000"
+  - name: COMFYUI_EXTERNAL_URL
+    default: ""
+  - name: COMFYUI_BASE_URL
+    default: "http://comfyui:18188"
+    description: "In-container default. Runtime value is COMFYUI_ENDPOINT computed by hook."
+  - name: COMFYUI_KONG_URL
+    default: "http://kong-api-gateway:8000/comfyui"
+  - name: COMFYUI_ARGS
+    default: "--listen"
+  - name: COMFYUI_AUTO_UPDATE
+    default: false
+  - name: COMFYUI_PLATFORM
+    default: "linux/amd64"
+  - name: COMFYUI_UPLOAD_TO_SUPABASE
+    default: true
+  - name: COMFYUI_STORAGE_BUCKET
+    default: "comfyui-images"
+  - name: COMFYUI_MODELS_PATH
+    default: "/opt/ComfyUI/models"
+  - name: COMFYUI_OUTPUT_PATH
+    default: "/opt/ComfyUI/output"
+  - name: COMFYUI_INPUT_PATH
+    default: "/opt/ComfyUI/input"
+  - name: COMFYUI_CUSTOM_NODES_PATH
+    default: "/opt/ComfyUI/custom_nodes"
+  - name: COMFYUI_LOCAL_MODELS_PATH
+    default: "~/Documents/ComfyUI/models"
+  - name: COMFYUI_MODEL_SET
+    default: minimal
+    description: "Options: minimal | sd15 | sdxl | full."
+  - name: COMFYUI_INIT_SCALE
+    auto_managed: true
+  - name: COMFYUI_SCALE
+    auto_managed: true
+  - name: COMFYUI_ENDPOINT
+    auto_managed: true
+    description: "Resolved per COMFYUI_SOURCE. Consumed by backend, open-webui, n8n, jupyterhub."
+  - name: COMFYUI_DEPLOY_RESOURCES
+    default: "~"
+  - name: IS_LOCAL_COMFYUI
+    auto_managed: true
+    description: "True when COMFYUI_SOURCE=localhost."
+
+hook: services.hooks.comfyui
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

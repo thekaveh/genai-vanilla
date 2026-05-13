@@ -1,3 +1,22 @@
+# ============================================================================
+# DEPRECATED — see services/<name>/service.yml manifests
+# ============================================================================
+# As of the configuration-modularization refactor (Phases C/D), each service's
+# env vars, source variants, dependencies, and image references live in a
+# per-service manifest at `services/<name>/service.yml`. The compose
+# definitions moved to `services/<name>/compose.yml`, merged at the top level
+# via `include:` in the thin docker-compose.yml.
+#
+# This file is still the LIVE operational source for the bootstrapper's
+# source_validator, service_config, dependency_manager, ui/state_builder,
+# and wizard/llm_steps modules. The follow-up bootstrapper refactor will
+# wire those readers to the manifests and delete this file.
+#
+# Until then: edits MUST be mirrored between this file and the corresponding
+# services/<name>/service.yml manifest. Manifests are the source of truth
+# for documentation, the wizard, and CI lint; this file remains operational.
+# ============================================================================
+#
 # GenAI Vanilla Stack - Complete Service Configuration Matrix
 # This file defines all services and their SOURCE-based variations
 

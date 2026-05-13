@@ -1,0 +1,47 @@
+# services/redis/compose.yml
+#
+# Docker Compose fragment for the redis family. Merged into the project
+# root via `include:` in the top-level docker-compose.yml once Phase D
+# swaps the monolithic file. In Phase B, this fragment is the canonical
+# definition but is NOT yet referenced from the active compose entrypoint
+# — the monolithic docker-compose.yml continues to define redis verbatim
+# until the swap.
+#
+# Conventions (codified in services/README.md):
+#   - `services:` lists only this family's containers (here: just `redis`).
+#   - `volumes:` lists only this family's named volumes; merged into the
+#     top-level by `include:` (Compose v2.21+).
+#   - `networks:` references `backend-network` — never redefines it.
+#   - Bind-mount paths (none here) would use paths relative to THIS file.
+#
+# When Phase D adds this fragment to the include list, the merged output of
+# `docker compose -f docker-compose.yml config` must match the pre-refactor
+# byte-shape for the redis service. That equivalence is asserted in Phase E
+# by a golden-file diff.
+
+services:
+  redis:
+    image: ${REDIS_IMAGE}
+    container_name: ${PROJECT_NAME}-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
+volumes:
+  redis-data:
+    name: ${PROJECT_NAME}-redis-data
+    driver: local

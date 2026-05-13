@@ -1,0 +1,68 @@
+# services/docling/service.yml — Docling document processor
+name: docling
+label: "Docling (document processor)"
+category: ai
+docs: docs/services/docling.md
+
+containers:
+  - docling-gpu
+
+images:
+  - var: DOCLING_GPU_IMAGE
+    default: "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
+    container: docling-gpu
+    notes: "Used as BASE_IMAGE in doc-processor/gpu/Dockerfile."
+
+sources:
+  var: DOC_PROCESSOR_SOURCE
+  default: disabled
+  options:
+    - id: disabled
+      label: "Disabled"
+      effects:
+        DOCLING_GPU_SCALE: 0
+        DOCLING_ENDPOINT: ""
+    - id: docling-localhost
+      label: "Host (existing Docling on this machine)"
+      effects:
+        DOCLING_GPU_SCALE: 0
+        DOCLING_ENDPOINT: "http://host.docker.internal:63021"
+    - id: docling-container-gpu
+      label: "Container (GPU, NVIDIA)"
+      effects:
+        DOCLING_GPU_SCALE: 1
+        DOCLING_ENDPOINT: "http://docling-gpu:8000"
+
+env:
+  - name: DOC_PROCESSOR_SOURCE
+    default: disabled
+  - name: DOC_PROCESSOR_PORT
+    default: 63021
+  - name: DOCLING_GPU_DEVICE
+    default: cuda
+  - name: DOCLING_OUTPUT_FORMAT
+    default: markdown
+  - name: DOCLING_USE_OCR
+    default: auto
+  - name: DOCLING_TABLE_MODE
+    default: accurate
+  - name: DOCLING_MAX_FILE_SIZE
+    default: 52428800
+  - name: DOCLING_ENABLE_FORMULAS
+    default: true
+  - name: DOCLING_ENABLE_CODE_BLOCKS
+    default: true
+  - name: DOCLING_CHUNK_SIZE
+    default: 512
+  - name: DOCLING_CHUNK_OVERLAP
+    default: 50
+  - name: DOCLING_GPU_SCALE
+    auto_managed: true
+  - name: DOCLING_ENDPOINT
+    auto_managed: true
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []

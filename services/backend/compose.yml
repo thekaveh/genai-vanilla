@@ -1,0 +1,71 @@
+# services/backend/compose.yml — FastAPI backend
+services:
+  backend:
+    build:
+      context: ../../backend
+      args:
+        BASE_IMAGE: ${BACKEND_IMAGE}
+    container_name: ${PROJECT_NAME}-backend
+    restart: unless-stopped
+    deploy:
+      replicas: ${BACKEND_SCALE:-1}
+    depends_on:
+      supabase-db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      supabase-storage:
+        condition: service_started
+      supabase-realtime:
+        condition: service_started
+      kong-api-gateway:
+        condition: service_started
+      litellm:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME}
+      KONG_URL: http://kong-api-gateway:8000
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL:-ollama/nomic-embed-text}
+      NEO4J_URI: ${NEO4J_URI:-bolt://neo4j-graph-db:7687}
+      NEO4J_USER: ${GRAPH_DB_USER}
+      NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
+      REDIS_URL: ${REDIS_URL}
+      N8N_BASE_URL: http://n8n:5678
+      COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
+      COMFYUI_ENABLED: true
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      # Vector database integration
+      WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
+      WEAVIATE_ENABLED: true
+      # STT/TTS/DOC endpoints (available for future proxy implementation)
+      PARAKEET_ENDPOINT: ${PARAKEET_ENDPOINT}
+      XTTS_ENDPOINT: ${XTTS_ENDPOINT}
+      DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # LangMem Memory Configuration
+      LANGMEM_ENABLED: ${LANGMEM_ENABLED:-true}
+      LANGMEM_NAMESPACE: ${LANGMEM_MEMORY_NAMESPACE:-default}
+      LANGMEM_AUTO_CONSOLIDATE: ${LANGMEM_AUTO_CONSOLIDATE:-true}
+      LANGMEM_CONSOLIDATION_INTERVAL: ${LANGMEM_CONSOLIDATION_INTERVAL:-86400}
+      LANGMEM_MAX_FACTS_PER_USER: ${LANGMEM_MAX_FACTS_PER_USER:-1000}
+      LANGMEM_EXTRACTION_MODEL: ${LANGMEM_EXTRACTION_MODEL:-}
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-}
+      LANGMEM_EMBEDDING_MODEL: ${LANGMEM_EMBEDDING_MODEL:-}
+    volumes:
+      - ../../backend/app:/app
+      - backend-data:/app/data
+      - weaviate-shared-config:/shared
+    ports:
+      - "${BACKEND_PORT}:8000"
+    networks:
+      - backend-network
+
+volumes:
+  backend-data:
+    name: ${PROJECT_NAME}-backend-data
+    driver: local
