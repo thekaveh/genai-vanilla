@@ -94,3 +94,69 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  llm_provider:
+    ollama-container-cpu:
+      scale: 1
+      environment:
+        OLLAMA_ENDPOINT: http://ollama:11434
+      deploy: {}
+      extra_hosts: []
+    ollama-container-gpu:
+      scale: 1
+      environment:
+        OLLAMA_ENDPOINT: http://ollama:11434
+        NVIDIA_VISIBLE_DEVICES: all
+      deploy:
+        resources:
+          reservations:
+            devices:
+            - driver: nvidia
+              capabilities:
+              - gpu
+      extra_hosts: []
+    ollama-localhost:
+      scale: 0
+      environment:
+        OLLAMA_ENDPOINT: http://host.docker.internal:11434
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    ollama-external:
+      scale: 0
+      environment:
+        OLLAMA_ENDPOINT: ${LLM_PROVIDER_EXTERNAL_URL}
+      deploy: {}
+      extra_hosts: []
+    none:
+      scale: 0
+      environment:
+        OLLAMA_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+  ollama-pull:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_adaptive:
+  ollama-pull:
+    adapts_to: llm_provider
+    environment_adaptation:
+      OLLAMA_HOST_URL: ${LITELLM_OLLAMA_UPSTREAM}
+    extra_hosts_adaptation: inherit from llm_provider
+

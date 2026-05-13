@@ -73,3 +73,64 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  n8n:
+    container:
+      scale: 1
+      environment:
+        STT_ENDPOINT: ${STT_ENDPOINT}
+        TTS_ENDPOINT: ${TTS_ENDPOINT}
+        DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  n8n-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_adaptive:
+  n8n:
+    adapts_to:
+    - stt_provider
+    - tts_provider
+    - doc_processor
+    environment_adaptation:
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
+      DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+    extra_hosts_adaptation: inherit from stt_provider, tts_provider, doc_processor
+
+runtime_deps:
+  n8n:
+    requires:
+    - weaviate
+    optional:
+    - parakeet
+    error_message: 'n8n disabled: requires weaviate for vector operations and AI workflow
+      nodes. Enable weaviate (WEAVIATE_SOURCE=container) to use n8n workflows with
+      vector capabilities'
+    info_message: n8n enabled - will connect to available optional services (parakeet)
+  n8n-worker:
+    requires:
+    - weaviate
+    error_message: 'n8n-worker disabled: requires weaviate for vector operations'
+

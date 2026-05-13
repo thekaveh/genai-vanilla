@@ -124,3 +124,45 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  minio:
+    container:
+      scale: 1
+      environment:
+        MINIO_ENDPOINT: http://minio:9000
+        MINIO_PUBLIC_ENDPOINT: http://localhost:${MINIO_PORT}
+        MINIO_PUBLIC_CONSOLE_ENDPOINT: http://localhost:${MINIO_CONSOLE_PORT}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        MINIO_ENDPOINT: ''
+        MINIO_PUBLIC_ENDPOINT: ''
+        MINIO_PUBLIC_CONSOLE_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+  minio-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_deps:
+  minio:
+    requires: []
+    optional: []
+

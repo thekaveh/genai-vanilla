@@ -102,6 +102,17 @@ class Manifest:
     depends_on: DependsOn = field(default_factory=DependsOn)
     exports: list[ExportRef] = field(default_factory=list)
     hook: str | None = None
+    # Slices of the legacy bootstrapper/service-configs.yml structure, owned
+    # by this manifest. sc_synthesizer.synthesize_legacy() concatenates these
+    # across manifests to produce the dict the bootstrapper used to load from
+    # the YAML file. Loaded as opaque mappings; the synthesizer interprets
+    # the shape (which mirrors service-configs.yml's `source_configurable:`,
+    # `adaptive_services:`, and `service_dependencies:` blocks respectively).
+    runtime_sc: dict = field(default_factory=dict)
+    runtime_adaptive: dict = field(default_factory=dict)
+    runtime_deps: dict = field(default_factory=dict)
+    # Globals-only. Equivalent to the legacy `dependencies:` block.
+    runtime_dependency_tiers: dict = field(default_factory=dict)
     source_path: Path | None = None
 
 
@@ -305,6 +316,10 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
         depends_on=depends_on,
         exports=exports,
         hook=raw.get("hook"),
+        runtime_sc=dict(raw.get("runtime_sc") or {}),
+        runtime_adaptive=dict(raw.get("runtime_adaptive") or {}),
+        runtime_deps=dict(raw.get("runtime_deps") or {}),
+        runtime_dependency_tiers=dict(raw.get("runtime_dependency_tiers") or {}),
         source_path=source_path,
     )
 

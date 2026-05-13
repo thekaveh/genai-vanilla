@@ -72,3 +72,50 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  openclaw:
+    container:
+      scale: 1
+      environment:
+        OPENCLAW_ENDPOINT: http://openclaw-gateway:18789
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        OPENCLAW_ENDPOINT: ${OPENCLAW_LOCALHOST_URL:-http://host.docker.internal:63024}
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        OPENCLAW_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+  openclaw-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_deps:
+  openclaw-gateway:
+    optional:
+    - ollama
+    info_message: OpenClaw enabled - will connect to available LLM providers (ollama,
+      anthropic, openai)
+

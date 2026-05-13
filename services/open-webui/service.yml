@@ -71,3 +71,40 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  open-web-ui:
+    container:
+      scale: 1
+      environment:
+        OPENAI_API_BASE_URLS: http://litellm:4000/v1
+        OPENAI_API_KEYS: ${LITELLM_MASTER_KEY}
+        COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
+        STT_ENDPOINT: ${STT_ENDPOINT}
+        TTS_ENDPOINT: ${TTS_ENDPOINT}
+        DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_deps:
+  open-web-ui:
+    optional:
+    - weaviate
+    - local-deep-researcher
+    - parakeet
+    - xtts
+    - docling
+    info_message: Open WebUI enabled - will connect to available optional services
+      (weaviate, local-deep-researcher, parakeet, xtts, docling)
+

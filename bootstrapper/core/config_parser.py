@@ -87,18 +87,40 @@ class ConfigParser:
         
     def load_yaml_config(self) -> Dict[str, Any]:
         """
-        Load the service configuration YAML file.
-        
-        Returns:
-            dict: Loaded YAML configuration
-            
-        Raises:
-            FileNotFoundError: If service-configs.yml not found
-            yaml.YAMLError: If YAML parsing fails
+        Return the runtime service configuration dict.
+
+        Historically this read `bootstrapper/service-configs.yml`. After the
+        configuration-modularization refactor (Tier 1.F), each manifest at
+        `services/<name>/service.yml` owns its per-service slice under
+        `runtime_sc:`, `runtime_adaptive:`, `runtime_deps:` blocks. The
+        sc_synthesizer concatenates those slices into the exact same dict
+        shape (source_configurable, adaptive_services, dependencies,
+        service_dependencies) that consumers expect.
+
+        Falls back to the legacy YAML file ONLY if it still exists on disk
+        (transitional safety net during the refactor; removed once the file
+        is deleted).
         """
+        # Manifest-driven path (operational)
+        try:
+            from services.manifests import load_manifests
+            from services.sc_synthesizer import synthesize_legacy
+            manifests = load_manifests(self.root_dir / "services")
+            if manifests:
+                return synthesize_legacy(manifests)
+        except Exception as e:
+            if not self.service_config_path.exists():
+                raise RuntimeError(
+                    "load_yaml_config(): manifest synthesis failed and no "
+                    "legacy service-configs.yml fallback present: " + repr(e)
+                ) from e
+
+        # Legacy fallback (only triggers if manifests not present)
         if not self.service_config_path.exists():
-            raise FileNotFoundError(f"Service configuration file not found: {self.service_config_path}")
-            
+            raise FileNotFoundError(
+                f"Service configuration unavailable: neither manifests "
+                f"under services/ nor legacy file {self.service_config_path}"
+            )
         with open(self.service_config_path, 'r') as f:
             return yaml.safe_load(f)
     

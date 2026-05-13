@@ -191,6 +191,43 @@
       "type": "string",
       "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)+$",
       "description": "Dotted Python module path (e.g. 'services.hooks.comfyui') for a callable that runs AFTER declarative effects and may mutate auto_managed env vars."
+    },
+    "runtime_sc": {
+      "type": "object",
+      "description": "Slice of the bootstrapper's legacy service-configs.yml `source_configurable:` block, owned by this manifest. The sc_synthesizer concatenates these blocks across manifests to produce the runtime config dict the bootstrapper consumes.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "scale": { "type": "integer" },
+            "environment": { "type": "object" },
+            "deploy": { "type": "object" },
+            "extra_hosts": { "type": "array" }
+          }
+        }
+      }
+    },
+    "runtime_adaptive": {
+      "type": "object",
+      "description": "Slice of the legacy service-configs.yml `adaptive_services:` block. Same synthesizer pipeline.",
+      "additionalProperties": { "type": "object" }
+    },
+    "runtime_deps": {
+      "type": "object",
+      "description": "Slice of the legacy service-configs.yml `service_dependencies:` block.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "runtime_dependency_tiers": {
+      "type": "object",
+      "description": "Globals-only. Stack-wide tier ordering (data_tier, init_tier, core_services, app_tier).",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
     }
   }
 }

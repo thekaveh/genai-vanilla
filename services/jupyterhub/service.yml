@@ -42,3 +42,45 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_adaptive:
+  jupyterhub:
+    adapts_to:
+    - llm_provider
+    - weaviate
+    - neo4j-graph-db
+    - comfyui
+    - stt_provider
+    - tts_provider
+    - doc_processor
+    environment_adaptation:
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      WEAVIATE_URL: http://weaviate:8080
+      NEO4J_URI: bolt://neo4j-graph-db:7687
+      COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT}
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
+      DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+    extra_hosts_adaptation: inherit from llm_provider
+
+runtime_deps:
+  jupyterhub:
+    optional:
+    - neo4j-graph-db
+    - searxng
+    - n8n
+    - weaviate
+    - comfyui
+    - parakeet
+    - xtts
+    - docling
+    info_message: JupyterHub enabled - will connect to available optional services
+      (neo4j, searxng, n8n, weaviate, comfyui, parakeet, xtts, docling)
+

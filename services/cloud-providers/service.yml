@@ -65,3 +65,51 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  cloud_openai:
+    enabled:
+      scale: 0
+      environment:
+        LITELLM_OPENAI_ENABLED: 'true'
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        LITELLM_OPENAI_ENABLED: 'false'
+      deploy: {}
+      extra_hosts: []
+  cloud_anthropic:
+    enabled:
+      scale: 0
+      environment:
+        LITELLM_ANTHROPIC_ENABLED: 'true'
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        LITELLM_ANTHROPIC_ENABLED: 'false'
+      deploy: {}
+      extra_hosts: []
+  cloud_openrouter:
+    enabled:
+      scale: 0
+      environment:
+        LITELLM_OPENROUTER_ENABLED: 'true'
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        LITELLM_OPENROUTER_ENABLED: 'false'
+      deploy: {}
+      extra_hosts: []
+

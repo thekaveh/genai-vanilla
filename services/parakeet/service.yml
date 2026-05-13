@@ -99,3 +99,70 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  stt_provider:
+    speaches-container-cpu:
+      scale: 1
+      environment:
+        STT_ENDPOINT: http://speaches:8000
+      deploy: {}
+      extra_hosts: []
+    speaches-container-gpu:
+      scale: 1
+      environment:
+        STT_ENDPOINT: http://speaches:8000
+      deploy:
+        resources:
+          reservations:
+            devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+              - gpu
+      extra_hosts: []
+    parakeet-container-gpu:
+      scale: 1
+      environment:
+        STT_ENDPOINT: http://parakeet-gpu:8000
+        PARAKEET_DEVICE: ${PARAKEET_GPU_DEVICE:-cuda}
+        PARAKEET_COMPUTE_TYPE: ${PARAKEET_GPU_COMPUTE_TYPE:-float16}
+        PARAKEET_MODEL: ${PARAKEET_MODEL:-nvidia/parakeet-tdt-0.6b-v3}
+        NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+        HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      deploy:
+        resources:
+          reservations:
+            devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+              - gpu
+      extra_hosts: []
+    parakeet-localhost:
+      scale: 0
+      environment:
+        STT_ENDPOINT: ${PARAKEET_LOCALHOST_URL:-http://host.docker.internal:63022}
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    whisper-cpp-localhost:
+      scale: 0
+      environment:
+        STT_ENDPOINT: ${WHISPER_CPP_LOCALHOST_URL:-http://host.docker.internal:63025}
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        STT_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+

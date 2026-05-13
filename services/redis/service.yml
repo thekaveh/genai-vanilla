@@ -70,3 +70,18 @@ depends_on:
 # WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/2", etc.)
 # continues to work via the flat .env regardless of this exports list.
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  redis:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+

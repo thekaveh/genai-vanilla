@@ -67,3 +67,32 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  neo4j-graph-db:
+    container:
+      scale: 1
+      environment:
+        NEO4J_URI: bolt://neo4j-graph-db:7687
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        NEO4J_URI: bolt://host.docker.internal:7687
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        NEO4J_URI: ''
+      deploy: {}
+      extra_hosts: []
+

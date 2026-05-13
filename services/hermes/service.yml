@@ -112,3 +112,73 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  hermes:
+    container:
+      scale: 1
+      environment:
+        HERMES_ENDPOINT: http://hermes:8642
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        HERMES_ENDPOINT: ${HERMES_LOCALHOST_URL:-http://host.docker.internal:63028}
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        HERMES_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+  hermes-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_adaptive:
+  hermes-init:
+    adapts_to:
+    - stt_provider
+    - tts_provider
+    - comfyui
+    - searxng
+    environment_adaptation:
+      TTS_INTERNAL_URL: ${TTS_ENDPOINT}
+      STT_INTERNAL_URL: ${STT_ENDPOINT}
+      COMFYUI_INTERNAL_URL: ${COMFYUI_ENDPOINT}
+      SEARXNG_INTERNAL_URL: http://searxng:8080
+    extra_hosts_adaptation: none
+  hermes:
+    adapts_to:
+    - llm_provider
+    environment_adaptation:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+    extra_hosts_adaptation: inherit from llm_provider
+
+runtime_deps:
+  hermes:
+    optional:
+    - parakeet
+    - xtts
+    - comfyui
+    - searxng
+    info_message: Hermes enabled - will wire optional services into /opt/data/config.yaml
+      when available (parakeet, xtts, comfyui, searxng)
+

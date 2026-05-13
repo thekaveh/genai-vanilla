@@ -93,3 +93,84 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  weaviate:
+    container:
+      scale: 1
+      environment:
+        QUERY_DEFAULTS_LIMIT: 25
+        AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+        PERSISTENCE_DATA_PATH: /var/lib/weaviate
+        DEFAULT_VECTORIZER_MODULE: text2vec-openai
+        ENABLE_MODULES: text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama
+        CLUSTER_HOSTNAME: weaviate
+        OPENAI_APIKEY: ${LITELLM_MASTER_KEY:-}
+        CLIP_INFERENCE_API: http://multi2vec-clip:8080
+        WEAVIATE_URL: http://weaviate:8080
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        WEAVIATE_URL: http://host.docker.internal:8080
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        WEAVIATE_URL: ''
+      deploy: {}
+      extra_hosts: []
+  multi2vec-clip:
+    container-cpu:
+      scale: 1
+      environment:
+        ENABLE_CUDA: '0'
+      deploy: {}
+      extra_hosts: []
+    container-gpu:
+      scale: 1
+      environment:
+        ENABLE_CUDA: '1'
+      deploy:
+        resources:
+          reservations:
+            devices:
+            - driver: nvidia
+              capabilities:
+              - gpu
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        ENABLE_CUDA: '0'
+      deploy: {}
+      extra_hosts: []
+  weaviate-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_adaptive:
+  weaviate-init:
+    adapts_to: llm_provider
+    environment_adaptation:
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+    extra_hosts_adaptation: inherit from llm_provider
+

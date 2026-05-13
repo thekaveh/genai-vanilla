@@ -66,3 +66,42 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  doc_processor:
+    docling-container-gpu:
+      scale: 1
+      environment:
+        DOCLING_ENDPOINT: http://docling-gpu:8000
+        DOCLING_DEVICE: ${DOCLING_GPU_DEVICE:-cuda}
+        NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+        HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      deploy:
+        resources:
+          reservations:
+            devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+              - gpu
+      extra_hosts: []
+    docling-localhost:
+      scale: 0
+      environment:
+        DOCLING_ENDPOINT: ${DOCLING_LOCALHOST_URL:-http://host.docker.internal:63021}
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        DOCLING_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+

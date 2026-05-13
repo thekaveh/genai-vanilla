@@ -107,3 +107,91 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  comfyui:
+    container-cpu:
+      scale: 1
+      environment:
+        COMFYUI_ARGS: --listen --cpu
+        COMFYUI_ENDPOINT: http://comfyui:18188
+        AUTO_UPDATE: 'false'
+        WEB_ENABLE_AUTH: 'false'
+        ENABLE_QUICKTUNNEL: 'false'
+        SERVERLESS: 'false'
+        IS_LOCAL_COMFYUI: 'false'
+        COMFYUI_LOCAL_MODELS_PATH: ./empty
+      deploy: {}
+      extra_hosts: []
+    container-gpu:
+      scale: 1
+      environment:
+        COMFYUI_ARGS: --listen --force-fp16
+        COMFYUI_ENDPOINT: http://comfyui:18188
+        AUTO_UPDATE: 'true'
+        NVIDIA_VISIBLE_DEVICES: all
+        NVIDIA_DRIVER_CAPABILITIES: compute,utility
+        WEB_ENABLE_AUTH: 'false'
+        ENABLE_QUICKTUNNEL: 'false'
+        SERVERLESS: 'false'
+        IS_LOCAL_COMFYUI: 'false'
+        COMFYUI_LOCAL_MODELS_PATH: ./empty
+      deploy:
+        resources:
+          reservations:
+            devices:
+            - driver: nvidia
+              count: 1
+              capabilities:
+              - gpu
+          limits:
+            cpus: ${PROD_ENV_COMFYUI_CPUS:-2}
+            memory: ${PROD_ENV_COMFYUI_MEM_LIMIT:-4g}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        COMFYUI_ENDPOINT: http://host.docker.internal:8000
+        IS_LOCAL_COMFYUI: 'true'
+        COMFYUI_LOCAL_MODELS_PATH: ${COMFYUI_LOCAL_MODELS_PATH:-~/Documents/ComfyUI/models}
+      deploy: {}
+      extra_hosts:
+      - host.docker.internal:host-gateway
+    external:
+      scale: 0
+      environment:
+        COMFYUI_ENDPOINT: http://external.comfyui.provider.com
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        COMFYUI_ENDPOINT: http://comfyui:18188
+        IS_LOCAL_COMFYUI: 'false'
+      deploy: {}
+      extra_hosts: []
+  comfyui-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_adaptive:
+  comfyui-init:
+    adapts_to: comfyui
+    environment_adaptation:
+      COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT}
+    extra_hosts_adaptation: inherit from comfyui
+

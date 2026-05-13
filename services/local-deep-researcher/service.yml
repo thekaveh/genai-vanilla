@@ -44,3 +44,41 @@ depends_on:
   optional: []
 
 exports: []
+
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slices owned by this
+# manifest. Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
+runtime_sc:
+  local-deep-researcher:
+    container:
+      scale: 1
+      environment:
+        LITELLM_BASE_URL: http://litellm:4000
+        LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+        STT_ENDPOINT: ${STT_ENDPOINT}
+        TTS_ENDPOINT: ${TTS_ENDPOINT}
+        DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_deps:
+  local-deep-researcher:
+    optional:
+    - neo4j-graph-db
+    - searxng
+    - n8n
+    - weaviate
+    - parakeet
+    - xtts
+    - docling
+    info_message: Local Deep Researcher enabled - will connect to available optional
+      services (neo4j, searxng, n8n, weaviate, parakeet, xtts, docling)
+

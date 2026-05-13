@@ -65,3 +65,45 @@ depends_on:
   optional: []
 
 exports: []
+
+# Bootstrapper dependency tiers (data → init → core → app).
+# Migrated from bootstrapper/service-configs.yml's `dependencies:` block.
+runtime_dependency_tiers:
+  data_tier:
+  - supabase-db
+  - redis
+  - neo4j-graph-db
+  init_tier:
+  - supabase-db-init
+  - llm-catalog-init
+  - litellm-init
+  - ollama-pull
+  - comfyui-init
+  - weaviate-init
+  - n8n-init
+  core_services:
+  - supabase-meta
+  - supabase-storage
+  - supabase-auth
+  - supabase-api
+  - supabase-realtime
+  - litellm
+  - ollama
+  - comfyui
+  - parakeet
+  - xtts
+  - docling
+  - weaviate
+  - multi2vec-clip
+  - searxng
+  - n8n
+  - n8n-worker
+  - openclaw-gateway
+  - hermes
+  app_tier:
+  - kong-api-gateway
+  - supabase-studio
+  - local-deep-researcher
+  - open-web-ui
+  - backend
+  - jupyterhub
