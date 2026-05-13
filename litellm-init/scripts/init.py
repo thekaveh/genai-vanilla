@@ -169,14 +169,35 @@ def render_model_list(active_rows: list[tuple[str, str]]) -> list[dict[str, Any]
     out: list[dict[str, Any]] = []
     for provider, name in active_rows:
         if provider == "ollama":
-            entry = {
-                "model_name": f"ollama/{name}",
-                "litellm_params": {
-                    "model": f"ollama/{name}",
-                    "api_base": LITELLM_OLLAMA_UPSTREAM,
-                },
+            # Register Ollama models under BOTH names so every consumer
+            # path works:
+            #   • ``ollama/{name}`` — historical prefixed form used by
+            #     backend's ``LITELLM_EMBEDDING_MODEL``, weaviate-init's
+            #     ``/shared/weaviate-config.env``, and any code that
+            #     uses LiteLLM's path-style routing convention.
+            #   • bare ``{name}`` — what clients like Hermes Agent send
+            #     after their internal prefix-stripper treats ``ollama/``
+            #     as a provider hint and removes it before forwarding.
+            #     Cloud providers (openai, anthropic, openrouter) are
+            #     already registered under bare names in the branches
+            #     below; this keeps Ollama consistent with them.
+            # Both entries point at the same upstream so latency / spend
+            # tracking aren't doubled — LiteLLM just sees two model_name
+            # aliases for the same backing config.
+            ollama_params = {
+                "model": f"ollama/{name}",
+                "api_base": LITELLM_OLLAMA_UPSTREAM,
             }
-        elif provider == "openai":
+            out.append({
+                "model_name": f"ollama/{name}",
+                "litellm_params": dict(ollama_params),
+            })
+            out.append({
+                "model_name": name,
+                "litellm_params": dict(ollama_params),
+            })
+            continue
+        if provider == "openai":
             entry = {
                 "model_name": name,
                 "litellm_params": {

@@ -39,7 +39,14 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 2024
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# start-period bumped to 300s because the entrypoint clones the upstream
+# LDR repo + `uv pip install` ~72 packages (numpy, lxml, langchain,
+# langgraph, openai, tiktoken, …) on first launch. On a clean machine
+# this routinely takes 2-5 minutes over the network; 60s flipped the
+# container to ``unhealthy`` long before the langgraph server bound to
+# :2024. Subsequent restarts hit the cached venv and pass in <10s, so
+# the higher ceiling costs nothing in steady state.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
     CMD /app/scripts/healthcheck.sh
 
 # Run initialization and start the service

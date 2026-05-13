@@ -1,23 +1,47 @@
 """
-PromptPanel — wizard's main interactive panel (mockup 003).
+PromptPanel — wizard's main interactive prompt body.
 
-Layout (fits in 1 cell rows + blank rows + variable-height options):
+Hosts every interactive step the wizard exposes. The shape changes
+per ``PromptStep.kind``:
 
-    ┌─ LLM Provider · Deployment mode               3 / 18 ──┐
+  * ``options`` / ``multiselect`` (default) — option list with
+    cursor-driven navigation. Multiselect adds ``[✓]`` / ``[ ]``
+    checkboxes plus optional filter-chip / search-box wiring (see
+    below) and a per-row variant tree for Ollama parents.
+  * ``number`` — masked free-integer ``Input`` (base port, etc.).
+  * ``secret`` — masked password ``Input`` with KEEP / CLEAR sentinels.
+  * ``text`` — unmasked free-text ``Input`` with the same sentinels.
+
+Ollama-style multiselect layout (the richest variant) — top-down:
+
+    ┌─ Ollama  ·  models                          12 / 18 ──┐
+    │  Which Ollama models do you want registered?            │
     │                                                         │
-    │  How should the LLM provider run?                       │
-    │  Pick where the model server lives.                     │
+    │  [ Tab or /  to filter models by name…             ]   │  ← search input
+    │  Filter  [ALL]  embedding  thinking  vision  tools …    │  ← chip row
     │                                                         │
-    │  O P T I O N S                                          │
-    │  ▸ ◉ ollama-localhost                       [rec.][GPU] │
-    │      Use the Ollama already running on this host        │
-    │    ○ ollama-container-gpu                       [GPU]   │
-    │      Run in a CUDA container                            │
-    │    ○ api                                       [cloud]  │
-    │      Use a hosted API endpoint                          │
+    │  ▸ ▼ [✓] qwen3.6  [thinking][vision][tools][mlx]  …M    │  ← parent
+    │       latest · 8b (4.8GB) · 14b (8.4GB) · 27b (17GB) …  │
+    │     ○ └─ [✓] qwen3.6:8b   (4.8GB · 256K ctx)  [vision]  │  ← leaves
+    │     ○ └─ [ ] qwen3.6:27b  (17GB · 256K ctx)             │
+    │  ▸ ▶ [ ] llama3.1  [thinking][tools]  [legacy]    114M  │
     │                                                         │
     │  [optional dependency conflict insert here]             │
     └─────────────────────────────────────────────────────────┘
+
+Wiring summary:
+  * Search box ↔ ``_search_query`` ↔ substring filter inside
+    ``_rebuild_visible``. Focus parked on the option list at mount —
+    Tab / `/` / mouse-click hands focus to the Input. See
+    ``focus_search``, ``has_search_focus``, ``unfocus_search``,
+    ``toggle_search_focus``.
+  * Filter chips ↔ ``_filter_tag`` ↔ tag membership in
+    ``_rebuild_visible``. Both filters stack (chip AND substring).
+  * Variant tree ↔ ``_expanded`` set + ``_variant_cache`` ↔ row
+    emission in ``_rebuild_visible`` (parents + their leaves when
+    expanded). Detail-page fetch worker populates the cache async.
+  * Per-row checkbox ↔ ``_checked_values`` ↔ predicate
+    ``_row_is_checked`` (handles bare ↔ tagged mutex for Ollama).
 """
 
 from __future__ import annotations
@@ -37,7 +61,116 @@ from .multiselect_filter_chips import (
     FilterChanged,
     MultiselectFilterChips,
 )
-from .option_row import OptionRow
+from .option_row import (
+    OptionRow,
+    _approx_size,
+    _LEAF_PREFIX_WIDTH,
+    _LEAF_TAG_COL,
+    _PARENT_PREFIX_WIDTH,
+    _PARENT_TAG_COL,
+)
+
+
+# ─── tree-multiselect helpers ───────────────────────────────────────────
+#
+# The Ollama multiselect supports per-variant selection by letting the
+# user expand a multi-variant parent (``qwen3``) in place — the leaves
+# (``qwen3:0.6b``, ``qwen3:8b``, …) appear directly below the parent in
+# the same scrollable list. No popup, no focus handover: cursor, Space,
+# and arrow keys all stay in the prompt panel. Selections persist to
+# ``_checked_values`` in ``model[:tag]`` form; the predicate below
+# treats a bare entry as "pull :latest" and tagged entries as "pull
+# this exact variant".
+
+# Synthetic tag prepended to every multi-variant parent's expansion so
+# the user can explicitly pick the model-maker default from the tree
+# instead of going hunting for the catalog's "implicit" :latest.
+_LATEST_TAG = "latest"
+
+
+# Capability tags whose value is per-variant (each leaf has its own
+# from the detail page's Input column / MLX chip). These are NOT
+# inherited from parent → leaf because the parent's listing-level
+# capability is a UNION across variants (parent shows ``[vision]`` if
+# any variant has Image input, but specific text-only leaves
+# shouldn't; same for ``[mlx]`` — only MLX-quantized leaves carry it).
+_PER_VARIANT_CAPS = frozenset({"vision", "audio", "mlx"})
+
+# Status / lifecycle tags that describe the row's relationship to the
+# user's environment, not the model's capabilities. Shown on the
+# parent only; repeating them on every leaf adds visual noise without
+# extra information (every leaf of a [library] parent is library; the
+# user already sees that on the parent right above).
+_STATUS_TAGS = frozenset({"pulled", "library", "legacy", "default"})
+
+
+def _inherited_leaf_badges(parent_badges: list[str]) -> list[str]:
+    """Subset of parent badges that propagate to each leaf.
+
+    Drop status tags (parent-only) and input-modality-derived tags
+    (per-variant, supplied by the detail-page Input column). Everything
+    else (``thinking``, ``tools``, ``embedding``, any future capability
+    that's family-level) is inherited so the leaf shows the full
+    capability picture it actually supports.
+    """
+    return [
+        b for b in parent_badges
+        if b not in _PER_VARIANT_CAPS and b not in _STATUS_TAGS
+    ]
+
+
+@dataclass(frozen=True)
+class _VisibleRow:
+    """One row in PromptPanel._visible — either a parent model card or
+    one of its variant leaves when the parent is expanded.
+
+    Encoding:
+      • parent: ``variant=None``, ``abs_idx`` points into step.options.
+      • leaf:   ``variant="latest"`` or one of opt.sizes; ``abs_idx``
+                still points to the PARENT's index in step.options.
+    """
+    kind: str               # "parent" or "leaf"
+    abs_idx: int            # parent's index in step.options
+    parent_value: str       # parent's model name
+    variant: str | None     # None for parent; tag string for leaf
+
+    def identity(self) -> str:
+        """Stable cursor-identity string for save/restore across
+        filter or expand/collapse re-renders."""
+        if self.variant is None:
+            return self.parent_value
+        return f"{self.parent_value}:{self.variant}"
+
+
+def _row_is_checked(row_value: str, checked: set[str]) -> bool:
+    """Row-checked predicate accommodating both bare and tagged entries.
+
+    A row is "checked" if ``_checked_values`` contains either the
+    bare name (``qwen3`` → pulls :latest) or any ``model:tag`` entry
+    that starts with the row's value followed by ``:``.
+    """
+    if row_value in checked:
+        return True
+    prefix = row_value + ":"
+    return any(v.startswith(prefix) for v in checked)
+
+
+def _row_variants(row_value: str, checked: set[str]) -> frozenset[str]:
+    """Tags currently selected for ``row_value`` in ``checked``.
+
+    Bare-entry case (``qwen3`` ∈ checked) maps to ``{"latest"}`` so
+    the line-2 highlight on the row points at the synthetic
+    :latest variant rather than silently going dark. Tagged entries
+    contribute their ``:tag`` suffix as-is.
+    """
+    out: set[str] = set()
+    if row_value in checked:
+        out.add(_LATEST_TAG)
+    prefix = row_value + ":"
+    for v in checked:
+        if v.startswith(prefix):
+            out.add(v[len(prefix):])
+    return frozenset(out)
 
 
 # Sentinel return values for secret-input steps. Real API keys never
@@ -190,6 +323,32 @@ class PromptPanel(Container):
     }
     PromptPanel > #conflict-slot { height: auto; }
     PromptPanel > #filter-slot { height: auto; }
+    PromptPanel > #search-slot { height: auto; }
+    PromptPanel #search-input {
+        height: 1;
+        width: 1fr;
+        background: #1a1b2c;
+        color: #c0caf5;
+        border: none;
+        padding: 0 1;
+    }
+    /* Focused state — strongly tinted bg + cyan text so the user can
+       tell at a glance their keystrokes are going to the search box.
+       Without this, an Input that has focus but no text reads almost
+       identical to one that doesn't, and the user can accidentally
+       type into it thinking they're driving the option list. We stay
+       on a 1-cell height (no border-tall) so the layout doesn't
+       reflow when focus shifts. */
+    PromptPanel #search-input:focus {
+        background: #2c3e54;
+        color: #7dcfff;
+        text-style: bold;
+    }
+    PromptPanel #search-hint {
+        height: 1;
+        color: #565f89;
+        padding: 0;
+    }
     """
 
     def __init__(self, *, id: str | None = None) -> None:
@@ -201,6 +360,16 @@ class PromptPanel(Container):
         # populated in load_step() only when the step carries
         # ``filter_tags``. Empty for every other step.
         self._filter_slot = Container(id="filter-slot")
+        # Container for the (optional) search Input — appears above the
+        # filter-chip row on the Ollama multiselect step. Lets the user
+        # narrow the option list by substring against the model name.
+        # Empty for every other step.
+        self._search_slot = Container(id="search-slot")
+        self._search_input: Input | None = None
+        # Case-folded substring used to filter visible rows. ``""``
+        # disables the substring filter. Persists across filter-chip
+        # changes within the step but clears on step re-entry.
+        self._search_query: str = ""
         # VerticalScroll (not plain Vertical) so long option lists
         # (Ollama library scrape can be ~230 entries) get a scrollbar
         # and a clipped viewport; otherwise the cursor moves down past
@@ -229,19 +398,35 @@ class PromptPanel(Container):
         self._checked_values: set[str] = set()
         # Multi-select filter state. ``_filter_tag`` is the chip key
         # currently active ("all" or one of step.filter_tags).
-        # ``_visible_indices`` maps display position → step.options
-        # absolute index. For non-multiselect / no-filter steps these
-        # remain in their default state and ``_selected_index`` keeps
-        # its original absolute-index semantics.
         self._filter_tag: str = "all"
-        self._visible_indices: list[int] = []
         self._filter_chips: "MultiselectFilterChips | None" = None
+        # ``_visible`` is the canonical ordered list of rows currently
+        # mounted in ``_option_list``: parents in step.options order
+        # (filtered by ``_filter_tag``), with their variant leaves
+        # spliced in immediately after each expanded parent. The
+        # cursor ``_selected_index`` is a display-position index into
+        # this list — works uniformly for parents and leaves. Empty
+        # for non-multiselect steps (which keep absolute-index
+        # semantics in ``_selected_index``).
+        self._visible: list[_VisibleRow] = []
+        # Parents the user has expanded — kept across re-renders
+        # (filter changes, leaf toggles) so the tree state survives.
+        # Cleared on step (re-)entry so revisits start collapsed.
+        self._expanded: set[str] = set()
+        # Per-session cache of detail-page variant data. Lazily
+        # populated on first expand of each multi-variant parent —
+        # see ``_ensure_variants_loaded``. ``_variant_loading`` is the
+        # in-flight set so a re-expand while the worker is running
+        # doesn't fire a second fetch.
+        self._variant_cache: dict[str, list] = {}
+        self._variant_loading: set[str] = set()
         self._on_change: Callable[[int, PromptOption], None] | None = None
 
     def compose(self) -> ComposeResult:
         yield self._heading
         yield self._subtitle
         yield self._spacer2
+        yield self._search_slot
         yield self._filter_slot
         yield self._option_list
         yield self._number_slot
@@ -261,6 +446,13 @@ class PromptPanel(Container):
         self.border_subtitle = ""
         self._heading.update(step.heading)
         self._subtitle.update(step.subtitle)
+        # Hide the persistent search input by default — the multiselect
+        # branch below re-shows it when ``filter_tags`` is set. Without
+        # this the Input would linger across step changes (number /
+        # secret / text / non-filter multiselect) and appear above
+        # forms it doesn't belong to.
+        if self._search_input is not None:
+            self._search_input.display = False
 
         if step.kind == "number":
             # Free integer input — reuse the persistent Input/Static
@@ -390,26 +582,50 @@ class PromptPanel(Container):
             # multi=True mode. When the step declares ``filter_tags``,
             # a MultiselectFilterChips row is mounted above the list
             # and ``_selected_index`` becomes a display-position index
-            # into ``_visible_indices`` instead of an absolute index
-            # into ``step.options``.
+            # into ``self._visible`` (the ordered list of currently-
+            # mounted rows, parents + expanded leaves, post-filter)
+            # instead of an absolute index into ``step.options``.
             self._hide_number_widgets()
             self._hide_secret_widgets()
-            # Intersect default_values with the *visible* option set.
-            # Without this, defaults that aren't in step.options (e.g. a
-            # cloud account that no longer has access to a previously-
-            # active model, or an Ollama upstream that doesn't have a
-            # default-active model pulled) stay invisibly checked in
-            # _checked_values and leak into the saved CSV at confirm.
-            visible_values = {opt.value for opt in step.options}
-            self._checked_values = set(step.default_values or []) & visible_values
-            # Reset the filter on every (re-)entry into a multiselect
-            # step. Persistence across step navigations would be a
-            # follow-up; the default "show everything" is the least
-            # surprising entry state.
+            # Drop default_values that don't map to any visible row.
+            # A default ``qwen3.6:latest`` maps to the row ``qwen3.6``
+            # via the bare/tagged predicate; a default with no matching
+            # row at all (cloud account lost access; Ollama upstream
+            # doesn't have a default-active model pulled) is silently
+            # dropped so it doesn't leak into the saved CSV.
+            visible_row_names = {opt.value for opt in step.options}
+
+            def _maps_to_visible_row(v: str) -> bool:
+                if v in visible_row_names:
+                    return True
+                if ":" in v:
+                    return v.split(":", 1)[0] in visible_row_names
+                return False
+
+            self._checked_values = {
+                v for v in (step.default_values or []) if _maps_to_visible_row(v)
+            }
+            # Reset the filter + expansion + search state on every
+            # (re-)entry into a multiselect step. The default
+            # "show everything, all collapsed, empty query" is the
+            # least surprising entry state.
+            #
+            # ``_variant_cache`` is DELIBERATELY NOT reset here.
+            # Model names on ollama.com are globally unique and the
+            # Ollama multiselect is a singleton step, so cached
+            # detail-page data from a previous visit is still valid;
+            # preserving it means re-expanding a parent doesn't pay
+            # another HTTP round-trip. If a future feature adds a
+            # second variant-tree-style multiselect against a
+            # different namespace, this cache should become keyed on
+            # ``(step_index, model_name)`` instead.
             self._filter_tag = FILTER_ALL_KEY
+            self._expanded = set()
+            self._search_query = ""
             self._mount_filter_chips(step.filter_tags)
+            self._mount_search_input(step.filter_tags)
             self._selected_index = 0
-            self._mount_multiselect_rows()
+            self._mount_visible_rows()
             return
 
         # Default options-list step
@@ -462,45 +678,238 @@ class PromptPanel(Container):
         )
         self._filter_slot.mount(self._filter_chips)
 
-    def _compute_visible_indices(self) -> list[int]:
-        """Indices into ``step.options`` that match ``self._filter_tag``.
+    def _mount_search_input(self, filter_tags: tuple[str, ...]) -> None:
+        """Show (or hide) the search-by-name input above the chip row.
 
-        ``"all"`` (or no step / no options) yields every index.
-        Otherwise, indices whose option's ``badges`` list contains the
-        active tag. The tag namespace lives in ``PromptOption.badges``
-        for symmetry with the existing status badges (``pulled``,
-        ``library``, ``default``) — capability tags from
-        ``ollama_library`` get prepended there too.
+        The search box only makes sense on multiselect steps with a
+        material option list — gated on ``filter_tags`` for now since
+        the Ollama models step is the only one that fits that profile.
+        Cloud-models splash steps don't have filter_tags and skip the
+        search box; they're short enough lists not to need one.
+
+        Uses the same create-once-then-toggle pattern as the number
+        and secret inputs: an Input with a fixed ``id`` mounted twice
+        in quick succession (splash render → real-data render for
+        ``options_provider`` steps) blows up with ``DuplicateIds``
+        because ``remove_children`` is asynchronous. The persistent
+        widget sidesteps that race.
+
+        Focus is deliberately parked on the option list right after
+        mount so the Input doesn't accidentally swallow the user's
+        first ``space`` or ``j``/``k`` keystrokes. Tab, mouse click,
+        or ``/`` are the explicit affordances that hand focus to the
+        Input.
         """
+        if not filter_tags:
+            if self._search_input is not None:
+                self._search_input.display = False
+            return
+        if self._search_input is None:
+            self._search_input = Input(
+                value="",
+                placeholder="Tab or /  to filter models by name…",
+                id="search-input",
+            )
+            self._search_slot.mount(self._search_input)
+        else:
+            # Reuse — reset value to match the freshly-cleared
+            # ``_search_query`` on step (re-)entry and bring it back
+            # on screen.
+            self._search_input.value = self._search_query
+            self._search_input.display = True
+        # Park focus on the option list so the Input never auto-grabs
+        # focus when mounted (Textual sometimes focuses the first
+        # focusable widget despite ``AUTO_FOCUS = None``). Without this
+        # the user can press Space expecting to expand the currently-
+        # focused row and instead type a literal space into a search
+        # box they can't tell is focused.
+        try:
+            self._option_list.focus()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def focus_search(self) -> None:
+        """Move keyboard focus to the search input. Called from the
+        wizard screen's ``/`` keybinding. No-op when the search box
+        isn't mounted on the current step.
+        """
+        if self._search_input is not None:
+            self._search_input.focus()
+
+    def has_search_focus(self) -> bool:
+        """True iff the search input is mounted AND currently focused.
+
+        The wizard screen consults this from ``action_back`` so Esc
+        returns focus to the option list (instead of rewinding the
+        step) when the user is actively typing in the search box.
+        """
+        return (
+            self._search_input is not None
+            and self._search_input.has_focus
+        )
+
+    def unfocus_search(self) -> None:
+        """Move focus away from the search input so keyboard
+        navigation (up/down, Space, etc.) returns to the option list.
+        Used by the wizard screen on Esc when the search box has focus.
+        """
+        if self._search_input is not None and self._search_input.has_focus:
+            self._option_list.focus()
+
+    def toggle_search_focus(self) -> None:
+        """Tab-toggle: if the search box has focus, hand it back to
+        the option list; otherwise focus the search box. Symmetric so
+        Tab feels like the standard "next field" affordance even
+        though there are only two stops in the rotation.
+        """
+        if self._search_input is None:
+            return
+        if self._search_input.has_focus:
+            self.unfocus_search()
+        else:
+            self.focus_search()
+
+    def on_input_submitted(self, event) -> None:
+        """Enter inside the search box returns focus to the option
+        list instead of confirming the whole step.
+
+        Without this the user would have to press Esc (which feels
+        like "cancel") to leave search mode after typing a query.
+        ``check_action`` already suppresses the screen-level
+        ``confirm`` binding while search has focus, so Textual
+        Input's default Submitted message reaches us here.
+        """
+        if (
+            self._search_input is not None
+            and event.input is self._search_input
+        ):
+            self.unfocus_search()
+            event.stop()
+
+    def _rebuild_visible(self) -> list[_VisibleRow]:
+        """Compute the visible-rows list from ``step.options``, the
+        active filter tag, the expanded-parents set, and any cached
+        detail-page variant data.
+
+        Each multi-variant parent in ``_expanded`` contributes its
+        leaves immediately after the parent. Source of those leaves
+        in priority order:
+          1. Cached ``OllamaVariant`` list from ollama.com detail-page
+             fetch (full tag list including non-param variants like
+             ``27b-coding-mxfp8``, with real sizes / contexts /
+             per-variant capabilities).
+          2. A single loading-splash leaf while the worker is in
+             flight (``__loading__`` sentinel).
+          3. Fallback: synthetic ``:latest`` + each scraped param-
+             count size from the listing page.
+        """
+        out: list[_VisibleRow] = []
         if not self._step or not self._step.options:
-            return []
+            return out
         tag = (self._filter_tag or FILTER_ALL_KEY).strip().lower()
-        if tag == FILTER_ALL_KEY:
-            return list(range(len(self._step.options)))
-        return [
-            i for i, opt in enumerate(self._step.options)
-            if tag in opt.badges
-        ]
+        query = (self._search_query or "").strip().lower()
+        for i, opt in enumerate(self._step.options):
+            if tag != FILTER_ALL_KEY and tag not in opt.badges:
+                continue
+            # Substring filter against the model name (case-insensitive).
+            # Empty query matches everything. Matched against
+            # ``opt.value`` (the canonical Ollama model id) which is
+            # what users type when they go looking for ``qwen3.6`` or
+            # ``llama3.1``.
+            if query and query not in opt.value.lower():
+                continue
+            out.append(_VisibleRow(
+                kind="parent", abs_idx=i,
+                parent_value=opt.value, variant=None,
+            ))
+            if opt.value in self._expanded and len(opt.sizes) >= 2:
+                detail = self._variant_cache.get(opt.value)
+                if detail is not None:
+                    # Real variant list from the detail page.
+                    for v in detail:
+                        out.append(_VisibleRow(
+                            kind="leaf", abs_idx=i,
+                            parent_value=opt.value, variant=v.tag,
+                        ))
+                elif opt.value in self._variant_loading:
+                    # Fetch in flight — splash placeholder.
+                    out.append(_VisibleRow(
+                        kind="leaf", abs_idx=i,
+                        parent_value=opt.value, variant="__loading__",
+                    ))
+                else:
+                    # Fallback: listing-page param-count sizes.
+                    for v in (_LATEST_TAG, *opt.sizes):
+                        out.append(_VisibleRow(
+                            kind="leaf", abs_idx=i,
+                            parent_value=opt.value, variant=v,
+                        ))
+        return out
 
-    def _mount_multiselect_rows(self) -> None:
-        """Re-render the option list given the current filter state.
+    def _leaf_render_data(
+        self, vrow: _VisibleRow, opt: PromptOption,
+    ) -> tuple[str, str, list[str]]:
+        """Compute the leaf's display data — ``(full_name, size_label,
+        leaf_badges)`` — from the detail-page cache + listing-page
+        fallback. Extracted from ``_mount_visible_rows`` so the
+        two-pass tag-alignment computation can reuse it without
+        duplicating the cache-lookup / fallback logic.
+        """
+        tag = vrow.variant or ""
+        full_name = f"{vrow.parent_value}:{tag}"
+        detail_entry = None
+        cached = self._variant_cache.get(vrow.parent_value)
+        if cached is not None:
+            detail_entry = next(
+                (v for v in cached if v.tag == tag), None,
+            )
+        inherited = _inherited_leaf_badges(opt.badges)
+        if detail_entry is not None:
+            size_label = (
+                f"({detail_entry.size_label} · "
+                f"{detail_entry.context_label} ctx)"
+            )
+            leaf_badges = inherited + sorted(detail_entry.capabilities)
+        elif tag == _LATEST_TAG:
+            size_label = "(model-maker default)"
+            leaf_badges = list(inherited)
+        else:
+            approx = _approx_size(tag)
+            if approx and approx != tag:
+                size_label = f"({tag} · {approx})"
+            else:
+                size_label = f"({tag})"
+            leaf_badges = list(inherited)
+        return full_name, size_label, leaf_badges
 
-        Called on initial step load and on every ``FilterChanged``.
-        Cursor (``_selected_index``) is clamped to the visible range;
-        callers that want to restore the cursor onto a specific value
-        do so before calling this method.
+    def _mount_visible_rows(self, *, restore_identity: str | None = None) -> None:
+        """Re-render the option list. Called on initial step load,
+        every ``FilterChanged``/``cycle_filter``, and every
+        expand/collapse/leaf-toggle gesture.
+
+        Runs in two passes. Pass 1 walks ``self._visible`` to collect
+        the maximum content width across parents and leaves separately;
+        pass 2 mounts the rows passing each one a ``tag_start_col`` so
+        every row's capability/status tag block lands at the same
+        horizontal column — even when one outlier leaf has a much
+        longer label than its siblings (e.g. ``qwen3.6:35b-a3b-coding-
+        mxfp8`` next to ``qwen3.6:8b``).
+
+        ``restore_identity`` is the cursor's ``_VisibleRow.identity()``
+        from before the rebuild. When provided, the cursor is parked
+        on the matching row in the new visible list; when the row no
+        longer exists (e.g. collapse hid the leaf, filter dropped the
+        parent) the cursor falls back to position 0.
         """
         if self._step is None:
             return
-        self._visible_indices = self._compute_visible_indices()
+        self._visible = self._rebuild_visible()
         # OptionRow has no ``id=`` so the sync remove/mount pair is
         # safe — Textual only raises DuplicateIds when two widgets in
         # the same tree share an explicit id.
         self._option_list.remove_children()
-        if not self._visible_indices:
-            # Empty filter — show a non-toggleable placeholder. Uses
-            # the same sentinel value as the loading splash so
-            # ``toggle_focused`` already short-circuits it.
+        if not self._visible:
+            # Empty filter — show a non-toggleable placeholder.
             self._option_list.mount(OptionRow(
                 "(no models match this filter)",
                 selected=False,
@@ -508,31 +917,150 @@ class PromptPanel(Container):
             ))
             self._selected_index = 0
             return
-        # Clamp cursor to the visible range.
-        if not (0 <= self._selected_index < len(self._visible_indices)):
+        # Resolve cursor: explicit restore wins; otherwise clamp.
+        if restore_identity is not None:
+            self._selected_index = next(
+                (i for i, vr in enumerate(self._visible)
+                 if vr.identity() == restore_identity),
+                0,
+            )
+        elif not (0 <= self._selected_index < len(self._visible)):
             self._selected_index = 0
-        for disp_i, abs_i in enumerate(self._visible_indices):
-            opt = self._step.options[abs_i]
-            self._option_list.mount(OptionRow(
-                opt.label,
-                hint=opt.hint,
-                badges=opt.badges,
-                selected=(disp_i == self._selected_index),
-                multi=True,
-                checked=(opt.value in self._checked_values),
-                sizes=opt.sizes,
-                pulls=opt.pulls,
-            ))
 
-    def on_filter_changed(self, event: FilterChanged) -> None:
-        """Handle a chip click bubbling up from MultiselectFilterChips.
+        # ── Pass 1: collect per-row metadata + width metrics ──
+        parent_label_max = 0
+        leaf_content_max = 0
+        prepared: list[dict] = []
+        for disp_i, vrow in enumerate(self._visible):
+            opt = self._step.options[vrow.abs_idx]
+            is_focus = (disp_i == self._selected_index)
+            if vrow.kind == "parent":
+                if len(opt.label) > parent_label_max:
+                    parent_label_max = len(opt.label)
+                prepared.append({
+                    "kind": "parent", "opt": opt,
+                    "is_focus": is_focus, "vrow": vrow,
+                })
+                continue
+            tag = vrow.variant or ""
+            if tag == "__loading__":
+                prepared.append({"kind": "loading", "is_focus": is_focus})
+                continue
+            full_name, size_label, leaf_badges = self._leaf_render_data(vrow, opt)
+            # Content width = label + 2-cell gap + size_label (when
+            # present). Mirrors what ``OptionRow._render_leaf`` emits
+            # between the prefix and the tag block.
+            content = len(full_name) + (2 + len(size_label) if size_label else 0)
+            if content > leaf_content_max:
+                leaf_content_max = content
+            prepared.append({
+                "kind": "leaf", "opt": opt, "is_focus": is_focus,
+                "vrow": vrow, "full_name": full_name,
+                "size_label": size_label, "leaf_badges": leaf_badges,
+            })
 
-        Saves the currently-focused option value, applies the new
-        filter, re-mounts visible rows, and restores the cursor to
-        the same value if it's still visible (otherwise lands on the
-        first visible row). The checked-set is filter-agnostic, so
-        rows hidden by the new filter stay checked and reappear when
-        the user switches back.
+        # Tag-block start columns: at least the static defaults, but
+        # bumped up to clear the longest visible content + a 2-cell
+        # minimum gap. Parents and leaves get separate columns because
+        # their prefix widths differ.
+        parent_tag_col = max(
+            _PARENT_TAG_COL, _PARENT_PREFIX_WIDTH + parent_label_max + 2,
+        )
+        leaf_tag_col = max(
+            _LEAF_TAG_COL, _LEAF_PREFIX_WIDTH + leaf_content_max + 2,
+        )
+
+        # ── Pass 2: mount rows with the computed alignment columns ──
+        for entry in prepared:
+            kind = entry["kind"]
+            if kind == "loading":
+                self._option_list.mount(OptionRow(
+                    "⏳ Fetching variants from ollama.com/library …",
+                    selected=entry["is_focus"],
+                    multi=False,
+                    is_leaf=True,
+                ))
+                continue
+            opt = entry["opt"]
+            is_focus = entry["is_focus"]
+            vrow = entry["vrow"]
+            if kind == "parent":
+                row_checked = _row_is_checked(opt.value, self._checked_values)
+                row_variants = (
+                    _row_variants(opt.value, self._checked_values)
+                    if row_checked else frozenset()
+                )
+                # Expand-indicator state: only multi-variant parents
+                # can be expanded; everything else gets an alignment
+                # placeholder so checkbox columns stay flush.
+                if len(opt.sizes) >= 2:
+                    expand_state = "expanded" if opt.value in self._expanded else "collapsed"
+                else:
+                    expand_state = "none"
+                # Line-2 size column source — prefer the detail-page
+                # tag list when we have it (so detail-only tags like
+                # ``27b-coding-mxfp8`` get listed AND highlighted when
+                # the user selects them). Falls back to the listing-
+                # page param-count sizes otherwise. The synthetic
+                # ``latest`` is prepended in OptionRow._render_size_variants;
+                # we strip it from the input list to avoid a duplicate.
+                detail = self._variant_cache.get(opt.value)
+                if detail is not None:
+                    line2_sizes = tuple(
+                        v.tag for v in detail if v.tag != _LATEST_TAG
+                    )
+                    line2_labels = {
+                        v.tag: v.size_label
+                        for v in detail
+                        if v.tag != _LATEST_TAG
+                    }
+                else:
+                    line2_sizes = opt.sizes
+                    line2_labels = None
+                self._option_list.mount(OptionRow(
+                    opt.label,
+                    hint=opt.hint,
+                    badges=opt.badges,
+                    selected=is_focus,
+                    multi=True,
+                    checked=row_checked,
+                    sizes=line2_sizes,
+                    pulls=opt.pulls,
+                    checked_variants=row_variants,
+                    expand_state=expand_state,
+                    size_labels=line2_labels,
+                    tag_start_col_override=parent_tag_col,
+                ))
+            else:
+                full_name = entry["full_name"]
+                size_label = entry["size_label"]
+                leaf_badges = entry["leaf_badges"]
+                leaf_value = vrow.identity()
+                leaf_checked = (
+                    leaf_value in self._checked_values
+                    or (vrow.variant == _LATEST_TAG
+                        and vrow.parent_value in self._checked_values)
+                )
+                self._option_list.mount(OptionRow(
+                    full_name,
+                    selected=is_focus,
+                    multi=True,
+                    checked=leaf_checked,
+                    is_leaf=True,
+                    leaf_size_label=size_label,
+                    badges=leaf_badges,
+                    tag_start_col_override=leaf_tag_col,
+                ))
+
+    def _apply_filter_tag(self, tag: str) -> None:
+        """Switch the active filter chip and re-mount visible rows.
+
+        Shared implementation for chip-click (``on_filter_changed``)
+        and keyboard cycle (``cycle_filter``). Preserves the cursor on
+        the same option value when that row survives the filter
+        change; falls back to position 0 otherwise. The checked-set
+        is filter-agnostic, so rows hidden by the new filter stay
+        checked and reappear when the user switches back.
         """
         if (
             self._step is None
@@ -540,32 +1068,40 @@ class PromptPanel(Container):
             or not self._step.filter_tags
         ):
             return
-        prev_value: str | None = None
-        if self._visible_indices and 0 <= self._selected_index < len(self._visible_indices):
-            prev_value = self._step.options[
-                self._visible_indices[self._selected_index]
-            ].value
-        self._filter_tag = event.tag
+        if tag == self._filter_tag:
+            return
+        prev_identity: str | None = None
+        if self._visible and 0 <= self._selected_index < len(self._visible):
+            prev_identity = self._visible[self._selected_index].identity()
+        self._filter_tag = tag
         if self._filter_chips is not None:
-            self._filter_chips.set_active(event.tag)
-        # Recompute visible set then restore cursor.
-        new_visible = (
-            list(range(len(self._step.options)))
-            if event.tag == FILTER_ALL_KEY
-            else [
-                i for i, opt in enumerate(self._step.options)
-                if event.tag in opt.badges
-            ]
-        )
-        new_selected = 0
-        if prev_value is not None:
-            for disp_i, abs_i in enumerate(new_visible):
-                if self._step.options[abs_i].value == prev_value:
-                    new_selected = disp_i
-                    break
-        self._selected_index = new_selected
-        self._mount_multiselect_rows()
+            self._filter_chips.set_active(tag)
+        self._mount_visible_rows(restore_identity=prev_identity)
+
+    def on_filter_changed(self, event: FilterChanged) -> None:
+        """Handle a chip click bubbling up from MultiselectFilterChips."""
+        self._apply_filter_tag(event.tag)
         event.stop()
+
+    def cycle_filter(self, direction: int = 1) -> None:
+        """Advance the active filter chip by ``direction`` positions.
+
+        Order is ``[ALL, *step.filter_tags]``; wraps at both ends.
+        No-op on steps without filter_tags. Used by the wizard's
+        ``f`` keyboard binding so users on terminals without mouse
+        passthrough can still drive the filter chip row.
+        """
+        if not self._step or not self._step.filter_tags:
+            return
+        order = [FILTER_ALL_KEY, *self._step.filter_tags]
+        try:
+            idx = order.index(self._filter_tag)
+        except ValueError:
+            idx = 0
+        new_tag = order[(idx + direction) % len(order)]
+        if new_tag == self._filter_tag:
+            return
+        self._apply_filter_tag(new_tag)
 
     def clear_conflict(self) -> None:
         self._conflict_slot.remove_children()
@@ -643,17 +1179,14 @@ class PromptPanel(Container):
     def move(self, delta: int) -> None:
         if not self._step or not self._step.options:
             return
-        # For a filtered multiselect, ``_selected_index`` is a
-        # display-position index into ``_visible_indices`` — navigate
-        # within the visible subset only. The earlier guard collapsed
-        # to ``len(step.options)`` when ``_visible_indices`` was empty,
-        # which silently advanced the cursor through hidden rows when
-        # the user picked a filter chip with zero matches (the
-        # placeholder row "(no models match this filter)" was the only
-        # thing visible). Branch on ``filter_tags`` alone so an empty
-        # visible set returns early.
+        # For a multiselect with filter_tags the cursor is a
+        # display-position index into ``_visible`` (which can include
+        # tree leaves when parents are expanded). Branch on
+        # ``filter_tags`` alone so an empty-filter placeholder returns
+        # early instead of silently advancing the cursor through
+        # hidden options.
         if self._step.kind == "multiselect" and self._step.filter_tags:
-            n = len(self._visible_indices)
+            n = len(self._visible)
         else:
             n = len(self._step.options)
         if n == 0:
@@ -679,17 +1212,33 @@ class PromptPanel(Container):
             self._on_change(new, self.selected_option)
 
     def on_input_changed(self, event: "Input.Changed") -> None:
-        """Live char-count hint for the secret step.
+        """Live updates from the Input widgets mounted in the panel.
 
-        When the user pastes/types into the masked Input, the visible
-        ``••••`` dots can scroll out of view on long keys (OpenAI keys
-        are 150+ chars). We update the hint Static below the input to
-        ``✓ N chars entered`` so the user has unambiguous confirmation
-        the paste landed.
+        Two consumers:
+
+        * **Search input** (multiselect with filter_tags): re-render
+          the visible row set on every keystroke so the user sees
+          results narrow live as they type.
+        * **Secret input** (cloud API key step): show a char-count
+          confirmation hint since the masked dots can scroll out of
+          view on long keys.
         """
+        if self._step is None:
+            return
+        # Search-input branch — fires for the Ollama multiselect.
         if (
-            self._step is None
-            or self._step.kind != "secret"
+            self._search_input is not None
+            and event.input is self._search_input
+            and self._step.kind == "multiselect"
+        ):
+            prev_identity: str | None = None
+            if self._visible and 0 <= self._selected_index < len(self._visible):
+                prev_identity = self._visible[self._selected_index].identity()
+            self._search_query = event.value or ""
+            self._mount_visible_rows(restore_identity=prev_identity)
+            return
+        if (
+            self._step.kind != "secret"
             or self._secret_input is None
             or self._secret_hint is None
             or event.input is not self._secret_input
@@ -715,30 +1264,80 @@ class PromptPanel(Container):
             self._secret_hint.update(f"✓ {n} char{'s' if n != 1 else ''} entered  ·  Enter to confirm")
 
     def toggle_focused(self) -> None:
-        """Multi-select: flip the focused row's checkbox state."""
+        """Multi-select: Space on the focused row.
+
+        Behaviour depends on what's under the cursor:
+
+        * **Multi-variant parent** (Ollama row with sizes ≥ 2 on a
+          filter-enabled step): expand or collapse the parent in
+          place. Selection state is unchanged — Space is purely a UI
+          gesture here. Use a leaf below to toggle a specific tag.
+        * **Single-variant parent** (embedding-only models, custom
+          local builds, non-Ollama multiselect rows): toggle the bare
+          row entry — preserves existing behaviour from before the
+          tree feature was added.
+        * **Leaf row** (a variant exposed under an expanded parent):
+          toggle the ``model:tag`` entry. The bare↔tagged mutex is
+          enforced: adding a tagged entry clears any bare entry for
+          the same parent.
+        """
         if not self._step or self._step.kind != "multiselect":
             return
         if not self._step.options:
             return
-        # Translate the display-position cursor to an absolute index
-        # into ``step.options``. For a filtered step with zero
-        # matches the visible list is the placeholder row only — bail
-        # out so Space doesn't silently toggle ``step.options[0]``
-        # under the user's invisible cursor.
+        if not self._visible and self._step.filter_tags:
+            # Empty-filter placeholder visible — bail so Space doesn't
+            # silently mutate hidden rows.
+            return
         if self._step.filter_tags:
-            if not self._visible_indices:
-                return
-            disp_idx = max(0, min(self._selected_index, len(self._visible_indices) - 1))
-            abs_idx = self._visible_indices[disp_idx]
+            disp_idx = max(0, min(self._selected_index, len(self._visible) - 1))
+            vrow = self._visible[disp_idx]
+            opt = self._step.options[vrow.abs_idx]
         else:
+            # Non-filter multiselect (cloud /v1/models): no tree, no
+            # _visible list; keep absolute-index semantics.
             disp_idx = max(0, min(self._selected_index, len(self._step.options) - 1))
-            abs_idx = disp_idx
-        opt = self._step.options[abs_idx]
+            opt = self._step.options[disp_idx]
+            vrow = None
         # Don't toggle the temporary "⏳ Fetching…" splash row that
-        # appears while a provider-driven options list is loading.
-        # The sentinel value is set by WizardScreen._load_current_step.
+        # shows on the cloud-models step OR while the detail-page
+        # worker is loading variants for a freshly-expanded parent.
         if opt.value == "__loading__":
             return
+        if vrow is not None and vrow.variant == "__loading__":
+            return
+
+        # Branch on row kind.
+        if vrow is not None and vrow.kind == "leaf":
+            self._toggle_leaf(vrow.parent_value, vrow.variant or "")
+            # Re-render: parent's aggregate checkbox + line-2 colour
+            # may have changed too, so refresh the whole visible list.
+            self._mount_visible_rows(restore_identity=vrow.identity())
+            return
+
+        # Parent (or non-tree multiselect option).
+        if (
+            self._step.filter_tags
+            and len(opt.sizes) >= 2
+        ):
+            # Multi-variant parent → expand / collapse, no selection
+            # change. Cursor stays on the parent.
+            if opt.value in self._expanded:
+                self._expanded.discard(opt.value)
+            else:
+                self._expanded.add(opt.value)
+                # Trigger an async fetch of the detail page so we can
+                # surface real variants (incl. non-param ones like
+                # ``27b-coding-mxfp8``) with their real sizes and
+                # per-variant capabilities. While the fetch is in
+                # flight ``_rebuild_visible`` shows a single
+                # ``__loading__`` splash leaf under the parent.
+                self._ensure_variants_loaded(opt.value)
+            self._mount_visible_rows(restore_identity=opt.value)
+            return
+
+        # Single-variant / non-filter path — bare toggle, same as
+        # before the tree feature shipped.
         if opt.value in self._checked_values:
             self._checked_values.discard(opt.value)
             new_state = False
@@ -748,3 +1347,88 @@ class PromptPanel(Container):
         rows = list(self._option_list.query(OptionRow))
         if 0 <= disp_idx < len(rows):
             rows[disp_idx].set_checked(new_state)
+
+    # ─── tree-multiselect helpers ────────────────────────────────────
+
+    def _ensure_variants_loaded(self, model: str) -> None:
+        """Kick off the detail-page fetch for ``model`` if not already
+        cached or in flight. Idempotent.
+
+        The fetch runs in a Textual worker so the wizard stays
+        responsive (the HTTP request is offloaded via
+        ``asyncio.to_thread``). On completion the worker updates the
+        cache and re-renders the visible rows so the loading-splash
+        leaf is replaced with the real per-variant list.
+        """
+        if model in self._variant_cache or model in self._variant_loading:
+            return
+        self._variant_loading.add(model)
+        try:
+            self.run_worker(
+                self._fetch_variants_worker(model),
+                exclusive=False, exit_on_error=False,
+            )
+        except Exception:  # noqa: BLE001
+            # No app / worker manager (e.g. headless smoke test);
+            # leave the loading state so the splash stays visible.
+            pass
+
+    async def _fetch_variants_worker(self, model: str) -> None:
+        """Worker body: blocking HTTP fetch + parse, then re-render."""
+        import asyncio
+        from utils.ollama_library import fetch_model_variants
+        try:
+            variants = await asyncio.to_thread(
+                fetch_model_variants, model, 5.0,
+            )
+        except Exception:  # noqa: BLE001
+            variants = None
+        self._variant_loading.discard(model)
+        # Only commit + re-render if this model is still expanded on
+        # a multiselect step. If the user collapsed, navigated to a
+        # different step kind, or unmounted the panel entirely while
+        # the fetch was in flight, skip the cache write so a future
+        # feature that mounts a second variant-tree multiselect against
+        # a different model namespace won't see stale data leak in.
+        # (Today's wizard has only one Ollama step so model names are
+        # globally unique — this guard is defensive.)
+        still_relevant = (
+            self._step is not None
+            and self._step.kind == "multiselect"
+            and model in self._expanded
+        )
+        if not still_relevant:
+            return
+        if variants is not None:
+            self._variant_cache[model] = variants
+        self._mount_visible_rows()
+
+    def _toggle_leaf(self, parent: str, variant: str) -> None:
+        """Toggle the per-variant selection state for one leaf.
+
+        Enforces the bare↔tagged invariant: adding a tagged entry
+        clears any pre-existing bare entry for the same parent. Also
+        handles the implicit-:latest case where a bare entry from
+        legacy .env values appears "checked" against the synthetic
+        :latest leaf.
+        """
+        if not variant:
+            return
+        tagged = f"{parent}:{variant}"
+        is_latest = variant == _LATEST_TAG
+        # "checked" from the user's perspective: tagged entry present,
+        # OR (for :latest only) the bare entry stands in.
+        bare_implicit_latest = is_latest and parent in self._checked_values
+        currently_checked = tagged in self._checked_values or bare_implicit_latest
+
+        if currently_checked:
+            # Uncheck: drop both the explicit tagged entry and (if
+            # we're on :latest) the implicit bare entry that mirrored it.
+            self._checked_values.discard(tagged)
+            if is_latest:
+                self._checked_values.discard(parent)
+        else:
+            # Check: ensure the bare entry is gone (mutex with tagged),
+            # then add the tagged form.
+            self._checked_values.discard(parent)
+            self._checked_values.add(tagged)

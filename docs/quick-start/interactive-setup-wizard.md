@@ -61,14 +61,37 @@ A single unified multi-select shown for every `ollama-*` source. The option list
 - **`ollama-container-*`** — only the live scrape of `https://ollama.com/library` (~230 entries). Nothing is pulled yet (the in-stack container isn't running at wizard time), so the library is the primary discovery surface. The `ollama-pull` init container fetches checked entries at startup.
 - **`ollama-localhost`** / **`ollama-external`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — checking registers a `public.llms` row but you must `ollama pull <name>` on the host yourself).
 
-Each row surfaces four additional columns scraped from `ollama.com/library`:
+Each row is 2 cells tall and surfaces:
 
-- **Capability badges** — `[embedding]`, `[thinking]`, `[vision]`, `[tools]`, `[audio]`. Pulled from each model card's `x-test-capability` spans; a model may carry zero, one, or several.
-- **Size column** — every variant's approximate Q4 on-disk footprint (e.g. `4.8GB · 42GB · 243GB` for `llama3.1`'s 8b/70b/405b tags). Converted from Ollama's published parameter count via `params × 0.6 bytes/param` (Q4_K_M rule of thumb); real downloads are ±10–15% of the figure shown. On narrow terminals the column compresses to the first three variants + `…`, then drops entirely below the pull-count column.
-- **Pull count** — far right, muted, in `K`/`M`/`B` format (e.g. `114.2M`).
-- **`[legacy]` badge** — applied to any model whose `Updated …` timestamp on ollama.com is ≥ 1 year ago.
+**Line 1** (cursor + expand-glyph + checkbox + label + capability columns + pull count):
+- **Capability badges** — `[embedding]`, `[thinking]`, `[vision]`, `[tools]`, `[audio]`, `[mlx]`. Pulled from each model card's `x-test-capability` spans (and the MLX chip on each model's detail page for the `[mlx]` slot); a row may carry zero, one, or several. Rendered in a fixed canonical column order with reserved per-slot widths so the same tag lands at the same horizontal column across rows — absent capabilities still reserve their slot. Narrow terminals (< 100 cells for parents, < 130 for leaves) fall back to inline variable-width tags so the pull-count column doesn't get pushed off-screen.
+- **Status badges** — `[pulled]` / `[library]` / `[default]` plus the `[legacy]` marker for models updated > 365 days ago. Rendered after the capability block with variable width.
+- **Pull count** — far right, muted, in `K`/`M`/`B` format (e.g. `114.2M`). Right-aligned to the row width.
 
-**Filter chips** appear above the list: `Filter  [ALL]  embedding  thinking  vision  tools  audio`. Click a chip (single-select) to narrow the list to that capability; click `ALL` to reset. Filtering is a view operation only — rows you've already checked stay checked when hidden and reappear when the filter is cleared.
+**Line 2** (muted, indented):
+- **Size variants** — each tag in the form `<param-count> (<approx-GB>)`, joined with `·`. E.g. `llama3.1` → `8b (4.8GB) · 70b (42GB) · 405b (243GB)`. The parameter count is Ollama's canonical tag namespace (what `ollama pull qwen3:8b` matches); the GB figure is approximate Q4 disk footprint via `params × 0.6 bytes/param` (Q4_K_M rule of thumb), real downloads ±10–15%. Once you expand a parent (see below) the detail-page fetcher replaces the approximation with the real per-variant disk size and adds the context window.
+- **Hint** — curated description (if the catalog has one for this model) joined with `updated X ago`.
+
+Line 2 wraps to multiple visual rows on narrow terminals when a model has many variants (e.g. `qwen3` has 8 sizes).
+
+**Search box** above the chips: a single-line `Input` (placeholder `Tab or /  to filter models by name…`) that narrows the visible list by case-insensitive substring against the model name. Press **`Tab`**, click into it with the mouse, or press **`/`** to focus it; once focused, type to filter live. The input lights up bold cyan on a tinted background so you can tell at a glance that keystrokes are landing in search and not in the option list. **`Tab`** again, **`Enter`**, or **`Esc`** returns focus to the option list. Up/down still walk the visible rows while you're typing, so you can preview matches without losing your cursor. Every wizard keybinding except those four exits and the arrow keys is temporarily suppressed while the search box has focus, so letters and spaces land in the input as text.
+
+**Filter chips** appear directly below the search box: `Filter  [ALL]  embedding  thinking  vision  tools  audio`. Click a chip — or press **`f`** to cycle them from the keyboard — to narrow the list to that capability. Single-select; click `ALL` (or keep pressing `f` to wrap) to reset. The chip filter and the search box **stack**: a row must match both the active chip AND the search substring to render. Filtering is a view operation only — rows you've already checked stay checked when hidden and reappear when the filter is cleared.
+
+**Ollama Cloud-exclusive entries excluded** — the live listing-page scrape flags models carrying the `cloud` chip that publish no pullable variants (`glm-5`, `minimax-m2`, `kimi-k2`, `deepseek-v4-pro`, …). Those can't be `ollama pull`-ed, so the wizard drops them from the multiselect before render and writes `[info/ollama-fetch] excluded N cloud-only Ollama Cloud model(s)` to the session log. Hybrid entries that publish both cloud and pullable local variants (`gemma3`, `gpt-oss`, `qwen3-coder`, `deepseek-v3.1`, …) stay in the list with their local variants intact.
+
+**Variant picker (in-place tree)** — multi-variant Ollama rows show a `▶` indicator on the left. Press **`Space`** on the parent to expand the tree in place; the variants appear as indented leaves with `└─` connectors directly below. Press `Space` again to collapse. Press `Space` on a leaf to toggle that specific tag. Single-variant rows (`nomic-embed-text`, custom local builds) toggle directly on `Space`. Selections persist to `OLLAMA_USER_MODELS` as `qwen3:8b,qwen3:14b` — `ollama-pull` will fetch each one. The parent's `[✓]` is the aggregate state — green when any leaf is checked. Arrows, Enter, and Esc all keep working naturally; cursor and focus stay in the prompt panel throughout (no popup).
+
+**Rich per-variant data via the detail page** — on the first expand of any parent, the wizard fires an async fetch of `ollama.com/library/{model}` (the model's detail page) and parses its per-variant table. Subsequent expansions of the same parent use the in-memory cache (sub-millisecond). The detail page is much richer than the listing:
+
+- **Real variants** — beyond the param-count tags (`8b`, `70b`) the listing exposes, the detail page lists every Ollama tag the model maker publishes: quantization variants like `27b-coding-mxfp8` and `35b-a3b-mlx-bf16`.
+- **Real sizes** — actual disk footprint (`5.2GB`, `523MB`) rather than the Q4 approximation we compute from the param count.
+- **Context window** — `40K` / `128K` / `256K` per variant.
+- **Per-variant capability tags** — derived from the detail page's `Input` column. A variant whose Input is `Text, Image` gets a `[vision]` badge; `Audio` gets `[audio]`. This means leaves of the same parent can carry different capabilities (e.g., `gemma3:4b` has `[vision]` while `gemma3:270m` doesn't).
+
+While the fetch is in flight, the parent's expansion shows a single `⏳ Fetching variants from ollama.com/library …` splash leaf. On parse failure (network down, upstream HTML changed), the wizard falls back to the listing-page sizes (synthetic `:latest` + param-count tags). The fetch never blocks navigation — arrows, filter chips, and other steps remain responsive throughout.
+
+**Bare ↔ tagged invariant**: per row, `_checked_values` contains either the bare model name (`qwen3` → pulls `:latest`) OR one+ tagged forms (`qwen3:8b`), never both. The synthetic `latest` leaf at the top of every expansion lets you pick the model-maker default explicitly. Toggling a leaf auto-clears any pre-existing bare entry for that parent.
 
 **Sort order**: two buckets, recent first.
 1. Models updated within the last 365 days, sorted descending by total pull count.

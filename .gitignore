@@ -120,3 +120,7 @@ opencode.json
 tts-provider/localhost/openedai-speech/
 tts-provider/localhost/voices/
 tts-provider/localhost/.cache/
+
+# Personal scratch / demo files that don't belong to the project
+ascii_drape_water_demo.py
+ascii_drape_water_out/

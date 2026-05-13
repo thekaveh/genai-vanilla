@@ -291,6 +291,20 @@ def build_ollama_steps(
                 "— falling back to curated OLLAMA_DEFAULT_CATALOG"
             )
             library_entries = _catalog_fallback_entries()
+        # Drop Ollama Cloud-exclusive models — they cannot be pulled,
+        # so surfacing them in a multiselect that drives ``ollama pull``
+        # would be misleading. Hybrid entries (cloud + local sizes)
+        # have ``cloud_only=False`` and remain in the list with their
+        # local variants intact.
+        cloud_skipped = [e.name for e in library_entries if e.cloud_only]
+        if cloud_skipped:
+            library_entries = [e for e in library_entries if not e.cloud_only]
+            _warn(
+                f"[info/ollama-fetch] excluded {len(cloud_skipped)} cloud-only "
+                f"Ollama Cloud model(s) — not pullable: "
+                f"{', '.join(cloud_skipped[:6])}"
+                + (" …" if len(cloud_skipped) > 6 else "")
+            )
 
         if not _is_localhost_or_external(src):
             # Container modes: library only. Nothing to merge.
@@ -392,11 +406,15 @@ def build_ollama_steps(
             heading="Which Ollama models to register?",
             subtitle=(
                 "Container: full ollama.com/library catalog (ollama-pull fetches checked at startup). "
-                "Localhost/external: merged list — [pulled] = on disk, [library] = available; "
-                "registering a [library]-only entry requires you to `ollama pull <name>` on the host. "
+                "Localhost/external: [pulled] = already on your Ollama host (usable immediately); "
+                "[library] = in the public catalog but NOT on your host yet (you'll need to "
+                "`ollama pull <name>` afterwards). "
                 "Recent models first (by pull count); [legacy] = updated > 1 year ago. "
-                "Sizes are approximate Q4-quantization disk footprint (real downloads ±10-15%). "
-                "Capability filter chips above. Space toggles, Enter confirms."
+                "Each row's 2nd line shows variant sizes — both Ollama tag (8b) and approximate "
+                "Q4 disk footprint (4.8GB); selected variants render in green. "
+                "Multi-variant rows show a ▶ — press Space on the parent to expand its tree, "
+                "Space on a leaf (variant) toggles that specific tag. Single-variant rows toggle "
+                "directly. Press `f` to cycle capability filter chips. Enter confirms the step."
             ),
             options=[],
             default_values=ollama_default_values,

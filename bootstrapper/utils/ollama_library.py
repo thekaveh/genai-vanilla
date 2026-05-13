@@ -67,6 +67,15 @@ _PULL_COUNT_RE = re.compile(
 _UPDATED_RE = re.compile(
     r"<span[^>]*\bx-test-updated\b[^>]*>\s*([^<]+?)\s*</span>",
 )
+# Ollama Cloud chip — appears next to the model name as a small cyan
+# pill. Marks the model as available on Ollama's hosted inference
+# service. When the card ALSO has ``x-test-size`` entries the model is
+# hybrid (cloud + pullable local variants); when there are no sizes,
+# the model is cloud-exclusive and cannot be ``ollama pull``-ed.
+_CLOUD_BADGE_RE = re.compile(
+    r'<span[^>]*\bbg-cyan-50\b[^>]*>\s*cloud\s*</span>',
+    re.IGNORECASE,
+)
 # Matches ollama.com's relative "updated" strings: e.g.
 #   "5 days ago", "10 months ago", "2 weeks ago",
 #   "1 year ago", "an hour ago", "a year ago"
@@ -94,6 +103,13 @@ class OllamaLibraryEntry:
     # was empty or unparseable; downstream sort treats that as "recent"
     # (better than mis-labelling a future Ollama release as legacy).
     age_days: int | None = None
+    # True when the listing card carries the ``cloud`` chip AND has no
+    # ``x-test-size`` entries — the model is hosted-only on Ollama
+    # Cloud and ``ollama pull`` will fail for every tag. The wizard
+    # filters these out of the multiselect. Hybrid models (cloud chip
+    # *plus* pullable sizes) have ``cloud_only=False`` and stay in
+    # the list with their local variants intact.
+    cloud_only: bool = False
 
 
 def _parse_updated_age_days(updated: str) -> int | None:
@@ -207,6 +223,11 @@ def list_library_entries(timeout: float = 5.0) -> list[OllamaLibraryEntry]:
         updated_match = _UPDATED_RE.search(card)
         updated = updated_match.group(1).strip() if updated_match else ""
         age_days = _parse_updated_age_days(updated)
+        # Pure cloud — cloud chip present AND no pullable sizes on
+        # the card. Hybrid models (cloud chip + at least one size)
+        # stay pullable for their local variants, so we leave them
+        # marked False.
+        cloud_only = bool(_CLOUD_BADGE_RE.search(card)) and not sizes
 
         entries.append(OllamaLibraryEntry(
             name=name,
@@ -215,7 +236,148 @@ def list_library_entries(timeout: float = 5.0) -> list[OllamaLibraryEntry]:
             pulls=pulls,
             updated=updated,
             age_days=age_days,
+            cloud_only=cloud_only,
         ))
 
     entries.sort(key=lambda e: (-e.pulls, e.name))
     return entries
+
+
+# ─── per-model detail-page parser ──────────────────────────────────────
+#
+# The library listing page only exposes aggregated param-count tags
+# (``8b``, ``70b``, …) for each model and a single capability set at
+# the family level. The detail page ``https://ollama.com/library/{name}``
+# is much richer — every Ollama tag the model maker publishes appears
+# as its own row with the real on-disk size, context window, and input
+# modalities (which let us derive per-variant capability flags like
+# vision and audio).
+#
+# This is more expensive to fetch (one HTTP request per model) so the
+# wizard fetches lazily on parent expand and caches per session.
+
+@dataclass(frozen=True)
+class OllamaVariant:
+    """One specific tag of an Ollama model, parsed from the detail page.
+
+    Tags can be:
+      • Plain param counts: ``"8b"``, ``"70b"``, ``"0.6b"``.
+      • The synthetic default: ``"latest"`` (pointer to a real tag).
+      • Quantization / coding variants: ``"27b-coding-mxfp8"``,
+        ``"35b-a3b-mlx-bf16"``, …
+    """
+    tag: str                          # e.g. "8b", "latest", "27b-coding-mxfp8"
+    size_label: str                   # raw size string from upstream: "5.2GB", "523MB"
+    context_label: str                # context window: "40K", "256K"
+    input_modalities: tuple[str, ...] # ("Text",) or ("Text", "Image") or ("Audio",)
+    updated: str                      # relative timestamp, "7 months ago"
+    # Apple-Silicon-optimised MLX weights are published as a separate
+    # variant tag (e.g. ``27b-mlx-bf16``). ollama.com decorates those
+    # rows with an ``MLX`` chip on the detail page; we surface it as a
+    # per-variant capability badge so users on M-series Macs can spot
+    # the right tag at a glance.
+    mlx: bool = False
+
+    @property
+    def capabilities(self) -> frozenset[str]:
+        """Per-variant capability tags.
+
+        Derived from the detail-page ``Input`` column (``Image`` →
+        ``vision``, ``Audio`` → ``audio``) AND the MLX chip indicator
+        when present. Per-variant so leaves can carry capabilities
+        that differ from each other under the same parent (a coding
+        variant may keep ``thinking`` while dropping ``vision``; an
+        MLX-quantized variant carries ``mlx`` while siblings don't).
+        """
+        caps: set[str] = set()
+        for modality in self.input_modalities:
+            m = modality.strip().lower()
+            if m == "image":
+                caps.add("vision")
+            elif m == "audio":
+                caps.add("audio")
+        if self.mlx:
+            caps.add("mlx")
+        return frozenset(caps)
+
+
+# Detail-page parsers. The compact (mobile) layout `<a class="sm:hidden ...">`
+# block exists once per variant and contains all the metadata in a
+# single ``<p>`` summary. The desktop layout duplicates the data in a
+# 12-column grid, so we deliberately anchor on ``sm:hidden`` to avoid
+# matching each variant twice.
+_VARIANT_BLOCK_RE_TPL = (
+    r'<a\s+href="/library/{name}:([^"]+)"'
+    r'[^>]*class="[^"]*\bsm:hidden\b[^"]*"[^>]*>'
+    r'(.*?)</a>'
+)
+_VARIANT_SUMMARY_RE = re.compile(
+    r'<p class="flex text-neutral-500"[^>]*>'
+    r'([0-9.]+[GM]?B)\s*·\s*'
+    r'([0-9]+K?)\s+context\s+window\s*·\s*'
+    r'([^·<]+?)\s*·\s*'
+    r'([^<]+?)</p>',
+)
+# MLX chip — ollama.com renders this as an outlined neutral-grey badge
+# (``border border-neutral-600 text-neutral-600``) on every variant
+# row whose weights are MLX-quantized. Anchoring on the literal class
+# token + the literal text keeps the matcher robust against the
+# surrounding markup (size / colour utilities, whitespace).
+_VARIANT_MLX_RE = re.compile(
+    r'<span[^>]*\bborder-neutral-600\b[^>]*>\s*MLX\s*</span>',
+)
+
+
+def fetch_model_variants(name: str, timeout: float = 5.0) -> list[OllamaVariant] | None:
+    """Fetch ``https://ollama.com/library/{name}`` and parse the
+    per-variant table.
+
+    Returns a list of :class:`OllamaVariant` instances (one per Ollama
+    tag the model publishes), or ``None`` on any failure (network,
+    timeout, parse-yields-nothing). Callers fall back to the
+    listing-page ``OllamaLibraryEntry.sizes`` tuple, which is less
+    granular but always available.
+    """
+    url = f"https://ollama.com/library/{name}"
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "genai-vanilla-bootstrapper/1.0 (+wizard catalog fetch)",
+                "Accept": "text/html",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError):
+        return None
+
+    block_re = re.compile(
+        _VARIANT_BLOCK_RE_TPL.format(name=re.escape(name)),
+        flags=re.DOTALL,
+    )
+    seen: set[str] = set()
+    out: list[OllamaVariant] = []
+    for m in block_re.finditer(html):
+        tag = m.group(1)
+        if tag in seen:
+            continue
+        seen.add(tag)
+        block_html = m.group(2)
+        summary = _VARIANT_SUMMARY_RE.search(block_html)
+        if not summary:
+            continue
+        size_label, ctx_label, inputs_raw, updated_raw = summary.groups()
+        modalities = tuple(
+            s.strip() for s in inputs_raw.split(",") if s.strip()
+        )
+        mlx = bool(_VARIANT_MLX_RE.search(block_html))
+        out.append(OllamaVariant(
+            tag=tag,
+            size_label=size_label.strip(),
+            context_label=ctx_label.strip(),
+            input_modalities=modalities,
+            updated=updated_raw.strip(),
+            mlx=mlx,
+        ))
+    return out or None

@@ -70,6 +70,66 @@ mkdir -p "${DATA_DIR}" "${SKILLS_DIR}"
 export HERMES_DEFAULT_MODEL="${HERMES_DEFAULT_MODEL:-}"
 export HERMES_CONTEXT_LENGTH="${HERMES_CONTEXT_LENGTH:-65536}"
 export LITELLM_MASTER_KEY="${LITELLM_MASTER_KEY:-}"
+
+# ─── auto-pick HERMES_DEFAULT_MODEL when blank ─────────────────────
+# Hermes is single-default-model: it cannot dispatch a request unless
+# config.yaml's ``model.default`` resolves to a real LiteLLM model.
+# Leaving HERMES_DEFAULT_MODEL blank means the rendered config carries
+# ``default: null``, every Hermes request 500s, and Open WebUI's
+# ``hermes-agent`` proxy route (which goes LiteLLM → Hermes) returns
+# errors — looks identical to "Hermes can't see any models".
+#
+# When the operator hasn't pinned a value, query the LiteLLM gateway's
+# /v1/models endpoint and pick the first name from a curated priority
+# list. The list is ordered: best local-runtime model first (cheapest,
+# privacy-friendly), then big-context cloud fallbacks. Models not
+# enabled in the gateway today are silently skipped — there's always
+# at least one match because the wizard refuses to start if every
+# provider is disabled.
+#
+# This block runs after the apk-add bootstrap, so curl + jq are
+# already on the PATH.
+if [[ -z "${HERMES_DEFAULT_MODEL}" ]]; then
+  log "HERMES_DEFAULT_MODEL is unset — querying LiteLLM for a default"
+  litellm_url="${LITELLM_BASE_URL:-http://litellm:4000}"
+  models_json=$(curl -fsS \
+    -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
+    "${litellm_url}/v1/models" 2>/dev/null || true)
+  if [[ -n "${models_json}" ]]; then
+    available_ids=$(printf '%s' "${models_json}" \
+      | jq -r '.data[]?.id' 2>/dev/null || true)
+    # Priority order — pick the first one that's actually published.
+    # Ollama qwen3.6 is the curated default and clears the 64K floor
+    # at 256K. Cloud fallbacks listed by decreasing context window.
+    for candidate in \
+        "ollama/qwen3.6:latest" \
+        "claude-sonnet-4-6" \
+        "claude-opus-4-7" \
+        "gpt-5" \
+        "gpt-5-codex" \
+        "gpt-5-mini"; do
+      if printf '%s\n' "${available_ids}" | grep -qx "${candidate}"; then
+        HERMES_DEFAULT_MODEL="${candidate}"
+        log "  auto-selected ${candidate} from LiteLLM model_list"
+        break
+      fi
+    done
+    # If nothing on the priority list matched, fall back to the first
+    # model the gateway exposes that ISN'T ``hermes-agent`` itself
+    # (which would be a recursive loop — Hermes routing to Hermes).
+    if [[ -z "${HERMES_DEFAULT_MODEL}" ]]; then
+      HERMES_DEFAULT_MODEL=$(printf '%s\n' "${available_ids}" \
+        | grep -vx "hermes-agent" | head -n1)
+      if [[ -n "${HERMES_DEFAULT_MODEL}" ]]; then
+        log "  auto-selected ${HERMES_DEFAULT_MODEL} (first non-hermes model)"
+      fi
+    fi
+  fi
+  if [[ -z "${HERMES_DEFAULT_MODEL}" ]]; then
+    log "⚠ could not auto-select a default model — config.yaml will have model.default empty; set HERMES_DEFAULT_MODEL in .env explicitly"
+  fi
+  export HERMES_DEFAULT_MODEL
+fi
 export TTS_INTERNAL_URL="${TTS_INTERNAL_URL:-}"
 export STT_INTERNAL_URL="${STT_INTERNAL_URL:-}"
 export COMFYUI_INTERNAL_URL="${COMFYUI_INTERNAL_URL:-}"

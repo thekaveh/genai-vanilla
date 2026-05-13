@@ -316,9 +316,21 @@ services:
       RLIMIT_NOFILE: 65536
       ERL_AFLAGS: "-proto_dist inet_tcp"
       HOSTNAME: supabase-realtime
-      # Disable libcluster completely for single-node Docker setup
-      LIBCLUSTER_STRATEGY: "Cluster.Strategy.Gossip"
-      LIBCLUSTER_TOPOLOGIES: '[]'
+      # The upstream image hardcodes ``Cluster.Strategy.DNSPoll`` (the
+      # ``fly6pn`` topology) and ignores ``LIBCLUSTER_*`` overrides.
+      # Its DNS query is read from ``DNS_NODES``; when unset, libcluster
+      # logs ``query or basename param is invalid: query: nil`` every
+      # 5 seconds. Pointing at the container's own hostname resolves —
+      # but DNSPoll then tries to Erlang-connect to ``realtime@<IP>``,
+      # which our ``HOSTNAME=supabase-realtime`` Erlang node doesn't
+      # answer for, producing a new ``unable to connect to`` warning
+      # at the same cadence.
+      # The single-node workaround is to point ``DNS_NODES`` at a name
+      # under the reserved ``.invalid`` TLD (RFC 6761) so DNS resolves
+      # to nothing. DNSPoll's empty-peer-list path is silent, while
+      # the env var is still set (which is what libcluster checks for
+      # "configured-ness").
+      DNS_NODES: supabase-realtime-noop.invalid
       APP_NAME: realtime
     ports:
       - "${SUPABASE_REALTIME_PORT}:4000"
@@ -753,6 +765,20 @@ services:
       - n8n-data:/home/node/.n8n
     networks:
       - backend-network
+    # Gating ``n8n-worker`` on this healthcheck serialises the TypeORM
+    # migrations. Without it, n8n and n8n-worker start together, both
+    # try to run ``CreateWorkflowHistoryTable*`` (and friends) against
+    # the shared ``n8n`` schema, and one loses on
+    # ``pg_type_typname_nsp_index`` (duplicate enum type). n8n then
+    # restarts and recovers, but the boot logs scream errors. The
+    # ``/healthz`` endpoint returns 200 as soon as n8n's own migration
+    # phase finishes — exactly the right gate.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5678/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
 
   n8n-worker:
     image: ${N8N_IMAGE}
@@ -765,6 +791,13 @@ services:
       redis:
         condition: service_healthy
       litellm:
+        condition: service_healthy
+      # Wait for n8n's main process to finish its TypeORM migrations
+      # before the worker starts running them concurrently. Without
+      # this gate, both containers attempt schema migrations against
+      # the same n8n schema and one loses on a duplicate-type race
+      # (see the n8n service healthcheck comment).
+      n8n:
         condition: service_healthy
     deploy:
       replicas: ${N8N_WORKER_SCALE:-1}
@@ -937,12 +970,23 @@ services:
     deploy:
       replicas: ${SPEACHES_SCALE:-0}
     environment:
-      # Speaches lazy-loads models on the first /v1/audio/* request (the
-      # docs/.env.example just guide Open WebUI's AUDIO_TTS_MODEL default).
-      # PRELOAD_MODELS pre-downloads the named models at server startup,
-      # so the first request doesn't pay the cold-start latency — handy
-      # for fresh installs where the user does a curl test right after up.
-      PRELOAD_MODELS: ${SPEACHES_PRELOAD_MODELS:-${SPEACHES_TTS_MODEL:-hexgrad/Kokoro-82M},${SPEACHES_STT_MODEL:-Systran/faster-distil-whisper-large-v3}}
+      # Speaches lazy-loads models on the first /v1/audio/* request, so
+      # we ship with no preload by default. Two reasons:
+      #   1. PRELOAD_MODELS is typed ``list[str]`` on the upstream
+      #      Config; pydantic_settings' EnvSettingsSource decodes the
+      #      value through ``json.loads`` → it MUST be a JSON array
+      #      literal (``[]`` here for "none"). A bare CSV string blows
+      #      up at boot with ``JSONDecodeError: Expecting value``.
+      #   2. Names in PRELOAD_MODELS must match Speaches' internal
+      #      ``executor_registry`` ids, NOT raw HuggingFace ids — e.g.
+      #      ``kokoro`` not ``hexgrad/Kokoro-82M``. ``SPEACHES_TTS_MODEL``
+      #      / ``SPEACHES_STT_MODEL`` below are the model NAMES Open
+      #      WebUI sends to /v1/audio/* at request time, which is a
+      #      different namespace.
+      # To preload anyway, edit this line with a literal JSON array of
+      # registry-ids, e.g.
+      #   PRELOAD_MODELS: '["kokoro","Systran/faster-distil-whisper-large-v3"]'
+      PRELOAD_MODELS: '[]'
       HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
       NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
     volumes:
@@ -1193,6 +1237,14 @@ services:
       - ./hermes-init/templates:/templates:ro
     networks:
       - backend-network
+    # WITHOUT this entrypoint, the alpine container starts with no
+    # command, exits 0 in ~150ms, and ``docker compose ps`` happily
+    # reports ``Exited (0)`` — looking like the init ran. It didn't:
+    # /opt/data/config.yaml is never rendered, the hermes container
+    # then falls back to its image's bundled default (which routes to
+    # ``openrouter.ai`` with no key) and 401-spams the log every
+    # invocation. Matches the weaviate-init / openclaw-init pattern.
+    entrypoint: ["/scripts/init-hermes.sh"]
     labels:
       - "com.${PROJECT_NAME}.service=hermes-init"
       - "com.${PROJECT_NAME}.category=ai"
@@ -1234,6 +1286,14 @@ services:
       HERMES_DASHBOARD: ${HERMES_DASHBOARD_ENABLED:-true}
       HERMES_DASHBOARD_HOST: 0.0.0.0
       HERMES_DASHBOARD_PORT: "9119"
+      # Embed an in-browser Chat tab in the dashboard (uses
+      # PTY+WebSocket to wrap a ``hermes --tui`` session). Lets users
+      # talk to the agent directly from the dashboard without needing
+      # Open WebUI / curl. Upstream documents this as
+      # ``HERMES_DASHBOARD_TUI=1`` (or the ``--tui`` CLI flag);
+      # ``ptyprocess`` is already in the image. Default on; flip to
+      # ``0`` via .env if you want a read-only dashboard.
+      HERMES_DASHBOARD_TUI: ${HERMES_DASHBOARD_TUI:-1}
       # OpenAI-compatible API server (what LiteLLM and clients connect to)
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: 0.0.0.0
@@ -1253,8 +1313,14 @@ services:
     networks:
       - backend-network
     healthcheck:
-      # `wget` ships with the upstream image; `curl` does not.
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8642/v1/models --header=\"Authorization: Bearer ${HERMES_API_KEY}\" >/dev/null || exit 1"]
+      # nousresearch/hermes-agent ships ``curl`` (and ``python3``);
+      # NOT ``wget`` or ``python``. The historic ``wget`` probe failed
+      # with ``wget: not found`` and a python-wrapped probe failed with
+      # ``python: not found`` because /usr/bin only has the versioned
+      # ``python3`` binary. ``curl`` is the simplest, dependency-free
+      # path. Auth header reads ``API_SERVER_KEY`` from container env
+      # to stay consistent with whatever Hermes is configured with.
+      test: ["CMD-SHELL", "curl --fail --silent --show-error -H \"Authorization: Bearer $$API_SERVER_KEY\" http://127.0.0.1:8642/v1/models >/dev/null"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -1568,6 +1634,16 @@ services:
         condition: service_started
       litellm:
         condition: service_healthy
+      # Wait for weaviate-init to write /shared/weaviate-config.env
+      # before configure-backend.sh tries to source it. Without this,
+      # backend starts in parallel with weaviate-init, finds the file
+      # missing, and logs ``Warning - No dynamic Weaviate configuration
+      # found`` plus a fallback embedding model — fine for most flows,
+      # but masks a real race where the LITELLM_EMBEDDING_MODEL the
+      # backend ends up using disagrees with what Weaviate eventually
+      # gets configured with.
+      weaviate-init:
+        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:

@@ -6,11 +6,21 @@ Python implementation of start.sh with full feature parity.
 Cross-platform startup script for the GenAI development environment.
 """
 
+import re
 import sys
 import os
+from datetime import date
 from pathlib import Path
 import click
 from typing import Dict, Optional
+
+
+def _format_today() -> str:
+    """Return today's date as ``YYYY-MM-DD`` for env-backfill markers.
+    Factored to a tiny helper so it's trivial to monkey-patch in tests
+    without freezing the system clock globally.
+    """
+    return date.today().isoformat()
 
 # Add the current directory to the path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent))
@@ -241,7 +251,184 @@ class GenAIStackStarter:
                 return False
 
         return True  # .env already exists and not cold start
-        
+
+    def backfill_missing_env_vars(self) -> bool:
+        """Append variables present in ``.env.example`` but missing from
+        the user's ``.env`` (preserving every existing value).
+
+        Catches the merge-from-upstream case: a worktree adds new
+        services to ``.env.example`` (e.g. MinIO's ``MINIO_IMAGE``,
+        ``MINIO_PORT``, bucket names) but the user's pre-existing
+        ``.env`` doesn't carry those keys. ``docker compose config``
+        then warns ``variable X not set, defaulting to blank`` and
+        fails with ``service has neither an image nor a build context``
+        when a critical key like ``${MINIO_IMAGE}`` is empty.
+
+        Preserves the source file's organisation: missing vars are
+        emitted under their original section heading (the
+        ``# === FOO ===`` banner above them in ``.env.example``),
+        with the immediate context comment block kept intact. The
+        result reads as if the new entries had been there from the
+        start — no flat "everything dumped at the bottom" lump.
+
+        Idempotent — running again with no missing keys is a no-op.
+        Only appends new keys; never rewrites existing values or
+        reorders the file (so user-edited values and pre-existing
+        comments stay put). Auto-managed keys with empty defaults in
+        the example (passwords, access keys) are appended blank; the
+        cold-start secret-generation step fills them later.
+        """
+        env_file_path = self.config_parser.env_file_path
+        env_example_path = self.config_parser.env_example_path
+        if not env_file_path.exists() or not env_example_path.exists():
+            return True  # Nothing to backfill against.
+
+        try:
+            example_text = env_example_path.read_text()
+            env_text = env_file_path.read_text()
+        except OSError as e:
+            self.banner.show_status_message(
+                f"Could not read env files for backfill: {e}", "warning",
+            )
+            return True  # Non-fatal — surface compose's own error later.
+
+        existing_keys: set[str] = set()
+        for line in env_text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "=" in stripped:
+                existing_keys.add(stripped.split("=", 1)[0].strip())
+
+        groups = self._parse_env_example_sections(
+            example_text, existing_keys,
+        )
+        if not groups:
+            return True
+
+        rendered_lines: list[str] = [
+            "",
+            "# ────────────────────────────────────────────────────────",
+            f"# Auto-backfilled from .env.example on {_format_today()}",
+            "# Entries new in .env.example since this .env was written,",
+            "# grouped by their source section so the file stays tidy.",
+            "# ────────────────────────────────────────────────────────",
+        ]
+        total = 0
+        for section, entries in groups:
+            rendered_lines.append("")
+            rendered_lines.append(f"# === {section} ===")
+            for context, key, value in entries:
+                rendered_lines.extend(context)  # 0+ comment lines
+                rendered_lines.append(f"{key}={value}")
+                total += 1
+        rendered_lines.append("")
+        appended = "\n".join(rendered_lines)
+        if not env_text.endswith("\n"):
+            appended = "\n" + appended
+
+        try:
+            with open(env_file_path, "a") as f:
+                f.write(appended)
+        except OSError as e:
+            self.banner.show_status_message(
+                f"Failed to backfill {env_file_path}: {e}", "error",
+            )
+            return False
+
+        section_names = ", ".join(s for s, _ in groups[:4])
+        suffix = " …" if len(groups) > 4 else ""
+        self.banner.show_status_message(
+            f"Backfilled {total} missing env var(s) from .env.example, "
+            f"grouped under: {section_names}{suffix}",
+            "info",
+        )
+        return True
+
+    @staticmethod
+    def _parse_env_example_sections(
+        example_text: str, existing_keys: set[str],
+    ) -> "list[tuple[str, list[tuple[list[str], str, str]]]]":
+        """Walk ``example_text`` and group missing variables by section.
+
+        Returns a list of ``(section_name, entries)`` where entries is
+        a list of ``(context_comments, key, value)``. Section name
+        comes from the most recent ``# ============`` banner block.
+        Context comments are the contiguous comment lines immediately
+        preceding the variable (an inline description like
+        ``# Optional, only when LLM_PROVIDER_SOURCE=ollama-external:``),
+        capped to the previous variable or section banner so the
+        backfill doesn't drag unrelated commentary along.
+        """
+        # Match the 3-line section banner pattern in .env.example:
+        #   # ====================
+        #   # SECTION NAME
+        #   # ====================
+        bar_re = re.compile(r"^#\s*={3,}\s*$")
+        lines = example_text.splitlines()
+        current_section = "(unsectioned)"
+        # Buffer of comment lines accumulated since the last variable
+        # line or section banner — used as the immediate context for
+        # the next variable we encounter.
+        comment_buf: list[str] = []
+        # Section name → list of (context, key, value).
+        per_section: dict[str, list[tuple[list[str], str, str]]] = {}
+        ordered_sections: list[str] = []
+        seen_keys: set[str] = set()
+
+        i = 0
+        n = len(lines)
+        while i < n:
+            line = lines[i]
+            # Section banner detection: bar, title, bar (3 lines).
+            if (
+                bar_re.match(line)
+                and i + 2 < n
+                and lines[i + 1].startswith("#")
+                and bar_re.match(lines[i + 2])
+            ):
+                title = lines[i + 1].lstrip("#").strip()
+                if title:
+                    current_section = title
+                comment_buf = []
+                i += 3
+                continue
+            stripped = line.strip()
+            if not stripped:
+                # Blank line resets the running comment buffer so we
+                # don't paste unrelated text above a variable two
+                # sections later.
+                comment_buf = []
+                i += 1
+                continue
+            if stripped.startswith("#"):
+                comment_buf.append(line)
+                i += 1
+                continue
+            if "=" not in stripped:
+                comment_buf = []
+                i += 1
+                continue
+            key, _, raw_value = stripped.partition("=")
+            key = key.strip()
+            value = raw_value
+            if "#" in value:
+                # Strip inline `# trailing comment` from the value but
+                # keep the value itself verbatim.
+                value = value.split("#", 1)[0]
+            value = value.rstrip()
+            if key and key not in existing_keys and key not in seen_keys:
+                seen_keys.add(key)
+                if current_section not in per_section:
+                    per_section[current_section] = []
+                    ordered_sections.append(current_section)
+                per_section[current_section].append(
+                    (list(comment_buf), key, value),
+                )
+            comment_buf = []
+            i += 1
+        return [(s, per_section[s]) for s in ordered_sections]
+
     def unset_port_environment_variables(self) -> None:
         """
         Unset potentially lingering port environment variables.
@@ -1187,6 +1374,14 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             # Setup .env first so wizard can read current defaults.
             if not starter.setup_env_file(cold_start=cold, base_port=base_port):
                 sys.exit(1)
+            # Backfill any keys added to .env.example since the user's
+            # .env was last written — run BEFORE the wizard reads it,
+            # otherwise new vars (MinIO image / ports / bucket names,
+            # etc.) won't appear as defaults in the wizard's prompts
+            # and ``docker compose config`` will fail later with
+            # ``variable X not set``.
+            if not starter.backfill_missing_env_vars():
+                sys.exit(1)
 
             # The Textual wizard owns the entire interactive flow when the
             # terminal can host it. Non-TUI shells (--no-tui, non-TTY,
@@ -1217,6 +1412,10 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 # Make sure .env exists so the launch screen can build
                 # the Stack overview.
                 if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+                    sys.exit(1)
+                # Backfill new .env.example keys before the launch
+                # screen renders the Stack overview from .env.
+                if not starter.backfill_missing_env_vars():
                     sys.exit(1)
                 from ui.textual.integration import run_launch_flow
                 stack_options = {
@@ -1259,6 +1458,13 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not wizard_ran:
             if not starter.setup_env_file(cold_start=cold, base_port=base_port):
                 sys.exit(1)
+
+        # Pull in any keys added to .env.example since the user's .env
+        # was written (e.g. a worktree merge added a new service like
+        # MinIO and its config block). Idempotent; preserves all
+        # existing values and auto-generated secrets.
+        if not starter.backfill_missing_env_vars():
+            sys.exit(1)
 
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
@@ -1320,6 +1526,14 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         
         # Step 7: Validate localhost services before starting
         if not starter.validate_localhost_services():
+            sys.exit(1)
+
+        # Defensive final backfill — see notes on the wizard pipeline's
+        # matching step. Catches any case where an intermediate pipeline
+        # step regenerated .env from a parsed snapshot rather than the
+        # in-place regex replacement, dropping keys present in
+        # .env.example but not (yet) tracked by service_config.
+        if not starter.backfill_missing_env_vars():
             sys.exit(1)
 
         # Pre-launch summary + docker streaming. TUI-capable runs exit

@@ -222,6 +222,30 @@ class KeyGenerator:
         new_key = self.generate_hermes_api_key()
         return self.update_env_key('HERMES_API_KEY', new_key)
 
+    def generate_webui_secret_key(self) -> str:
+        """Open WebUI JWT/session signing key. Used by Open WebUI itself
+        AND by ``open-webui-init/scripts/register-{tools,functions}.py``
+        to sign admin-token JWTs via ``jwt.encode(..., algorithm="HS256")``.
+        PyJWT 2.10+ logs ``InsecureKeyLengthWarning`` for keys shorter
+        than 32 bytes on HS256 (RFC 7518 Section 3.2), so we emit a
+        URL-safe 32-byte token — same posture as LITELLM_MASTER_KEY /
+        HERMES_API_KEY.
+        """
+        return secrets.token_urlsafe(32)
+
+    def generate_and_update_webui_secret_key(self, force: bool = False) -> bool:
+        """Generate OPEN_WEB_UI_SECRET_KEY when absent OR when the shipped
+        placeholder ``"secret"`` (6 bytes literally) is still in place.
+        Idempotent for any other user-supplied value: hand-edits stick.
+        Rotating mid-run signs everyone out of Open WebUI, so we only
+        upgrade the placeholder, never a real key.
+        """
+        current_value = self.get_current_env_value('OPEN_WEB_UI_SECRET_KEY')
+        if not force and current_value and current_value != 'secret':
+            return True
+        new_key = self.generate_webui_secret_key()
+        return self.update_env_key('OPEN_WEB_UI_SECRET_KEY', new_key)
+
     def generate_and_update_minio_root_password(self, force: bool = False) -> bool:
         """Generate MINIO_ROOT_PASSWORD when absent. Hand-edits stick unless force=True."""
         current_value = self.get_current_env_value('MINIO_ROOT_PASSWORD')
@@ -278,6 +302,14 @@ class KeyGenerator:
         # references it via os.environ/HERMES_API_KEY, so rotating it
         # without restarting the LiteLLM container would break routing.
         results['HERMES_API_KEY'] = self.generate_and_update_hermes_api_key(force=False)
+
+        # Open WebUI JWT/session signing key. Upgrades the shipped
+        # ``"secret"`` placeholder to a real 32-byte token; preserves
+        # any other user-supplied value so logged-in sessions survive
+        # restarts. PyJWT 2.10+ logs InsecureKeyLengthWarning for keys
+        # < 32 bytes on HS256, which the open-webui-init scripts trip
+        # every launch with the placeholder.
+        results['OPEN_WEB_UI_SECRET_KEY'] = self.generate_and_update_webui_secret_key(force=False)
 
         # MinIO root password — never force-regenerate (would lock out console + break
         # provisioning). Only generate when absent.

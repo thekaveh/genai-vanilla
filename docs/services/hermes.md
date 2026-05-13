@@ -82,12 +82,28 @@ HERMES_IMAGE=nousresearch/hermes-agent:0.13.0
 HERMES_API_PORT=63028
 HERMES_DASHBOARD_PORT=63029
 HERMES_DASHBOARD_ENABLED=true
-HERMES_DEFAULT_MODEL=               # blank = LiteLLM default; MUST be >=64K-context
+HERMES_DASHBOARD_TUI=1              # 1 = embed Chat tab (PTY+WS); 0 = read-only dashboard
+HERMES_DEFAULT_MODEL=               # blank = hermes-init auto-picks from LiteLLM's model_list
 HERMES_CONTEXT_LENGTH=65536         # hard floor; leave alone
 HERMES_API_KEY=                     # auto-generated if empty
 HERMES_MEMORY_LIMIT=4g
 HERMES_CPU_LIMIT=2.0
 ```
+
+**Auto-default model.** When `HERMES_DEFAULT_MODEL` is blank, `hermes-init`
+queries `http://litellm:4000/v1/models` at startup and picks the first
+match from a priority list (`ollama/qwen3.6:latest` → `claude-sonnet-4-6`
+→ `claude-opus-4-7` → `gpt-5` → `gpt-5-codex` → `gpt-5-mini` → first
+available non-hermes-agent model). Cheapest-local-first, big-context-
+cloud-second. Operator-supplied values are never overridden.
+
+**Dashboard Chat tab.** With `HERMES_DASHBOARD_TUI=1` (the default), the
+dashboard exposes `/chat` and a `/ws/chat` WebSocket route, embedding a
+PTY-backed `hermes --tui` session as a tab — letting you talk to the
+agent directly from the web UI without going through Open WebUI or
+`curl`. The upstream `nousresearch/hermes-agent` image already ships
+`ptyprocess` for this. Set `HERMES_DASHBOARD_TUI=0` for a read-only
+dashboard. Reference: [upstream Web-Dashboard docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/web-dashboard).
 
 Use `./start.sh` for the guided wizard, or pass `--hermes-source <option>`
 for scripted changes.

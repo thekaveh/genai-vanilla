@@ -56,6 +56,17 @@ _SETUP_HINTS = [
     (("↑", "↓"), "navigate"),
     (("space",), "toggle"),
     (("↵",), "confirm"),
+    # `Tab` / `/` both focus the model-name search input on steps that
+    # mount one (today: only ``Ollama  ·  models``). No-op on other
+    # steps but the hint stays visible so users know the search box is
+    # keyboard-reachable. Tab again (or Esc) returns focus to the
+    # option list.
+    (("tab", "/"), "search"),
+    # `f` cycles capability filter chips when the active step exposes
+    # them (today: only ``Ollama  ·  models``). No-op on other steps;
+    # hint stays visible so users on terminals without mouse passthrough
+    # know the chip row is reachable from the keyboard.
+    (("f",), "filter"),
     (("esc",), "back"),
     (("ctrl+q",), "quit & save"),
 ]
@@ -77,12 +88,33 @@ class WizardScreen(Screen):
     BINDINGS = [
         Binding("up", "move(-1)", "Up", priority=True),
         Binding("down", "move(1)", "Down", priority=True),
-        Binding("k", "move(-1)", "Up", priority=True),
-        Binding("j", "move(1)", "Down", priority=True),
+        # Vim-style ``k``/``j`` are kept as a convenience but split
+        # into a separate action so ``check_action`` can disable them
+        # while the search input has focus (otherwise typing
+        # ``"kimi"`` or ``"jinja"`` would walk the cursor instead of
+        # appearing as text in the search box).
+        Binding("k", "vim_move(-1)", "Up", priority=True),
+        Binding("j", "vim_move(1)", "Down", priority=True),
         Binding("space", "toggle", "Toggle", priority=True),
         Binding("enter", "confirm", "Confirm", priority=True),
         Binding("escape", "back", "Back", priority=True),
         Binding("ctrl+q", "quit_wizard", "Quit", priority=True),
+        # Multiselect filter cycle — no-op on steps without filter_tags.
+        # show=False because the footer hints are explicitly listed in
+        # _SETUP_HINTS rather than auto-derived from the BINDINGS list.
+        Binding("f", "cycle_filter", "Filter", show=False, priority=True),
+        # `/` focuses the model-name search input on the Ollama
+        # multiselect step (only step that mounts one). Priority lets
+        # us steal `/` even when the option list has focus.
+        Binding("slash", "focus_search", "Search", show=False, priority=True),
+        # Tab toggles focus between the search input and the option
+        # list. Symmetric: pressing Tab from either side flips. This
+        # gives the user a discoverable, keyboard-only affordance —
+        # the implicit "first focusable widget" Tab behaviour Textual
+        # provides isn't enough because we explicitly park focus on
+        # the option list to keep Space from being eaten by an
+        # unfocused-looking Input.
+        Binding("tab", "toggle_search_focus", "Search", show=False, priority=True),
         Binding("a", "filter_all", "All logs", show=False, priority=True),
         Binding("e", "filter_errors", "Errors only", show=False, priority=True),
         Binding("w", "filter_warns", "Warns only", show=False, priority=True),
@@ -436,16 +468,114 @@ class WizardScreen(Screen):
         # Re-render with real options on the main thread.
         self._load_current_step()
 
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        """Suppress screen-level priority bindings while the search
+        input has focus, so typed keys land in the Input as text.
+
+        The wizard's keyboard model binds bare letters (``f``, ``a``,
+        ``e``, ``w``, ``i``, ``j``, ``k``) and ``space`` with
+        ``priority=True``. That's the right default while focus sits
+        on the non-focusable option list, but it makes the search box
+        useless: typing ``"qwen"`` would hijack the ``"w"`` to fire
+        ``filter_warns``. The whitelist below names the actions that
+        STAY enabled while search is focused — every other action
+        returns ``False`` so the key flows through to the Input.
+
+        Whitelist:
+        * ``back`` — Esc unfocuses the search (see ``action_back``).
+        * ``quit_wizard`` — Ctrl+Q stays a universal escape hatch.
+        * ``move`` — arrow keys still walk the option list. Textual
+          ``Input`` uses left/right for cursor movement, leaving
+          up/down free to live-preview the narrowed results while
+          typing.
+        * ``toggle_search_focus`` — Tab toggles focus back to the
+          option list (symmetric with the Tab-to-enter-search path).
+
+        Deliberately NOT in the whitelist:
+        * ``confirm`` — Enter inside the focused Input emits Textual's
+          ``Input.Submitted`` message, which ``PromptPanel.on_input_
+          submitted`` catches and routes to ``unfocus_search()``. The
+          step's commit-Enter is reachable as soon as focus is back
+          on the option list. The user picks the explicit "I'm done
+          searching" moment instead of accidentally committing the
+          whole multiselect while mid-keystroke.
+        * ``vim_move`` (``j``/``k``), ``cycle_filter`` (``f``),
+          ``filter_*`` (``a``/``e``/``w``/``i``), ``toggle`` (Space),
+          ``focus_search`` (``/``) — all suppressed so the bound
+          letters / Space / slash land in the Input as plain text.
+        """
+        if (
+            self._phase == "setup"
+            and self._prompt.has_search_focus()
+        ):
+            _SEARCH_ALLOWED = {
+                "back", "quit_wizard", "move", "toggle_search_focus",
+            }
+            if action not in _SEARCH_ALLOWED:
+                return False
+        return True
+
+    def action_vim_move(self, delta: int) -> None:
+        """``j``/``k`` movement — delegates to :meth:`action_move` but
+        named separately so ``check_action`` can suppress it while
+        the search input has focus (without also suppressing the
+        arrow-key navigation users expect to keep working there).
+        """
+        self.action_move(delta)
+
     def action_move(self, delta: int) -> None:
         if self._phase != "setup":
             return
         self._prompt.move(delta)
 
     def action_toggle(self) -> None:
-        """Space: toggle the focused row's checkbox in multi-select."""
+        """Space: toggle / expand / collapse the focused multi-select row.
+
+        Delegated to ``PromptPanel.toggle_focused``, which branches on
+        the row kind (parent vs leaf) and whether the parent is
+        expandable. No popup ⇒ no focus handover ⇒ no priority-binding
+        conflict; the cursor and arrows stay in the prompt panel
+        throughout.
+        """
         if self._phase != "setup":
             return
         self._prompt.toggle_focused()
+
+    def action_cycle_filter(self) -> None:
+        """``f``: cycle the multiselect filter chip forward.
+
+        Order is ``[ALL, *step.filter_tags]``; wraps. No-op on steps
+        without filter_tags (so `f` is safe to leave bound globally —
+        it just does nothing on non-filter steps).
+        """
+        if self._phase != "setup":
+            return
+        self._prompt.cycle_filter(direction=+1)
+
+    def action_focus_search(self) -> None:
+        """``/``: focus the model-name search input on multiselect
+        steps that mount one (today: only ``Ollama  ·  models``).
+
+        No-op on every other step. When focused, typing into the input
+        live-narrows the option list; Esc returns focus to the option
+        list (handled by ``action_back`` below).
+        """
+        if self._phase != "setup":
+            return
+        self._prompt.focus_search()
+
+    def action_toggle_search_focus(self) -> None:
+        """``Tab``: flip focus between the search input and the option
+        list. No-op on steps without a search input.
+
+        Symmetric on purpose — pressing Tab from either side returns
+        to the other. Combined with the explicit focus park on step
+        load (see ``PromptPanel._mount_search_input``), this is the
+        only way the search box gets focus by accident.
+        """
+        if self._phase != "setup":
+            return
+        self._prompt.toggle_search_focus()
 
     def action_confirm(self) -> None:
         if self._phase != "setup":
@@ -741,6 +871,16 @@ class WizardScreen(Screen):
         self._command_summary.set_flags(flags)
 
     def action_back(self) -> None:
+        # If the search box has focus, Esc returns focus to the option
+        # list — same UX pattern as :input in vim. Without this Esc
+        # would rewind a wizard step while the user is actively typing
+        # a search query.
+        if (
+            self._phase == "setup"
+            and self._prompt.has_search_focus()
+        ):
+            self._prompt.unfocus_search()
+            return
         # If a chip popup is open, escape closes it first instead of
         # rewinding the wizard step.
         if (
@@ -1117,6 +1257,18 @@ class WizardScreen(Screen):
              lambda: starter.generate_encryption_keys(cold_start=cold)),
             ("Validate localhost services",
              starter.validate_localhost_services),
+            # Defensive final backfill — runs after every other
+            # pipeline step has touched .env. Catches the edge case
+            # where a user merged new entries into .env.example after
+            # their .env was last fully written; if any earlier step
+            # somehow regenerated .env from a parsed snapshot rather
+            # than regex-replacing, the new vars (MINIO_IMAGE,
+            # MINIO_PORT, etc.) would be missing at compose time and
+            # ``docker compose up`` would fail with ``variable X not
+            # set, defaulting to blank string``. Cheap when there's
+            # nothing to add (a no-op tail append).
+            ("Backfill .env from .env.example",
+             starter.backfill_missing_env_vars),
         ]
 
         self._write_status("⚙ Running setup pipeline", style="bold cyan",
