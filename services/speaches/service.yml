@@ -45,3 +45,11 @@ depends_on:
   optional: []
 
 exports: []
+
+# No runtime_sc / runtime_adaptive / runtime_deps blocks here — intentional.
+# SPEACHES_SCALE is auto-managed by `_generate_stt_provider_config` /
+# `_generate_tts_provider_config` in `bootstrapper/services/service_config.py`
+# based on STT_PROVIDER_SOURCE / TTS_PROVIDER_SOURCE (speaches is dual-role
+# and dedupes when both pick a speaches-* variant). The runtime contract
+# lives in the parakeet / tts-provider manifests + the imperative
+# source-config code, not in a per-service runtime block.

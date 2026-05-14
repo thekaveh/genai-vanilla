@@ -89,10 +89,16 @@ def test_every_env_example_key_has_a_manifest_owner():
 
 
 def test_every_non_auto_managed_manifest_var_is_in_env_example():
-    """Every env var a manifest declares (excluding auto_managed AND
-    secret-with-empty-default) should be discoverable in .env.example —
-    either as an active KEY=... line OR as a commented-out `# KEY=...`
-    documenting an optional override."""
+    """Every env var a manifest declares (excluding auto_managed) should be
+    discoverable in .env.example — either as an active KEY=... line OR as a
+    commented-out `# KEY=...` documenting an optional override.
+
+    Covers three manifest sources:
+      - `env:` entries (modulo `auto_managed: true`)
+      - `images:` entries (no auto_managed concept — they're always
+        user-overridable image tags)
+      - `sources.var` (the source-selector env var)
+    """
     manifests = load_manifests(REPO_ROOT / "services")
     keys = _env_example_documented_keys()
     missing = []
@@ -101,7 +107,12 @@ def test_every_non_auto_managed_manifest_var_is_in_env_example():
             if entry.auto_managed:
                 continue
             if entry.name not in keys:
-                missing.append(f"{m.name}.{entry.name}")
+                missing.append(f"{m.name}.env.{entry.name}")
+        for img in m.images:
+            if img.var not in keys:
+                missing.append(f"{m.name}.images.{img.var}")
+        if m.sources and m.sources.var not in keys:
+            missing.append(f"{m.name}.sources.{m.sources.var}")
     assert not missing, (
         f"{len(missing)} manifest-declared vars missing from .env.example: "
         f"{sorted(missing)}"

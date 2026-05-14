@@ -34,7 +34,7 @@ To manually create a graph database backup:
 docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/backup.sh
 ```
 
-The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./neo4j-graph-db/snapshot/` directory on your host machine.
+The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./services/neo4j/build/snapshot/` directory on your host machine.
 
 ### Manual Restore
 

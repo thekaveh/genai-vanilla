@@ -7,6 +7,7 @@
 name: globals
 label: "Globals (project + branding)"
 category: infra
+docs: docs/CONTRIBUTING-services.md  # virtual; nearest reference doc is the architecture / manifest convention guide
 virtual: true
 containers: []
 
@@ -66,8 +67,13 @@ depends_on:
 
 exports: []
 
-# Bootstrapper dependency tiers (data → init → core → app).
-# Migrated from bootstrapper/service-configs.yml's `dependencies:` block.
+# ─────────────────────────────────────────────────────────
+# Bootstrapper runtime data (migrated from the legacy
+# bootstrapper/service-configs.yml). Slice owned by this
+# manifest — stack-wide dependency tiers (data → init → core → app).
+# Synthesized into the runtime dict by
+# bootstrapper/services/sc_synthesizer.py.
+# ─────────────────────────────────────────────────────────
 runtime_dependency_tiers:
   data_tier:
   - supabase-db
@@ -90,9 +96,10 @@ runtime_dependency_tiers:
   - litellm
   - ollama
   - comfyui
-  - parakeet
-  - xtts
-  - docling
+  - parakeet-gpu
+  - speaches
+  - chatterbox
+  - docling-gpu
   - weaviate
   - multi2vec-clip
   - searxng

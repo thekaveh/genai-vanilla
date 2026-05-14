@@ -1,60 +1,91 @@
-# services/
+# `services/`
 
-Per-service manifest folders. Each subfolder corresponds to one **service family** (a logical grouping of co-lifecycled containers — e.g. `supabase/` owns all eight `supabase-*` containers, `n8n/` owns `n8n` + `n8n-worker` + `n8n-init`).
+Per-service manifest folders. Each subfolder is one **service family** — a
+logical grouping of co-lifecycled containers. Examples: `supabase/` owns all
+eight `supabase-*` containers; `n8n/` owns `n8n` + `n8n-worker` + `n8n-init`;
+`open-webui/` owns `open-web-ui` + `open-webui-init`.
 
-**Phase progress:**
+The migration into this layout is complete: the root `docker-compose.yml` is
+a thin `include:` shell that merges every fragment under
+`services/<name>/compose.yml`, and `bootstrapper/service-configs.yml` has
+been retired in favour of the per-service manifests. See
+`docs/CONTRIBUTING-services.md` for the full architecture rationale.
 
-- ✅ **Phase A** landed the scaffolding (schemas, loader, validator, env assembler, CI lint).
-- ✅ **Phase B** carved out `services/redis/` as the template — manifest + compose fragment, with byte-equivalence to the monolithic rendering proven by `bootstrapper/tests/test_fragment_equivalence.py`.
-- ⏳ **Phase C** migrates the remaining ~18 services in dependency order.
-- ⏳ **Phase D** swaps the root `docker-compose.yml` for a thin `include:`-shell, deletes `bootstrapper/service-configs.yml`, and wires the manifests into `bootstrapper/start.py`.
-- ⏳ **Phase E** runs the full verification matrix.
-
-## Phase B scaffolding (temporary)
-
-While we carve services out one at a time, the monolithic `docker-compose.yml` at the repo root remains the **live** compose file. The fragments under `services/<name>/compose.yml` are NOT yet wired into the active stack — they're parallel definitions used to prove the pattern works.
-
-The file `docker-compose.modular.yml` at the repo root is a tiny parent shell that includes the carved fragments plus stub definitions for not-yet-carved dependencies. Its purpose is local verification:
-
-```bash
-docker compose --env-file .env -f docker-compose.modular.yml config -q     # validates merge
-docker compose --env-file .env -f docker-compose.modular.yml config         # prints merged shape
-```
-
-This file disappears in Phase D when it becomes the actual `docker-compose.yml`.
-
-## Layout (forward-looking)
+## Layout
 
 ```
 services/
-├── _order.yml          # NEW (Phase D): canonical service order for stable .env.example diffs
+├── _order.yml                   # canonical service order (.env.example diff stability + wizard order)
+├── README.md                    # this file
 ├── supabase/
-│   ├── service.yml     # manifest: env vars, sources, deps, image refs
-│   └── compose.yml     # Docker Compose fragment for the family's containers
+│   ├── service.yml              # manifest: env vars, sources, deps, image refs
+│   ├── compose.yml              # Docker Compose fragment for the family's containers
+│   ├── README.md                # service family overview (recommended)
+│   └── db/scripts/              # SQL init scripts (bind-mounted into supabase-db-init)
 ├── redis/
 │   ├── service.yml
 │   └── compose.yml
-└── … (≈17 more service folders)
+└── … (≈24 more service folders)
 ```
+
+A virtual service (e.g. `cloud-providers/`, `tts-provider/`, `globals/`) has
+only `service.yml` — no compose fragment because the service has no
+containers of its own; it owns env vars and source toggles that other
+services consume.
 
 ## Adding or changing a service
 
-1. Edit `services/<name>/service.yml` (the manifest) and/or `services/<name>/compose.yml` (the fragment).
+1. Edit `services/<name>/service.yml` (the manifest) and/or
+   `services/<name>/compose.yml` (the fragment).
 2. The schema lives at `bootstrapper/schemas/service.schema.json`.
-3. Run the lint locally:
+3. Run the schema lint locally:
    ```bash
-   cd bootstrapper && uv run python -m tools.validate_fragments --check-env-example
+   cd bootstrapper && uv run python -m tools.validate_fragments
    ```
-4. If you changed any env-affecting field, regenerate `.env.example`:
+   Validates every manifest against `bootstrapper/schemas/service.schema.json`
+   and the cross-manifest rules. Exits non-zero on any violation.
+4. If you changed any env-affecting field, also run the consistency tests
+   (catch orphan `.env.example` keys, manifest vars missing from
+   `.env.example`, and duplicate ownership):
    ```bash
-   cd bootstrapper && uv run python -m services.env_assembler > ../.env.example
+   cd bootstrapper && uv run pytest tests/test_env_example_consistency.py
    ```
-   (Wiring into `./start.sh` lands in Phase D; in Phase A this is a manual step for development of the modular layout itself.)
+   Note: `.env.example` itself is hand-maintained (prose-rich descriptions,
+   commented section headers). Adding new env-affecting vars means editing
+   `.env.example` directly to keep both halves in lock-step. The
+   auto-generator at `bootstrapper/services/env_assembler.py` is reserved
+   for a future cutover (see its module docstring) and `validate_fragments
+   --check-env-example` will only pass once that cutover lands.
+5. New service? Add the fragment's path to the `include:` list in the root
+   `docker-compose.yml`, and add the service to `services/_order.yml` so
+   `.env.example` is rendered in a stable order.
 
 ## Folder-name rules
 
-- Lowercase kebab-case (matches `name:` field in the manifest)
-- Names starting with `_` are reserved (e.g. `_order.yml`, future `_user/` overlay)
-- Names starting with `.` are ignored by the loader
+- Lowercase kebab-case (matches the `name:` field in the manifest).
+- Names starting with `_` are reserved (e.g. `_order.yml`, `_user/`).
+- Names starting with `.` are ignored by the loader.
 
-See the design spec at the plan path (`please-do-a-comprehensive-lovely-pelican.md`) for the full set of decisions and edge cases.
+## Per-service `README.md`
+
+Every non-virtual service family should ship a `README.md` describing the
+containers it owns, the role of any `init/`, `build/`, `provider/`,
+`extras/`, or `db/` subdirectories, and any non-obvious operational gotchas.
+Virtual services (no containers) don't need one — their `service.yml`
+header comments cover the same ground.
+
+## Subfolder convention
+
+When a service brings its own source code, init scripts, build context, or
+config files, those live under a named subdirectory inside the service
+folder. The full convention (`app/`, `build/`, `init/`, `catalog-init/`,
+`pull/`, `config/`, `db/`, `provider/`, `extras/`, `workflows-stage/`) is
+documented in
+[`docs/CONTRIBUTING-services.md`](../docs/CONTRIBUTING-services.md#subdirectory-naming-convention).
+
+## `_user/` overlay slot
+
+Downstream forks consuming this repo as a git submodule can layer extra
+services under `services/_user/<name>/` without touching the upstream tree.
+The folder is gitignored upstream. Full design: see
+[`docs/CONTRIBUTING-services.md`](../docs/CONTRIBUTING-services.md#services_user-overlay-slot-downstream-submodule-consumers).

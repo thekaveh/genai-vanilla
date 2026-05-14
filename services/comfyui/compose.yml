@@ -35,6 +35,14 @@ services:
     platform: ${COMFYUI_PLATFORM:-linux/amd64}
     container_name: ${PROJECT_NAME}-comfyui
     restart: unless-stopped
+    # NOTE: comfyui does NOT depend_on comfyui-init here — the
+    # bootstrapper's byte-equivalence test (tests/test_fragment_equivalence.py)
+    # locks this fragment to the pre-refactor monolithic shape. ComfyUI
+    # tolerates an empty /opt/ComfyUI/models on first boot (it serves the
+    # UI but workflows fail until models arrive), and the model-staging
+    # init runs in parallel anyway. Adding the gate is a real improvement
+    # but belongs in a separate ticket that intentionally rebaselines
+    # the equivalence fixture — see audit finding M-4.
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully

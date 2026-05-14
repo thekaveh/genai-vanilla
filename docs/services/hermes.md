@@ -48,7 +48,7 @@ Hermes is wired into the stack in two directions:
 1. **Hermes → LiteLLM (outbound)** — Hermes calls
    `http://litellm:4000/v1/chat/completions` for every LLM operation. Pick
    the model via `HERMES_DEFAULT_MODEL` (any name LiteLLM exposes).
-2. **LiteLLM → Hermes (inbound)** — `litellm-init/scripts/init.py` appends
+2. **LiteLLM → Hermes (inbound)** — `services/litellm/init/scripts/init.py` appends
    a `hermes-agent` row to LiteLLM's `model_list` when `HERMES_SOURCE !=
    disabled`. Consequence: Open-WebUI, n8n, backend, JupyterHub, OpenClaw
    all see `hermes-agent` in their model dropdowns automatically — no
@@ -59,7 +59,7 @@ is the single front door for LLM traffic.
 
 ### Optional integration points (wired by `hermes-init`)
 
-`hermes-init/scripts/init-hermes.sh` renders `/opt/data/config.yaml` from
+`services/hermes/init/scripts/init-hermes.sh` renders `/opt/data/config.yaml` from
 environment. When the underlying service is enabled, Hermes gets:
 
 | Hermes feature | Stack service | Mechanism |
@@ -153,7 +153,7 @@ for scripted changes.
 - **STT base_url override is undocumented** — Hermes documents `base_url`
   override for the OpenAI TTS provider; STT may need a fallback to
   `provider: command` with a `HERMES_LOCAL_STT_COMMAND`-style curl. See the
-  comment in `hermes-init/templates/config.yaml.tmpl`.
+  comment in `services/hermes/init/templates/config.yaml.tmpl`.
 - **64K context floor** — small Ollama models (default 4096 ctx) will fail
   Hermes's preflight check. Pull with `ollama run <model> --ctx-size 65536`
   or pick a cloud model.

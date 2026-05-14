@@ -2,7 +2,7 @@
 name: docling
 label: "Docling (document processor)"
 category: ai
-docs: docs/services/docling.md
+docs: docs/services/doc-processor.md  # docling is the docling-container-gpu / docling-localhost engine behind DOC_PROCESSOR_SOURCE
 
 containers:
   - docling-gpu

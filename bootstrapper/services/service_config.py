@@ -222,7 +222,7 @@ class ServiceConfig:
         return env_vars
     
     def _generate_minio_config(self) -> Dict[str, str]:
-        """Generate MinIO env vars from service-configs.yml."""
+        """Generate MinIO env vars from the minio manifest's runtime_sc block."""
         source_value = self.service_sources.get('MINIO_SOURCE', 'container')
         config = self.get_service_config('minio', source_value)
         env_vars: Dict[str, str] = {}
@@ -234,7 +234,7 @@ class ServiceConfig:
         env_vars['MINIO_ENDPOINT'] = config.get('environment', {}).get('MINIO_ENDPOINT', '')
 
         # MINIO_PUBLIC_ENDPOINT — host S3 API URL; may contain a ${MINIO_PORT} token
-        # from service-configs.yml. Expand against the current .env value.
+        # from the manifest's runtime_sc block. Expand against the current .env value.
         current_env = self.config_parser.parse_env_file()
         public_template = config.get('environment', {}).get('MINIO_PUBLIC_ENDPOINT', '')
         if public_template:
@@ -244,7 +244,7 @@ class ServiceConfig:
             env_vars['MINIO_PUBLIC_ENDPOINT'] = ''
 
         # MINIO_PUBLIC_CONSOLE_ENDPOINT — host console URL; may contain a
-        # ${MINIO_CONSOLE_PORT} token from service-configs.yml. Used by MinIO's
+        # ${MINIO_CONSOLE_PORT} token from the manifest. Used by MinIO's
         # MINIO_BROWSER_REDIRECT_URL — must point at the console (port 9001 / host
         # MINIO_CONSOLE_PORT), NOT the S3 API.
         console_template = config.get('environment', {}).get('MINIO_PUBLIC_CONSOLE_ENDPOINT', '')

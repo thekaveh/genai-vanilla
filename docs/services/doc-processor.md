@@ -31,13 +31,13 @@ DOC_PROCESSOR_SOURCE=docling-container-gpu
 
 **Step 1: Install dependencies**
 ```bash
-cd doc-processor/localhost
+cd services/docling/provider/localhost
 uv sync
 ```
 
 **Step 2: Start doc processor server on host (in separate terminal)**
 ```bash
-cd doc-processor/localhost
+cd services/docling/provider/localhost
 uv run server.py
 ```
 
@@ -411,7 +411,7 @@ answer = llm_query(f"Context: {context}\n\nQuestion: {query}")
 ## Architecture
 
 ```
-doc-processor/
+services/docling/provider/
 ├── gpu/                    # NVIDIA GPU implementation (Docker)
 │   ├── Dockerfile         # CUDA + PyTorch optimized
 │   ├── processor.py       # Docling processing logic

@@ -74,8 +74,9 @@ runtime_deps:
     - n8n
     - weaviate
     - parakeet
-    - xtts
+    - speaches
+    - chatterbox
     - docling
     info_message: Backend enabled - will connect to available optional services (neo4j,
-      searxng, n8n, weaviate, parakeet, xtts, docling)
+      searxng, n8n, weaviate, parakeet, speaches, chatterbox, docling)
 

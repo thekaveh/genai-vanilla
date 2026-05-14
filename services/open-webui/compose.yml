@@ -62,7 +62,7 @@ services:
 
   open-webui-init:
     build:
-      context: ../../open-webui-init
+      context: ./init
       args:
         BASE_IMAGE: ${OPEN_WEB_UI_INIT_IMAGE:-python:3.11-slim}
     container_name: ${PROJECT_NAME}-open-webui-init

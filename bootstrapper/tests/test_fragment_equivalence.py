@@ -4,17 +4,28 @@ Byte-equivalence proof for the modular layout.
 Phase D landed the cutover: `docker-compose.yml` is now the thin
 `include:`-shell that pulls in services/<name>/compose.yml fragments. This
 test renders that shell via `docker compose config` and diffs the output
-against the golden baseline captured from the pre-refactor monolithic file
-at `bootstrapper/tests/fixtures/rendered_config_baseline.yml`.
+against the golden baseline captured at
+`bootstrapper/tests/fixtures/rendered_config_baseline.yml`.
 
-Skipped if `docker` is not on PATH (CI lint job) or `.env` is missing
-(fresh checkout).
+To stay deterministic across machines, the test does NOT use the user's
+local `.env` — it generates a controlled fixture `.env` on the fly from
+`.env.example` (which has empty secrets) and forces the SCALE/SOURCE values
+that match the captured baseline. This way:
+
+  - The baseline contains empty secrets (committed cleanly to git).
+  - Whether the user has run `./start.sh` or not, the test renders the same
+    structure.
+  - User-`.env`-specific drift (different active source variants, generated
+    secret values) cannot poison the comparison.
+
+Skipped if `docker` is not on PATH (CI lint job) or `.env.example` is missing.
 """
 
 from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -23,10 +34,58 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 COMPOSE = REPO_ROOT / "docker-compose.yml"
-ENV_FILE = REPO_ROOT / ".env"
+ENV_EXAMPLE = REPO_ROOT / ".env.example"
 BASELINE = (
     Path(__file__).resolve().parent / "fixtures" / "rendered_config_baseline.yml"
 )
+
+# Path placeholders used in the committed baseline so the fixture stays
+# portable across machines / CI / different REPO_ROOT layouts. We swap real
+# absolute paths in the rendered output for these tokens before comparing.
+_REPO_ROOT_TOKEN = "{REPO_ROOT}"
+_HOME_TOKEN = "{HOME}"
+
+
+def _normalize_paths(data):
+    """Recursively replace machine-specific absolute paths with placeholders.
+
+    `docker compose config` interpolates relative bind-mount sources and
+    build contexts to absolute paths rooted at REPO_ROOT, and expands `~`
+    in env-file values to the user's home directory. To keep the baseline
+    fixture portable, we substitute those two prefixes with sentinel tokens
+    on every comparison.
+    """
+    repo_str = str(REPO_ROOT)
+    home_str = str(Path.home())
+
+    def _walk(node):
+        if isinstance(node, str):
+            return (
+                node.replace(repo_str, _REPO_ROOT_TOKEN)
+                    .replace(home_str, _HOME_TOKEN)
+            )
+        if isinstance(node, list):
+            return [_walk(x) for x in node]
+        if isinstance(node, dict):
+            return {k: _walk(v) for k, v in node.items()}
+        return node
+
+    return _walk(data)
+
+# SCALE / SOURCE values the captured baseline reflects.
+#
+# `.env.example` ships scales=0 for adaptive services (they're meant to be
+# computed by the bootstrapper at startup). The baseline, however, was
+# captured against a fully-bootstrapped stack where the relevant services
+# were on. We re-impose those values here so renders match the baseline
+# regardless of where the user is in their setup flow.
+_BASELINE_OVERRIDES: dict[str, str] = {
+    "SPEACHES_SCALE": "1",
+    "STT_PROVIDER_SCALE": "1",
+    "TTS_PROVIDER_SCALE": "1",
+    "STT_ENDPOINT": "",
+    "TTS_ENDPOINT": "",
+}
 
 
 def _docker_available() -> bool:
@@ -39,12 +98,45 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _build_test_env() -> Path:
+    """Materialize a deterministic env file from .env.example + overrides.
+
+    Returns the path to a tempfile that callers should pass to
+    `docker compose --env-file ...`. The file is leaked on purpose (pytest
+    cleans up the temp dir at session end); short-lived enough not to matter.
+    """
+    if not ENV_EXAMPLE.is_file():
+        pytest.skip(f".env.example missing at {ENV_EXAMPLE}")
+    src = ENV_EXAMPLE.read_text().splitlines(keepends=True)
+    overridden_keys: set[str] = set()
+    out_lines: list[str] = []
+    for line in src:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            out_lines.append(line)
+            continue
+        # Plain "KEY=value" line (with optional inline comment after value)
+        if "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in _BASELINE_OVERRIDES:
+                out_lines.append(f"{key}={_BASELINE_OVERRIDES[key]}\n")
+                overridden_keys.add(key)
+                continue
+        out_lines.append(line)
+    # Any override key not already in .env.example gets appended.
+    for key, value in _BASELINE_OVERRIDES.items():
+        if key not in overridden_keys:
+            out_lines.append(f"{key}={value}\n")
+    handle = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".env", delete=False, encoding="utf-8"
+    )
+    handle.writelines(out_lines)
+    handle.close()
+    return Path(handle.name)
+
+
 def _render(compose_file: Path) -> dict:
-    if not ENV_FILE.is_file():
-        pytest.skip(
-            f".env does not exist at {ENV_FILE}. Run `cp .env.example .env` "
-            f"locally to enable this test."
-        )
+    env_file = _build_test_env()
     # -p genai matches the runtime invocation (./start.sh passes the project
     # name from .env). Without it, the rendered `name:` field defaults to the
     # parent directory, which causes baseline drift when the worktree is on a
@@ -54,7 +146,7 @@ def _render(compose_file: Path) -> dict:
             "docker",
             "compose",
             "--env-file",
-            str(ENV_FILE),
+            str(env_file),
             "-p",
             "genai",
             "-f",
@@ -68,7 +160,7 @@ def _render(compose_file: Path) -> dict:
     assert result.returncode == 0, (
         f"`docker compose config` failed for {compose_file}:\n{result.stderr}"
     )
-    return yaml.safe_load(result.stdout)
+    return _normalize_paths(yaml.safe_load(result.stdout))
 
 
 def _load_baseline() -> dict:

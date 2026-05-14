@@ -142,7 +142,7 @@ driver = GraphDatabase.driver(
 
 ### Permanent Installation
 
-1. Edit `jupyterhub/requirements.txt`
+1. Edit `services/jupyterhub/build/requirements.txt`
 2. Rebuild: `docker compose build jupyterhub`
 3. Restart: `./stop.sh && ./start.sh`
 

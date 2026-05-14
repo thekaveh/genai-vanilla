@@ -1,11 +1,14 @@
 """
-Service dependency management based on service-configs.yml.
+Service dependency management.
 
-Reads service dependencies from YAML configuration and enforces them
-during service startup, ensuring required dependencies are available.
+Reads service dependencies from the synthesized runtime config (assembled
+from per-manifest `runtime_deps:` blocks under services/<name>/service.yml)
+and enforces them during service startup, ensuring required dependencies
+are available.
 """
 
-from typing import Dict, List, Set, Optional, Tuple
+import re
+from typing import Dict, List, Optional
 from core.config_parser import ConfigParser
 
 
@@ -34,7 +37,7 @@ class DependencyManager:
             self.yaml_config = self.config_parser.load_yaml_config()
             return True
         except Exception as e:
-            print(f"❌ Failed to load service-configs.yml: {e}")
+            print(f"❌ Failed to load service manifests: {e}")
             return False
             
     def get_service_dependencies(self) -> Dict[str, Dict]:
@@ -184,7 +187,6 @@ class DependencyManager:
                     
                     # Update all related N8N scale variables to 0
                     for scale_var in scale_vars_to_update:
-                        import re
                         pattern = rf'^{scale_var}=.*$'
                         replacement = f'{scale_var}=0'
                         updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
@@ -216,7 +218,6 @@ class DependencyManager:
                             content = f.read()
                         
                         # Update scale to 0
-                        import re
                         pattern = rf'^{scale_var}=.*$'
                         replacement = f'{scale_var}=0'
                         updated_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)

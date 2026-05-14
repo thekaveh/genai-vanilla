@@ -2,8 +2,9 @@
 
 The stack uses a **per-service folder layout** under `services/<name>/`. Each service family (one or more co-lifecycled containers) owns:
 
-- `service.yml` — manifest: env vars, source variants, image refs, dependencies, optional Python hook
+- `service.yml` — manifest: env vars, source variants, image refs, dependencies, plus per-source bootstrapper runtime data under `runtime_sc:` / `runtime_adaptive:` / `runtime_deps:`
 - `compose.yml` — Docker Compose fragment for that family's containers
+- optional subdirectories holding Dockerfiles, init scripts, source code, configuration files, snapshots, etc. — see the **Subdirectory naming convention** below
 
 The thin top-level `docker-compose.yml` merges fragments via Compose's native `include:` directive (requires Compose ≥ v2.20; v2.26+ recommended).
 
@@ -22,7 +23,7 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    - `services:` lists only this family's containers
    - `volumes:` lists only this family's named volumes (`name: ${PROJECT_NAME}-<service>-<purpose>`, plus `driver: local` for byte-equivalence with the legacy monolithic shape)
    - `networks:` references `backend-network`; never redefines it
-   - Bind-mount paths are **relative to the fragment file** (e.g., `../../myservice/scripts:/scripts`)
+   - Bind-mount paths are **relative to the fragment file** — i.e., to `services/myservice/` (e.g., `./init/scripts:/scripts`, `./build/snapshot:/snapshot`). Use `../../` only to reach genuinely cross-cutting locations: `../../bootstrapper/utils/` (catalog modules) and `../../volumes/...` (bootstrapper-generated runtime config like `volumes/litellm/config.yaml` and `volumes/api/kong-dynamic.yml`).
 4. Add the fragment to the `include:` list in `docker-compose.yml`.
 5. Add an entry to `services/_order.yml` (controls wizard display order and `.env.example` ordering).
 6. If declarative source effects can't express your computation, add the
@@ -40,6 +41,25 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    ```bash
    cd bootstrapper && uv run pytest tests/ -q
    ```
+
+## Subdirectory naming convention
+
+Each service folder can hold additional subdirectories beyond `service.yml` and `compose.yml`. Use these well-known names so navigation stays predictable across the stack:
+
+| Subdir | Holds | Example |
+|---|---|---|
+| `app/` | Source code for an app the manifest builds (the manifest's primary container is **this** code) | `services/backend/app/` (FastAPI source) |
+| `build/` | Dockerfile + build inputs when the manifest builds a container from scratch | `services/jupyterhub/build/`, `services/neo4j/build/`, `services/local-deep-researcher/build/` |
+| `init/` | Scripts + templates bind-mounted into a `<service>-init` sidecar container that prepares state before the main container starts | `services/n8n/init/`, `services/hermes/init/`, `services/comfyui/init/`, `services/minio/init/`, `services/weaviate/init/` |
+| `catalog-init/` | Same as `init/` but for a *second* init sidecar that runs in a different tier (used by litellm only) | `services/litellm/catalog-init/` |
+| `pull/` | Same as `init/` but the sidecar is named `<service>-pull` (only ollama) | `services/ollama/pull/` |
+| `config/` | Read-only configuration files bind-mounted into the main container at runtime | `services/searxng/config/` (settings.yml) |
+| `db/` | Database snapshots + SQL migration scripts | `services/supabase/db/` (snapshot/ + scripts/) |
+| `provider/` | Multiple host/container providers for a single capability the manifest exposes via a SOURCE variable (one engine = one subfolder of `provider/`) | `services/parakeet/provider/{gpu,mlx,whisper-cpp,shared}`, `services/docling/provider/{gpu,localhost,shared}`, `services/tts-provider/provider/localhost` |
+| `extras/` | User-managed bind-mounted data exposed inside the running container (tools, functions, workflows you can edit on the host) | `services/open-webui/extras/{tools,functions,workflows}` |
+| `workflows-stage/` | Workflow JSON the init sidecar imports into the main container's DB on startup | `services/n8n/workflows-stage/` |
+
+**Family folders.** Some manifests own a family of related containers (e.g. supabase = 8 containers, n8n = main + worker + init). Each family folder gets a brief `README.md` listing the containers it ships and pointing at their definition in `compose.yml`. The fragment's `services:` keys are the authoritative container list; the manifest's `containers:` must match 1:1 (the manifest_validator enforces this — see "Validator rules" below).
 
 ## Modifying an existing service
 
@@ -170,31 +190,6 @@ runtime — the manifest schema and the synthesizer are the same.
 
 This slot is reserved by convention; the upstream `.gitignore` excludes
 `services/_user/` so the directory never leaks into a fork's PRs.
-
-
-## Subfolder naming convention under `services/<name>/`
-
-When a service brings its own source code, init scripts, build context, or
-config files, those live under one of these named subdirectories. The
-convention is loose — pick the one that best describes the contents:
-
-| Subdir | Purpose | Example |
-|---|---|---|
-| `app/` | Application source code (the service IS a runnable Python/Node/etc. project) | `services/backend/app/` (the FastAPI project) |
-| `build/` | Dockerfile + build context | `services/neo4j/build/`, `services/jupyterhub/build/`, `services/local-deep-researcher/build/` |
-| `init/` | Init-container scripts and templates | `services/comfyui/init/`, `services/hermes/init/`, `services/n8n/init/` |
-| `catalog-init/` | Specialised init for the LLM catalog UPSERT | `services/litellm/catalog-init/` |
-| `pull/` | Specialised init for model pulling | `services/ollama/pull/` |
-| `config/` | Hand-written bind-mounted config files | `services/searxng/config/` |
-| `db/` | Database scripts / migrations / snapshots | `services/supabase/db/` |
-| `provider/` | Engine-source-of-truth code that the service wraps | `services/parakeet/provider/`, `services/docling/provider/`, `services/tts-provider/provider/` |
-| `extras/` | Tools / functions / workflows the service loads at runtime | `services/open-webui/extras/` |
-| `workflows-stage/` | Workflow templates staged for import | `services/n8n/workflows-stage/` |
-
-These names are descriptive, not prescriptive. The compose fragment's
-relative bind-mount paths (`./app:/app`, `./init/scripts:/scripts:ro`, etc.)
-follow whichever name you pick. If you add a service with a new pattern,
-extend this table.
 
 
 ## Documentation-only manifest fields

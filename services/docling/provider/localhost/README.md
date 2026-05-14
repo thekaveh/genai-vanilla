@@ -7,7 +7,7 @@ Run IBM Docling document processing natively on your host machine (any platform 
 ### 1. Install Dependencies
 
 ```bash
-cd doc-processor/localhost
+cd services/docling/provider/localhost
 uv sync
 ```
 
@@ -66,7 +66,8 @@ uv run server.py
 
 Or read from project .env:
 ```bash
-export DOC_PROCESSOR_PORT=$(grep DOC_PROCESSOR_PORT ../../.env | cut -d'=' -f2)
+# .env lives at the repo root, four levels up from this README
+export DOC_PROCESSOR_PORT=$(grep DOC_PROCESSOR_PORT ../../../../.env | cut -d'=' -f2)
 uv run server.py
 ```
 
@@ -134,7 +135,7 @@ curl -X POST http://localhost:63021/v1/document/convert \
 
 ```bash
 # Terminal 1: Start doc processor
-cd doc-processor/localhost
+cd services/docling/provider/localhost
 uv run server.py
 
 # Terminal 2: Start stack
@@ -144,8 +145,8 @@ uv run server.py
 ### Method 2: With Custom Base Port
 
 ```bash
-# Terminal 1: Export port from .env
-export DOC_PROCESSOR_PORT=$(grep DOC_PROCESSOR_PORT ../../.env | cut -d'=' -f2)
+# Terminal 1: Export port from .env (repo root is four levels up)
+export DOC_PROCESSOR_PORT=$(grep DOC_PROCESSOR_PORT ../../../../.env | cut -d'=' -f2)
 uv run server.py
 
 # Terminal 2: Start stack with custom port

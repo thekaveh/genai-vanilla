@@ -1,7 +1,10 @@
 """
-SOURCE configuration validation against service-configs.yml.
+SOURCE configuration validation against per-service manifests.
 
-Python implementation of validate_source_values() function from start.sh.
+Each services/<name>/service.yml declares its `sources.options[]` set; this
+module asserts that every *_SOURCE value in .env matches one of those options.
+
+Python implementation of the validate_source_values() function from start.sh.
 """
 
 from typing import Dict, List, Optional, Set
@@ -477,7 +480,8 @@ class SourceValidator:
             for error in self.validation_errors:
                 print(f"   {error}")
             print("\n💡 Please check your .env file and fix the invalid SOURCE values.")
-            print("   Valid SOURCE options are defined in bootstrapper/service-configs.yml")
+            print("   Valid SOURCE options are defined in each service's manifest")
+            print("   at services/<service>/service.yml under `sources.options`.")
         else:
             print("✅ All SOURCE values are valid")
     

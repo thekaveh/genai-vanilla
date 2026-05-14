@@ -110,7 +110,9 @@ def get_option_hint(option_name: str) -> str:
 
 
 class ServiceDiscovery:
-    """Discovers user-configurable services from service-configs.yml."""
+    """Discovers user-configurable services from per-service manifests
+    (services/<name>/service.yml, assembled into the runtime config dict
+    by sc_synthesizer)."""
 
     def __init__(self, config_parser: ConfigParser):
         self.config_parser = config_parser
@@ -120,7 +122,7 @@ class ServiceDiscovery:
 
     def discover(self) -> List[ServiceInfo]:
         """
-        Discover all user-configurable services from service-configs.yml.
+        Discover all user-configurable services from per-service manifests.
 
         A service is included if and only if:
         1. It has a corresponding CLI flag in source_mapping

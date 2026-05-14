@@ -27,7 +27,7 @@ This installs:
 ### 2. Run Server
 
 ```bash
-# From stt-provider directory
+# From services/parakeet/provider directory
 python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
 
@@ -131,7 +131,7 @@ export HUGGING_FACE_HUB_TOKEN=your_token_here
 ### Import errors
 ```bash
 # Ensure you're in the right directory
-cd stt-provider
+cd services/parakeet/provider
 python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 ```
 

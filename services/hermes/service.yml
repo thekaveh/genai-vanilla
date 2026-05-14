@@ -164,9 +164,10 @@ runtime_deps:
   hermes:
     optional:
     - parakeet
-    - xtts
+    - speaches
+    - chatterbox
     - comfyui
     - searxng
     info_message: Hermes enabled - will wire optional services into /opt/data/config.yaml
-      when available (parakeet, xtts, comfyui, searxng)
+      when available (parakeet, speaches, chatterbox, comfyui, searxng)
 

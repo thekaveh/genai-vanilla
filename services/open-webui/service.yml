@@ -103,8 +103,9 @@ runtime_deps:
     - weaviate
     - local-deep-researcher
     - parakeet
-    - xtts
+    - speaches
+    - chatterbox
     - docling
     info_message: Open WebUI enabled - will connect to available optional services
-      (weaviate, local-deep-researcher, parakeet, xtts, docling)
+      (weaviate, local-deep-researcher, parakeet, speaches, chatterbox, docling)
 

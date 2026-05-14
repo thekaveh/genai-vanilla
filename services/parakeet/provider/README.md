@@ -28,7 +28,7 @@ SOTA-quality choice for English/European languages.
 ## Directory layout
 
 ```
-stt-provider/
+services/parakeet/provider/
 ├── mlx/                Apple Silicon MLX server for Parakeet (parakeet-localhost)
 │   ├── api_server.py
 │   ├── README.md
@@ -45,8 +45,9 @@ stt-provider/
 ```
 
 The Speaches path doesn't have a directory here because it's an
-off-the-shelf container — see [docker-compose.yml](../../../docker-compose.yml)
-service `speaches` for the runtime config.
+off-the-shelf container — see
+[services/speaches/compose.yml](../../speaches/compose.yml) for the
+runtime config.
 
 ## Quick start
 
@@ -67,9 +68,9 @@ Parakeet on NVIDIA GPU:
 Parakeet on macOS MLX:
 
 ```bash
-# Terminal 1
-pip install -r stt-provider/mlx/requirements.txt
-cd stt-provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
+# Terminal 1 — run from repo root
+pip install -r services/parakeet/provider/mlx/requirements.txt
+cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 
 # Terminal 2
 ./start.sh --stt-provider-source parakeet-localhost

@@ -11,6 +11,7 @@
 name: tts-provider
 label: "TTS provider (text-to-speech engine selector)"
 category: ai
+docs: docs/services/tts-provider.md
 virtual: true
 containers: []
 

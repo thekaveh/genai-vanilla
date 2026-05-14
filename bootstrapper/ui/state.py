@@ -26,7 +26,7 @@ class CloudApiEntry:
 
     Cloud providers (OpenAI, Anthropic, OpenRouter) contribute env flags +
     an API key to the LiteLLM gateway. They never run as compose services
-    (scale: 0 in service-configs.yml), so they render in their own block
+    (scale: 0 in their manifest runtime_sc:), so they render in their own block
     in the stack overview rather than alongside real services.
     """
     name: str           # display label, e.g. "OpenAI"

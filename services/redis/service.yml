@@ -1,14 +1,11 @@
 # services/redis/service.yml
 #
 # Manifest for the Redis cache/queue. First service carved out of the
-# monolithic docker-compose.yml under Phase B of the configuration
-# modularization. Redis has a single container, no source variants, and is
-# consumed by half the stack (n8n, kong, open-webui, backend, local-deep-
-# researcher).
-#
-# This manifest is NOT yet wired into start.py — the bootstrapper still
-# reads bootstrapper/service-configs.yml as its live source of truth.
-# That swap happens in Phase D once every service is carved out.
+# monolithic docker-compose.yml during the configuration modularization;
+# the migration is now complete and the bootstrapper reads manifests
+# directly (bootstrapper/service-configs.yml has been retired). Redis
+# has a single container, no source variants, and is consumed by half
+# the stack (n8n, kong, open-webui, backend, local-deep-researcher).
 
 name: redis
 label: "Redis (cache & queue)"

@@ -22,7 +22,7 @@ binary.
 If you want a container-only setup with no host install, use
 `STT_PROVIDER_SOURCE=speaches-container-cpu` (Speaches container) or
 `parakeet-container-gpu` (NVIDIA-only). See
-[stt-provider/README.md](../README.md) for the full matrix.
+[the parakeet provider README](../README.md) for the full STT-source matrix.
 
 ## Install (macOS)
 

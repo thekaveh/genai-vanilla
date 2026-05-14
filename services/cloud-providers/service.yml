@@ -10,7 +10,7 @@
 name: cloud-providers
 label: "Cloud LLM providers (OpenAI, Anthropic, OpenRouter)"
 category: llm
-docs: docs/services/cloud-providers.md
+docs: docs/services/litellm.md  # cloud-provider routing is documented in the LiteLLM service doc
 
 # Virtual manifest: no containers, no compose fragment. The bootstrapper
 # skips virtual manifests when assembling the include list.
@@ -31,27 +31,33 @@ env:
   # Anthropic
   - name: CLOUD_ANTHROPIC_SOURCE
     default: disabled
+    description: "Options: enabled, disabled."
   - name: ANTHROPIC_API_KEY
     default: ""
     secret: true
   - name: ANTHROPIC_USER_MODELS
     default: ""
+    description: "Comma-separated Anthropic model names the wizard activated."
   # OpenRouter
   - name: CLOUD_OPENROUTER_SOURCE
     default: disabled
+    description: "Options: enabled, disabled."
   - name: OPENROUTER_API_KEY
     default: ""
     secret: true
   - name: OPENROUTER_USER_MODELS
     default: ""
+    description: "Comma-separated OpenRouter model names the wizard activated."
   # Aggregates derived from the three sources
   - name: LITELLM_OPENAI_ENABLED
     auto_managed: true
     description: "Derived from CLOUD_OPENAI_SOURCE."
   - name: LITELLM_ANTHROPIC_ENABLED
     auto_managed: true
+    description: "Derived from CLOUD_ANTHROPIC_SOURCE."
   - name: LITELLM_OPENROUTER_ENABLED
     auto_managed: true
+    description: "Derived from CLOUD_OPENROUTER_SOURCE."
   - name: LITELLM_ENABLED_PROVIDERS
     auto_managed: true
     description: "Comma-separated lowercase list of enabled cloud providers."

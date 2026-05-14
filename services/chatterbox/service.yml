@@ -38,3 +38,9 @@ depends_on:
   optional: []
 
 exports: []
+
+# No runtime_sc / runtime_adaptive / runtime_deps blocks here — intentional.
+# CHATTERBOX_SCALE is auto-managed by `_generate_tts_provider_config` in
+# `bootstrapper/services/service_config.py` based on TTS_PROVIDER_SOURCE,
+# so the runtime contract lives in the tts-provider virtual manifest plus
+# the imperative source-config code, not in a per-service runtime block.

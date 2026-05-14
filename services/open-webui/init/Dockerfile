@@ -1,3 +1,7 @@
+# Init-container exception to the stack's "vanilla alpine + apk add" rule:
+# this init needs psycopg2-binary + PyJWT, both of which ship glibc-only
+# wheels (musl/alpine incompatible). Python-slim avoids the apk + build-deps
+# gymnastics. Override via OPEN_WEB_UI_INIT_IMAGE in .env if needed.
 ARG BASE_IMAGE=python:3.11-slim
 FROM ${BASE_IMAGE}
 

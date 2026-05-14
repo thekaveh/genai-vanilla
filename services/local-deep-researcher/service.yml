@@ -73,8 +73,9 @@ runtime_deps:
     - n8n
     - weaviate
     - parakeet
-    - xtts
+    - speaches
+    - chatterbox
     - docling
     info_message: Local Deep Researcher enabled - will connect to available optional
-      services (neo4j, searxng, n8n, weaviate, parakeet, xtts, docling)
+      services (neo4j, searxng, n8n, weaviate, parakeet, speaches, chatterbox, docling)
 

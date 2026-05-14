@@ -75,8 +75,9 @@ runtime_deps:
     - weaviate
     - comfyui
     - parakeet
-    - xtts
+    - speaches
+    - chatterbox
     - docling
     info_message: JupyterHub enabled - will connect to available optional services
-      (neo4j, searxng, n8n, weaviate, comfyui, parakeet, xtts, docling)
+      (neo4j, searxng, n8n, weaviate, comfyui, parakeet, speaches, chatterbox, docling)
 

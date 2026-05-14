@@ -34,7 +34,7 @@ The database initialization follows a two-stage process managed by Docker Compos
 
 - A dedicated, short-lived service using `postgres:alpine` image
 - Depends on `supabase-db` and waits until it's ready using `pg_isready`
-- Executes all `.sql` files from `./supabase/db/scripts/` directory in alphabetical order
+- Executes all `.sql` files from `./services/supabase/db/scripts/` directory in alphabetical order
 - Custom scripts handle project-specific setup:
   - Ensuring extensions like `vector` and `postgis` are enabled (`01-extensions.sql`)
   - Ensuring schemas like `auth` and `storage` exist (`02-schemas.sql`)

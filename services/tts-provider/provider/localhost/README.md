@@ -156,5 +156,9 @@ Pre-warm by running the curl test above with `--max-time 600`.
 This directory previously hosted a server.py wrapper for openedai-speech /
 XTTS v2. That stack was retired in this release because the upstream image
 (`ghcr.io/matatonic/openedai-speech`) was archived on 2026-01-04 and XTTS-v2
-weights are CPML / non-commercial. `git log -- tts-provider/localhost/` has
-the old setup if you need to compare configurations.
+weights are CPML / non-commercial. The old setup lived at top-level
+`tts-provider/localhost/` before the configuration-modularization refactor
+moved it under `services/tts-provider/provider/localhost/` — to inspect the
+pre-retirement code, use
+`git log --follow -- services/tts-provider/provider/localhost/` or browse
+`git log -- tts-provider/localhost/` for the pre-move history.

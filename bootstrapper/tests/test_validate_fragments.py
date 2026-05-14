@@ -40,6 +40,12 @@ def test_valid_manifest_exits_clean(
     (project / "services" / "redis" / "service.yml").write_text(
         yaml.safe_dump(minimal_manifest_dict("redis"))
     )
+    # The fragment-containers rule (added in the post-Tier-3 hardening pass)
+    # requires every non-virtual manifest to ship a sibling compose.yml whose
+    # `services:` keys match the manifest's containers[] 1:1.
+    (project / "services" / "redis" / "compose.yml").write_text(
+        "services:\n  redis:\n    image: redis:latest\n"
+    )
     exit_code = run(project_root=project, check_env_example=False)
     assert exit_code == 0
 
@@ -110,6 +116,10 @@ def test_check_env_example_matches_committed_file(
                 "env": [{"name": "REDIS_PORT", "default": 6379}],
             }
         )
+    )
+    # Fragment required by the fragment-containers validator rule.
+    (redis_dir / "compose.yml").write_text(
+        "services:\n  redis:\n    image: redis:latest\n"
     )
     manifests = load_manifests(project / "services")
     expected = assemble_env_example(manifests)

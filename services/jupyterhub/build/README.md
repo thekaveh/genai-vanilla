@@ -167,7 +167,7 @@ with engine.connect() as conn:
 
 ### Sample Notebooks
 - Location: `/home/jovyan/notebooks`
-- Read-only mount from host: `./jupyterhub/notebooks`
+- Read-only mount from host: `./services/jupyterhub/build/notebooks`
 - Copy to `work/` directory to modify
 
 ## Custom Package Installation
@@ -180,7 +180,7 @@ with engine.connect() as conn:
 
 ### Permanent
 
-1. Add package to `jupyterhub/requirements.txt`
+1. Add package to `services/jupyterhub/build/requirements.txt`
 2. Rebuild the container: `docker compose build jupyterhub`
 3. Restart: `./stop.sh && ./start.sh`
 

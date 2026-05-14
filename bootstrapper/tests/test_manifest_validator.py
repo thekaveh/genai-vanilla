@@ -139,3 +139,178 @@ def test_validation_issue_carries_manifest_name():
     assert issue.manifest == "y"
     assert issue.kind == "x"
     assert issue.message == "z"
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Tier-member rule (catches dangling refs like the post-Tier-3-move XTTS leftover)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_tier_member_matching_a_real_container_is_clean(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """Tier members that match a known container should not be flagged."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    write_manifest(
+        "globals",
+        {
+            "name": "globals",
+            "label": "globals",
+            "category": "infra",
+            "virtual": True,
+            "containers": [],
+            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+            "runtime_dependency_tiers": {
+                "data_tier": ["redis"],
+            },
+        },
+    )
+    issues = validate_manifests(load_manifests(services_root))
+    assert not any(i.kind == "undeclared_tier_member" for i in issues)
+
+
+def test_dangling_tier_member_flagged(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """A tier entry naming a non-existent container should fail validation
+    (this is the rule that would have caught the dangling XTTS reference)."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    write_manifest(
+        "globals",
+        {
+            "name": "globals",
+            "label": "globals",
+            "category": "infra",
+            "virtual": True,
+            "containers": [],
+            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+            "runtime_dependency_tiers": {
+                "core_services": ["redis", "xtts"],
+            },
+        },
+    )
+    issues = validate_manifests(load_manifests(services_root))
+    tier_issues = [i for i in issues if i.kind == "undeclared_tier_member"]
+    assert len(tier_issues) == 1
+    assert "xtts" in tier_issues[0].message
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Fragment-vs-manifest containers rule (requires services_root + on-disk fragment)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_fragment_containers_match_passes(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """When compose.yml's services keys match containers[], no drift is reported."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    (services_root / "redis" / "compose.yml").write_text(
+        "services:\n  redis:\n    image: redis:latest\n"
+    )
+    issues = validate_manifests(
+        load_manifests(services_root), services_root=services_root
+    )
+    assert not any(i.kind == "fragment_container_drift" for i in issues)
+
+
+def test_fragment_with_extra_service_flagged(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """A compose.yml service the manifest does not declare should fail validation."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    (services_root / "redis" / "compose.yml").write_text(
+        "services:\n  redis:\n    image: redis:latest\n"
+        "  redis-undeclared:\n    image: alpine\n"
+    )
+    issues = validate_manifests(
+        load_manifests(services_root), services_root=services_root
+    )
+    drift = [i for i in issues if i.kind == "fragment_container_drift"]
+    assert len(drift) == 1
+    assert "redis-undeclared" in drift[0].message
+
+
+def test_manifest_container_missing_from_fragment_flagged(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """A containers[] entry with no matching compose service should fail."""
+    bad = minimal_manifest_dict("redis") | {"containers": ["redis", "redis-init"]}
+    write_manifest("redis", bad)
+    (services_root / "redis" / "compose.yml").write_text(
+        "services:\n  redis:\n    image: redis:latest\n"
+    )
+    issues = validate_manifests(
+        load_manifests(services_root), services_root=services_root
+    )
+    drift = [i for i in issues if i.kind == "fragment_container_drift"]
+    assert len(drift) == 1
+    assert "redis-init" in drift[0].message
+
+
+def test_non_virtual_manifest_without_fragment_flagged(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """A non-virtual manifest with no sibling compose.yml should fail."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    # Intentionally do NOT write compose.yml.
+    issues = validate_manifests(
+        load_manifests(services_root), services_root=services_root
+    )
+    assert any(i.kind == "missing_fragment" for i in issues)
+
+
+def test_virtual_manifest_with_fragment_flagged(services_root, write_manifest):
+    """A virtual: true manifest MUST NOT have a compose.yml."""
+    write_manifest(
+        "globals",
+        {
+            "name": "globals",
+            "label": "globals",
+            "category": "infra",
+            "virtual": True,
+            "containers": [],
+            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+        },
+    )
+    (services_root / "globals" / "compose.yml").write_text("services: {}\n")
+    issues = validate_manifests(
+        load_manifests(services_root), services_root=services_root
+    )
+    assert any(i.kind == "unexpected_fragment" for i in issues)
+
+
+def test_virtual_manifest_without_fragment_clean(services_root, write_manifest):
+    """The normal virtual-manifest case: no compose.yml, no issue."""
+    write_manifest(
+        "globals",
+        {
+            "name": "globals",
+            "label": "globals",
+            "category": "infra",
+            "virtual": True,
+            "containers": [],
+            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+        },
+    )
+    issues = validate_manifests(
+        load_manifests(services_root), services_root=services_root
+    )
+    assert not any(
+        i.kind in ("fragment_container_drift", "missing_fragment", "unexpected_fragment")
+        for i in issues
+    )
+
+
+def test_services_root_none_skips_fragment_checks(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """When services_root is None, fragment-level checks must be skipped
+    (preserves the unit-test path for in-memory manifests)."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    # No compose.yml on disk; calling without services_root should NOT flag it.
+    issues = validate_manifests(load_manifests(services_root))
+    assert not any(
+        i.kind in ("fragment_container_drift", "missing_fragment", "unexpected_fragment")
+        for i in issues
+    )

@@ -9,7 +9,7 @@ Pluggable speech-to-text layer. All backends speak the OpenAI
 |---|---|---|---|---|
 | `speaches-container-cpu` (default) | Speaches → Faster-Whisper | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu` | MIT | Linux + macOS Docker, CPU |
 | `speaches-container-gpu` | Speaches → Faster-Whisper | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda` | MIT | NVIDIA |
-| `parakeet-container-gpu` | NVIDIA Parakeet-TDT (NeMo) | (built from `stt-provider/gpu/Dockerfile`) | CC-BY-4.0 | NVIDIA |
+| `parakeet-container-gpu` | NVIDIA Parakeet-TDT (NeMo) | (built from `services/parakeet/provider/gpu/Dockerfile`) | CC-BY-4.0 | NVIDIA |
 | `parakeet-localhost` | Parakeet-MLX (Mac) or native Parakeet | — | NVIDIA Open Model | macOS MLX / Linux |
 | `whisper-cpp-localhost` | whisper.cpp | — (`brew install whisper-cpp`) | MIT | macOS Metal+ANE / Linux |
 | `disabled` | — | — | — | — |
@@ -63,14 +63,14 @@ whisper-server --host 0.0.0.0 --port 63025 \
 ./start.sh --stt-provider-source whisper-cpp-localhost
 
 # Option B: Parakeet-MLX (highest quality on EN/EU, MLX-native)
-pip install -r stt-provider/mlx/requirements.txt
-cd stt-provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022 &
+pip install -r services/parakeet/provider/mlx/requirements.txt
+cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022 &
 ./start.sh --stt-provider-source parakeet-localhost
 ```
 
-See [stt-provider/whisper-cpp/README.md](../../services/parakeet/provider/whisper-cpp/README.md)
+See [the whisper-cpp README](../../services/parakeet/provider/whisper-cpp/README.md)
 for the whisper.cpp walkthrough and Linux build instructions, or
-[stt-provider/mlx/README.md](../../services/parakeet/provider/mlx/README.md) for Parakeet-MLX.
+[the MLX README](../../services/parakeet/provider/mlx/README.md) for Parakeet-MLX.
 
 ## Environment variables
 

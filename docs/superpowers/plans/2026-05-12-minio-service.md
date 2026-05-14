@@ -1,5 +1,13 @@
 # MinIO service implementation plan
 
+> **Historical-context note (May 13, 2026):** This plan was written before the
+> per-service modularization refactor landed. The refactor is now complete
+> (commit `a6abd34`). MinIO ships in the modular layout as
+> `services/minio/{service.yml, compose.yml}` with init scripts under
+> `services/minio/init/scripts/`. The implementation steps and file paths
+> below reflect the pre-refactor layout (top-level `minio-init/`,
+> monolithic `docker-compose.yml`, `bootstrapper/service-configs.yml`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add MinIO as an S3-compatible artifact-tier object-storage leaf service to the GenAI Vanilla stack, with five pre-provisioned consumer buckets and scoped service-account credentials surfaced as the public env contract — no consumer code changes in this PR.

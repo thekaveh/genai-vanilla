@@ -52,7 +52,7 @@ def run(
         _err(str(e))
         return 1
 
-    issues = validate_manifests(manifests)
+    issues = validate_manifests(manifests, services_root=services_dir)
     if issues:
         _err(f"Found {len(issues)} cross-manifest issue(s):")
         for i in issues:
