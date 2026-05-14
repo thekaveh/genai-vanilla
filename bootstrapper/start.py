@@ -1508,7 +1508,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
 
         # Step 4.55: Write LiteLLM stub config.yaml so the bind mount has
         # a file. The real model_list is rendered later by litellm-init
-        # from public.llms — see litellm-init/scripts/init.py.
+        # from public.llms — see services/litellm/init/scripts/init.py.
         if not starter.generate_litellm_configuration():
             sys.exit(1)
 

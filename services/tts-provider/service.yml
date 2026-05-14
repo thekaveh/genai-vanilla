@@ -20,24 +20,14 @@ sources:
   options:
     - id: speaches-container-cpu
       label: "Speaches (CPU, unified TTS + STT)"
-      effects:
-        TTS_ENDPOINT: "http://speaches:8000"
     - id: speaches-container-gpu
       label: "Speaches (GPU, NVIDIA)"
-      effects:
-        TTS_ENDPOINT: "http://speaches:8000"
     - id: chatterbox-container-gpu
       label: "Chatterbox (GPU, voice cloning)"
-      effects:
-        TTS_ENDPOINT: "http://chatterbox:4123"
     - id: chatterbox-localhost
       label: "Chatterbox (host install)"
-      effects:
-        TTS_ENDPOINT: "${CHATTERBOX_LOCALHOST_URL}"
     - id: disabled
       label: "Disabled"
-      effects:
-        TTS_ENDPOINT: ""
 
 env:
   - name: TTS_PROVIDER_SOURCE

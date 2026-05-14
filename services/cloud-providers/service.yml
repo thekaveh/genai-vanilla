@@ -3,9 +3,10 @@
 # Cloud providers (OpenAI, Anthropic, OpenRouter) are routed through the
 # LiteLLM gateway — there is no container backing them. This virtual manifest
 # owns the toggles, API keys, and user-model selections so they have a clear
-# home in the modular layout. The bootstrapper's per-service hook
-# (services.hooks.cloud_providers) derives the LITELLM_*_ENABLED flags and
-# LITELLM_ENABLED_PROVIDERS list from the three CLOUD_*_SOURCE toggles.
+# home in the modular layout.
+# `bootstrapper/services/service_config.py::_generate_cloud_providers_config`
+# derives the LITELLM_*_ENABLED flags and LITELLM_ENABLED_PROVIDERS list
+# from the three CLOUD_*_SOURCE toggles.
 name: cloud-providers
 label: "Cloud LLM providers (OpenAI, Anthropic, OpenRouter)"
 category: llm
@@ -55,10 +56,9 @@ env:
     auto_managed: true
     description: "Comma-separated lowercase list of enabled cloud providers."
 
-# The aggregation logic spans three SOURCE vars (one per provider). That
-# multi-input shape doesn't fit the per-source effects map cleanly, so we
-# use a hook. See bootstrapper/services/hooks/cloud_providers.py (Phase D).
-hook: services.hooks.cloud_providers
+# The aggregation logic spans three SOURCE vars (one per provider). The
+# multi-input computation lives in
+# bootstrapper/services/service_config.py::_generate_cloud_providers_config.
 
 depends_on:
   required: []

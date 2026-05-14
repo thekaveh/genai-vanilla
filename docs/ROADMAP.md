@@ -82,11 +82,10 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 
 **Per-service configuration modularization** — ✅ delivered (Phases A–E, May 2026)
-- Compose: 1,425-line monolithic `docker-compose.yml` → 52-line thin `include:`-shell that pulls in `services/<name>/compose.yml` fragments (one per service family — supabase, redis, neo4j, litellm, ollama, weaviate, comfyui, n8n, open-webui, backend, searxng, jupyterhub, parakeet, xtts, docling, openclaw, local-deep-researcher, kong, plus a virtual cloud-providers and globals manifest).
-- Manifests: `services/<name>/service.yml` is the single source of truth for env vars (with auto_managed/secret flags), source variants (declarative `effects:`), image refs, and dependencies. JSON-schema-validated.
-- Hooks: `bootstrapper/services/hooks/{comfyui,weaviate,openclaw,cloud_providers}.py` handle the 4 cases whose auto-managed logic is too rich for pure declarative effects.
-- Safety nets: `bootstrapper/services/manifest_validator.py` (8 cross-manifest checks), `tools/validate_fragments.py` CLI lint with `--check-env-example`, and `tests/test_fragment_equivalence.py` (golden `rendered_config_baseline.yml` diff — byte-equivalence proven across the 34-container stack).
-- Open follow-up: wire the bootstrapper's `service_config.py`/`source_validator.py`/`dependency_manager.py`/`ui/state_builder.py`/`wizard/llm_steps.py`/`start.py` to read manifests instead of `bootstrapper/service-configs.yml` (the latter is currently marked DEPRECATED but still operational).
+- Compose: 1,425-line monolithic `docker-compose.yml` → 55-line thin `include:`-shell that pulls in `services/<name>/compose.yml` fragments (one per service family — supabase, redis, minio, neo4j, litellm, ollama, weaviate, comfyui, n8n, open-webui, backend, searxng, jupyterhub, parakeet, speaches, chatterbox, docling, openclaw, hermes, local-deep-researcher, kong, plus virtual cloud-providers, tts-provider, and globals manifests).
+- Manifests: `services/<name>/service.yml` is the single source of truth for env vars (with auto_managed/secret flags), source variants, image refs, and dependencies. JSON-schema-validated. Bootstrapper runtime data lives under per-manifest `runtime_sc:`/`runtime_adaptive:`/`runtime_deps:` blocks; `bootstrapper/services/sc_synthesizer.py` reassembles the dict that `ConfigParser.load_yaml_config()` returns.
+- Safety nets: `bootstrapper/services/manifest_validator.py` (cross-manifest checks), `tools/validate_fragments.py` CLI lint with `--check-env-example`, and `tests/test_fragment_equivalence.py` (golden `rendered_config_baseline.yml` diff — byte-equivalence proven across the 36-container stack).
+- Locality: every service's source code, init scripts, build context, and config files live under `services/<name>/<subdir>/`. Repo top-level is just `bootstrapper/`, `docs/`, `services/`, plus standard files.
 
 **Monitoring stack (Prometheus + Grafana)**
 - Service metrics: request rates, latency percentiles, container health

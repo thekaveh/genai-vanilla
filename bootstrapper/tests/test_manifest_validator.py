@@ -101,16 +101,12 @@ def test_export_must_be_declared_by_owning_manifest(
     assert any("UNDECLARED_VAR" in i.message for i in issues)
 
 
-def test_source_effects_target_must_be_declared(
-    services_root, write_manifest, full_manifest_dict
-):
-    bad = full_manifest_dict("ollama")
-    # Add an effect key that is not in this manifest's env declarations.
-    bad["sources"]["options"][0]["effects"]["UNDECLARED_EFFECT"] = "x"
-    write_manifest("ollama", bad)
-    manifests = load_manifests(services_root)
-    issues = validate_manifests(manifests)
-    assert any(i.kind == "undeclared_effect" for i in issues)
+# Removed: test_source_effects_target_must_be_declared — the
+# `sources.options[].effects` field was dropped in favor of
+# `runtime_sc.<key>.<source>.environment` (single source of truth). The
+# `undeclared_effect` validator rule is gone with it. The closure check
+# (every exported name produced by env[] OR runtime_sc) lives in
+# test_export_must_be_declared_by_owning_manifest below.
 
 
 def test_source_var_must_be_declared_as_env(

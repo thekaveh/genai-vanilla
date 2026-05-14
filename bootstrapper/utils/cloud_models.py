@@ -293,7 +293,7 @@ def list_openrouter_models(timeout: float = 5.0, cap: int = 50,
         # LiteLLM routes via the OpenRouter API. The OpenRouter API's
         # ``id`` field is normally the bare slug (e.g.
         # ``anthropic/claude-sonnet-4-6``); we add the prefix so it
-        # matches the per-provider routing rules in litellm-init/init.py.
+        # matches the per-provider routing rules in services/litellm/init/scripts/init.py.
         # Defensive check against double-prefixing in case OpenRouter's
         # response format ever includes the prefix already.
         oid = rid if rid.startswith("openrouter/") else f"openrouter/{rid}"

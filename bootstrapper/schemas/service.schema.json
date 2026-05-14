@@ -96,18 +96,6 @@
                 "type": "array",
                 "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
                 "description": "Env vars that MUST be non-empty when this source is selected (e.g. LLM_PROVIDER_EXTERNAL_URL for ollama-external)."
-              },
-              "effects": {
-                "type": "object",
-                "additionalProperties": {
-                  "anyOf": [
-                    { "type": "string" },
-                    { "type": "integer" },
-                    { "type": "number" },
-                    { "type": "boolean" }
-                  ]
-                },
-                "description": "Env vars this source assigns when active. Values may be literal scalars or ${VAR}-references resolved after all manifests load."
               }
             }
           }
@@ -186,11 +174,6 @@
         }
       },
       "description": "Documents the cross-service env-var contract. Validator asserts each exported name appears in this manifest's env declarations (or is produced by source effects)."
-    },
-    "hook": {
-      "type": "string",
-      "pattern": "^[a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)+$",
-      "description": "Dotted Python module path (e.g. 'services.hooks.comfyui') for a callable that runs AFTER declarative effects and may mutate auto_managed env vars."
     },
     "runtime_sc": {
       "type": "object",

@@ -18,12 +18,8 @@ sources:
   options:
     - id: container
       label: "Container"
-      effects:
-        JUPYTERHUB_SCALE: 1
     - id: disabled
       label: "Disabled"
-      effects:
-        JUPYTERHUB_SCALE: 0
 
 env:
   - name: JUPYTERHUB_SOURCE

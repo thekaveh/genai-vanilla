@@ -1,9 +1,13 @@
 """
 Service discovery for the interactive setup wizard.
 
-Reads service-configs.yml and returns the list of user-configurable services
-with their valid SOURCE options. Nothing is hardcoded — all service names,
-options, and metadata are derived from the YAML at runtime.
+Returns the list of user-configurable services with their valid SOURCE
+options. Data flows through ``ConfigParser.load_yaml_config()`` which
+synthesises the runtime dict from per-service manifests (each
+``services/<name>/service.yml`` contributes a ``runtime_sc:`` slice; the
+synthesiser at ``bootstrapper/services/sc_synthesizer.py`` concatenates
+them). Nothing is hardcoded — service names, options, and metadata all
+come from the manifests at startup.
 """
 
 from dataclasses import dataclass

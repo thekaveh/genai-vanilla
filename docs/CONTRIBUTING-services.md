@@ -15,7 +15,8 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    - `category:` one of `data | llm | ai | app | infra`.
    - `containers:` lists every container name in your compose.yml.
    - `env:` declares every env var the service owns. Use `auto_managed: true` for vars computed by source effects or a Python hook; use `secret: true` for credentials (default never echoed into `.env.example`).
-   - `sources:` (optional) declares source variants and their declarative `effects:` (env var assignments). Source effects may write to any env var the manifest declares — including `auto_managed` ones.
+   - `sources:` (optional) declares source variants the wizard surfaces — each option carries an `id`, `label`, and optional `requires:` list.
+   - `runtime_sc:` carries the per-source bootstrapper data (`scale`, `environment`, `deploy`, `extra_hosts`) for each source variant. This is the operational source the bootstrapper consumes; the sources block is wizard-only.
    - `images:` lists each container's `${X_IMAGE}` env var so version bumps happen in one place.
 3. Write `services/myservice/compose.yml`. Use `${VAR}` interpolation; never inline literal images. Conventions:
    - `services:` lists only this family's containers
@@ -24,10 +25,13 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    - Bind-mount paths are **relative to the fragment file** (e.g., `../../myservice/scripts:/scripts`)
 4. Add the fragment to the `include:` list in `docker-compose.yml`.
 5. Add an entry to `services/_order.yml` (controls wizard display order and `.env.example` ordering).
-6. (Optional) If declarative source effects can't express your computation, add a hook:
-   - Create `bootstrapper/services/hooks/myservice.py` exporting an `apply(env: dict[str, str]) -> dict[str, str]` callable.
-   - Reference it from the manifest: `hook: services.hooks.myservice`.
-   - Add tests at `bootstrapper/tests/test_hooks.py`.
+6. If declarative source effects can't express your computation, add the
+   logic to `bootstrapper/services/service_config.py` as a new
+   `_generate_<name>_config()` method and call it from
+   `generate_service_environment()`. Cross-service computations
+   (e.g. `_generate_cloud_providers_config()` aggregating three
+   `CLOUD_*_SOURCE` toggles into the `LITELLM_ENABLED_PROVIDERS` list)
+   already live there; follow the same shape.
 7. Run the lint locally:
    ```bash
    cd bootstrapper && uv run python -m tools.validate_fragments
@@ -67,14 +71,27 @@ sources:                                # OPTIONAL; omit for single-source servi
   options:
     - id: container
       label: "Container"
-      effects:
-        MYSERVICE_SCALE: 1
-        MYSERVICE_ENDPOINT: "http://myservice:8080"
     - id: disabled
       label: "Disabled"
-      effects:
-        MYSERVICE_SCALE: 0
+
+# Per-source runtime data — what the bootstrapper actually consumes.
+# The synthesizer (bootstrapper/services/sc_synthesizer.py) concatenates
+# this block (plus all other manifests' runtime_sc blocks) into the dict
+# that ConfigParser.load_yaml_config() returns.
+runtime_sc:
+  myservice:                             # the key matches a name service_config.py reads
+    container:
+      scale: 1
+      environment:
+        MYSERVICE_ENDPOINT: "http://myservice:8080"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
         MYSERVICE_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
 
 env:
   - name: MYSERVICE_SOURCE
@@ -85,7 +102,7 @@ env:
     default: ""
     secret: true                        # default never echoed into .env.example
   - name: MYSERVICE_SCALE
-    auto_managed: true                  # computed by source effects/hook
+    auto_managed: true                  # computed by service_config.py from source value
   - name: MYSERVICE_ENDPOINT
     auto_managed: true
 
@@ -96,8 +113,6 @@ depends_on:                             # logical deps (compose-level lives in c
 exports:                                # documents the cross-service env-var contract
   - name: MYSERVICE_ENDPOINT
     consumers: [backend, n8n]
-
-hook: services.hooks.myservice          # optional; Python entry point
 ```
 
 ## Validator rules (what the lint catches)
@@ -107,7 +122,7 @@ hook: services.hooks.myservice          # optional; Python entry point
 3. **duplicate_container** — exactly one manifest owns each container name
 4. **unknown_dependency** — `depends_on.required/optional` references a known manifest
 5. **undeclared_export** — every `exports[].name` is in this manifest's `env:` or produced by source effects
-6. **undeclared_effect** — every `sources.options[].effects` key is declared somewhere
+6. **undeclared_export** — every `exports[].name` is declared in `env:` OR written by some `runtime_sc.<key>.<source>.environment`
 7. **undeclared_source_var** — the SOURCE var itself is declared in `env:`
 8. **unknown_consumer** — every `exports[].consumers` entry is a known manifest
 
@@ -155,3 +170,46 @@ runtime — the manifest schema and the synthesizer are the same.
 
 This slot is reserved by convention; the upstream `.gitignore` excludes
 `services/_user/` so the directory never leaks into a fork's PRs.
+
+
+## Subfolder naming convention under `services/<name>/`
+
+When a service brings its own source code, init scripts, build context, or
+config files, those live under one of these named subdirectories. The
+convention is loose — pick the one that best describes the contents:
+
+| Subdir | Purpose | Example |
+|---|---|---|
+| `app/` | Application source code (the service IS a runnable Python/Node/etc. project) | `services/backend/app/` (the FastAPI project) |
+| `build/` | Dockerfile + build context | `services/neo4j/build/`, `services/jupyterhub/build/`, `services/local-deep-researcher/build/` |
+| `init/` | Init-container scripts and templates | `services/comfyui/init/`, `services/hermes/init/`, `services/n8n/init/` |
+| `catalog-init/` | Specialised init for the LLM catalog UPSERT | `services/litellm/catalog-init/` |
+| `pull/` | Specialised init for model pulling | `services/ollama/pull/` |
+| `config/` | Hand-written bind-mounted config files | `services/searxng/config/` |
+| `db/` | Database scripts / migrations / snapshots | `services/supabase/db/` |
+| `provider/` | Engine-source-of-truth code that the service wraps | `services/parakeet/provider/`, `services/docling/provider/`, `services/tts-provider/provider/` |
+| `extras/` | Tools / functions / workflows the service loads at runtime | `services/open-webui/extras/` |
+| `workflows-stage/` | Workflow templates staged for import | `services/n8n/workflows-stage/` |
+
+These names are descriptive, not prescriptive. The compose fragment's
+relative bind-mount paths (`./app:/app`, `./init/scripts:/scripts:ro`, etc.)
+follow whichever name you pick. If you add a service with a new pattern,
+extend this table.
+
+
+## Documentation-only manifest fields
+
+A few fields on `service.yml` are accepted by the schema but not yet consumed
+by any operational code. They exist for clarity and future use:
+
+- `images[].notes` — free-form note on what the image is used for. Not read
+  by any Python code.
+- `docs:` — pointer to a `docs/services/<name>.md` file. Useful for grep,
+  but no Python imports it.
+- `exports[]` — declares the env-var contract this service offers to other
+  services. The cross-manifest validator (`bootstrapper/services/manifest_validator.py`)
+  checks closure (every consumer name resolves) but does NOT check that the
+  exported value is actually produced at runtime.
+
+Treat these as documentation. Setting them helps future readers; omitting
+them never breaks anything.

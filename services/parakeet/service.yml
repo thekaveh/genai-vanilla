@@ -4,7 +4,7 @@
 # here (its historic home) and enumerates ALL valid STT options across
 # engines: parakeet-*, speaches-*, whisper-cpp-localhost, disabled. Some
 # of these options activate sibling services (speaches-* turns on the
-# speaches container via services.hooks.speaches; whisper-cpp-localhost
+# speaches container via _generate_stt_provider_config; whisper-cpp-localhost
 # is host-only).
 #
 # Engine-neutral consumers (n8n, backend, jupyterhub, open-webui,
@@ -25,44 +25,29 @@ images:
     notes: "Used as BASE_IMAGE in stt-provider/gpu/Dockerfile."
 
 # STT source set — enumerates EVERY STT option, not just parakeet's own.
-# Mirrors how `bootstrapper/service-configs.yml` groups them under one
-# `stt_provider:` key. Cross-engine effects (e.g. speaches-* setting
-# STT_ENDPOINT to the speaches container URL) are computed declaratively
-# below; SPEACHES_SCALE is set by services.hooks.speaches (multi-input).
+# Mirrors how the legacy `bootstrapper/service-configs.yml` grouped them
+# under one `stt_provider:` key. Per-source bootstrapper-runtime data
+# (scale, environment, deploy, extra_hosts — e.g. speaches-* setting
+# STT_ENDPOINT to the speaches container URL) lives in the `runtime_sc:`
+# block below. SPEACHES_SCALE is set by
+# `bootstrapper/services/service_config.py::_generate_stt_provider_config`
+# (multi-input — reads both STT_PROVIDER_SOURCE and TTS_PROVIDER_SOURCE).
 sources:
   var: STT_PROVIDER_SOURCE
   default: speaches-container-cpu
   options:
     - id: speaches-container-cpu
       label: "Speaches (CPU, unified TTS + STT)"
-      effects:
-        PARAKEET_GPU_SCALE: 0
-        STT_ENDPOINT: "http://speaches:8000"
     - id: speaches-container-gpu
       label: "Speaches (GPU, NVIDIA)"
-      effects:
-        PARAKEET_GPU_SCALE: 0
-        STT_ENDPOINT: "http://speaches:8000"
     - id: parakeet-container-gpu
       label: "Parakeet (NVIDIA, container GPU)"
-      effects:
-        PARAKEET_GPU_SCALE: 1
-        STT_ENDPOINT: "http://parakeet-gpu:8000"
     - id: parakeet-localhost
       label: "Parakeet (host, Mac MLX or Linux CPU/GPU)"
-      effects:
-        PARAKEET_GPU_SCALE: 0
-        STT_ENDPOINT: "${PARAKEET_LOCALHOST_URL}"
     - id: whisper-cpp-localhost
       label: "whisper.cpp (host, Apple Silicon Metal/ANE)"
-      effects:
-        PARAKEET_GPU_SCALE: 0
-        STT_ENDPOINT: "${WHISPER_CPP_LOCALHOST_URL}"
     - id: disabled
       label: "Disabled"
-      effects:
-        PARAKEET_GPU_SCALE: 0
-        STT_ENDPOINT: ""
 
 env:
   - name: STT_PROVIDER_SOURCE

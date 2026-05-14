@@ -342,7 +342,7 @@ class SourceValidator:
             print(
                 "ℹ️  TTS_PROVIDER_SOURCE=xtts-localhost auto-migrated to "
                 "chatterbox-localhost. Run `pip install chatterbox-tts-api` on the "
-                "host and start its server — see tts-provider/localhost/README.md."
+                "host and start its server — see services/tts-provider/provider/localhost/README.md."
             )
 
         if rewrites:

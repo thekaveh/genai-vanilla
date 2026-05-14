@@ -217,7 +217,7 @@ Empty values fall back to the canonical defaults (encoded in `bootstrapper/ui/st
 
 ## Configurable Services
 
-The wizard automatically discovers all configurable services from `service-configs.yml`. Currently these include:
+The wizard automatically discovers all configurable services from each `services/<name>/service.yml` manifest. Currently these include:
 
 | Service | Options |
 |---------|---------|
@@ -238,7 +238,7 @@ The wizard automatically discovers all configurable services from `service-confi
 
 ### Cloud LLM providers (not auto-discovered)
 
-OpenAI, Anthropic, and OpenRouter are **not** regular services — they don't run as containers (scale: 0 in `service-configs.yml`). Instead, the wizard injects them via `bootstrapper/wizard/llm_steps.py:build_cloud_steps` as bespoke (secret + multiselect) pairs spliced after the LLM Engine step:
+OpenAI, Anthropic, and OpenRouter are **not** regular services — they don't run as containers (`scale: 0` in the `services/cloud-providers/service.yml` virtual manifest). Instead, the wizard injects them via `bootstrapper/wizard/llm_steps.py:build_cloud_steps` as bespoke (secret + multiselect) pairs spliced after the LLM Engine step:
 
 | API | Key var | Wizard step |
 |---|---|---|
@@ -248,7 +248,7 @@ OpenAI, Anthropic, and OpenRouter are **not** regular services — they don't ru
 
 Source toggles are persisted as `CLOUD_OPENAI_SOURCE` / `CLOUD_ANTHROPIC_SOURCE` / `CLOUD_OPENROUTER_SOURCE` (`enabled` / `disabled`). They render in the **Cloud APIs** sub-section of the stack overview, separate from the services grid.
 
-New services added to `service-configs.yml` are automatically picked up by the wizard.
+New services added under `services/<name>/` with a `service.yml` manifest (and included in `docker-compose.yml`'s `include:` list) are automatically picked up by the wizard.
 
 ## Dependency Validation
 

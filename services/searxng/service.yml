@@ -18,12 +18,8 @@ sources:
   options:
     - id: container
       label: "Container"
-      effects:
-        SEARXNG_SCALE: 1
     - id: disabled
       label: "Disabled"
-      effects:
-        SEARXNG_SCALE: 0
 
 env:
   - name: SEARXNG_SOURCE

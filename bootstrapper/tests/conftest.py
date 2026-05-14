@@ -86,21 +86,37 @@ def full_manifest_dict():
                     {
                         "id": "ollama-container-cpu",
                         "label": "Container (CPU)",
-                        "effects": {
-                            "OLLAMA_SCALE": 1,
-                            "OLLAMA_ENDPOINT": "http://ollama:11434",
-                        },
                     },
                     {
                         "id": "ollama-external",
                         "label": "External",
                         "requires": ["LLM_PROVIDER_EXTERNAL_URL"],
-                        "effects": {
+                    },
+                ],
+            },
+            # Runtime data (was sources.options[].effects in the old shape;
+            # `runtime_sc` is the operational source the bootstrapper reads).
+            "runtime_sc": {
+                "llm_provider": {
+                    "ollama-container-cpu": {
+                        "scale": 1,
+                        "environment": {
+                            "OLLAMA_SCALE": 1,
+                            "OLLAMA_ENDPOINT": "http://ollama:11434",
+                        },
+                        "deploy": {},
+                        "extra_hosts": [],
+                    },
+                    "ollama-external": {
+                        "scale": 0,
+                        "environment": {
                             "OLLAMA_SCALE": 0,
                             "OLLAMA_ENDPOINT": "${LLM_PROVIDER_EXTERNAL_URL}",
                         },
+                        "deploy": {},
+                        "extra_hosts": [],
                     },
-                ],
+                },
             },
             "env": [
                 {"name": "LLM_PROVIDER_SOURCE", "default": "ollama-container-cpu"},

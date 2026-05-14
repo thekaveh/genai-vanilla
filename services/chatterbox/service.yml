@@ -6,8 +6,8 @@
 #
 # Like speaches, this manifest has NO `sources:` block — its activation
 # is driven externally by TTS_PROVIDER_SOURCE (owned by tts-provider).
-# The hook (`bootstrapper/services/hooks/chatterbox.py`) writes
-# CHATTERBOX_SCALE based on TTS_PROVIDER_SOURCE.
+# `bootstrapper/services/service_config.py::_generate_tts_provider_config`
+# writes CHATTERBOX_SCALE based on TTS_PROVIDER_SOURCE.
 name: chatterbox
 label: "Chatterbox (voice-cloning TTS, GPU)"
 category: ai
@@ -31,9 +31,7 @@ env:
     description: "Used when TTS_PROVIDER_SOURCE=chatterbox-localhost."
   - name: CHATTERBOX_SCALE
     auto_managed: true
-    description: "Computed by services.hooks.chatterbox from TTS_PROVIDER_SOURCE."
-
-hook: services.hooks.chatterbox
+    description: "Computed by bootstrapper/services/service_config.py::_generate_tts_provider_config — set to 1 when TTS_PROVIDER_SOURCE=chatterbox-container-gpu."
 
 depends_on:
   required: []

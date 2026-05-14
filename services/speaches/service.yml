@@ -7,8 +7,9 @@
 # running container.
 #
 # This manifest has NO `sources:` block. The activation logic lives in
-# `bootstrapper/services/hooks/speaches.py`, which reads both
-# STT_PROVIDER_SOURCE and TTS_PROVIDER_SOURCE and writes SPEACHES_SCALE.
+# `bootstrapper/services/service_config.py::_generate_stt_provider_config`
+# and `_generate_tts_provider_config`, which read both
+# STT_PROVIDER_SOURCE and TTS_PROVIDER_SOURCE and write SPEACHES_SCALE.
 name: speaches
 label: "Speaches (unified TTS + STT)"
 category: ai
@@ -37,12 +38,7 @@ env:
     description: "Slot +26."
   - name: SPEACHES_SCALE
     auto_managed: true
-    description: "Computed by services.hooks.speaches from STT_PROVIDER_SOURCE OR TTS_PROVIDER_SOURCE."
-
-# Hook reads two unrelated source vars (STT_PROVIDER_SOURCE on parakeet,
-# TTS_PROVIDER_SOURCE on tts-provider virtual manifest). Pattern matches
-# cloud_providers.py.
-hook: services.hooks.speaches
+    description: "Computed by bootstrapper/services/service_config.py::_generate_stt_provider_config (or _generate_tts_provider_config) — set to 1 when STT_PROVIDER_SOURCE OR TTS_PROVIDER_SOURCE picks a speaches-* variant."
 
 depends_on:
   required: []

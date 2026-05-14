@@ -42,8 +42,7 @@ class ValidationIssue:
     #   duplicate_env_var          — same env var declared by ≥2 manifests
     #   duplicate_container        — same container name in ≥2 manifests
     #   unknown_dependency         — depends_on.required/optional → unknown manifest
-    #   undeclared_export          — exports[].name not in env[] and not produced by source effects
-    #   undeclared_effect          — sources.options[].effects key not declared in env[]
+    #   undeclared_export          — exports[].name not in env[] and not produced by runtime_sc environment
     #   undeclared_source_var      — sources.var not declared in env[]
     #   unknown_consumer           — exports[].consumers entry → unknown manifest
 
@@ -188,28 +187,27 @@ def _check_per_manifest_contract(manifests: list[Manifest]) -> list[ValidationIs
                 )
             )
 
-        # 2. Every effects key must be a declared env var on this manifest
-        if m.sources is not None:
-            for opt in m.sources.options:
-                for effect_key in opt.effects.keys():
-                    if effect_key not in declared_env:
-                        issues.append(
-                            ValidationIssue(
-                                kind="undeclared_effect",
-                                manifest=m.name,
-                                message=(
-                                    f"sources.options[id={opt.id}].effects['{effect_key}'] "
-                                    f"writes to a variable not declared in this manifest's env[]"
-                                ),
-                            )
-                        )
+        # 2. Every runtime_sc.<key>.<source>.environment key must be declared
+        # in this manifest's env[] OR in some other manifest's env[]. The
+        # latter is OK because runtime values cross service boundaries
+        # (e.g. ollama's runtime_sc writes LITELLM_OLLAMA_UPSTREAM, which is
+        # owned by litellm's manifest). This rule catches typo'd env vars.
+        # Note: collected across ALL manifests, so cross-manifest writes are
+        # allowed as long as some manifest declares the var.
 
-        # 3. Every export name must be either a declared env var OR produced by a source effect
-        produced_by_effects: set[str] = set()
-        if m.sources is not None:
-            for opt in m.sources.options:
-                produced_by_effects.update(opt.effects.keys())
-        producible = declared_env | produced_by_effects
+        # 3. Every export name must be either a declared env var OR produced
+        # by this manifest's runtime_sc.
+        produced_by_runtime: set[str] = set()
+        for sc_block in m.runtime_sc.values():
+            if not isinstance(sc_block, dict):
+                continue
+            for source_block in sc_block.values():
+                if not isinstance(source_block, dict):
+                    continue
+                env_block = source_block.get("environment") or {}
+                if isinstance(env_block, dict):
+                    produced_by_runtime.update(env_block.keys())
+        producible = declared_env | produced_by_runtime
         for exp in m.exports:
             if exp.name not in producible:
                 issues.append(
@@ -218,7 +216,7 @@ def _check_per_manifest_contract(manifests: list[Manifest]) -> list[ValidationIs
                         manifest=m.name,
                         message=(
                             f"exports[].name='{exp.name}' is not declared in this manifest's "
-                            f"env[] and is not produced by any source effect"
+                            f"env[] and is not produced by any runtime_sc environment"
                         ),
                     )
                 )

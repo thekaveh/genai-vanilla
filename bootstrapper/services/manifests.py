@@ -53,11 +53,16 @@ class ImageRef:
 
 @dataclass(frozen=True)
 class SourceOption:
-    """One option inside `sources.options`."""
+    """One option inside `sources.options`.
+
+    Per-source runtime data (scale, environment, deploy, extra_hosts) lives
+    in `manifest.runtime_sc.<sc_key>.<id>` — `runtime_sc` is the operational
+    source consumed by the bootstrapper. The fields below are wizard-facing
+    only (label for display, requires for input validation).
+    """
 
     id: str
     label: str
-    effects: dict[str, Any] = field(default_factory=dict)
     requires: list[str] = field(default_factory=list)
 
 
@@ -101,7 +106,6 @@ class Manifest:
     sources: SourcesBlock | None = None
     depends_on: DependsOn = field(default_factory=DependsOn)
     exports: list[ExportRef] = field(default_factory=list)
-    hook: str | None = None
     # Slices of the legacy bootstrapper/service-configs.yml structure, owned
     # by this manifest. sc_synthesizer.synthesize_legacy() concatenates these
     # across manifests to produce the dict the bootstrapper used to load from
@@ -285,7 +289,6 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
                 SourceOption(
                     id=opt["id"],
                     label=opt["label"],
-                    effects=dict(opt.get("effects", {})),
                     requires=list(opt.get("requires", [])),
                 )
                 for opt in sources_raw["options"]
@@ -315,7 +318,6 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
         sources=sources_block,
         depends_on=depends_on,
         exports=exports,
-        hook=raw.get("hook"),
         runtime_sc=dict(raw.get("runtime_sc") or {}),
         runtime_adaptive=dict(raw.get("runtime_adaptive") or {}),
         runtime_deps=dict(raw.get("runtime_deps") or {}),

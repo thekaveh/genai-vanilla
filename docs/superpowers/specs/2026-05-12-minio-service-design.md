@@ -7,6 +7,15 @@
 
 ---
 
+> **Historical-context note (May 13, 2026):** This spec was written before the
+> per-service modularization refactor landed. The refactor is now complete
+> (commit `a6abd34`). MinIO ships in the modular layout as
+> `services/minio/{service.yml, compose.yml}` with its init scripts under
+> `services/minio/init/scripts/`. The variable names and bucket-name
+> contract described below are stable and unchanged by that migration —
+> only the on-disk locations differ from what's described in section
+> "Monolithic-shape integration" below.
+
 ## Context
 
 The GenAI Vanilla stack today has exactly one storage surface: Supabase Storage with a filesystem backend (`STORAGE_BACKEND=file`, `/var/lib/storage` on a named volume). That surface is well-suited to app-tier files — row-level-security uploads, signed URLs, ~50 MB ceiling per file via `STORAGE_FILE_SIZE_LIMIT=52428800`. It is the wrong surface for high-throughput, large-blob artifact workloads: ComfyUI generated images at scale, document-processor binaries, model checkpoints, dataset versioning, n8n / Backend artifact handoff.

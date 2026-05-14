@@ -224,7 +224,7 @@ class KeyGenerator:
 
     def generate_webui_secret_key(self) -> str:
         """Open WebUI JWT/session signing key. Used by Open WebUI itself
-        AND by ``open-webui-init/scripts/register-{tools,functions}.py``
+        AND by ``services/open-webui/init/scripts/register-{tools,functions}.py``
         to sign admin-token JWTs via ``jwt.encode(..., algorithm="HS256")``.
         PyJWT 2.10+ logs ``InsecureKeyLengthWarning`` for keys shorter
         than 32 bytes on HS256 (RFC 7518 Section 3.2), so we emit a

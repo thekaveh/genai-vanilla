@@ -22,45 +22,15 @@ sources:
   options:
     - id: ollama-container-cpu
       label: "Container (CPU)"
-      effects:
-        OLLAMA_SCALE: 1
-        OLLAMA_PULL_SCALE: 1
-        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
-        OLLAMA_ENDPOINT: "http://ollama:11434"
-        LITELLM_OLLAMA_UPSTREAM: "http://ollama:11434"
     - id: ollama-container-gpu
       label: "Container (GPU, NVIDIA)"
-      effects:
-        OLLAMA_SCALE: 1
-        OLLAMA_PULL_SCALE: 1
-        OLLAMA_NVIDIA_VISIBLE_DEVICES: "all"
-        OLLAMA_ENDPOINT: "http://ollama:11434"
-        LITELLM_OLLAMA_UPSTREAM: "http://ollama:11434"
     - id: ollama-localhost
       label: "Host (existing Ollama on this machine)"
-      effects:
-        OLLAMA_SCALE: 0
-        OLLAMA_PULL_SCALE: 0
-        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
-        OLLAMA_ENDPOINT: "http://host.docker.internal:11434"
-        LITELLM_OLLAMA_UPSTREAM: "http://host.docker.internal:11434"
     - id: ollama-external
       label: "External (custom URL)"
       requires: [LLM_PROVIDER_EXTERNAL_URL]
-      effects:
-        OLLAMA_SCALE: 0
-        OLLAMA_PULL_SCALE: 0
-        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
-        OLLAMA_ENDPOINT: "${LLM_PROVIDER_EXTERNAL_URL}"
-        LITELLM_OLLAMA_UPSTREAM: "${LLM_PROVIDER_EXTERNAL_URL}"
     - id: none
       label: "Disabled (cloud-only)"
-      effects:
-        OLLAMA_SCALE: 0
-        OLLAMA_PULL_SCALE: 0
-        OLLAMA_NVIDIA_VISIBLE_DEVICES: ""
-        OLLAMA_ENDPOINT: ""
-        LITELLM_OLLAMA_UPSTREAM: ""
 
 env:
   - name: LLM_PROVIDER_SOURCE

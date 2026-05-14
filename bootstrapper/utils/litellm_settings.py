@@ -6,7 +6,7 @@ Single source of truth for the static portion of
 
   • ``bootstrapper/utils/litellm_config_generator.py`` writes a stub
     on the host (model_list empty) so the bind mount has a file.
-  • ``litellm-init/scripts/init.py`` writes the real config from
+  • ``services/litellm/init/scripts/init.py`` writes the real config from
     ``public.llms`` inside the init container, importing this module
     via the same ``/catalog`` bind mount used by ``llm-catalog-init``.
 

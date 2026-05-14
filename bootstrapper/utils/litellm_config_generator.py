@@ -1,7 +1,7 @@
 """
 LiteLLM proxy configuration STUB writer.
 
-The real ``model_list`` is rendered by ``litellm-init/scripts/init.py``
+The real ``model_list`` is rendered by ``services/litellm/init/scripts/init.py``
 from ``public.llms WHERE active = true`` on every ``docker compose up``
 — this file produces only a minimal stub on the host so the bind mount
 ``./volumes/litellm/config.yaml:/app/config.yaml:ro`` has a file to
@@ -46,7 +46,7 @@ class LiteLLMConfigGenerator:
     def generate_config(self) -> Dict[str, Any]:
         return {"model_list": [], **base_settings()}
 
-    # Sentinel header written by ``litellm-init/scripts/init.py``. When
+    # Sentinel header written by ``services/litellm/init/scripts/init.py``. When
     # we see this on an existing file, the file is the "real" config
     # rendered from public.llms — leave it alone so re-running
     # ``./start.sh`` and quitting before docker compose up doesn't

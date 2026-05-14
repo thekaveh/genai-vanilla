@@ -31,7 +31,6 @@ def test_load_minimal_manifest(services_root, write_manifest, minimal_manifest_d
     assert m.depends_on.required == []
     assert m.depends_on.optional == []
     assert m.exports == []
-    assert m.hook is None
     assert len(m.env) == 1
     assert m.env[0].name == "REDIS_PORT"
     assert m.env[0].default == 6379
@@ -53,10 +52,9 @@ def test_load_full_manifest(services_root, write_manifest, full_manifest_dict):
     assert len(m.sources.options) == 2
     assert m.sources.options[0].id == "ollama-container-cpu"
     assert m.sources.options[1].requires == ["LLM_PROVIDER_EXTERNAL_URL"]
-    assert m.sources.options[0].effects == {
-        "OLLAMA_SCALE": 1,
-        "OLLAMA_ENDPOINT": "http://ollama:11434",
-    }
+    # runtime_sc replaces the old sources.options[].effects (operational data)
+    assert "llm_provider" in m.runtime_sc
+    assert m.runtime_sc["llm_provider"]["ollama-container-cpu"]["environment"]["OLLAMA_ENDPOINT"] == "http://ollama:11434"
     assert m.depends_on.optional == []
     assert m.exports[0].name == "OLLAMA_ENDPOINT"
     assert m.exports[0].consumers == ["litellm", "weaviate"]

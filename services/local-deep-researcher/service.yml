@@ -18,12 +18,8 @@ sources:
   options:
     - id: container
       label: "Container"
-      effects:
-        LOCAL_DEEP_RESEARCHER_SCALE: 1
     - id: disabled
       label: "Disabled"
-      effects:
-        LOCAL_DEEP_RESEARCHER_SCALE: 0
 
 env:
   - name: LOCAL_DEEP_RESEARCHER_SOURCE

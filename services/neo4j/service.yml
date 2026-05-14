@@ -19,19 +19,10 @@ sources:
   options:
     - id: container
       label: "Container (in-stack Neo4j)"
-      effects:
-        NEO4J_SCALE: 1
-        NEO4J_URI: "bolt://neo4j-graph-db:7687"
     - id: localhost
       label: "Host (use existing Neo4j on this machine)"
-      effects:
-        NEO4J_SCALE: 0
-        NEO4J_URI: "bolt://host.docker.internal:7687"
     - id: disabled
       label: "Disabled"
-      effects:
-        NEO4J_SCALE: 0
-        NEO4J_URI: ""
 
 env:
   - name: NEO4J_GRAPH_DB_SOURCE

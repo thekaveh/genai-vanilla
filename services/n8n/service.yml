@@ -23,16 +23,8 @@ sources:
   options:
     - id: container
       label: "Container"
-      effects:
-        N8N_SCALE: 1
-        N8N_WORKER_SCALE: 1
-        N8N_INIT_SCALE: 1
     - id: disabled
       label: "Disabled"
-      effects:
-        N8N_SCALE: 0
-        N8N_WORKER_SCALE: 0
-        N8N_INIT_SCALE: 0
 
 env:
   - name: N8N_SOURCE

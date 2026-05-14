@@ -26,22 +26,10 @@ sources:
   options:
     - id: container
       label: "Container (in-stack Weaviate)"
-      effects:
-        WEAVIATE_SCALE: 1
-        WEAVIATE_INIT_SCALE: 1
-        WEAVIATE_URL: "http://weaviate:8080"
     - id: localhost
       label: "Host (existing Weaviate on this machine)"
-      effects:
-        WEAVIATE_SCALE: 0
-        WEAVIATE_INIT_SCALE: 0
-        WEAVIATE_URL: "http://host.docker.internal:8080"
     - id: disabled
       label: "Disabled"
-      effects:
-        WEAVIATE_SCALE: 0
-        WEAVIATE_INIT_SCALE: 0
-        WEAVIATE_URL: ""
 
 env:
   - name: WEAVIATE_SOURCE
@@ -86,7 +74,6 @@ env:
   - name: CLIP_DEPLOY_RESOURCES
     default: "~"
 
-hook: services.hooks.weaviate
 
 depends_on:
   required: []

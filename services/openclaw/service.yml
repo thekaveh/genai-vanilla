@@ -22,22 +22,10 @@ sources:
   options:
     - id: disabled
       label: "Disabled"
-      effects:
-        OPENCLAW_SCALE: 0
-        OPENCLAW_INIT_SCALE: 0
-        OPENCLAW_ENDPOINT: ""
     - id: container
       label: "Container"
-      effects:
-        OPENCLAW_SCALE: 1
-        OPENCLAW_INIT_SCALE: 1
-        OPENCLAW_ENDPOINT: "http://openclaw-gateway:18789"
     - id: localhost
       label: "Host (existing OpenClaw on this machine)"
-      effects:
-        OPENCLAW_SCALE: 0
-        OPENCLAW_INIT_SCALE: 0
-        OPENCLAW_ENDPOINT: "${OPENCLAW_LOCALHOST_URL}"
 
 env:
   - name: OPENCLAW_SOURCE

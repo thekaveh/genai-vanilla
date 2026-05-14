@@ -23,30 +23,15 @@ sources:
   options:
     - id: container-cpu
       label: "Container (CPU)"
-      effects:
-        COMFYUI_SCALE: 1
-        COMFYUI_INIT_SCALE: 1
     - id: container-gpu
       label: "Container (GPU, NVIDIA)"
-      effects:
-        COMFYUI_SCALE: 1
-        COMFYUI_INIT_SCALE: 1
     - id: localhost
       label: "Host (existing ComfyUI on this machine)"
-      effects:
-        COMFYUI_SCALE: 0
-        COMFYUI_INIT_SCALE: 0
     - id: external
       label: "External (custom URL)"
       requires: [COMFYUI_EXTERNAL_URL]
-      effects:
-        COMFYUI_SCALE: 0
-        COMFYUI_INIT_SCALE: 0
     - id: disabled
       label: "Disabled"
-      effects:
-        COMFYUI_SCALE: 0
-        COMFYUI_INIT_SCALE: 0
 
 env:
   - name: COMFYUI_SOURCE
@@ -100,7 +85,6 @@ env:
     auto_managed: true
     description: "True when COMFYUI_SOURCE=localhost."
 
-hook: services.hooks.comfyui
 
 depends_on:
   required: []

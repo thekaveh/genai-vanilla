@@ -61,7 +61,7 @@ class LocalhostValidator:
                     'health_path': '/health',
                     'default_port': 63022,
                     'service_name': 'Parakeet STT (host-side)',
-                    'hint': 'Start the Parakeet MLX/native server — see stt-provider/mlx/README.md.',
+                    'hint': 'Start the Parakeet MLX/native server — see services/parakeet/provider/mlx/README.md.',
                 },
                 'whisper-cpp-localhost': {
                     # whisper.cpp's whisper-server has no /health endpoint
@@ -73,7 +73,7 @@ class LocalhostValidator:
                     'url_env_var': 'WHISPER_CPP_LOCALHOST_URL',
                     'default_port': 63025,
                     'service_name': 'whisper.cpp STT (host-side)',
-                    'hint': 'Start whisper-server — see stt-provider/whisper-cpp/README.md.',
+                    'hint': 'Start whisper-server — see services/parakeet/provider/whisper-cpp/README.md.',
                 },
             },
         },
@@ -85,7 +85,7 @@ class LocalhostValidator:
                     'health_path': '/health',
                     'default_port': 63027,
                     'service_name': 'Chatterbox TTS (host-side)',
-                    'hint': 'Start the Chatterbox server — see tts-provider/localhost/README.md.',
+                    'hint': 'Start the Chatterbox server — see services/tts-provider/provider/localhost/README.md.',
                 },
             },
         },

@@ -12,10 +12,11 @@ dict shape consumers (`service_config.py`, `source_validator.py`,
 `dependency_manager.py`, `ui/state_builder.py`, `wizard/llm_steps.py`) expect.
 The legacy YAML file is now deleted; this function is the operational source.
 
-Drift between sources.options[].effects and runtime_sc.<key>.<source>.environment
-is intentionally NOT enforced — the runtime_sc block is authoritative for the
-bootstrapper, while the sources block is documentation for the wizard. A future
-follow-up may unify them.
+`runtime_sc` is the single source of truth for per-source runtime data
+(scale, environment, deploy, extra_hosts). The wizard-facing `sources:`
+block contains only the id/label/requires for each option — the env-var
+assignments (formerly under `sources.options[].effects`) were dropped in
+favor of `runtime_sc` so there is no parallel data to drift.
 """
 
 from __future__ import annotations

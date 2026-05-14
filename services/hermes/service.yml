@@ -33,22 +33,10 @@ sources:
   options:
     - id: container
       label: "Container (in-stack Hermes)"
-      effects:
-        HERMES_SCALE: 1
-        HERMES_INIT_SCALE: 1
-        HERMES_ENDPOINT: "http://hermes:8642"
     - id: localhost
       label: "Host (existing Hermes on this machine)"
-      effects:
-        HERMES_SCALE: 0
-        HERMES_INIT_SCALE: 0
-        HERMES_ENDPOINT: "${HERMES_LOCALHOST_URL}"
     - id: disabled
       label: "Disabled"
-      effects:
-        HERMES_SCALE: 0
-        HERMES_INIT_SCALE: 0
-        HERMES_ENDPOINT: ""
 
 env:
   - name: HERMES_SOURCE

@@ -28,20 +28,8 @@ sources:
   options:
     - id: container
       label: "Container (in-stack MinIO)"
-      effects:
-        MINIO_SCALE: 1
-        MINIO_INIT_SCALE: 1
-        MINIO_ENDPOINT: "http://minio:9000"
-        MINIO_PUBLIC_ENDPOINT: "http://localhost:${MINIO_PORT}"
-        MINIO_PUBLIC_CONSOLE_ENDPOINT: "http://localhost:${MINIO_CONSOLE_PORT}"
     - id: disabled
       label: "Disabled"
-      effects:
-        MINIO_SCALE: 0
-        MINIO_INIT_SCALE: 0
-        MINIO_ENDPOINT: ""
-        MINIO_PUBLIC_ENDPOINT: ""
-        MINIO_PUBLIC_CONSOLE_ENDPOINT: ""
 
 env:
   - name: MINIO_SOURCE

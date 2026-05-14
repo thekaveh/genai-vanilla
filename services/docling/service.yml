@@ -19,19 +19,10 @@ sources:
   options:
     - id: disabled
       label: "Disabled"
-      effects:
-        DOCLING_GPU_SCALE: 0
-        DOCLING_ENDPOINT: ""
     - id: docling-localhost
       label: "Host (existing Docling on this machine)"
-      effects:
-        DOCLING_GPU_SCALE: 0
-        DOCLING_ENDPOINT: "http://host.docker.internal:63021"
     - id: docling-container-gpu
       label: "Container (GPU, NVIDIA)"
-      effects:
-        DOCLING_GPU_SCALE: 1
-        DOCLING_ENDPOINT: "http://docling-gpu:8000"
 
 env:
   - name: DOC_PROCESSOR_SOURCE

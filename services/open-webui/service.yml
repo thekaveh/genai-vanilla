@@ -22,14 +22,8 @@ sources:
   options:
     - id: container
       label: "Container"
-      effects:
-        OPEN_WEB_UI_SCALE: 1
-        OPEN_WEB_UI_INIT_SCALE: 1
     - id: disabled
       label: "Disabled"
-      effects:
-        OPEN_WEB_UI_SCALE: 0
-        OPEN_WEB_UI_INIT_SCALE: 0
 
 env:
   - name: OPEN_WEB_UI_SOURCE
