@@ -44,6 +44,9 @@ env:
   - name: OLLAMA_CUSTOM_MODELS
     default: ""
     description: "Free-text extra Ollama models pulled in container-* sources."
+  - name: OLLAMA_AUTO_IMPORT_LOCAL_MODELS
+    default: true
+    description: "When LLM_PROVIDER_SOURCE=ollama-localhost or ollama-external, llm-catalog-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
   - name: OLLAMA_DEPLOY_RESOURCES
     default: "~"
     description: "Reserved for future GPU deploy block. Currently '~' (null)."

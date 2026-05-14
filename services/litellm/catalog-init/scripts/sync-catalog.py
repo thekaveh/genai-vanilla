@@ -71,6 +71,12 @@ PG_PASSWORD = os.environ.get("PGPASSWORD", "")
 LLM_PROVIDER_SOURCE = os.environ.get("LLM_PROVIDER_SOURCE", "ollama-container-cpu").strip().lower()
 OLLAMA_USER_MODELS = os.environ.get("OLLAMA_USER_MODELS", "")
 OLLAMA_CUSTOM_MODELS = os.environ.get("OLLAMA_CUSTOM_MODELS", "")
+OLLAMA_AUTO_IMPORT_LOCAL_MODELS = os.environ.get(
+    "OLLAMA_AUTO_IMPORT_LOCAL_MODELS", "true"
+)
+LITELLM_OLLAMA_UPSTREAM = os.environ.get(
+    "LITELLM_OLLAMA_UPSTREAM", "http://ollama:11434"
+).strip()
 
 
 def _truthy(v: str | None) -> bool:
@@ -81,6 +87,61 @@ def _csv(v: str | None) -> list[str]:
     if not v:
         return []
     return [s.strip() for s in v.split(",") if s.strip()]
+
+
+def _fetch_ollama_tags(upstream_url: str, timeout: float = 3.0) -> list[str]:
+    """Query ``{upstream_url}/api/tags`` and return the model tag list.
+
+    Returns an empty list on any failure (unreachable upstream, bad
+    JSON, etc.). Callers treat this as "auto-import disabled for this
+    boot" and proceed with whatever's in OLLAMA_USER_MODELS only.
+
+    Mirrors ``bootstrapper/utils/ollama_discovery.py::list_pulled_models``
+    in shape and failure-mode (empty list on any error) so the two
+    sites — the wizard's option list and the catalog's auto-import —
+    behave consistently against the same /api/tags endpoint.
+    """
+    import json
+    import socket
+    import urllib.error
+    import urllib.request
+
+    if not upstream_url:
+        return []
+    base = upstream_url.rstrip("/")
+    url = f"{base}/api/tags"
+    try:
+        req = urllib.request.Request(
+            url, headers={"Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError) as exc:
+        print(
+            f"  ⚠ ollama: /api/tags fetch from {url!r} failed ({exc}); "
+            f"auto-import disabled for this boot",
+            flush=True,
+        )
+        return []
+    try:
+        data = json.loads(body)
+    except (ValueError, TypeError):
+        print(
+            f"  ⚠ ollama: /api/tags response from {url!r} not valid JSON; "
+            f"auto-import disabled for this boot",
+            flush=True,
+        )
+        return []
+    models = data.get("models") if isinstance(data, dict) else None
+    if not isinstance(models, list):
+        return []
+    out: list[str] = []
+    for entry in models:
+        if isinstance(entry, dict):
+            name = entry.get("name") or entry.get("model")
+            if isinstance(name, str) and name.strip():
+                out.append(name.strip())
+    return out
 
 
 # ─── live-only model defaults ─────────────────────────────────────────
@@ -416,13 +477,24 @@ def apply_ollama_selection(conn, llm_source: str, user_models: list[str], custom
 
     Source none/disabled → deactivate everything Ollama.
     Otherwise:
+      - Auto-import (``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true``, the
+        default for ``ollama-localhost``/``ollama-external``): query
+        the upstream's ``/api/tags``, union the result with
+        ``user_models``, and treat the union as the activation set.
+        This makes ``ollama pull <name>`` on the host (or external
+        upstream) propagate to LiteLLM on the next ``./start.sh`` with
+        no wizard re-run needed. Set ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=false``
+        to keep strict wizard-only control (useful when private
+        fine-tunes on the host should NOT be exposed across the stack).
       - user_models non-empty → activate exactly those rows.
       - custom_models → INSERT (or UPSERT-active) any names not in
         the catalog with sensible default capability flags.
 
     Custom-model handling per source:
       * ``ollama-container-*``: registered + active. ollama-pull will
-        fetch them on the next docker compose up.
+        fetch them on the next docker compose up. Auto-import is a
+        no-op here (no host-side upstream to query — the container
+        Ollama is populated by ollama-pull, not /api/tags).
       * ``ollama-localhost`` / ``ollama-external``: registered + active
         with a loud warning. ollama-pull does NOT run for these
         sources (per service_config.OLLAMA_PULL_SCALE rules), so the
@@ -436,6 +508,36 @@ def apply_ollama_selection(conn, llm_source: str, user_models: list[str], custom
     at request time.
     """
     is_container = llm_source.startswith("ollama-container-")
+    is_host_side = llm_source.startswith("ollama-localhost") or llm_source.startswith("ollama-external")
+
+    # Auto-import: union host /api/tags into user_models for host-side
+    # sources, gated by OLLAMA_AUTO_IMPORT_LOCAL_MODELS. Container
+    # sources skip this (their upstream is the in-stack ollama
+    # container, which is populated FROM user_models via ollama-pull —
+    # querying its /api/tags at catalog-init time is circular).
+    if is_host_side and _truthy(OLLAMA_AUTO_IMPORT_LOCAL_MODELS):
+        host_tags = _fetch_ollama_tags(LITELLM_OLLAMA_UPSTREAM)
+        if host_tags:
+            before = set(user_models)
+            unioned = sorted(before | set(host_tags))
+            added = sorted(set(host_tags) - before)
+            if added:
+                print(
+                    f"  ↳ ollama: auto-import found {len(host_tags)} model(s) "
+                    f"on {LITELLM_OLLAMA_UPSTREAM!r}, "
+                    f"adding {len(added)} not in OLLAMA_USER_MODELS: "
+                    f"{', '.join(added)}",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"  ↳ ollama: auto-import found {len(host_tags)} model(s) "
+                    f"on {LITELLM_OLLAMA_UPSTREAM!r}, all already in "
+                    f"OLLAMA_USER_MODELS",
+                    flush=True,
+                )
+            user_models = unioned
+
     with conn.cursor() as cur:
         if llm_source in ("none", "disabled"):
             cur.execute("UPDATE public.llms SET active = false WHERE provider = 'ollama';")

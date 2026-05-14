@@ -366,11 +366,26 @@ def build_ollama_steps(
         # 2. Library entries — items also pulled get the ``pulled``
         #    status badge prepended; library-only get ``library``.
         #    Capability tags, sizes, pulls, and age flow from the
-        #    OllamaLibraryEntry.
+        #    OllamaLibraryEntry. ``pulled_variants`` carries the bare
+        #    variant tags pulled for this family so each leaf can
+        #    render its own [pulled]/[library] status independently
+        #    of the parent — e.g. ``qwen3.6:35b-a3b-coding-mxfp8``
+        #    pulled but ``qwen3.6:latest`` not, or vice versa.
         for entry in library_entries:
             meta = curated_meta.get(entry.name)
             curated_badges = list(meta.badges) if meta else []
-            status = "pulled" if entry.name in pulled_set else "library"
+            # Family-level status: "pulled" if ANY tag of this family
+            # is on the host (the parent row carries an aggregate
+            # status). Per-leaf status is computed below in
+            # ``_leaf_render_data`` from ``pulled_variants``.
+            family_prefix = entry.name + ":"
+            family_tags_pulled = frozenset(
+                n[len(family_prefix):] for n in pulled_names
+                if n.startswith(family_prefix)
+            )
+            status = "pulled" if (
+                entry.name in pulled_set or family_tags_pulled
+            ) else "library"
             opts.append(PromptOption(
                 value=entry.name, label=entry.name,
                 hint=_compose_hint(
@@ -385,6 +400,7 @@ def build_ollama_steps(
                 ),
                 pulls=entry.pulls,
                 sizes=entry.sizes,
+                pulled_variants=family_tags_pulled,
             ))
         opts.sort(key=_sort_key)
         if not opts:

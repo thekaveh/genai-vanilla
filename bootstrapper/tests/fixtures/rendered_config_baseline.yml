@@ -580,9 +580,11 @@ services:
       ANTHROPIC_API_KEY: ''
       ANTHROPIC_USER_MODELS: ''
       LITELLM_ANTHROPIC_ENABLED: 'false'
+      LITELLM_OLLAMA_UPSTREAM: http://ollama:11434
       LITELLM_OPENAI_ENABLED: 'false'
       LITELLM_OPENROUTER_ENABLED: 'false'
       LLM_PROVIDER_SOURCE: ollama-container-cpu
+      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: 'true'
       OLLAMA_CUSTOM_MODELS: ''
       OLLAMA_USER_MODELS: ''
       OPENAI_API_KEY: ''
@@ -594,6 +596,8 @@ services:
       PGPASSWORD: password
       PGPORT: '5432'
       PGUSER: supabase_admin
+    extra_hosts:
+    - host.docker.internal=host-gateway
     networks:
       backend-network: null
     restart: 'no'

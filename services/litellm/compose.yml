@@ -25,6 +25,29 @@ services:
       OPENROUTER_USER_MODELS: ${OPENROUTER_USER_MODELS:-}
       OLLAMA_USER_MODELS: ${OLLAMA_USER_MODELS:-}
       OLLAMA_CUSTOM_MODELS: ${OLLAMA_CUSTOM_MODELS:-}
+      # Auto-import every model on the host's Ollama (or external
+      # Ollama) into ``public.llms`` at boot, in addition to whatever
+      # is in OLLAMA_USER_MODELS / OLLAMA_CUSTOM_MODELS. Makes the
+      # catalog auto-sync with the upstream's ``/api/tags`` so any
+      # ``ollama pull <name>`` you do on the host shows up across the
+      # stack on the next ``./start.sh`` — no wizard re-run needed.
+      # No-op for ``LLM_PROVIDER_SOURCE=ollama-container-*`` (containers
+      # are populated by ollama-pull, which already reads
+      # OLLAMA_USER_MODELS). Set to ``false`` to keep strict
+      # wizard-only control (e.g. to hide private fine-tunes you don't
+      # want exposed to every stack consumer).
+      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: ${OLLAMA_AUTO_IMPORT_LOCAL_MODELS:-true}
+      # Upstream URL the catalog should query for /api/tags. Same env
+      # var litellm-init consumes for its config.yaml rendering; the
+      # ``${VAR-default}`` form (no colon) preserves empty values
+      # (LLM_PROVIDER_SOURCE=none) so we don't accidentally hit a
+      # nonexistent upstream.
+      LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
+    extra_hosts:
+      # Required for OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true with
+      # LLM_PROVIDER_SOURCE=ollama-localhost — the script needs to
+      # reach the operator's host Ollama via host.docker.internal.
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
     volumes:
       - ./catalog-init/scripts:/scripts:ro
       # Catalog module mounted as a SIBLING dir, not as a file inside

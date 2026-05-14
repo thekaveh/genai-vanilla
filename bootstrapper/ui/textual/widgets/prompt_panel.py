@@ -202,6 +202,16 @@ class PromptOption:
     # unaffected and OptionRow simply skips the columns.
     pulls: int = 0                  # 0 ⇒ unknown ⇒ not rendered
     sizes: tuple[str, ...] = ()     # () ⇒ unknown ⇒ not rendered
+    # Set of variant tags (bare suffix after the ``parent:``) that the
+    # upstream Ollama has actually pulled, sourced from /api/tags at
+    # options-build time. Used by ``_leaf_render_data`` so each
+    # individual variant row can independently render its [pulled] vs
+    # [library] status — without this, a family with one pulled tag
+    # and others unpulled would inherit a single status from the
+    # parent, masking the per-tag reality. Empty ⇒ unknown ⇒ leaf
+    # falls back to the parent's status (correct for container modes
+    # where /api/tags wasn't consulted).
+    pulled_variants: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass
@@ -605,6 +615,22 @@ class PromptPanel(Container):
             self._checked_values = {
                 v for v in (step.default_values or []) if _maps_to_visible_row(v)
             }
+            # Auto-pre-check every variant the upstream Ollama has
+            # already pulled, in addition to explicit defaults. This
+            # mirrors the runtime catalog-init auto-import behaviour
+            # (``OLLAMA_AUTO_IMPORT_LOCAL_MODELS``) so the wizard's UI
+            # tells the same story as ``public.llms`` will after
+            # confirmation: "if it's on your host, it's in the stack".
+            # Operators who want a model hidden can still uncheck it
+            # — the post-confirm CSV is the final word.
+            #
+            # ``pulled_variants`` is populated from /api/tags by the
+            # wizard's options-provider for ollama-localhost / -external
+            # modes; container modes leave it empty so this loop is a
+            # no-op there.
+            for opt in step.options:
+                for tag in opt.pulled_variants:
+                    self._checked_values.add(f"{opt.value}:{tag}")
             # Reset the filter + expansion + search state on every
             # (re-)entry into a multiselect step. The default
             # "show everything, all collapsed, empty query" is the
@@ -854,6 +880,17 @@ class PromptPanel(Container):
         fallback. Extracted from ``_mount_visible_rows`` so the
         two-pass tag-alignment computation can reuse it without
         duplicating the cache-lookup / fallback logic.
+
+        Per-variant ``[pulled]`` / ``[library]`` status is rendered
+        independently of the parent: a family like ``qwen3.6`` whose
+        host has only ``qwen3.6:35b-a3b-coding-mxfp8`` pulled will
+        correctly show that ONE leaf as ``[pulled]`` while the
+        ``27b``, ``35b``, etc. siblings render as ``[library]``.
+        Sourced from ``opt.pulled_variants`` which the wizard's
+        options-provider populates from /api/tags. Empty (e.g.
+        container modes, or no upstream reachable) ⇒ no per-leaf
+        status badge is added; the parent's aggregate badge is the
+        only signal.
         """
         tag = vrow.variant or ""
         full_name = f"{vrow.parent_value}:{tag}"
@@ -864,22 +901,33 @@ class PromptPanel(Container):
                 (v for v in cached if v.tag == tag), None,
             )
         inherited = _inherited_leaf_badges(opt.badges)
+        # Per-leaf status: present in the parent's pulled_variants set
+        # ⇒ ``pulled``; otherwise ⇒ ``library`` (only when we know the
+        # parent IS in the library, i.e. opt.sizes is non-empty —
+        # bucket-1 pulled-but-not-in-library leaves never get here).
+        leaf_status: list[str] = []
+        if opt.pulled_variants:
+            leaf_status = (
+                ["pulled"] if tag in opt.pulled_variants else ["library"]
+            )
         if detail_entry is not None:
             size_label = (
                 f"({detail_entry.size_label} · "
                 f"{detail_entry.context_label} ctx)"
             )
-            leaf_badges = inherited + sorted(detail_entry.capabilities)
+            leaf_badges = (
+                leaf_status + inherited + sorted(detail_entry.capabilities)
+            )
         elif tag == _LATEST_TAG:
             size_label = "(model-maker default)"
-            leaf_badges = list(inherited)
+            leaf_badges = leaf_status + list(inherited)
         else:
             approx = _approx_size(tag)
             if approx and approx != tag:
                 size_label = f"({tag} · {approx})"
             else:
                 size_label = f"({tag})"
-            leaf_badges = list(inherited)
+            leaf_badges = leaf_status + list(inherited)
         return full_name, size_label, leaf_badges
 
     def _mount_visible_rows(self, *, restore_identity: str | None = None) -> None:
