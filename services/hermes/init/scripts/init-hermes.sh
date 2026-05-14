@@ -89,15 +89,28 @@ export LITELLM_MASTER_KEY="${LITELLM_MASTER_KEY:-}"
 #
 # This block runs after the apk-add bootstrap, so curl + jq are
 # already on the PATH.
+#
+# We always query /v1/models once here — the result is used for BOTH
+# the HERMES_DEFAULT_MODEL auto-pick (when blank) AND the filtered
+# provider-picker list rendered below. Querying unconditionally keeps
+# the two flows in sync; previously the second flow received an empty
+# catalog whenever the operator pinned HERMES_DEFAULT_MODEL.
+litellm_url="${LITELLM_BASE_URL:-http://litellm:4000}"
+log "querying LiteLLM /v1/models"
+models_json=$(curl -fsS \
+  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
+  "${litellm_url}/v1/models" 2>/dev/null || true)
+if [[ -n "${models_json}" ]]; then
+  available_ids=$(printf '%s' "${models_json}" \
+    | jq -r '.data[]?.id' 2>/dev/null || true)
+else
+  available_ids=""
+  log "⚠ LiteLLM /v1/models returned empty — picker list will be empty"
+fi
+
 if [[ -z "${HERMES_DEFAULT_MODEL}" ]]; then
-  log "HERMES_DEFAULT_MODEL is unset — querying LiteLLM for a default"
-  litellm_url="${LITELLM_BASE_URL:-http://litellm:4000}"
-  models_json=$(curl -fsS \
-    -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
-    "${litellm_url}/v1/models" 2>/dev/null || true)
-  if [[ -n "${models_json}" ]]; then
-    available_ids=$(printf '%s' "${models_json}" \
-      | jq -r '.data[]?.id' 2>/dev/null || true)
+  log "HERMES_DEFAULT_MODEL is unset — picking from the LiteLLM catalog"
+  if [[ -n "${available_ids}" ]]; then
     # Priority order — pick the first one that's actually published.
     # Ollama qwen3.6 is the curated default and clears the 64K floor
     # at 256K. Cloud fallbacks listed by decreasing context window.
@@ -135,9 +148,67 @@ export STT_INTERNAL_URL="${STT_INTERNAL_URL:-}"
 export COMFYUI_INTERNAL_URL="${COMFYUI_INTERNAL_URL:-}"
 export SEARXNG_INTERNAL_URL="${SEARXNG_INTERNAL_URL:-}"
 
+# ─── compose providers.litellm.models list ────────────────────────
+# Hermes's provider picker lists every model returned by
+# /v1/models. Two cleanups are needed against the raw LiteLLM
+# catalog before it hits the picker:
+#
+#   1. Drop ``hermes-agent``. LiteLLM advertises Hermes itself as
+#      a model so OTHER consumers (Open WebUI, n8n, backend,
+#      jupyterhub) can chat with Hermes via the gateway. Inside
+#      the Hermes UI it's a recursive loop — Hermes → LiteLLM →
+#      Hermes — and just confuses the picker.
+#
+#   2. Dedupe ``ollama/X`` vs bare ``X`` pairs. LiteLLM emits both
+#      as a convenience for callers that hard-code one form or the
+#      other; in the Hermes picker they look like the same model
+#      listed twice. We keep the prefixed form (canonical) and
+#      drop the bare alias when its prefixed twin exists.
+#
+# We then pin this filtered list via ``discover_models: false`` +
+# ``models: [...]`` in providers.litellm. Tradeoff: new models pulled
+# AFTER the stack is running (via ``ollama pull`` or wizard updates)
+# don't appear until the next ./start.sh. Acceptable since the wizard
+# and llm-catalog-init always run at boot.
+LITELLM_MODELS_LIST="[]"
+if [[ -n "${models_json:-}" ]]; then
+  filtered=$(printf '%s' "$models_json" | jq -r '
+    .data | map(.id) as $all
+    | $all
+    | map(
+        select(. != "hermes-agent")
+        | . as $current
+        | select(
+            (contains("/"))
+            or
+            (($all | any(. != $current and endswith("/" + $current))) | not)
+          )
+      )
+    | .[]
+  ' 2>/dev/null || true)
+  if [[ -n "$filtered" ]]; then
+    # Flow-style YAML list (also valid JSON) so envsubst on one line works.
+    LITELLM_MODELS_LIST="["
+    first=1
+    while IFS= read -r m; do
+      [[ -z "$m" ]] && continue
+      if [[ $first -eq 1 ]]; then
+        LITELLM_MODELS_LIST+="\"$m\""
+        first=0
+      else
+        LITELLM_MODELS_LIST+=", \"$m\""
+      fi
+    done <<< "$filtered"
+    LITELLM_MODELS_LIST+="]"
+    log "  filtered LiteLLM models for picker: ${LITELLM_MODELS_LIST}"
+  fi
+fi
+export LITELLM_MODELS_LIST
+
 # Build the variable list explicitly so envsubst only touches the
 # ones we know about.
 VARS='${HERMES_DEFAULT_MODEL} ${HERMES_CONTEXT_LENGTH} ${LITELLM_MASTER_KEY}
+${LITELLM_MODELS_LIST}
 ${TTS_INTERNAL_URL} ${STT_INTERNAL_URL} ${COMFYUI_INTERNAL_URL}
 ${SEARXNG_INTERNAL_URL}'
 

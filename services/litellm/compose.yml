@@ -98,6 +98,15 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       STORE_MODEL_IN_DB: "True"
       USE_PRISMA_MIGRATE: "True"
+      # Admin UI login (http://litellm.localhost:${KONG_HTTP_PORT}/ui/ →
+      # http://localhost:${LITELLM_PORT}/ui/). Modern LiteLLM versions
+      # require UI_USERNAME + UI_PASSWORD to be set explicitly; the
+      # historic "use master key as password" fallback was retired in
+      # favour of the V2 login endpoint that calls authenticate_user().
+      # We reuse LITELLM_MASTER_KEY as the password so operators only
+      # have to remember one secret.
+      UI_USERNAME: ${LITELLM_UI_USERNAME:-admin}
+      UI_PASSWORD: ${LITELLM_MASTER_KEY}
       # Cloud-provider keys — required at request time. The LiteLLM
       # proxy resolves ``os.environ/OPENAI_API_KEY`` etc. from its
       # config.yaml at request time, so these must be available on the
@@ -116,6 +125,14 @@ services:
       # config comes entirely from /app/config.yaml.
     volumes:
       - ../../volumes/litellm/config.yaml:/app/config.yaml:ro
+    # NOTE: 4 uvicorn workers race their own per-worker
+    # `_create_database_views()` bootstrap at first boot; expect a
+    # one-shot burst of ~11 `relation "<...>" does not exist at character
+    # 15` errors in `genai-supabase-db`'s log within a single ~40 ms
+    # window, then silent forever. Upstream LiteLLM behaviour, not a
+    # bug in this stack — see docs/services/litellm.md →
+    # "Expected startup noise" for the full diagnosis + verification
+    # one-liners.
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4"]
     healthcheck:
       # LiteLLM's image is python:slim-based — no wget/curl. Probe via Python's

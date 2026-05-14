@@ -1,0 +1,55 @@
+# SearXNG bot-detection / rate-limiter config.
+#
+# Without this file Searxng logs ``WARNING:searx.botdetection.config:
+# missing config file: /etc/searxng/limiter.toml`` on every boot.
+# Schema documented at:
+# https://docs.searxng.org/admin/searx.limiter.html
+#
+# This stack is single-tenant and runs behind Kong on the user's host;
+# we want the limiter loaded with permissive defaults so Searxng's
+# botdetection module initialises cleanly but doesn't block legitimate
+# traffic from JupyterHub notebooks, local-deep-researcher, n8n
+# workflows, or browser sessions.
+#
+# Mirrors the upstream default schema from
+# /usr/local/searxng/searx/limiter.toml — the deprecated
+# ``[real_ip]`` + ``x_for`` keys were replaced by
+# ``botdetection.trusted_proxies``.
+
+[botdetection]
+
+# Prefix length used when comparing addresses as part of a client
+# "network" — 32 for IPv4 means exact-IP matching.
+ipv4_prefix = 32
+ipv6_prefix = 48
+
+# Trust Docker's bridge subnets ONLY as reverse proxies. Kong (the
+# real proxy in front of Searxng) lives on Docker's network, so its
+# IP falls in 172.16.0.0/12. We deliberately do NOT trust 127.0.0.0/8
+# / ::1 here — Searxng's own healthcheck (``wget http://localhost:8080/healthz``
+# from inside the container) hits Searxng from 127.0.0.1 without
+# setting X-Forwarded-For, and treating loopback as a proxy makes
+# bot-detection log "X-Forwarded-For nor X-Real-IP header is set!"
+# every health check. Loopback should be treated as a direct
+# (non-proxied) caller.
+trusted_proxies = [
+    '172.16.0.0/12',
+    '192.168.0.0/16',
+    '10.0.0.0/8',
+]
+
+[botdetection.ip_limit]
+# Token bucket per IP. The defaults are fine for our use; we just
+# need the section present so the module initialises.
+filter_link_local = false
+link_token = false
+
+[botdetection.ip_lists]
+# Docker subnets + loopback bypass all bot-detection entirely.
+pass_ip = [
+    '127.0.0.0/8',
+    '172.16.0.0/12',
+    '192.168.0.0/16',
+    '10.0.0.0/8',
+]
+block_ip = []

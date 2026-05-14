@@ -134,6 +134,10 @@ class KongConfigGenerator:
         if hermes_service:
             services.append(hermes_service)
 
+        minio_service = self.generate_minio_service()
+        if minio_service:
+            services.append(minio_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -504,20 +508,59 @@ class KongConfigGenerator:
 
         return service
 
+    def generate_minio_service(self) -> Optional[Dict[str, Any]]:
+        """Generate MinIO console Kong route.
+
+        Routes ``minio.localhost:${KONG_HTTP_PORT}`` to the MinIO admin
+        console on internal port 9001 (host port ``MINIO_CONSOLE_PORT``,
+        default 63031). The S3 API at port 9000 is deliberately NOT
+        aliased — S3 clients use full URLs with explicit ports anyway
+        and don't benefit from a friendly hostname.
+
+        Why ``preserve_host: True``: MinIO's React console SPA reads
+        the Host header to build login redirect / session cookie
+        scopes. Without ``preserve_host``, Kong rewrites Host to
+        ``minio:9001`` (the upstream) and the browser then can't
+        resolve that hostname. Same pattern as n8n / LiteLLM / Hermes.
+
+        Gated on ``MINIO_SOURCE != disabled``. When disabled there's
+        no MinIO container to route to and the alias would 502.
+        """
+        source = self.get_env_value('MINIO_SOURCE')
+        if source == 'disabled':
+            return None
+
+        return {
+            'name': 'minio-console',
+            'url': 'http://minio:9001/',
+            'routes': [
+                {
+                    'name': 'minio-console-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['minio.localhost']
+                }
+            ],
+            'plugins': [{'name': 'cors'}]
+        }
+
     def get_adaptive_services(self) -> List[Dict[str, Any]]:
         """Get adaptive services (always containerized when enabled)."""
         services = []
-        
+
         # Backend API
         backend_service = self.generate_backend_service()
         if backend_service:
             services.append(backend_service)
-        
+
         # Open-WebUI
         openwebui_service = self.generate_openwebui_service()
         if openwebui_service:
             services.append(openwebui_service)
-        
+
+        # LiteLLM gateway — always-on (no SOURCE variation).
+        services.append(self.generate_litellm_service())
+
         return services
     
     def generate_backend_service(self) -> Optional[Dict[str, Any]]:
@@ -543,10 +586,10 @@ class KongConfigGenerator:
     def generate_openwebui_service(self) -> Optional[Dict[str, Any]]:
         """Generate Open-WebUI service configuration based on SOURCE."""
         source = self.get_env_value('OPEN_WEB_UI_SOURCE')
-        
+
         if source == 'disabled':
             return None
-            
+
         return {
             'name': 'openwebui-api',
             'url': 'http://open-web-ui:8080/',
@@ -559,7 +602,75 @@ class KongConfigGenerator:
             ],
             'plugins': [{'name': 'cors'}]
         }
-    
+
+    def generate_litellm_service(self) -> Dict[str, Any]:
+        """Generate LiteLLM gateway Kong route.
+
+        Routes ``litellm.localhost:${KONG_HTTP_PORT}`` to the proxy at
+        ``http://litellm:4000/``. The catch-all route covers ``/ui/``
+        (admin dashboard), ``/v1/*`` (proxy API), and ``/spend/*``
+        (usage telemetry) for callers that prefer a memorable hostname
+        over the bare ``localhost:63012``.
+
+        Auto-redirect on ``/``: LiteLLM serves Swagger UI at its root
+        and the admin dashboard at ``/ui/``. A bare visit to
+        ``http://litellm.localhost:${KONG_HTTP_PORT}/`` would otherwise
+        land on Swagger, which is not what operators reaching for the
+        alias expect. A ``pre-function`` plugin (allowlisted in
+        ``services/kong/compose.yml::KONG_PLUGINS``) short-circuits the
+        request with a 302 to ``/ui/`` only when the requested path is
+        exactly ``/``. Every other path falls through to the upstream
+        unchanged, so ``/v1/*``, ``/spend/*``, and ``/openapi.json``
+        still work via the alias. Operators who specifically want
+        Swagger UI can still reach it at the direct port
+        ``http://localhost:${LITELLM_PORT}/``.
+
+        Always-on — LiteLLM is mandatory in this stack (no SOURCE
+        variation, no dashboard-disable toggle). Unlike Hermes, the
+        proxy serves both its API and its UI on the same port, so there
+        is nothing to gate independently.
+
+        Naming: ``litellm-gateway`` (not ``-api`` like the rest of the
+        services and not ``-dashboard`` like Hermes's UI-only route).
+        Neither standard label fits — this route exposes BOTH the
+        ``/ui/`` admin dashboard AND the ``/v1/*`` proxy API on the
+        same upstream. ``-gateway`` captures that dual role.
+        """
+        return {
+            'name': 'litellm-gateway',
+            'url': 'http://litellm:4000/',
+            'routes': [
+                {
+                    'name': 'litellm-gateway-all',
+                    'strip_path': False,
+                    # ``preserve_host: True`` forwards the browser's
+                    # original Host header (``litellm.localhost:KONG_HTTP_PORT``)
+                    # to LiteLLM. Without this, Kong rewrites Host to
+                    # the upstream (``litellm:4000``) and LiteLLM's SPA
+                    # uses that internal Docker hostname when
+                    # constructing the SSO login redirect, producing
+                    # ``http://litellm:4000/ui/login/...`` which the
+                    # browser cannot resolve. Same pattern as n8n's
+                    # route.
+                    'preserve_host': True,
+                    'hosts': ['litellm.localhost'],
+                    'plugins': [
+                        {
+                            'name': 'pre-function',
+                            'config': {
+                                'access': [
+                                    'if kong.request.get_path() == "/" then '
+                                    'return kong.response.exit(302, "", '
+                                    '{ ["Location"] = "/ui/" }) end'
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ],
+            'plugins': [{'name': 'cors'}]
+        }
+
     def write_config(self, config: Dict[str, Any], output_path: Path) -> bool:
         """
         Write Kong configuration to YAML file.

@@ -51,6 +51,16 @@ EXPECTED_HOST_ROUTES = {
     # for .env.example. If the default ever flips to disabled, drop this
     # entry from the expected map.
     "hermes.localhost": "http://hermes:9119/",
+    # LiteLLM gateway + admin dashboard. Always-on (no SOURCE variation).
+    # Same alias exposes /ui/ (dashboard), /v1/* (proxy API), and
+    # /spend/* (usage telemetry) — Kong routes the entire surface, not
+    # just the dashboard path.
+    "litellm.localhost": "http://litellm:4000/",
+    # MinIO admin console (port 9001). Default-on (MINIO_SOURCE=container).
+    # The S3 API at port 9000 is deliberately NOT aliased — S3 clients
+    # use full URLs with explicit ports anyway and don't benefit from a
+    # friendly hostname.
+    "minio.localhost": "http://minio:9001/",
     # openclaw is opt-in: .env.example defaults OPENCLAW_SOURCE=disabled, so
     # the generator omits its route. Add an opt-in check separately if the
     # default ever flips to OPENCLAW_SOURCE=container.

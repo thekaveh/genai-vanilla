@@ -47,6 +47,8 @@ Plain `python3 docs/scripts/check-kong-routes.py` works too if `PyYAML` is on yo
 - `jupyter.localhost` → JupyterHub (if enabled)
 - `openclaw.localhost` → OpenClaw gateway (if enabled)
 - `hermes.localhost` → Hermes Agent web dashboard (if `HERMES_SOURCE != disabled` and `HERMES_DASHBOARD_ENABLED=true`)
+- `litellm.localhost` → LiteLLM gateway + admin dashboard (always-on; same alias exposes `/ui/`, `/v1/*`, and `/spend/*`)
+- `minio.localhost` → MinIO admin console (if `MINIO_SOURCE != disabled`; S3 API at port 63030 NOT aliased — use the direct port)
 
 ## SOURCE-Based Configuration
 
@@ -154,6 +156,8 @@ curl -H "Host: n8n.localhost" http://localhost:63002/
 curl -H "Host: jupyter.localhost" http://localhost:63002/
 curl -H "Host: openclaw.localhost" http://localhost:63002/
 curl -H "Host: hermes.localhost" http://localhost:63002/
+curl -H "Host: litellm.localhost" http://localhost:63002/ui/
+curl -H "Host: minio.localhost" http://localhost:63002/
 ```
 
 ## Troubleshooting

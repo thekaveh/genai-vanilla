@@ -30,6 +30,8 @@ git clone <your-repository-url> && cd genai-vanilla
 # Chat:                  http://chat.localhost:63002
 # n8n:                   http://n8n.localhost:63002
 # ComfyUI:               http://comfyui.localhost:63002
+# LiteLLM Dashboard:     http://litellm.localhost:63002/ui/
+# MinIO Console:         http://minio.localhost:63002
 
 # Default credentials:
 # Supabase Studio: admin@example.com / changeme123
@@ -205,12 +207,12 @@ The stack uses **SOURCE variables** to control how services are deployed.
 | **JupyterHub** | http://localhost:63048 | http://jupyter.localhost:63002 | Data science IDE | Token (optional) |
 | **Neo4j Browser** | http://localhost:63011 | — | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63016 | http://api.localhost:63002 | REST API | API key |
-| **LiteLLM Gateway** | http://localhost:63012 | — | OpenAI-compatible LLM front door (Ollama + cloud) | `LITELLM_API_KEY` |
+| **LiteLLM Gateway** | http://localhost:63012 | http://litellm.localhost:63002 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
 | **Audio (TTS + STT)** | http://localhost:63026 | — | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper) on one port. Engine-specific overrides — Parakeet on `:63022`, Chatterbox on `:63027`, host-side variants on `*_LOCALHOST_URL`. See [docs/services/tts-provider.md](docs/services/tts-provider.md) and [docs/services/stt-provider.md](docs/services/stt-provider.md). | None |
 | **Docling Processor** | http://localhost:63021 | — | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63024 | http://openclaw.localhost:63002 | AI agent (messaging) | Token (optional) |
 | **Hermes Agent** | http://localhost:63028 (API), http://localhost:63029 (dashboard) | http://hermes.localhost:63002 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
-| **MinIO Console** | http://localhost:63031 | — | S3-compatible object storage admin UI | `minioadmin` / `MINIO_ROOT_PASSWORD` |
+| **MinIO Console** | http://localhost:63031 | http://minio.localhost:63002 | S3-compatible object storage admin UI (gated on `MINIO_SOURCE != disabled`). S3 API at `:63030` is NOT aliased — S3 clients use the direct port. | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 
 ### 3.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime

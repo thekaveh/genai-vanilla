@@ -184,10 +184,54 @@ def render_model_list(active_rows: list[tuple[str, str]]) -> list[dict[str, Any]
             # Both entries point at the same upstream so latency / spend
             # tracking aren't doubled — LiteLLM just sees two model_name
             # aliases for the same backing config.
-            ollama_params = {
-                "model": f"ollama/{name}",
-                "api_base": LITELLM_OLLAMA_UPSTREAM,
-            }
+            #
+            # Adapter selection — ``ollama_chat`` for chat models,
+            # ``ollama`` for embeddings:
+            #   • ``ollama/X``      → LiteLLM hits Ollama's
+            #     /api/generate (single-prompt completion). Tool calls
+            #     do not work, multi-turn chat history is flattened,
+            #     and the Ollama ``think`` parameter is silently
+            #     dropped — so any thinking-capable model (qwen3,
+            #     gpt-oss, deepseek-r1) gets cut off mid-``<think>``
+            #     and returns an empty ``content`` field via this
+            #     path. This breaks Hermes, Open WebUI, n8n,
+            #     jupyterhub, and backend.
+            #   • ``ollama_chat/X`` → LiteLLM hits Ollama's /api/chat
+            #     (real OpenAI-shaped chat completions). Tool calls,
+            #     chat history, vision payloads, and the ``think``
+            #     param all flow through correctly. **This is what
+            #     every chat consumer expects.**
+            #
+            # Embedding models, however, are SERVED by /v1/embeddings
+            # — which LiteLLM only routes via the ``ollama/`` provider
+            # (``ollama_chat/`` rejects embedding requests with
+            # ``Unmapped LLM provider for this endpoint``). So:
+            # embeddings get ``ollama/``, chat models get
+            # ``ollama_chat/``. Detection is name-based: every model
+            # in ``bootstrapper/utils/llm_catalog.py`` with role
+            # ``embeddings`` has "embed" in its name (nomic-embed-text,
+            # qwen3-embedding:0.6b, bge-*, e5-*, mxbai-embed-*, ...).
+            # See docs/services/litellm.md → "Ollama adapter choice".
+            #
+            # ``think: false`` is set on chat entries only — it
+            # defaults thinking-capable models to write their answer
+            # straight into ``content`` instead of the side-channel
+            # ``reasoning`` field. Non-thinking models ignore the
+            # param. Consumers that explicitly want the thinking
+            # trace can re-enable per-request by sending
+            # ``"think": true`` in their chat-completions body.
+            is_embedding = "embed" in name.lower()
+            if is_embedding:
+                ollama_params = {
+                    "model": f"ollama/{name}",
+                    "api_base": LITELLM_OLLAMA_UPSTREAM,
+                }
+            else:
+                ollama_params = {
+                    "model": f"ollama_chat/{name}",
+                    "api_base": LITELLM_OLLAMA_UPSTREAM,
+                    "think": False,
+                }
             out.append({
                 "model_name": f"ollama/{name}",
                 "litellm_params": dict(ollama_params),

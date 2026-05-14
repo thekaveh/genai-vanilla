@@ -16,15 +16,23 @@ class HostsManager:
     """Manages hosts file entries for GenAI Stack services."""
 
     # GenAI Stack hostnames - matches get_genai_hosts() from hosts-utils.sh
+    #
+    # Order mirrors the relevant tier slices of ``_SERVICES`` in
+    # ``bootstrapper/ui/state_builder.py``: core infrastructure
+    # (litellm) first, then user-facing services. Kept in sync with
+    # ``_HOST_ALIAS`` in state_builder.py so the two surfaces tell the
+    # same story.
     GENAI_HOSTS = [
-        "n8n.localhost",
-        "api.localhost",
-        "search.localhost",
+        "litellm.localhost",
+        "minio.localhost",
         "comfyui.localhost",
-        "chat.localhost",
-        "jupyter.localhost",
         "openclaw.localhost",
         "hermes.localhost",
+        "n8n.localhost",
+        "search.localhost",
+        "jupyter.localhost",
+        "chat.localhost",
+        "api.localhost",
     ]
 
     def __init__(self):
@@ -234,6 +242,9 @@ class HostsManager:
 
         if not missing:
             self._log("  • ✅ All GenAI hosts entries already exist", "success")
+            self._log("  • Available aliases:", "info")
+            for host in self.get_genai_hosts():
+                self._log(f"    - http://{host}", "info")
             return True
 
         self._log(f"  • Adding missing entries: {', '.join(missing)}", "info")

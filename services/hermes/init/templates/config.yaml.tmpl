@@ -8,7 +8,11 @@
 # ─── LLM model ────────────────────────────────────────────────────────
 # All LLM traffic flows through the stack's LiteLLM gateway. Hermes
 # requires a >=64K context window (preflight check); the model named
-# below MUST satisfy that.
+# below MUST satisfy that. ``provider: custom`` is one of Hermes's
+# documented enum values (auto | openrouter | nous | codex | custom) —
+# NOT a reference to the named ``litellm`` entry from ``providers:``
+# below. Full design rationale + the picker-duplication story it
+# replaces lives at the ``providers:`` block further down.
 model:
   default: ${HERMES_DEFAULT_MODEL}
   provider: custom
@@ -51,10 +55,44 @@ search:
   base_url: ${SEARXNG_INTERNAL_URL}
 # END-SEARCH
 
-# ─── Custom providers ─────────────────────────────────────────────────
-# Named providers for skills/tools that want to address LiteLLM by
-# name rather than via the default model alias.
-custom_providers:
-  - name: litellm
+# ─── Providers (user-defined endpoints) ───────────────────────────────
+# Registers LiteLLM as a first-class Hermes provider so its catalog
+# shows up in the dashboard's provider picker.
+#
+# Two choices made here that look interchangeable but aren't:
+#
+#   1. Lives under ``providers:`` (a dict), not ``custom_providers:``
+#      (a list). Hermes's ``model_switch.py::list_authenticated_providers``
+#      processes them in different sections — only the dict form honors
+#      ``key_env``. (Section 4, which reads the list form, only reads
+#      literal ``api_key:`` and would receive an empty string here,
+#      producing a "litellm — 0 models" row in the picker.)
+#
+#   2. ``discover_models: false`` + an explicit ``models:`` list, even
+#      though the dict form supports live discovery. We disable it so
+#      we can filter the raw /v1/models response before it hits the
+#      picker, dropping two annoyances:
+#        - ``hermes-agent`` — LiteLLM's passthrough back to Hermes,
+#          which would create a recursive loop if selected.
+#        - Bare aliases (e.g. ``qwen3.6:latest``) whose prefixed twins
+#          (``ollama_chat/qwen3.6:latest``) are also in the catalog.
+#
+# The list is rendered by ``hermes-init`` from a live LiteLLM query at
+# boot; the canonical prefixed forms survive the filter. Other
+# consumers (Open WebUI, n8n, backend, jupyterhub) still see the
+# unfiltered catalog because we filter Hermes-side only.
+#
+# Reference: /opt/hermes/hermes_cli/model_switch.py::list_authenticated_providers
+# in the running container (Hermes Agent v0.13.0+).
+providers:
+  litellm:
+    name: LiteLLM
     base_url: http://litellm:4000/v1
     key_env: LITELLM_MASTER_KEY
+    discover_models: false
+    models: ${LITELLM_MODELS_LIST}
+
+# ─── Custom providers ─────────────────────────────────────────────────
+# Intentionally empty. LiteLLM lives in ``providers:`` above; do NOT
+# duplicate it here or the picker shows two rows.
+custom_providers: []

@@ -26,7 +26,23 @@ services:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
       KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,rate-limiting
+      # Tight DNS retry/TTL settings so Kong recovers fast when a
+      # service container is restarted (or comes up after Kong). The
+      # default ``KONG_DNS_NOT_FOUND_TTL=30s`` means Kong caches a
+      # "not-found" verdict for 30 seconds — long enough that an
+      # active websocket retry loop (e.g. an open Open WebUI tab
+      # reconnecting during ./start.sh) floods the log with DNS
+      # errors for ~half a minute every restart. Dropping to 1s keeps
+      # the noise window at 1-2 retries and recovery is immediate
+      # once the upstream container is registered in the Docker DNS.
+      KONG_DNS_NOT_FOUND_TTL: "1"
+      KONG_DNS_STALE_TTL: "4"
+      # ``pre-function`` is bundled with Kong OSS but disabled by default.
+      # We allowlist it so ``kong_config_generator.py`` can use it to
+      # auto-redirect ``http://litellm.localhost:${KONG_HTTP_PORT}/`` to
+      # ``/ui/`` (LiteLLM's admin dashboard lives at /ui/; the proxy
+      # root serves Swagger). Lua snippet lives next to the route.
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,rate-limiting,pre-function
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
       # SSE-compatible settings

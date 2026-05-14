@@ -1,7 +1,7 @@
 """
 Build AppState from the existing config — port assignments, SOURCE values,
 hosts entries, brand metadata — so the renderable layer doesn't need to
-know anything about .env, service-configs.yml, or the bootstrapper
+know anything about .env, the per-service manifests, or the bootstrapper
 internals.
 
 Module-level helpers (`resolve_port`, `alias_for`, `lookup_service_meta`)
@@ -66,15 +66,21 @@ _CLOUD_APIS = [
 
 # Display name → hosts.localhost alias. Single source of truth — also
 # consumed by start.py::build_pre_launch_summary_table via alias_for().
+# Ordered to mirror the relevant tier slices of ``_SERVICES`` above:
+# core infrastructure (LiteLLM) first, then user-facing services in
+# their _SERVICES order (ComfyUI → OpenClaw → Hermes → n8n → SearxNG
+# → JupyterHub → Open WebUI → Backend API).
 _HOST_ALIAS = {
-    "n8n": "n8n.localhost",
-    "Open WebUI": "chat.localhost",
-    "Backend API": "api.localhost",
-    "SearxNG": "search.localhost",
+    "LiteLLM": "litellm.localhost",
+    "MinIO": "minio.localhost",
     "ComfyUI": "comfyui.localhost",
-    "JupyterHub": "jupyter.localhost",
     "OpenClaw": "openclaw.localhost",
     "Hermes Agent": "hermes.localhost",
+    "n8n": "n8n.localhost",
+    "SearxNG": "search.localhost",
+    "JupyterHub": "jupyter.localhost",
+    "Open WebUI": "chat.localhost",
+    "Backend API": "api.localhost",
 }
 
 # Endpoint env vars used by localhost services. Imported privately
@@ -179,7 +185,7 @@ def build_app_state(
     *,
     box_mode: str = "normal",
 ) -> AppState:
-    """Build a fresh AppState snapshot from .env + service-configs.yml."""
+    """Build a fresh AppState snapshot from .env + per-service manifests."""
     env = config_parser.parse_env_file()
     service_sources = config_parser.parse_service_sources()
 

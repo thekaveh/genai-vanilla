@@ -20,7 +20,7 @@ Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct 
 | Supabase Studio | `SUPABASE_STUDIO_PORT` | +9 | 63009 | `http://localhost:63009` | `http://localhost:63002` | Admin UI; Kong may expose it through the gateway root depending on generated route config. |
 | Neo4j Bolt | `GRAPH_DB_PORT` | +10 | 63010 | `bolt://localhost:63010` | — | Graph database Bolt protocol. |
 | Neo4j Browser | `GRAPH_DB_DASHBOARD_PORT` | +11 | 63011 | `http://localhost:63011` | — | Neo4j browser/dashboard. |
-| LiteLLM Gateway | `LITELLM_PORT` | +12 | 63012 | `http://localhost:63012` | — | Always-on OpenAI-compatible front door for every LLM provider. Container Ollama is now an internal-only upstream (no host port). |
+| LiteLLM Gateway | `LITELLM_PORT` | +12 | 63012 | `http://localhost:63012` | `http://litellm.localhost:63002` | Always-on OpenAI-compatible front door for every LLM provider. Container Ollama is now an internal-only upstream (no host port). Same alias exposes the admin dashboard (`/ui/`), proxy API (`/v1/*`), and usage telemetry (`/spend/*`) — Kong routes the entire surface, not just the dashboard. |
 | Local Deep Researcher | `LOCAL_DEEP_RESEARCHER_PORT` | +13 | 63013 | `http://localhost:63013` | — | Research/orchestration service. |
 | SearxNG | `SEARXNG_PORT` | +14 | 63014 | `http://localhost:63014` | `http://search.localhost:63002` | Kong hostname requires hosts setup. |
 | Open WebUI | `OPEN_WEB_UI_PORT` | +15 | 63015 | `http://localhost:63015` | `http://chat.localhost:63002` | Main chat UI. |
@@ -39,7 +39,7 @@ Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct 
 | Hermes Agent API | `HERMES_API_PORT` | +28 | 63028 | `http://localhost:63028` | — | OpenAI-compatible API. Bearer token in `HERMES_API_KEY`. |
 | Hermes Agent Dashboard | `HERMES_DASHBOARD_PORT` | +29 | 63029 | `http://localhost:63029` | `http://hermes.localhost:63002` | Web admin UI (skills, sessions, model config). |
 | MinIO S3 API | `MINIO_PORT` | +30 | 63030 | `http://localhost:63030` | — | S3-compatible object storage API. |
-| MinIO Console | `MINIO_CONSOLE_PORT` | +31 | 63031 | `http://localhost:63031` | — | MinIO admin console UI. |
+| MinIO Console | `MINIO_CONSOLE_PORT` | +31 | 63031 | `http://localhost:63031` | `http://minio.localhost:63002` | MinIO admin console UI. Login `minioadmin` / `${MINIO_ROOT_PASSWORD}`. The S3 API at port 63030 is deliberately NOT aliased — S3 clients use full URLs with explicit ports anyway. |
 | JupyterHub | `JUPYTERHUB_PORT` | +48 | 63048 | `http://localhost:63048` | `http://jupyter.localhost:63002` | Data science notebook environment. |
 
 ## Hosts-file routes

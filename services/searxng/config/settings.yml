@@ -805,15 +805,24 @@ engines:
   #   # show_metadata: false
   #   disabled: true
 
-  - name: wikidata
-    engine: wikidata
-    shortcut: wd
-    timeout: 3.0
-    weight: 2
-    # add "list" to the array to get results in the results list
-    display_type: ["infobox"]
-    tests: *tests_infobox
-    categories: [general]
+  # Wikidata engine removed.
+  #
+  # Wikidata's SPARQL endpoint applies an aggressive anti-abuse rate
+  # limit and returns 403 with a 24-hour suspension on initial engine
+  # probe from new IPs (the engine eagerly fetches a large list of
+  # human-/place-/etc. type IRIs at startup so it can build its
+  # infobox classifier). The 403 happens once per Searxng boot, fills
+  # the log with a multi-KB query string in the error message, and
+  # the engine sits suspended for 86400s anyway.
+  #
+  # ``disabled: true`` doesn't help here — Searxng calls ``init()``
+  # on every engine in settings.yml before checking ``disabled``, so
+  # the SPARQL probe (and its 403) still fires. The only way to
+  # silence it is to remove the engine block entirely. DuckDuckGo's
+  # infobox surface (below) covers the same UX role.
+  #
+  # To re-enable Wikidata, paste the block back from the upstream
+  # default at ``/usr/local/searxng/searx/settings.yml``.
 
   - name: duckduckgo
     engine: duckduckgo
