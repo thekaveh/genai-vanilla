@@ -128,7 +128,7 @@
           "auto_managed": {
             "type": "boolean",
             "default": false,
-            "description": "If true, the variable is computed at runtime (by source effects or a hook) and is NOT emitted into .env.example with a default. Still documented."
+            "description": "If true, the variable is computed at runtime (by bootstrapper/services/service_config.py based on the active source's runtime_sc entry) and is NOT emitted into .env.example with a default. Still documented."
           },
           "secret": {
             "type": "boolean",
@@ -173,7 +173,7 @@
           }
         }
       },
-      "description": "Documents the cross-service env-var contract. Validator asserts each exported name appears in this manifest's env declarations (or is produced by source effects)."
+      "description": "Documents the cross-service env-var contract. Validator asserts each exported name appears in this manifest's env declarations (or is produced by some runtime_sc.<key>.<source>.environment block)."
     },
     "runtime_sc": {
       "type": "object",
