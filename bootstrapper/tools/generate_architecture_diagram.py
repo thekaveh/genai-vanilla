@@ -7,30 +7,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from services.topology import build_topology, CATEGORY_ORDER
-
-
-CATEGORY_LABELS = {
-    "infra":  "Infrastructure",
-    "data":   "Data",
-    "llm":    "LLM Core",
-    "media":  "Media",
-    "agents": "Agents & Workflows",
-    "apps":   "Apps & UIs",
-}
-
-CATEGORY_COLORS = {
-    "infra":  "#9a8cc6",
-    "data":   "#6a9aaa",
-    "llm":    "#7dcfff",
-    "media":  "#98c379",
-    "agents": "#d4a574",
-    "apps":   "#89aad4",
-}
+from services.topology import (
+    CATEGORY_COLORS,
+    CATEGORY_LABELS,
+    CATEGORY_ORDER,
+    get_topology,
+)
 
 
 def generate(services_root: Path, output: Path) -> None:
-    topology = build_topology(services_root)
+    topology = get_topology(services_root)
     by_category: dict[str, list[str]] = {c: [] for c in CATEGORY_ORDER}
     for name in topology.canonical_order:
         cat = topology.category_of[name]

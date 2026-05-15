@@ -915,17 +915,11 @@ class GenAIStackStarter:
         self.banner.console.print()
         from rich.text import Text as _Text
         from ui.textual.palette import style_for_category as _style_for_category
+        from services.topology import CATEGORY_LABELS, CATEGORY_ORDER
         _legend = _Text()
-        for _slug, _label in [
-            ("infra",  "Infrastructure"),
-            ("data",   "Data"),
-            ("llm",    "LLM Core"),
-            ("media",  "Media"),
-            ("agents", "Agents & Workflows"),
-            ("apps",   "Apps & UIs"),
-        ]:
+        for _slug in CATEGORY_ORDER:
             _legend.append("▰▰", style=_style_for_category(_slug))
-            _legend.append(f" {_label}   ")
+            _legend.append(f" {CATEGORY_LABELS[_slug]}   ")
         self.banner.console.print(_legend)
         self.banner.console.print()
 

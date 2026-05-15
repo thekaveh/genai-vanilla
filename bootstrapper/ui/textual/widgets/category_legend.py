@@ -8,17 +8,17 @@ from __future__ import annotations
 from rich.text import Text
 from textual.widget import Widget
 
+from services.topology import CATEGORY_LABELS, CATEGORY_ORDER
+
 from .. import palette as P
 
 
-# Display order matches services/topology.py::CATEGORY_ORDER.
-_CATEGORIES: tuple[tuple[str, str], ...] = (
-    ("infra",  "Infrastructure"),
-    ("data",   "Data"),
-    ("llm",    "LLM Core"),
-    ("media",  "Media"),
-    ("agents", "Agents & Workflows"),
-    ("apps",   "Apps & UIs"),
+# (slug, label) pairs in canonical category order — driven entirely by
+# the topology module so the legend stays in lockstep with the rest of
+# the stack (architecture diagram, README topology block, pre-launch
+# Rich summary).
+_CATEGORIES: tuple[tuple[str, str], ...] = tuple(
+    (slug, CATEGORY_LABELS[slug]) for slug in CATEGORY_ORDER
 )
 
 

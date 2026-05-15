@@ -269,21 +269,28 @@ def style_for_source_choice(source: str) -> str:
 
 
 # ─── Category color tokens — drives the leading bar on every service row ───
-CAT_INFRA  = "#9a8cc6"  # purple
-CAT_DATA   = "#6a9aaa"  # slate-blue
-CAT_LLM    = "#7dcfff"  # sky blue
-CAT_MEDIA  = "#98c379"  # sage green
-CAT_AGENTS = "#d4a574"  # warm tan
-CAT_APPS   = "#89aad4"  # periwinkle
+#
+# Canonical mapping lives in ``services.topology.CATEGORY_COLORS`` so the
+# architecture-diagram generator and any future SVG/PDF emitter can reuse
+# the exact same hues without depending on the TUI package. The ``CAT_*``
+# named tokens below are aliases of that dict, kept so widget code can
+# write ``style=P.CAT_INFRA`` without rebuilding the dict each time.
+#
+# Note on the ``TAG_*`` / ``CAT_*`` distinction:
+#   * ``CAT_*`` — canonical category colors driven by topology. Source of
+#     truth for new code; six categories, drives the leading service-row bar.
+#   * ``TAG_*`` — legacy aliases for option-row badges (see widgets/option_row.py).
+#     Three values happen to coincide with ``CAT_*`` (TAG_INFRA/TAG_DATA/TAG_LLM)
+#     but the two sets serve different taxonomies — TAG_* labels badge content
+#     (CPU/GPU/MLX/embedding/...), CAT_* labels topological category.
+from services.topology import CATEGORY_COLORS as _CATEGORY_COLOR
 
-_CATEGORY_COLOR: Dict[str, str] = {
-    "infra":  CAT_INFRA,
-    "data":   CAT_DATA,
-    "llm":    CAT_LLM,
-    "media":  CAT_MEDIA,
-    "agents": CAT_AGENTS,
-    "apps":   CAT_APPS,
-}
+CAT_INFRA  = _CATEGORY_COLOR["infra"]
+CAT_DATA   = _CATEGORY_COLOR["data"]
+CAT_LLM    = _CATEGORY_COLOR["llm"]
+CAT_MEDIA  = _CATEGORY_COLOR["media"]
+CAT_AGENTS = _CATEGORY_COLOR["agents"]
+CAT_APPS   = _CATEGORY_COLOR["apps"]
 
 
 def style_for_category(name: str) -> str:
