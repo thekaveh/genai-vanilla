@@ -91,7 +91,7 @@ def test_ordering_respects_provided_order(
     services_root, write_manifest, minimal_manifest_dict
 ):
     write_manifest("redis", minimal_manifest_dict("redis"))
-    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "app"})
+    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "apps"})
     write_manifest("ollama", minimal_manifest_dict("ollama") | {"category": "llm"})
     manifests = load_manifests(services_root)
     # Without an order arg, alphabetical by folder name.
@@ -114,7 +114,7 @@ def test_order_with_missing_service_falls_back_to_alphabetical(
 ):
     """Services not mentioned in `order` are appended at the end, alphabetically."""
     write_manifest("redis", minimal_manifest_dict("redis"))
-    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "app"})
+    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "apps"})
     manifests = load_manifests(services_root)
     out = assemble_env_example(manifests, order=["redis"])
     p_redis = out.index("services/redis/service.yml")
@@ -140,7 +140,7 @@ def test_secret_var_default_is_empty_in_output(
 def test_output_is_deterministic(services_root, write_manifest, minimal_manifest_dict):
     """Re-rendering the same manifests must produce byte-identical output."""
     write_manifest("redis", minimal_manifest_dict("redis"))
-    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "app"})
+    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "apps"})
     manifests = load_manifests(services_root)
     a = assemble_env_example(manifests)
     b = assemble_env_example(manifests)
