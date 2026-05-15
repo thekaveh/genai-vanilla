@@ -30,7 +30,7 @@ env:
       does not render a one-option dropdown. The legacy source validator
       still expects REDIS_SOURCE=container until Phase D.
   - name: REDIS_PORT
-    default: 63001
+    # default removed — computed by services/topology.py slot allocator
     description: "Host port. Container port is always 6379."
   - name: REDIS_PASSWORD
     default: redis_password

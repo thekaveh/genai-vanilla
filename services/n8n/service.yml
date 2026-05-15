@@ -30,7 +30,7 @@ env:
   - name: N8N_SOURCE
     default: container
   - name: N8N_PORT
-    default: 63017
+    # default removed — computed by services/topology.py slot allocator
   - name: N8N_ENCRYPTION_KEY
     default: "your-random-encryption-key"
     secret: true

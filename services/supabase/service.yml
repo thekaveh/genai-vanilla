@@ -51,7 +51,7 @@ env:
     default: container
     description: "Single-option (container only). Kept for forward-compat with legacy source-validator."
   - name: SUPABASE_DB_PORT
-    default: 63000
+    # default removed — computed by services/topology.py slot allocator
   - name: SUPABASE_DB_USER
     default: supabase_admin
   - name: SUPABASE_DB_PASSWORD
@@ -73,12 +73,12 @@ env:
   - name: SUPABASE_META_SOURCE
     default: container
   - name: SUPABASE_META_PORT
-    default: 63004
+    # default removed — computed by services/topology.py slot allocator
   # Storage
   - name: SUPABASE_STORAGE_SOURCE
     default: container
   - name: SUPABASE_STORAGE_PORT
-    default: 63005
+    # default removed — computed by services/topology.py slot allocator
   - name: STORAGE_REGION
     default: local
   - name: STORAGE_FILE_SIZE_LIMIT
@@ -93,7 +93,7 @@ env:
   - name: SUPABASE_AUTH_SOURCE
     default: container
   - name: SUPABASE_AUTH_PORT
-    default: 63006
+    # default removed — computed by services/topology.py slot allocator
   - name: SUPABASE_JWT_SECRET
     default: ""
     secret: true
@@ -110,17 +110,17 @@ env:
   - name: SUPABASE_API_SOURCE
     default: container
   - name: SUPABASE_API_PORT
-    default: 63007
+    # default removed — computed by services/topology.py slot allocator
   # Realtime
   - name: SUPABASE_REALTIME_SOURCE
     default: container
   - name: SUPABASE_REALTIME_PORT
-    default: 63008
+    # default removed — computed by services/topology.py slot allocator
   # Studio
   - name: SUPABASE_STUDIO_SOURCE
     default: container
   - name: SUPABASE_STUDIO_PORT
-    default: 63009
+    # default removed — computed by services/topology.py slot allocator
 
 depends_on:
   required:

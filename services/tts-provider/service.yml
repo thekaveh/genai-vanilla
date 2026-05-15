@@ -34,7 +34,7 @@ env:
   - name: TTS_PROVIDER_SOURCE
     default: speaches-container-cpu
   - name: TTS_PROVIDER_PORT
-    default: 63023
+    # default removed — computed by services/topology.py slot allocator
     description: "Wizard display slot. Real engine port lives on its own container manifest."
   - name: TTS_PROVIDER_SCALE
     auto_managed: true

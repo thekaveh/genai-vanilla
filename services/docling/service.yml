@@ -28,7 +28,7 @@ env:
   - name: DOC_PROCESSOR_SOURCE
     default: disabled
   - name: DOC_PROCESSOR_PORT
-    default: 63021
+    # default removed — computed by services/topology.py slot allocator
   - name: DOCLING_GPU_DEVICE
     default: cuda
   - name: DOCLING_OUTPUT_FORMAT

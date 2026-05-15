@@ -17,9 +17,9 @@ env:
     default: container
     description: "Single-option (container only)."
   - name: KONG_HTTP_PORT
-    default: 63002
+    # default removed — computed by services/topology.py slot allocator
   - name: KONG_HTTPS_PORT
-    default: 63003
+    # default removed — computed by services/topology.py slot allocator
   - name: DASHBOARD_USERNAME
     default: kong_admin
   - name: DASHBOARD_PASSWORD

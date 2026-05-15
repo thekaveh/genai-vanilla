@@ -42,10 +42,10 @@ env:
   - name: HERMES_SOURCE
     default: container
   - name: HERMES_API_PORT
-    default: 63028
+    # default removed — computed by services/topology.py slot allocator
     description: "OpenAI-compatible API. Slot +28."
   - name: HERMES_DASHBOARD_PORT
-    default: 63029
+    # default removed — computed by services/topology.py slot allocator
     description: "Web dashboard. Slot +29."
   - name: HERMES_MEMORY_LIMIT
     default: 4g

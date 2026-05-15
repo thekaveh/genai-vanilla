@@ -25,7 +25,7 @@ env:
   - name: LOCAL_DEEP_RESEARCHER_SOURCE
     default: container
   - name: LOCAL_DEEP_RESEARCHER_PORT
-    default: 63013
+    # default removed — computed by services/topology.py slot allocator
   - name: LOCAL_DEEP_RESEARCHER_LOOPS
     default: 3
   - name: LOCAL_DEEP_RESEARCHER_SEARCH_API

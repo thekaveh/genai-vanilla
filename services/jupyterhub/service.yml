@@ -25,7 +25,7 @@ env:
   - name: JUPYTERHUB_SOURCE
     default: container
   - name: JUPYTERHUB_PORT
-    default: 63048
+    # default removed — computed by services/topology.py slot allocator
   - name: JUPYTERHUB_TOKEN
     default: ""
     secret: true

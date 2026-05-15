@@ -24,7 +24,7 @@ images:
 
 env:
   - name: CHATTERBOX_PORT
-    default: 63027
+    # default removed — computed by services/topology.py slot allocator
     description: "Slot +27."
   - name: CHATTERBOX_LOCALHOST_URL
     default: "http://host.docker.internal:63027"

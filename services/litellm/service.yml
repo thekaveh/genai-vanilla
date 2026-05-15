@@ -23,7 +23,7 @@ env:
     default: container
     description: "Locked. LiteLLM is mandatory; only one source value supported."
   - name: LITELLM_PORT
-    default: 63012
+    # default removed — computed by services/topology.py slot allocator
   - name: LITELLM_INIT_SCALE
     default: 1
     description: "Init container always runs (single value)."

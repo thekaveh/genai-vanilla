@@ -53,7 +53,7 @@ env:
   - name: STT_PROVIDER_SOURCE
     default: speaches-container-cpu
   - name: STT_PROVIDER_PORT
-    default: 63022
+    # default removed — computed by services/topology.py slot allocator
     description: "Wizard display slot. Real per-engine ports live on their own manifests (PARAKEET_*, SPEACHES_*, etc.)."
   - name: STT_PROVIDER_SCALE
     auto_managed: true

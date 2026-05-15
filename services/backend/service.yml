@@ -17,7 +17,7 @@ env:
     default: container
     description: "Adaptive core service; always container. Single-option."
   - name: BACKEND_PORT
-    default: 63016
+    # default removed — computed by services/topology.py slot allocator
   - name: BACKEND_SCALE
     auto_managed: true
     description: "Always 1 (BACKEND_SOURCE is single-valued)."

@@ -32,10 +32,10 @@ env:
     default: graph-db
     description: "Internal hostname (only relevant for container source)."
   - name: GRAPH_DB_PORT
-    default: 63010
+    # default removed — computed by services/topology.py slot allocator
     description: "Host port for Neo4j bolt (container port 7687)."
   - name: GRAPH_DB_DASHBOARD_PORT
-    default: 63011
+    # default removed — computed by services/topology.py slot allocator
     description: "Host port for Neo4j browser dashboard (container port 7474)."
   - name: GRAPH_DB_USER
     default: neo4j

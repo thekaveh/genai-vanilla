@@ -35,9 +35,9 @@ env:
   - name: WEAVIATE_SOURCE
     default: container
   - name: WEAVIATE_PORT
-    default: 63019
+    # default removed — computed by services/topology.py slot allocator
   - name: WEAVIATE_GRPC_PORT
-    default: 63020
+    # default removed — computed by services/topology.py slot allocator
   - name: WEAVIATE_INIT_SOURCE
     default: container
     description: "Auto-managed by weaviate. Container/disabled."

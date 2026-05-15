@@ -31,9 +31,9 @@ env:
   - name: OPENCLAW_SOURCE
     default: disabled
   - name: OPENCLAW_GATEWAY_PORT
-    default: 63024
+    # default removed — computed by services/topology.py slot allocator
   - name: OPENCLAW_BRIDGE_PORT
-    default: 63025
+    # default removed — computed by services/topology.py slot allocator
   - name: OPENCLAW_GATEWAY_TOKEN
     default: ""
     secret: true

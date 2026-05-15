@@ -39,7 +39,7 @@ env:
   - name: COMFYUI_INIT_SOURCE
     default: container
   - name: COMFYUI_PORT
-    default: 63018
+    # default removed — computed by services/topology.py slot allocator
   - name: COMFYUI_LOCALHOST_URL
     default: "http://host.docker.internal:8000"
   - name: COMFYUI_EXTERNAL_URL

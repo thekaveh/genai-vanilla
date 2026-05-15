@@ -34,7 +34,7 @@ env:
   - name: SPEACHES_STT_MODEL
     default: "Systran/faster-distil-whisper-large-v3"
   - name: SPEACHES_PORT
-    default: 63026
+    # default removed — computed by services/topology.py slot allocator
     description: "Slot +26."
   - name: SPEACHES_SCALE
     auto_managed: true

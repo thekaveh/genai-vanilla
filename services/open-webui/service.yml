@@ -29,7 +29,7 @@ env:
   - name: OPEN_WEB_UI_SOURCE
     default: container
   - name: OPEN_WEB_UI_PORT
-    default: 63015
+    # default removed — computed by services/topology.py slot allocator
   - name: OPEN_WEB_UI_SECRET_KEY
     default: secret
     secret: true
