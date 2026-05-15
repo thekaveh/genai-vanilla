@@ -68,12 +68,16 @@ Mappings applied across existing manifests:
 | `n8n`, `openclaw` | `app` | `agents` |
 | `backend`, `open-webui`, `jupyterhub`, `local-deep-researcher` | `app` | `apps` |
 
-### `depends_on:` — new field
+### `depends_on:` — reuses the existing schema field
+
+Reuses the existing `depends_on.required` field from the schema (no new field is introduced):
 
 ```yaml
 depends_on:
-  - litellm     # manifest name (kebab-case)
-  - supabase
+  required:
+    - litellm     # manifest name (kebab-case)
+    - supabase
+  optional: []
 ```
 
 Semantics: a logical dep edge. Includes both compose `depends_on` and "uses-at-runtime" deps not visible to Docker (e.g., Open WebUI → Hermes via LiteLLM model registration). Used by topology computation. Lint requires every name to resolve to a real manifest; lint requires the graph to be acyclic.
