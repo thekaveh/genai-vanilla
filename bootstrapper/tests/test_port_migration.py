@@ -72,3 +72,131 @@ def test_stamp_version_appends_when_missing(tmp_path):
     env_path = _write_env(tmp_path, "LITELLM_PORT=63012\n")
     stamp_version(env_path, 1)
     assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=1" in env_path.read_text()
+
+
+# ─── I14 regression — inline comments survive the rewrite ───────────
+
+def test_apply_preserves_inline_comment_on_rewrite(tmp_path):
+    """User customization like ``LITELLM_PORT=63012  # my label`` must
+    keep its trailing comment after the migration. Previously the
+    comment was lost when the value was rewritten."""
+    from services.migrations.migration_v1 import apply
+    env_path = _write_env(tmp_path, "LITELLM_PORT=63012  # my custom label\n")
+    result = apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    rewritten = env_path.read_text()
+    assert "LITELLM_PORT=63030" in rewritten
+    assert "# my custom label" in rewritten
+    assert "LITELLM_PORT" in result.rewritten
+
+
+def test_apply_preserves_inline_comment_when_value_preserved(tmp_path):
+    """If the value isn't rewritten (user customized it), the whole
+    line including its comment must come through unchanged."""
+    from services.migrations.migration_v1 import apply
+    env_path = _write_env(tmp_path, "LITELLM_PORT=54321  # hand-picked\n")
+    apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    assert env_path.read_text() == "LITELLM_PORT=54321  # hand-picked\n"
+
+
+# ─── M12 regression — tolerant sentinel parser ──────────────────────
+
+def test_needs_migration_recognizes_spaces_around_equals(tmp_path):
+    """``VAR = 1`` (with spaces) must count as the sentinel — otherwise
+    a hand-edited .env re-runs the migration on every invocation."""
+    from services.migrations.migration_v1 import needs_migration
+    env_path = _write_env(tmp_path, "BOOTSTRAPPER_PORT_LAYOUT_VERSION = 1\n")
+    assert needs_migration(env_path) is False
+
+
+def test_needs_migration_recognizes_quoted_value(tmp_path):
+    """Quoted sentinel ``VAR="1"`` also counts."""
+    from services.migrations.migration_v1 import needs_migration
+    env_path = _write_env(tmp_path, 'BOOTSTRAPPER_PORT_LAYOUT_VERSION="1"\n')
+    assert needs_migration(env_path) is False
+
+
+def test_needs_migration_recognizes_crlf(tmp_path):
+    """CRLF line endings (Windows-edited .env) shouldn't confuse the parser."""
+    from services.migrations.migration_v1 import needs_migration
+    env_path = tmp_path / ".env"
+    env_path.write_bytes(b"BOOTSTRAPPER_PORT_LAYOUT_VERSION=1\r\nLITELLM_PORT=63030\r\n")
+    assert needs_migration(env_path) is False
+
+
+def test_stamp_version_updates_tolerant_existing(tmp_path):
+    """stamp_version() must find a hand-edited ``VAR = 0`` and update
+    it in place rather than appending a duplicate."""
+    from services.migrations.migration_v1 import stamp_version
+    env_path = _write_env(tmp_path, "BOOTSTRAPPER_PORT_LAYOUT_VERSION = 0\n")
+    stamp_version(env_path, 1)
+    text = env_path.read_text()
+    assert text.count("BOOTSTRAPPER_PORT_LAYOUT_VERSION") == 1
+    assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=1" in text
+
+
+# ─── I8 regression — --no-port-migrate must NOT stamp the sentinel ──
+
+def test_run_port_migration_skip_does_not_stamp(tmp_path, monkeypatch):
+    """C2 + I8: ``run_port_migration(no_port_migrate=True)`` skips the
+    rewrite AND does not stamp the sentinel, so the next run still
+    sees ``needs_migration() == True`` and re-prompts."""
+    from services.migrations.migration_v1 import needs_migration
+
+    # Drop a .env at the v0 defaults so the migration is "pending".
+    real_root = Path(__file__).resolve().parent.parent.parent
+    env_path = tmp_path / ".env"
+    env_path.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
+
+    monkeypatch.setenv("GENAI_ENV_FILE", str(env_path))
+    # Build a starter; tear down anything that hits the network.
+    from start import GenAIStackStarter
+    starter = GenAIStackStarter()
+    # Override env path so we don't touch the real repo .env.
+    starter.config_parser.env_file_path = env_path
+
+    assert needs_migration(env_path) is True
+    starter.run_port_migration(no_port_migrate=True)
+    # Sentinel must NOT have been stamped — next run re-prompts.
+    assert needs_migration(env_path) is True
+    # And the original port value is untouched.
+    assert "LITELLM_PORT=63012" in env_path.read_text()
+
+
+def test_run_port_migration_normal_run_stamps_and_rewrites(tmp_path, monkeypatch):
+    """Companion to the I8 test: when not skipped, run_port_migration
+    rewrites the ports AND stamps the sentinel so the next call is a
+    no-op."""
+    from services.migrations.migration_v1 import needs_migration
+
+    env_path = tmp_path / ".env"
+    env_path.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
+    monkeypatch.setenv("GENAI_ENV_FILE", str(env_path))
+
+    from start import GenAIStackStarter
+    starter = GenAIStackStarter()
+    starter.config_parser.env_file_path = env_path
+
+    assert needs_migration(env_path) is True
+    starter.run_port_migration(no_port_migrate=False)
+    assert needs_migration(env_path) is False
+
+
+# ─── I15 regression — GENAI_ENV_FILE override honored ───────────────
+
+def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
+    """The helper must operate on ``self.config_parser.env_file_path``
+    (which honors GENAI_ENV_FILE), not a hardcoded ``../.env``."""
+    custom_env = tmp_path / "custom.env"
+    custom_env.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
+    monkeypatch.setenv("GENAI_ENV_FILE", str(custom_env))
+
+    from start import GenAIStackStarter
+    starter = GenAIStackStarter()
+    # Re-resolve since env var was set after construction in some flows.
+    starter.config_parser.env_file_path = custom_env
+
+    starter.run_port_migration(no_port_migrate=False)
+    text = custom_env.read_text()
+    assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=1" in text
+    # Real repo .env was not touched (verified via path inequality).
+    assert starter.config_parser.env_file_path == custom_env

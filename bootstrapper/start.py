@@ -629,9 +629,60 @@ class GenAIStackStarter:
         # Update ports in .env file
         if not self.port_manager.update_env_ports(base_port):
             return False
-            
+
         return True
-        
+
+    def run_port_migration(self, no_port_migrate: bool) -> None:
+        """v0 → v1 port-layout .env migration.
+
+        Idempotent. Reads ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the
+        active env file (honors ``GENAI_ENV_FILE``); if absent or < 1,
+        rewrites every port var whose current value matches the v0
+        default to the topology-derived v1 default. User-customized
+        values are left alone.
+
+        When ``no_port_migrate`` is True we skip the rewrite AND skip
+        the sentinel stamp so the next run re-prompts — matches the
+        user intent "skip this run, ask next time."
+
+        Must be called AFTER setup_env_file + backfill so the file
+        exists and is fully populated, and BEFORE any caller that
+        relies on the v1 port values.
+        """
+        env_path = self.config_parser.env_file_path
+        if not _needs_v1(env_path):
+            return
+
+        if no_port_migrate:
+            self.banner.console.print(
+                "[dim]Skipping port-layout v1 migration (--no-port-migrate); "
+                "will re-prompt next run.[/dim]"
+            )
+            return
+
+        from services.topology import build_topology as _build_topology
+        services_root = self.root_dir / "services"
+        env_vars = self.config_parser.parse_env_file()
+        base_port = int(env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
+        topology = _build_topology(services_root, base_port=base_port)
+        result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
+        if result.backup_path:
+            self.banner.console.print(
+                f"[green]• Backed up .env to {result.backup_path}[/green]"
+            )
+        self.banner.console.print(
+            f"[green]• Port layout updated (v0 → v1)[/green]: "
+            f"rewrote {len(result.rewritten)} ports; "
+            f"preserved {len(result.preserved)} customizations."
+        )
+        if result.rewritten:
+            self.banner.console.print("[dim]  Changes:[/dim]")
+            for var, (old, new) in sorted(result.rewritten.items()):
+                self.banner.console.print(
+                    f"[dim]    {var}: {old} → {new}[/dim]"
+                )
+        _stamp_v1(env_path, 1)
+
     def generate_service_configuration(self) -> bool:
         """Generate and update service configuration."""
         return self.service_config.generate_and_update_env()
@@ -1431,6 +1482,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 rc = run_setup_flow(
                     starter.config_parser, starter.hosts_manager,
                     starter=starter,
+                    no_port_migrate=no_port_migrate,
                 )
                 sys.exit(rc)
 
@@ -1482,6 +1534,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     starter=starter,
                     source_args=source_args,
                     stack_options=stack_options,
+                    no_port_migrate=no_port_migrate,
                 )
                 sys.exit(rc)
 
@@ -1517,36 +1570,10 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # v0 → v1 port-layout migration. Runs after .env is fully populated
         # (setup_env_file + backfill + overrides) but before port_manager
         # rewrites ports, so we act on the user's pre-existing values rather
-        # than ones we've just computed.
-        _env_path = Path(__file__).resolve().parent.parent / ".env"
-        if _needs_v1(_env_path):
-            if no_port_migrate:
-                starter.banner.console.print(
-                    "[dim]Skipping port-layout v1 migration (--no-port-migrate).[/dim]"
-                )
-            else:
-                from services.topology import build_topology as _build_topology
-                _services_root = Path(__file__).resolve().parent.parent / "services"
-                _env_vars = starter.config_parser.parse_env_file()
-                _base_port = int(_env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
-                _topology = _build_topology(_services_root, base_port=_base_port)
-                _result = _apply_v1(_env_path, _topology.port_defaults, base_port=_base_port)
-                if _result.backup_path:
-                    starter.banner.console.print(
-                        f"[green]• Backed up .env to {_result.backup_path}[/green]"
-                    )
-                starter.banner.console.print(
-                    f"[green]• Port layout updated (v0 → v1)[/green]: "
-                    f"rewrote {len(_result.rewritten)} ports; "
-                    f"preserved {len(_result.preserved)} customizations."
-                )
-                if _result.rewritten:
-                    starter.banner.console.print("[dim]  Changes:[/dim]")
-                    for _var, (_old, _new) in sorted(_result.rewritten.items()):
-                        starter.banner.console.print(
-                            f"[dim]    {_var}: {_old} → {_new}[/dim]"
-                        )
-            _stamp_v1(_env_path, 1)
+        # than ones we've just computed. The TUI flows call this helper
+        # themselves immediately after backfill (see run_setup_flow /
+        # run_launch_flow); this branch covers the --no-tui linear path.
+        starter.run_port_migration(no_port_migrate)
 
         # Step 1.7: Cold start cleanup if requested (before port check).
         # TUI-capable runs exit before reaching this point; the Textual

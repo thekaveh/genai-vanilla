@@ -18,10 +18,23 @@ changes again — author a sibling migration_v2.py with its own snapshot.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
+
+
+# Tolerant matcher for ``BOOTSTRAPPER_PORT_LAYOUT_VERSION=1`` lines.
+# Accepts surrounding whitespace, quoted or bare values, optional trailing
+# comments, and CR-terminated lines (CRLF .env files on Windows-edited
+# checkouts). Group 2 captures the numeric value.
+_SENTINEL_RE = re.compile(
+    r"""^\s*BOOTSTRAPPER_PORT_LAYOUT_VERSION\s*=\s*
+        (["']?)(\d+)\1
+        \s*(?:\#.*)?\s*$""",
+    re.VERBOSE,
+)
 
 
 # Frozen v0 layout: port_var → offset-from-BASE_PORT at the time the
@@ -103,12 +116,30 @@ def apply(
             continue
         key, _, raw_value = stripped.partition("=")
         key = key.strip()
-        value = raw_value.split("#", 1)[0].strip()
+        # Split value vs. trailing inline comment, preserving the
+        # whitespace that separated them so the rewritten line keeps
+        # the user's formatting (e.g. ``LITELLM_PORT=63012  # label``).
+        value_part, sep, comment_part = raw_value.partition("#")
+        value = value_part.strip()
+        if sep:
+            # Recover the whitespace between the value and the ``#``
+            # by stripping the *right* side of value_part only.
+            trailing_ws = value_part[len(value_part.rstrip()):]
+            comment_tail = f"{trailing_ws}#{comment_part}"
+        else:
+            comment_tail = ""
+        # Preserve the line's existing newline style (LF / CRLF / none).
+        if line.endswith("\r\n"):
+            eol = "\r\n"
+        elif line.endswith("\n"):
+            eol = "\n"
+        else:
+            eol = ""
         if key in V0_OFFSETS and key in new_defaults:
             expected_old = str(base_port + V0_OFFSETS[key])
             new_value = str(new_defaults[key])
             if value == expected_old and new_value != expected_old:
-                out.append(f"{key}={new_value}\n")
+                out.append(f"{key}={new_value}{comment_tail}{eol}")
                 rewritten[key] = (expected_old, new_value)
                 continue
             if value != expected_old:
@@ -120,26 +151,38 @@ def apply(
 
 
 def needs_migration(env_path: Path) -> bool:
-    """True iff .env is missing the v1 sentinel or has it at < 1."""
+    """True iff .env is missing the v1 sentinel or has it at < 1.
+
+    Tolerant of whitespace around ``=``, quoted values, CRLF line
+    endings, and trailing ``#`` comments — any line that *looks like*
+    a sentinel assignment counts, so a hand-edited ``VAR = 1`` doesn't
+    silently re-trigger the migration.
+    """
     if not env_path.is_file():
         return False  # fresh install — defaults already correct
     for line in env_path.read_text().splitlines():
-        if line.strip().startswith("BOOTSTRAPPER_PORT_LAYOUT_VERSION="):
+        m = _SENTINEL_RE.match(line)
+        if m:
             try:
-                return int(line.split("=", 1)[1].split("#", 1)[0].strip()) < 1
-            except (ValueError, IndexError):
+                return int(m.group(2)) < 1
+            except ValueError:
                 return True
     return True
 
 
 def stamp_version(env_path: Path, version: int = 1) -> None:
-    """Append or update BOOTSTRAPPER_PORT_LAYOUT_VERSION in .env."""
+    """Append or update BOOTSTRAPPER_PORT_LAYOUT_VERSION in .env.
+
+    Matches existing sentinel lines tolerantly (see ``needs_migration``)
+    so an in-place rewrite finds the user's hand-edited variant rather
+    than appending a duplicate.
+    """
     if not env_path.is_file():
         return
     lines = env_path.read_text().splitlines(keepends=True)
     found = False
     for i, line in enumerate(lines):
-        if line.strip().startswith("BOOTSTRAPPER_PORT_LAYOUT_VERSION="):
+        if _SENTINEL_RE.match(line):
             lines[i] = f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n"
             found = True
             break
