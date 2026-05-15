@@ -72,6 +72,35 @@ def _normalize_paths(data):
 
     return _walk(data)
 
+
+def _strip_volatile_defaults(data):
+    """Strip Compose-version-dependent default fields so renders compare equal
+    across Compose versions.
+
+    Newer `docker compose config` emits a few spec defaults that older
+    versions omit (e.g. `bind.create_host_path: true` on volume entries).
+    Different contributor machines and CI runners can have different
+    Compose versions; we normalize them out so the byte-equivalence assertion
+    tracks meaningful structural drift, not Compose-version drift.
+
+    Add new entries here when a future Compose version starts emitting
+    another spec default that wasn't previously serialized.
+    """
+    def _walk(node):
+        if isinstance(node, list):
+            return [_walk(x) for x in node]
+        if isinstance(node, dict):
+            cleaned = {k: _walk(v) for k, v in node.items()}
+            # Volume entries: `bind: {create_host_path: true}` defaults to {} on older Compose.
+            bind = cleaned.get("bind")
+            if isinstance(bind, dict) and bind.get("create_host_path") is True:
+                bind_copy = {k: v for k, v in bind.items() if k != "create_host_path"}
+                cleaned["bind"] = bind_copy
+            return cleaned
+        return node
+
+    return _walk(data)
+
 # SCALE / SOURCE values the captured baseline reflects.
 #
 # `.env.example` ships scales=0 for adaptive services (they're meant to be
@@ -160,13 +189,13 @@ def _render(compose_file: Path) -> dict:
     assert result.returncode == 0, (
         f"`docker compose config` failed for {compose_file}:\n{result.stderr}"
     )
-    return _normalize_paths(yaml.safe_load(result.stdout))
+    return _strip_volatile_defaults(_normalize_paths(yaml.safe_load(result.stdout)))
 
 
 def _load_baseline() -> dict:
     if not BASELINE.is_file():
         pytest.skip(f"baseline fixture missing at {BASELINE}")
-    return yaml.safe_load(BASELINE.read_text())
+    return _strip_volatile_defaults(yaml.safe_load(BASELINE.read_text()))
 
 
 def test_full_stack_matches_baseline():
