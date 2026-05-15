@@ -689,14 +689,45 @@ gh api /repos/thekaveh/genai-vanilla/dependabot/alerts --paginate \
 
 ### A.4 Commit graph after execution
 
+A.1 is API-only (no file changes, so no git commit); the remaining five phases produced one commit each, plus the report itself as the first commit:
+
 ```
-* (HEAD) migrates docling 2.18 → 2.93 to unblock pillow/lxml/starlette transitive bumps
-* bumps python-multipart floor to 0.0.27 in docling-localhost; uv lock --upgrade clears 5 transitive
-* bumps python-multipart to 0.0.27 in docling-gpu to clear CVE-2026-42561
-* bumps urllib3 floor to 2.7.0 in bootstrapper to clear CVE-2026-44431/44432
-* adds dependabot config (groups, schedule, retired-path ignore) and SECURITY.md
-* dismisses 62 stale dependabot alerts on retired tts-provider/localhost manifest
+* 03913dd migrates docling 2.18 → 2.93 to unblock pillow/lxml/starlette/transformers transitive bumps
+* 50621cb bumps python-multipart floor to 0.0.27 in docling-localhost; uv lock --upgrade pulls urllib3 2.7.0
+* 48c5835 bumps python-multipart to 0.0.27 in docling-gpu to clear CVE-2026-42561
+* f7885e4 bumps urllib3 floor to 2.7.0 in bootstrapper to clear CVE-2026-44431/44432
+* a7a4011 adds dependabot config (groups, weekly schedule) and SECURITY.md threat model
+* 3ae1e91 adds dependabot remediation report (May 14): 77 alerts triaged, 62 phantom, 6-phase plan
 * (main) Ollama catalog sync: auto-import from host, wizard picker per-leaf badge + pre-check, 19 regression tests
 ```
 
-Six commits, ready for rebase-then-fast-forward into `main`.
+Six commits on branch `worktree-dependabot-vulnerabilities`, ready for rebase-then-fast-forward into `main`.
+
+---
+
+## 11. Execution Log (2026-05-14 / 15)
+
+| Phase | Action | Result |
+|-------|--------|--------|
+| **A.1** | 62 `gh api PATCH dependabot/alerts/N -f state=dismissed -f reason=not_used` | All 62 dismissed cleanly. 0 failures. Live count 77 → **15**. |
+| **A.2** | Added `.github/dependabot.yml` + `SECURITY.md` (commit `a7a4011`) | Defensive only — no alert delta until Dependabot's next cron tick after merge. Config validates as YAML; commit-message prefixes set to `deps`/`ci`. |
+| **A.3** | Added `urllib3>=2.7.0` floor to `bootstrapper/pyproject.toml`; `uv lock --upgrade-package urllib3` (commit `f7885e4`) | `urllib3 2.6.3 → 2.7.0`. CLI smoke (`python start.py --help`) passes; `core.config_parser`, `services.sc_synthesizer`, `utils.localhost_validator` all import. |
+| **A.4** | `python-multipart==0.0.26 → 0.0.27` in `services/docling/provider/gpu/requirements.txt` (commit `48c5835`) | One-line bump. Container rebuild (`docker compose build doc-processor-gpu`) is **user-side** — defer to user's GPU host. |
+| **A.5** | `python-multipart` floor bumped in `services/docling/provider/localhost/{pyproject.toml,requirements.txt}`; `uv lock --upgrade-package python-multipart --upgrade-package urllib3` (commit `50621cb`) | `python-multipart 0.0.27 → 0.0.28` (uv resolved one above floor), `urllib3 2.6.3 → 2.7.0`. Server module + processor imports OK. |
+| **A.6** | `docling==2.18.0 → 2.93.0` in both providers; `uv lock --upgrade`; resync requirements.txt fastapi/uvicorn/pydantic pins to the new chain (commit `03913dd`) | All blocked transitives unblocked: `pillow 10.4.0 → 12.2.0`, `lxml 5.4.0 → 6.1.0`, `starlette 0.48.0 → 1.0.0`, `transformers 4.57.1 → 5.8.1` (5.x is now stable — the `tolerable_risk` dismissal in §8 is no longer needed since transformers 5.8.1 ≥ 5.0.0rc3 patched version). FastAPI 0.115.6 → 0.136.1, pydantic 2.10.6 → 2.13.4, uvicorn 0.34.0 → 0.47.0. Server starts; `GET /health` and `GET /` return 200; `DocumentConverter()` instantiates. **Container rebuild for the GPU path is user-side.** |
+
+### Net result
+
+- **Live alert count after A.1:** 77 → **15**
+- **After A.3 / A.5 / A.6 merge to main + Dependabot rescan:** expected **0** open alerts
+- **Phases requiring user-side validation before final merge:**
+  - A.4: `docker compose build doc-processor-gpu` + sample-PDF POST smoke
+  - A.6 (GPU half): same as A.4; the localhost half was validated in this session via FastAPI TestClient
+- **Special-case dismissal in §8 (transformers `Trainer` RCE):** *no longer needed* — uv resolved to transformers 5.8.1 (stable), which is above the 5.0.0rc3 patched version. Alert #138 will auto-close on rescan along with the rest. The reachability analysis is preserved in §3 and §8 as documentation regardless.
+
+### Pre-merge checklist
+
+1. **User:** `docker compose build doc-processor-gpu && docker compose up -d doc-processor-gpu` — verify the rebuilt container starts and processes a sample PDF.
+2. **User:** rebase the worktree branch onto current main (`git rebase main`), then fast-forward main: `git checkout main && git merge --ff-only worktree-dependabot-vulnerabilities`.
+3. **User:** push main. Dependabot rescans within ~5 min and closes the 15 remaining open alerts based on the new manifest contents.
+4. **User:** verify final state with `gh api .../dependabot/alerts?state=open | jq length` → expected `0`.
