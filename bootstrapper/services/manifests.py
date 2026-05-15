@@ -10,7 +10,8 @@ environment, the bootstrapper state, or docker-compose. The
 manifest_validator module performs the cross-manifest checks; this module
 only handles per-file load + schema validation + per-manifest sanity checks.
 
-Phase A: pure-additive scaffolding. Not wired into start.py yet.
+Wired into start.py via services.topology and services.env_assembler — see
+those modules for the consumer-side flow.
 """
 
 from __future__ import annotations

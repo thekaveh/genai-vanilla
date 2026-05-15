@@ -1,21 +1,23 @@
 """
-Regression tests for the four single-source-of-truth dicts/lists that
+Regression tests for the three single-source-of-truth surfaces that
 wire host-aliased Kong routes through the stack:
 
-  - ``KongConfigGenerator.generate_litellm_service()`` (the new always-on route)
+  - ``KongConfigGenerator.generate_litellm_service()`` (the always-on LiteLLM route)
   - ``KongConfigGenerator.get_adaptive_services()`` (the orchestrator that calls it)
-  - ``HostsManager.GENAI_HOSTS`` (the ``--setup-hosts`` source of truth)
-  - ``Topology.aliases`` (the wizard service-box source of truth, via state_builder)
+  - ``Topology.aliases`` — the canonical alias list. Drives:
+      * ``HostsManager.get_genai_hosts()`` (the ``--setup-hosts`` consumer;
+        the old ``HostsManager.GENAI_HOSTS`` constant is retired)
+      * ``state_builder.alias_for`` (the wizard service-box renderer)
 
-Together these four surfaces define every Kong-aliased URL the stack
+Together these surfaces define every Kong-aliased URL the stack
 exposes. A drift between any two (e.g. ``litellm.localhost`` added to
 the generator but not the hosts list) shows up as a "the URL is in the
 wizard but my browser can't resolve it" UX bug — silent unless caught
-at the source. These tests pin the four surfaces against each other.
+at the source. These tests pin the surfaces against each other.
 
-Coverage focus is on the LiteLLM Kong alias added in this round of
-work; the assertions also implicitly cover Hermes / Backend / n8n / etc.
-to the extent that the four surfaces must agree about each entry.
+Coverage focus is on the LiteLLM Kong alias; the assertions also
+implicitly cover Hermes / Backend / n8n / etc. to the extent that
+the surfaces must agree about each entry.
 """
 
 from __future__ import annotations
