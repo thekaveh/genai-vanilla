@@ -314,3 +314,37 @@ def test_services_root_none_skips_fragment_checks(
         i.kind in ("fragment_container_drift", "missing_fragment", "unexpected_fragment")
         for i in issues
     )
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Cycle / alias-uniqueness / category-overflow / engine-orphan rules
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_cycle_rule_flags_cycles():
+    """A manifest dep cycle triggers a topology_cycle issue."""
+    from services.manifests import Manifest, DependsOn
+    from services.manifest_validator import validate_manifests
+
+    manifests = [
+        Manifest(name="a", label="A", category="data", env=[], depends_on=DependsOn(required=["b"])),
+        Manifest(name="b", label="B", category="data", env=[], depends_on=DependsOn(required=["a"])),
+    ]
+    issues = validate_manifests(manifests)
+    kinds = {i.kind for i in issues}
+    assert "topology_cycle" in kinds
+
+
+def test_alias_uniqueness_rule():
+    """Duplicate alias across manifests is flagged."""
+    from services.manifests import Manifest, DependsOn, Row as MRow
+    from services.manifest_validator import validate_manifests
+
+    common_alias = "duplicate.localhost"
+    manifests = [
+        Manifest(name="a", label="A", category="data", env=[], rows=[MRow(display_name="A", source_var="A_SOURCE", alias=common_alias)]),
+        Manifest(name="b", label="B", category="data", env=[], rows=[MRow(display_name="B", source_var="B_SOURCE", alias=common_alias)]),
+    ]
+    issues = validate_manifests(manifests)
+    kinds = {i.kind for i in issues}
+    assert "duplicate_alias" in kinds

@@ -52,6 +52,10 @@ class ValidationIssue:
     #   missing_fragment           — non-virtual manifest has no compose.yml
     #   unexpected_fragment        — virtual: true manifest has a compose.yml
     #   undeclared_tier_member     — runtime_dependency_tiers entry not a known container
+    #   topology_cycle             — depends_on graph contains a cycle
+    #   duplicate_alias            — rows[].alias value claimed by more than one manifest
+    #   category_overflow          — *_PORT count in a category exceeds that category's block size
+    #   engine_orphan              — engine-only manifest (no rows, not virtual) unreferenced by any source variant id
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -83,6 +87,10 @@ def validate_manifests(
     issues.extend(_check_export_consumer_closure(manifests))
     issues.extend(_check_per_manifest_contract(manifests))
     issues.extend(_check_tier_members(manifests))
+    issues.extend(_check_topology_cycle(manifests))
+    issues.extend(_check_alias_uniqueness(manifests))
+    issues.extend(_check_category_overflow(manifests))
+    issues.extend(_check_engine_orphans(manifests))
     if services_root is not None:
         issues.extend(_check_fragment_containers(manifests, services_root))
 
@@ -361,4 +369,101 @@ def _check_per_manifest_contract(manifests: list[Manifest]) -> list[ValidationIs
                     )
                 )
 
+    return issues
+
+
+def _check_topology_cycle(manifests: list[Manifest]) -> list[ValidationIssue]:
+    """The combined depends_on graph must be acyclic."""
+    from services.topology import _topo_sort, TopologyError
+    try:
+        _topo_sort(manifests)
+        return []
+    except TopologyError as e:
+        return [ValidationIssue(kind="topology_cycle", manifest="<graph>", message=str(e))]
+
+
+def _check_alias_uniqueness(manifests: list[Manifest]) -> list[ValidationIssue]:
+    """Every rows[].alias must be unique across manifests."""
+    seen: dict[str, list[str]] = {}
+    for m in manifests:
+        for r in m.rows:
+            if r.alias:
+                seen.setdefault(r.alias, []).append(m.name)
+    issues: list[ValidationIssue] = []
+    for alias, owners in seen.items():
+        if len(owners) > 1:
+            for owner in sorted(owners):
+                issues.append(ValidationIssue(
+                    kind="duplicate_alias",
+                    manifest=owner,
+                    message=f"alias '{alias}' is claimed by multiple manifests: {sorted(owners)}",
+                ))
+    return issues
+
+
+def _check_category_overflow(manifests: list[Manifest]) -> list[ValidationIssue]:
+    """Total *_PORT vars per category must fit in that category's block."""
+    from services.topology import CATEGORY_SLOTS
+    by_cat: dict[str, int] = {c: 0 for c in CATEGORY_SLOTS}
+    for m in manifests:
+        if m.category not in by_cat:
+            continue
+        by_cat[m.category] += sum(1 for e in m.env if e.name.endswith("_PORT"))
+    issues: list[ValidationIssue] = []
+    for cat, count in by_cat.items():
+        _, block_size = CATEGORY_SLOTS[cat]
+        if count > block_size:
+            issues.append(ValidationIssue(
+                kind="category_overflow",
+                manifest=f"<{cat}>",
+                message=f"category '{cat}' has {count} *_PORT vars but block size is {block_size}",
+            ))
+    return issues
+
+
+def _check_engine_orphans(manifests: list[Manifest]) -> list[ValidationIssue]:
+    """Engine-only manifests (no rows, not virtual) must be referenced as a source variant.
+
+    An "engine-only" manifest is one that:
+    - has containers (it runs something)
+    - has no rows (it never presents a wizard row of its own)
+    - is not virtual
+    - depends_on at least one manifest that owns a sources block (it is a child-engine
+      activated by a parent's source toggle, not a freestanding infrastructure service)
+
+    The last guard prevents false positives for pure infrastructure services (e.g. redis)
+    that have no rows because they are always-on foundations, not selectable engines.
+    """
+    issues: list[ValidationIssue] = []
+
+    # Build the set of manifests that own a sources block.
+    source_owners: set[str] = {m.name for m in manifests if m.sources is not None}
+
+    all_source_option_ids: set[str] = set()
+    for m in manifests:
+        if m.sources is not None:
+            for opt in m.sources.options:
+                all_source_option_ids.add(opt.id)
+
+    for m in manifests:
+        if m.virtual or m.rows or not m.containers:
+            continue
+        # Only apply the rule to manifests that depend on a source-owning parent.
+        # This distinguishes engine services (speaches, chatterbox) from
+        # always-on infrastructure services (redis, neo4j, etc.).
+        depends_on_source_owner = any(
+            dep in source_owners for dep in m.depends_on.required
+        )
+        if not depends_on_source_owner:
+            continue
+        # An engine-only manifest's name must appear as a prefix of at least one source option id.
+        if not any(opt_id.startswith(m.name) for opt_id in all_source_option_ids):
+            issues.append(ValidationIssue(
+                kind="engine_orphan",
+                manifest=m.name,
+                message=(
+                    f"engine-only manifest '{m.name}' is not referenced by any source variant id. "
+                    f"Add a source option whose id begins with '{m.name}' to its parent manifest."
+                ),
+            ))
     return issues
