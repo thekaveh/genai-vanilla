@@ -80,6 +80,54 @@ def _port_label(r: ServiceRow) -> str:
     return f":{p}" if p else ""
 
 
+def _category_aware_split(
+    rows: list[ServiceRow], cols: int,
+) -> list[list[ServiceRow]]:
+    """Partition `rows` into `cols` columns aligned to category boundaries.
+
+    The naive `rows[i*half:(i+1)*half]` split breaks the visual rule
+    "same category = adjacent rows" — with 27 rows and 2 columns, LLM
+    Core's two members (LiteLLM, LLM Engine) straddle the column gutter.
+    Instead we find the row indices where the category changes and pick
+    the split point(s) closest to evenly dividing the rows. When no
+    internal category boundary exists (single category, or only one row),
+    we fall back to an even split so the layout still works.
+
+    Determinism: ties prefer the smaller-left-column choice so the right
+    column is at least as tall as the left.
+    """
+    if cols <= 1 or len(rows) <= 1:
+        return [list(rows)]
+
+    # Indices where the category changes (these are the legal split points).
+    boundaries = [
+        i for i in range(1, len(rows))
+        if (rows[i].category or "") != (rows[i - 1].category or "")
+    ]
+    if not boundaries:
+        # No category info or only one category — fall back to even split.
+        half = (len(rows) + cols - 1) // cols
+        return [rows[i * half:(i + 1) * half] for i in range(cols)]
+
+    targets = [(c + 1) * len(rows) / cols for c in range(cols - 1)]
+    splits: list[int] = []
+    for target in targets:
+        # Pick the unused boundary closest to the target; ties → smaller idx.
+        candidates = [b for b in boundaries if b not in splits]
+        if not candidates:
+            splits.append(int(round(target)))
+            continue
+        splits.append(min(candidates, key=lambda b: (abs(b - target), b)))
+    splits.sort()
+    splits.append(len(rows))
+    groups: list[list[ServiceRow]] = []
+    prev = 0
+    for s in splits:
+        groups.append(rows[prev:s])
+        prev = s
+    return groups
+
+
 def _alias_url(r: ServiceRow) -> str:
     """Full clickable URL for the alias, when one exists.
 
@@ -338,14 +386,20 @@ class ServiceTable(Widget):
         slot_width = (avail - self.GUTTER * (cols - 1)) // cols
         widths = self._scaled_widths(raw, slot_width)
 
-        half = (len(rows) + cols - 1) // cols
-        groups = [rows[i * half:(i + 1) * half] for i in range(cols)]
-        for r_idx in range(half):
+        groups = _category_aware_split(rows, cols)
+        # group_offsets[c_idx] is the starting absolute index for that column.
+        group_offsets: list[int] = [0]
+        for g in groups[:-1]:
+            group_offsets.append(group_offsets[-1] + len(g))
+        # The render loop walks visually-top-to-bottom across all columns;
+        # row count = the tallest group.
+        max_height = max((len(g) for g in groups), default=0)
+        for r_idx in range(max_height):
             for c_idx, group in enumerate(groups):
                 if c_idx > 0:
                     out.append(" " * self.GUTTER)
                 if r_idx < len(group):
-                    abs_idx = c_idx * half + r_idx
+                    abs_idx = group_offsets[c_idx] + r_idx
                     is_cursor = (self._cursor is not None and abs_idx == self._cursor)
                     out.append(self._slot_text(
                         group[r_idx], is_cursor=is_cursor, widths=widths,
@@ -354,7 +408,7 @@ class ServiceTable(Widget):
                     out.append(self._slot_text(
                         None, is_cursor=False, widths=widths,
                     ))
-            if r_idx + 1 < half:
+            if r_idx + 1 < max_height:
                 out.append("\n")
         return out
 
