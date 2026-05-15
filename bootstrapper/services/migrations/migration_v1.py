@@ -1,0 +1,150 @@
+"""
+Port-layout v0 → v1 migration.
+
+v0 layout: hand-edited per-manifest `default:` values in service.yml.
+v1 layout: topology slot allocator (services/topology.py).
+
+This module:
+  * Records the v0 OFFSETS (each port_var's offset from BASE_PORT at the time
+    of this migration's authoring). Used to detect "user is on default" so we
+    only rewrite ports the user has not customized.
+  * Applies the rewrite: for each port_var, if .env[var] == BASE_PORT + v0_offset,
+    rewrite to BASE_PORT + v1_offset. Otherwise leave alone.
+  * Backs up .env to .env.backup.<YYYYMMDDTHHMMSS> before any write.
+
+This is the FROZEN snapshot from 2026-05-15. Do NOT edit when the layout
+changes again — author a sibling migration_v2.py with its own snapshot.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable, Optional
+
+
+# Frozen v0 layout: port_var → offset-from-BASE_PORT at the time the
+# topology rework shipped. Pulled by hand from each manifest's `default:`
+# field in the pre-migration codebase (commit 87ba9c3 baseline + later
+# adds). DO NOT EDIT — this is a historical snapshot.
+V0_OFFSETS: dict[str, int] = {
+    "SUPABASE_DB_PORT": 0,
+    "REDIS_PORT": 1,
+    "KONG_HTTP_PORT": 2,
+    "KONG_HTTPS_PORT": 3,
+    "SUPABASE_META_PORT": 4,
+    "SUPABASE_STORAGE_PORT": 5,
+    "SUPABASE_AUTH_PORT": 6,
+    "SUPABASE_API_PORT": 7,
+    "SUPABASE_REALTIME_PORT": 8,
+    "SUPABASE_STUDIO_PORT": 9,
+    "GRAPH_DB_PORT": 10,
+    "GRAPH_DB_DASHBOARD_PORT": 11,
+    "LITELLM_PORT": 12,
+    "LOCAL_DEEP_RESEARCHER_PORT": 13,
+    "SEARXNG_PORT": 14,
+    "OPEN_WEB_UI_PORT": 15,
+    "BACKEND_PORT": 16,
+    "N8N_PORT": 17,
+    "COMFYUI_PORT": 18,
+    "WEAVIATE_PORT": 19,
+    "WEAVIATE_GRPC_PORT": 20,
+    "DOC_PROCESSOR_PORT": 21,
+    "STT_PROVIDER_PORT": 22,
+    "TTS_PROVIDER_PORT": 23,
+    "OPENCLAW_GATEWAY_PORT": 24,
+    "OPENCLAW_BRIDGE_PORT": 25,
+    "SPEACHES_PORT": 26,
+    "CHATTERBOX_PORT": 27,
+    "HERMES_API_PORT": 28,
+    "HERMES_DASHBOARD_PORT": 29,
+    "MINIO_PORT": 30,
+    "MINIO_CONSOLE_PORT": 31,
+    "JUPYTERHUB_PORT": 48,
+}
+
+
+@dataclass
+class MigrationResult:
+    rewritten: dict[str, tuple[str, str]]   # var → (old_value, new_value)
+    preserved: list[str]                    # vars the user had customized
+    backup_path: Optional[Path]
+
+
+def apply(
+    env_path: Path,
+    new_defaults: dict[str, int],
+    base_port: int,
+) -> MigrationResult:
+    """Rewrite .env in place; back it up first.
+
+    Only port vars whose current value EQUALS `base_port + V0_OFFSETS[var]` are
+    rewritten — that is "the user accepted the default." Anything else (custom
+    port, blank line, missing var) is left alone.
+    """
+    if not env_path.is_file():
+        return MigrationResult({}, [], None)
+
+    backup_path = env_path.with_name(
+        f"{env_path.name}.backup.{datetime.now().strftime('%Y%m%dT%H%M%S')}"
+    )
+    backup_path.write_text(env_path.read_text())
+
+    lines = env_path.read_text().splitlines(keepends=True)
+    rewritten: dict[str, tuple[str, str]] = {}
+    preserved: list[str] = []
+    out: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            out.append(line)
+            continue
+        key, _, raw_value = stripped.partition("=")
+        key = key.strip()
+        value = raw_value.split("#", 1)[0].strip()
+        if key in V0_OFFSETS and key in new_defaults:
+            expected_old = str(base_port + V0_OFFSETS[key])
+            new_value = str(new_defaults[key])
+            if value == expected_old and new_value != expected_old:
+                out.append(f"{key}={new_value}\n")
+                rewritten[key] = (expected_old, new_value)
+                continue
+            if value != expected_old:
+                preserved.append(key)
+        out.append(line)
+
+    env_path.write_text("".join(out))
+    return MigrationResult(rewritten, preserved, backup_path)
+
+
+def needs_migration(env_path: Path) -> bool:
+    """True iff .env is missing the v1 sentinel or has it at < 1."""
+    if not env_path.is_file():
+        return False  # fresh install — defaults already correct
+    for line in env_path.read_text().splitlines():
+        if line.strip().startswith("BOOTSTRAPPER_PORT_LAYOUT_VERSION="):
+            try:
+                return int(line.split("=", 1)[1].split("#", 1)[0].strip()) < 1
+            except (ValueError, IndexError):
+                return True
+    return True
+
+
+def stamp_version(env_path: Path, version: int = 1) -> None:
+    """Append or update BOOTSTRAPPER_PORT_LAYOUT_VERSION in .env."""
+    if not env_path.is_file():
+        return
+    lines = env_path.read_text().splitlines(keepends=True)
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith("BOOTSTRAPPER_PORT_LAYOUT_VERSION="):
+            lines[i] = f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n"
+            found = True
+            break
+    if not found:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append(f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n")
+    env_path.write_text("".join(lines))
