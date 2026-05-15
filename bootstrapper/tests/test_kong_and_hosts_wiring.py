@@ -112,9 +112,9 @@ def test_get_adaptive_services_includes_litellm(gen_with_all_enabled):
 
 
 def test_hosts_manager_genai_hosts_unique():
-    """No duplicate entries in GENAI_HOSTS."""
-    hosts = HostsManager.GENAI_HOSTS
-    assert len(hosts) == len(set(hosts)), f"duplicate host in GENAI_HOSTS: {hosts}"
+    """No duplicate entries in the topology-derived hosts list."""
+    hosts = HostsManager._genai_hosts_from_topology()
+    assert len(hosts) == len(set(hosts)), f"duplicate host in topology hosts: {hosts}"
 
 
 def test_topology_aliases_unique():
@@ -126,23 +126,20 @@ def test_topology_aliases_unique():
 
 
 def test_topology_aliases_and_genai_hosts_agree():
-    """The alias values in ``Topology.aliases`` must equal the entries in
-    ``GENAI_HOSTS`` as sets. If a display-name has an alias but
-    ``--setup-hosts`` won't write it, the wizard URL won't resolve;
-    conversely if ``--setup-hosts`` writes an alias that no service
-    advertises, that's a stale /etc/hosts entry.
+    """``HostsManager._genai_hosts_from_topology()`` must be non-empty and
+    every entry must end with ``.localhost`` — structural guard that the
+    topology derives a valid hosts list.
+
+    NOTE: since ``_genai_hosts_from_topology()`` is now derived directly from
+    ``Topology.aliases``, comparing the two sets would be a tautology. This
+    test instead verifies the structural contract: the list is non-empty and
+    all entries are well-formed ``.localhost`` hostnames.
     """
-    alias_set = set(_get_topology().aliases)
-    hosts_set = set(HostsManager.GENAI_HOSTS)
-    only_in_alias = alias_set - hosts_set
-    only_in_hosts = hosts_set - alias_set
-    assert not only_in_alias, (
-        f"aliases without corresponding /etc/hosts entry: {sorted(only_in_alias)}. "
-        f"Add them to HostsManager.GENAI_HOSTS."
-    )
-    assert not only_in_hosts, (
-        f"/etc/hosts entries with no advertised alias: {sorted(only_in_hosts)}. "
-        f"Either add them to a manifest alias field or remove from GENAI_HOSTS."
+    hosts = HostsManager._genai_hosts_from_topology()
+    assert hosts, "topology-derived hosts list must be non-empty"
+    bad = [h for h in hosts if not h.endswith(".localhost")]
+    assert not bad, (
+        f"hosts derived from topology must end with .localhost; bad entries: {bad}"
     )
 
 
@@ -150,5 +147,5 @@ def test_litellm_localhost_is_in_both_surfaces():
     """Spot-check for THIS round of work — ``litellm.localhost`` must be
     in both surfaces. Covered transitively by the agreement test above,
     but kept as a focused regression guard."""
-    assert "litellm.localhost" in HostsManager.GENAI_HOSTS
+    assert "litellm.localhost" in HostsManager._genai_hosts_from_topology()
     assert alias_for("LiteLLM") == "litellm.localhost"

@@ -15,31 +15,14 @@ from utils.system import detect_os, is_elevated, get_hosts_file_path
 class HostsManager:
     """Manages hosts file entries for GenAI Stack services."""
 
-    # GenAI Stack hostnames - matches get_genai_hosts() from hosts-utils.sh
-    #
-    # Order mirrors the canonical Topology category order (infra → data →
-    # llm → media → agents → apps). Kept in sync with manifest alias
-    # fields (Topology.aliases) so the two surfaces tell the same story.
-    GENAI_HOSTS = [
-        "litellm.localhost",
-        "minio.localhost",
-        "weaviate.localhost",
-        "graph.localhost",
-        "ollama.localhost",
-        "comfyui.localhost",
-        "docling.localhost",
-        "stt.localhost",
-        "tts.localhost",
-        "studio.localhost",
-        "openclaw.localhost",
-        "hermes.localhost",
-        "research.localhost",
-        "n8n.localhost",
-        "search.localhost",
-        "jupyter.localhost",
-        "chat.localhost",
-        "api.localhost",
-    ]
+    @classmethod
+    def _genai_hosts_from_topology(cls) -> List[str]:
+        """Built once from the topology. Returns a fresh copy on each call."""
+        from services.topology import build_topology
+        services_root = Path(__file__).resolve().parent.parent.parent / "services"
+        if not hasattr(cls, "_aliases_cache"):
+            cls._aliases_cache = list(build_topology(services_root).aliases)
+        return list(cls._aliases_cache)
 
     def __init__(self):
         self.hosts_file_path = get_hosts_file_path()
@@ -72,7 +55,7 @@ class HostsManager:
         Returns:
             list: List of GenAI hostnames
         """
-        return self.GENAI_HOSTS.copy()
+        return self._genai_hosts_from_topology()
     
     def check_missing_hosts(self) -> List[str]:
         """
