@@ -5,10 +5,9 @@ The output is a pure function of the manifests (and an optional ordering). It
 is deterministic — re-running with the same inputs produces byte-identical
 output — so CI can diff against the committed `.env.example`.
 
-Phase A scope: the assembler does NOT yet replace the existing
-`.env.example`. It is a standalone library used by tests and (later)
-`bootstrapper/tools/validate_fragments.py --check-env-example`. Wiring into
-start.py happens in Phase D once all manifests exist.
+Used by `bootstrapper/tools/validate_fragments.py --check-env-example` to
+assert that the committed file matches the manifest-driven assembly. Also
+consumed by start.py for the pre-launch env-example sync.
 
 Output shape (per service):
 
@@ -20,7 +19,7 @@ Output shape (per service):
 
     # Image references
     LLM_PROVIDER_IMAGE=ollama/ollama:latest
-    OLLAMA_PULL_IMAGE=alpine/curl:latest
+    OLLAMA_PULL_IMAGE=alpine:latest
 
     # External Ollama-compatible endpoint.
     LLM_PROVIDER_EXTERNAL_URL=

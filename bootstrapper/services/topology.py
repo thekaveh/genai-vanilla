@@ -20,9 +20,8 @@ Every downstream consumer imports Topology from here.
 from __future__ import annotations
 
 import functools
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from services.manifests import Manifest, load_manifests
 
@@ -93,11 +92,11 @@ class Row:
     manifest: str
     display_name: str
     source_var: str
-    port_var: Optional[str]
-    scale_var: Optional[str]
-    alias: Optional[str]
+    port_var: str | None
+    scale_var: str | None
+    alias: str | None
     description: str
-    localhost_endpoint_var: Optional[str]
+    localhost_endpoint_var: str | None
     category: str
     locked: bool
 
