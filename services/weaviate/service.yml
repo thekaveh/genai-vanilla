@@ -1,7 +1,7 @@
 # services/weaviate/service.yml — Weaviate + init + CLIP multimodal
 name: weaviate
 label: "Weaviate (vector database)"
-category: ai
+category: data
 docs: docs/services/weaviate.md
 
 containers:
@@ -76,8 +76,23 @@ env:
 
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - litellm
   optional: []
+
+rows:
+  - display_name: "Weaviate"
+    source_var: WEAVIATE_SOURCE
+    port_var: WEAVIATE_PORT
+    scale_var: WEAVIATE_SCALE
+    alias: weaviate.localhost
+    description: "Vector database for semantic search & RAG."
+    localhost_endpoint_var: WEAVIATE_URL
+  - display_name: "Multi2Vec CLIP"
+    source_var: MULTI2VEC_CLIP_SOURCE
+    scale_var: CLIP_SCALE
+    description: "CLIP embeddings for multimodal search."
 
 exports: []
 

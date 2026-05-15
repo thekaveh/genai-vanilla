@@ -55,8 +55,15 @@ env:
 # already carved out, so depending on `supabase` here today would error
 # until the supabase manifest exists (Phase C).
 depends_on:
-  required: []
+  required:
+    - supabase
   optional: []
+
+rows:
+  - display_name: "Redis"
+    source_var: REDIS_SOURCE
+    port_var: REDIS_PORT
+    description: "Key-value cache and queue broker."
 
 # Exports declare the env-var contract redis offers to other services.
 # Consumer lists are advisory documentation; the validator only checks

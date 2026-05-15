@@ -54,8 +54,17 @@ env:
     description: "Replicas: 1 for container, 0 otherwise."
 
 depends_on:
-  required: []
+  required:
+    - globals
   optional: []
+
+rows:
+  - display_name: "Neo4j Graph DB"
+    source_var: NEO4J_GRAPH_DB_SOURCE
+    port_var: GRAPH_DB_DASHBOARD_PORT
+    scale_var: NEO4J_SCALE
+    alias: graph.localhost
+    description: "Graph database for knowledge graphs."
 
 exports: []
 

@@ -123,8 +123,40 @@ env:
     default: 63009
 
 depends_on:
-  required: []
+  required:
+    - globals
   optional: []
+
+rows:
+  - display_name: "Supabase DB"
+    source_var: SUPABASE_DB_SOURCE
+    port_var: SUPABASE_DB_PORT
+    description: "Postgres database (always-on, container-only)."
+  - display_name: "Supabase Meta"
+    source_var: SUPABASE_META_SOURCE
+    port_var: SUPABASE_META_PORT
+    description: "Postgres metadata API."
+  - display_name: "Supabase Storage"
+    source_var: SUPABASE_STORAGE_SOURCE
+    port_var: SUPABASE_STORAGE_PORT
+    description: "S3-compatible storage API."
+  - display_name: "Supabase Auth"
+    source_var: SUPABASE_AUTH_SOURCE
+    port_var: SUPABASE_AUTH_PORT
+    description: "GoTrue authentication service."
+  - display_name: "Supabase API"
+    source_var: SUPABASE_API_SOURCE
+    port_var: SUPABASE_API_PORT
+    description: "PostgREST REST API surface."
+  - display_name: "Supabase Realtime"
+    source_var: SUPABASE_REALTIME_SOURCE
+    port_var: SUPABASE_REALTIME_PORT
+    description: "WebSocket replication firehose."
+  - display_name: "Supabase Studio"
+    source_var: SUPABASE_STUDIO_SOURCE
+    port_var: SUPABASE_STUDIO_PORT
+    alias: studio.localhost
+    description: "Browser UI for the database."
 
 # Supabase exports DB credentials + JWT/ANON/SERVICE keys to half the stack.
 # Consumers are listed for documentation; validator only checks closure
