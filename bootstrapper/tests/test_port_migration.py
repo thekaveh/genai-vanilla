@@ -181,6 +181,77 @@ def test_run_port_migration_normal_run_stamps_and_rewrites(tmp_path, monkeypatch
     assert needs_migration(env_path) is False
 
 
+# ─── M11 — edge cases in the rewrite path ───────────────────────────
+
+
+def test_apply_handles_leading_whitespace(tmp_path):
+    """``  LITELLM_PORT=63012`` (leading spaces on the line) is still
+    recognized as the v0 default and rewritten to the v1 slot.
+
+    Documented behavior: the rewritten line is normalized — the leading
+    whitespace is dropped because ``apply()`` reconstructs the line from
+    ``f"{key}={new_value}{comment_tail}{eol}"``.
+    """
+    from services.migrations.migration_v1 import apply
+    env_path = _write_env(tmp_path, "  LITELLM_PORT=63012\n")
+    result = apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    assert "LITELLM_PORT" in result.rewritten
+    text = env_path.read_text()
+    assert "LITELLM_PORT=63030\n" in text
+    # Normalization: no leading spaces survive on the rewritten line.
+    assert "  LITELLM_PORT=" not in text
+
+
+def test_apply_handles_quoted_value(tmp_path):
+    """``LITELLM_PORT="63012"`` is treated as user customization (the
+    quoted form does not match the bare v0 default) and is preserved.
+
+    Documented behavior: ``apply()`` only rewrites when the stripped
+    value EQUALS the v0 default string; the surrounding quotes make
+    ``"63012"`` not equal to ``63012``, so the line is left alone and
+    the key shows up in ``preserved``.
+    """
+    from services.migrations.migration_v1 import apply
+    env_path = _write_env(tmp_path, 'LITELLM_PORT="63012"\n')
+    result = apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    assert "LITELLM_PORT" not in result.rewritten
+    assert "LITELLM_PORT" in result.preserved
+    assert env_path.read_text() == 'LITELLM_PORT="63012"\n'
+
+
+def test_apply_handles_crlf_line_endings(tmp_path):
+    """CRLF-terminated .env (Windows-edited checkouts) is migrated
+    successfully — the v0 default is still recognized and rewritten.
+
+    Documented behavior: Python's ``read_text()`` normalizes ``\\r\\n``
+    to ``\\n`` on read, so the resulting file is written back with LF
+    endings (effectively a one-shot CRLF→LF normalization on the
+    rewritten line). The test verifies the rewrite happened rather
+    than asserting CRLF survives.
+    """
+    from services.migrations.migration_v1 import apply
+    env_path = tmp_path / ".env"
+    env_path.write_bytes(b"LITELLM_PORT=63012\r\n")
+    result = apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    assert "LITELLM_PORT" in result.rewritten
+    rewritten = env_path.read_bytes()
+    assert b"LITELLM_PORT=63030" in rewritten
+
+
+def test_apply_writes_backup_before_overwrite(tmp_path):
+    """A timestamped backup of the original file must exist after apply(),
+    and its contents must match the *pre-migration* .env."""
+    from services.migrations.migration_v1 import apply
+    original = "LITELLM_PORT=63012\n# some user note\n"
+    env_path = _write_env(tmp_path, original)
+    result = apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    assert result.backup_path is not None
+    assert result.backup_path.is_file()
+    assert result.backup_path.read_text() == original
+    # The live file has been rewritten — backup ≠ current.
+    assert env_path.read_text() != original
+
+
 # ─── I15 regression — GENAI_ENV_FILE override honored ───────────────
 
 def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
