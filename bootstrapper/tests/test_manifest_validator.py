@@ -348,3 +348,106 @@ def test_alias_uniqueness_rule():
     issues = validate_manifests(manifests)
     kinds = {i.kind for i in issues}
     assert "duplicate_alias" in kinds
+
+
+def test_engine_orphan_fires_for_unreferenced_engine_only_manifest():
+    """An engine-only manifest (no rows, has containers, depends on a sources-owning parent)
+    whose name is not a prefix of any of that parent's source option ids is an orphan."""
+    from services.manifests import (
+        DependsOn,
+        EnvVarDecl,
+        Manifest,
+        Row as MRow,
+        SourceOption,
+        SourcesBlock,
+    )
+    from services.manifest_validator import validate_manifests
+
+    parent = Manifest(
+        name="parent-with-sources",
+        label="Parent",
+        category="media",
+        env=[EnvVarDecl(name="PARENT_SOURCE", default="other")],
+        sources=SourcesBlock(
+            var="PARENT_SOURCE",
+            default="other",
+            options=[SourceOption(id="other", label="Other Engine")],
+        ),
+        rows=[MRow(display_name="Parent", source_var="PARENT_SOURCE")],
+    )
+    myengine = Manifest(
+        name="myengine",
+        label="My Engine",
+        category="media",
+        env=[],
+        containers=["myengine-container"],
+        depends_on=DependsOn(required=["parent-with-sources"]),
+    )
+    issues = validate_manifests([parent, myengine])
+    orphans = [i for i in issues if i.kind == "engine_orphan"]
+    assert len(orphans) == 1
+    assert orphans[0].manifest == "myengine"
+
+
+def test_engine_orphan_does_not_fire_when_referenced():
+    """If a parent's sources options include an id beginning with the engine's
+    manifest name, the engine is not an orphan."""
+    from services.manifests import (
+        DependsOn,
+        EnvVarDecl,
+        Manifest,
+        Row as MRow,
+        SourceOption,
+        SourcesBlock,
+    )
+    from services.manifest_validator import validate_manifests
+
+    parent = Manifest(
+        name="parent-with-sources",
+        label="Parent",
+        category="media",
+        env=[EnvVarDecl(name="PARENT_SOURCE", default="myengine-container-gpu")],
+        sources=SourcesBlock(
+            var="PARENT_SOURCE",
+            default="myengine-container-gpu",
+            options=[SourceOption(id="myengine-container-gpu", label="MyEngine (GPU)")],
+        ),
+        rows=[MRow(display_name="Parent", source_var="PARENT_SOURCE")],
+    )
+    myengine = Manifest(
+        name="myengine",
+        label="My Engine",
+        category="media",
+        env=[],
+        containers=["myengine-container"],
+        depends_on=DependsOn(required=["parent-with-sources"]),
+    )
+    issues = validate_manifests([parent, myengine])
+    assert not any(i.kind == "engine_orphan" for i in issues)
+
+
+def test_category_overflow_fires_when_block_exceeded():
+    """If a category's *_PORT count exceeds its block size, fire category_overflow.
+
+    The infra block size is 10 (per CATEGORY_SLOTS) — declare 11 *_PORT
+    env vars in a single infra manifest and the rule must trip.
+    """
+    from services.manifests import EnvVarDecl, Manifest
+    from services.manifest_validator import validate_manifests
+    from services.topology import CATEGORY_SLOTS
+
+    _, infra_block = CATEGORY_SLOTS["infra"]
+    overflow = Manifest(
+        name="hog",
+        label="Hog",
+        category="infra",
+        env=[
+            EnvVarDecl(name=f"HOG_{i}_PORT", default=63000 + i)
+            for i in range(infra_block + 1)
+        ],
+    )
+    issues = validate_manifests([overflow])
+    overflows = [i for i in issues if i.kind == "category_overflow"]
+    assert len(overflows) == 1
+    assert "infra" in overflows[0].message
+    assert str(infra_block) in overflows[0].message
