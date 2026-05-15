@@ -13,7 +13,7 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
 1. Create the folder: `mkdir services/myservice`
 2. Write `services/myservice/service.yml`. Schema: `bootstrapper/schemas/service.schema.json`.
    - `name:` must equal the folder name (kebab-case).
-   - `category:` one of `data | llm | ai | app | infra`.
+   - `category:` one of `infra | data | llm | media | agents | apps`.
    - `containers:` lists every container name in your compose.yml.
    - `env:` declares every env var the service owns. Use `auto_managed: true` for vars computed by source effects or a Python hook; use `secret: true` for credentials (default never echoed into `.env.example`).
    - `sources:` (optional) declares source variants the wizard surfaces — each option carries an `id`, `label`, and optional `requires:` list.
@@ -37,7 +37,13 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    ```bash
    cd bootstrapper && uv run python -m tools.validate_fragments
    ```
-8. Run the test suite:
+8. If you added or renamed a service, regenerate the generated artifacts:
+   ```bash
+   cd bootstrapper && uv run python -m tools.generate_architecture_diagram
+   cd bootstrapper && uv run python -m tools.generate_readme_topology
+   ```
+   The lint in step (7) will fail if these are out of sync.
+9. Run the test suite:
    ```bash
    cd bootstrapper && uv run pytest tests/ -q
    ```
@@ -73,7 +79,7 @@ Each service folder can hold additional subdirectories beyond `service.yml` and 
 ```yaml
 name: myservice
 label: "My service (human-readable)"
-category: app                           # data | llm | ai | app | infra
+category: apps                          # infra | data | llm | media | agents | apps
 docs: docs/services/myservice.md        # optional
 virtual: false                          # true for env-only manifests like cloud-providers
 
