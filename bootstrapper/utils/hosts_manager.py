@@ -17,10 +17,15 @@ class HostsManager:
 
     @classmethod
     def _genai_hosts_from_topology(cls) -> List[str]:
-        """Built once from the topology. Returns a fresh copy on each call.
+        """Derived once per process from Topology.aliases. Returns a fresh
+        copy on each call.
 
-        Cached by the canonical ``services.topology.get_topology`` LRU —
-        no per-class state required.
+        The list reflects whatever order Topology emits (currently
+        canonical-order driven by ``build_topology``'s row traversal).
+        The agreement test compares sets, not order — do not rely on
+        ordering here. Cached by the canonical
+        ``services.topology.get_topology`` LRU, so no per-class state is
+        required.
         """
         from services.topology import get_topology
         return list(get_topology().aliases)
