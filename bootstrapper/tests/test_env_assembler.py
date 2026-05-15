@@ -148,3 +148,32 @@ def test_output_is_deterministic(services_root, write_manifest, minimal_manifest
     a = assemble_env_example(manifests)
     b = assemble_env_example(manifests)
     assert a == b
+
+
+def test_multiline_description_each_line_commented(tmp_path):
+    """Multi-line description must have every line prefixed with '# '."""
+    services_root = tmp_path / "services"
+    (services_root / "demo").mkdir(parents=True)
+    (services_root / "demo" / "service.yml").write_text(
+        "name: demo\n"
+        "label: Demo\n"
+        "category: data\n"
+        "env:\n"
+        "  - name: DEMO_VAR\n"
+        "    default: value\n"
+        "    description: |\n"
+        "      Line one.\n"
+        "      Line two.\n"
+        "      Line three.\n"
+    )
+    manifests = load_manifests(services_root)
+    output = assemble_env_example(manifests, services_root=services_root)
+    # Every line of the description must be commented.
+    assert "# Line one." in output
+    assert "# Line two." in output
+    assert "# Line three." in output
+    # Bare uncommented continuation lines must NOT appear.
+    lines = output.splitlines()
+    for line in lines:
+        if "Line two" in line or "Line three" in line:
+            assert line.startswith("#"), f"description line not commented: {line!r}"

@@ -159,7 +159,8 @@ def _render_env_entry(entry: EnvVarDecl, port_defaults: dict[str, int]) -> str:
     """Render one env line plus any preceding comment line(s)."""
     out: list[str] = []
     if entry.description:
-        out.append(f"# {entry.description}")
+        for line in entry.description.rstrip().splitlines():
+            out.append(f"# {line}")
     flags: list[str] = []
     if entry.auto_managed:
         flags.append("auto-managed")
@@ -189,3 +190,18 @@ def _format_default(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return str(value)
+
+
+if __name__ == "__main__":
+    import sys
+
+    from services.manifests import load_manifests
+
+    project_root = Path(__file__).resolve().parent.parent.parent
+    services_dir = project_root / "services"
+    env_example_path = project_root / ".env.example"
+
+    manifests = load_manifests(services_dir)
+    output = assemble_env_example(manifests)
+    env_example_path.write_text(output)
+    print(f"Wrote {env_example_path} ({output.count(chr(10))} lines)", file=sys.stderr)
