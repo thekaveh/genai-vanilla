@@ -17,17 +17,23 @@ class HostsManager:
 
     # GenAI Stack hostnames - matches get_genai_hosts() from hosts-utils.sh
     #
-    # Order mirrors the relevant tier slices of ``_SERVICES`` in
-    # ``bootstrapper/ui/state_builder.py``: core infrastructure
-    # (litellm) first, then user-facing services. Kept in sync with
-    # ``_HOST_ALIAS`` in state_builder.py so the two surfaces tell the
-    # same story.
+    # Order mirrors the canonical Topology category order (infra → data →
+    # llm → media → agents → apps). Kept in sync with manifest alias
+    # fields (Topology.aliases) so the two surfaces tell the same story.
     GENAI_HOSTS = [
         "litellm.localhost",
         "minio.localhost",
+        "weaviate.localhost",
+        "graph.localhost",
+        "ollama.localhost",
         "comfyui.localhost",
+        "docling.localhost",
+        "stt.localhost",
+        "tts.localhost",
+        "studio.localhost",
         "openclaw.localhost",
         "hermes.localhost",
+        "research.localhost",
         "n8n.localhost",
         "search.localhost",
         "jupyter.localhost",

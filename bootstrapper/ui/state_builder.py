@@ -51,25 +51,6 @@ _CLOUD_APIS = [
 ]
 
 
-# Display name → hosts.localhost alias. Single source of truth — also
-# consumed by start.py::build_pre_launch_summary_table via alias_for().
-# Ordered to mirror the relevant tier slices of ``_SERVICES`` above:
-# core infrastructure (LiteLLM) first, then user-facing services in
-# their _SERVICES order (ComfyUI → OpenClaw → Hermes → n8n → SearxNG
-# → JupyterHub → Open WebUI → Backend API).
-_HOST_ALIAS = {
-    "LiteLLM": "litellm.localhost",
-    "MinIO": "minio.localhost",
-    "ComfyUI": "comfyui.localhost",
-    "OpenClaw": "openclaw.localhost",
-    "Hermes Agent": "hermes.localhost",
-    "n8n": "n8n.localhost",
-    "SearxNG": "search.localhost",
-    "JupyterHub": "jupyter.localhost",
-    "Open WebUI": "chat.localhost",
-    "Backend API": "api.localhost",
-}
-
 # Endpoint env vars used by localhost services. Imported privately
 # from utils/endpoint_vars (the single source of truth) for use by
 # state_builder's own port resolver below.
@@ -112,8 +93,11 @@ def resolve_port(name: str, source: str, port_var: Optional[str], env: dict) -> 
 
 
 def alias_for(name: str) -> Optional[str]:
-    """Hosts alias for a service, or None if it doesn't have one."""
-    return _HOST_ALIAS.get(name)
+    """Hosts alias for a service display name, or None if no alias declared."""
+    for r in _get_topology().rows:
+        if r.display_name == name:
+            return r.alias
+    return None
 
 
 def all_services():

@@ -5,7 +5,7 @@ wire host-aliased Kong routes through the stack:
   - ``KongConfigGenerator.generate_litellm_service()`` (the new always-on route)
   - ``KongConfigGenerator.get_adaptive_services()`` (the orchestrator that calls it)
   - ``HostsManager.GENAI_HOSTS`` (the ``--setup-hosts`` source of truth)
-  - ``state_builder._HOST_ALIAS`` (the wizard service-box source of truth)
+  - ``Topology.aliases`` (the wizard service-box source of truth, via state_builder)
 
 Together these four surfaces define every Kong-aliased URL the stack
 exposes. A drift between any two (e.g. ``litellm.localhost`` added to
@@ -26,7 +26,7 @@ import pytest
 # fails the test collection step with a clear traceback.
 from utils.hosts_manager import HostsManager
 from utils.kong_config_generator import KongConfigGenerator
-from ui.state_builder import _HOST_ALIAS
+from ui.state_builder import alias_for, _get_topology
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ def test_get_adaptive_services_includes_litellm(gen_with_all_enabled):
 
 # ────────────────────────────────────────────────────────────────────────────
 # Cross-surface invariants: every Kong-aliased host must appear in BOTH
-# HostsManager.GENAI_HOSTS AND state_builder._HOST_ALIAS. Drift here means
+# HostsManager.GENAI_HOSTS AND Topology.aliases. Drift here means
 # the wizard advertises a URL that can't resolve, or --setup-hosts writes
 # an entry that nothing else uses.
 # ────────────────────────────────────────────────────────────────────────────
@@ -117,22 +117,22 @@ def test_hosts_manager_genai_hosts_unique():
     assert len(hosts) == len(set(hosts)), f"duplicate host in GENAI_HOSTS: {hosts}"
 
 
-def test_host_alias_dict_values_unique():
-    """No two display-names point at the same alias."""
-    aliases = list(_HOST_ALIAS.values())
+def test_topology_aliases_unique():
+    """No two topology rows point at the same alias."""
+    aliases = _get_topology().aliases
     assert len(aliases) == len(set(aliases)), (
-        f"duplicate alias in _HOST_ALIAS: {aliases}"
+        f"duplicate alias in Topology.aliases: {aliases}"
     )
 
 
-def test_host_alias_and_genai_hosts_agree():
-    """The alias values in ``_HOST_ALIAS`` must equal the entries in
+def test_topology_aliases_and_genai_hosts_agree():
+    """The alias values in ``Topology.aliases`` must equal the entries in
     ``GENAI_HOSTS`` as sets. If a display-name has an alias but
     ``--setup-hosts`` won't write it, the wizard URL won't resolve;
     conversely if ``--setup-hosts`` writes an alias that no service
     advertises, that's a stale /etc/hosts entry.
     """
-    alias_set = set(_HOST_ALIAS.values())
+    alias_set = set(_get_topology().aliases)
     hosts_set = set(HostsManager.GENAI_HOSTS)
     only_in_alias = alias_set - hosts_set
     only_in_hosts = hosts_set - alias_set
@@ -142,7 +142,7 @@ def test_host_alias_and_genai_hosts_agree():
     )
     assert not only_in_hosts, (
         f"/etc/hosts entries with no advertised alias: {sorted(only_in_hosts)}. "
-        f"Either add them to _HOST_ALIAS or remove from GENAI_HOSTS."
+        f"Either add them to a manifest alias field or remove from GENAI_HOSTS."
     )
 
 
@@ -151,4 +151,4 @@ def test_litellm_localhost_is_in_both_surfaces():
     in both surfaces. Covered transitively by the agreement test above,
     but kept as a focused regression guard."""
     assert "litellm.localhost" in HostsManager.GENAI_HOSTS
-    assert _HOST_ALIAS.get("LiteLLM") == "litellm.localhost"
+    assert alias_for("LiteLLM") == "litellm.localhost"
