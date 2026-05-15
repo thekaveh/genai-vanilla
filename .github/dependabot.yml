@@ -19,6 +19,10 @@ updates:
       - "/bootstrapper"
       - "/services/docling/provider/localhost"
       - "/services/docling/provider/gpu"
+      - "/services/jupyterhub/build"
+      - "/services/backend/app/app"
+      - "/services/parakeet/provider/gpu"
+      - "/services/parakeet/provider/mlx"
     schedule:
       interval: weekly
       day: monday

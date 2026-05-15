@@ -15,9 +15,9 @@ raw CVSS alone.
 
 | Tier | Manifest examples | Where it runs |
 |------|-------------------|---------------|
-| **A — Container-shipped** | `services/docling/provider/gpu/requirements.txt`, the various `*/Dockerfile`s | Docker image; ships to every user that runs `start.sh` |
+| **A — Container-shipped** | `services/docling/provider/gpu/requirements.txt`, `services/parakeet/provider/gpu/requirements.txt`, `services/backend/app/app/requirements.txt`, `services/jupyterhub/build/requirements.txt`, the various `*/Dockerfile`s | Docker image; ships to every user that runs `start.sh` (when the corresponding service is enabled) |
 | **A — Host CLI** | `bootstrapper/pyproject.toml` | Local Python venv on every contributor's host |
-| **B — Host install (opt-in)** | `services/docling/provider/localhost/pyproject.toml` | Only installed when user picks the localhost provider via `start.sh --doc-processor-source docling-localhost` and runs `uv sync` themselves |
+| **B — Host install (opt-in)** | `services/docling/provider/localhost/pyproject.toml`, `services/parakeet/provider/mlx/requirements.txt` | Only installed when user picks the localhost/mlx provider variant and runs `uv sync` / `pip install -r` themselves |
 
 Tier-A vulnerabilities are fast-tracked. Tier-B vulnerabilities are
 documented; users who pick the localhost path own the deployment risk
