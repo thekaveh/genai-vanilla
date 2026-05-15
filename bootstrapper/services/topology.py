@@ -179,4 +179,47 @@ def _allocate_slots(
 
 def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology:
     """Internal — splits manifest loading from computation for unit-test ergonomics."""
-    raise NotImplementedError  # filled in by Tasks 2.3-2.5
+    topo = _topo_sort(manifests)
+    canonical = _canonical_order(manifests, topo)
+    port_defaults = _allocate_slots(manifests, canonical, base_port)
+
+    by_name = {m.name: m for m in manifests}
+    locked_by_name = {m.name: _is_locked(m) for m in manifests}
+
+    rows: list[Row] = []
+    aliases: list[str] = []
+    for name in canonical:
+        m = by_name[name]
+        for r in m.rows:
+            rows.append(Row(
+                manifest=m.name,
+                display_name=r.display_name,
+                source_var=r.source_var,
+                port_var=r.port_var or None,
+                scale_var=r.scale_var or None,
+                alias=r.alias or None,
+                description=r.description,
+                localhost_endpoint_var=r.localhost_endpoint_var or None,
+                category=m.category,
+                locked=locked_by_name[m.name],
+            ))
+            if r.alias:
+                aliases.append(r.alias)
+
+    return Topology(
+        canonical_order=canonical,
+        category_of={m.name: m.category for m in manifests},
+        port_defaults=port_defaults,
+        rows=rows,
+        aliases=aliases,
+    )
+
+
+def _is_locked(m: Manifest) -> bool:
+    """A manifest is locked when there is no source choice for the user.
+
+    Locked = sources block absent OR sources.options has only one entry.
+    """
+    if m.sources is None:
+        return True
+    return len(m.sources.options) <= 1
