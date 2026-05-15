@@ -26,6 +26,23 @@ def test_no_services_dir_exits_clean(tmp_path: Path, capsys):
     assert exit_code == 0
 
 
+def _scaffold_generated_artifacts(project: Path) -> None:
+    """Create README.md and architecture.dot from generators so real-repo
+    guards in validate_fragments pass for test trees that have service.yml files.
+    """
+    from tools.generate_readme_topology import generate_block
+    from tools.generate_architecture_diagram import generate
+
+    services_dir = project / "services"
+    block = generate_block(services_dir)
+    readme_text = f"# Test\n\n{block}\n"
+    (project / "README.md").write_text(readme_text)
+
+    dot_dir = project / "docs" / "diagrams"
+    dot_dir.mkdir(parents=True, exist_ok=True)
+    generate(services_dir, dot_dir / "architecture.dot")
+
+
 def test_valid_manifest_exits_clean(
     tmp_path: Path, services_root, write_manifest, minimal_manifest_dict, capsys
 ):
@@ -46,6 +63,7 @@ def test_valid_manifest_exits_clean(
     (project / "services" / "redis" / "compose.yml").write_text(
         "services:\n  redis:\n    image: redis:latest\n"
     )
+    _scaffold_generated_artifacts(project)
     exit_code = run(project_root=project, check_env_example=False)
     assert exit_code == 0
 
@@ -124,6 +142,7 @@ def test_check_env_example_matches_committed_file(
     manifests = load_manifests(project / "services")
     expected = assemble_env_example(manifests)
     (project / ".env.example").write_text(expected)
+    _scaffold_generated_artifacts(project)
 
     exit_code = run(project_root=project, check_env_example=True)
     assert exit_code == 0

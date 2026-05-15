@@ -90,8 +90,12 @@ def run(
 def _check_readme_topology_block_is_current(project_root: Path) -> list[str]:
     """Ensure README.md TOPOLOGY block matches the generator's output."""
     readme = project_root / "README.md"
-    if not readme.exists():
+    services_dir = project_root / "services"
+    if not services_dir.is_dir() or not any(services_dir.rglob("service.yml")):
+        # Synthetic test tree with no manifests — nothing to validate against.
         return []
+    if not readme.is_file():
+        return ["README.md missing from real repo"]
     from tools.generate_readme_topology import generate_block
     expected = generate_block(project_root / "services").rstrip()
     text = readme.read_text()
@@ -109,8 +113,12 @@ def _check_readme_topology_block_is_current(project_root: Path) -> list[str]:
 def _check_architecture_dot_is_current(project_root: Path) -> list[str]:
     """Ensure architecture.dot matches what the generator would produce."""
     dot_file = project_root / "docs" / "diagrams" / "architecture.dot"
-    if not dot_file.exists():
+    services_dir = project_root / "services"
+    if not services_dir.is_dir() or not any(services_dir.rglob("service.yml")):
+        # Synthetic test tree with no manifests — nothing to validate against.
         return []
+    if not dot_file.exists():
+        return ["docs/diagrams/architecture.dot missing from real repo"]
     from tools.generate_architecture_diagram import generate
     import tempfile
     with tempfile.NamedTemporaryFile("r+", suffix=".dot", delete=False) as f:
