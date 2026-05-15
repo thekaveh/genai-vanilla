@@ -56,6 +56,13 @@ exports: []
 # manifest. Synthesized into the runtime dict by
 # bootstrapper/services/sc_synthesizer.py.
 # ─────────────────────────────────────────────────────────
+runtime_sc:
+  jupyterhub:
+    container:
+      scale: 1
+    disabled:
+      scale: 0
+
 runtime_adaptive:
   jupyterhub:
     adapts_to:
