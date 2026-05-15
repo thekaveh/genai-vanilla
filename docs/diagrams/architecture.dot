@@ -6,62 +6,62 @@ digraph stack {
 
   subgraph "cluster_infra" {
     label="Infrastructure";
-    fontcolor="#9a8cc6";
-    color="#9a8cc6";
-    "globals" [fillcolor="#9a8cc633"];
-    "kong" [fillcolor="#9a8cc633"];
+    fontcolor="#f38ba8";
+    color="#f38ba8";
+    "globals" [fillcolor="#f38ba833"];
+    "kong" [fillcolor="#f38ba833"];
   }
 
   subgraph "cluster_data" {
     label="Data";
-    fontcolor="#6a9aaa";
-    color="#6a9aaa";
-    "supabase" [fillcolor="#6a9aaa33"];
-    "minio" [fillcolor="#6a9aaa33"];
-    "neo4j" [fillcolor="#6a9aaa33"];
-    "redis" [fillcolor="#6a9aaa33"];
-    "weaviate" [fillcolor="#6a9aaa33"];
+    fontcolor="#a6e3a1";
+    color="#a6e3a1";
+    "supabase" [fillcolor="#a6e3a133"];
+    "minio" [fillcolor="#a6e3a133"];
+    "neo4j" [fillcolor="#a6e3a133"];
+    "redis" [fillcolor="#a6e3a133"];
+    "weaviate" [fillcolor="#a6e3a133"];
   }
 
   subgraph "cluster_llm" {
     label="LLM Core";
-    fontcolor="#7dcfff";
-    color="#7dcfff";
-    "litellm" [fillcolor="#7dcfff33"];
-    "cloud-providers" [fillcolor="#7dcfff33"];
-    "ollama" [fillcolor="#7dcfff33"];
+    fontcolor="#cba6f7";
+    color="#cba6f7";
+    "litellm" [fillcolor="#cba6f733"];
+    "cloud-providers" [fillcolor="#cba6f733"];
+    "ollama" [fillcolor="#cba6f733"];
   }
 
   subgraph "cluster_media" {
     label="Media";
-    fontcolor="#98c379";
-    color="#98c379";
-    "docling" [fillcolor="#98c37933"];
-    "comfyui" [fillcolor="#98c37933"];
-    "parakeet" [fillcolor="#98c37933"];
-    "searxng" [fillcolor="#98c37933"];
-    "tts-provider" [fillcolor="#98c37933"];
-    "chatterbox" [fillcolor="#98c37933"];
-    "speaches" [fillcolor="#98c37933"];
+    fontcolor="#f9e2af";
+    color="#f9e2af";
+    "docling" [fillcolor="#f9e2af33"];
+    "comfyui" [fillcolor="#f9e2af33"];
+    "parakeet" [fillcolor="#f9e2af33"];
+    "searxng" [fillcolor="#f9e2af33"];
+    "tts-provider" [fillcolor="#f9e2af33"];
+    "chatterbox" [fillcolor="#f9e2af33"];
+    "speaches" [fillcolor="#f9e2af33"];
   }
 
   subgraph "cluster_agents" {
     label="Agents & Workflows";
-    fontcolor="#d4a574";
-    color="#d4a574";
-    "hermes" [fillcolor="#d4a57433"];
-    "n8n" [fillcolor="#d4a57433"];
-    "openclaw" [fillcolor="#d4a57433"];
+    fontcolor="#89b4fa";
+    color="#89b4fa";
+    "hermes" [fillcolor="#89b4fa33"];
+    "n8n" [fillcolor="#89b4fa33"];
+    "openclaw" [fillcolor="#89b4fa33"];
   }
 
   subgraph "cluster_apps" {
     label="Apps & UIs";
-    fontcolor="#89aad4";
-    color="#89aad4";
-    "backend" [fillcolor="#89aad433"];
-    "jupyterhub" [fillcolor="#89aad433"];
-    "open-webui" [fillcolor="#89aad433"];
-    "local-deep-researcher" [fillcolor="#89aad433"];
+    fontcolor="#fab387";
+    color="#fab387";
+    "backend" [fillcolor="#fab38733"];
+    "jupyterhub" [fillcolor="#fab38733"];
+    "open-webui" [fillcolor="#fab38733"];
+    "local-deep-researcher" [fillcolor="#fab38733"];
   }
 
   "supabase" -> "backend";

@@ -234,11 +234,16 @@ class ServiceTable(Widget):
 
     @property
     def _slot_fixed(self) -> int:
-        # bar(BAR_W) sp(1) arrow(1) sp(1) dot(1) sp(2) + lock(LOCK_W) + 4*COL_SEP
+        # Per-slot fixed-width overhead. Column order:
+        #   arrow(1) sp(1) dot(1) sp(2) lock(LOCK_W) sep
+        #     port(var) sep bar(BAR_W) sp(1) name(var) sep source(var) sep alias(var)
+        # The bar moved from the very-left position to between the port
+        # and name columns so the colored stripe and the service label
+        # travel together. Total fixed cells unchanged.
         return (
-            self.BAR_W + 1
-            + self.ARROW_W + 1 + self.DOT_W + 2
+            self.ARROW_W + 1 + self.DOT_W + 2
             + self.LOCK_W + 4 * self.COL_SEP
+            + self.BAR_W + 1
         )
 
     def _raw_widths(
@@ -288,19 +293,18 @@ class ServiceTable(Widget):
         port_w, name_w, source_w, alias_w = widths
         slot = Text()
         sep = " " * self.COL_SEP
-        # Leading category bar — 2 cells in the category color.
-        bar_color = P.style_for_category(r.category) if r else P.TEXT_FAINT
-        slot.append(self.BAR_GLYPH, style=bar_color)
-        slot.append(" ")
         if r is None:
-            # Bar (BAR_W + 1) already written above; pad the remaining columns.
+            # All padding in one shot — placeholder row has no bar to color.
             total = (
-                self.ARROW_W + 1 + self.DOT_W + 2 + port_w + self.COL_SEP
+                self.ARROW_W + 1 + self.DOT_W + 2
                 + self.LOCK_W + self.COL_SEP
+                + port_w + self.COL_SEP
+                + self.BAR_W + 1
                 + name_w + self.COL_SEP + source_w + self.COL_SEP + alias_w
             )
             slot.append(" " * total)
             return slot
+        bar_color = P.style_for_category(r.category)
         slot.append(P.ARROW_RIGHT if is_cursor else " ",
                     style=f"bold {P.ACCENT}" if is_cursor else P.TEXT_FAINT)
         slot.append(" ")
@@ -319,6 +323,10 @@ class ServiceTable(Widget):
             slot.append(sep)
             slot.append(_fit("—", port_w), style=P.TEXT_FAINT)
             slot.append(sep)
+            # Leading category bar — sits immediately before the name so
+            # the colored stripe and the label travel together.
+            slot.append(self.BAR_GLYPH, style=bar_color)
+            slot.append(" ")
             name_color = P.ACCENT if is_cursor else P.TEXT
             slot.append(_fit(r.name, name_w),
                         style=f"bold {name_color}" if is_cursor else name_color)
@@ -343,7 +351,10 @@ class ServiceTable(Widget):
         port_color = P.ACCENT if port else P.TEXT_FAINT
         slot.append(_fit(port_text, port_w), style=port_color)
         slot.append(sep)
-        # 3) Name
+        # 3) Category bar — colored stripe immediately before the name.
+        slot.append(self.BAR_GLYPH, style=bar_color)
+        slot.append(" ")
+        # 4) Name
         name_color = P.TEXT_MUTED if is_disabled else (P.ACCENT if is_cursor else P.TEXT)
         slot.append(_fit(r.name, name_w),
                     style=f"bold {name_color}" if is_cursor else name_color)

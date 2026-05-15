@@ -49,13 +49,18 @@ CATEGORY_LABELS: dict[str, str] = {
 # Canonical category color tokens. The Textual palette re-exports these
 # as ``CAT_*`` named tokens (kept for ``style=P.CAT_INFRA`` syntax) and
 # the architecture-diagram generator imports the dict directly.
+# Pastel palette picked from Catppuccin Mocha and ordered so that each
+# adjacent pair in CATEGORY_ORDER lands on near-complementary hues — the
+# previous slate/sky/periwinkle/sage set was visually too clustered in
+# the cool half of the wheel. Hue diffs between every adjacent pair here
+# exceed 120°, which is what gives the bar its at-a-glance distinction.
 CATEGORY_COLORS: dict[str, str] = {
-    "infra":  "#9a8cc6",  # purple
-    "data":   "#6a9aaa",  # slate-blue
-    "llm":    "#7dcfff",  # sky blue
-    "media":  "#98c379",  # sage green
-    "agents": "#d4a574",  # warm tan
-    "apps":   "#89aad4",  # periwinkle
+    "infra":  "#f38ba8",  # red/rose
+    "data":   "#a6e3a1",  # sage green
+    "llm":    "#cba6f7",  # mauve / lavender
+    "media":  "#f9e2af",  # cream yellow
+    "agents": "#89b4fa",  # blue
+    "apps":   "#fab387",  # peach
 }
 
 
