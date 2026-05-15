@@ -922,7 +922,7 @@ class GenAIStackStarter:
             if not _first:
                 _legend.append("   ")
             _first = False
-            _legend.append("▰▰", style=_style_for_category(_slug))
+            _legend.append("██", style=_style_for_category(_slug))
             _legend.append(f" {CATEGORY_LABELS[_slug]}")
         self.banner.console.print(_legend)
         self.banner.console.print()
@@ -1033,7 +1033,7 @@ class GenAIStackStarter:
                 alias_text = Text("-", style="color(243)")
 
             category = _category_by_name.get(name, "")
-            bar = Text("▰▰", style=style_for_category(category))
+            bar = Text("██", style=style_for_category(category))
             table.add_row(
                 bar,
                 port_val,

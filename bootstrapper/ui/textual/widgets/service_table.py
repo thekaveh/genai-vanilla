@@ -154,11 +154,12 @@ class ServiceTable(Widget):
 
     can_focus = False
 
-    # Leading category bar — colored stripe matching each row's category.
-    # 2 cells wide; renders ▰▰ to fill the cell width with a solid block-like
-    # glyph that survives without TrueColor.
+    # Leading category bar — solid colored stripe matching each row's
+    # category. 2 cells wide; uses U+2588 FULL BLOCK so the bar fills the
+    # cells edge-to-edge (the previous ▰ glyph rendered as a narrow strip
+    # that was easy to overlook).
     BAR_W = 2
-    BAR_GLYPH = "▰" * BAR_W  # two cells filled
+    BAR_GLYPH = "█" * BAR_W
 
     # Fixed-width portions of each slot.
     ARROW_W = 1
