@@ -1,7 +1,7 @@
 # services/open-webui/service.yml — Open WebUI + init
 name: open-webui
 label: "Open WebUI (chat interface)"
-category: app
+category: apps
 docs: docs/services/open-webui.md
 
 containers:
@@ -67,8 +67,20 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
+    - litellm
+    - hermes
   optional: []
+
+rows:
+  - display_name: "Open WebUI"
+    source_var: OPEN_WEB_UI_SOURCE
+    port_var: OPEN_WEB_UI_PORT
+    scale_var: OPEN_WEB_UI_SCALE
+    alias: chat.localhost
+    description: "Chat interface (consumes LiteLLM model list incl. hermes-agent)."
 
 exports: []
 

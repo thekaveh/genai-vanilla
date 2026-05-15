@@ -1,7 +1,7 @@
 # services/local-deep-researcher/service.yml — Local Deep Researcher
 name: local-deep-researcher
 label: "Local Deep Researcher (LangGraph research agent)"
-category: app
+category: apps
 docs: docs/services/local-deep-researcher.md
 
 containers:
@@ -36,8 +36,19 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - searxng
+    - litellm
   optional: []
+
+rows:
+  - display_name: "Local Deep Researcher"
+    source_var: LOCAL_DEEP_RESEARCHER_SOURCE
+    port_var: LOCAL_DEEP_RESEARCHER_PORT
+    scale_var: LOCAL_DEEP_RESEARCHER_SCALE
+    alias: research.localhost
+    description: "LangGraph research agent."
 
 exports: []
 

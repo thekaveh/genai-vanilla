@@ -1,7 +1,7 @@
 # services/jupyterhub/service.yml — JupyterHub data-science notebook
 name: jupyterhub
 label: "JupyterHub (data science notebooks)"
-category: app
+category: apps
 docs: docs/services/jupyterhub.md
 
 containers:
@@ -34,8 +34,19 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
+    - litellm
   optional: []
+
+rows:
+  - display_name: "JupyterHub"
+    source_var: JUPYTERHUB_SOURCE
+    port_var: JUPYTERHUB_PORT
+    scale_var: JUPYTERHUB_SCALE
+    alias: jupyter.localhost
+    description: "Data-science notebooks."
 
 exports: []
 

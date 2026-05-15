@@ -1,7 +1,7 @@
 # services/backend/service.yml — FastAPI backend (always-on adaptive)
 name: backend
 label: "Backend API (FastAPI)"
-category: app
+category: apps
 docs: docs/services/backend.md
 
 containers:
@@ -38,8 +38,18 @@ env:
     default: ""
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
   optional: []
+
+rows:
+  - display_name: "Backend API"
+    source_var: BACKEND_SOURCE
+    port_var: BACKEND_PORT
+    scale_var: BACKEND_SCALE
+    alias: api.localhost
+    description: "FastAPI backend (always-on adaptive)."
 
 exports: []
 
