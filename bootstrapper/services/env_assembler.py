@@ -32,6 +32,7 @@ Output shape (per service):
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Iterable
 
@@ -76,13 +77,25 @@ def assemble_env_example(
     _services_root = services_root or (
         Path(__file__).resolve().parent.parent.parent / "services"
     )
+    port_defaults: dict[str, int]
     try:
         _topology = build_topology(_services_root)
-        port_defaults: dict[str, int] = dict(_topology.port_defaults)
-    except Exception:
-        # If topology cannot be built (e.g. in unit tests with synthetic
-        # manifests that have no real services/ tree), fall back to manifest
-        # defaults so existing tests continue to pass.
+        port_defaults = dict(_topology.port_defaults)
+    except (FileNotFoundError, NotADirectoryError):
+        # Synthetic test trees with no services/ dir on disk — fall back
+        # to manifest-declared defaults silently. This is the supported
+        # "stand-alone library" path used by env_assembler unit tests.
+        port_defaults = {}
+    except Exception as exc:
+        # Real services/ tree present but topology failed (e.g. cycle,
+        # unknown category, slot overflow). Warn so the failure surfaces
+        # in the test log and CI, then degrade gracefully to manifest
+        # defaults. Re-raising would block the assembler entirely; we
+        # prefer a noisy fallback over silent breakage.
+        warnings.warn(
+            f"build_topology failed; port defaults will be empty: {exc}",
+            stacklevel=2,
+        )
         port_defaults = {}
 
     ordered = _apply_order(manifests, order)
