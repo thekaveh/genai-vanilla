@@ -59,3 +59,24 @@ def test_slot_allocator_ignores_non_port_env_vars():
     ]
     defaults = _allocate_slots(manifests, ["demo"], base_port=63000)
     assert defaults == {"DEMO_PORT": 63010}
+
+
+def test_slot_allocator_skips_base_port():
+    """BASE_PORT is the allocator's anchor, not an allocatable slot.
+
+    Without the skip, BASE_PORT would consume infra slot 0 (= base_port + 0
+    = 63000) and push the first real infra port (KONG_HTTP_PORT) to slot 1
+    (63001). With the skip, BASE_PORT is absent from the returned mapping
+    and KONG_HTTP_PORT lands at slot 0 (63000).
+    """
+    from services.topology import _allocate_slots
+    manifests = [
+        _manifest_with_ports("globals", "infra", ["BASE_PORT"]),
+        _manifest_with_ports("kong", "infra", ["KONG_HTTP_PORT", "KONG_HTTPS_PORT"]),
+    ]
+    defaults = _allocate_slots(
+        manifests, ["globals", "kong"], base_port=63000
+    )
+    assert "BASE_PORT" not in defaults
+    assert defaults["KONG_HTTP_PORT"] == 63000
+    assert defaults["KONG_HTTPS_PORT"] == 63001

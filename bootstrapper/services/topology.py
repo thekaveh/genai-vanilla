@@ -1,8 +1,11 @@
 """
 Topology engine — single source of truth for service ordering, categorization,
-port slot allocation, box rows, and alias list.
+port slot allocation, box rows, alias list, category labels, and category
+colors.
 
-Replaces:
+Historical replacements (these modules no longer exist; topology.py is now
+the canonical source):
+
   * bootstrapper/ui/state_builder.py::_SERVICES
   * bootstrapper/ui/state_builder.py::_HOST_ALIAS
   * bootstrapper/wizard/service_discovery.py::DISPLAY_NAME_OVERRIDES
@@ -16,6 +19,7 @@ Every downstream consumer imports Topology from here.
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -28,6 +32,32 @@ from services.manifests import Manifest, load_manifests
 CATEGORY_ORDER: tuple[str, ...] = (
     "infra", "data", "llm", "media", "agents", "apps",
 )
+
+
+# Human-readable labels for each category slug. Single source of truth —
+# legend widgets, README generator, dot generator, and the pre-launch
+# Rich summary all consume this dict instead of redefining the mapping.
+CATEGORY_LABELS: dict[str, str] = {
+    "infra":  "Infrastructure",
+    "data":   "Data",
+    "llm":    "LLM Core",
+    "media":  "Media",
+    "agents": "Agents & Workflows",
+    "apps":   "Apps & UIs",
+}
+
+
+# Canonical category color tokens. The Textual palette re-exports these
+# as ``CAT_*`` named tokens (kept for ``style=P.CAT_INFRA`` syntax) and
+# the architecture-diagram generator imports the dict directly.
+CATEGORY_COLORS: dict[str, str] = {
+    "infra":  "#9a8cc6",  # purple
+    "data":   "#6a9aaa",  # slate-blue
+    "llm":    "#7dcfff",  # sky blue
+    "media":  "#98c379",  # sage green
+    "agents": "#d4a574",  # warm tan
+    "apps":   "#89aad4",  # periwinkle
+}
 
 
 # Slot allocator: per-category port block. (base_offset, block_size).
@@ -74,9 +104,53 @@ class TopologyError(Exception):
 
 
 def build_topology(services_root: Path, base_port: int = 63000) -> Topology:
-    """Top-level entry point — loads manifests then computes the topology."""
+    """Top-level entry point — loads manifests then computes the topology.
+
+    Prefer ``get_topology()`` for app code — it caches the result so the
+    manifests are only read from disk once per process.
+    """
     manifests = load_manifests(Path(services_root))
     return _build_from_manifests(manifests, base_port)
+
+
+@functools.lru_cache(maxsize=8)
+def _cached_topology(services_root_str: str, base_port: int) -> "Topology":
+    return build_topology(Path(services_root_str), base_port=base_port)
+
+
+def get_topology(
+    services_root: Path | None = None, base_port: int = 63000
+) -> "Topology":
+    """Cached topology accessor — single canonical entry point for app code.
+
+    Replaces the assortment of per-module caches (``_topology_singleton``,
+    ``_topology_cache``, ``_aliases_cache``, per-call ``build_topology``
+    invocations) with one process-wide LRU. Tests that mutate the on-disk
+    services/ tree can clear the cache via ``invalidate_cache()``.
+
+    Args:
+        services_root: Path to ``services/``. Defaults to the repo's
+            top-level ``services/`` resolved relative to this file.
+        base_port: Anchor for the slot allocator. Almost always 63000.
+    """
+    if services_root is None:
+        services_root = Path(__file__).resolve().parent.parent.parent / "services"
+    return _cached_topology(str(Path(services_root).resolve()), base_port)
+
+
+def invalidate_cache() -> None:
+    """Test hook — clear the topology LRU. Call after mutating manifests."""
+    _cached_topology.cache_clear()
+
+
+def validate_acyclic(manifests: list[Manifest]) -> None:
+    """Public wrapper around the topo-sort cycle check.
+
+    Raises ``TopologyError`` if the combined depends_on graph has a cycle.
+    ``manifest_validator`` calls this; the underlying ``_topo_sort`` stays
+    private.
+    """
+    _topo_sort(manifests)
 
 
 def _topo_sort(manifests: list[Manifest]) -> list[str]:
@@ -126,8 +200,20 @@ def _canonical_order(manifests: list[Manifest], topo: list[str]) -> list[str]:
     Within a category, manifests stay in their topo-derived order. Between
     categories, the global category sequence wins (infra → data → llm → media
     → agents → apps).
+
+    Raises ``TopologyError`` for any manifest whose category is not in
+    ``CATEGORY_ORDER`` — silent exclusion would let an unknown-category
+    manifest disappear from every downstream consumer.
     """
     category_of = {m.name: m.category for m in manifests}
+    unknown = [
+        name for name, cat in category_of.items() if cat not in CATEGORY_ORDER
+    ]
+    if unknown:
+        raise TopologyError(
+            f"unknown category for manifest(s): {sorted(unknown)}. "
+            f"Valid categories: {list(CATEGORY_ORDER)}."
+        )
     buckets: dict[str, list[str]] = {c: [] for c in CATEGORY_ORDER}
     for name in topo:
         cat = category_of.get(name)
@@ -163,6 +249,12 @@ def _allocate_slots(
         block_end = base_offset + block_size
         for env in m.env:
             if not env.name.endswith("_PORT"):
+                continue
+            if env.name == "BASE_PORT":
+                # BASE_PORT is the allocator's anchor, not an allocatable slot.
+                # If it slipped into a manifest's env list, skip it so the
+                # category's first real port (e.g. KONG_HTTP_PORT) lands at
+                # slot 0 of the infra block.
                 continue
             if next_slot[cat] >= block_end:
                 raise TopologyError(
