@@ -80,6 +80,47 @@ def build_topology(services_root: Path, base_port: int = 63000) -> Topology:
     return _build_from_manifests(manifests, base_port)
 
 
+def _topo_sort(manifests: list[Manifest]) -> list[str]:
+    """Kahn's algorithm with lexicographic tiebreaker.
+
+    Returns manifest names in topological order. Manifests with no deps sort
+    alphabetically among themselves; same for any other tier of equal rank.
+    """
+    from collections import defaultdict
+    import heapq
+
+    names = {m.name for m in manifests}
+    in_degree: dict[str, int] = {m.name: 0 for m in manifests}
+    forward: dict[str, list[str]] = defaultdict(list)
+
+    for m in manifests:
+        for dep in m.depends_on.required:
+            if dep in names:
+                forward[dep].append(m.name)
+                in_degree[m.name] += 1
+
+    ready: list[str] = [n for n, d in in_degree.items() if d == 0]
+    heapq.heapify(ready)
+
+    order: list[str] = []
+    while ready:
+        n = heapq.heappop(ready)
+        order.append(n)
+        for child in forward[n]:
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                heapq.heappush(ready, child)
+
+    if len(order) != len(manifests):
+        unresolved = sorted(n for n, d in in_degree.items() if d > 0)
+        raise TopologyError(
+            f"dependency cycle among: {unresolved}. "
+            f"Each remaining manifest has at least one inbound dep that was "
+            f"never resolved — pick any to start tracing."
+        )
+    return order
+
+
 def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology:
     """Internal — splits manifest loading from computation for unit-test ergonomics."""
-    raise NotImplementedError  # filled in by Tasks 2.2-2.5
+    raise NotImplementedError  # filled in by Tasks 2.3-2.5
