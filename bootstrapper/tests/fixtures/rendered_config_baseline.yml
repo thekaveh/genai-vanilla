@@ -34,19 +34,16 @@ services:
     environment:
       COMFYUI_BASE_URL: http://comfyui:18188
       COMFYUI_ENABLED: 'true'
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       DOCLING_ENDPOINT: ''
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
       KONG_URL: http://kong-api-gateway:8000
       LANGMEM_AUTO_CONSOLIDATE: 'true'
       LANGMEM_CONSOLIDATION_INTERVAL: '86400'
-      LANGMEM_EMBEDDING_MODEL: '# Embedding model for pgvector fallback (empty = use
-        stack default)'
+      LANGMEM_EMBEDDING_MODEL: ''
       LANGMEM_ENABLED: 'true'
-      LANGMEM_EXTRACTION_MODEL: '# LiteLLM model identifier for fact extraction (e.g.
-        ollama/qwen3.6:latest); empty = pick highest-priority active content model
-        from public.llms'
+      LANGMEM_EXTRACTION_MODEL: ''
       LANGMEM_MAX_FACTS_PER_USER: '1000'
       LANGMEM_NAMESPACE: default
       LITELLM_API_KEY: ''
@@ -54,11 +51,11 @@ services:
       LITELLM_DEFAULT_MODEL: ''
       LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
       N8N_BASE_URL: http://n8n:5678
-      NEO4J_PASSWORD: neo4j_password
+      NEO4J_PASSWORD: ''
       NEO4J_URI: bolt://neo4j-graph-db:7687
       NEO4J_USER: neo4j
       PROJECT_NAME: genai
-      REDIS_URL: redis://:redis_password@redis:6379/0
+      REDIS_URL: redis://:@redis:6379/0
       STT_ENDPOINT: ''
       SUPABASE_ANON_KEY: ''
       SUPABASE_SERVICE_KEY: ''
@@ -66,11 +63,13 @@ services:
       WEAVIATE_ENABLED: 'true'
       WEAVIATE_URL: http://weaviate:8080
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     networks:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63080'
       target: 8000
       published: '63016'
       protocol: tcp
@@ -134,6 +133,8 @@ services:
     platform: linux/amd64
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63041'
       target: 18188
       published: '63018'
       protocol: tcp
@@ -179,11 +180,11 @@ services:
       IS_LOCAL_COMFYUI: 'false'
       PGDATABASE: postgres
       PGHOST: supabase-db
-      PGPASSWORD: password
+      PGPASSWORD: ''
       PGPORT: '5432'
       PGUSER: supabase_admin
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     image: alpine:latest
     networks:
       backend-network: null
@@ -210,7 +211,7 @@ services:
         condition: service_healthy
         required: true
     deploy:
-      replicas: 1
+      replicas: 0
       resources:
         limits:
           cpus: 2
@@ -231,7 +232,7 @@ services:
       OPENAI_API_KEY: ''
       OPENROUTER_API_KEY: ''
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     healthcheck:
       test:
       - CMD-SHELL
@@ -250,10 +251,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63060'
       target: 8642
       published: '63028'
       protocol: tcp
-    - mode: ingress
+      published: '63061'
       target: 9119
       published: '63029'
       protocol: tcp
@@ -270,7 +273,7 @@ services:
         condition: service_healthy
         required: true
     deploy:
-      replicas: 1
+      replicas: 0
     entrypoint:
     - /scripts/init-hermes.sh
     environment:
@@ -330,21 +333,20 @@ services:
     environment:
       BACKEND_API_URL: http://backend:8000
       COMFYUI_BASE_URL: http://comfyui:18188
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       DOCLING_ENDPOINT: ''
       GRANT_SUDO: 'yes'
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
       JUPYTER_ENABLE_LAB: 'yes'
-      JUPYTER_TOKEN: '# Optional: Set token for authentication (empty = generate on
-        start)'
+      JUPYTER_TOKEN: ''
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
       N8N_BASE_URL: http://n8n:5678
-      NEO4J_PASSWORD: neo4j_password
+      NEO4J_PASSWORD: ''
       NEO4J_URI: bolt://neo4j-graph-db:7687
       NEO4J_USER: neo4j
-      REDIS_URL: redis://:redis_password@redis:6379/3
+      REDIS_URL: redis://:@redis:6379/3
       SEARXNG_URL: http://searxng:8080
       STT_ENDPOINT: ''
       SUPABASE_ANON_KEY: ''
@@ -353,7 +355,7 @@ services:
       TTS_ENDPOINT: ''
       WEAVIATE_URL: http://weaviate:8080
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     healthcheck:
       test:
       - CMD
@@ -372,6 +374,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63081'
       target: 8888
       published: '63048'
       protocol: tcp
@@ -413,7 +417,7 @@ services:
         condition: service_started
         required: true
     environment:
-      DASHBOARD_PASSWORD: kong_password
+      DASHBOARD_PASSWORD: ''
       DASHBOARD_USERNAME: kong_admin
       KONG_DATABASE: 'off'
       KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
@@ -435,7 +439,7 @@ services:
       KONG_PROXY_READ_TIMEOUT: '300'
       KONG_PROXY_SEND_TIMEOUT: '300'
       KONG_REDIS_HOST: redis
-      KONG_REDIS_PASSWORD: redis_password
+      KONG_REDIS_PASSWORD: ''
       KONG_REDIS_PORT: '6379'
       SUPABASE_ANON_KEY: ''
       SUPABASE_SERVICE_KEY: ''
@@ -444,10 +448,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63001'
       target: 8000
       published: '63002'
       protocol: tcp
-    - mode: ingress
+      published: '63002'
       target: 8443
       published: '63003'
       protocol: tcp
@@ -480,20 +486,20 @@ services:
         required: true
     environment:
       ANTHROPIC_API_KEY: ''
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/litellm
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/litellm
       HERMES_API_KEY: ''
       LITELLM_MASTER_KEY: ''
       OPENAI_API_KEY: ''
       OPENROUTER_API_KEY: ''
       REDIS_HOST: redis
-      REDIS_PASSWORD: redis_password
+      REDIS_PASSWORD: ''
       REDIS_PORT: '6379'
       STORE_MODEL_IN_DB: 'True'
       UI_PASSWORD: ''
       UI_USERNAME: admin
       USE_PRISMA_MIGRATE: 'True'
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     healthcheck:
       test:
       - CMD
@@ -510,6 +516,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63030'
       target: 4000
       published: '63012'
       protocol: tcp
@@ -539,10 +547,10 @@ services:
       HERMES_SOURCE: container
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
       LITELLM_DB_NAME: litellm
-      LITELLM_OLLAMA_UPSTREAM: http://ollama:11434
+      LITELLM_OLLAMA_UPSTREAM: ''
       PGDATABASE: postgres
       PGHOST: supabase-db
-      PGPASSWORD: password
+      PGPASSWORD: ''
       PGPORT: '5432'
       PGUSER: supabase_admin
     networks:
@@ -576,7 +584,7 @@ services:
       ANTHROPIC_API_KEY: ''
       ANTHROPIC_USER_MODELS: ''
       LITELLM_ANTHROPIC_ENABLED: 'false'
-      LITELLM_OLLAMA_UPSTREAM: http://ollama:11434
+      LITELLM_OLLAMA_UPSTREAM: ''
       LITELLM_OPENAI_ENABLED: 'false'
       LITELLM_OPENROUTER_ENABLED: 'false'
       LLM_PROVIDER_SOURCE: ollama-container-cpu
@@ -589,11 +597,11 @@ services:
       OPENROUTER_USER_MODELS: ''
       PGDATABASE: postgres
       PGHOST: supabase-db
-      PGPASSWORD: password
+      PGPASSWORD: ''
       PGPORT: '5432'
       PGUSER: supabase_admin
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     networks:
       backend-network: null
     restart: 'no'
@@ -628,7 +636,7 @@ services:
     deploy:
       replicas: 1
     environment:
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
       LOCAL_DEEP_RESEARCHER_WORKERS: '3'
@@ -636,11 +644,13 @@ services:
       SEARCH_API: searxng
       SEARXNG_URL: http://searxng:8080
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     networks:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63083'
       target: 2024
       published: '63013'
       protocol: tcp
@@ -683,10 +693,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63010'
       target: 9000
       published: '63030'
       protocol: tcp
-    - mode: ingress
+      published: '63011'
       target: 9001
       published: '63031'
       protocol: tcp
@@ -766,7 +778,7 @@ services:
     environment:
       DB_POSTGRESDB_DATABASE: postgres
       DB_POSTGRESDB_HOST: supabase-db
-      DB_POSTGRESDB_PASSWORD: password
+      DB_POSTGRESDB_PASSWORD: ''
       DB_POSTGRESDB_PORT: '5432'
       DB_POSTGRESDB_SCHEMA: n8n
       DB_POSTGRESDB_USER: supabase_admin
@@ -777,12 +789,12 @@ services:
       GENERIC_TIMEZONE: UTC
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
-      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63002
+      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63001
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
       N8N_COMMUNITY_PACKAGES_ENABLED: 'true'
-      N8N_EDITOR_BASE_URL: http://n8n.localhost:63002
-      N8N_ENCRYPTION_KEY: your-random-encryption-key
+      N8N_EDITOR_BASE_URL: http://n8n.localhost:63001
+      N8N_ENCRYPTION_KEY: ''
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
       N8N_HOST: n8n.localhost
       N8N_PORT: '5678'
@@ -796,14 +808,14 @@ services:
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: 'true'
       QUEUE_BULL_REDIS_DB: '0'
       QUEUE_BULL_REDIS_HOST: redis
-      QUEUE_BULL_REDIS_PASSWORD: redis_password
+      QUEUE_BULL_REDIS_PASSWORD: ''
       QUEUE_BULL_REDIS_PORT: '6379'
       QUEUE_HEALTH_CHECK_ACTIVE: 'true'
       STT_ENDPOINT: ''
       TTS_ENDPOINT: ''
-      VUE_APP_URL_BASE_API: http://n8n.localhost:63002/
+      VUE_APP_URL_BASE_API: http://n8n.localhost:63001/
       WEAVIATE_URL: http://weaviate:8080
-      WEBHOOK_URL: http://n8n.localhost:63002/
+      WEBHOOK_URL: http://n8n.localhost:63001/
     healthcheck:
       test:
       - CMD
@@ -819,6 +831,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63062'
       target: 5678
       published: '63017'
       protocol: tcp
@@ -884,19 +898,19 @@ services:
     environment:
       DB_POSTGRESDB_DATABASE: postgres
       DB_POSTGRESDB_HOST: supabase-db
-      DB_POSTGRESDB_PASSWORD: password
+      DB_POSTGRESDB_PASSWORD: ''
       DB_POSTGRESDB_PORT: '5432'
       DB_POSTGRESDB_SCHEMA: n8n
       DB_POSTGRESDB_USER: supabase_admin
       DB_SCHEMA: n8n
       DB_TYPE: postgresdb
       EXECUTIONS_MODE: queue
-      N8N_ENCRYPTION_KEY: your-random-encryption-key
+      N8N_ENCRYPTION_KEY: ''
       N8N_RUNNERS_ENABLED: 'true'
       NODE_ENV: development
       QUEUE_BULL_REDIS_DB: '0'
       QUEUE_BULL_REDIS_HOST: redis
-      QUEUE_BULL_REDIS_PASSWORD: redis_password
+      QUEUE_BULL_REDIS_PASSWORD: ''
       QUEUE_BULL_REDIS_PORT: '6379'
       QUEUE_HEALTH_CHECK_ACTIVE: 'true'
     image: n8nio/n8n:latest
@@ -919,7 +933,7 @@ services:
       replicas: 1
     environment:
       NEO4J_ACCEPT_LICENSE_AGREEMENT: 'yes'
-      NEO4J_AUTH: neo4j/neo4j_password
+      NEO4J_AUTH: ''
       NEO4J_browser_remote__content__hostname__whitelist: '*'
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
       NEO4J_server_default__advertised__address: neo4j-graph-db
@@ -927,10 +941,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63012'
       target: 7687
       published: '63010'
       protocol: tcp
-    - mode: ingress
+      published: '63013'
       target: 7474
       published: '63011'
       protocol: tcp
@@ -953,7 +969,7 @@ services:
     deploy:
       replicas: 1
     environment:
-      NVIDIA_VISIBLE_DEVICES: 'null'
+      NVIDIA_VISIBLE_DEVICES: all
     image: ollama/ollama:latest
     networks:
       backend-network: null
@@ -980,14 +996,14 @@ services:
     entrypoint:
     - /scripts/pull.sh
     environment:
-      OLLAMA_HOST_URL: http://ollama:11434
+      OLLAMA_HOST_URL: ''
       PGDATABASE: postgres
       PGHOST: supabase-db
-      PGPASSWORD: password
+      PGPASSWORD: ''
       PGPORT: '5432'
       PGUSER: supabase_admin
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     image: alpine:latest
     networks:
       backend-network: null
@@ -1029,7 +1045,7 @@ services:
       AUDIO_TTS_OPENAI_API_KEY: sk-unused
       AUDIO_TTS_VOICE: ''
       COMFYUI_BASE_URL: http://comfyui:18188
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       ENABLE_IMAGE_GENERATION: 'true'
       ENABLE_OLLAMA_API: 'false'
       ENABLE_OPENAI_API: 'true'
@@ -1040,18 +1056,20 @@ services:
       OPENAI_API_KEYS: ''
       REDIS_KEY_PREFIX: openwebui
       WEBSOCKET_MANAGER: redis
-      WEBSOCKET_REDIS_URL: redis://:redis_password@redis:6379/2
+      WEBSOCKET_REDIS_URL: redis://:@redis:6379/2
       WEBUI_ADMIN_EMAIL: admin@localhost
       WEBUI_ADMIN_NAME: Admin
       WEBUI_ADMIN_PASSWORD: admin
-      WEBUI_SECRET_KEY: secret
+      WEBUI_SECRET_KEY: ''
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     image: dyrnq/open-webui:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63082'
       target: 8080
       published: '63015'
       protocol: tcp
@@ -1089,10 +1107,10 @@ services:
       ADMIN_EMAIL: admin@localhost
       ADMIN_NAME: Admin
       ADMIN_PASSWORD: admin
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       FUNCTIONS_DIR: /functions
       TOOLS_DIR: /tools
-      WEBUI_SECRET_KEY: secret
+      WEBUI_SECRET_KEY: ''
       WEBUI_URL: http://open-web-ui:8080
     networks:
       backend-network: null
@@ -1137,7 +1155,7 @@ services:
       OPENCLAW_GATEWAY_TOKEN: ''
       TERM: xterm-256color
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     healthcheck:
       test:
       - CMD
@@ -1157,10 +1175,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63063'
       target: 18789
       published: '63024'
       protocol: tcp
-    - mode: ingress
+      published: '63064'
       target: 18790
       published: '63025'
       protocol: tcp
@@ -1205,7 +1225,6 @@ services:
     - --appendonly
     - 'yes'
     - --requirepass
-    - redis_password
     container_name: genai-redis
     depends_on:
       supabase-db-init:
@@ -1216,7 +1235,7 @@ services:
       - CMD
       - redis-cli
       - -a
-      - redis_password
+      - ''
       - ping
       timeout: 10s
       interval: 30s
@@ -1227,6 +1246,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63021'
       target: 6379
       published: '63001'
       protocol: tcp
@@ -1249,7 +1270,7 @@ services:
       replicas: 1
     environment:
       FORCE_OWNERSHIP: '1'
-      SEARXNG_BASE_URL: http://localhost:63014
+      SEARXNG_BASE_URL: http://localhost:63043
       SEARXNG_SECRET: ''
     healthcheck:
       test:
@@ -1267,6 +1288,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63043'
       target: 8080
       published: '63014'
       protocol: tcp
@@ -1289,7 +1312,7 @@ services:
     environment:
       PGRST_DB_ANON_ROLE: anon
       PGRST_DB_SCHEMA: public,storage,auth
-      PGRST_DB_URI: postgres://supabase_admin:password@supabase-db:5432/postgres
+      PGRST_DB_URI: postgres://supabase_admin:@supabase-db:5432/postgres
       PGRST_DB_USE_LEGACY_GUCS: 'false'
       PGRST_JWT_SECRET: ''
     image: postgrest/postgrest:v12.2.10
@@ -1297,6 +1320,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63018'
       target: 3000
       published: '63007'
       protocol: tcp
@@ -1310,7 +1335,7 @@ services:
     environment:
       API_EXTERNAL_URL: http://supabase-auth:9999
       DB_NAMESPACE: auth
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_admin:password@supabase-db:5432/postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_admin:@supabase-db:5432/postgres
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DISABLE_SIGNUP: 'false'
       GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
@@ -1334,6 +1359,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63017'
       target: 9999
       published: '63006'
       protocol: tcp
@@ -1343,7 +1370,7 @@ services:
     environment:
       POSTGRES_DB: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ''
       POSTGRES_USER: supabase_admin
     healthcheck:
       test:
@@ -1357,6 +1384,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63014'
       target: 5432
       published: '63000'
       protocol: tcp
@@ -1381,7 +1410,7 @@ services:
     environment:
       PGDATABASE: postgres
       PGHOST: supabase-db
-      PGPASSWORD: password
+      PGPASSWORD: ''
       PGUSER: supabase_admin
     image: postgres:15-alpine
     networks:
@@ -1401,7 +1430,7 @@ services:
     environment:
       PG_META_DB_HOST: supabase-db
       PG_META_DB_NAME: postgres
-      PG_META_DB_PASSWORD: password
+      PG_META_DB_PASSWORD: ''
       PG_META_DB_PORT: '5432'
       PG_META_DB_USER: supabase_admin
       PG_META_PORT: '8080'
@@ -1410,6 +1439,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63015'
       target: 8080
       published: '63004'
       protocol: tcp
@@ -1431,7 +1462,7 @@ services:
       DB_CHANNEL_ENABLED: 'true'
       DB_HOST: supabase-db
       DB_NAME: postgres
-      DB_PASSWORD: password
+      DB_PASSWORD: ''
       DB_PORT: '5432'
       DB_SLOT: supabase_realtime_slot
       DB_USER: supabase_admin
@@ -1451,6 +1482,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63019'
       target: 4000
       published: '63008'
       protocol: tcp
@@ -1463,7 +1496,7 @@ services:
         required: true
     environment:
       ANON_KEY: ''
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       FILE_SIZE_LIMIT: '52428800'
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
       FILE_STORAGE_PATH: /var/lib/storage
@@ -1481,6 +1514,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63016'
       target: 5000
       published: '63005'
       protocol: tcp
@@ -1516,13 +1551,13 @@ services:
         required: true
     environment:
       AUTH_JWT_SECRET: ''
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
+      DATABASE_URL: postgresql://supabase_admin:@supabase-db:5432/postgres
       DEFAULT_ORGANIZATION_NAME: genai
       HOSTNAME: 0.0.0.0
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ''
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_ANON_KEY: ''
-      SUPABASE_PUBLIC_URL: http://localhost:63002
+      SUPABASE_PUBLIC_URL: http://localhost:63001
       SUPABASE_SERVICE_KEY: ''
       SUPABASE_URL: http://kong-api-gateway:8000
     healthcheck:
@@ -1538,6 +1573,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63020'
       target: 3000
       published: '63009'
       protocol: tcp
@@ -1575,7 +1612,7 @@ services:
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
       QUERY_DEFAULTS_LIMIT: '25'
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     healthcheck:
       test:
       - CMD
@@ -1591,10 +1628,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
+      protocol: tcp
+      published: '63022'
       target: 8080
       published: '63019'
       protocol: tcp
-    - mode: ingress
+      published: '63023'
       target: 50051
       published: '63020'
       protocol: tcp
@@ -1630,11 +1669,11 @@ services:
       LITELLM_BASE_URL: http://litellm:4000
       PGDATABASE: postgres
       PGHOST: supabase-db
-      PGPASSWORD: password
+      PGPASSWORD: ''
       PGPORT: '5432'
       PGUSER: supabase_admin
     extra_hosts:
-    - host.docker.internal=host-gateway
+    - host.docker.internal=
     image: alpine:latest
     networks:
       backend-network: null
