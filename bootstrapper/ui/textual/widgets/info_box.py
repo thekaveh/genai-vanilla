@@ -40,11 +40,7 @@ class ServiceSummary:
     source: str = ""
     port: str = ""
     alias: str = ""
-    pending: bool = False    # NEW
-
-    @property
-    def is_pending(self) -> bool:
-        return self.pending
+    pending: bool = False
 
     @property
     def is_disabled(self) -> bool:
@@ -111,7 +107,7 @@ class InfoBoxFooter(Static):
     def _counts(self) -> tuple[int, int, int, int, int]:
         pending = container = local = off = gpu = 0
         for s in self._services:
-            if s.is_pending:
+            if s.pending:
                 pending += 1
             elif s.is_disabled:
                 off += 1
