@@ -1,4 +1,19 @@
-"""Pending-state transitions on the wizard screen."""
+"""Pending-state transitions on the wizard screen.
+
+KNOWN GAP — these tests cover the *data shape* (ServiceRow.pending /
+ServiceRow.source mutations) rather than driving WizardScreen.action_confirm
+through Textual's Pilot. The wizard's per-step confirm path is:
+
+    row.source = opt.value
+    row.pending = False
+
+which is asserted directly below. A full Pilot-driven integration would
+need an async event loop + a mounted App + a composed PromptPanel
+(non-trivial test infrastructure for one assertion). The tests in
+``tests/test_kong_and_hosts_wiring.py`` and ``tests/test_topology.py``
+exercise the surrounding contract (the rows + aliases the wizard
+consumes) so a regression in row construction would still surface.
+"""
 
 from __future__ import annotations
 

@@ -12,15 +12,16 @@ def _write_manifest(services_root: Path, name: str, body: str) -> None:
     (services_root / name / "service.yml").write_text(body)
 
 
-def test_topology_dataclass_shape():
-    """Topology exposes canonical_order, category_of, port_defaults, rows, aliases."""
+def test_topology_is_frozen():
+    """Topology is declared ``frozen=True`` so downstream code can rely on
+    its dataclass fields being immutable. Mutating a field must raise
+    ``FrozenInstanceError``."""
+    from dataclasses import FrozenInstanceError
+
     from services.topology import Topology
     t = Topology(canonical_order=[], category_of={}, port_defaults={}, rows=[], aliases=[])
-    assert t.canonical_order == []
-    assert t.category_of == {}
-    assert t.port_defaults == {}
-    assert t.rows == []
-    assert t.aliases == []
+    with pytest.raises(FrozenInstanceError):
+        t.canonical_order = []  # type: ignore[misc]
 
 
 from services.manifests import Manifest, DependsOn, Row as ManifestRow
@@ -86,13 +87,18 @@ def test_canonical_order_groups_by_category():
 
 
 def test_canonical_order_apps_after_agents():
-    """Apps category sorts AFTER agents (specs §display order)."""
+    """Apps category sorts AFTER agents (specs §display order).
+
+    Input order is the REVERSE of the expected output, so this test
+    proves ``_canonical_order`` actually re-sorts by category rather
+    than just passing the input through.
+    """
     from services.topology import _canonical_order
     manifests = [
         _manifest("foo-app", "apps"),
         _manifest("bar-agent", "agents"),
     ]
-    topo = ["bar-agent", "foo-app"]
+    topo = ["foo-app", "bar-agent"]  # reverse of expected; force re-sort
     out = _canonical_order(manifests, topo)
     assert out == ["bar-agent", "foo-app"]
 

@@ -127,21 +127,50 @@ def test_topology_aliases_unique():
     )
 
 
-def test_topology_aliases_and_genai_hosts_agree():
-    """``HostsManager._genai_hosts_from_topology()`` must be non-empty and
-    every entry must end with ``.localhost`` — structural guard that the
-    topology derives a valid hosts list.
+def test_topology_aliases_contract():
+    """The single source of truth for Kong-aliased hostnames is
+    ``Topology.aliases``. ``_genai_hosts_from_topology()`` is now a thin
+    pass-through to it, so comparing the two directly would be a tautology.
 
-    NOTE: since ``_genai_hosts_from_topology()`` is now derived directly from
-    ``Topology.aliases``, comparing the two sets would be a tautology. This
-    test instead verifies the structural contract: the list is non-empty and
-    all entries are well-formed ``.localhost`` hostnames.
+    Instead, pin the *contract* on ``Topology.aliases`` so a manifest-level
+    drift (e.g. someone adding a bare ``foo`` alias without ``.localhost``,
+    or duplicating an alias across two manifests' ``rows[]``) surfaces here:
+
+      1. Every entry is a non-empty string.
+      2. Every entry ends with ``.localhost``.
+      3. The list is deduplicated.
+      4. Its length equals the count of non-empty ``rows[].alias`` values
+         declared across all manifests — i.e. ``Topology.aliases`` is the
+         lossless projection of the manifest aliases.
     """
-    hosts = HostsManager._genai_hosts_from_topology()
-    assert hosts, "topology-derived hosts list must be non-empty"
-    bad = [h for h in hosts if not h.endswith(".localhost")]
-    assert not bad, (
-        f"hosts derived from topology must end with .localhost; bad entries: {bad}"
+    from services.manifests import load_manifests
+    from services.topology import get_topology
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    aliases = list(_get_topology().aliases)
+
+    # 1 + 2: well-formed entries.
+    assert all(isinstance(a, str) and a for a in aliases), (
+        f"Topology.aliases must contain non-empty strings: {aliases}"
+    )
+    bad_suffix = [a for a in aliases if not a.endswith(".localhost")]
+    assert not bad_suffix, (
+        f"Topology.aliases entries must end with .localhost: {bad_suffix}"
+    )
+
+    # 3: deduplicated.
+    assert len(aliases) == len(set(aliases)), (
+        f"Topology.aliases must be deduplicated: {aliases}"
+    )
+
+    # 4: lossless projection of manifest aliases.
+    manifests = load_manifests(repo_root / "services")
+    manifest_aliases = [r.alias for m in manifests for r in m.rows if r.alias]
+    assert len(aliases) == len(manifest_aliases), (
+        f"Topology.aliases ({len(aliases)}) and manifest rows[].alias "
+        f"({len(manifest_aliases)}) counts must match — every non-empty "
+        f"row alias should land in the topology's alias list."
     )
 
 
