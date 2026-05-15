@@ -56,6 +56,8 @@ class ServiceRow:
     # False marks always-on infrastructure (e.g. Supabase DB) where the
     # source is fixed; rendered with a lock icon in the table.
     configurable: bool = True
+    category: str = ""        # drives leading bar color (Task 5.4 uses this)
+    pending: bool = False     # drives pending-state rendering
 
     @property
     def is_changed(self) -> bool:
@@ -243,9 +245,31 @@ class ServiceTable(Widget):
         slot.append(P.ARROW_RIGHT if is_cursor else " ",
                     style=f"bold {P.ACCENT}" if is_cursor else P.TEXT_FAINT)
         slot.append(" ")
+        is_disabled = (r.source or "").lower() == "disabled"
+        # Pending-state branch: row decided by the user has not been confirmed yet.
+        # All "decided" columns collapse to em-dashes / placeholders; the dot
+        # switches to a hollow yellow ◌. Locked rows can never be pending so we
+        # don't need to coordinate with the lock branch.
+        if r.pending:
+            slot.append("◌", style=P.WARN)
+            slot.append("  ")
+            if r.configurable:
+                slot.append(" " * self.LOCK_W)
+            else:
+                slot.append(self.LOCK_ICON)
+            slot.append(sep)
+            slot.append(_fit("—", port_w), style=P.TEXT_FAINT)
+            slot.append(sep)
+            name_color = P.ACCENT if is_cursor else P.TEXT
+            slot.append(_fit(r.name, name_w),
+                        style=f"bold {name_color}" if is_cursor else name_color)
+            slot.append(sep)
+            slot.append(_fit("pending…", source_w), style=f"italic {P.WARN}")
+            slot.append(sep)
+            slot.append(_fit("—", alias_w), style=P.TEXT_FAINT)
+            return slot
         slot.append(P.DOT_RUNNING, style=P.style_for_source_choice(r.source))
         slot.append("  ")
-        is_disabled = (r.source or "").lower() == "disabled"
         # 1) Lock status — 🔒 for always-on services whose source can't
         # be picked in the wizard; blank for configurable services so
         # the user's eye is drawn to the rows the wizard will ask about.
