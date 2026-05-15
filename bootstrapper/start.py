@@ -856,6 +856,21 @@ class GenAIStackStarter:
         table = self.build_pre_launch_summary_table()
         self.banner.console.print(table)
         self.banner.console.print()
+        from rich.text import Text as _Text
+        from ui.textual.palette import style_for_category as _style_for_category
+        _legend = _Text()
+        for _slug, _label in [
+            ("infra",  "Infrastructure"),
+            ("data",   "Data"),
+            ("llm",    "LLM Core"),
+            ("media",  "Media"),
+            ("agents", "Agents & Workflows"),
+            ("apps",   "Apps & UIs"),
+        ]:
+            _legend.append("▰▰", style=_style_for_category(_slug))
+            _legend.append(f" {_label}   ")
+        self.banner.console.print(_legend)
+        self.banner.console.print()
 
         # Confirmation prompt — legacy linear flow only. TUI mode runs the
         # launch confirmation as the wizard's last step; this branch is
@@ -878,6 +893,12 @@ class GenAIStackStarter:
         from rich.text import Text
         from rich.box import HEAVY_HEAD
         from ui.state_builder import all_services, all_cloud_apis, alias_for, cloud_api_status_text
+        from services.topology import build_topology
+        from ui.textual.palette import style_for_category
+        from pathlib import Path as _Path
+
+        _topology = build_topology(_Path(__file__).resolve().parent.parent / "services")
+        _category_by_name = {r.display_name: r.category for r in _topology.rows}
 
         env_vars = self.config_parser.parse_env_file()
         service_sources = self.config_parser.parse_service_sources()
@@ -903,6 +924,7 @@ class GenAIStackStarter:
             padding=(0, 1),
             expand=True,
         )
+        table.add_column("", justify="left", width=2, no_wrap=True)
         table.add_column("PORT", style="color(248)", justify="left", ratio=1, no_wrap=True)
         table.add_column("SERVICE", style="color(252)", justify="left", ratio=3, no_wrap=True)
         table.add_column("SOURCE", style="color(248)", justify="left", ratio=3, no_wrap=True)
@@ -956,7 +978,10 @@ class GenAIStackStarter:
             else:
                 alias_text = Text("-", style="color(243)")
 
+            category = _category_by_name.get(name, "")
+            bar = Text("▰▰", style=style_for_category(category))
             table.add_row(
+                bar,
                 port_val,
                 name,
                 Text(source, style=source_style),
