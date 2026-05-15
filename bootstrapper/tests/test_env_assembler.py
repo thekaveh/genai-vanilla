@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from services.env_assembler import assemble_env_example
 from services.manifests import load_manifests
+
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def test_emits_generated_header(services_root, write_manifest, minimal_manifest_dict):
@@ -148,6 +153,30 @@ def test_output_is_deterministic(services_root, write_manifest, minimal_manifest
     a = assemble_env_example(manifests)
     b = assemble_env_example(manifests)
     assert a == b
+
+
+def test_committed_env_example_matches_assembler_output():
+    """The committed ``.env.example`` at the repo root must be byte-identical
+    to ``assemble_env_example(load_manifests(services/))``.
+
+    This catches the "someone hand-edited .env.example without regenerating
+    it" failure mode. If this test fails, run:
+
+        cd bootstrapper && uv run python -m services.env_assembler
+
+    and commit the resulting .env.example.
+    """
+    env_example_path = _REPO_ROOT / ".env.example"
+    if not env_example_path.is_file():
+        import pytest as _pytest
+        _pytest.skip(f"{env_example_path} missing")
+
+    expected = assemble_env_example(load_manifests(_REPO_ROOT / "services"))
+    actual = env_example_path.read_text()
+    assert actual == expected, (
+        ".env.example is out of sync with the manifests. "
+        "Regenerate with: cd bootstrapper && uv run python -m services.env_assembler"
+    )
 
 
 def test_multiline_description_each_line_commented(tmp_path):
