@@ -1,0 +1,125 @@
+digraph stack {
+  rankdir=TB;
+  bgcolor="#0e0f18";
+  node [shape=box, style="filled,rounded", fontname="Helvetica", fontcolor="#c0caf5", color="#2b2f4a"];
+  edge [color="#3d4261"];
+
+  subgraph "cluster_infra" {
+    label="Infrastructure";
+    fontcolor="#9a8cc6";
+    color="#9a8cc6";
+    "globals" [fillcolor="#9a8cc633"];
+    "kong" [fillcolor="#9a8cc633"];
+  }
+
+  subgraph "cluster_data" {
+    label="Data";
+    fontcolor="#6a9aaa";
+    color="#6a9aaa";
+    "minio" [fillcolor="#6a9aaa33"];
+    "neo4j" [fillcolor="#6a9aaa33"];
+    "supabase" [fillcolor="#6a9aaa33"];
+    "redis" [fillcolor="#6a9aaa33"];
+    "weaviate" [fillcolor="#6a9aaa33"];
+  }
+
+  subgraph "cluster_llm" {
+    label="LLM Core";
+    fontcolor="#7dcfff";
+    color="#7dcfff";
+    "litellm" [fillcolor="#7dcfff33"];
+    "cloud-providers" [fillcolor="#7dcfff33"];
+    "ollama" [fillcolor="#7dcfff33"];
+  }
+
+  subgraph "cluster_media" {
+    label="Media";
+    fontcolor="#98c379";
+    color="#98c379";
+    "docling" [fillcolor="#98c37933"];
+    "comfyui" [fillcolor="#98c37933"];
+    "parakeet" [fillcolor="#98c37933"];
+    "searxng" [fillcolor="#98c37933"];
+    "tts-provider" [fillcolor="#98c37933"];
+    "chatterbox" [fillcolor="#98c37933"];
+    "speaches" [fillcolor="#98c37933"];
+  }
+
+  subgraph "cluster_agents" {
+    label="Agents & Workflows";
+    fontcolor="#d4a574";
+    color="#d4a574";
+    "hermes" [fillcolor="#d4a57433"];
+    "n8n" [fillcolor="#d4a57433"];
+    "openclaw" [fillcolor="#d4a57433"];
+  }
+
+  subgraph "cluster_apps" {
+    label="Apps & UIs";
+    fontcolor="#89aad4";
+    color="#89aad4";
+    "backend" [fillcolor="#89aad433"];
+    "jupyterhub" [fillcolor="#89aad433"];
+    "open-webui" [fillcolor="#89aad433"];
+    "local-deep-researcher" [fillcolor="#89aad433"];
+  }
+
+  "supabase" -> "backend";
+  "redis" -> "backend";
+  "tts-provider" -> "chatterbox";
+  "litellm" -> "cloud-providers";
+  "supabase" -> "comfyui";
+  "litellm" -> "comfyui";
+  "ollama" -> "comfyui";
+  "globals" -> "docling";
+  "litellm" -> "hermes";
+  "supabase" -> "jupyterhub";
+  "redis" -> "jupyterhub";
+  "litellm" -> "jupyterhub";
+  "supabase" -> "kong";
+  "redis" -> "kong";
+  "litellm" -> "kong";
+  "open-webui" -> "kong";
+  "n8n" -> "kong";
+  "hermes" -> "kong";
+  "openclaw" -> "kong";
+  "jupyterhub" -> "kong";
+  "backend" -> "kong";
+  "searxng" -> "kong";
+  "minio" -> "kong";
+  "comfyui" -> "kong";
+  "local-deep-researcher" -> "kong";
+  "neo4j" -> "kong";
+  "weaviate" -> "kong";
+  "tts-provider" -> "kong";
+  "parakeet" -> "kong";
+  "docling" -> "kong";
+  "ollama" -> "kong";
+  "supabase" -> "litellm";
+  "redis" -> "litellm";
+  "supabase" -> "local-deep-researcher";
+  "searxng" -> "local-deep-researcher";
+  "litellm" -> "local-deep-researcher";
+  "globals" -> "minio";
+  "supabase" -> "n8n";
+  "redis" -> "n8n";
+  "litellm" -> "n8n";
+  "globals" -> "neo4j";
+  "supabase" -> "ollama";
+  "litellm" -> "ollama";
+  "supabase" -> "open-webui";
+  "redis" -> "open-webui";
+  "litellm" -> "open-webui";
+  "hermes" -> "open-webui";
+  "litellm" -> "openclaw";
+  "litellm" -> "parakeet";
+  "supabase" -> "redis";
+  "supabase" -> "searxng";
+  "redis" -> "searxng";
+  "parakeet" -> "speaches";
+  "tts-provider" -> "speaches";
+  "globals" -> "supabase";
+  "litellm" -> "tts-provider";
+  "supabase" -> "weaviate";
+  "litellm" -> "weaviate";
+}
