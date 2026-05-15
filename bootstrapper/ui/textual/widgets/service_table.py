@@ -154,11 +154,13 @@ class ServiceTable(Widget):
 
     can_focus = False
 
-    # Leading category bar — solid colored stripe matching each row's
-    # category. One cell wide using U+2588 FULL BLOCK; a single solid
-    # cell reads as a tidy vertical rule without being visually heavy.
+    # Trailing category marker — small filled rectangle in the row's
+    # category color, sitting as the row's last cell. Uses U+25B0
+    # BLACK RECTANGLE so the marker reads at the same visual weight as
+    # the source-state ● dot (similar size, doesn't fill the cell), not
+    # as a heavy vertical bar.
     BAR_W = 1
-    BAR_GLYPH = "█" * BAR_W
+    BAR_GLYPH = "▰" * BAR_W
 
     # Fixed-width portions of each slot.
     ARROW_W = 1
@@ -236,14 +238,15 @@ class ServiceTable(Widget):
     def _slot_fixed(self) -> int:
         # Per-slot fixed-width overhead. Column order:
         #   arrow(1) sp(1) dot(1) sp(2) lock(LOCK_W) sep
-        #     port(var) sep bar(BAR_W) sp(1) name(var) sep source(var) sep alias(var)
-        # The bar moved from the very-left position to between the port
-        # and name columns so the colored stripe and the service label
-        # travel together. Total fixed cells unchanged.
+        #     port(var) sep name(var) sep source(var) sep alias(var) sep
+        #     cat-mark(BAR_W)
+        # The category marker is the last cell of the row — same visual
+        # weight as the source ● dot but in a rectangle shape, so the
+        # eye picks it up without it dominating the layout.
         return (
             self.ARROW_W + 1 + self.DOT_W + 2
-            + self.LOCK_W + 4 * self.COL_SEP
-            + self.BAR_W + 1
+            + self.LOCK_W + 5 * self.COL_SEP
+            + self.BAR_W
         )
 
     def _raw_widths(
@@ -294,13 +297,15 @@ class ServiceTable(Widget):
         slot = Text()
         sep = " " * self.COL_SEP
         if r is None:
-            # All padding in one shot — placeholder row has no bar to color.
+            # All padding in one shot — placeholder row has no marker to color.
             total = (
                 self.ARROW_W + 1 + self.DOT_W + 2
                 + self.LOCK_W + self.COL_SEP
                 + port_w + self.COL_SEP
-                + self.BAR_W + 1
-                + name_w + self.COL_SEP + source_w + self.COL_SEP + alias_w
+                + name_w + self.COL_SEP
+                + source_w + self.COL_SEP
+                + alias_w + self.COL_SEP
+                + self.BAR_W
             )
             slot.append(" " * total)
             return slot
@@ -323,10 +328,6 @@ class ServiceTable(Widget):
             slot.append(sep)
             slot.append(_fit("—", port_w), style=P.TEXT_FAINT)
             slot.append(sep)
-            # Leading category bar — sits immediately before the name so
-            # the colored stripe and the label travel together.
-            slot.append(self.BAR_GLYPH, style=bar_color)
-            slot.append(" ")
             name_color = P.ACCENT if is_cursor else P.TEXT
             slot.append(_fit(r.name, name_w),
                         style=f"bold {name_color}" if is_cursor else name_color)
@@ -334,6 +335,9 @@ class ServiceTable(Widget):
             slot.append(_fit("pending…", source_w), style=f"italic {P.WARN}")
             slot.append(sep)
             slot.append(_fit("—", alias_w), style=P.TEXT_FAINT)
+            slot.append(sep)
+            # Trailing category marker — same colored ▰ as on answered rows.
+            slot.append(self.BAR_GLYPH, style=bar_color)
             return slot
         slot.append(P.DOT_RUNNING, style=P.style_for_source_choice(r.source))
         slot.append("  ")
@@ -351,27 +355,27 @@ class ServiceTable(Widget):
         port_color = P.ACCENT if port else P.TEXT_FAINT
         slot.append(_fit(port_text, port_w), style=port_color)
         slot.append(sep)
-        # 3) Category bar — colored stripe immediately before the name.
-        slot.append(self.BAR_GLYPH, style=bar_color)
-        slot.append(" ")
-        # 4) Name
+        # 3) Name
         name_color = P.TEXT_MUTED if is_disabled else (P.ACCENT if is_cursor else P.TEXT)
         slot.append(_fit(r.name, name_w),
                     style=f"bold {name_color}" if is_cursor else name_color)
         slot.append(sep)
-        # 3) Source — full variant name. CHANGED highlights it.
+        # 4) Source — full variant name. CHANGED highlights it.
         source_style = (
             P.WARN if r.is_changed else P.style_for_source_choice(r.source)
         )
         source_label = r.source or "—"
         slot.append(_fit(source_label, source_w), style=source_style)
         slot.append(sep)
-        # 4) Full clickable alias URL — uses Kong listener port for
+        # 5) Full clickable alias URL — uses Kong listener port for
         # virtual-host-routed aliases, NOT the service's own port.
         url = _alias_url(r) if not is_disabled else ""
         url_text = url or "—"
         url_color = P.INFO if url else P.TEXT_FAINT
         slot.append(_fit(url_text, alias_w), style=url_color)
+        slot.append(sep)
+        # 6) Category marker — small filled rectangle at the row's tail.
+        slot.append(self.BAR_GLYPH, style=bar_color)
         return slot
 
     def render(self) -> Text:

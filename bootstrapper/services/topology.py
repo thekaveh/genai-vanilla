@@ -49,18 +49,21 @@ CATEGORY_LABELS: dict[str, str] = {
 # Canonical category color tokens. The Textual palette re-exports these
 # as ``CAT_*`` named tokens (kept for ``style=P.CAT_INFRA`` syntax) and
 # the architecture-diagram generator imports the dict directly.
-# Pastel palette picked from Catppuccin Mocha and ordered so that each
-# adjacent pair in CATEGORY_ORDER lands on near-complementary hues — the
-# previous slate/sky/periwinkle/sage set was visually too clustered in
-# the cool half of the wheel. Hue diffs between every adjacent pair here
-# exceed 120°, which is what gives the bar its at-a-glance distinction.
+# Tokyo Night-aligned palette. The TUI's `BG`, `TEXT`, and `ACCENT`
+# tokens already come from the Tokyo Night family (#12131e background,
+# #c0caf5 foreground, #7dcfff cyan accent), so the category markers
+# share that vocabulary instead of importing a foreign palette.
+#
+# Each adjacent pair in CATEGORY_ORDER lands on a hue ≥80° away from
+# its neighbor — the prior cool-cluster (slate/sky/periwinkle/sage)
+# was the original "everything looks the same" complaint.
 CATEGORY_COLORS: dict[str, str] = {
-    "infra":  "#f38ba8",  # red/rose
-    "data":   "#a6e3a1",  # sage green
-    "llm":    "#cba6f7",  # mauve / lavender
-    "media":  "#f9e2af",  # cream yellow
-    "agents": "#89b4fa",  # blue
-    "apps":   "#fab387",  # peach
+    "infra":  "#bb9af7",  # Tokyo Night purple
+    "data":   "#e0af68",  # Tokyo Night yellow
+    "llm":    "#7dcfff",  # Tokyo Night cyan (signature accent)
+    "media":  "#ff9e64",  # Tokyo Night orange
+    "agents": "#9ece6a",  # Tokyo Night green
+    "apps":   "#f7768e",  # Tokyo Night red/pink
 }
 
 

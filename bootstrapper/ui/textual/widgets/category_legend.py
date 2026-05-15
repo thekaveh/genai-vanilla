@@ -1,6 +1,6 @@
 """
 CategoryLegend — single-line strip below ServiceTable explaining the category
-color bars. Six chips: █ in category color + label.
+color markers. Six chips: ▰ in category color + label.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ class CategoryLegend(Widget):
             if not first:
                 out.append("   ", style=P.TEXT_FAINT)
             first = False
-            out.append("█", style=P.style_for_category(slug))
+            out.append("▰", style=P.style_for_category(slug))
             out.append(" ")
             out.append(label, style=P.TEXT)
         return out

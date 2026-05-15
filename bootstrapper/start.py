@@ -922,7 +922,7 @@ class GenAIStackStarter:
             if not _first:
                 _legend.append("   ")
             _first = False
-            _legend.append("█", style=_style_for_category(_slug))
+            _legend.append("▰", style=_style_for_category(_slug))
             _legend.append(f" {CATEGORY_LABELS[_slug]}")
         self.banner.console.print(_legend)
         self.banner.console.print()
@@ -978,12 +978,14 @@ class GenAIStackStarter:
             padding=(0, 1),
             expand=True,
         )
-        table.add_column("", justify="left", width=2, no_wrap=True)
         table.add_column("PORT", style="color(248)", justify="left", ratio=1, no_wrap=True)
         table.add_column("SERVICE", style="color(252)", justify="left", ratio=3, no_wrap=True)
         table.add_column("SOURCE", style="color(248)", justify="left", ratio=3, no_wrap=True)
         table.add_column("ALIAS", justify="left", ratio=4, no_wrap=True)
         table.add_column("STATUS", justify="left", ratio=2, no_wrap=True)
+        # Category marker — last cell of the row, same ▰ glyph as the
+        # TUI box uses, so both surfaces speak the same visual language.
+        table.add_column("", justify="left", width=2, no_wrap=True)
 
         # Service definitions come from state_builder.all_services() — single
         # source of truth shared with the TUI info-box (no more inline list
@@ -1033,14 +1035,14 @@ class GenAIStackStarter:
                 alias_text = Text("-", style="color(243)")
 
             category = _category_by_name.get(name, "")
-            bar = Text("█", style=style_for_category(category))
+            bar = Text("▰", style=style_for_category(category))
             table.add_row(
-                bar,
                 port_val,
                 name,
                 Text(source, style=source_style),
                 alias_text,
                 Text(status_text, style=status_style),
+                bar,
             )
 
         # Cloud APIs panel — renders below the services table. Cloud
