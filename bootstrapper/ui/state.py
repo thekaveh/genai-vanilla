@@ -18,6 +18,8 @@ class ServiceEntry:
     port: Optional[str]         # e.g. ":63001", or None when no port
     source: str                 # raw SOURCE value, e.g. "container", "ollama-localhost", "disabled"
     alias: Optional[str] = None # hostname alias (e.g. "chat.localhost") — shown in alias column
+    category: str = ""          # drives bar color in the box
+    pending: bool = False       # drives pending rendering
 
 
 @dataclass

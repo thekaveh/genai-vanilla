@@ -170,6 +170,8 @@ def build_app_state(
             port=resolve_port(r.display_name, source, r.port_var, env),
             source=source,
             alias=r.alias,
+            category=r.category,
+            pending=False,  # initial state; wizard sets True for unanswered rows
         ))
 
     cloud_apis = []
