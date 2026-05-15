@@ -61,6 +61,12 @@ env:
   - name: PROD_ENV_COMFYUI_MEM_LIMIT
     default: 4g
 
+  # Migration sentinels
+  - name: BOOTSTRAPPER_PORT_LAYOUT_VERSION
+    default: 1
+    auto_managed: false
+    description: "Sentinel updated by bootstrapper/services/migrations. Missing or <1 triggers port-layout v1 migration on next start."
+
 depends_on:
   required: []
   optional: []
