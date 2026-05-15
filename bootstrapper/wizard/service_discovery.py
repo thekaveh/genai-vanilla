@@ -17,44 +17,6 @@ from core.config_parser import ConfigParser
 from utils.source_override_manager import SourceOverrideManager
 
 
-# Display name overrides for services with acronyms or special casing
-DISPLAY_NAME_OVERRIDES = {
-    'litellm': 'LiteLLM Gateway',
-    'llm_provider': 'LLM Engine',
-    'stt_provider': 'STT Provider',
-    'tts_provider': 'TTS Provider',
-    'doc_processor': 'Document Processor',
-    'comfyui': 'ComfyUI',
-    'n8n': 'n8n',
-    'searxng': 'SearxNG',
-    'jupyterhub': 'JupyterHub',
-    'neo4j-graph-db': 'Neo4j Graph DB',
-    'multi2vec-clip': 'Multi2Vec CLIP',
-    'minio': 'MinIO',
-    'openclaw': 'OpenClaw',
-    'hermes': 'Hermes Agent',
-    'weaviate': 'Weaviate',
-}
-
-# One-line descriptions for each service (used in wizard prompts)
-SERVICE_DESCRIPTIONS = {
-    'litellm': 'unified LLM gateway — always-on, fronts every provider',
-    'llm_provider': 'local Ollama upstream the gateway forwards to',
-    'comfyui': 'AI image generation & workflows',
-    'weaviate': 'vector database for semantic search & RAG',
-    'multi2vec-clip': 'CLIP embeddings for multi-modal search',
-    'stt_provider': 'speech-to-text transcription',
-    'tts_provider': 'text-to-speech synthesis',
-    'doc_processor': 'document parsing & extraction',
-    'openclaw': 'AI agent for messaging platforms',
-    'hermes': 'programmable AI agent runtime (Nous Research)',
-    'n8n': 'workflow automation & integrations',
-    'searxng': 'privacy-focused search engine',
-    'neo4j-graph-db': 'graph database for knowledge graphs',
-    'jupyterhub': 'data science IDE with notebooks',
-    'minio': 'S3-compatible artifact-tier object storage',
-}
-
 # Services that are always-on and not user-configurable. The wizard renders
 # these as locked tiles (no source dropdown). LiteLLM is mandatory because
 # every consumer relies on its endpoint; the user instead chooses which
@@ -168,10 +130,23 @@ class ServiceDiscovery:
             current_value = env_vars.get(env_var_name, '')
             options = list(config.keys())
 
+            description = ""
+            target_source_var = key.upper().replace('-', '_') + '_SOURCE'
+            if not hasattr(self, "_topology_cache"):
+                from services.topology import build_topology
+                from pathlib import Path
+                self._topology_cache = build_topology(
+                    Path(__file__).resolve().parent.parent.parent / "services"
+                )
+            for r in self._topology_cache.rows:
+                if r.source_var == target_source_var:
+                    description = r.description
+                    break
+
             services.append(ServiceInfo(
                 key=key,
                 display_name=self._get_display_name(key),
-                description=SERVICE_DESCRIPTIONS.get(key, ''),
+                description=description,
                 options=options,
                 current_value=current_value,
                 env_var_name=env_var_name,
@@ -196,7 +171,15 @@ class ServiceDiscovery:
         return False
 
     def _get_display_name(self, key: str) -> str:
-        """Get a human-readable display name for a service key."""
-        if key in DISPLAY_NAME_OVERRIDES:
-            return DISPLAY_NAME_OVERRIDES[key]
+        """Get a human-readable display name for a service key via Topology."""
+        from services.topology import build_topology
+        from pathlib import Path
+        services_root = Path(__file__).resolve().parent.parent.parent / "services"
+        # Cached at instance level — caller iterates once.
+        if not hasattr(self, "_topology_cache"):
+            self._topology_cache = build_topology(services_root)
+        target_source_var = key.upper().replace('-', '_') + '_SOURCE'
+        for r in self._topology_cache.rows:
+            if r.source_var == target_source_var:
+                return r.display_name
         return key.replace('_', ' ').replace('-', ' ').title()
