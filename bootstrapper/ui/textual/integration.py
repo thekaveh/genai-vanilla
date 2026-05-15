@@ -274,6 +274,8 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             tag=_tag_for(s.name.lower().replace(" ", "_")),
             default_source=(s.source or "container"),
             configurable=(s.name in configurable_names),
+            category=s.category,
+            pending=(s.name in configurable_names),  # locked rows start not-pending
         )
         for s in sorted_services
     ]
@@ -484,6 +486,8 @@ def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
                 alias_port=(new_kong if r.alias else ""),
                 tag=r.tag, default_source=r.default_source,
                 configurable=r.configurable,
+                category=r.category,
+                pending=r.pending,
             ))
         # Preserve the port-ascending sort.
         def _key(row):
@@ -598,6 +602,8 @@ def run_launch_flow(
             alias_port=(kong_port if r.alias else ""),
             tag=r.tag, default_source=r.default_source,
             configurable=r.configurable,
+            category=r.category,
+            pending=False,  # launch-flow rows are fully resolved before display
         ))
 
     # Re-sort by ascending port — same rule as the wizard's overview.
@@ -635,6 +641,8 @@ def run_launch_flow(
                 port=np, alias_port=(new_kong if r.alias else ""),
                 tag=r.tag, default_source=r.default_source,
                 configurable=r.configurable,
+                category=r.category,
+                pending=r.pending,
             ))
         out.sort(key=_key)
         return out

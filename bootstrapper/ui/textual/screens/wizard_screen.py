@@ -185,6 +185,10 @@ class WizardScreen(Screen):
 
         self._step_index = 0
         self._selections: dict[str, str] = {}
+        # Tracks which step indices the user has explicitly confirmed.
+        # Populated in action_confirm; never shrinks on back-navigation
+        # (revisiting a step keeps the old answer visible until re-confirmed).
+        self._answered: set[int] = set()
         # Frozen defaults snapshot — used to compute "N changed from
         # defaults" correctly (only count selections that DIFFER from
         # their step's default_value).
@@ -600,6 +604,7 @@ class WizardScreen(Screen):
         if opt is None:
             return
         self._selections[step.title] = opt.value
+        self._answered.add(self._step_index)
         # Cloud secret step: live-update the Cloud APIs row in the
         # overview to reflect the user's choice.
         if step.kind == "secret" and self._cloud_apis:
@@ -615,6 +620,7 @@ class WizardScreen(Screen):
         for row in self._services:
             if step.service_name and row.name == step.service_name:
                 row.source = opt.value
+                row.pending = False
                 # Re-derive the port for the new source — localhost
                 # sources should show the host machine's port, container
                 # sources the assigned container port, disabled none.
