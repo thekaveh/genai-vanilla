@@ -23,8 +23,8 @@
     },
     "category": {
       "type": "string",
-      "enum": ["data", "llm", "ai", "app", "infra"],
-      "description": "Wizard grouping. data=DB/cache/storage; llm=LLM gateway/engine; ai=vector/STT/TTS/image-gen/doc; app=user-facing service; infra=gateway/observability."
+      "enum": ["infra", "data", "llm", "media", "agents", "apps"],
+      "description": "Wizard grouping. infra=gateway/observability; data=DB/cache/storage; llm=LLM gateway/engine; media=multimodal AI (image-gen/STT/TTS/doc/search); agents=programmable AI agents/workflows; apps=user-facing UIs."
     },
     "docs": {
       "type": "string",

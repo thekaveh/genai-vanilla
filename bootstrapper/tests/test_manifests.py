@@ -66,7 +66,7 @@ def test_load_multiple_manifests_in_deterministic_order(
     # Written out of order; load order should be alphabetical by folder name.
     write_manifest("ollama", minimal_manifest_dict("ollama") | {"category": "llm"})
     write_manifest("redis", minimal_manifest_dict("redis"))
-    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "app"})
+    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "apps"})
     manifests = load_manifests(services_root)
     assert [m.name for m in manifests] == ["backend", "ollama", "redis"]
 
@@ -206,3 +206,32 @@ def test_rows_block_accepts_valid_entries(tmp_path):
     row = manifests[0].rows[0]
     assert row.display_name == "Demo Row"
     assert row.alias == "demo.localhost"
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Category enum
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("cat", ["infra", "data", "llm", "media", "agents", "apps"])
+def test_category_enum_accepts_new_values(tmp_path, cat):
+    services_root = tmp_path / "services"
+    (services_root / "demo").mkdir(parents=True)
+    (services_root / "demo" / "service.yml").write_text(
+        f"name: demo\nlabel: Demo\ncategory: {cat}\nenv: []\n"
+    )
+    from services.manifests import load_manifests
+    manifests = load_manifests(services_root)
+    assert manifests[0].category == cat
+
+
+@pytest.mark.parametrize("cat", ["ai", "app"])
+def test_category_enum_rejects_old_values(tmp_path, cat):
+    services_root = tmp_path / "services"
+    (services_root / "demo").mkdir(parents=True)
+    (services_root / "demo" / "service.yml").write_text(
+        f"name: demo\nlabel: Demo\ncategory: {cat}\nenv: []\n"
+    )
+    from services.manifests import load_manifests
+    with pytest.raises(ManifestLoadError, match="category"):
+        load_manifests(services_root)
