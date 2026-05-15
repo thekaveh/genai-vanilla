@@ -63,8 +63,18 @@ env:
     description: "Ollama URL the LiteLLM gateway forwards Ollama-routed requests to. Owned by ollama because the value flips with LLM_PROVIDER_SOURCE; consumed by litellm-init when rendering its config.yaml."
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - litellm
   optional: []
+
+rows:
+  - display_name: "LLM Engine"
+    source_var: LLM_PROVIDER_SOURCE
+    scale_var: OLLAMA_SCALE
+    alias: ollama.localhost
+    description: "Local Ollama upstream the LiteLLM gateway forwards to."
+    localhost_endpoint_var: LITELLM_OLLAMA_UPSTREAM
 
 exports: []
 

@@ -48,8 +48,18 @@ env:
     description: "In-network URL consumers point at (backend, n8n, jupyterhub, open-webui)."
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
   optional: []
+
+rows:
+  - display_name: "LiteLLM"
+    source_var: LITELLM_SOURCE
+    port_var: LITELLM_PORT
+    alias: litellm.localhost
+    description: "Unified LLM gateway — always-on; fronts every provider."
+    localhost_endpoint_var: LITELLM_BASE_URL
 
 exports: []
 

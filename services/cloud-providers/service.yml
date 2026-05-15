@@ -67,8 +67,11 @@ env:
 # bootstrapper/services/service_config.py::_generate_cloud_providers_config.
 
 depends_on:
-  required: []
+  required:
+    - litellm
   optional: []
+
+rows: []
 
 exports: []
 
