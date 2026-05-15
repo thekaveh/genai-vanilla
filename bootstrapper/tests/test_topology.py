@@ -97,6 +97,61 @@ def test_canonical_order_apps_after_agents():
     assert out == ["bar-agent", "foo-app"]
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# _is_locked: a manifest is locked when there's no source choice to offer.
+#   - No sources block      → locked (always-on infra, e.g. redis)
+#   - Exactly one option    → locked (single-variant; nothing to pick)
+#   - Two or more options   → not locked (the wizard must ask)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_is_locked_no_sources_block_is_locked():
+    """Manifest with no ``sources:`` block is locked (no user choice)."""
+    from services.topology import _is_locked
+    m = _manifest("redis", "data")  # no sources
+    assert _is_locked(m) is True
+
+
+def test_is_locked_single_option_is_locked():
+    """A ``sources`` block with exactly one option is still locked —
+    the wizard has nothing to ask the user."""
+    from services.manifests import Manifest, SourceOption, SourcesBlock
+    from services.topology import _is_locked
+    m = Manifest(
+        name="single",
+        label="Single",
+        category="data",
+        env=[],
+        sources=SourcesBlock(
+            var="SINGLE_SOURCE",
+            default="container",
+            options=[SourceOption(id="container", label="Container")],
+        ),
+    )
+    assert _is_locked(m) is True
+
+
+def test_is_locked_two_options_is_unlocked():
+    """Two or more options means the wizard has a real choice to present."""
+    from services.manifests import Manifest, SourceOption, SourcesBlock
+    from services.topology import _is_locked
+    m = Manifest(
+        name="multi",
+        label="Multi",
+        category="data",
+        env=[],
+        sources=SourcesBlock(
+            var="MULTI_SOURCE",
+            default="container",
+            options=[
+                SourceOption(id="container", label="Container"),
+                SourceOption(id="external", label="External"),
+            ],
+        ),
+    )
+    assert _is_locked(m) is False
+
+
 def test_build_topology_end_to_end(tmp_path):
     """A small two-manifest fixture builds a complete Topology."""
     services_root = tmp_path / "services"
