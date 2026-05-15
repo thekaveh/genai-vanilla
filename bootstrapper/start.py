@@ -14,6 +14,12 @@ from pathlib import Path
 import click
 from typing import Dict, Optional
 
+from services.migrations.migration_v1 import (
+    apply as _apply_v1,
+    needs_migration as _needs_v1,
+    stamp_version as _stamp_v1,
+)
+
 
 def _format_today() -> str:
     """Return today's date as ``YYYY-MM-DD`` for env-backfill markers.
@@ -1261,6 +1267,9 @@ class GenAIStackStarter:
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
                    'debugging, and terminals that don\'t support the alternate screen buffer.')
+@click.option('--no-port-migrate', is_flag=True, default=False,
+              help='Skip the v0 → v1 port-layout .env rewrite. Still stamps the version '
+                   'sentinel so the migration does not re-prompt.')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
@@ -1270,7 +1279,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          jupyterhub_source, stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, hermes_source,
          neo4j_graph_db_source,
-         multi2vec_clip_source, no_tui):
+         multi2vec_clip_source, no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
     starter = GenAIStackStarter()
@@ -1504,6 +1513,40 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # llm-catalog-init reads these on the next docker compose up.
         if not starter.apply_user_model_selections(user_model_selections):
             sys.exit(1)
+
+        # v0 → v1 port-layout migration. Runs after .env is fully populated
+        # (setup_env_file + backfill + overrides) but before port_manager
+        # rewrites ports, so we act on the user's pre-existing values rather
+        # than ones we've just computed.
+        _env_path = Path(__file__).resolve().parent.parent / ".env"
+        if _needs_v1(_env_path):
+            if no_port_migrate:
+                starter.banner.console.print(
+                    "[dim]Skipping port-layout v1 migration (--no-port-migrate).[/dim]"
+                )
+            else:
+                from services.topology import build_topology as _build_topology
+                _services_root = Path(__file__).resolve().parent.parent / "services"
+                _env_vars = starter.config_parser.parse_env_file()
+                _base_port = int(_env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
+                _topology = _build_topology(_services_root, base_port=_base_port)
+                _result = _apply_v1(_env_path, _topology.port_defaults, base_port=_base_port)
+                if _result.backup_path:
+                    starter.banner.console.print(
+                        f"[green]• Backed up .env to {_result.backup_path}[/green]"
+                    )
+                starter.banner.console.print(
+                    f"[green]• Port layout updated (v0 → v1)[/green]: "
+                    f"rewrote {len(_result.rewritten)} ports; "
+                    f"preserved {len(_result.preserved)} customizations."
+                )
+                if _result.rewritten:
+                    starter.banner.console.print("[dim]  Changes:[/dim]")
+                    for _var, (_old, _new) in sorted(_result.rewritten.items()):
+                        starter.banner.console.print(
+                            f"[dim]    {_var}: {_old} → {_new}[/dim]"
+                        )
+            _stamp_v1(_env_path, 1)
 
         # Step 1.7: Cold start cleanup if requested (before port check).
         # TUI-capable runs exit before reaching this point; the Textual
