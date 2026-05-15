@@ -68,10 +68,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63080'
       target: 8000
-      published: '63016'
+      published: '63080'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -133,10 +131,8 @@ services:
     platform: linux/amd64
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63041'
       target: 18188
-      published: '63018'
+      published: '63041'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -236,8 +232,7 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY"
-        http://127.0.0.1:8642/v1/models >/dev/null'
+      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY" http://127.0.0.1:8642/v1/models >/dev/null'
       timeout: 10s
       interval: 30s
       retries: 5
@@ -251,14 +246,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63060'
       target: 8642
-      published: '63028'
+      published: '63060'
       protocol: tcp
-      published: '63061'
+    - mode: ingress
       target: 9119
-      published: '63029'
+      published: '63061'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -374,10 +367,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63081'
       target: 8888
-      published: '63048'
+      published: '63081'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -448,14 +439,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63001'
       target: 8000
-      published: '63002'
+      published: '63001'
       protocol: tcp
-      published: '63002'
+    - mode: ingress
       target: 8443
-      published: '63003'
+      published: '63002'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -505,8 +494,7 @@ services:
       - CMD
       - python
       - -c
-      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',
-        timeout=3).status == 200 else 1)
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status == 200 else 1)
       timeout: 5s
       interval: 10s
       retries: 12
@@ -516,10 +504,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63030'
       target: 4000
-      published: '63012'
+      published: '63030'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -649,10 +635,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63083'
       target: 2024
-      published: '63013'
+      published: '63083'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -693,14 +677,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63010'
       target: 9000
-      published: '63030'
+      published: '63017'
       protocol: tcp
-      published: '63011'
+    - mode: ingress
       target: 9001
-      published: '63031'
+      published: '63018'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -831,10 +813,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63062'
       target: 5678
-      published: '63017'
+      published: '63062'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -941,14 +921,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63012'
       target: 7687
-      published: '63010'
+      published: '63019'
       protocol: tcp
-      published: '63013'
+    - mode: ingress
       target: 7474
-      published: '63011'
+      published: '63020'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1068,10 +1046,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63082'
       target: 8080
-      published: '63015'
+      published: '63082'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1175,14 +1151,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63063'
       target: 18789
-      published: '63024'
+      published: '63063'
       protocol: tcp
-      published: '63064'
+    - mode: ingress
       target: 18790
-      published: '63025'
+      published: '63064'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1201,11 +1175,7 @@ services:
     entrypoint:
     - sh
     - -c
-    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\n\
-      PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
-      :true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '.\
-      \ * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\
-      \nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
+    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\nPATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\":true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
     networks:
       backend-network: null
@@ -1246,10 +1216,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63021'
       target: 6379
-      published: '63001'
+      published: '63021'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1288,10 +1256,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63043'
       target: 8080
-      published: '63014'
+      published: '63043'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1320,10 +1286,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63018'
       target: 3000
-      published: '63007'
+      published: '63014'
       protocol: tcp
     restart: unless-stopped
   supabase-auth:
@@ -1359,10 +1323,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63017'
       target: 9999
-      published: '63006'
+      published: '63013'
       protocol: tcp
     restart: unless-stopped
   supabase-db:
@@ -1384,10 +1346,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63014'
       target: 5432
-      published: '63000'
+      published: '63010'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1439,10 +1399,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63015'
       target: 8080
-      published: '63004'
+      published: '63011'
       protocol: tcp
     restart: unless-stopped
   supabase-realtime:
@@ -1482,10 +1440,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63019'
       target: 4000
-      published: '63008'
+      published: '63015'
       protocol: tcp
     restart: unless-stopped
   supabase-storage:
@@ -1514,10 +1470,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63016'
       target: 5000
-      published: '63005'
+      published: '63012'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1573,10 +1527,8 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63020'
       target: 3000
-      published: '63009'
+      published: '63016'
       protocol: tcp
     restart: unless-stopped
   weaviate:
@@ -1628,14 +1580,12 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63022'
       target: 8080
-      published: '63019'
+      published: '63022'
       protocol: tcp
-      published: '63023'
+    - mode: ingress
       target: 50051
-      published: '63020'
+      published: '63023'
       protocol: tcp
     restart: unless-stopped
     volumes:

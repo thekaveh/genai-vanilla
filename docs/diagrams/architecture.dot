@@ -16,9 +16,9 @@ digraph stack {
     label="Data";
     fontcolor="#6a9aaa";
     color="#6a9aaa";
+    "supabase" [fillcolor="#6a9aaa33"];
     "minio" [fillcolor="#6a9aaa33"];
     "neo4j" [fillcolor="#6a9aaa33"];
-    "supabase" [fillcolor="#6a9aaa33"];
     "redis" [fillcolor="#6a9aaa33"];
     "weaviate" [fillcolor="#6a9aaa33"];
   }
@@ -100,11 +100,11 @@ digraph stack {
   "supabase" -> "local-deep-researcher";
   "searxng" -> "local-deep-researcher";
   "litellm" -> "local-deep-researcher";
-  "globals" -> "minio";
+  "supabase" -> "minio";
   "supabase" -> "n8n";
   "redis" -> "n8n";
   "litellm" -> "n8n";
-  "globals" -> "neo4j";
+  "supabase" -> "neo4j";
   "supabase" -> "ollama";
   "litellm" -> "ollama";
   "supabase" -> "open-webui";
