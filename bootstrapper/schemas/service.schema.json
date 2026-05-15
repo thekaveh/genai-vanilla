@@ -242,7 +242,7 @@
           },
           "alias": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9-]*\\.localhost$",
+            "pattern": "^[a-z]([a-z0-9-]*[a-z0-9])?\\.localhost$",
             "description": "*.localhost hostname Kong virtual-host-routes. Must be unique across all manifests."
           },
           "description": {
