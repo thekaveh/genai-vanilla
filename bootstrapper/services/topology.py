@@ -60,7 +60,21 @@ CATEGORY_COLORS: dict[str, str] = {
 }
 
 
-# Slot allocator: per-category port block. (base_offset, block_size).
+# Per-category port slot blocks (base_offset, block_size).
+#
+# Each category gets a contiguous range relative to BASE_PORT:
+#   infra:  BASE_PORT + 0..9      (Kong: HTTP+HTTPS take slots 0-1; 8 free)
+#   data:   BASE_PORT + 10..29    (Supabase 7 + MinIO 2 + Neo4j 2 + Redis 1 +
+#                                  Weaviate 2 = 14; 6 free)
+#   llm:    BASE_PORT + 30..39    (LiteLLM: 1; 9 free)
+#   media:  BASE_PORT + 40..59    (ComfyUI/STT/TTS/Doc/Searx/Speaches/
+#                                  Chatterbox; ~7; 13 free)
+#   agents: BASE_PORT + 60..79    (Hermes 2 + n8n + OpenClaw 2 = 5; 15 free)
+#   apps:   BASE_PORT + 80..99    (Backend + Open WebUI + JupyterHub + LDR = 4;
+#                                  16 free)
+#
+# Reserve generously — adding a new service inside a category shifts
+# everything after it in lex order, but only within that category block.
 # Block sizes give ~2x headroom over today's ~33 used slots.
 CATEGORY_SLOTS: dict[str, tuple[int, int]] = {
     "infra":  (0,  10),
