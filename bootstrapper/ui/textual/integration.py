@@ -413,13 +413,24 @@ def _selections_to_args(
 
 # ─── main entry ──────────────────────────────────────────────────────
 
-def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
+def run_setup_flow(
+    config_parser, hosts_manager, *,
+    starter=None,
+    no_port_migrate: bool = False,
+) -> int:
     """Run wizard + pipeline + docker compose all in ONE Textual screen.
 
     Returns exit code: 0 on success / cancellation.
     """
     from .widgets import BrandInfo
     from .screens.wizard_screen import WizardScreen
+
+    # Port-layout v0 → v1 migration runs BEFORE the wizard reads .env so
+    # the user sees post-migration port values in the box. start.py has
+    # already called setup_env_file + backfill_missing_env_vars; the
+    # helper is idempotent and a no-op once the v1 sentinel is stamped.
+    if starter is not None:
+        starter.run_port_migration(no_port_migrate)
 
     steps, rows, services_info, current_base_port, state, cloud_summaries = (
         _build_steps_and_rows(config_parser, hosts_manager)
@@ -452,7 +463,7 @@ def run_setup_flow(config_parser, hosts_manager, *, starter=None) -> int:
     # and falls back to the container port var otherwise.
     from core.port_manager import PortManager
     from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port
-    port_offsets = PortManager.PORT_MAPPING
+    port_offsets = PortManager(str(config_parser.root_dir)).port_offsets()
 
     def _resolve_port_for_service(name: str, source: str) -> str:
         """Live re-derive a service's displayed port for the given
@@ -530,6 +541,7 @@ def run_launch_flow(
     starter,
     source_args: dict,
     stack_options: dict,
+    no_port_migrate: bool = False,
 ) -> int:
     """Push the same Textual launch screen the wizard transitions to,
     but pre-loaded with CLI args — no wizard prompts in between.
@@ -545,6 +557,14 @@ def run_launch_flow(
     from core.port_manager import PortManager
     from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port
 
+    # Port-layout v0 → v1 migration runs BEFORE the launch overview reads
+    # .env so the displayed ports match the post-migration topology.
+    # start.py has already called setup_env_file + backfill; the helper
+    # is idempotent once the v1 sentinel is stamped.
+    starter.run_port_migration(no_port_migrate)
+
+    _pm = PortManager(str(config_parser.root_dir))
+
     _, rows, services_info, current_base_port, state, cloud_summaries = (
         _build_steps_and_rows(config_parser, hosts_manager)
     )
@@ -558,7 +578,7 @@ def run_launch_flow(
         version=getattr(state, "version", None) or "",
     )
 
-    port_offsets = PortManager.PORT_MAPPING
+    port_offsets = _pm.port_offsets()
     env_vars = config_parser.parse_env_file()
 
     # Resolve the effective base port. CLI ``--base-port N`` wins; else
