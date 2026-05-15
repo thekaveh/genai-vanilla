@@ -32,9 +32,11 @@ Output shape (per service):
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable
 
 from services.manifests import EnvVarDecl, Manifest
+from services.topology import build_topology
 
 
 _HEADER = """\
@@ -55,6 +57,8 @@ _HEADER = """\
 def assemble_env_example(
     manifests: Iterable[Manifest],
     order: list[str] | None = None,
+    *,
+    services_root: Path | None = None,
 ) -> str:
     """Render the manifests into .env.example-shaped text.
 
@@ -63,13 +67,29 @@ def assemble_env_example(
         order: Optional list of manifest names declaring display order.
             Manifests not mentioned are appended alphabetically after the
             ordered ones. If None, all manifests are sorted alphabetically.
+        services_root: Path to the services/ directory used to build the
+            Topology (for port_defaults). If None, resolved from this file's
+            location (i.e. <repo_root>/services).
     """
     manifests = list(manifests)
+
+    _services_root = services_root or (
+        Path(__file__).resolve().parent.parent.parent / "services"
+    )
+    try:
+        _topology = build_topology(_services_root)
+        port_defaults: dict[str, int] = dict(_topology.port_defaults)
+    except Exception:
+        # If topology cannot be built (e.g. in unit tests with synthetic
+        # manifests that have no real services/ tree), fall back to manifest
+        # defaults so existing tests continue to pass.
+        port_defaults = {}
+
     ordered = _apply_order(manifests, order)
 
     parts: list[str] = [_HEADER]
     for m in ordered:
-        parts.append(_render_manifest(m))
+        parts.append(_render_manifest(m, port_defaults))
     return "\n".join(parts).rstrip() + "\n"
 
 
@@ -101,7 +121,7 @@ def _apply_order(manifests: list[Manifest], order: list[str] | None) -> list[Man
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def _render_manifest(m: Manifest) -> str:
+def _render_manifest(m: Manifest, port_defaults: dict[str, int]) -> str:
     lines: list[str] = []
     lines.append("# " + "─" * 74)
     lines.append(f"# {m.category}: {m.label}  (services/{m.name}/service.yml)")
@@ -129,13 +149,13 @@ def _render_manifest(m: Manifest) -> str:
     for entry in m.env:
         if entry.name == source_var:
             continue  # already emitted at the top of this block
-        lines.append(_render_env_entry(entry))
+        lines.append(_render_env_entry(entry, port_defaults))
 
     lines.append("")  # blank line between services
     return "\n".join(lines)
 
 
-def _render_env_entry(entry: EnvVarDecl) -> str:
+def _render_env_entry(entry: EnvVarDecl, port_defaults: dict[str, int]) -> str:
     """Render one env line plus any preceding comment line(s)."""
     out: list[str] = []
     if entry.description:
@@ -154,7 +174,12 @@ def _render_env_entry(entry: EnvVarDecl) -> str:
         # Never echo a secret default into the example; user provides it.
         out.append(f"{entry.name}=")
     else:
-        out.append(f"{entry.name}={_format_default(entry.default)}")
+        # Port vars: topology slot-allocator is the single source of truth.
+        if entry.name in port_defaults:
+            value: object = port_defaults[entry.name]
+        else:
+            value = entry.default
+        out.append(f"{entry.name}={_format_default(value)}")
     return "\n".join(out)
 
 

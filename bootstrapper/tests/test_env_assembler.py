@@ -33,8 +33,10 @@ def test_emits_env_var_with_default_and_description(
     ]
     write_manifest("redis", m)
     manifests = load_manifests(services_root)
-    out = assemble_env_example(manifests)
-    assert "REDIS_PORT=6379" in out
+    out = assemble_env_example(manifests, services_root=services_root)
+    # Port default comes from topology slot allocator (data category, first slot:
+    # base_port=63000 + data_offset=10 + slot=0 → 63010), not the manifest default.
+    assert "REDIS_PORT=63010" in out
     assert "Host port for Redis." in out
 
 
@@ -49,12 +51,13 @@ def test_omits_default_for_auto_managed_vars(
     ]
     write_manifest("ollama", m)
     manifests = load_manifests(services_root)
-    out = assemble_env_example(manifests)
+    out = assemble_env_example(manifests, services_root=services_root)
     # auto_managed vars are documented but their value is left empty (no default shown).
     assert "OLLAMA_SCALE=" in out
     assert "auto_managed" in out.lower() or "auto-managed" in out.lower()
-    # Non-auto-managed value still has its default.
-    assert "OLLAMA_PORT=11434" in out
+    # Non-auto-managed port value comes from topology slot allocator, not manifest default.
+    # llm category, first slot: base_port=63000 + llm_offset=30 + slot=0 → 63030.
+    assert "OLLAMA_PORT=63030" in out
 
 
 def test_emits_image_vars(services_root, write_manifest, full_manifest_dict):
