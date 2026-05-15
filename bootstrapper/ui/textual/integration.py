@@ -121,28 +121,18 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     env_vars = config_parser.parse_env_file()
     current_base_port = int(env_vars.get("SUPABASE_DB_PORT", DEFAULT_BASE_PORT))
 
-    # Sort the wizard's service-source questions to match the stack
-    # overview's port-ascending order. The overview sorts by the
-    # service's *displayed* port — which for localhost sources comes
-    # from the endpoint env var (e.g. LITELLM_BASE_URL) and may be very
-    # different from the container offset (a localhost ComfyUI shows
-    # :8000, not :63018). So sort by the resolved port, not the offset.
-    from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port
-    from core.port_manager import PortManager  # noqa: F401 (kept for callers below)
+    # Build canonical order index once — shared by both sorts below.
+    from services.topology import build_topology
+    _services_root = Path(__file__).resolve().parent.parent.parent.parent / "services"
+    _topology = build_topology(_services_root)
+    _canonical_index: dict[str, int] = {
+        r.display_name: idx for idx, r in enumerate(_topology.rows)
+    }
 
-    def _svc_port_key(svc) -> tuple:
-        meta = lookup_service_meta(svc.display_name)
-        port_var = (meta or {}).get("port_var") if meta else None
-        source = svc.current_value or ""
-        resolved = _resolve_port(svc.display_name, source, port_var, env_vars)
-        if not resolved:
-            return (1, svc.display_name)
-        try:
-            return (0, int(resolved.lstrip(":")))
-        except ValueError:
-            return (1, svc.display_name)
+    def _svc_canonical_key(svc) -> tuple:
+        return (_canonical_index.get(svc.display_name, 999), svc.display_name)
 
-    services_info = sorted(services_info, key=_svc_port_key)
+    services_info = sorted(services_info, key=_svc_canonical_key)
 
     steps: list = []
     # Inline step_total values below are illustrative only — Ollama and
@@ -270,16 +260,12 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # this set are always-on infrastructure.
     configurable_names = {svc.display_name for svc in services_info}
 
-    def _port_key(svc) -> tuple:
-        """Sort by numeric port ascending. Services without a port
-        (disabled, no port assigned) sort to the bottom."""
-        raw = (svc.port or "").lstrip(":").strip()
-        try:
-            return (0, int(raw)) if raw else (1, 0)
-        except ValueError:
-            return (1, 0)
+    def _svc_row_canonical_key(svc) -> tuple:
+        """Sort by canonical topology order. Services not in the
+        topology (infra-only rows) sort to the bottom."""
+        return (_canonical_index.get(svc.name, 999), svc.name)
 
-    sorted_services = sorted(state.services, key=_port_key)
+    sorted_services = sorted(state.services, key=_svc_row_canonical_key)
     rows = [
         ServiceRow(
             name=s.name, source=(s.source or "container"),
