@@ -106,6 +106,12 @@ class ServiceTable(Widget):
 
     can_focus = False
 
+    # Leading category bar — colored stripe matching each row's category.
+    # 2 cells wide; renders ▰▰ to fill the cell width with a solid block-like
+    # glyph that survives without TrueColor.
+    BAR_W = 2
+    BAR_GLYPH = "▰" * BAR_W  # two cells filled
+
     # Fixed-width portions of each slot.
     ARROW_W = 1
     DOT_W = 1
@@ -180,10 +186,10 @@ class ServiceTable(Widget):
 
     @property
     def _slot_fixed(self) -> int:
-        # arrow(1) sp(1) dot(1) sp(2) + lock(LOCK_W) + 4 inter-column separators
-        # (one between dot and lock, then between each of the 4 text cols).
+        # bar(BAR_W) sp(1) arrow(1) sp(1) dot(1) sp(2) + lock(LOCK_W) + 4*COL_SEP
         return (
-            self.ARROW_W + 1 + self.DOT_W + 2
+            self.BAR_W + 1
+            + self.ARROW_W + 1 + self.DOT_W + 2
             + self.LOCK_W + 4 * self.COL_SEP
         )
 
@@ -234,7 +240,12 @@ class ServiceTable(Widget):
         port_w, name_w, source_w, alias_w = widths
         slot = Text()
         sep = " " * self.COL_SEP
+        # Leading category bar — 2 cells in the category color.
+        bar_color = P.style_for_category(r.category) if r else P.TEXT_FAINT
+        slot.append(self.BAR_GLYPH, style=bar_color)
+        slot.append(" ")
         if r is None:
+            # Bar (BAR_W + 1) already written above; pad the remaining columns.
             total = (
                 self.ARROW_W + 1 + self.DOT_W + 2 + port_w + self.COL_SEP
                 + self.LOCK_W + self.COL_SEP
