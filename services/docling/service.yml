@@ -1,7 +1,7 @@
 # services/docling/service.yml — Docling document processor
 name: docling
 label: "Docling (document processor)"
-category: ai
+category: media
 docs: docs/services/doc-processor.md  # docling is the docling-container-gpu / docling-localhost engine behind DOC_PROCESSOR_SOURCE
 
 containers:
@@ -53,10 +53,20 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - globals
   optional: []
 
 exports: []
+
+rows:
+  - display_name: "Document Processor"
+    source_var: DOC_PROCESSOR_SOURCE
+    port_var: DOC_PROCESSOR_PORT
+    scale_var: DOCLING_GPU_SCALE
+    alias: docling.localhost
+    description: "Document parsing & extraction."
+    localhost_endpoint_var: DOCLING_ENDPOINT
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy

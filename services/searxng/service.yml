@@ -1,7 +1,7 @@
 # services/searxng/service.yml — SearXNG privacy metasearch
 name: searxng
 label: "SearXNG (privacy metasearch)"
-category: app
+category: media
 docs: docs/services/searxng.md
 
 containers:
@@ -40,10 +40,20 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
   optional: []
 
 exports: []
+
+rows:
+  - display_name: "SearxNG"
+    source_var: SEARXNG_SOURCE
+    port_var: SEARXNG_PORT
+    scale_var: SEARXNG_SCALE
+    alias: search.localhost
+    description: "Privacy-focused metasearch."
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy

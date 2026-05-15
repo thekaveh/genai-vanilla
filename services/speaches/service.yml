@@ -12,7 +12,7 @@
 # STT_PROVIDER_SOURCE and TTS_PROVIDER_SOURCE and write SPEACHES_SCALE.
 name: speaches
 label: "Speaches (unified TTS + STT)"
-category: ai
+category: media
 docs: docs/services/tts-provider.md
 
 containers:
@@ -41,10 +41,14 @@ env:
     description: "Computed by bootstrapper/services/service_config.py::_generate_stt_provider_config (or _generate_tts_provider_config) — set to 1 when STT_PROVIDER_SOURCE OR TTS_PROVIDER_SOURCE picks a speaches-* variant."
 
 depends_on:
-  required: []
+  required:
+    - parakeet
+    - tts-provider
   optional: []
 
 exports: []
+
+rows: []
 
 # No runtime_sc / runtime_adaptive / runtime_deps blocks here — intentional.
 # SPEACHES_SCALE is auto-managed by `_generate_stt_provider_config` /

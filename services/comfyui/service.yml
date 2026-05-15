@@ -1,7 +1,7 @@
 # services/comfyui/service.yml — ComfyUI image generation + init
 name: comfyui
 label: "ComfyUI (image generation)"
-category: ai
+category: media
 docs: docs/services/comfyui.md
 
 containers:
@@ -87,10 +87,22 @@ env:
 
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - litellm
+    - ollama
   optional: []
 
 exports: []
+
+rows:
+  - display_name: "ComfyUI"
+    source_var: COMFYUI_SOURCE
+    port_var: COMFYUI_PORT
+    scale_var: COMFYUI_SCALE
+    alias: comfyui.localhost
+    description: "AI image generation & workflows."
+    localhost_endpoint_var: COMFYUI_ENDPOINT
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy

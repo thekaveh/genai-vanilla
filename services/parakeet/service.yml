@@ -12,7 +12,7 @@
 # active.
 name: parakeet
 label: "Parakeet (NVIDIA STT engine)"
-category: ai
+category: media
 docs: docs/services/stt-provider.md  # parakeet is one of the STT_PROVIDER_SOURCE engines (parakeet-container-gpu / parakeet-localhost)
 
 containers:
@@ -80,10 +80,20 @@ env:
     description: "Resolved per STT_PROVIDER_SOURCE. Consumed by n8n, backend, jupyterhub, open-webui, hermes-init (the latter as STT_INTERNAL_URL — owned by services/hermes/)."
 
 depends_on:
-  required: []
+  required:
+    - litellm
   optional: []
 
 exports: []
+
+rows:
+  - display_name: "STT Provider"
+    source_var: STT_PROVIDER_SOURCE
+    port_var: STT_PROVIDER_PORT
+    scale_var: STT_PROVIDER_SCALE
+    alias: stt.localhost
+    description: "Speech-to-text transcription."
+    localhost_endpoint_var: STT_ENDPOINT
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy

@@ -10,7 +10,7 @@
 # rather than on any one container.
 name: tts-provider
 label: "TTS provider (text-to-speech engine selector)"
-category: ai
+category: media
 docs: docs/services/tts-provider.md
 virtual: true
 containers: []
@@ -46,10 +46,20 @@ env:
   # Only Open WebUI reads them; they belong in its manifest, not here.
 
 depends_on:
-  required: []
+  required:
+    - litellm
   optional: []
 
 exports: []
+
+rows:
+  - display_name: "TTS Provider"
+    source_var: TTS_PROVIDER_SOURCE
+    port_var: TTS_PROVIDER_PORT
+    scale_var: TTS_PROVIDER_SCALE
+    alias: tts.localhost
+    description: "Text-to-speech synthesis."
+    localhost_endpoint_var: TTS_ENDPOINT
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy

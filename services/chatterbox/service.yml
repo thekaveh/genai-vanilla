@@ -10,7 +10,7 @@
 # writes CHATTERBOX_SCALE based on TTS_PROVIDER_SOURCE.
 name: chatterbox
 label: "Chatterbox (voice-cloning TTS, GPU)"
-category: ai
+category: media
 docs: docs/services/tts-provider.md
 
 containers:
@@ -34,10 +34,13 @@ env:
     description: "Computed by bootstrapper/services/service_config.py::_generate_tts_provider_config — set to 1 when TTS_PROVIDER_SOURCE=chatterbox-container-gpu."
 
 depends_on:
-  required: []
+  required:
+    - tts-provider
   optional: []
 
 exports: []
+
+rows: []
 
 # No runtime_sc / runtime_adaptive / runtime_deps blocks here — intentional.
 # CHATTERBOX_SCALE is auto-managed by `_generate_tts_provider_config` in
