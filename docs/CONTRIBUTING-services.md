@@ -25,7 +25,7 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    - `networks:` references `backend-network`; never redefines it
    - Bind-mount paths are **relative to the fragment file** — i.e., to `services/myservice/` (e.g., `./init/scripts:/scripts`, `./build/snapshot:/snapshot`). Use `../../` only to reach genuinely cross-cutting locations: `../../bootstrapper/utils/` (catalog modules) and `../../volumes/...` (bootstrapper-generated runtime config like `volumes/litellm/config.yaml` and `volumes/api/kong-dynamic.yml`).
 4. Add the fragment to the `include:` list in `docker-compose.yml`.
-5. Add an entry to `services/_order.yml` (controls wizard display order and `.env.example` ordering).
+5. Service order is derived automatically from `depends_on:` topology — no manual ordering file needed.
 6. If declarative source effects can't express your computation, add the
    logic to `bootstrapper/services/service_config.py` as a new
    `_generate_<name>_config()` method and call it from

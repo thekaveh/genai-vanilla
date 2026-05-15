@@ -3,7 +3,6 @@ Topology engine — single source of truth for service ordering, categorization,
 port slot allocation, box rows, and alias list.
 
 Replaces:
-  * services/_order.yml (hand-edited)
   * bootstrapper/ui/state_builder.py::_SERVICES
   * bootstrapper/ui/state_builder.py::_HOST_ALIAS
   * bootstrapper/wizard/service_discovery.py::DISPLAY_NAME_OVERRIDES

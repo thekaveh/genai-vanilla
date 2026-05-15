@@ -15,7 +15,6 @@ been retired in favour of the per-service manifests. See
 
 ```
 services/
-├── _order.yml                   # canonical service order (.env.example diff stability + wizard order)
 ├── README.md                    # this file
 ├── supabase/
 │   ├── service.yml              # manifest: env vars, sources, deps, image refs
@@ -57,13 +56,13 @@ services consume.
    for a future cutover (see its module docstring) and `validate_fragments
    --check-env-example` will only pass once that cutover lands.
 5. New service? Add the fragment's path to the `include:` list in the root
-   `docker-compose.yml`, and add the service to `services/_order.yml` so
-   `.env.example` is rendered in a stable order.
+   `docker-compose.yml`. Service order is now derived automatically from
+   `depends_on:` topology (see `bootstrapper/services/topology.py`).
 
 ## Folder-name rules
 
 - Lowercase kebab-case (matches the `name:` field in the manifest).
-- Names starting with `_` are reserved (e.g. `_order.yml`, `_user/`).
+- Names starting with `_` are reserved (e.g. `_user/`).
 - Names starting with `.` are ignored by the loader.
 
 ## Per-service `README.md`

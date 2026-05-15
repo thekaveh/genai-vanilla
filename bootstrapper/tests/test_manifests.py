@@ -83,8 +83,7 @@ def test_missing_services_dir_returns_empty_list(tmp_path):
 def test_underscore_prefixed_folders_are_ignored(
     services_root, write_manifest, minimal_manifest_dict
 ):
-    # services/_order.yml lives at services/ root (a file, not a folder),
-    # but downstream consumers can reserve services/_user/ as an overlay slot.
+    # Downstream consumers can reserve services/_user/ as an overlay slot.
     # The loader should skip folders starting with `_` or `.`.
     write_manifest("redis", minimal_manifest_dict("redis"))
     (services_root / "_user").mkdir()
