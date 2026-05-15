@@ -12,7 +12,7 @@
 #   Kong:      http://hermes.localhost:${KONG_HTTP_PORT}  (after --setup-hosts)
 name: hermes
 label: "Hermes (programmable AI agent)"
-category: ai
+category: agents
 docs: docs/services/hermes.md
 
 containers:
@@ -96,8 +96,18 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - litellm
   optional: []
+
+rows:
+  - display_name: "Hermes Agent"
+    source_var: HERMES_SOURCE
+    port_var: HERMES_API_PORT
+    scale_var: HERMES_SCALE
+    alias: hermes.localhost
+    description: "Programmable AI agent runtime (Nous Research)."
+    localhost_endpoint_var: HERMES_ENDPOINT
 
 exports: []
 

@@ -1,7 +1,7 @@
 # services/openclaw/service.yml — OpenClaw AI agent gateway + init
 name: openclaw
 label: "OpenClaw (AI agent gateway)"
-category: app
+category: agents
 docs: docs/services/openclaw.md
 
 containers:
@@ -56,8 +56,17 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - litellm
   optional: []
+
+rows:
+  - display_name: "OpenClaw"
+    source_var: OPENCLAW_SOURCE
+    port_var: OPENCLAW_GATEWAY_PORT
+    scale_var: OPENCLAW_SCALE
+    alias: openclaw.localhost
+    description: "AI agent gateway for messaging platforms."
 
 exports: []
 

@@ -1,7 +1,7 @@
 # services/n8n/service.yml — n8n + worker + init
 name: n8n
 label: "n8n (workflow automation)"
-category: app
+category: agents
 docs: docs/services/n8n.md
 
 containers:
@@ -63,8 +63,19 @@ env:
     auto_managed: true
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
+    - litellm
   optional: []
+
+rows:
+  - display_name: "n8n"
+    source_var: N8N_SOURCE
+    port_var: N8N_PORT
+    scale_var: N8N_SCALE
+    alias: n8n.localhost
+    description: "Workflow automation & integrations."
 
 exports: []
 
