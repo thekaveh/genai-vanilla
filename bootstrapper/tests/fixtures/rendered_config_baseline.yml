@@ -232,7 +232,8 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY" http://127.0.0.1:8642/v1/models >/dev/null'
+      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY"
+        http://127.0.0.1:8642/v1/models >/dev/null'
       timeout: 10s
       interval: 30s
       retries: 5
@@ -440,11 +441,11 @@ services:
     ports:
     - mode: ingress
       target: 8000
-      published: '63001'
+      published: '63000'
       protocol: tcp
     - mode: ingress
       target: 8443
-      published: '63002'
+      published: '63001'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -494,7 +495,8 @@ services:
       - CMD
       - python
       - -c
-      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status == 200 else 1)
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',
+        timeout=3).status == 200 else 1)
       timeout: 5s
       interval: 10s
       retries: 12
@@ -771,11 +773,11 @@ services:
       GENERIC_TIMEZONE: UTC
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
-      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63001
+      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63000
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
       N8N_COMMUNITY_PACKAGES_ENABLED: 'true'
-      N8N_EDITOR_BASE_URL: http://n8n.localhost:63001
+      N8N_EDITOR_BASE_URL: http://n8n.localhost:63000
       N8N_ENCRYPTION_KEY: ''
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
       N8N_HOST: n8n.localhost
@@ -795,9 +797,9 @@ services:
       QUEUE_HEALTH_CHECK_ACTIVE: 'true'
       STT_ENDPOINT: ''
       TTS_ENDPOINT: ''
-      VUE_APP_URL_BASE_API: http://n8n.localhost:63001/
+      VUE_APP_URL_BASE_API: http://n8n.localhost:63000/
       WEAVIATE_URL: http://weaviate:8080
-      WEBHOOK_URL: http://n8n.localhost:63001/
+      WEBHOOK_URL: http://n8n.localhost:63000/
     healthcheck:
       test:
       - CMD
@@ -1175,7 +1177,11 @@ services:
     entrypoint:
     - sh
     - -c
-    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\nPATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\":true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
+    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\n\
+      PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
+      :true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '.\
+      \ * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\
+      \nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
     networks:
       backend-network: null
@@ -1511,7 +1517,7 @@ services:
       POSTGRES_PASSWORD: ''
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_ANON_KEY: ''
-      SUPABASE_PUBLIC_URL: http://localhost:63001
+      SUPABASE_PUBLIC_URL: http://localhost:63000
       SUPABASE_SERVICE_KEY: ''
       SUPABASE_URL: http://kong-api-gateway:8000
     healthcheck:
