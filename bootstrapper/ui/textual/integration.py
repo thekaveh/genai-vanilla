@@ -109,6 +109,61 @@ def _option_hint(opt: str) -> str:
     return ""
 
 
+def _ascending_port_key(row) -> tuple:
+    """Sort key used by every ServiceRow listing: ascending port, then
+    rows-with-no-port at the bottom. Lifted to module level so both
+    ``run_setup_flow`` and ``run_launch_flow`` use the same comparator."""
+    raw = (row.port or "").lstrip(":").strip()
+    try:
+        return (0, int(raw)) if raw else (1, 0)
+    except ValueError:
+        return (1, 0)
+
+
+def recompute_ports_for_base(
+    new_base: int,
+    current_rows,
+    config_parser,
+    port_offsets: dict,
+):
+    """Re-derive every ServiceRow's port + alias_port from ``new_base``.
+
+    Single implementation shared by the wizard (``run_setup_flow``) and
+    the CLI-driven launch path (``run_launch_flow``). Both call this
+    whenever the user re-enters the base-port step or when the launch
+    flow recomputes ports after an override.
+
+    Builds a synthetic env dict where each container port_var is
+    re-derived from ``new_base``; localhost endpoint vars come straight
+    from the live .env so localhost sources still resolve to the host
+    machine's port.
+    """
+    from ui.state_builder import lookup_service_meta, resolve_port as _resolve_port
+    from .widgets.service_table import ServiceRow as _SR
+
+    live_env = config_parser.parse_env_file()
+    synth_env = dict(live_env)
+    for pv, off in port_offsets.items():
+        synth_env[pv] = str(new_base + off)
+    new_kong = str(new_base + port_offsets.get("KONG_HTTP_PORT", 2))
+    new_rows = []
+    for r in current_rows:
+        meta = lookup_service_meta(r.name)
+        port_var = (meta or {}).get("port_var") if meta else None
+        new_port = _resolve_port(r.name, r.source, port_var, synth_env) or ""
+        new_rows.append(_SR(
+            name=r.name, source=r.source, alias=r.alias,
+            port=new_port,
+            alias_port=(new_kong if r.alias else ""),
+            tag=r.tag, default_source=r.default_source,
+            configurable=r.configurable,
+            category=r.category,
+            pending=r.pending,
+        ))
+    new_rows.sort(key=_ascending_port_key)
+    return new_rows
+
+
 def _build_steps_and_rows(config_parser, hosts_manager):
     """Build the wizard steps + service rows from real config."""
     from wizard.service_discovery import ServiceDiscovery
@@ -475,39 +530,9 @@ def run_setup_flow(
         return _resolve_port(name, source, port_var, env) or ""
 
     def _recompute_ports(new_base: int, current_rows):
-        from .widgets.service_table import ServiceRow as _SR
-        # Build a synthetic env dict where the container port_vars are
-        # re-derived from the new base port; localhost endpoint vars
-        # come straight from the live .env so localhost sources still
-        # resolve to the host machine's port.
-        live_env = config_parser.parse_env_file()
-        synth_env = dict(live_env)
-        for pv, off in port_offsets.items():
-            synth_env[pv] = str(new_base + off)
-        new_kong = str(new_base + port_offsets.get("KONG_HTTP_PORT", 2))
-        new_rows = []
-        for r in current_rows:
-            meta = lookup_service_meta(r.name)
-            port_var = (meta or {}).get("port_var") if meta else None
-            new_port = _resolve_port(r.name, r.source, port_var, synth_env) or ""
-            new_rows.append(_SR(
-                name=r.name, source=r.source, alias=r.alias,
-                port=new_port,
-                alias_port=(new_kong if r.alias else ""),
-                tag=r.tag, default_source=r.default_source,
-                configurable=r.configurable,
-                category=r.category,
-                pending=r.pending,
-            ))
-        # Preserve the port-ascending sort.
-        def _key(row):
-            raw = (row.port or "").lstrip(":").strip()
-            try:
-                return (0, int(raw)) if raw else (1, 0)
-            except ValueError:
-                return (1, 0)
-        new_rows.sort(key=_key)
-        return new_rows
+        return recompute_ports_for_base(
+            new_base, current_rows, config_parser, port_offsets,
+        )
 
     class _SetupApp(App):
         CSS_PATH = str(_THEME_PATH)
@@ -626,13 +651,7 @@ def run_launch_flow(
         ))
 
     # Re-sort by ascending port — same rule as the wizard's overview.
-    def _key(row):
-        raw = (row.port or "").lstrip(":").strip()
-        try:
-            return (0, int(raw)) if raw else (1, 0)
-        except ValueError:
-            return (1, 0)
-    new_rows.sort(key=_key)
+    new_rows.sort(key=_ascending_port_key)
 
     # Same recompute / resolve callbacks as run_setup_flow — harmless
     # in CLI mode where they're never triggered, but keeps WizardScreen
@@ -644,27 +663,9 @@ def run_launch_flow(
         return _resolve_port(name, source, port_var, env) or ""
 
     def _recompute_ports(new_base: int, current_rows):
-        from .widgets.service_table import ServiceRow as _SR
-        live_env = config_parser.parse_env_file()
-        sx = dict(live_env)
-        for pv, off in port_offsets.items():
-            sx[pv] = str(new_base + off)
-        new_kong = str(new_base + port_offsets.get("KONG_HTTP_PORT", 2))
-        out = []
-        for r in current_rows:
-            meta = lookup_service_meta(r.name)
-            port_var = (meta or {}).get("port_var") if meta else None
-            np = _resolve_port(r.name, r.source, port_var, sx) or ""
-            out.append(_SR(
-                name=r.name, source=r.source, alias=r.alias,
-                port=np, alias_port=(new_kong if r.alias else ""),
-                tag=r.tag, default_source=r.default_source,
-                configurable=r.configurable,
-                category=r.category,
-                pending=r.pending,
-            ))
-        out.sort(key=_key)
-        return out
+        return recompute_ports_for_base(
+            new_base, current_rows, config_parser, port_offsets,
+        )
 
     state_holder = {"interrupted": False, "exit_code": 0}
 
