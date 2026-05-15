@@ -109,17 +109,6 @@ def _option_hint(opt: str) -> str:
     return ""
 
 
-def _ascending_port_key(row) -> tuple:
-    """Sort key used by every ServiceRow listing: ascending port, then
-    rows-with-no-port at the bottom. Lifted to module level so both
-    ``run_setup_flow`` and ``run_launch_flow`` use the same comparator."""
-    raw = (row.port or "").lstrip(":").strip()
-    try:
-        return (0, int(raw)) if raw else (1, 0)
-    except ValueError:
-        return (1, 0)
-
-
 def recompute_ports_for_base(
     new_base: int,
     current_rows,
@@ -160,7 +149,9 @@ def recompute_ports_for_base(
             category=r.category,
             pending=r.pending,
         ))
-    new_rows.sort(key=_ascending_port_key)
+    # Preserve the canonical input order — `current_rows` arrives in
+    # category/topology order from `_build_steps_and_rows`, and changing
+    # the base port only re-derives port values, not row positions.
     return new_rows
 
 
@@ -650,8 +641,9 @@ def run_launch_flow(
             pending=False,  # launch-flow rows are fully resolved before display
         ))
 
-    # Re-sort by ascending port — same rule as the wizard's overview.
-    new_rows.sort(key=_ascending_port_key)
+    # `state.services` already arrives in canonical topology order; the
+    # source-resolved `new_rows` list preserves that order (the loop above
+    # iterates `state.services` in input order).
 
     # Same recompute / resolve callbacks as run_setup_flow — harmless
     # in CLI mode where they're never triggered, but keeps WizardScreen

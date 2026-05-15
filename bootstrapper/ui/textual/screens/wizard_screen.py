@@ -625,17 +625,12 @@ class WizardScreen(Screen):
                         row.port = new_port or ""
                     except Exception:  # noqa: BLE001
                         pass
-                # Re-sort the overview by displayed port — a localhost
-                # source can radically change the port (e.g. ComfyUI
-                # :63018 → :8000), so this row's position in the list
-                # may need to move.
-                def _port_key(r):
-                    raw = (r.port or "").lstrip(":").strip()
-                    try:
-                        return (0, int(raw)) if raw else (1, 0)
-                    except ValueError:
-                        return (1, 0)
-                self._services.sort(key=_port_key)
+                # Row position is fixed by canonical topology order — a
+                # source change only updates this row's port/source/alias
+                # values, not its place in the list. (Earlier versions
+                # re-sorted by ascending port on every confirm, which
+                # silently broke same-category adjacency the moment a
+                # localhost source surfaced a small port number.)
                 self._service_table.set_rows(self._services)
                 self._refresh_info_panel()
                 break
