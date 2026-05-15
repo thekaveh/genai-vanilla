@@ -18,7 +18,7 @@ from typing import Optional
 from core.config_parser import ConfigParser
 from utils.hosts_manager import HostsManager
 from ui.state import AppState, CloudApiEntry, ServiceEntry
-from services.topology import build_topology, Topology, Row as TopologyRow
+from services.topology import build_topology, Topology
 
 
 # Topology is built once per process. Refresh by calling _refresh_topology()
@@ -51,11 +51,6 @@ _CLOUD_APIS = [
 ]
 
 
-# Endpoint env vars used by localhost services. Imported privately
-# from utils/endpoint_vars (the single source of truth) for use by
-# state_builder's own port resolver below.
-from utils.endpoint_vars import LOCALHOST_ENDPOINT_VARS as _LOCALHOST_ENDPOINT_VARS  # noqa: E402
-
 def lookup_service_meta(name: str) -> Optional[dict]:
     """Return {'name', 'source_var', 'port_var', 'scale_var'} for the given
     display name, or None if no row matches."""
@@ -71,15 +66,16 @@ def lookup_service_meta(name: str) -> Optional[dict]:
 
 
 def resolve_port(name: str, source: str, port_var: Optional[str], env: dict) -> Optional[str]:
-    """
-    Compute the displayed port for a service given its current SOURCE,
-    its port env var, and the parsed .env. Mirrors
-    `GenAIStackStarter._get_localhost_port` plus the regular port lookup.
-    """
+    """Compute the displayed port for a service given its current SOURCE, its
+    port env var, and the parsed .env."""
     if source == "disabled":
         return None
     if "localhost" in source:
-        endpoint_var = _LOCALHOST_ENDPOINT_VARS.get(name)
+        endpoint_var = None
+        for r in _get_topology().rows:
+            if r.display_name == name:
+                endpoint_var = r.localhost_endpoint_var
+                break
         if endpoint_var:
             endpoint = env.get(endpoint_var, "")
             match = re.search(r":(\d+)", endpoint)

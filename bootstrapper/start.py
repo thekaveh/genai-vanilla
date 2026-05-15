@@ -1003,15 +1003,16 @@ class GenAIStackStarter:
 
     @staticmethod
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
-        """Extract the actual localhost port from the service's endpoint env var.
-
-        The display-name → endpoint-env-var mapping lives in
-        ``utils.endpoint_vars`` so the wizard's state builder and this
-        legacy linear-flow renderer can't drift apart.
-        """
+        """Extract the actual localhost port from the service's endpoint env var."""
         import re
-        from utils.endpoint_vars import LOCALHOST_ENDPOINT_VARS
-        var = LOCALHOST_ENDPOINT_VARS.get(service_name)
+        from services.topology import build_topology
+        from pathlib import Path
+        _topology = build_topology(Path(__file__).resolve().parent.parent / "services")
+        var = None
+        for r in _topology.rows:
+            if r.display_name == service_name:
+                var = r.localhost_endpoint_var
+                break
         if var:
             endpoint = env_vars.get(var, '')
             match = re.search(r':(\d+)', endpoint)
