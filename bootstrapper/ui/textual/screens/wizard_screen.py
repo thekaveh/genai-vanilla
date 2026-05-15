@@ -217,7 +217,8 @@ class WizardScreen(Screen):
         self._cloud_apis_row = CloudApisRow(self._cloud_apis)
         self._category_legend = CategoryLegend()
         summaries = [
-            ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
+            ServiceSummary(name=r.name, source=r.source, port=r.port,
+                           alias=r.alias, pending=r.pending)
             for r in services
         ]
         self._info_panel = InfoPanel(
@@ -668,7 +669,8 @@ class WizardScreen(Screen):
         and the two cloud overview update helpers below.
         """
         summaries = [
-            ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
+            ServiceSummary(name=r.name, source=r.source, port=r.port,
+                           alias=r.alias, pending=r.pending)
             for r in self._services
         ]
         self._info_panel.update_state(

@@ -40,6 +40,11 @@ class ServiceSummary:
     source: str = ""
     port: str = ""
     alias: str = ""
+    pending: bool = False    # NEW
+
+    @property
+    def is_pending(self) -> bool:
+        return self.pending
 
     @property
     def is_disabled(self) -> bool:
@@ -103,10 +108,12 @@ class InfoBoxFooter(Static):
         self._cloud_apis = list(cloud_apis)
         self.refresh()
 
-    def _counts(self) -> tuple[int, int, int, int]:
-        container = local = off = gpu = 0
+    def _counts(self) -> tuple[int, int, int, int, int]:
+        pending = container = local = off = gpu = 0
         for s in self._services:
-            if s.is_disabled:
+            if s.is_pending:
+                pending += 1
+            elif s.is_disabled:
                 off += 1
             elif s.is_gpu:
                 gpu += 1
@@ -114,11 +121,14 @@ class InfoBoxFooter(Static):
                 local += 1
             else:
                 container += 1
-        return container, local, gpu, off
+        return pending, container, local, gpu, off
 
     def render(self) -> Text:
-        container, local, gpu, off = self._counts()
+        pending, container, local, gpu, off = self._counts()
         line = Text()
+        if pending:
+            line.append(f"{pending} pending", style=P.WARN)
+            line.append("  ·  ", style=P.TEXT_FAINT)
         line.append(f"{container} container", style=P.OK)
         line.append("  ·  ", style=P.TEXT_FAINT)
         line.append(f"{local} local", style=P.ACCENT)
