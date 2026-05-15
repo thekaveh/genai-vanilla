@@ -121,6 +121,25 @@ def _topo_sort(manifests: list[Manifest]) -> list[str]:
     return order
 
 
+def _canonical_order(manifests: list[Manifest], topo: list[str]) -> list[str]:
+    """Partition the topo order by category, concatenate in CATEGORY_ORDER.
+
+    Within a category, manifests stay in their topo-derived order. Between
+    categories, the global category sequence wins (infra → data → llm → media
+    → agents → apps).
+    """
+    category_of = {m.name: m.category for m in manifests}
+    buckets: dict[str, list[str]] = {c: [] for c in CATEGORY_ORDER}
+    for name in topo:
+        cat = category_of.get(name)
+        if cat in buckets:
+            buckets[cat].append(name)
+    result: list[str] = []
+    for cat in CATEGORY_ORDER:
+        result.extend(buckets[cat])
+    return result
+
+
 def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology:
     """Internal — splits manifest loading from computation for unit-test ergonomics."""
     raise NotImplementedError  # filled in by Tasks 2.3-2.5

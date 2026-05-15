@@ -70,3 +70,28 @@ def test_topo_sort_cycle_raises():
     ]
     with pytest.raises(TopologyError, match="cycle"):
         _topo_sort(manifests)
+
+
+def test_canonical_order_groups_by_category():
+    """Topo order is partitioned by category in fixed display order."""
+    from services.topology import _canonical_order
+    manifests = [
+        _manifest("z-app", "apps"),
+        _manifest("a-data", "data"),
+        _manifest("k-llm", "llm"),
+    ]
+    topo = ["a-data", "k-llm", "z-app"]
+    out = _canonical_order(manifests, topo)
+    assert out == ["a-data", "k-llm", "z-app"]  # data → llm → apps
+
+
+def test_canonical_order_apps_after_agents():
+    """Apps category sorts AFTER agents (specs §display order)."""
+    from services.topology import _canonical_order
+    manifests = [
+        _manifest("foo-app", "apps"),
+        _manifest("bar-agent", "agents"),
+    ]
+    topo = ["bar-agent", "foo-app"]
+    out = _canonical_order(manifests, topo)
+    assert out == ["bar-agent", "foo-app"]
