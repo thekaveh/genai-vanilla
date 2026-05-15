@@ -75,8 +75,49 @@ def run(
             sys.stderr.write("".join(diff))
             return 2
 
+    gen_issues: list[str] = []
+    gen_issues.extend(_check_readme_topology_block_is_current(project_root))
+    gen_issues.extend(_check_architecture_dot_is_current(project_root))
+    if gen_issues:
+        for msg in gen_issues:
+            _err(msg)
+        return 1
+
     _info(f"OK — {len(manifests)} manifest(s) validated.")
     return 0
+
+
+def _check_readme_topology_block_is_current(project_root: Path) -> list[str]:
+    """Ensure README.md TOPOLOGY block matches the generator's output."""
+    from tools.generate_readme_topology import generate_block
+    expected = generate_block(project_root / "services").rstrip()
+    text = (project_root / "README.md").read_text()
+    start = text.find("<!-- TOPOLOGY:BEGIN -->")
+    end = text.find("<!-- TOPOLOGY:END -->")
+    if start == -1 or end == -1:
+        return ["README.md missing TOPOLOGY markers"]
+    end += len("<!-- TOPOLOGY:END -->")
+    actual = text[start:end].rstrip()
+    if expected != actual:
+        return ["README.md TOPOLOGY block is stale — run `uv run python -m tools.generate_readme_topology`"]
+    return []
+
+
+def _check_architecture_dot_is_current(project_root: Path) -> list[str]:
+    """Ensure architecture.dot matches what the generator would produce."""
+    from tools.generate_architecture_diagram import generate
+    import tempfile
+    with tempfile.NamedTemporaryFile("r+", suffix=".dot", delete=False) as f:
+        tmp_path = Path(f.name)
+    try:
+        generate(project_root / "services", tmp_path)
+        expected = tmp_path.read_text()
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    actual = (project_root / "docs" / "diagrams" / "architecture.dot").read_text()
+    if expected != actual:
+        return ["architecture.dot is stale — run `uv run python -m tools.generate_architecture_diagram`"]
+    return []
 
 
 def _err(msg: str) -> None:
