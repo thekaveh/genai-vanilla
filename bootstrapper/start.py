@@ -1283,6 +1283,12 @@ class GenAIStackStarter:
 @click.option('--jupyterhub-source',
               type=click.Choice(['container', 'disabled'], case_sensitive=False),
               help='Override JUPYTERHUB_SOURCE')
+@click.option('--open-web-ui-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override OPEN_WEB_UI_SOURCE')
+@click.option('--local-deep-researcher-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override LOCAL_DEEP_RESEARCHER_SOURCE')
 @click.option('--stt-provider-source',
               type=click.Choice(['speaches-container-cpu', 'speaches-container-gpu',
                                 'parakeet-container-gpu', 'parakeet-localhost',
@@ -1327,7 +1333,8 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          openai_models, anthropic_models, openrouter_models,
          ollama_models, ollama_custom_models,
          comfyui_source, weaviate_source, minio_source, n8n_source, searxng_source,
-         jupyterhub_source, stt_provider_source, tts_provider_source,
+         jupyterhub_source, open_web_ui_source, local_deep_researcher_source,
+         stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, hermes_source,
          neo4j_graph_db_source,
          multi2vec_clip_source, no_tui, no_port_migrate):
