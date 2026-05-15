@@ -548,7 +548,7 @@ The May 6 §8 recommendation never landed. Without a config file, Dependabot use
 
 Key design choices:
 
-- **`directories:` not `directory:`** — single config entry covers all 3 active pip manifests. The May 6 layout had multiple top-level dirs; the tier-3 reorg consolidated to `services/<name>/provider/...`, which makes a single multi-path entry natural.
+- **`directories:` not `directory:`** — single config entry covers all 7 active pip manifests (bootstrapper, docling × 2, jupyterhub, backend, parakeet × 2). The May 6 layout had multiple top-level dirs; the tier-3 reorg consolidated to `services/<name>/provider/...`, which makes a single multi-path entry natural. **Note:** the initial config (commit `a7a4011`) listed only the 3 manifests with current open alerts and was corrected in commit `c63bbdd` after an audit caught that 4 additional Tier-A/B manifests would have been silently dropped from scan coverage.
 - **`schedule.interval: weekly`** — matches contributor cadence. Daily produces noise; monthly delays patch-tier security fixes too long.
 - **`groups:` blocks** — three groups (`patches`, `minors`, `security-only`) collapse what would be ~20 weekly PRs into ~3.
 - **`open-pull-requests-limit: 10`** — generous ceiling; avoids capping security PRs while keeping branch list manageable.
