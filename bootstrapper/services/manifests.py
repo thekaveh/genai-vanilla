@@ -92,6 +92,20 @@ class ExportRef:
 
 
 @dataclass(frozen=True)
+class Row:
+    """One box row a manifest renders. Replaces the legacy _SERVICES tuple
+    plus several scattered constants. See spec §rows."""
+
+    display_name: str
+    source_var: str
+    port_var: str = ""
+    scale_var: str = ""
+    alias: str = ""
+    description: str = ""
+    localhost_endpoint_var: str = ""
+
+
+@dataclass(frozen=True)
 class Manifest:
     """Parsed services/<name>/service.yml."""
 
@@ -106,6 +120,7 @@ class Manifest:
     sources: SourcesBlock | None = None
     depends_on: DependsOn = field(default_factory=DependsOn)
     exports: list[ExportRef] = field(default_factory=list)
+    rows: list[Row] = field(default_factory=list)
     # Slices of the legacy bootstrapper/service-configs.yml structure, owned
     # by this manifest. sc_synthesizer.synthesize_legacy() concatenates these
     # across manifests to produce the dict the bootstrapper used to load from
@@ -306,6 +321,19 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
         for x in raw.get("exports") or []
     ]
 
+    rows = [
+        Row(
+            display_name=r["display_name"],
+            source_var=r["source_var"],
+            port_var=r.get("port_var", ""),
+            scale_var=r.get("scale_var", ""),
+            alias=r.get("alias", ""),
+            description=r.get("description", ""),
+            localhost_endpoint_var=r.get("localhost_endpoint_var", ""),
+        )
+        for r in raw.get("rows") or []
+    ]
+
     return Manifest(
         name=raw["name"],
         label=raw["label"],
@@ -318,6 +346,7 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
         sources=sources_block,
         depends_on=depends_on,
         exports=exports,
+        rows=rows,
         runtime_sc=dict(raw.get("runtime_sc") or {}),
         runtime_adaptive=dict(raw.get("runtime_adaptive") or {}),
         runtime_deps=dict(raw.get("runtime_deps") or {}),
