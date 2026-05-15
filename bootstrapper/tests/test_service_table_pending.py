@@ -23,7 +23,40 @@ def test_pending_row_renders_hollow_dot_and_dashes():
     table = ServiceTable([row], columns=1)
     text = _render(table)
     assert "◌" in text  # hollow dot
-    assert "pending" in text or "—" in text
+    # The pending-source slot emits the literal ``"pending…"`` placeholder.
+    # The previous ``"pending" in text or "—" in text`` assertion always
+    # passed via the em-dash arm (other columns emit em-dashes too), so the
+    # pending-source check was a no-op.
+    #
+    # The source column gets auto-sized to MIN_SOURCE (6) when no row has a
+    # longer source, so ``_fit("pending…", 7)`` truncates to ``"pendin…"`` —
+    # but the ``"pendin"`` prefix is unique to the pending branch in this
+    # table, so it pins the pending-source slot exactly. The literal
+    # ``pending…`` substring is asserted on a wider rendering below.
+    assert "pendin" in text
+
+
+def test_pending_row_full_pending_token_when_column_wide_enough():
+    """When the source column is wide enough to fit ``pending…`` un-truncated
+    (e.g. another row in the same table has a long source value that drives
+    src_max up), the full literal ``pending…`` placeholder appears.
+
+    This guards against the prior tautological assertion that accepted
+    em-dashes from any column.
+    """
+    from ui.textual.widgets.service_table import ServiceRow, ServiceTable
+    pending_row = ServiceRow(
+        name="ComfyUI", source="", port="", alias="", category="media",
+        pending=True,
+    )
+    sibling = ServiceRow(
+        name="Other", source="container-cpu-gpu-hybrid", port="63040",
+        alias="other.localhost", category="media", pending=False,
+        default_source="container-cpu-gpu-hybrid",
+    )
+    table = ServiceTable([pending_row, sibling], columns=1)
+    text = _render(table)
+    assert "pending…" in text
 
 
 def test_answered_row_renders_full_dot_and_real_port():
