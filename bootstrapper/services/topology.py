@@ -140,6 +140,43 @@ def _canonical_order(manifests: list[Manifest], topo: list[str]) -> list[str]:
     return result
 
 
+def _allocate_slots(
+    manifests: list[Manifest],
+    canonical: list[str],
+    base_port: int,
+) -> dict[str, int]:
+    """Assign port_var → default port for every *_PORT env var declared.
+
+    Each category has a block (base_offset, block_size). For each manifest in
+    canonical order, every env var ending in `_PORT` consumes the next slot in
+    its category's block. Multi-port manifests get a contiguous run.
+    """
+    by_name = {m.name: m for m in manifests}
+    next_slot: dict[str, int] = {c: base_offset for c, (base_offset, _) in CATEGORY_SLOTS.items()}
+    defaults: dict[str, int] = {}
+
+    for name in canonical:
+        m = by_name[name]
+        cat = m.category
+        if cat not in CATEGORY_SLOTS:
+            continue
+        base_offset, block_size = CATEGORY_SLOTS[cat]
+        block_end = base_offset + block_size
+        for env in m.env:
+            if not env.name.endswith("_PORT"):
+                continue
+            if next_slot[cat] >= block_end:
+                raise TopologyError(
+                    f"{cat} block full (size {block_size}); cannot allocate "
+                    f"{env.name} for manifest {m.name}. Increase block size in "
+                    f"CATEGORY_SLOTS or move some manifests to a different category."
+                )
+            defaults[env.name] = base_port + next_slot[cat]
+            next_slot[cat] += 1
+
+    return defaults
+
+
 def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology:
     """Internal — splits manifest loading from computation for unit-test ergonomics."""
     raise NotImplementedError  # filled in by Tasks 2.3-2.5
