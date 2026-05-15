@@ -20,7 +20,7 @@ def test_clean_pair_of_manifests_returns_no_issues(
     services_root, write_manifest, minimal_manifest_dict
 ):
     write_manifest("redis", minimal_manifest_dict("redis"))
-    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "app"})
+    write_manifest("backend", minimal_manifest_dict("backend") | {"category": "apps"})
     manifests = load_manifests(services_root)
     issues = validate_manifests(manifests)
     assert issues == []
@@ -37,7 +37,7 @@ def test_full_manifest_with_sources_is_clean(
     # The ollama fixture exports OLLAMA_ENDPOINT to litellm + weaviate; provide stubs
     # so the consumer-closure rule has manifests to resolve against.
     write_manifest("litellm", minimal_manifest_dict("litellm") | {"category": "llm"})
-    write_manifest("weaviate", minimal_manifest_dict("weaviate") | {"category": "ai"})
+    write_manifest("weaviate", minimal_manifest_dict("weaviate") | {"category": "data"})
     manifests = load_manifests(services_root)
     assert validate_manifests(manifests) == []
 
@@ -53,7 +53,7 @@ def test_duplicate_env_var_name_across_manifests_flagged(
     # Both redis and another service declare REDIS_PORT — exactly one owner allowed.
     write_manifest("redis", minimal_manifest_dict("redis"))
     other = minimal_manifest_dict("backend")
-    other["category"] = "app"
+    other["category"] = "apps"
     other["env"].append({"name": "REDIS_PORT", "default": 9999})
     write_manifest("backend", other)
     manifests = load_manifests(services_root)
@@ -67,7 +67,7 @@ def test_duplicate_container_across_manifests_flagged(
 ):
     write_manifest("redis", minimal_manifest_dict("redis"))
     other = minimal_manifest_dict("backend")
-    other["category"] = "app"
+    other["category"] = "apps"
     other["containers"] = ["redis"]  # collides with the redis manifest
     write_manifest("backend", other)
     manifests = load_manifests(services_root)
@@ -79,7 +79,7 @@ def test_depends_on_pointing_to_unknown_manifest_flagged(
     services_root, write_manifest, minimal_manifest_dict
 ):
     bad = minimal_manifest_dict("backend")
-    bad["category"] = "app"
+    bad["category"] = "apps"
     bad["depends_on"] = {"required": ["does-not-exist"], "optional": []}
     write_manifest("backend", bad)
     manifests = load_manifests(services_root)

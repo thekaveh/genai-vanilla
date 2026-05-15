@@ -67,6 +67,8 @@ depends_on:
 
 exports: []
 
+rows: []
+
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy
 # bootstrapper/service-configs.yml). Slice owned by this

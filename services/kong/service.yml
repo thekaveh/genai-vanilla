@@ -27,10 +27,35 @@ env:
     secret: true
 
 depends_on:
-  required: []
+  required:
+    - supabase
+    - redis
+    - litellm
+    - open-webui
+    - n8n
+    - hermes
+    - openclaw
+    - jupyterhub
+    - backend
+    - searxng
+    - minio
+    - comfyui
+    - local-deep-researcher
+    - neo4j
+    - weaviate
+    - tts-provider
+    - parakeet
+    - docling
+    - ollama
   optional: []
 
 exports: []
+
+rows:
+  - display_name: "Kong API Gateway"
+    source_var: KONG_API_GATEWAY_SOURCE
+    port_var: KONG_HTTP_PORT
+    description: "Edge gateway routing *.localhost aliases."
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy
