@@ -266,3 +266,26 @@ def style_for_source_choice(source: str) -> str:
     if "localhost" in source or "external" in source or source == "api":
         return ACCENT
     return TEXT_MUTED
+
+
+# ─── Category color tokens — drives the leading bar on every service row ───
+CAT_INFRA  = "#9a8cc6"  # purple
+CAT_DATA   = "#6a9aaa"  # slate-blue
+CAT_LLM    = "#7dcfff"  # sky blue
+CAT_MEDIA  = "#98c379"  # sage green
+CAT_AGENTS = "#d4a574"  # warm tan
+CAT_APPS   = "#89aad4"  # periwinkle
+
+_CATEGORY_COLOR: Dict[str, str] = {
+    "infra":  CAT_INFRA,
+    "data":   CAT_DATA,
+    "llm":    CAT_LLM,
+    "media":  CAT_MEDIA,
+    "agents": CAT_AGENTS,
+    "apps":   CAT_APPS,
+}
+
+
+def style_for_category(name: str) -> str:
+    """Return the hex color for a category slug, falling back to TEXT_MUTED."""
+    return _CATEGORY_COLOR.get((name or "").lower(), TEXT_MUTED)
