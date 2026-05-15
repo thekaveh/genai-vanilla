@@ -9,6 +9,7 @@ dependencies = [
     "rich>=13.0.0",          # Terminal colors, tables, formatting
     "click>=8.1.0",          # CLI argument parsing
     "docker>=7.0.0",         # Docker SDK for compose operations
+    "urllib3>=2.7.0",        # Explicit floor (transitive via docker, requests) — clears CVE-2026-44431/44432
     "textual>=0.85",         # TUI framework — owns the wizard, launch, and streaming-logs flows
     "jsonschema>=4.0.0",     # Validates services/<name>/service.yml against bootstrapper/schemas/*
 ]
