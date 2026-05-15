@@ -121,15 +121,11 @@ class ServiceDiscovery:
                 continue
 
             # Locked manifests (1 source variant) skip the wizard entirely.
-            if not hasattr(self, "_topology_cache"):
-                from services.topology import build_topology
-                from pathlib import Path
-                self._topology_cache = build_topology(
-                    Path(__file__).resolve().parent.parent.parent / "services"
-                )
+            from services.topology import get_topology
+            topology = get_topology()
             target_source_var = key.upper().replace('-', '_') + '_SOURCE'
             is_locked = False
-            for r in self._topology_cache.rows:
+            for r in topology.rows:
                 if r.source_var == target_source_var:
                     is_locked = r.locked
                     break
@@ -141,7 +137,7 @@ class ServiceDiscovery:
             options = list(config.keys())
 
             description = ""
-            for r in self._topology_cache.rows:
+            for r in topology.rows:
                 if r.source_var == target_source_var:
                     description = r.description
                     break
@@ -175,14 +171,10 @@ class ServiceDiscovery:
 
     def _get_display_name(self, key: str) -> str:
         """Get a human-readable display name for a service key via Topology."""
-        from services.topology import build_topology
-        from pathlib import Path
-        services_root = Path(__file__).resolve().parent.parent.parent / "services"
-        # Cached at instance level — caller iterates once.
-        if not hasattr(self, "_topology_cache"):
-            self._topology_cache = build_topology(services_root)
+        from services.topology import get_topology
+        topology = get_topology()
         target_source_var = key.upper().replace('-', '_') + '_SOURCE'
-        for r in self._topology_cache.rows:
+        for r in topology.rows:
             if r.source_var == target_source_var:
                 return r.display_name
         return key.replace('_', ' ').replace('-', ' ').title()

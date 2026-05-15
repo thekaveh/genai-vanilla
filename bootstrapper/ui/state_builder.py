@@ -18,26 +18,25 @@ from typing import Optional
 from core.config_parser import ConfigParser
 from utils.hosts_manager import HostsManager
 from ui.state import AppState, CloudApiEntry, ServiceEntry
-from services.topology import build_topology, Topology
+from services.topology import get_topology, invalidate_cache, Topology
 
 
-# Topology is built once per process. Refresh by calling _refresh_topology()
-# from tests; the wizard does not refresh during a single run.
-_topology_singleton: Topology | None = None
 _SERVICES_ROOT = Path(__file__).resolve().parent.parent.parent / "services"
 
 
 def _get_topology() -> Topology:
-    global _topology_singleton
-    if _topology_singleton is None:
-        _topology_singleton = build_topology(_SERVICES_ROOT)
-    return _topology_singleton
+    """Back-compat shim: forward to the canonical cached accessor.
+
+    Retained because legacy tests and a few module-private callers still
+    import this name; new code should call ``services.topology.get_topology``
+    directly.
+    """
+    return get_topology(_SERVICES_ROOT)
 
 
 def _refresh_topology() -> None:
-    """Test hook — force rebuild on next access."""
-    global _topology_singleton
-    _topology_singleton = None
+    """Test hook — clear the topology cache (back-compat shim)."""
+    invalidate_cache()
 
 
 # Cloud LLM providers — API toggles, NOT services. Single source of

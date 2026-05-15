@@ -1,10 +1,12 @@
 """
 Port management utilities for validating and updating service ports.
 
-All port defaults are derived from ``services.topology.build_topology`` —
+All port defaults are derived from ``services.topology.get_topology`` —
 the single source of truth for slot allocation. There is no hard-coded
 PORT_MAPPING here anymore: ``Topology.port_defaults`` is computed from
 the live manifests and re-derived for any base port the caller supplies.
+The topology is cached process-wide by the canonical accessor, so each
+call to ``port_defaults_for`` is effectively free after the first.
 """
 
 import socket
@@ -37,15 +39,15 @@ class PortManager:
 
     def port_defaults_for(self, base_port: int) -> Dict[str, int]:
         """Return the topology-derived {port_var: port} mapping for the
-        given base port. Re-builds the Topology each call — cheap (single
-        manifest scan) and avoids stale caches when manifests change at
-        wizard runtime.
+        given base port. Backed by the canonical ``get_topology`` LRU —
+        the first call per (services_root, base_port) tuple does the disk
+        scan; subsequent calls hit the cache.
         """
         # Local import keeps ``services.topology`` out of the import chain
         # at PortManager class definition time (it transitively touches
         # PyYAML and the manifest loader).
-        from services.topology import build_topology
-        topology = build_topology(self._services_root, base_port=base_port)
+        from services.topology import get_topology
+        topology = get_topology(self._services_root, base_port=base_port)
         return topology.port_defaults
 
     def port_offsets(self) -> Dict[str, int]:

@@ -660,11 +660,11 @@ class GenAIStackStarter:
             )
             return
 
-        from services.topology import build_topology as _build_topology
+        from services.topology import get_topology as _get_topology
         services_root = self.root_dir / "services"
         env_vars = self.config_parser.parse_env_file()
         base_port = int(env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
-        topology = _build_topology(services_root, base_port=base_port)
+        topology = _get_topology(services_root, base_port=base_port)
         result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
         if result.backup_path:
             self.banner.console.print(
@@ -944,11 +944,10 @@ class GenAIStackStarter:
         from rich.text import Text
         from rich.box import HEAVY_HEAD
         from ui.state_builder import all_services, all_cloud_apis, alias_for, cloud_api_status_text
-        from services.topology import build_topology
+        from services.topology import get_topology
         from ui.textual.palette import style_for_category
-        from pathlib import Path as _Path
 
-        _topology = build_topology(_Path(__file__).resolve().parent.parent / "services")
+        _topology = get_topology()
         _category_by_name = {r.display_name: r.category for r in _topology.rows}
 
         env_vars = self.config_parser.parse_env_file()
@@ -1081,9 +1080,8 @@ class GenAIStackStarter:
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
         """Extract the actual localhost port from the service's endpoint env var."""
         import re
-        from services.topology import build_topology
-        from pathlib import Path
-        _topology = build_topology(Path(__file__).resolve().parent.parent / "services")
+        from services.topology import get_topology
+        _topology = get_topology()
         var = None
         for r in _topology.rows:
             if r.display_name == service_name:

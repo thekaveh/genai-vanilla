@@ -17,12 +17,13 @@ class HostsManager:
 
     @classmethod
     def _genai_hosts_from_topology(cls) -> List[str]:
-        """Built once from the topology. Returns a fresh copy on each call."""
-        from services.topology import build_topology
-        services_root = Path(__file__).resolve().parent.parent.parent / "services"
-        if not hasattr(cls, "_aliases_cache"):
-            cls._aliases_cache = list(build_topology(services_root).aliases)
-        return list(cls._aliases_cache)
+        """Built once from the topology. Returns a fresh copy on each call.
+
+        Cached by the canonical ``services.topology.get_topology`` LRU —
+        no per-class state required.
+        """
+        from services.topology import get_topology
+        return list(get_topology().aliases)
 
     def __init__(self):
         self.hosts_file_path = get_hosts_file_path()

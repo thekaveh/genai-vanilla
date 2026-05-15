@@ -374,9 +374,9 @@ def _check_per_manifest_contract(manifests: list[Manifest]) -> list[ValidationIs
 
 def _check_topology_cycle(manifests: list[Manifest]) -> list[ValidationIssue]:
     """The combined depends_on graph must be acyclic."""
-    from services.topology import _topo_sort, TopologyError
+    from services.topology import TopologyError, validate_acyclic
     try:
-        _topo_sort(manifests)
+        validate_acyclic(manifests)
         return []
     except TopologyError as e:
         return [ValidationIssue(kind="topology_cycle", manifest="<graph>", message=str(e))]

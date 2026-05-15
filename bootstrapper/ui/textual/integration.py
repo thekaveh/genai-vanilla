@@ -122,9 +122,8 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     current_base_port = int(env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
 
     # Build canonical order index once — shared by both sorts below.
-    from services.topology import build_topology
-    _services_root = Path(__file__).resolve().parent.parent.parent.parent / "services"
-    _topology = build_topology(_services_root)
+    from services.topology import get_topology
+    _topology = get_topology()
     _canonical_index: dict[str, int] = {
         r.display_name: idx for idx, r in enumerate(_topology.rows)
     }
