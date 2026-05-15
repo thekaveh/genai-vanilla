@@ -179,3 +179,30 @@ def test_image_container_must_appear_in_containers(
     with pytest.raises(ManifestLoadError) as exc:
         load_manifests(services_root)
     assert "container" in str(exc.value).lower()
+
+
+def test_rows_block_accepts_valid_entries(tmp_path):
+    """The new rows: block accepts the canonical shape."""
+    services_root = tmp_path / "services"
+    (services_root / "demo").mkdir(parents=True)
+    (services_root / "demo" / "service.yml").write_text(
+        "name: demo\n"
+        "label: Demo\n"
+        "category: data\n"
+        "env: []\n"
+        "rows:\n"
+        "  - display_name: Demo Row\n"
+        "    source_var: DEMO_SOURCE\n"
+        "    port_var: DEMO_PORT\n"
+        "    description: A demo row\n"
+        "    alias: demo.localhost\n"
+        "    localhost_endpoint_var: DEMO_URL\n"
+    )
+
+    from services.manifests import load_manifests
+    manifests = load_manifests(services_root)
+    assert len(manifests) == 1
+    assert len(manifests[0].rows) == 1
+    row = manifests[0].rows[0]
+    assert row.display_name == "Demo Row"
+    assert row.alias == "demo.localhost"

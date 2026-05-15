@@ -211,6 +211,51 @@
         "type": "array",
         "items": { "type": "string" }
       }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Box rows this manifest renders. Most manifests have one; supabase has seven (one per HTTP component). Replaces the legacy _SERVICES/_HOST_ALIAS/DISPLAY_NAME_OVERRIDES/SERVICE_DESCRIPTIONS/LOCALHOST_ENDPOINT_VARS constants.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["display_name", "source_var"],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Human label shown in the box and wizard prompts."
+          },
+          "source_var": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "The *_SOURCE env var driving this row's source pick."
+          },
+          "port_var": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "The env var holding this row's primary display port. Omit for virtual rows."
+          },
+          "scale_var": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "The *_SCALE env var. Absence => always-on."
+          },
+          "alias": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\.localhost$",
+            "description": "*.localhost hostname Kong virtual-host-routes. Must be unique across all manifests."
+          },
+          "description": {
+            "type": "string",
+            "description": "One-line label used as wizard prompt subtitle."
+          },
+          "localhost_endpoint_var": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "Env var holding the URL when source is a localhost variant."
+          }
+        }
+      }
     }
   }
 }
