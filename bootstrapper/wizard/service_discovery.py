@@ -17,12 +17,6 @@ from core.config_parser import ConfigParser
 from utils.source_override_manager import SourceOverrideManager
 
 
-# Services that are always-on and not user-configurable. The wizard renders
-# these as locked tiles (no source dropdown). LiteLLM is mandatory because
-# every consumer relies on its endpoint; the user instead chooses which
-# upstream(s) it forwards to via llm_provider + cloud_* tiles.
-LOCKED_SERVICES = frozenset({'litellm'})
-
 # Cloud LLM provider keys. These are NOT regular source-configurable
 # services — they're API credentials routed through LiteLLM (scale: 0,
 # no compose service). The wizard collects an API key for each via
@@ -126,18 +120,27 @@ class ServiceDiscovery:
             if key in CLOUD_PROVIDER_KEYS:
                 continue
 
-            env_var_name = key.upper().replace('-', '_') + '_SOURCE'
-            current_value = env_vars.get(env_var_name, '')
-            options = list(config.keys())
-
-            description = ""
-            target_source_var = key.upper().replace('-', '_') + '_SOURCE'
+            # Locked manifests (1 source variant) skip the wizard entirely.
             if not hasattr(self, "_topology_cache"):
                 from services.topology import build_topology
                 from pathlib import Path
                 self._topology_cache = build_topology(
                     Path(__file__).resolve().parent.parent.parent / "services"
                 )
+            target_source_var = key.upper().replace('-', '_') + '_SOURCE'
+            is_locked = False
+            for r in self._topology_cache.rows:
+                if r.source_var == target_source_var:
+                    is_locked = r.locked
+                    break
+            if is_locked:
+                continue
+
+            env_var_name = key.upper().replace('-', '_') + '_SOURCE'
+            current_value = env_vars.get(env_var_name, '')
+            options = list(config.keys())
+
+            description = ""
             for r in self._topology_cache.rows:
                 if r.source_var == target_source_var:
                     description = r.description
