@@ -21,7 +21,11 @@ env:
   - name: HOST_GATEWAY_IP
     auto_managed: true
     default: host-gateway
-    description: "Computed by the bootstrapper. Docker: 'host-gateway' sentinel. Podman: literal IP."
+    description: |
+      Bootstrapper computes this at runtime based on the runtime (Docker:
+      "host-gateway"; Podman: literal gateway IP). If you copy this file to
+      .env manually without running ./start.sh, set this to "host-gateway"
+      on Linux/macOS Docker, or the real bridge IP on rootless setups.
   # Branding (TUI wizard)
   - name: BRAND_NAME
     default: "GenAI Vanilla Stack"
