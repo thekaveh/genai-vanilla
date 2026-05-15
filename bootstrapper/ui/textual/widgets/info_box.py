@@ -214,7 +214,7 @@ class InfoPanel(Container):
         height: auto;
         width: 100%;
     }
-    InfoPanel > .info-body { height: auto; min-height: 4; }
+    InfoPanel > .info-body { height: auto; min-height: 5; }
     InfoPanel > InfoBoxFooter { height: 1; padding-top: 1; }
     """
 

@@ -210,10 +210,12 @@ class WizardScreen(Screen):
 
         self._phase: str = "setup"   # "setup" | "launch"
 
+        from ..widgets.category_legend import CategoryLegend
         self._command_summary = CommandSummary()
         self._service_table = ServiceTable(services)
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
         self._cloud_apis_row = CloudApisRow(self._cloud_apis)
+        self._category_legend = CategoryLegend()
         summaries = [
             ServiceSummary(name=r.name, source=r.source, port=r.port, alias=r.alias)
             for r in services
@@ -224,7 +226,7 @@ class WizardScreen(Screen):
                 services=summaries,
                 cloud_apis=self._cloud_apis,
             ),
-            body_widgets=[self._service_table, self._cloud_apis_row],
+            body_widgets=[self._service_table, self._category_legend, self._cloud_apis_row],
             title=f" Stack overview · {len(services)} services ",
         )
         self._prompt = PromptPanel()
