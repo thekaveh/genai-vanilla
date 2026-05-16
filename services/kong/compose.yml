@@ -66,5 +66,13 @@ services:
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+    extra_hosts:
+      # Kong proxies several aliases (comfyui.localhost, ollama.localhost,
+      # graph.localhost, etc.) to host-installed services via
+      # ``host.docker.internal``. Docker Desktop maps this automatically;
+      # Linux Docker needs the explicit host-gateway entry (bootstrapper
+      # fills HOST_GATEWAY_IP with "host-gateway" or the bridge IP for
+      # rootless setups).
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
     networks:
       - backend-network

@@ -132,13 +132,17 @@ def test_localhost_source_routes_via_host_docker_internal():
 
 def test_localhost_url_env_override_is_honored():
     """Users can override the localhost target via ``<SVC>_LOCALHOST_URL``
-    env vars — same pattern ComfyUI/Chatterbox already follow.
+    env vars. Only services whose compose runtime_sc *also* reads the
+    same env var get an override here — keeping Kong's view in sync
+    with what the in-container consumers see.
     """
     config = _generate(
-        "LLM_PROVIDER_SOURCE=ollama-localhost\n"
-        "OLLAMA_LOCALHOST_URL=http://host.docker.internal:9999\n"
         "STT_PROVIDER_SOURCE=whisper-cpp-localhost\n"
         "WHISPER_CPP_LOCALHOST_URL=http://host.docker.internal:7777\n"
+        "DOC_PROCESSOR_SOURCE=docling-localhost\n"
+        "DOCLING_LOCALHOST_URL=http://host.docker.internal:8888\n"
+        "TTS_PROVIDER_SOURCE=chatterbox-localhost\n"
+        "CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:6666\n"
     )
     by_host_with_url = {
         host: svc["url"]
@@ -146,8 +150,9 @@ def test_localhost_url_env_override_is_honored():
         for route in svc.get("routes", [])
         for host in route.get("hosts") or []
     }
-    assert by_host_with_url["ollama.localhost"] == "http://host.docker.internal:9999/"
     assert by_host_with_url["stt.localhost"] == "http://host.docker.internal:7777/"
+    assert by_host_with_url["docling.localhost"] == "http://host.docker.internal:8888/"
+    assert by_host_with_url["tts.localhost"] == "http://host.docker.internal:6666/"
 
 
 def test_external_source_skips_kong_route():
@@ -178,4 +183,29 @@ def test_tts_route_picks_correct_container_for_chatterbox():
         None,
     )
     assert tts_svc is not None
-    assert tts_svc["url"] == "http://chatterbox:8000/"
+    assert tts_svc["url"] == "http://chatterbox:4123/"
+
+
+def test_stt_and_tts_container_urls_match_compose_listen_ports():
+    """STT/TTS engine containers expose specific listen ports — the
+    Kong upstream URL must point at the right one (regression: an
+    earlier version mistakenly routed chatterbox-container to :8000
+    when the container actually listens on :4123).
+    """
+    cases = [
+        ("STT_PROVIDER_SOURCE=parakeet-container-gpu\n", "stt-api",
+         "http://parakeet-gpu:8000/"),
+        ("STT_PROVIDER_SOURCE=speaches-container-cpu\n", "stt-api",
+         "http://speaches:8000/"),
+        ("STT_PROVIDER_SOURCE=speaches-container-gpu\n", "stt-api",
+         "http://speaches:8000/"),
+        ("TTS_PROVIDER_SOURCE=speaches-container-cpu\n", "tts-api",
+         "http://speaches:8000/"),
+    ]
+    for env, name, expected in cases:
+        config = _generate(env)
+        svc = next((s for s in config["services"] if s["name"] == name), None)
+        assert svc is not None, f"{name} missing for env={env!r}"
+        assert svc["url"] == expected, (
+            f"{name} should route to {expected} for env={env!r}, got {svc['url']}"
+        )

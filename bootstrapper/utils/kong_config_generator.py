@@ -5,7 +5,6 @@ Generates Kong API Gateway configuration based on SOURCE values from environment
 Replaces static kong.yml/kong-local.yml with dynamic service routing.
 """
 
-import os
 import yaml
 import socket
 from typing import Dict, Any, List, Optional
@@ -165,6 +164,14 @@ class KongConfigGenerator:
         whisper-cpp); the container name (and the localhost port) is
         derived from the source-id prefix.
         """
+        # Localhost-mode URLs match the hardcoded defaults each service's
+        # runtime_sc block uses (services/<svc>/service.yml). For services
+        # whose compose already honors a ``<SVC>_LOCALHOST_URL`` override,
+        # Kong honors the same var so both consumers stay in sync.
+        # neo4j / weaviate / ollama have no such override today — their
+        # compose blocks hardcode the URL — so we hardcode here too,
+        # rather than introducing a Kong-only override that would skew
+        # away from the in-container consumer's view.
         rows: List[tuple] = [
             # (alias, service_name, source_var,
             #  container_url_factory, localhost_url_factory)
@@ -172,21 +179,13 @@ class KongConfigGenerator:
                 "graph.localhost", "neo4j-browser",
                 "NEO4J_GRAPH_DB_SOURCE",
                 lambda _src: "http://neo4j-graph-db:7474/",
-                # Neo4j Browser HTTP default is 7474; user-overridable
-                # via NEO4J_LOCALHOST_URL.
-                lambda _src: (
-                    self.get_env_value("NEO4J_LOCALHOST_URL")
-                    or "http://host.docker.internal:7474"
-                ).rstrip("/") + "/",
+                lambda _src: "http://host.docker.internal:7474/",
             ),
             (
                 "weaviate.localhost", "weaviate-api",
                 "WEAVIATE_SOURCE",
                 lambda _src: "http://weaviate:8080/",
-                lambda _src: (
-                    self.get_env_value("WEAVIATE_LOCALHOST_URL")
-                    or "http://host.docker.internal:8080"
-                ).rstrip("/") + "/",
+                lambda _src: "http://host.docker.internal:8080/",
             ),
             (
                 "ollama.localhost", "ollama-api",
@@ -200,10 +199,7 @@ class KongConfigGenerator:
                 # (LiteLLM forwards via LLM_PROVIDER_EXTERNAL_URL) so we
                 # skip it here.
                 lambda src: (
-                    (
-                        self.get_env_value("OLLAMA_LOCALHOST_URL")
-                        or "http://host.docker.internal:11434"
-                    ).rstrip("/") + "/"
+                    "http://host.docker.internal:11434/"
                     if src == "ollama-localhost" else None
                 ),
             ),
@@ -211,6 +207,8 @@ class KongConfigGenerator:
                 "docling.localhost", "docling-api",
                 "DOC_PROCESSOR_SOURCE",
                 lambda _src: "http://docling-gpu:8000/",
+                # DOCLING_LOCALHOST_URL also flows through to compose via
+                # docling-localhost's DOCLING_ENDPOINT — same fallback string.
                 lambda _src: (
                     self.get_env_value("DOCLING_LOCALHOST_URL")
                     or "http://host.docker.internal:63021"
@@ -270,16 +268,13 @@ class KongConfigGenerator:
     @staticmethod
     def _stt_container_url(source: str) -> Optional[str]:
         """STT engine container varies by source id prefix."""
-        if source.startswith("parakeet-container"):
-            # parakeet-container-gpu / parakeet-container-mlx →
-            # the parakeet manifest defines `parakeet-gpu` / `parakeet-mlx`
-            # containers, both listening on 8000.
-            suffix = source.removeprefix("parakeet-container-")
-            return f"http://parakeet-{suffix}:8000/"
+        if source == "parakeet-container-gpu":
+            return "http://parakeet-gpu:8000/"
         if source.startswith("speaches-container"):
+            # speaches-container-cpu and speaches-container-gpu both
+            # land on the same `speaches` container; the gpu vs cpu
+            # split lives in deploy.resources, not in the hostname.
             return "http://speaches:8000/"
-        if source.startswith("whisper-cpp"):
-            return None  # whisper-cpp has no container build
         return None
 
     def _stt_localhost_url(self, source: str) -> Optional[str]:
@@ -302,7 +297,10 @@ class KongConfigGenerator:
         if source.startswith("speaches-container"):
             return "http://speaches:8000/"
         if source.startswith("chatterbox-container"):
-            return "http://chatterbox:8000/"
+            # Chatterbox upstream listens on 4123 (compose maps the
+            # external CHATTERBOX_PORT to container 4123; tts-provider
+            # manifest pins TTS_ENDPOINT=http://chatterbox:4123).
+            return "http://chatterbox:4123/"
         return None
 
     def _tts_localhost_url(self, source: str) -> Optional[str]:

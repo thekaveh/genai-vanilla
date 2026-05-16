@@ -439,6 +439,8 @@ services:
       KONG_REDIS_PORT: '6379'
       SUPABASE_ANON_KEY: ''
       SUPABASE_SERVICE_KEY: ''
+    extra_hosts:
+    - host.docker.internal=
     image: kong:3.9.0
     networks:
       backend-network: null
