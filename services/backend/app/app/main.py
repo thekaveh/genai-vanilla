@@ -58,8 +58,10 @@ if not SERVICE_KEY:
     raise ValueError("SUPABASE_SERVICE_KEY environment variable is required")
 
 # Construct Supabase Storage URL via Kong
-# The standard path for storage via the gateway is /storage/v1
-storage_url = f"{KONG_URL}/storage/v1"
+# The standard path for storage via the gateway is /storage/v1.
+# storage3 requires a trailing slash and warns + auto-corrects if it's
+# missing — we set it explicitly to avoid the UserWarning at boot.
+storage_url = f"{KONG_URL}/storage/v1/"
 
 # Initialize Supabase Storage client
 storage_client = StorageClient(
