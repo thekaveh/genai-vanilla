@@ -227,7 +227,10 @@ class WizardScreen(Screen):
                 services=summaries,
                 cloud_apis=self._cloud_apis,
             ),
-            body_widgets=[self._service_table, self._cloud_apis_row, self._category_legend],
+            # CloudApisRow now renders the category legend on its right
+            # half, so the standalone CategoryLegend widget is no longer
+            # part of the body composition.
+            body_widgets=[self._service_table, self._cloud_apis_row],
             title=f" Stack overview · {len(services)} services ",
         )
         self._prompt = PromptPanel()

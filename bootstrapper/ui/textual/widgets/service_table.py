@@ -363,10 +363,15 @@ class ServiceTable(Widget):
         # 4) Category marker — small filled rectangle between name and source.
         slot.append(self.BAR_GLYPH, style=bar_color)
         slot.append(" ")
-        # 5) Source — full variant name. CHANGED highlights it.
-        source_style = (
-            P.WARN if r.is_changed else P.style_for_source_choice(r.source)
-        )
+        # 5) Source — full variant name. Color tracks the source-state
+        # ● dot via `style_for_source_choice` so localhost variants
+        # render in the same light blue as the dot itself. (Previously
+        # this branch applied WARN/yellow when `r.is_changed`, which
+        # made a user-picked localhost variant look orange instead of
+        # blue. "Changed from default" is a transient state that the
+        # wizard's command preview already surfaces; the source column
+        # is reserved for steady-state semantics.)
+        source_style = P.style_for_source_choice(r.source)
         source_label = r.source or "—"
         slot.append(_fit(source_label, source_w), style=source_style)
         slot.append(sep)

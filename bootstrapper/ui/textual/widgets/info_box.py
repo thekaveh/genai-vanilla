@@ -158,12 +158,16 @@ class InfoBoxFooter(Static):
 
 
 class CloudApisRow(Static):
-    """One-line summary of cloud LLM provider toggles.
+    """One-line summary of cloud LLM provider toggles + category legend.
 
-    Renders inside the InfoPanel body, below the service table. Each
-    provider gets a chip with its name + status: ``enabled · key set``,
-    ``disabled``, or ``enabled · key MISSING`` (defensive label — the
-    validator should prevent this state from reaching docker compose).
+    Renders inside the InfoPanel body, below the service table. Layout:
+
+      Cloud APIs:  OpenAI <status> | Anthropic <status> | …       ▰ Infra ▰ Data …
+
+    The left half lists each cloud provider chip separated by ``|``. The
+    right half is the category-marker legend (same ▰ glyph the service
+    table uses), pushed to the right edge of the panel so the two
+    summaries live on a single line.
     """
 
     DEFAULT_CSS = """
@@ -174,6 +178,8 @@ class CloudApisRow(Static):
     }
     """
 
+    can_focus = False
+
     def __init__(self, cloud_apis: list[CloudApiSummary] | None = None) -> None:
         super().__init__()
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
@@ -182,16 +188,16 @@ class CloudApisRow(Static):
         self._cloud_apis = list(cloud_apis)
         self.refresh()
 
-    def render(self) -> Text:
+    def _build_cloud_apis_text(self) -> Text:
         out = Text()
-        out.append("Cloud APIs   ", style=f"bold {P.TEXT}")
+        out.append("Cloud APIs:  ", style=f"bold {P.TEXT}")
         if not self._cloud_apis:
             out.append("(none)", style=P.TEXT_FAINT)
             return out
         first = True
         for c in self._cloud_apis:
             if not first:
-                out.append("    ", style=P.TEXT_FAINT)
+                out.append(" | ", style=P.TEXT_FAINT)
             first = False
             out.append(c.name, style=P.TEXT)
             out.append("  ", style=P.TEXT_FAINT)
@@ -206,6 +212,35 @@ class CloudApisRow(Static):
             else:
                 style = P.TEXT_MUTED
             out.append(status, style=style)
+        return out
+
+    def _build_category_legend_text(self) -> Text:
+        """Category-marker legend — six ``▰ Label`` chips separated by
+        a faint ``|``. Imported lazily to keep the cross-widget import
+        graph shallow (topology → palette → here)."""
+        from services.topology import CATEGORY_LABELS, CATEGORY_ORDER
+        out = Text()
+        first = True
+        for slug in CATEGORY_ORDER:
+            if not first:
+                out.append(" | ", style=P.TEXT_FAINT)
+            first = False
+            out.append("▰", style=P.style_for_category(slug))
+            out.append(f" {CATEGORY_LABELS[slug]}", style=P.TEXT)
+        return out
+
+    def render(self) -> Text:
+        cloud = self._build_cloud_apis_text()
+        legend = self._build_category_legend_text()
+        available = self.size.width or 130
+        # Pad between the two halves to push the legend flush-right.
+        # When the panel is too narrow to fit both on one line, fall
+        # back to a single space — Textual will wrap softly.
+        gap = max(1, available - len(cloud.plain) - len(legend.plain))
+        out = Text()
+        out.append(cloud)
+        out.append(" " * gap)
+        out.append(legend)
         return out
 
 
