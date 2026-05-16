@@ -1064,17 +1064,64 @@ class WizardScreen(Screen):
                 stderr=asyncio.subprocess.STDOUT,
             )
             assert proc.stdout is not None
+            captured: list[str] = []
             async for raw in proc.stdout:
                 line = raw.decode(errors="replace").rstrip("\r\n")
                 fh.write(line + "\n")
+                captured.append(line)
             await proc.wait()
             fh.flush()
+            self._emit_failure_hints(captured)
         except Exception as exc:  # noqa: BLE001
             try:
                 fh.write(f"# capture failed: {exc}\n")
                 fh.flush()
             except Exception:  # noqa: BLE001
                 pass
+
+    def _emit_failure_hints(self, log_lines: list[str]) -> None:
+        """Surface a recovery hint in the live log pane when the
+        captured docker-compose output reveals a well-known failure
+        mode (stale volume, port conflict, etc.).
+
+        Pattern → hint mapping kept intentionally narrow: only mention
+        recoveries the user can act on directly. We never silently
+        wipe state; we tell them exactly which command to run.
+        """
+        joined = "\n".join(log_lines).lower()
+
+        # Stale supabase-db volume: pgdata initialized with an old
+        # password, current .env now has a different one. Postgres
+        # won't re-init existing pgdata, so the stored creds and the
+        # .env creds diverge until the volume is wiped.
+        if (
+            "password authentication failed" in joined
+            and "supabase_admin" in joined
+        ):
+            self._write_status(
+                "🔧 Stale supabase-db volume detected.",
+                style="bold yellow", source="pipeline",
+            )
+            self._write_status(
+                "   The DB was initialized with a different password "
+                "than the current .env (likely from an earlier failed run).",
+                style="yellow", source="pipeline",
+            )
+            self._write_status(
+                "   Recovery: ./start.sh --cold "
+                "(wipes volumes + re-initializes from scratch).",
+                style="bold cyan", source="pipeline",
+            )
+            return
+
+        # Generic auth failure on a non-supabase service (less common).
+        if "authentication failed" in joined or "password authentication" in joined:
+            self._write_status(
+                "🔧 Authentication failed for one or more services — "
+                "likely a stale volume from a prior run. "
+                "Try ./start.sh --cold to wipe and re-initialize.",
+                style="bold yellow", source="pipeline",
+            )
 
     def _on_log_filter_change(self, level: str, disabled: set[str]) -> None:
         if self._log_pane is not None:
