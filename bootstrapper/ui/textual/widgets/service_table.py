@@ -199,6 +199,9 @@ class ServiceTable(Widget):
         # tight-packed slots side-by-side.
         self.columns = max(1, columns)
         self._cursor: int | None = 0
+        # Set by `render()` so neighbour widgets can align to the actual
+        # 2nd-slot start. 0 until the first render (or for 1-col mode).
+        self._col2_start: int = 0
 
     def set_cursor(self, index: int | None) -> None:
         self._cursor = index
@@ -405,6 +408,17 @@ class ServiceTable(Widget):
             cols -= 1
         slot_width = (avail - self.GUTTER * (cols - 1)) // cols
         widths = self._scaled_widths(raw, slot_width)
+
+        # Cache the actual second-slot start column so neighbour widgets
+        # (CloudApisRow) can align to it. Each rendered slot occupies
+        # exactly ``self._slot_fixed + sum(widths)`` cells (the tight
+        # raw widths, NOT the full ``slot_width`` budget), so the visual
+        # 2nd-slot start lands at that total plus GUTTER. Lives on the
+        # instance, refreshed each render, default 0 when single-column.
+        slot_render_width = self._slot_fixed + sum(widths)
+        self._col2_start = (
+            slot_render_width + self.GUTTER if cols >= 2 else 0
+        )
 
         groups = _category_aware_split(rows, cols)
         # group_offsets[c_idx] is the starting absolute index for that column.

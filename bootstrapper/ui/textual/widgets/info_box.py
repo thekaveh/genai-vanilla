@@ -180,9 +180,19 @@ class CloudApisRow(Static):
 
     can_focus = False
 
-    def __init__(self, cloud_apis: list[CloudApiSummary] | None = None) -> None:
+    def __init__(
+        self,
+        cloud_apis: list[CloudApiSummary] | None = None,
+        *,
+        service_table: "object | None" = None,
+    ) -> None:
         super().__init__()
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
+        # Optional ServiceTable reference. When set, render() aligns the
+        # category legend to the table's actual 2nd-slot start (the table
+        # caches this on each render). Without it we fall back to the
+        # ``(width + GUTTER) // 2`` approximation.
+        self._service_table = service_table
 
     def set_cloud_apis(self, cloud_apis: Iterable[CloudApiSummary]) -> None:
         self._cloud_apis = list(cloud_apis)
@@ -230,20 +240,23 @@ class CloudApisRow(Static):
         return out
 
     def render(self) -> Text:
+        from rich.cells import cell_len
         cloud = self._build_cloud_apis_text()
         legend = self._build_category_legend_text()
-        available = self.size.width or 130
-        # Align the legend with the content-start of ServiceTable's
-        # second column. ServiceTable computes:
-        #     slot_width = (avail - GUTTER) // 2
-        #     col2_start = slot_width + GUTTER = (avail + GUTTER) // 2
-        # The naive ``avail // 2`` midpoint lands GUTTER/2 cells short
-        # of where the second column actually begins. Importing the
-        # constant from ServiceTable keeps the two widgets in sync if
-        # GUTTER ever changes.
-        from .service_table import ServiceTable as _ST
-        col2_start = (available + _ST.GUTTER) // 2
-        gap = max(1, col2_start - len(cloud.plain))
+        # Pull the actual 2nd-slot start column from the ServiceTable.
+        # The table caches this on each render so we land at exactly the
+        # column where its right-hand slot begins — including its tight
+        # raw widths (which don't fill `avail`) and the GUTTER. When the
+        # table is in 1-col mode (narrow panel, ``_col2_start == 0``)
+        # or no reference is available, fall back to the panel midpoint
+        # so the legend at least visually balances against cloud APIs.
+        col2_start = 0
+        if self._service_table is not None:
+            col2_start = getattr(self._service_table, "_col2_start", 0)
+        if col2_start <= 0:
+            available = self.size.width or 130
+            col2_start = available // 2
+        gap = max(1, col2_start - cell_len(cloud.plain))
         out = Text()
         out.append(cloud)
         out.append(" " * gap)

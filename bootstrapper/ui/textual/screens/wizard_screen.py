@@ -214,7 +214,11 @@ class WizardScreen(Screen):
         self._command_summary = CommandSummary()
         self._service_table = ServiceTable(services)
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
-        self._cloud_apis_row = CloudApisRow(self._cloud_apis)
+        # Pass the service table so the row can align its category legend
+        # to the actual 2nd-slot start (cached by ServiceTable on each render).
+        self._cloud_apis_row = CloudApisRow(
+            self._cloud_apis, service_table=self._service_table,
+        )
         self._category_legend = CategoryLegend()
         summaries = [
             ServiceSummary(name=r.name, source=r.source, port=r.port,
