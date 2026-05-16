@@ -299,12 +299,64 @@ class GenAIStackStarter:
             return True  # Non-fatal — surface compose's own error later.
 
         existing_keys: set[str] = set()
+        blank_keys: set[str] = set()
         for line in env_text.splitlines():
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
             if "=" in stripped:
-                existing_keys.add(stripped.split("=", 1)[0].strip())
+                key, _, raw_value = stripped.partition("=")
+                key = key.strip()
+                existing_keys.add(key)
+                if not raw_value.split("#", 1)[0].strip():
+                    blank_keys.add(key)
+
+        # Build a lookup of .env.example values so we can fill in BLANK
+        # entries (a key exists in .env but with no value) using a
+        # non-blank manifest default. This handles the case where the
+        # user's .env was created when a secret's manifest `default` was
+        # different from the current one — e.g., the supabase DB
+        # password placeholder got reintroduced to the example after a
+        # secret-emission policy change. Intentional autogen blanks
+        # (LITELLM_MASTER_KEY etc.) have `default: ""` in the manifest
+        # and therefore stay blank in .env.example, so this branch is a
+        # no-op for them.
+        example_values: dict[str, str] = {}
+        for line in example_text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "=" in stripped:
+                key, _, raw_value = stripped.partition("=")
+                example_values[key.strip()] = raw_value.split("#", 1)[0].strip()
+        blank_fills = {
+            key: example_values[key]
+            for key in blank_keys
+            if example_values.get(key)
+        }
+        if blank_fills:
+            new_lines: list[str] = []
+            for line in env_text.splitlines(keepends=True):
+                stripped = line.strip()
+                if "=" in stripped and not stripped.startswith("#"):
+                    key, _, raw_value = stripped.partition("=")
+                    key = key.strip()
+                    if (
+                        key in blank_fills
+                        and not raw_value.split("#", 1)[0].strip()
+                    ):
+                        eol = "\r\n" if line.endswith("\r\n") else "\n"
+                        new_lines.append(f"{key}={blank_fills[key]}{eol}")
+                        continue
+                new_lines.append(line)
+            env_file_path.write_text("".join(new_lines))
+            env_text = env_file_path.read_text()
+            self.banner.show_status_message(
+                f"Filled {len(blank_fills)} blank value(s) from .env.example: "
+                f"{', '.join(sorted(blank_fills)[:4])}"
+                f"{' …' if len(blank_fills) > 4 else ''}",
+                "info",
+            )
 
         groups = self._parse_env_example_sections(
             example_text, existing_keys,
