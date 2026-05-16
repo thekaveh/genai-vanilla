@@ -791,7 +791,6 @@ services:
       N8N_PROTOCOL: http
       N8N_PROXY_HOPS: '1'
       N8N_PUSH_BACKEND: websocket
-      N8N_RUNNERS_ENABLED: 'true'
       N8N_SECURE_COOKIE: 'false'
       NODE_ENV: development
       NODE_OPTIONS: --max_old_space_size=512
@@ -894,7 +893,6 @@ services:
       DB_TYPE: postgresdb
       EXECUTIONS_MODE: queue
       N8N_ENCRYPTION_KEY: your-random-encryption-key
-      N8N_RUNNERS_ENABLED: 'true'
       NODE_ENV: development
       QUEUE_BULL_REDIS_DB: '0'
       QUEUE_BULL_REDIS_HOST: redis
@@ -1041,6 +1039,7 @@ services:
       OPENAI_API_BASE_URLS: http://litellm:4000/v1
       OPENAI_API_KEYS: ''
       REDIS_KEY_PREFIX: openwebui
+      USER_AGENT: GenAI-Vanilla/Open-WebUI
       WEBSOCKET_MANAGER: redis
       WEBSOCKET_REDIS_URL: redis://:redis_password@redis:6379/2
       WEBUI_ADMIN_EMAIL: admin@localhost
@@ -1262,6 +1261,7 @@ services:
       - wget
       - --spider
       - -q
+      - '--header=X-Forwarded-For: 127.0.0.1'
       - http://localhost:8080/healthz
       timeout: 10s
     image: searxng/searxng:latest
@@ -1576,6 +1576,8 @@ services:
       OPENAI_APIKEY: ''
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
       QUERY_DEFAULTS_LIMIT: '25'
+      RAFT_BOOTSTRAP_EXPECT: '1'
+      RAFT_JOIN: weaviate
     extra_hosts:
     - host.docker.internal=
     healthcheck:

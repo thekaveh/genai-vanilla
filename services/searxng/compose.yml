@@ -18,7 +18,13 @@ services:
       - SEARXNG_SECRET=${SEARXNG_SECRET}
       - FORCE_OWNERSHIP=1
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      # Pass an X-Forwarded-For header so searxng's botdetection trusted-proxy
+      # check (searx/botdetection/trusted_proxies.py:141) doesn't fire its
+      # one-shot "X-Forwarded-For nor X-Real-IP header is set!" ERROR on the
+      # first healthcheck after startup. The body uses 127.0.0.1 (loopback)
+      # which limiter.toml's ``pass_ip`` lists, so the healthcheck still
+      # bypasses all rate-limiting.
+      test: ["CMD", "wget", "--spider", "-q", "--header=X-Forwarded-For: 127.0.0.1", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3

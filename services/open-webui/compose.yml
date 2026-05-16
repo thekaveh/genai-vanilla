@@ -20,6 +20,11 @@ services:
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
+      # Identifies outgoing HTTP requests (langchain_community emits a
+      # `USER_AGENT environment variable not set` warning at boot if
+      # unset; setting it silences the warning and lets upstreams attribute
+      # the traffic to the stack).
+      USER_AGENT: GenAI-Vanilla/Open-WebUI
       # Open WebUI's OpenAI-compatible client points at the LiteLLM gateway.
       # The gateway exposes every provider behind one /v1 surface.
       OPENAI_API_BASE_URLS: http://litellm:4000/v1

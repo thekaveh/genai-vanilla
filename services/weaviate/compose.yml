@@ -52,6 +52,14 @@ services:
       DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
       ENABLE_MODULES: ${WEAVIATE_ENABLE_MODULES:-text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama}
       CLUSTER_HOSTNAME: 'weaviate'
+      # Single-node Raft bootstrap. Without these, Weaviate logs
+      # `failed to join cluster from [<self>:8300]` and `heartbeat
+      # timeout reached, starting election` on every boot — the node
+      # tries to join itself, times out, then self-elects. Setting
+      # `RAFT_BOOTSTRAP_EXPECT=1` + `RAFT_JOIN=weaviate` tells the
+      # node it's standalone from the start, no join attempt needed.
+      RAFT_BOOTSTRAP_EXPECT: 1
+      RAFT_JOIN: weaviate
       # Weaviate's text2vec-openai talks to LiteLLM. The collection-level
       # base URL is set by weaviate-init. OPENAI_APIKEY here is the master
       # key Weaviate sends to LiteLLM for authentication.
