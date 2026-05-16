@@ -233,17 +233,17 @@ class CloudApisRow(Static):
         cloud = self._build_cloud_apis_text()
         legend = self._build_category_legend_text()
         available = self.size.width or 130
-        # Align the category legend with the start of the ServiceTable's
-        # second column (i.e., the panel's horizontal midpoint), not
-        # flush-right of the panel. ServiceTable splits its body into
-        # two slot halves separated by a wide GUTTER, so the second
-        # slot begins at roughly `available / 2`. Padding the cloud
-        # APIs section out to that midpoint keeps the legend visually
-        # anchored to where the right-hand column of services begins.
-        # When cloud APIs already exceeds the midpoint (narrow panel),
-        # we fall back to a single space — Textual wraps softly.
-        midpoint = available // 2
-        gap = max(1, midpoint - len(cloud.plain))
+        # Align the legend with the content-start of ServiceTable's
+        # second column. ServiceTable computes:
+        #     slot_width = (avail - GUTTER) // 2
+        #     col2_start = slot_width + GUTTER = (avail + GUTTER) // 2
+        # The naive ``avail // 2`` midpoint lands GUTTER/2 cells short
+        # of where the second column actually begins. Importing the
+        # constant from ServiceTable keeps the two widgets in sync if
+        # GUTTER ever changes.
+        from .service_table import ServiceTable as _ST
+        col2_start = (available + _ST.GUTTER) // 2
+        gap = max(1, col2_start - len(cloud.plain))
         out = Text()
         out.append(cloud)
         out.append(" " * gap)

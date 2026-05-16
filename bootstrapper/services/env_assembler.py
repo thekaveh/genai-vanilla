@@ -183,15 +183,21 @@ def _render_env_entry(entry: EnvVarDecl, port_defaults: dict[str, int]) -> str:
 
     if entry.auto_managed:
         out.append(f"{entry.name}=")
-    elif entry.secret:
-        # Never echo a secret default into the example; user provides it.
-        out.append(f"{entry.name}=")
     else:
         # Port vars: topology slot-allocator is the single source of truth.
         if entry.name in port_defaults:
             value: object = port_defaults[entry.name]
         else:
             value = entry.default
+        # Secret-marked vars still emit their manifest default when one
+        # exists. The ``secret`` flag governs LOGGING behavior (never
+        # echo plain-text to wizard output / docker compose logs); the
+        # manifest's `default` is treated as a development placeholder
+        # that lets a fresh clone bring the stack up without manual
+        # `.env` editing. When a manifest wants an empty value for a
+        # secret (the LITELLM_MASTER_KEY auto-generation case), it
+        # leaves `default: ""` — that empty string flows through here
+        # untouched.
         out.append(f"{entry.name}={_format_default(value)}")
     return "\n".join(out)
 

@@ -130,19 +130,30 @@ def test_order_with_missing_service_falls_back_to_alphabetical(
     assert p_redis < p_backend
 
 
-def test_secret_var_default_is_empty_in_output(
+def test_secret_var_emits_manifest_default_as_placeholder(
     services_root, write_manifest, minimal_manifest_dict
 ):
+    """`secret: true` controls LOGGING, not whether the manifest's
+    `default` flows into .env.example.
+
+    Earlier behavior blanked every secret unconditionally, which broke
+    fresh installs (supabase-db-init couldn't authenticate with a blank
+    SUPABASE_DB_PASSWORD). Now the manifest's `default` is treated as a
+    development placeholder — a manifest that wants a runtime-generated
+    secret leaves `default: ""` (e.g., LITELLM_MASTER_KEY).
+    """
     m = minimal_manifest_dict("redis")
     m["env"] = [
-        {"name": "REDIS_PASSWORD", "default": "should-not-leak", "secret": True},
+        {"name": "REDIS_PASSWORD", "default": "redis_password", "secret": True},
+        {"name": "REDIS_AUTOGEN", "default": "", "secret": True},
     ]
     write_manifest("redis", m)
     manifests = load_manifests(services_root)
     out = assemble_env_example(manifests)
-    # The default never appears in the generated example; the user provides it.
-    assert "should-not-leak" not in out
-    assert "REDIS_PASSWORD=" in out
+    # Placeholder default flows through for the dev-bootstrap case.
+    assert "REDIS_PASSWORD=redis_password" in out
+    # Empty manifest default → empty .env.example entry (autogen at runtime).
+    assert "REDIS_AUTOGEN=\n" in out or out.endswith("REDIS_AUTOGEN=\n")
 
 
 def test_output_is_deterministic(services_root, write_manifest, minimal_manifest_dict):
@@ -206,3 +217,37 @@ def test_multiline_description_each_line_commented(tmp_path):
     for line in lines:
         if "Line two" in line or "Line three" in line:
             assert line.startswith("#"), f"description line not commented: {line!r}"
+
+
+def test_secret_var_with_manifest_default_emits_placeholder(tmp_path):
+    """Secret-marked vars still emit their manifest default (development
+    placeholder) into .env.example. The `secret: true` flag governs
+    logging behavior, not whether the value flows into the example.
+
+    Regression: a previous refactor emitted `SUPABASE_DB_PASSWORD=`
+    (blank) for every `secret: true` entry, breaking the stack on
+    first start because supabase-db-init couldn't authenticate.
+    """
+    services_root = tmp_path / "services"
+    (services_root / "demo").mkdir(parents=True)
+    (services_root / "demo" / "service.yml").write_text(
+        "name: demo\n"
+        "label: Demo\n"
+        "category: data\n"
+        "env:\n"
+        "  - name: DEMO_PASSWORD\n"
+        "    default: placeholder\n"
+        "    secret: true\n"
+        "  - name: DEMO_TRUE_SECRET\n"
+        "    default: \"\"\n"
+        "    secret: true\n"
+    )
+    from services.env_assembler import assemble_env_example
+    from services.manifests import load_manifests
+    out = assemble_env_example(load_manifests(services_root),
+                                services_root=services_root)
+    # Manifest default flows through even with `secret: true`.
+    assert "DEMO_PASSWORD=placeholder" in out
+    # Empty default still emits blank (auto-generated at runtime).
+    assert "DEMO_TRUE_SECRET=" in out
+    assert "DEMO_TRUE_SECRET=placeholder" not in out
