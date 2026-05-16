@@ -233,10 +233,17 @@ class CloudApisRow(Static):
         cloud = self._build_cloud_apis_text()
         legend = self._build_category_legend_text()
         available = self.size.width or 130
-        # Pad between the two halves to push the legend flush-right.
-        # When the panel is too narrow to fit both on one line, fall
-        # back to a single space — Textual will wrap softly.
-        gap = max(1, available - len(cloud.plain) - len(legend.plain))
+        # Align the category legend with the start of the ServiceTable's
+        # second column (i.e., the panel's horizontal midpoint), not
+        # flush-right of the panel. ServiceTable splits its body into
+        # two slot halves separated by a wide GUTTER, so the second
+        # slot begins at roughly `available / 2`. Padding the cloud
+        # APIs section out to that midpoint keeps the legend visually
+        # anchored to where the right-hand column of services begins.
+        # When cloud APIs already exceeds the midpoint (narrow panel),
+        # we fall back to a single space — Textual wraps softly.
+        midpoint = available // 2
+        gap = max(1, midpoint - len(cloud.plain))
         out = Text()
         out.append(cloud)
         out.append(" " * gap)

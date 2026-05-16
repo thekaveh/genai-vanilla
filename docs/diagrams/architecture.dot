@@ -6,43 +6,43 @@ digraph stack {
 
   subgraph "cluster_infra" {
     label="Infrastructure";
-    fontcolor="#bb9af7";
-    color="#bb9af7";
-    "globals" [fillcolor="#bb9af733"];
-    "kong" [fillcolor="#bb9af733"];
+    fontcolor="#f7768e";
+    color="#f7768e";
+    "globals" [fillcolor="#f7768e33"];
+    "kong" [fillcolor="#f7768e33"];
   }
 
   subgraph "cluster_data" {
     label="Data";
-    fontcolor="#e0af68";
-    color="#e0af68";
-    "supabase" [fillcolor="#e0af6833"];
-    "minio" [fillcolor="#e0af6833"];
-    "neo4j" [fillcolor="#e0af6833"];
-    "redis" [fillcolor="#e0af6833"];
-    "weaviate" [fillcolor="#e0af6833"];
+    fontcolor="#7dcfff";
+    color="#7dcfff";
+    "supabase" [fillcolor="#7dcfff33"];
+    "minio" [fillcolor="#7dcfff33"];
+    "neo4j" [fillcolor="#7dcfff33"];
+    "redis" [fillcolor="#7dcfff33"];
+    "weaviate" [fillcolor="#7dcfff33"];
   }
 
   subgraph "cluster_llm" {
     label="LLM Core";
-    fontcolor="#7dcfff";
-    color="#7dcfff";
-    "litellm" [fillcolor="#7dcfff33"];
-    "cloud-providers" [fillcolor="#7dcfff33"];
-    "ollama" [fillcolor="#7dcfff33"];
+    fontcolor="#e0af68";
+    color="#e0af68";
+    "litellm" [fillcolor="#e0af6833"];
+    "cloud-providers" [fillcolor="#e0af6833"];
+    "ollama" [fillcolor="#e0af6833"];
   }
 
   subgraph "cluster_media" {
     label="Media";
-    fontcolor="#ff9e64";
-    color="#ff9e64";
-    "docling" [fillcolor="#ff9e6433"];
-    "comfyui" [fillcolor="#ff9e6433"];
-    "parakeet" [fillcolor="#ff9e6433"];
-    "searxng" [fillcolor="#ff9e6433"];
-    "tts-provider" [fillcolor="#ff9e6433"];
-    "chatterbox" [fillcolor="#ff9e6433"];
-    "speaches" [fillcolor="#ff9e6433"];
+    fontcolor="#7aa2f7";
+    color="#7aa2f7";
+    "docling" [fillcolor="#7aa2f733"];
+    "comfyui" [fillcolor="#7aa2f733"];
+    "parakeet" [fillcolor="#7aa2f733"];
+    "searxng" [fillcolor="#7aa2f733"];
+    "tts-provider" [fillcolor="#7aa2f733"];
+    "chatterbox" [fillcolor="#7aa2f733"];
+    "speaches" [fillcolor="#7aa2f733"];
   }
 
   subgraph "cluster_agents" {
@@ -56,12 +56,12 @@ digraph stack {
 
   subgraph "cluster_apps" {
     label="Apps & UIs";
-    fontcolor="#f7768e";
-    color="#f7768e";
-    "backend" [fillcolor="#f7768e33"];
-    "jupyterhub" [fillcolor="#f7768e33"];
-    "open-webui" [fillcolor="#f7768e33"];
-    "local-deep-researcher" [fillcolor="#f7768e33"];
+    fontcolor="#bb9af7";
+    color="#bb9af7";
+    "backend" [fillcolor="#bb9af733"];
+    "jupyterhub" [fillcolor="#bb9af733"];
+    "open-webui" [fillcolor="#bb9af733"];
+    "local-deep-researcher" [fillcolor="#bb9af733"];
   }
 
   "supabase" -> "backend";

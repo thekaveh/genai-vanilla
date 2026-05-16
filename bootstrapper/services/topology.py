@@ -58,12 +58,17 @@ CATEGORY_LABELS: dict[str, str] = {
 # its neighbor — the prior cool-cluster (slate/sky/periwinkle/sage)
 # was the original "everything looks the same" complaint.
 CATEGORY_COLORS: dict[str, str] = {
-    "infra":  "#bb9af7",  # Tokyo Night purple
-    "data":   "#e0af68",  # Tokyo Night yellow
-    "llm":    "#7dcfff",  # Tokyo Night cyan (signature accent)
-    "media":  "#ff9e64",  # Tokyo Night orange
-    "agents": "#9ece6a",  # Tokyo Night green
-    "apps":   "#f7768e",  # Tokyo Night red/pink
+    # Anti-sequential interleave on the hue wheel — six hues placed at
+    # 0° / 180° / 60° / 240° / 120° / 300° so every adjacent pair in
+    # CATEGORY_ORDER lands ≥ 120° apart. Previously Data (#e0af68 yellow)
+    # and Media (#ff9e64 orange) sat 30° apart and read as the same
+    # warm tone on the dark Tokyo Night background.
+    "infra":  "#f7768e",  # Tokyo Night red       (0°)
+    "data":   "#7dcfff",  # Tokyo Night cyan      (180°)
+    "llm":    "#e0af68",  # Tokyo Night yellow    (60°)
+    "media":  "#7aa2f7",  # Tokyo Night blue      (240°)
+    "agents": "#9ece6a",  # Tokyo Night green     (120°)
+    "apps":   "#bb9af7",  # Tokyo Night purple    (300°)
 }
 
 

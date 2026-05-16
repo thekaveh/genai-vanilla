@@ -101,7 +101,15 @@ class DependencyManager:
                 return 0
             return 1  # Assume enabled if no explicit scale or source
             
-        return int(env_vars.get(scale_var, '1'))
+        # auto_managed: true scale vars render to .env.example as
+        # ``VAR=`` (blank). int("") raises ValueError, so coerce blank/
+        # missing values to the same "assume enabled" default the source
+        # fallback above returns.
+        raw = (env_vars.get(scale_var, "") or "").strip()
+        try:
+            return int(raw) if raw else 1
+        except ValueError:
+            return 1
         
     def check_service_dependencies(self) -> bool:
         """
