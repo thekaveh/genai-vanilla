@@ -92,11 +92,14 @@ def test_validator_ignores_links_inside_fenced_code_block(tmp_path):
     )
 
 
-def test_validator_ignores_links_inside_inline_code(tmp_path):
-    """Links inside backtick-delimited inline code are NOT validated."""
+def test_validator_catches_broken_link_with_inline_code_label(tmp_path):
+    """A real broken link whose label is wrapped in backticks must still be
+    reported — the validator should NOT strip the inline code out of the label
+    and silently drop the link from validation."""
     a = tmp_path / "a.md"
-    a.write_text("See `[Example](./does-not-exist.md)` for an example.\n")
-    result = _run(tmp_path)
-    assert result.returncode == 0, (
-        "Inline-code links should be skipped; got:\n" + result.stdout
+    a.write_text(
+        "Predecessor: [`name.md`](./does-not-exist.md) — broken.\n"
     )
+    result = _run(tmp_path)
+    assert result.returncode != 0
+    assert "does-not-exist.md" in result.stdout
