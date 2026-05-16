@@ -49,6 +49,15 @@ Plain `python3 docs/scripts/check-kong-routes.py` works too if `PyYAML` is on yo
 - `hermes.localhost` → Hermes Agent web dashboard (if `HERMES_SOURCE != disabled` and `HERMES_DASHBOARD_ENABLED=true`)
 - `litellm.localhost` → LiteLLM gateway + admin dashboard (always-on; same alias exposes `/ui/`, `/v1/*`, and `/spend/*`)
 - `minio.localhost` → MinIO admin console (if `MINIO_SOURCE != disabled`; S3 API at port 63030 NOT aliased — use the direct port)
+- `graph.localhost` → Neo4j Browser (`NEO4J_GRAPH_DB_SOURCE != disabled`)
+- `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
+- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE ∈ {ollama-container-*, ollama-localhost}`; `ollama-external` does NOT get a Kong route — LiteLLM forwards via `LLM_PROVIDER_EXTERNAL_URL`)
+- `docling.localhost` → Docling document processor (`DOC_PROCESSOR_SOURCE != disabled`)
+- `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
+- `stt.localhost` → STT engine (`STT_PROVIDER_SOURCE != disabled`; container resolves to `parakeet-gpu` or `speaches`, localhost to `host.docker.internal` on the per-engine port)
+- `tts.localhost` → TTS engine (`TTS_PROVIDER_SOURCE != disabled`; container resolves to `speaches:8000` or `chatterbox:4123`, localhost to `host.docker.internal` on the per-engine port)
+
+Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports can override via `<SVC>_LOCALHOST_URL` env vars where the service's compose already reads them (docling, parakeet, whisper-cpp, chatterbox). Neo4j, Weaviate, and Ollama hardcode the default port — Kong matches the compose `runtime_sc` block so both consumers stay in sync.
 
 ## SOURCE-Based Configuration
 

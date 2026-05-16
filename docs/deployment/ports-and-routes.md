@@ -1,10 +1,12 @@
 # Ports and Routes
 
+> ⚠️ **STALE (as of 3.0.0 — 2026-05-15):** the table below still reflects the pre-3.0.0 hand-edited port layout. Topology v1 (3.0.0) computes ports from a per-category slot allocator in `bootstrapper/services/topology.py`, so individual offsets have shifted. Until this page is regenerated against topology v1, treat **`.env.example`** at the repo root and the **README "Web interfaces" table** as the authoritative sources; the Kong-alias list in `docs/services/kong.md` is also up to date.
+
 This table is the canonical documentation reference for default service ports and Kong routes.
 
 Ports are derived from `BASE_PORT` in `.env`. The default `BASE_PORT` is `63000`, so a service with offset `+17` is exposed on `63017`. You can move the whole stack by editing `BASE_PORT` or running `./start.sh --base-port <port>`.
 
-Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct `localhost:PORT` URLs work without hosts-file changes when the corresponding service is enabled and running in container mode.
+Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct `localhost:PORT` URLs work without hosts-file changes when the corresponding service is enabled and running in container mode. Each Kong alias also works when the underlying source is set to `*-localhost` — Kong proxies through `host.docker.internal` to the user's host machine.
 
 | Component | Env var | Offset | Default port | Direct URL | Kong URL | Notes |
 |---|---:|---:|---:|---|---|---|
