@@ -30,6 +30,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # the link is opaque to label content (we only consume up to the matching `)`).
 _LINK_RE = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<target>(?!https?://|mailto:|#)[^)]+)\)")
 
+# Strip fenced code blocks (```...```) — non-greedy, multiline.
+_FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
+# Strip inline code (`...`) — same line only, non-greedy.
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+
+def _strip_code(text: str) -> str:
+    text = _FENCED_CODE_RE.sub("", text)
+    text = _INLINE_CODE_RE.sub("", text)
+    return text
+
 
 def _collect_md_files(roots: list[Path]) -> list[Path]:
     files: list[Path] = []
@@ -51,9 +62,14 @@ def _default_roots() -> list[Path]:
 
 
 def _check_file(md: Path) -> list[str]:
-    """Return a list of broken-link error strings for this markdown file."""
+    """Return a list of broken-link error strings for this markdown file.
+
+    Fenced (```...```) and inline (`...`) code blocks are stripped before
+    link extraction so that documentation containing markdown-link examples
+    does not produce false positives.
+    """
     errors: list[str] = []
-    text = md.read_text(encoding="utf-8", errors="replace")
+    text = _strip_code(md.read_text(encoding="utf-8", errors="replace"))
     for m in _LINK_RE.finditer(text):
         target = m.group("target").strip()
         # Strip anchor suffix; we don't require anchor existence.
