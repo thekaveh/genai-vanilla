@@ -1,7 +1,7 @@
 """
 title: Memory Assistant
 author: GenAI Vanilla Stack
-author_url: https://github.com/vanilla-genai
+author_url: https://github.com/thekaveh/genai-vanilla
 description: Persistent memory - remembers facts about users across conversations
 required_open_webui_version: 0.4.4
 requirements: requests
@@ -16,21 +16,13 @@ from pydantic import BaseModel, Field
 class Tools:
     class Valves(BaseModel):
         backend_url: str = Field(
-            default="http://backend:8000",
-            description="Backend API URL"
+            default="http://backend:8000", description="Backend API URL"
         )
-        enable_tool: bool = Field(
-            default=True,
-            description="Enable this memory tool"
-        )
+        enable_tool: bool = Field(default=True, description="Enable this memory tool")
         max_recall_results: int = Field(
-            default=10,
-            description="Maximum number of memories to recall"
+            default=10, description="Maximum number of memories to recall"
         )
-        timeout: int = Field(
-            default=120,
-            description="Request timeout in seconds"
-        )
+        timeout: int = Field(default=120, description="Request timeout in seconds")
 
     def __init__(self):
         self.valves = self.Valves()
@@ -83,8 +75,10 @@ class Tools:
             return str("\n".join(output_lines))
 
         except requests.exceptions.ConnectionError:
-            return str("Could not connect to the memory service. "
-                       "Please check if the Backend is running.")
+            return str(
+                "Could not connect to the memory service. "
+                "Please check if the Backend is running."
+            )
         except Exception as e:
             return str(f"Error extracting memories: {str(e)}")
 
@@ -141,8 +135,10 @@ class Tools:
             return str("\n".join(output_lines))
 
         except requests.exceptions.ConnectionError:
-            return str("Could not connect to the memory service. "
-                       "Please check if the Backend is running.")
+            return str(
+                "Could not connect to the memory service. "
+                "Please check if the Backend is running."
+            )
         except Exception as e:
             return str(f"Error recalling memories: {str(e)}")
 
@@ -174,8 +170,10 @@ class Tools:
                 return str(f"Memory {memory_id} not found.")
             return str(f"Error deleting memory: {str(e)}")
         except requests.exceptions.ConnectionError:
-            return str("Could not connect to the memory service. "
-                       "Please check if the Backend is running.")
+            return str(
+                "Could not connect to the memory service. "
+                "Please check if the Backend is running."
+            )
         except Exception as e:
             return str(f"Error deleting memory: {str(e)}")
 
@@ -220,7 +218,9 @@ class Tools:
             return str("\n".join(output_lines))
 
         except requests.exceptions.ConnectionError:
-            return str("Could not connect to the memory service. "
-                       "Please check if the Backend is running.")
+            return str(
+                "Could not connect to the memory service. "
+                "Please check if the Backend is running."
+            )
         except Exception as e:
             return str(f"Error listing memories: {str(e)}")

@@ -1,7 +1,7 @@
 """
 title: Memory Auto-Extraction
 author: GenAI Vanilla Stack
-author_url: https://github.com/vanilla-genai
+author_url: https://github.com/thekaveh/genai-vanilla
 description: Automatically extracts and stores memories from conversations
 required_open_webui_version: 0.4.4
 requirements: requests
@@ -20,21 +20,16 @@ from typing import Optional
 class Filter:
     class Valves(BaseModel):
         backend_url: str = Field(
-            default="http://backend:8000",
-            description="Backend API URL"
+            default="http://backend:8000", description="Backend API URL"
         )
         enabled: bool = Field(
-            default=True,
-            description="Enable automatic memory extraction"
+            default=True, description="Enable automatic memory extraction"
         )
         min_messages: int = Field(
             default=4,
-            description="Minimum number of messages before extraction triggers"
+            description="Minimum number of messages before extraction triggers",
         )
-        timeout: int = Field(
-            default=120,
-            description="Request timeout in seconds"
-        )
+        timeout: int = Field(default=120, description="Request timeout in seconds")
 
     def __init__(self):
         self.valves = self.Valves()
@@ -65,7 +60,7 @@ class Filter:
         def _extract():
             try:
                 # Send the last few messages for extraction
-                recent_messages = messages[-self.valves.min_messages:]
+                recent_messages = messages[-self.valves.min_messages :]
                 formatted = [
                     {"role": msg.get("role", "user"), "content": msg.get("content", "")}
                     for msg in recent_messages

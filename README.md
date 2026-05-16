@@ -12,7 +12,7 @@ For the richer static architecture view, open [`docs/diagrams/architecture.html`
 
 ```bash
 # 1. Clone the repository
-git clone <your-repository-url> && cd genai-vanilla
+git clone https://github.com/thekaveh/genai-vanilla && cd genai-vanilla
 
 # 2. Start with the interactive setup wizard (no configuration needed)
 ./start.sh
