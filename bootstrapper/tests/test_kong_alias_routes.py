@@ -87,16 +87,76 @@ def test_alias_only_services_route_to_expected_containers():
         assert alias in by_host, f"missing Kong route for {alias}: {sorted(by_host)}"
 
 
-def test_localhost_source_skips_kong_route():
-    """When a service is configured for the user's host (localhost), no
-    Kong route is added — the user reaches the service directly on the
-    host port."""
+def test_localhost_source_routes_via_host_docker_internal():
+    """Host-install ('localhost') sources still get a Kong alias — the
+    route proxies through ``host.docker.internal`` to the user's host
+    port. Mirrors the existing ComfyUI/OpenClaw/Hermes pattern so a
+    single entry point (``ollama.localhost``, ``graph.localhost``, etc.)
+    works in both container and host-install modes.
+    """
     config = _generate(
         "NEO4J_GRAPH_DB_SOURCE=localhost\n"
+        "WEAVIATE_SOURCE=localhost\n"
         "LLM_PROVIDER_SOURCE=ollama-localhost\n"
+        "DOC_PROCESSOR_SOURCE=docling-localhost\n"
+        "STT_PROVIDER_SOURCE=parakeet-localhost\n"
+        "TTS_PROVIDER_SOURCE=chatterbox-localhost\n"
     )
     by_host = _hosts_to_service(config)
-    assert "graph.localhost" not in by_host
+    # Every alias still resolves.
+    expected_urls = {
+        "graph.localhost":    "http://host.docker.internal:7474/",
+        "weaviate.localhost": "http://host.docker.internal:8080/",
+        "ollama.localhost":   "http://host.docker.internal:11434/",
+        # docling-localhost default port from manifest fallback
+        "docling.localhost":  "http://host.docker.internal:63021/",
+        "stt.localhost":      "http://host.docker.internal:63022/",
+        "tts.localhost":      "http://host.docker.internal:63027/",
+    }
+    by_host_with_url = {
+        host: svc
+        for svc in config["services"]
+        for route in svc.get("routes", [])
+        for host in route.get("hosts") or []
+    }
+    for alias, expected in expected_urls.items():
+        assert alias in by_host, (
+            f"localhost-mode alias {alias} should still be Kong-routed: "
+            f"{sorted(by_host)}"
+        )
+        assert by_host_with_url[alias]["url"] == expected, (
+            f"localhost-mode alias {alias} should target {expected}, "
+            f"got {by_host_with_url[alias]['url']}"
+        )
+
+
+def test_localhost_url_env_override_is_honored():
+    """Users can override the localhost target via ``<SVC>_LOCALHOST_URL``
+    env vars — same pattern ComfyUI/Chatterbox already follow.
+    """
+    config = _generate(
+        "LLM_PROVIDER_SOURCE=ollama-localhost\n"
+        "OLLAMA_LOCALHOST_URL=http://host.docker.internal:9999\n"
+        "STT_PROVIDER_SOURCE=whisper-cpp-localhost\n"
+        "WHISPER_CPP_LOCALHOST_URL=http://host.docker.internal:7777\n"
+    )
+    by_host_with_url = {
+        host: svc["url"]
+        for svc in config["services"]
+        for route in svc.get("routes", [])
+        for host in route.get("hosts") or []
+    }
+    assert by_host_with_url["ollama.localhost"] == "http://host.docker.internal:9999/"
+    assert by_host_with_url["stt.localhost"] == "http://host.docker.internal:7777/"
+
+
+def test_external_source_skips_kong_route():
+    """``*-external`` sources target a remote URL outside our network —
+    we don't add a Kong route for those (LiteLLM forwards via its own
+    config). Disabled handled separately below.
+    """
+    config = _generate("LLM_PROVIDER_SOURCE=ollama-external\n")
+    by_host = _hosts_to_service(config)
     assert "ollama.localhost" not in by_host
 
 

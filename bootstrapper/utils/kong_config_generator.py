@@ -153,28 +153,40 @@ class KongConfigGenerator:
         """Kong routes for the 7 aliases added in the topology rework
         that lacked dedicated routing logic before.
 
-        Each entry maps an alias hostname to its container's internal
-        URL when the source variant is a container build. Sources that
-        are ``disabled`` or ``localhost`` (user runs the service on the
-        host machine) get no Kong route — for the localhost case the
-        user already reaches the service at the direct host port, and
-        Kong inside the docker network can't proxy to it consistently
-        via ``host.docker.internal`` for every service.
+        Each entry maps an alias hostname to a URL.  When the source is
+        a container build, the URL targets the internal docker hostname.
+        When the source is ``*-localhost``, we still emit a Kong route —
+        the alias remains a useful single-entry-point, and Kong proxies
+        through ``host.docker.internal`` to the user's host port.
 
-        STT and TTS engines vary (parakeet / speaches / chatterbox);
-        the container name is derived from the source-id prefix.
+        ``disabled`` (and unrecognised) sources get no route.
+
+        STT and TTS engines vary (parakeet / speaches / chatterbox /
+        whisper-cpp); the container name (and the localhost port) is
+        derived from the source-id prefix.
         """
         rows: List[tuple] = [
-            # (alias, service_name, source_var, container_url_factory)
+            # (alias, service_name, source_var,
+            #  container_url_factory, localhost_url_factory)
             (
                 "graph.localhost", "neo4j-browser",
                 "NEO4J_GRAPH_DB_SOURCE",
                 lambda _src: "http://neo4j-graph-db:7474/",
+                # Neo4j Browser HTTP default is 7474; user-overridable
+                # via NEO4J_LOCALHOST_URL.
+                lambda _src: (
+                    self.get_env_value("NEO4J_LOCALHOST_URL")
+                    or "http://host.docker.internal:7474"
+                ).rstrip("/") + "/",
             ),
             (
                 "weaviate.localhost", "weaviate-api",
                 "WEAVIATE_SOURCE",
                 lambda _src: "http://weaviate:8080/",
+                lambda _src: (
+                    self.get_env_value("WEAVIATE_LOCALHOST_URL")
+                    or "http://host.docker.internal:8080"
+                ).rstrip("/") + "/",
             ),
             (
                 "ollama.localhost", "ollama-api",
@@ -184,38 +196,61 @@ class KongConfigGenerator:
                     if src and src.startswith("ollama-container")
                     else None
                 ),
+                # ollama-localhost only. ollama-external lands elsewhere
+                # (LiteLLM forwards via LLM_PROVIDER_EXTERNAL_URL) so we
+                # skip it here.
+                lambda src: (
+                    (
+                        self.get_env_value("OLLAMA_LOCALHOST_URL")
+                        or "http://host.docker.internal:11434"
+                    ).rstrip("/") + "/"
+                    if src == "ollama-localhost" else None
+                ),
             ),
             (
                 "docling.localhost", "docling-api",
                 "DOC_PROCESSOR_SOURCE",
                 lambda _src: "http://docling-gpu:8000/",
+                lambda _src: (
+                    self.get_env_value("DOCLING_LOCALHOST_URL")
+                    or "http://host.docker.internal:63021"
+                ).rstrip("/") + "/",
             ),
             (
                 "research.localhost", "research-api",
                 "LOCAL_DEEP_RESEARCHER_SOURCE",
                 lambda _src: "http://local-deep-researcher:2024/",
+                # No localhost source variant defined; the factory is
+                # unreachable in practice. Returning None keeps the row
+                # skippable if a future manifest adds one without a URL.
+                lambda _src: None,
             ),
             (
                 "stt.localhost", "stt-api",
                 "STT_PROVIDER_SOURCE",
                 self._stt_container_url,
+                self._stt_localhost_url,
             ),
             (
                 "tts.localhost", "tts-api",
                 "TTS_PROVIDER_SOURCE",
                 self._tts_container_url,
+                self._tts_localhost_url,
             ),
         ]
         services: List[Dict[str, Any]] = []
-        for alias, service_name, source_var, url_for in rows:
+        for alias, service_name, source_var, container_url_for, localhost_url_for in rows:
             source = (self.get_env_value(source_var) or "").strip()
             if not source or source == "disabled":
                 continue
-            # localhost-mode: user runs on host. Skip the Kong route —
-            # user reaches the service directly on the host port.
-            if "localhost" in source or "external" in source:
+            if "external" in source:
+                # external sources point at a remote URL outside our
+                # control; no useful Kong route to add here.
                 continue
-            url = url_for(source)
+            if "localhost" in source:
+                url = localhost_url_for(source)
+            else:
+                url = container_url_for(source)
             if not url:
                 # Source not recognized for this alias — skip silently.
                 continue
@@ -244,7 +279,21 @@ class KongConfigGenerator:
         if source.startswith("speaches-container"):
             return "http://speaches:8000/"
         if source.startswith("whisper-cpp"):
-            return None  # localhost engine, skip Kong route
+            return None  # whisper-cpp has no container build
+        return None
+
+    def _stt_localhost_url(self, source: str) -> Optional[str]:
+        """STT host-install URL — engine-specific override env var."""
+        if source == "parakeet-localhost":
+            return (
+                self.get_env_value("PARAKEET_LOCALHOST_URL")
+                or "http://host.docker.internal:63022"
+            ).rstrip("/") + "/"
+        if source == "whisper-cpp-localhost":
+            return (
+                self.get_env_value("WHISPER_CPP_LOCALHOST_URL")
+                or "http://host.docker.internal:63025"
+            ).rstrip("/") + "/"
         return None
 
     @staticmethod
@@ -254,6 +303,15 @@ class KongConfigGenerator:
             return "http://speaches:8000/"
         if source.startswith("chatterbox-container"):
             return "http://chatterbox:8000/"
+        return None
+
+    def _tts_localhost_url(self, source: str) -> Optional[str]:
+        """TTS host-install URL — engine-specific override env var."""
+        if source == "chatterbox-localhost":
+            return (
+                self.get_env_value("CHATTERBOX_LOCALHOST_URL")
+                or "http://host.docker.internal:63027"
+            ).rstrip("/") + "/"
         return None
     
     def get_supabase_services(self) -> List[Dict[str, Any]]:
