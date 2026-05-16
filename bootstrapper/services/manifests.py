@@ -133,6 +133,7 @@ class Manifest:
     runtime_deps: dict = field(default_factory=dict)
     # Globals-only. Equivalent to the legacy `dependencies:` block.
     runtime_dependency_tiers: dict = field(default_factory=dict)
+    doc_extras: dict = field(default_factory=dict)
     source_path: Path | None = None
 
 
@@ -352,6 +353,7 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
         runtime_adaptive=dict(raw.get("runtime_adaptive") or {}),
         runtime_deps=dict(raw.get("runtime_deps") or {}),
         runtime_dependency_tiers=dict(raw.get("runtime_dependency_tiers") or {}),
+        doc_extras=dict(raw.get("doc_extras") or {}),
         source_path=source_path,
     )
 

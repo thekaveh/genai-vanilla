@@ -234,3 +234,57 @@ def test_category_enum_rejects_old_values(tmp_path, cat):
     from services.manifests import load_manifests
     with pytest.raises(ManifestLoadError, match="category"):
         load_manifests(services_root)
+
+
+def test_runtime_adaptive_failure_mode_round_trips(tmp_path):
+    """A manifest declaring runtime_adaptive.<container>.failure_mode must
+    parse without rejection and the value must be retrievable from the
+    Manifest's runtime_adaptive dict."""
+    from services.manifests import load_manifests
+
+    services_dir = tmp_path / "services"
+    svc = services_dir / "foo"
+    svc.mkdir(parents=True)
+    (svc / "service.yml").write_text(
+        """
+name: foo
+label: Foo
+category: data
+env: []
+runtime_adaptive:
+  foo:
+    adapts_to: [other]
+    failure_mode: "Foo skips its lookup; warning logged."
+""".strip()
+    )
+
+    manifests = load_manifests(services_dir)
+    assert len(manifests) == 1
+    assert manifests[0].runtime_adaptive["foo"]["failure_mode"] == \
+        "Foo skips its lookup; warning logged."
+
+
+def test_doc_extras_extra_consumers_round_trips(tmp_path):
+    """A manifest with doc_extras.diagram.extra_consumers must load and
+    expose the list via Manifest.doc_extras."""
+    from services.manifests import load_manifests
+
+    services_dir = tmp_path / "services"
+    svc = services_dir / "bar"
+    svc.mkdir(parents=True)
+    (svc / "service.yml").write_text(
+        """
+name: bar
+label: Bar
+category: infra
+env: []
+doc_extras:
+  diagram:
+    extra_consumers: ["openclaw", "n8n"]
+""".strip()
+    )
+
+    manifests = load_manifests(services_dir)
+    assert manifests[0].doc_extras == {
+        "diagram": {"extra_consumers": ["openclaw", "n8n"]}
+    }
