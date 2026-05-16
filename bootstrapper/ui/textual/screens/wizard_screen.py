@@ -227,7 +227,7 @@ class WizardScreen(Screen):
                 services=summaries,
                 cloud_apis=self._cloud_apis,
             ),
-            body_widgets=[self._service_table, self._category_legend, self._cloud_apis_row],
+            body_widgets=[self._service_table, self._cloud_apis_row, self._category_legend],
             title=f" Stack overview · {len(services)} services ",
         )
         self._prompt = PromptPanel()

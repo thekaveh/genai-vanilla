@@ -980,12 +980,12 @@ class GenAIStackStarter:
         )
         table.add_column("PORT", style="color(248)", justify="left", ratio=1, no_wrap=True)
         table.add_column("SERVICE", style="color(252)", justify="left", ratio=3, no_wrap=True)
-        table.add_column("SOURCE", style="color(248)", justify="left", ratio=3, no_wrap=True)
+        # Category marker — between SERVICE and SOURCE, mirroring the
+        # TUI box layout so both surfaces speak the same visual language.
+        table.add_column("", justify="left", width=2, no_wrap=True)
+        table.add_column("SOURCE", justify="left", ratio=3, no_wrap=True)
         table.add_column("ALIAS", justify="left", ratio=4, no_wrap=True)
         table.add_column("STATUS", justify="left", ratio=2, no_wrap=True)
-        # Category marker — last cell of the row, same ▰ glyph as the
-        # TUI box uses, so both surfaces speak the same visual language.
-        table.add_column("", justify="left", width=2, no_wrap=True)
 
         # Service definitions come from state_builder.all_services() — single
         # source of truth shared with the TUI info-box (no more inline list
@@ -1011,11 +1011,17 @@ class GenAIStackStarter:
 
         services.sort(key=_sort_key)
 
+        from ui.textual.palette import style_for_source_choice as _style_for_source
         for name, source_var, port_var, scale_var in services:
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
             scale = env_vars.get(scale_var, '0') if scale_var else '1'
             status_text, status_style = self._get_service_status(source, scale)
-            source_style = "color(243)" if source == "disabled" else "color(248)"
+            # Color the SOURCE cell with the same helper the TUI uses:
+            # container → green, localhost / external / api → blue,
+            # disabled → muted grey. Previously hardcoded grey, which
+            # made localhost variants visually indistinguishable from
+            # containerised ones.
+            source_style = _style_for_source(source)
 
             # PORT column
             if source == 'disabled':
@@ -1039,10 +1045,10 @@ class GenAIStackStarter:
             table.add_row(
                 port_val,
                 name,
+                bar,
                 Text(source, style=source_style),
                 alias_text,
                 Text(status_text, style=status_style),
-                bar,
             )
 
         # Cloud APIs panel — renders below the services table. Cloud
