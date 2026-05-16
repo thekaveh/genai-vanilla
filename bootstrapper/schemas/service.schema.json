@@ -26,6 +26,24 @@
       "enum": ["infra", "data", "llm", "media", "agents", "apps"],
       "description": "Wizard grouping. infra=gateway/observability; data=DB/cache/storage; llm=LLM gateway/engine; media=multimodal AI (image-gen/STT/TTS/doc/search); agents=programmable AI agents/workflows; apps=user-facing UIs."
     },
+    "doc_extras": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional doc-generation hints. Not consumed at runtime.",
+      "properties": {
+        "diagram": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "extra_consumers": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Manual escape hatch — service names to draw on the downstream tier in this service's architecture diagram, for wiring not expressible in depends_on (e.g. Kong routing)."
+            }
+          }
+        }
+      }
+    },
     "docs": {
       "type": "string",
       "description": "Optional pointer to docs/services/<name>.md (or similar)."
@@ -193,8 +211,25 @@
     },
     "runtime_adaptive": {
       "type": "object",
-      "description": "Slice of the legacy service-configs.yml `adaptive_services:` block. Same synthesizer pipeline.",
-      "additionalProperties": { "type": "object" }
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "adapts_to": {
+            "anyOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          },
+          "environment_adaptation": {"type": "object"},
+          "extra_hosts_adaptation": {"type": ["string", "array"]},
+          "failure_mode": {
+            "type": "string",
+            "description": "Single-sentence description of what happens when this adaptive dep is disabled or unreachable. Surfaced in the Dependencies & Integrations section's Failure mode column."
+          }
+        }
+      },
+      "description": "Per-container adaptive-service descriptors. Keyed by container name in containers[]."
     },
     "runtime_deps": {
       "type": "object",
