@@ -163,12 +163,14 @@ runtime_adaptive:
       COMFYUI_INTERNAL_URL: ${COMFYUI_ENDPOINT}
       SEARXNG_INTERNAL_URL: http://searxng:8080
     extra_hosts_adaptation: none
+    failure_mode: "Capability block omitted from config.yaml; Hermes runs without it."
   hermes:
     adapts_to:
     - llm_provider
     environment_adaptation:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
     extra_hosts_adaptation: inherit from llm_provider
+    failure_mode: "Hermes preflight fails (LLM provider required); container exits."
 
 runtime_deps:
   hermes:
