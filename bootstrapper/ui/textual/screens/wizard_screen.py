@@ -1118,6 +1118,30 @@ class WizardScreen(Screen):
             )
             return
 
+        # Bind-mount permission denied. Containers (especially init
+        # ones running as root) can leave host dirs root-owned, then
+        # subsequent runs fail because the new container can't write
+        # to its own bind mount. ``_ensure_volume_dir_writable`` covers
+        # the litellm/kong cases proactively; this hint catches the
+        # generic case where some other volume dir is locked.
+        if (
+            "permission denied" in joined
+            and (
+                "config.yaml.tmp" in joined
+                or "/litellm-config/" in joined
+                or "/kong-config/" in joined
+                or "errno 13" in joined
+            )
+        ):
+            self._write_status(
+                "🔧 Bind-mount permission denied — a prior container left "
+                "a host directory root-owned. Recovery: "
+                "`sudo chmod -R 777 volumes/` and re-run ./start.sh, "
+                "or `./start.sh --cold` to wipe state entirely.",
+                style="bold yellow", source="pipeline",
+            )
+            return
+
         # Generic auth failure on a non-supabase service (less common).
         if "authentication failed" in joined or "password authentication" in joined:
             self._write_status(

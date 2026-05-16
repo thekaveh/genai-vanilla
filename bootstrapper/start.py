@@ -763,17 +763,82 @@ class GenAIStackStarter:
             from utils.litellm_config_generator import LiteLLMConfigGenerator
             generator = LiteLLMConfigGenerator(self.config_parser)
             config_path = self.root_dir / "volumes/litellm/config.yaml"
+            # Pre-flight: ensure the bind-mount target directory is
+            # writable. Earlier docker compose runs (litellm-init runs
+            # as root inside the container) can leave the host directory
+            # root-owned, blocking subsequent container writes —
+            # symptom is ``PermissionError: '/litellm-config/config.yaml.tmp'``.
+            self._ensure_volume_dir_writable(config_path.parent)
             generator.write_config(config_path, force=True)
             return True
         except Exception as e:
             self.banner.show_status_message(f"Failed to generate LiteLLM configuration: {e}", "error")
             return False
 
+    def _ensure_volume_dir_writable(self, path: "Path") -> None:
+        """Make sure a bootstrapper-managed host directory is writable
+        by both the current host user and any future container that
+        bind-mounts it. Earlier container runs can leave the directory
+        root-owned with 755 mode, blocking subsequent re-writes.
+
+        Strategy: if the directory exists and is not writable, attempt
+        a 777 chmod. If chmod also fails (very rare — usually root-owned
+        with strict mode), wipe and recreate. Both branches log what
+        they did so the user can see why their permissions changed.
+
+        Never raises — falls back to letting the original write fail
+        with its native error if neither chmod nor recreate works.
+        """
+        import os
+        import stat
+        import shutil
+
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
+            return
+        if not path.is_dir():
+            return  # caller's problem; not our job to second-guess
+        if os.access(path, os.W_OK):
+            return  # already writable, nothing to do
+
+        # Try chmod 0o777 first (cheapest, least destructive).
+        try:
+            path.chmod(0o777)
+            if os.access(path, os.W_OK):
+                self.banner.show_status_message(
+                    f"  • Relaxed permissions on {path} (was root-owned from a prior container run)",
+                    "info",
+                )
+                return
+        except OSError:
+            pass
+
+        # chmod failed — last-ditch: wipe and recreate as the current user.
+        try:
+            shutil.rmtree(path)
+            path.mkdir(parents=True, exist_ok=True)
+            self.banner.show_status_message(
+                f"  • Recreated {path} (prior run left it unwritable)",
+                "info",
+            )
+        except OSError as exc:
+            self.banner.show_status_message(
+                f"  • Could not fix permissions on {path}: {exc} — "
+                f"if a container write fails, run `sudo rm -rf {path}` "
+                f"and re-run ./start.sh",
+                "warning",
+            )
+
     def generate_kong_configuration(self) -> bool:
         """Generate dynamic Kong configuration based on SOURCE values."""
         try:
             from utils.kong_config_generator import KongConfigGenerator
             generator = KongConfigGenerator(self.config_parser)
+            # Pre-flight: same root-owned-from-prior-container guard as
+            # the litellm bind-mount uses (kong-api-gateway also writes
+            # nothing into volumes/api but the bootstrapper drops the
+            # dynamic config there for the container to read).
+            self._ensure_volume_dir_writable(self.root_dir / "volumes/api")
 
             kong_config = generator.generate_kong_config()
 
