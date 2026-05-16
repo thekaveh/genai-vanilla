@@ -141,7 +141,120 @@ class KongConfigGenerator:
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
+        # Alias-only routes for services that didn't previously have a
+        # Kong route (Neo4j Browser, Weaviate, Ollama, Doc Processor,
+        # LDR, STT, TTS). Without these, the dashboard catch-all used
+        # to swallow every unaliased `*.localhost` request.
+        services.extend(self.get_alias_only_services())
+
         return services
+
+    def get_alias_only_services(self) -> List[Dict[str, Any]]:
+        """Kong routes for the 7 aliases added in the topology rework
+        that lacked dedicated routing logic before.
+
+        Each entry maps an alias hostname to its container's internal
+        URL when the source variant is a container build. Sources that
+        are ``disabled`` or ``localhost`` (user runs the service on the
+        host machine) get no Kong route — for the localhost case the
+        user already reaches the service at the direct host port, and
+        Kong inside the docker network can't proxy to it consistently
+        via ``host.docker.internal`` for every service.
+
+        STT and TTS engines vary (parakeet / speaches / chatterbox);
+        the container name is derived from the source-id prefix.
+        """
+        rows: List[tuple] = [
+            # (alias, service_name, source_var, container_url_factory)
+            (
+                "graph.localhost", "neo4j-browser",
+                "NEO4J_GRAPH_DB_SOURCE",
+                lambda _src: "http://neo4j-graph-db:7474/",
+            ),
+            (
+                "weaviate.localhost", "weaviate-api",
+                "WEAVIATE_SOURCE",
+                lambda _src: "http://weaviate:8080/",
+            ),
+            (
+                "ollama.localhost", "ollama-api",
+                "LLM_PROVIDER_SOURCE",
+                lambda src: (
+                    "http://ollama:11434/"
+                    if src and src.startswith("ollama-container")
+                    else None
+                ),
+            ),
+            (
+                "docling.localhost", "docling-api",
+                "DOC_PROCESSOR_SOURCE",
+                lambda _src: "http://docling-gpu:8000/",
+            ),
+            (
+                "research.localhost", "research-api",
+                "LOCAL_DEEP_RESEARCHER_SOURCE",
+                lambda _src: "http://local-deep-researcher:2024/",
+            ),
+            (
+                "stt.localhost", "stt-api",
+                "STT_PROVIDER_SOURCE",
+                self._stt_container_url,
+            ),
+            (
+                "tts.localhost", "tts-api",
+                "TTS_PROVIDER_SOURCE",
+                self._tts_container_url,
+            ),
+        ]
+        services: List[Dict[str, Any]] = []
+        for alias, service_name, source_var, url_for in rows:
+            source = (self.get_env_value(source_var) or "").strip()
+            if not source or source == "disabled":
+                continue
+            # localhost-mode: user runs on host. Skip the Kong route —
+            # user reaches the service directly on the host port.
+            if "localhost" in source or "external" in source:
+                continue
+            url = url_for(source)
+            if not url:
+                # Source not recognized for this alias — skip silently.
+                continue
+            services.append({
+                "name": service_name,
+                "url": url,
+                "routes": [{
+                    "name": f"{service_name}-all",
+                    "strip_path": False,
+                    "preserve_host": True,
+                    "hosts": [alias],
+                }],
+                "plugins": [{"name": "cors"}],
+            })
+        return services
+
+    @staticmethod
+    def _stt_container_url(source: str) -> Optional[str]:
+        """STT engine container varies by source id prefix."""
+        if source.startswith("parakeet-container"):
+            # parakeet-container-gpu / parakeet-container-mlx →
+            # the parakeet manifest defines `parakeet-gpu` / `parakeet-mlx`
+            # containers, both listening on 8000.
+            suffix = source.removeprefix("parakeet-container-")
+            return f"http://parakeet-{suffix}:8000/"
+        if source.startswith("speaches-container"):
+            return "http://speaches:8000/"
+        if source.startswith("whisper-cpp"):
+            return None  # localhost engine, skip Kong route
+        return None
+
+    @staticmethod
+    def _tts_container_url(source: str) -> Optional[str]:
+        """TTS engine container varies by source id prefix."""
+        if source.startswith("speaches-container"):
+            return "http://speaches:8000/"
+        if source.startswith("chatterbox-container"):
+            return "http://chatterbox:8000/"
+        return None
     
     def get_supabase_services(self) -> List[Dict[str, Any]]:
         """Get Supabase services (always containerized)."""
@@ -300,7 +413,16 @@ class KongConfigGenerator:
                     {
                         'name': 'dashboard-all',
                         'strip_path': False,
-                        'paths': ['/']
+                        'paths': ['/'],
+                        # Restrict the catch-all to the Studio alias and
+                        # the bare gateway hostname. Previously this
+                        # route had NO hosts filter, so every unaliased
+                        # request (graph.localhost, weaviate.localhost,
+                        # etc.) silently fell through to Studio. The
+                        # per-alias routes added by `get_alias_only_services`
+                        # win for their specific hosts; this route now
+                        # only catches what's left.
+                        'hosts': ['studio.localhost', 'localhost'],
                     }
                 ],
                 'plugins': [{'name': 'cors'}]
