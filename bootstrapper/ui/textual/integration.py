@@ -165,7 +165,13 @@ def _build_steps_and_rows(config_parser, hosts_manager):
 
     services_info = ServiceDiscovery(config_parser).discover()
     env_vars = config_parser.parse_env_file()
-    current_base_port = int(env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
+    # ``dict.get(key, default)`` returns "" when the key is present-
+    # but-blank, not the default. Guard against that.
+    _raw = (env_vars.get("BASE_PORT") or "").strip()
+    try:
+        current_base_port = int(_raw) if _raw else DEFAULT_BASE_PORT
+    except ValueError:
+        current_base_port = DEFAULT_BASE_PORT
 
     # Build canonical order index once — shared by both sorts below.
     from services.topology import get_topology

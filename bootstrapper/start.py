@@ -715,7 +715,14 @@ class GenAIStackStarter:
         from services.topology import get_topology as _get_topology
         services_root = self.root_dir / "services"
         env_vars = self.config_parser.parse_env_file()
-        base_port = int(env_vars.get("BASE_PORT", DEFAULT_BASE_PORT))
+        # ``.get(key, default)`` returns the empty string when the key is
+        # present-but-blank — only missing keys hit the default. A blank
+        # BASE_PORT (auto-managed quirk) would crash ``int("")``.
+        _raw_base = (env_vars.get("BASE_PORT") or "").strip()
+        try:
+            base_port = int(_raw_base) if _raw_base else DEFAULT_BASE_PORT
+        except ValueError:
+            base_port = DEFAULT_BASE_PORT
         topology = _get_topology(services_root, base_port=base_port)
         result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
         if result.backup_path:
