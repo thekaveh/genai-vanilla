@@ -10,7 +10,6 @@ import sys
 import os
 from pathlib import Path
 import click
-from typing import Optional
 
 # Add the current directory to the path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent))

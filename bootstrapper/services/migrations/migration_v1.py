@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 
 # Tolerant matcher for ``BOOTSTRAPPER_PORT_LAYOUT_VERSION=1`` lines.

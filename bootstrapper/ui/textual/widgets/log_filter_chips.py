@@ -17,11 +17,9 @@ from __future__ import annotations
 
 from typing import Callable
 
-from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal
-from textual.widget import Widget
 from textual.widgets import SelectionList, Static
 from textual.widgets.selection_list import Selection
 

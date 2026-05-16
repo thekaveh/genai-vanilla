@@ -789,8 +789,6 @@ class GenAIStackStarter:
         Never raises — falls back to letting the original write fail
         with its native error if neither chmod nor recreate works.
         """
-        import os
-        import stat
         import shutil
 
         if not path.exists():
