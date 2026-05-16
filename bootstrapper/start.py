@@ -1115,8 +1115,6 @@ class GenAIStackStarter:
         services = list(all_services())
 
         # Sort by port number ascending; services with no port go to the end.
-        import re as _re
-
         def _sort_key(svc):
             name, source_var, port_var, _scale_var = svc
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
@@ -1124,7 +1122,7 @@ class GenAIStackStarter:
                 return (2, 99999)
             if 'localhost' in source:
                 lp = self._get_localhost_port(name, env_vars)
-                match = _re.search(r':(\d+)', lp)
+                match = re.search(r':(\d+)', lp)
                 return (1, int(match.group(1)) if match else 99999)
             try:
                 return (0, int(env_vars.get(port_var, '99999')))
@@ -1213,7 +1211,6 @@ class GenAIStackStarter:
     @staticmethod
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
         """Extract the actual localhost port from the service's endpoint env var."""
-        import re
         from services.topology import get_topology
         _topology = get_topology()
         var = None

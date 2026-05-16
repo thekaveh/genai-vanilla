@@ -1,68 +1,61 @@
 # Ports and Routes
 
-> ⚠️ **STALE (as of 3.0.0 — 2026-05-15):** the table below still reflects the pre-3.0.0 hand-edited port layout. Topology v1 (3.0.0) computes ports from a per-category slot allocator in `bootstrapper/services/topology.py`, so individual offsets have shifted. Until this page is regenerated against topology v1, treat **`.env.example`** at the repo root and the **README "Web interfaces" table** as the authoritative sources; the Kong-alias list in `docs/services/kong.md` is also up to date.
+Ports and Kong hostnames are derived from `BASE_PORT` in `.env` (default `63000`) and the per-category slot allocator in `bootstrapper/services/topology.py`. Move the whole stack with `./start.sh --base-port <port>` or by editing `BASE_PORT`.
 
-This table is the canonical documentation reference for default service ports and Kong routes.
+## Authoritative sources
 
-Ports are derived from `BASE_PORT` in `.env`. The default `BASE_PORT` is `63000`, so a service with offset `+17` is exposed on `63017`. You can move the whole stack by editing `BASE_PORT` or running `./start.sh --base-port <port>`.
+The full per-service port + Kong-alias mapping is maintained in three places (kept in sync by tests):
 
-Kong hostnames require hosts-file setup with `./start.sh --setup-hosts`. Direct `localhost:PORT` URLs work without hosts-file changes when the corresponding service is enabled and running in container mode. Each Kong alias also works when the underlying source is set to `*-localhost` — Kong proxies through `host.docker.internal` to the user's host machine.
+- **`.env.example`** at the repo root — every `*_PORT` env var with its default; the auto-regenerated baseline.
+- **README "Service overview" table** — every browser-facing service with both direct and Kong URLs (§ 3.1).
+- **`bootstrapper/services/topology.py`** — code-level source of truth; `Topology.port_defaults` and `Topology.aliases`.
 
-| Component | Env var | Offset | Default port | Direct URL | Kong URL | Notes |
-|---|---:|---:|---:|---|---|---|
-| Supabase PostgreSQL | `SUPABASE_DB_PORT` | +0 | 63000 | `localhost:63000` | — | PostgreSQL connection port, not a browser UI. |
-| Redis | `REDIS_PORT` | +1 | 63001 | `localhost:63001` | — | Redis connection port. |
-| Kong HTTP Gateway | `KONG_HTTP_PORT` | +2 | 63002 | `http://localhost:63002` | — | Base gateway port for friendly host routes. |
-| Kong HTTPS Gateway | `KONG_HTTPS_PORT` | +3 | 63003 | `https://localhost:63003` | — | HTTPS gateway listener when configured. |
-| Supabase Meta | `SUPABASE_META_PORT` | +4 | 63004 | `http://localhost:63004` | — | Internal/admin metadata API. |
-| Supabase Storage | `SUPABASE_STORAGE_PORT` | +5 | 63005 | `http://localhost:63005` | — | S3-compatible storage API. |
-| Supabase Auth | `SUPABASE_AUTH_PORT` | +6 | 63006 | `http://localhost:63006` | — | GoTrue auth API. |
-| Supabase REST API | `SUPABASE_API_PORT` | +7 | 63007 | `http://localhost:63007` | `http://api.localhost:63002` | Requires hosts setup for Kong hostname. |
-| Supabase Realtime | `SUPABASE_REALTIME_PORT` | +8 | 63008 | `http://localhost:63008` | — | WebSocket/realtime service. |
-| Supabase Studio | `SUPABASE_STUDIO_PORT` | +9 | 63009 | `http://localhost:63009` | `http://localhost:63002` | Admin UI; Kong may expose it through the gateway root depending on generated route config. |
-| Neo4j Bolt | `GRAPH_DB_PORT` | +10 | 63010 | `bolt://localhost:63010` | — | Graph database Bolt protocol. |
-| Neo4j Browser | `GRAPH_DB_DASHBOARD_PORT` | +11 | 63011 | `http://localhost:63011` | — | Neo4j browser/dashboard. |
-| LiteLLM Gateway | `LITELLM_PORT` | +12 | 63012 | `http://localhost:63012` | `http://litellm.localhost:63002` | Always-on OpenAI-compatible front door for every LLM provider. Container Ollama is now an internal-only upstream (no host port). Same alias exposes the admin dashboard (`/ui/`), proxy API (`/v1/*`), and usage telemetry (`/spend/*`) — Kong routes the entire surface, not just the dashboard. |
-| Local Deep Researcher | `LOCAL_DEEP_RESEARCHER_PORT` | +13 | 63013 | `http://localhost:63013` | — | Research/orchestration service. |
-| SearxNG | `SEARXNG_PORT` | +14 | 63014 | `http://localhost:63014` | `http://search.localhost:63002` | Kong hostname requires hosts setup. |
-| Open WebUI | `OPEN_WEB_UI_PORT` | +15 | 63015 | `http://localhost:63015` | `http://chat.localhost:63002` | Main chat UI. |
-| Backend API | `BACKEND_PORT` | +16 | 63016 | `http://localhost:63016` | `http://api.localhost:63002` | Always-on adaptive core service. |
-| n8n | `N8N_PORT` | +17 | 63017 | `http://localhost:63017` | `http://n8n.localhost:63002` | Workflow automation UI/API. |
-| ComfyUI | `COMFYUI_PORT` | +18 | 63018 | `http://localhost:63018` | `http://comfyui.localhost:63002` | Container mode direct URL; localhost/external modes route to configured URL. |
-| Weaviate HTTP | `WEAVIATE_PORT` | +19 | 63019 | `http://localhost:63019` | — | Vector database REST endpoint. |
-| Weaviate gRPC | `WEAVIATE_GRPC_PORT` | +20 | 63020 | `localhost:63020` | — | Vector database gRPC endpoint. |
-| Document Processor / Docling | `DOC_PROCESSOR_PORT` | +21 | 63021 | `http://localhost:63021` | — | Optional document processing service. |
-| STT Provider (wizard slot) | `STT_PROVIDER_PORT` | +22 | 63022 | `http://localhost:63022` | — | Wizard display slot. Bootstrapper rewrites it to match the active source — `SPEACHES_PORT` for Speaches, this slot for Parakeet, or the port inside `*_LOCALHOST_URL` for host-side variants. |
-| TTS Provider (wizard slot) | `TTS_PROVIDER_PORT` | +23 | 63023 | `http://localhost:63023` | — | Wizard display slot. Bootstrapper rewrites it to `SPEACHES_PORT` (Speaches), `CHATTERBOX_PORT` (Chatterbox), or the URL-port for `chatterbox-localhost`. |
-| OpenClaw Gateway | `OPENCLAW_GATEWAY_PORT` | +24 | 63024 | `http://localhost:63024` | `http://openclaw.localhost:63002` | Optional AI agent gateway. |
-| OpenClaw Bridge | `OPENCLAW_BRIDGE_PORT` | +25 | 63025 | `http://localhost:63025` | — | Optional bridge service. |
-| Speaches (TTS+STT) | `SPEACHES_PORT` | +26 | 63026 | `http://localhost:63026` | — | Unified TTS+STT — Kokoro/Piper voices + Faster-Whisper transcription. Runs when either `TTS_PROVIDER_SOURCE` or `STT_PROVIDER_SOURCE` selects a `speaches-*` value. |
-| Chatterbox TTS | `CHATTERBOX_PORT` | +27 | 63027 | `http://localhost:63027` | — | Voice-cloning TTS (Resemble AI Chatterbox). Runs when `TTS_PROVIDER_SOURCE=chatterbox-container-gpu`. |
-| Hermes Agent API | `HERMES_API_PORT` | +28 | 63028 | `http://localhost:63028` | — | OpenAI-compatible API. Bearer token in `HERMES_API_KEY`. |
-| Hermes Agent Dashboard | `HERMES_DASHBOARD_PORT` | +29 | 63029 | `http://localhost:63029` | `http://hermes.localhost:63002` | Web admin UI (skills, sessions, model config). |
-| MinIO S3 API | `MINIO_PORT` | +30 | 63030 | `http://localhost:63030` | — | S3-compatible object storage API. |
-| MinIO Console | `MINIO_CONSOLE_PORT` | +31 | 63031 | `http://localhost:63031` | `http://minio.localhost:63002` | MinIO admin console UI. Login `minioadmin` / `${MINIO_ROOT_PASSWORD}`. The S3 API at port 63030 is deliberately NOT aliased — S3 clients use full URLs with explicit ports anyway. |
-| JupyterHub | `JUPYTERHUB_PORT` | +48 | 63048 | `http://localhost:63048` | `http://jupyter.localhost:63002` | Data science notebook environment. |
+## Kong hostnames
 
-## Hosts-file routes
-
-Run this once if you want friendly hostnames:
+Run once to add them to `/etc/hosts`:
 
 ```bash
 ./start.sh --setup-hosts
 ```
 
-Current documented Kong hostnames:
+Active aliases (every `*-localhost` source also routes through `host.docker.internal`; `*-external` sources do not — LiteLLM forwards those itself):
 
-- `api.localhost`
-- `chat.localhost`
-- `comfyui.localhost`
-- `hermes.localhost`
-- `jupyter.localhost`
-- `n8n.localhost`
-- `openclaw.localhost`
-- `search.localhost`
+- `api.localhost` → Backend API (always-on adaptive)
+- `chat.localhost` → Open WebUI (`OPEN_WEB_UI_SOURCE != disabled`)
+- `comfyui.localhost` → ComfyUI (`COMFYUI_SOURCE != disabled`)
+- `docling.localhost` → Document processor (`DOC_PROCESSOR_SOURCE != disabled`)
+- `graph.localhost` → Neo4j Browser (`NEO4J_GRAPH_DB_SOURCE != disabled`)
+- `hermes.localhost` → Hermes Agent dashboard (`HERMES_SOURCE != disabled` AND `HERMES_DASHBOARD_ENABLED=true`)
+- `jupyter.localhost` → JupyterHub (`JUPYTERHUB_SOURCE != disabled`)
+- `litellm.localhost` → LiteLLM gateway + admin dashboard (always-on; same alias exposes `/ui/`, `/v1/*`, `/spend/*`)
+- `minio.localhost` → MinIO admin console (`MINIO_SOURCE != disabled`; S3 API is NOT aliased — clients use the direct port)
+- `n8n.localhost` → n8n (`N8N_SOURCE != disabled`)
+- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE` is `ollama-container-*` or `ollama-localhost`; `ollama-external` is forwarded by LiteLLM, no Kong route)
+- `openclaw.localhost` → OpenClaw gateway (`OPENCLAW_SOURCE != disabled`)
+- `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
+- `search.localhost` → SearxNG (`SEARXNG_SOURCE != disabled`)
+- `stt.localhost` → STT engine — container resolves to `parakeet-gpu` or `speaches`; localhost routes via `host.docker.internal`
+- `studio.localhost` → Supabase Studio dashboard
+- `tts.localhost` → TTS engine — container resolves to `speaches:8000` or `chatterbox:4123`; localhost routes via `host.docker.internal`
+- `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
+
+The Kong gateway listens on `KONG_HTTP_PORT` (default `63000` under topology v1, i.e. `BASE_PORT + 0`). All aliases above resolve to `http://<alias>:${KONG_HTTP_PORT}`.
+
+## Per-engine port quirks
+
+A few services have engine-specific listen ports that won't match a naive `*_PORT` env-var lookup:
+
+- **Chatterbox TTS** — container listens on `4123` internally; the host-facing port is `CHATTERBOX_PORT`. Kong routes `tts.localhost` to `http://chatterbox:4123/` when `TTS_PROVIDER_SOURCE=chatterbox-container-*`.
+- **Speaches** — container listens on `8000`; host-facing on `SPEACHES_PORT`. Used by both `tts.localhost` and `stt.localhost` when source is `speaches-container-*`.
+- **Parakeet GPU** — container listens on `8000`; host-facing on `STT_PROVIDER_PORT`.
+- **Neo4j Browser** — container listens on `7474` regardless of the `GRAPH_DB_DASHBOARD_PORT` mapping.
+- **Ollama** — container listens on `11434`; same on host for `ollama-localhost`.
+- **Weaviate** — container listens on `8080`; same on host for `weaviate-localhost`.
+
+## Localhost-mode URL overrides
+
+For services whose compose `runtime_sc` reads a `<SVC>_LOCALHOST_URL` env var, that same var also overrides Kong's view, so both consumers stay in sync. Today: `DOCLING_LOCALHOST_URL`, `PARAKEET_LOCALHOST_URL`, `WHISPER_CPP_LOCALHOST_URL`, `CHATTERBOX_LOCALHOST_URL`. Neo4j, Weaviate, and Ollama hardcode the default container port in both sides — Kong matches that.
 
 ## Advanced overrides
 
-`BASE_PORT` is the preferred normal mechanism for moving the whole stack. Individual `*_PORT` variables are advanced overrides and should be changed carefully because docs, gateway routes, and dependent services need to stay aligned.
+`BASE_PORT` is the preferred mechanism for moving the whole stack. Individual `*_PORT` variables are advanced overrides; if you change one, the wizard / Kong / dependent services need a `./start.sh` to re-emit `kong-dynamic.yml` and pick up the new value. The port migration framework (`bootstrapper/services/migrations/`) handles cross-version layout shifts; on a bump like topology v1, your `.env` is auto-rewritten with the new defaults (a backup is taken to `.env.backup.<timestamp>`; user-customized values are preserved). Pass `--no-port-migrate` to opt out.

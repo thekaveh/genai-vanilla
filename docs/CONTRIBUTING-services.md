@@ -15,7 +15,7 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    - `name:` must equal the folder name (kebab-case).
    - `category:` one of `infra | data | llm | media | agents | apps`.
    - `containers:` lists every container name in your compose.yml.
-   - `env:` declares every env var the service owns. Use `auto_managed: true` for vars computed by source effects or a Python hook; use `secret: true` for credentials (default never echoed into `.env.example`).
+   - `env:` declares every env var the service owns. Use `auto_managed: true` for vars computed by `runtime_sc.<key>.<source>.environment` or a Python helper in `bootstrapper/services/service_config.py`; use `secret: true` for credentials (default never echoed into `.env.example`).
    - `sources:` (optional) declares source variants the wizard surfaces — each option carries an `id`, `label`, and optional `requires:` list.
    - `runtime_sc:` carries the per-source bootstrapper data (`scale`, `environment`, `deploy`, `extra_hosts`) for each source variant. This is the operational source the bootstrapper consumes; the sources block is wizard-only.
    - `images:` lists each container's `${X_IMAGE}` env var so version bumps happen in one place.
@@ -26,8 +26,9 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
    - Bind-mount paths are **relative to the fragment file** — i.e., to `services/myservice/` (e.g., `./init/scripts:/scripts`, `./build/snapshot:/snapshot`). Use `../../` only to reach genuinely cross-cutting locations: `../../bootstrapper/utils/` (catalog modules) and `../../volumes/...` (bootstrapper-generated runtime config like `volumes/litellm/config.yaml` and `volumes/api/kong-dynamic.yml`).
 4. Add the fragment to the `include:` list in `docker-compose.yml`.
 5. Service order is derived automatically from `depends_on:` topology — no manual ordering file needed.
-6. If declarative source effects can't express your computation, add the
-   logic to `bootstrapper/services/service_config.py` as a new
+6. If declarative `runtime_sc.<key>.<source>.environment` blocks can't
+   express your computation, add the logic to
+   `bootstrapper/services/service_config.py` as a new
    `_generate_<name>_config()` method and call it from
    `generate_service_environment()`. Cross-service computations
    (e.g. `_generate_cloud_providers_config()` aggregating three
@@ -147,10 +148,9 @@ exports:                                # documents the cross-service env-var co
 2. **duplicate_env_var** — exactly one manifest owns each env-var name
 3. **duplicate_container** — exactly one manifest owns each container name
 4. **unknown_dependency** — `depends_on.required/optional` references a known manifest
-5. **undeclared_export** — every `exports[].name` is in this manifest's `env:` or produced by source effects
-6. **undeclared_export** — every `exports[].name` is declared in `env:` OR written by some `runtime_sc.<key>.<source>.environment`
-7. **undeclared_source_var** — the SOURCE var itself is declared in `env:`
-8. **unknown_consumer** — every `exports[].consumers` entry is a known manifest
+5. **undeclared_export** — every `exports[].name` is declared in `env:` OR written by some `runtime_sc.<key>.<source>.environment`
+6. **undeclared_source_var** — the SOURCE var itself is declared in `env:`
+7. **unknown_consumer** — every `exports[].consumers` entry is a known manifest
 
 ## Byte-equivalence
 

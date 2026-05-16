@@ -26,7 +26,7 @@ The fragment reaches into `../../bootstrapper/utils/` (catalog source) and `../.
 | Surface | URL |
 |---|---|
 | Admin dashboard (Kong alias) | `http://litellm.localhost:${KONG_HTTP_PORT}/ui/` — root path 302-redirects here. Requires `./start.sh --setup-hosts`. |
-| Admin dashboard (direct port) | `http://localhost:${LITELLM_PORT}/ui/` (default `:63012`) — equivalent; the proxy root on the direct port serves Swagger UI rather than redirecting. |
+| Admin dashboard (direct port) | `http://localhost:${LITELLM_PORT}/ui/` (default `:63030`) — equivalent; the proxy root on the direct port serves Swagger UI rather than redirecting. |
 | Proxy API | `http://localhost:${LITELLM_PORT}/v1/*` or `http://litellm.localhost:${KONG_HTTP_PORT}/v1/*` |
 | In-network DNS | `http://litellm:4000` — sibling containers (backend, open-web-ui, jupyterhub, local-deep-researcher, hermes, weaviate) call this |
 

@@ -11,7 +11,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 EXCLUDED_PARTS = {
     '.git', 'bootstrapper', 'textual', '__pycache__', '.venv', 'venv',
-    'tts-venv', 'site-packages', 'plans', '.mypy_cache', '.superpowers', '.kilo'
+    'tts-venv', 'site-packages', 'plans', '.mypy_cache', '.superpowers', '.kilo',
+    '.claude',  # Claude Code's worktrees / scratch dirs are ephemeral, not source
 }
 EXCLUDED_FILES = {'repo-issues-report.md'}
 
@@ -32,10 +33,30 @@ def markdown_files():
             yield p
 
 
+def _strip_fenced_code_blocks(text: str) -> str:
+    """Replace fenced ``` code blocks with same-length blanks so line
+    numbers and match offsets stay aligned but `[text](url)` inside
+    code samples doesn't false-flag as a real link."""
+    out = []
+    in_fence = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.lstrip()
+        if stripped.startswith('```'):
+            in_fence = not in_fence
+            out.append('\n' if line.endswith('\n') else '')
+            continue
+        if in_fence:
+            out.append('\n' if line.endswith('\n') else '')
+        else:
+            out.append(line)
+    return ''.join(out)
+
+
 def check_links():
     broken = []
     for p in markdown_files():
-        text = p.read_text(errors='ignore')
+        raw = p.read_text(errors='ignore')
+        text = _strip_fenced_code_blocks(raw)
         for match in LINK_RE.finditer(text):
             url = match.group(1).split()[0].strip('<>')
             if URL_RE.match(url) or url.startswith('#') or url.startswith('mailto:'):
@@ -74,7 +95,7 @@ def check_source_matrix():
 def check_required_files():
     required = [
         'docs/deployment/ports-and-routes.md',
-        'docs/diagrams/architecture.html',
+        'docs/diagrams/architecture.dot',
         'docs/diagrams/architecture.svg',
         'docs/diagrams/README.md',
     ]

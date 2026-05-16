@@ -1,12 +1,17 @@
 # Architecture Diagrams
 
-The current canonical architecture diagram is the richer static generated artifact:
+The canonical architecture diagram is generated from the live topology:
 
-- Browser view: `architecture.html`
-- Static README/GitHub preview: `architecture.svg`
+- Source: `architecture.dot` — produced by `bootstrapper/tools/generate_architecture_diagram.py` (reads `services/topology.py`).
+- Static preview: `architecture.svg` — rendered from `architecture.dot` via Graphviz `dot -Tsvg`.
 
-The old Mermaid-based architecture workflow has been removed. Do not regenerate the architecture diagram from Mermaid files.
+## Regenerating
 
-For now, diagram updates are manual/skill-based: regenerate or edit the rich static diagram artifact directly using the architecture-diagram skill/workflow, then update the SVG preview to match. A future automation path may call Claude Code in headless mode with a diagram-generation skill, but that workflow is intentionally deferred.
+```bash
+cd bootstrapper && uv run python -m tools.generate_architecture_diagram   # rewrites architecture.dot
+dot -Tsvg docs/diagrams/architecture.dot > docs/diagrams/architecture.svg  # refreshes the SVG preview
+```
 
-Historical notes and old audit examples may still mention Mermaid; those are not current maintainer instructions.
+The `.dot` regen lint is part of `validate_fragments`; the SVG is a downstream rendering artifact and is regenerated manually when a topology change actually moves something visually.
+
+The old Mermaid-based workflow has been removed. Historical audit notes may still mention Mermaid; those are not current maintainer instructions.

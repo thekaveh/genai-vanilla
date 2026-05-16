@@ -51,6 +51,9 @@ env:
     auto_managed: true
   - name: DOCLING_ENDPOINT
     auto_managed: true
+  - name: DOCLING_LOCALHOST_URL
+    default: "http://host.docker.internal:63021"
+    description: "Used when DOC_PROCESSOR_SOURCE=docling-localhost. Override to point at a host-installed Docling on a non-default port; the same env var is consumed by Kong's docling.localhost route so both consumers stay in sync."
 
 depends_on:
   required:

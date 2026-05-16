@@ -210,12 +210,19 @@ def test_litellm_doesnt_advertise_phantom_ollama_models():
     """
     host_tags, litellm_models = _skip_unless_stack_up()
 
-    # Strip aliases — count each base model once.
-    ollama_entries = {
-        m[len("ollama/"):] if m.startswith("ollama/") else m
-        for m in litellm_models
-        if m.startswith("ollama/") or "/" not in m
+    # An entry counts as "an Ollama model in LiteLLM" if either:
+    #   (a) it has an explicit ``ollama/`` prefix, OR
+    #   (b) it's a bare alias whose ``ollama/<name>`` dual-alias is ALSO
+    #       present (per LiteLLM's dual-alias convention for Ollama —
+    #       see reference_litellm_quirks memory).
+    # Bare aliases without a matching ``ollama/<name>`` are cloud-provider
+    # entries (openai, anthropic, openrouter) and don't belong here.
+    explicit_ollama = {
+        m[len("ollama/"):] for m in litellm_models if m.startswith("ollama/")
     }
+    bare_aliases = {m for m in litellm_models if "/" not in m}
+    bare_ollama_dual = bare_aliases & explicit_ollama
+    ollama_entries = explicit_ollama | bare_ollama_dual
     ollama_entries.discard("hermes-agent")  # the passthrough route
 
     declared_user = set(

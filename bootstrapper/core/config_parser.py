@@ -34,8 +34,6 @@ class ConfigParser:
         else:
             self.root_dir = Path(root_dir)
 
-        self.service_config_path = self.root_dir / "bootstrapper" / "service-configs.yml"
-
         # .env.example always lives in repository root
         self.env_example_path = self.root_dir / ".env.example"
 
@@ -89,40 +87,20 @@ class ConfigParser:
         """
         Return the runtime service configuration dict.
 
-        Historically this read `bootstrapper/service-configs.yml`. After the
-        configuration-modularization refactor (Tier 1.F), each manifest at
-        `services/<name>/service.yml` owns its per-service slice under
-        `runtime_sc:`, `runtime_adaptive:`, `runtime_deps:` blocks. The
-        sc_synthesizer concatenates those slices into the exact same dict
+        Each manifest at ``services/<name>/service.yml`` owns its per-service
+        slice under ``runtime_sc:``, ``runtime_adaptive:``, ``runtime_deps:``
+        blocks. ``sc_synthesizer`` concatenates those slices into the dict
         shape (source_configurable, adaptive_services, dependencies,
         service_dependencies) that consumers expect.
-
-        Falls back to the legacy YAML file ONLY if it still exists on disk
-        (transitional safety net during the refactor; removed once the file
-        is deleted).
         """
-        # Manifest-driven path (operational)
-        try:
-            from services.manifests import load_manifests
-            from services.sc_synthesizer import synthesize_legacy
-            manifests = load_manifests(self.root_dir / "services")
-            if manifests:
-                return synthesize_legacy(manifests)
-        except Exception as e:
-            if not self.service_config_path.exists():
-                raise RuntimeError(
-                    "load_yaml_config(): manifest synthesis failed and no "
-                    "legacy service-configs.yml fallback present: " + repr(e)
-                ) from e
-
-        # Legacy fallback (only triggers if manifests not present)
-        if not self.service_config_path.exists():
+        from services.manifests import load_manifests
+        from services.sc_synthesizer import synthesize_legacy
+        manifests = load_manifests(self.root_dir / "services")
+        if not manifests:
             raise FileNotFoundError(
-                f"Service configuration unavailable: neither manifests "
-                f"under services/ nor legacy file {self.service_config_path}"
+                f"No service manifests found under {self.root_dir / 'services'}"
             )
-        with open(self.service_config_path, 'r') as f:
-            return yaml.safe_load(f)
+        return synthesize_legacy(manifests)
     
     def parse_env_file(self) -> Dict[str, str]:
         """

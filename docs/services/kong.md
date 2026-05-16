@@ -48,7 +48,8 @@ Plain `python3 docs/scripts/check-kong-routes.py` works too if `PyYAML` is on yo
 - `openclaw.localhost` → OpenClaw gateway (if enabled)
 - `hermes.localhost` → Hermes Agent web dashboard (if `HERMES_SOURCE != disabled` and `HERMES_DASHBOARD_ENABLED=true`)
 - `litellm.localhost` → LiteLLM gateway + admin dashboard (always-on; same alias exposes `/ui/`, `/v1/*`, and `/spend/*`)
-- `minio.localhost` → MinIO admin console (if `MINIO_SOURCE != disabled`; S3 API at port 63030 NOT aliased — use the direct port)
+- `minio.localhost` → MinIO admin console (if `MINIO_SOURCE != disabled`; S3 API at `MINIO_PORT` NOT aliased — S3 clients use the direct port)
+- `studio.localhost` → Supabase Studio dashboard (and bare `localhost` falls through to the same upstream)
 - `graph.localhost` → Neo4j Browser (`NEO4J_GRAPH_DB_SOURCE != disabled`)
 - `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
 - `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE ∈ {ollama-container-*, ollama-localhost}`; `ollama-external` does NOT get a Kong route — LiteLLM forwards via `LLM_PROVIDER_EXTERNAL_URL`)
@@ -217,4 +218,4 @@ Kong integrates tightly with:
 - **Health Monitoring**: Checks localhost service availability
 - **Dynamic Scaling**: Adapts to enabled/disabled services
 
-For more information on Kong's role in the overall architecture, see the system overview in the project [README](../../README.md) and the architecture diagram at `docs/diagrams/architecture.html`.
+For more information on Kong's role in the overall architecture, see the system overview in the project [README](../../README.md) and the architecture diagram at `docs/diagrams/architecture.svg`.

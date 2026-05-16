@@ -42,6 +42,11 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 > at `docs/services/doc-processor.md`. The `doc-processor` name is the
 > stable public API; `docling` is the single engine implementing it.
 
+### Added (Dependency vulnerability monitoring)
+- **`.github/dependabot.yml`** — weekly pip + GitHub Actions scans on every active manifest (`bootstrapper/`, `services/backend/app/`, `services/jupyterhub/build/`, `services/docling/provider/{gpu,localhost}/`, `services/parakeet/provider/{gpu,mlx}/`). Alerts grouped by ecosystem to reduce PR noise. `directories:` deliberately enumerates ALL active manifests so an omission doesn't silently drop coverage from the scan.
+- **`SECURITY.md` threat model** — published threat tiers, supported versions, and the responsible-disclosure address. Aligns with the dependabot scan-coverage list.
+- **Bulk-dismiss tooling** — operators triaging stale alerts on deleted/moved manifests can use the GitHub REST API with `reason=not_used`; the `docs/security/2026-05-14-dependabot-remediation-report.md` captures the playbook from the May 2026 cleanup (77 alerts triaged, 62 phantom dismissals).
+
 ### Added (LiteLLM Kong alias for the admin dashboard)
 - **Kong route `litellm.localhost` → `http://litellm:4000/`** — added to `bootstrapper/utils/kong_config_generator.py::generate_litellm_service()` and wired into `get_adaptive_services()`. Always-on (LiteLLM is mandatory; no SOURCE variation, no dashboard-disable toggle). The same alias exposes `/ui/` (admin dashboard with per-model spend, key/team management, request logs), `/v1/*` (proxy API), and `/spend/*` (raw usage telemetry rollups) — Kong routes the entire LiteLLM surface, not just the dashboard path.
 - **`litellm.localhost` added to** `bootstrapper/utils/hosts_manager.py::GENAI_HOSTS` so `./start.sh --setup-hosts` writes the `/etc/hosts` entry.

@@ -4,7 +4,6 @@ Encryption key generation utilities for GenAI Stack services.
 Generates N8N_ENCRYPTION_KEY and SEARXNG_SECRET for secure operation.
 """
 
-import os
 import secrets
 import re
 from pathlib import Path

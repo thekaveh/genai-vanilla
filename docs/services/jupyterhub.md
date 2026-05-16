@@ -206,7 +206,7 @@ c.JupyterHub.authenticator_class = 'firstuseauthenticator.FirstUseAuthenticator'
 
 JupyterHub runs inside the Docker Compose network and receives environment variables for the services that are enabled. It reaches LLMs through the always-on LiteLLM gateway (`LITELLM_BASE_URL` / `LITELLM_API_KEY`, also exported as `OPENAI_API_BASE` / `OPENAI_API_KEY`) and connects directly to Weaviate, Neo4j, PostgreSQL/Supabase, Redis, ComfyUI, n8n, STT/TTS, and document-processing services when those services are available.
 
-For the current high-level stack diagram, see [Architecture Diagram](../diagrams/architecture.html).
+For the current high-level stack diagram, see [Architecture Diagram](../diagrams/architecture.svg).
 
 ## Resources
 

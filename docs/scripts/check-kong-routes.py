@@ -68,31 +68,18 @@ EXPECTED_HOST_ROUTES = {
 
 
 def generate_default_kong_config(out_dir: Path) -> Path:
-    """Run the kong_config_generator with .env.example as the env file.
+    """Run the kong_config_generator against the published defaults.
 
-    ``out_dir`` becomes the ConfigParser's root_dir, so it must contain
-    a ``.env`` (we copy ``.env.example`` to it) AND a relative path to
-    ``bootstrapper/service-configs.yml`` (we symlink the repo's path
-    into the temp tree).
+    KongConfigGenerator only reads ``.env`` (env-var values), so we copy
+    ``.env.example`` into ``out_dir`` as ``.env`` and point ConfigParser
+    at that tempdir. No services/ or bootstrapper/ symlinks needed —
+    Kong route generation is driven by env vars alone.
 
     Returns the path to the generated kong-dynamic.yml inside out_dir.
     """
     if not ENV_EXAMPLE.exists():
         raise FileNotFoundError(f"{ENV_EXAMPLE} missing — repo layout broken")
-    # Materialise the minimal tree the ConfigParser expects: a .env
-    # file, plus the bootstrapper subtree for service-configs.yml.
     shutil.copyfile(ENV_EXAMPLE, out_dir / ".env")
-    # Symlink the bootstrapper dir for ConfigParser; clean up any
-    # pre-existing link/file so a re-run on a stale tempdir doesn't
-    # raise FileExistsError. (On Windows without Developer Mode the
-    # symlink call may still fail — that's a CI-environment problem
-    # caller-side, not this script's to swallow.)
-    bootstrap_link = out_dir / "bootstrapper"
-    if bootstrap_link.is_symlink() or bootstrap_link.exists():
-        bootstrap_link.unlink()
-    bootstrap_link.symlink_to(ROOT / "bootstrapper")
-    # Service-configs.yml lives under bootstrapper/, already covered.
-    # Volumes dir for the generator's output:
     (out_dir / "volumes" / "api").mkdir(parents=True, exist_ok=True)
 
     # Late imports — these need bootstrapper on sys.path.

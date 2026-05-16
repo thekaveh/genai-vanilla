@@ -93,14 +93,21 @@ def test_localhost_source_routes_via_host_docker_internal():
     port. Mirrors the existing ComfyUI/OpenClaw/Hermes pattern so a
     single entry point (``ollama.localhost``, ``graph.localhost``, etc.)
     works in both container and host-install modes.
+
+    Test exercises the *fallback* URLs (no ``<SVC>_LOCALHOST_URL``
+    override). The dev's real .env may already define those overrides
+    against a non-default BASE_PORT, so we explicitly blank them.
     """
     config = _generate(
         "NEO4J_GRAPH_DB_SOURCE=localhost\n"
         "WEAVIATE_SOURCE=localhost\n"
         "LLM_PROVIDER_SOURCE=ollama-localhost\n"
         "DOC_PROCESSOR_SOURCE=docling-localhost\n"
+        "DOCLING_LOCALHOST_URL=\n"
         "STT_PROVIDER_SOURCE=parakeet-localhost\n"
+        "PARAKEET_LOCALHOST_URL=\n"
         "TTS_PROVIDER_SOURCE=chatterbox-localhost\n"
+        "CHATTERBOX_LOCALHOST_URL=\n"
     )
     by_host = _hosts_to_service(config)
     # Every alias still resolves.

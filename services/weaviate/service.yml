@@ -93,6 +93,10 @@ rows:
     source_var: MULTI2VEC_CLIP_SOURCE
     scale_var: CLIP_SCALE
     description: "CLIP embeddings for multimodal search."
+    # Secondary source: the wizard doesn't prompt for it (the manifest's
+    # `sources:` block is for WEAVIATE_SOURCE). Use `./start.sh
+    # --multi2vec-clip-source <container-cpu|container-gpu|disabled>`
+    # or set MULTI2VEC_CLIP_SOURCE directly in .env.
 
 exports: []
 

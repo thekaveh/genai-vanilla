@@ -35,11 +35,11 @@ env:
   - name: MINIO_SOURCE
     default: container
   - name: MINIO_PORT
-    # default removed — computed by services/topology.py slot allocator
-    description: "S3 API. Slot +30."
+    # default computed by services/topology.py slot allocator
+    description: "Host port for the MinIO S3 API (in-container listen port is 9000)."
   - name: MINIO_CONSOLE_PORT
-    # default removed — computed by services/topology.py slot allocator
-    description: "Admin console. Slot +31."
+    # default computed by services/topology.py slot allocator
+    description: "Host port for the MinIO admin console (in-container listen port is 9001)."
   - name: MINIO_ROOT_USER
     default: minioadmin
   - name: MINIO_ROOT_PASSWORD

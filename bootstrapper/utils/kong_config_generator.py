@@ -587,7 +587,17 @@ class KongConfigGenerator:
                     'config': {
                         'minute': 60,
                         'hour': 1000,
-                        'policy': 'local'
+                        'policy': 'local',
+                        # NB: Kong 3.x logs ``config.redis_* is deprecated``
+                        # warnings at startup for this plugin even though
+                        # ``policy: local`` means none of the redis_* keys
+                        # are actually used. Tried providing the new nested
+                        # ``redis: {...}`` form — that makes it WORSE
+                        # (every flat-key default still gets normalized
+                        # and warned, plus the explicit ones). The plugin
+                        # schema itself ships these defaults; only Kong 4.0
+                        # drops them. Documented in
+                        # docs/deployment/expected-startup-warnings.md.
                     }
                 }
             ]
@@ -788,7 +798,7 @@ class KongConfigGenerator:
         ``http://litellm:4000/``. The catch-all route covers ``/ui/``
         (admin dashboard), ``/v1/*`` (proxy API), and ``/spend/*``
         (usage telemetry) for callers that prefer a memorable hostname
-        over the bare ``localhost:63012``.
+        over the bare ``localhost:${LITELLM_PORT}``.
 
         Auto-redirect on ``/``: LiteLLM serves Swagger UI at its root
         and the admin dashboard at ``/ui/``. A bare visit to

@@ -34,8 +34,8 @@ env:
   - name: SPEACHES_STT_MODEL
     default: "Systran/faster-distil-whisper-large-v3"
   - name: SPEACHES_PORT
-    # default removed — computed by services/topology.py slot allocator
-    description: "Slot +26."
+    # default computed by services/topology.py slot allocator
+    description: "Host port for the Speaches container (in-container listen port is 8000)."
   - name: SPEACHES_SCALE
     auto_managed: true
     description: "Computed by bootstrapper/services/service_config.py::_generate_stt_provider_config (or _generate_tts_provider_config) — set to 1 when STT_PROVIDER_SOURCE OR TTS_PROVIDER_SOURCE picks a speaches-* variant."

@@ -22,8 +22,8 @@ MinIO is the **artifact-tier** surface (high-throughput, large-blob: ComfyUI out
 | Surface | URL |
 |---|---|
 | Admin console (Kong alias) | `http://minio.localhost:${KONG_HTTP_PORT}` — requires `./start.sh --setup-hosts`. Login `minioadmin` / `${MINIO_ROOT_PASSWORD}`. |
-| Admin console (direct port) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `:63031`) — equivalent, no hosts setup needed. |
-| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `:63030`) — NOT Kong-aliased; S3 clients use the direct port. |
+| Admin console (direct port) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `:63018`) — equivalent, no hosts setup needed. |
+| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `:63017`) — NOT Kong-aliased; S3 clients use the direct port. |
 | S3 API (internal) | `http://minio:9000` — sibling containers (backend, n8n, ComfyUI, JupyterHub) call this with their per-bucket service-account credentials. |
 
 The Kong route is gated on `MINIO_SOURCE != disabled`. Defined in
