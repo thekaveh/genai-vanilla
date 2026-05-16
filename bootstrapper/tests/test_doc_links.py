@@ -74,3 +74,29 @@ def test_validator_scans_repo_default_paths():
     # code 0 or 1 — but never crash). This guarantees Phase A's pre-migration
     # baseline can be captured.
     assert result.returncode in (0, 1), result.stdout + result.stderr
+
+
+def test_validator_ignores_links_inside_fenced_code_block(tmp_path):
+    """Links inside ``` ... ``` code fences are NOT validated."""
+    a = tmp_path / "a.md"
+    a.write_text(
+        "Prose link must work: see [Other](./other.md).\n\n"
+        "```\n"
+        "[Example](./does-not-exist.md)\n"
+        "```\n"
+    )
+    (tmp_path / "other.md").write_text("body")
+    result = _run(tmp_path)
+    assert result.returncode == 0, (
+        "Fenced-code-block links should be skipped; got:\n" + result.stdout
+    )
+
+
+def test_validator_ignores_links_inside_inline_code(tmp_path):
+    """Links inside backtick-delimited inline code are NOT validated."""
+    a = tmp_path / "a.md"
+    a.write_text("See `[Example](./does-not-exist.md)` for an example.\n")
+    result = _run(tmp_path)
+    assert result.returncode == 0, (
+        "Inline-code links should be skipped; got:\n" + result.stdout
+    )
