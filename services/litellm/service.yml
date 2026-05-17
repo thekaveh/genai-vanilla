@@ -77,3 +77,7 @@ runtime_sc:
       deploy: {}
       extra_hosts: []
 
+doc_extras:
+  diagram:
+    extra_consumers:
+      - hermes
