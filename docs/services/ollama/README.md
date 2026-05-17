@@ -8,7 +8,7 @@ For `ollama-localhost` and `ollama-external`, Ollama must already be listening a
 
 ## Overview
 
-Ollama is the local LLM engine that runs behind the always-on **LiteLLM gateway**. Consumer services (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw, [Hermes Agent](../../hermes/README.md), Weaviate vectorization) do **not** talk to Ollama directly — they read `LITELLM_BASE_URL` + `LITELLM_API_KEY` and LiteLLM routes the request to the configured Ollama upstream. See [LiteLLM Gateway](../../litellm/README.md) for the consumer-facing surface.
+Ollama is the local LLM engine that runs behind the always-on **LiteLLM gateway**. Consumer services (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw, [Hermes Agent](../hermes/README.md), Weaviate vectorization) do **not** talk to Ollama directly — they read `LITELLM_BASE_URL` + `LITELLM_API_KEY` and LiteLLM routes the request to the configured Ollama upstream. See [LiteLLM Gateway](../litellm/README.md) for the consumer-facing surface.
 
 `LLM_PROVIDER_SOURCE` is a single-select choice for the Ollama upstream:
 
@@ -106,4 +106,4 @@ docker compose logs -f ollama
 docker exec genai-litellm curl -s http://ollama:11434/api/tags
 ```
 
-For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md). For LiteLLM-specific debugging (model registration, virtual keys, spend logs), see [LiteLLM Gateway](../../litellm/README.md).
+For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md). For LiteLLM-specific debugging (model registration, virtual keys, spend logs), see [LiteLLM Gateway](../litellm/README.md).
