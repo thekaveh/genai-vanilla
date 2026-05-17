@@ -74,3 +74,51 @@ def test_dep_graph_byte_deterministic():
     g1 = build_graph("hermes", SERVICES_DIR)
     g2 = build_graph("hermes", SERVICES_DIR)
     assert g1 == g2
+
+
+def test_doc_folder_to_manifests_mapping():
+    """Aggregate doc folders are recognized and map to underlying manifests."""
+    from docs.deps_resolver import doc_folder_to_manifests
+    assert doc_folder_to_manifests("hermes") == ("hermes",)
+    # Aggregates fold:
+    assert set(doc_folder_to_manifests("stt-provider")) >= {"parakeet", "speaches"}
+    assert set(doc_folder_to_manifests("tts-provider")) >= {"chatterbox", "speaches"}
+    assert set(doc_folder_to_manifests("doc-processor")) >= {"docling"}
+    # multi2vec-clip has no manifest — empty tuple
+    assert doc_folder_to_manifests("multi2vec-clip") == ()
+
+
+def test_build_doc_graph_aggregates_edges():
+    """build_doc_graph('stt-provider') unions parakeet + speaches edges and
+    suppresses intra-aggregate edges."""
+    from docs.deps_resolver import build_doc_graph
+    g = build_doc_graph("stt-provider", SERVICES_DIR)
+    assert g.focus == "stt-provider"
+    # Hermes adapts_to stt_provider, so stt-provider has Hermes downstream
+    assert any(e.other == "hermes" for e in g.downstream)
+    # Internal edge: parakeet ↔ speaches must NOT appear (intra-aggregate
+    # suppression)
+    edge_others = {e.other for e in g.upstream} | {e.other for e in g.downstream}
+    assert "parakeet" not in edge_others
+    assert "speaches" not in edge_others
+
+
+def test_build_doc_graph_singleton_passes_through():
+    """Singleton doc folders (1:1 with manifest) behave like build_graph()."""
+    from docs.deps_resolver import build_doc_graph, build_graph
+    g1 = build_doc_graph("hermes", SERVICES_DIR)
+    g2 = build_graph("hermes", SERVICES_DIR)
+    assert g1.upstream == g2.upstream
+    assert g1.downstream == g2.downstream
+
+
+def test_build_doc_graph_multi2vec_clip_is_pointer_only():
+    """multi2vec-clip has no manifest — build_doc_graph returns a sentinel
+    DepGraph that signals 'no diagram, see weaviate'."""
+    from docs.deps_resolver import build_doc_graph, DepGraph
+    g = build_doc_graph("multi2vec-clip", SERVICES_DIR)
+    assert isinstance(g, DepGraph)
+    assert g.focus == "multi2vec-clip"
+    assert g.upstream == ()
+    assert g.downstream == ()
+    assert g.init_containers == ()
