@@ -2,7 +2,7 @@
 
 LiteLLM is the always-on OpenAI-compatible front door for every LLM provider in the stack. Every consumer service (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw, Weaviate vectorization) talks to **one URL** and **one API key** — `LITELLM_BASE_URL` / `LITELLM_API_KEY` — and LiteLLM routes each request to the right upstream based on the model name.
 
-When [Hermes Agent](hermes/README.md) is enabled, `services/litellm/init/scripts/init.py` appends a `hermes-agent` row to `model_list` whose `api_base` is `${HERMES_ENDPOINT}/v1`. The entry is NOT sourced from `public.llms` (Hermes is a service/runtime, not a model provider type), so it lives outside the LLM catalog taxonomy but uses the same `os.environ/HERMES_API_KEY` bearer token. Effect: Open-WebUI, n8n, backend, jupyterhub, openclaw all see `hermes-agent` in the dropdown with no per-consumer wiring.
+When [Hermes Agent](../../hermes/README.md) is enabled, `services/litellm/init/scripts/init.py` appends a `hermes-agent` row to `model_list` whose `api_base` is `${HERMES_ENDPOINT}/v1`. The entry is NOT sourced from `public.llms` (Hermes is a service/runtime, not a model provider type), so it lives outside the LLM catalog taxonomy but uses the same `os.environ/HERMES_API_KEY` bearer token. Effect: Open-WebUI, n8n, backend, jupyterhub, openclaw all see `hermes-agent` in the dropdown with no per-consumer wiring.
 
 ## Image and ports
 
