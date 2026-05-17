@@ -286,3 +286,85 @@ def _extract_failure_mode(me: Manifest, dep: str) -> str | None:
         if "llm_provider" in adapts_to and dep == "litellm":
             return block.get("failure_mode")
     return None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Doc-folder → manifests mapping (spec A.7)
+# ─────────────────────────────────────────────────────────────────────────
+
+# Hard-coded for now. If aggregate membership changes, edit this table.
+# (Future refinement: derive from a `doc_folder:` field on each manifest.)
+_AGGREGATE_DOC_FOLDERS: dict[str, tuple[str, ...]] = {
+    "stt-provider":   ("parakeet", "speaches"),
+    "tts-provider":   ("chatterbox", "speaches", "tts-provider"),
+    "doc-processor":  ("docling",),
+    "multi2vec-clip": (),     # no manifest; pointer doc only
+}
+
+# Doc folders without an explicit aggregate entry are 1:1 with the manifest
+# of the same name. Validated at test time.
+def doc_folder_to_manifests(doc_folder: str) -> tuple[str, ...]:
+    if doc_folder in _AGGREGATE_DOC_FOLDERS:
+        return _AGGREGATE_DOC_FOLDERS[doc_folder]
+    # 1:1 default
+    return (doc_folder,)
+
+
+def build_doc_graph(doc_folder: str, services_root: Path) -> DepGraph:
+    """Build a DepGraph for a doc folder. Folds aggregate manifests; for
+    singleton doc folders, identical to build_graph()."""
+
+    manifest_names = doc_folder_to_manifests(doc_folder)
+    if not manifest_names:
+        # Pointer-only doc (e.g., multi2vec-clip)
+        return DepGraph(
+            focus=doc_folder,
+            category="data",  # multi2vec-clip is a Weaviate feature; data category
+            port_var=None,
+            source="(pointer doc — see weaviate)",
+            upstream=(),
+            downstream=(),
+            init_containers=(),
+        )
+
+    if len(manifest_names) == 1 and manifest_names[0] == doc_folder:
+        return build_graph(doc_folder, services_root)
+
+    # Aggregate: build each underlying graph and merge.
+    members = [build_graph(name, services_root) for name in manifest_names]
+    member_set = set(manifest_names)
+
+    merged_up: dict[tuple[str, str], DepEdge] = {}
+    merged_down: dict[tuple[str, str], DepEdge] = {}
+    for sub in members:
+        for e in sub.upstream:
+            if e.other in member_set:
+                continue  # intra-aggregate edge — suppress
+            key = (e.other, e.kind)
+            # Prefer "required" over "adaptive" over "optional" on collision
+            if key not in merged_up or _kind_rank(e.kind) < _kind_rank(merged_up[key].kind):
+                merged_up[key] = e
+        for e in sub.downstream:
+            if e.other in member_set:
+                continue
+            key = (e.other, e.kind)
+            if key not in merged_down or _kind_rank(e.kind) < _kind_rank(merged_down[key].kind):
+                merged_down[key] = e
+
+    # Use the first member's category as canonical for the aggregate.
+    category = members[0].category
+    init_containers = tuple(sorted({c for m in members for c in m.init_containers}))
+
+    return DepGraph(
+        focus=doc_folder,
+        category=category,
+        port_var=None,
+        source="(aggregate)",
+        upstream=tuple(sorted(merged_up.values(), key=_edge_sort_key)),
+        downstream=tuple(sorted(merged_down.values(), key=_edge_sort_key)),
+        init_containers=init_containers,
+    )
+
+
+def _kind_rank(kind: str) -> int:
+    return {"required": 0, "adaptive": 1, "optional": 2}.get(kind, 3)
