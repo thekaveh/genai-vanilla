@@ -103,7 +103,7 @@ The interactive wizard's per-provider multiselects persist as comma-separated en
 
 ### LLM access (LiteLLM gateway + Ollama upstream + cloud toggles)
 
-LLM access in this stack is split between **LiteLLM** (the always-on OpenAI-compatible gateway every consumer reads) and four configurable upstreams behind it: an Ollama engine plus three cloud providers. See [LiteLLM Gateway](../services/litellm.md) for the consumer-facing surface; the variables below pick what LiteLLM forwards to.
+LLM access in this stack is split between **LiteLLM** (the always-on OpenAI-compatible gateway every consumer reads) and four configurable upstreams behind it: an Ollama engine plus three cloud providers. See [LiteLLM Gateway](../services/litellm/README.md) for the consumer-facing surface; the variables below pick what LiteLLM forwards to.
 
 #### `LLM_PROVIDER_SOURCE` — Ollama upstream (single-select)
 
@@ -370,7 +370,7 @@ OPENCLAW_SOURCE=disabled
 
 The programmable AI agent runtime by Nous Research. Hermes reasons over the LiteLLM gateway and exposes an OpenAI-compatible API; `litellm-init` auto-registers `hermes-agent` as a model in the gateway when `HERMES_SOURCE != disabled`, so Open-WebUI / n8n / backend / jupyterhub / openclaw all see Hermes for free.
 
-See [Hermes Agent](../services/hermes.md) for the full service doc.
+See [Hermes Agent](../services/hermes/README.md) for the full service doc.
 
 #### `container` (Default)
 ```bash

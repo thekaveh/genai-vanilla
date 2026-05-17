@@ -15,7 +15,7 @@ Vector database used for semantic search, RAG, embeddings, n8n workflows, Backen
 | Direct | http://localhost:63019 | Works when the service is enabled in container mode and the port is exposed. |
 | Kong | — | Requires `./start.sh --setup-hosts`; only available for services with Kong routes. |
 
-See the canonical port table at [Ports and Routes](../deployment/ports-and-routes.md).
+See the canonical port table at [Ports and Routes](../../deployment/ports-and-routes.md).
 
 ## Configuration
 
@@ -30,7 +30,7 @@ Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted cha
 
 ### Vectorization through LiteLLM
 
-Weaviate's text vectorization talks to the always-on **LiteLLM gateway** via the `text2vec-openai` module. LiteLLM's OpenAI-compatible endpoint (`LITELLM_BASE_URL`) is wired into Weaviate as the OpenAI host, and `OPENAI_APIKEY` inside the Weaviate container is set to `LITELLM_MASTER_KEY`. This means whatever embedding model LiteLLM has registered (Ollama-backed `nomic-embed-text` by default, or a cloud provider's embedding model) is what Weaviate will use — no separate `text2vec-ollama` wiring required. The default vectorizer is now `text2vec-openai`. See [LiteLLM Gateway](litellm/README.md) for how to register additional embedding models.
+Weaviate's text vectorization talks to the always-on **LiteLLM gateway** via the `text2vec-openai` module. LiteLLM's OpenAI-compatible endpoint (`LITELLM_BASE_URL`) is wired into Weaviate as the OpenAI host, and `OPENAI_APIKEY` inside the Weaviate container is set to `LITELLM_MASTER_KEY`. This means whatever embedding model LiteLLM has registered (Ollama-backed `nomic-embed-text` by default, or a cloud provider's embedding model) is what Weaviate will use — no separate `text2vec-ollama` wiring required. The default vectorizer is now `text2vec-openai`. See [LiteLLM Gateway](../../litellm/README.md) for how to register additional embedding models.
 
 ### Multi2Vec CLIP module
 
@@ -66,4 +66,4 @@ docker compose ps
 docker compose logs -f SERVICE
 ```
 
-For general startup and routing issues, see [Troubleshooting](../quick-start/troubleshooting.md).
+For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).

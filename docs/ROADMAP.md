@@ -406,7 +406,7 @@ Consumed by (services that would call Browserless):
 
 **Hermes Agent (programmable AI agent for chat & messaging)** ✓ **shipped**
 
-Lives in [docs/services/hermes.md](services/hermes.md). Shipped as the
+Lives in [docs/services/hermes.md](services/hermes/README.md). Shipped as the
 `hermes` service (`nousresearch/hermes-agent:latest` — upstream publishes
 only `latest` + per-commit `sha-<digest>` tags, no semver; production
 pins via `HERMES_IMAGE=nousresearch/hermes-agent:sha-...`) plus
