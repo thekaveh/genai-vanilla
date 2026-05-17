@@ -212,7 +212,7 @@ For the current high-level stack diagram, see [Architecture Diagram](../../diagr
 
 - [Jupyter Lab Documentation](https://jupyterlab.readthedocs.io/)
 - [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
-- [Sample Notebooks](../../services/jupyterhub/build/notebooks/)
+- [Sample Notebooks](../../../services/jupyterhub/build/notebooks/)
 - [GenAI Stack Docs](../../README.md)
 
 ## Support

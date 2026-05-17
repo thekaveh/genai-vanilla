@@ -68,9 +68,9 @@ cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0
 ./start.sh --stt-provider-source parakeet-localhost
 ```
 
-See [the whisper-cpp README](../../services/parakeet/provider/whisper-cpp/README.md)
+See [the whisper-cpp README](../../../services/parakeet/provider/whisper-cpp/README.md)
 for the whisper.cpp walkthrough and Linux build instructions, or
-[the MLX README](../../services/parakeet/provider/mlx/README.md) for Parakeet-MLX.
+[the MLX README](../../../services/parakeet/provider/mlx/README.md) for Parakeet-MLX.
 
 ## Environment variables
 

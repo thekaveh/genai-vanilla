@@ -297,6 +297,6 @@ lsof -i :63024
 
 - [OpenClaw Documentation](https://docs.openclaw.ai/)
 - [OpenClaw Docker Guide](https://docs.openclaw.ai/install/docker)
-- [LiteLLM Gateway](../../litellm/README.md) — the OpenAI-compatible front door OpenClaw points at by default
-- [Hermes Agent](../../hermes/README.md) — the programmable agent runtime OpenClaw bridges to messaging channels
+- [LiteLLM Gateway](../litellm/README.md) — the OpenAI-compatible front door OpenClaw points at by default
+- [Hermes Agent](../hermes/README.md) — the programmable agent runtime OpenClaw bridges to messaging channels
 - [OpenClaw GitHub Repository](https://github.com/openclaw/openclaw)

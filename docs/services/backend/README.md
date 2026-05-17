@@ -15,7 +15,7 @@ Always-on adaptive FastAPI service that connects enabled AI, data, and workflow 
 | Direct | http://localhost:63016 | Works when the service is enabled in container mode and the port is exposed. |
 | Kong | http://api.localhost:63002 | Requires `./start.sh --setup-hosts`; only available for services with Kong routes. |
 
-See the canonical port table at [Ports and Routes](../deployment/ports-and-routes.md).
+See the canonical port table at [Ports and Routes](../../deployment/ports-and-routes.md).
 
 ## Configuration
 
@@ -43,4 +43,4 @@ docker compose ps
 docker compose logs -f SERVICE
 ```
 
-For general startup and routing issues, see [Troubleshooting](../quick-start/troubleshooting.md).
+For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).

@@ -39,7 +39,7 @@ Key facts:
 | Dashboard (Kong) | `http://hermes.localhost:63002` | Requires `./start.sh --setup-hosts`. |
 | Internal DNS (other containers) | `http://hermes:8642` | Reachable from LiteLLM, n8n, backend, jupyterhub, openclaw. |
 
-See the canonical port table at [Ports and Routes](../deployment/ports-and-routes.md).
+See the canonical port table at [Ports and Routes](../../deployment/ports-and-routes.md).
 
 ## Architecture & wiring
 
@@ -212,7 +212,7 @@ curl -fsS http://localhost:63012/v1/models \
 docker compose exec hermes cat /opt/data/config.yaml
 ```
 
-For general startup and routing issues, see [Troubleshooting](../quick-start/troubleshooting.md).
+For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).
 
 ## References
 
