@@ -47,7 +47,7 @@ pytorch-lightning==2.4.0
 torchmetrics==1.4.2
 
 # Graph Neural Networks (PyG) — wheels matched to torch 2.4 CPU build
---find-links https://data.pyg.org/whl/torch-2.4.0+cpu.html
+--find-links https://data.pyg.org/whl/torch-2.4.0+cpu.html  # index uses minor version (covers torch 2.4.x)
 torch-scatter==2.1.2
 torch-sparse==0.6.18
 torch-cluster==1.6.3
