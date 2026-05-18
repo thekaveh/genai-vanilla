@@ -216,3 +216,50 @@ docker logs genai-supabase-studio -f
 **Initialization failures**: Check supabase-db-init logs for SQL script errors
 
 For more troubleshooting help, see [../quick-start/troubleshooting.md](../../quick-start/troubleshooting.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/supabase/service.yml`. Re-run `python -m bootstrapper.docs.regen supabase` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| globals | required | `http://globals:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares supabase in depends_on.required |
+| minio | required | minio declares supabase in depends_on.required |
+| neo4j | required | neo4j declares supabase in depends_on.required |
+| redis | required | redis declares supabase in depends_on.required |
+| weaviate | required | weaviate declares supabase in depends_on.required |
+| litellm | required | litellm declares supabase in depends_on.required |
+| ollama | required | ollama declares supabase in depends_on.required |
+| comfyui | required | comfyui declares supabase in depends_on.required |
+| searxng | required | searxng declares supabase in depends_on.required |
+| n8n | required | n8n declares supabase in depends_on.required |
+| backend | required | backend declares supabase in depends_on.required |
+| jupyterhub | required | jupyterhub declares supabase in depends_on.required |
+| local-deep-researcher | required | local-deep-researcher declares supabase in depends_on.required |
+| open-webui | required | open-webui declares supabase in depends_on.required |
+
+### Architecture diagram
+
+![supabase architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

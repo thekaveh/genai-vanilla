@@ -529,3 +529,41 @@ Identifies and extracts code blocks with syntax preservation.
 - [Docling GitHub](https://github.com/DS4SD/docling)
 - [TableFormer Paper](https://arxiv.org/abs/2203.01017)
 - [DocLayNet Dataset](https://github.com/DS4SD/DocLayNet)
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/doc-processor/service.yml`. Re-run `python -m bootstrapper.docs.regen doc-processor` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| globals | required | `http://globals:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares docling in depends_on.required |
+| backend | optional | backend lists docling as optional dep |
+| jupyterhub | optional | jupyterhub lists docling as optional dep |
+| local-deep-researcher | optional | local-deep-researcher lists docling as optional dep |
+| open-webui | optional | open-webui lists docling as optional dep |
+
+### Architecture diagram
+
+![doc-processor architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

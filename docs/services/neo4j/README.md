@@ -242,3 +242,37 @@ For more troubleshooting help, see [../quick-start/troubleshooting.md](../../qui
 - [Cypher Query Language](https://neo4j.com/docs/cypher-manual/)
 - [Neo4j APOC Documentation](https://neo4j.com/docs/apoc/)
 - [Graph Data Modeling](https://neo4j.com/docs/graph-data-modeling/)
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/neo4j/service.yml`. Re-run `python -m bootstrapper.docs.regen neo4j` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares neo4j in depends_on.required |
+
+### Architecture diagram
+
+![neo4j architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

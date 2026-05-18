@@ -220,3 +220,54 @@ For the current high-level stack diagram, see [Architecture Diagram](../../diagr
 - **Logs**: `docker logs genai-jupyterhub`
 - **Issues**: [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues)
 - **Docs**: [Full Documentation](../../README.md)
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/jupyterhub/service.yml`. Re-run `python -m bootstrapper.docs.regen jupyterhub` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| redis | required | `http://redis:<port>` | _unspecified_ |
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| weaviate | adaptive | `WEAVIATE_URL=http://weaviate:8080` | _unspecified_ |
+| weaviate | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| chatterbox | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| comfyui | adaptive | `COMFYUI_BASE_URL=${COMFYUI_ENDPOINT}` | _unspecified_ |
+| comfyui | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| docling | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| searxng | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| speaches | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| n8n | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| doc_processor | adaptive | `DOCLING_ENDPOINT=${DOCLING_ENDPOINT}` | _unspecified_ |
+| llm_provider | adaptive | `LITELLM_BASE_URL=http://litellm:4000` | _unspecified_ |
+| neo4j-graph-db | adaptive | `LITELLM_BASE_URL=http://litellm:4000` | _unspecified_ |
+| stt_provider | adaptive | `STT_ENDPOINT=${STT_ENDPOINT}` | _unspecified_ |
+| tts_provider | adaptive | `TTS_ENDPOINT=${TTS_ENDPOINT}` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares jupyterhub in depends_on.required |
+
+### Architecture diagram
+
+![jupyterhub architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

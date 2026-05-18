@@ -107,3 +107,41 @@ docker exec genai-litellm curl -s http://ollama:11434/api/tags
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md). For LiteLLM-specific debugging (model registration, virtual keys, spend logs), see [LiteLLM Gateway](../litellm/README.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/ollama/service.yml`. Re-run `python -m bootstrapper.docs.regen ollama` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| llm_provider | adaptive | `OLLAMA_HOST_URL=${LITELLM_OLLAMA_UPSTREAM}` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares ollama in depends_on.required |
+| comfyui | required | comfyui declares ollama in depends_on.required |
+| openclaw | optional | openclaw lists ollama as optional dep |
+
+### Architecture diagram
+
+![ollama architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

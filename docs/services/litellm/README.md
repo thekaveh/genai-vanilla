@@ -259,3 +259,51 @@ psql -h localhost -p ${SUPABASE_DB_PORT} -U postgres -d litellm -c "SELECT * FRO
 ## Backup option
 
 If LiteLLM ever stops being a fit (license shift, security incident, project drift), [Portkey AI Gateway](https://github.com/Portkey-ai/gateway) (Apache-2.0, ~8.7k★, 1600+ models) is the documented fallback. Migration cost is bounded because every consumer reads only `LITELLM_BASE_URL` + `LITELLM_API_KEY` — swap the gateway, not the consumers.
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/litellm/service.yml`. Re-run `python -m bootstrapper.docs.regen litellm` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| redis | required | `http://redis:<port>` | _unspecified_ |
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares litellm in depends_on.required |
+| weaviate | required | weaviate declares litellm in depends_on.required |
+| cloud-providers | required | cloud-providers declares litellm in depends_on.required |
+| ollama | required | ollama declares litellm in depends_on.required |
+| comfyui | required | comfyui declares litellm in depends_on.required |
+| parakeet | required | parakeet declares litellm in depends_on.required |
+| tts-provider | required | tts-provider declares litellm in depends_on.required |
+| hermes | required | hermes declares litellm in depends_on.required |
+| hermes | optional | manual escape hatch (doc_extras.diagram.extra_consumers) |
+| n8n | required | n8n declares litellm in depends_on.required |
+| openclaw | required | openclaw declares litellm in depends_on.required |
+| jupyterhub | required | jupyterhub declares litellm in depends_on.required |
+| local-deep-researcher | required | local-deep-researcher declares litellm in depends_on.required |
+| open-webui | required | open-webui declares litellm in depends_on.required |
+
+### Architecture diagram
+
+![litellm architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

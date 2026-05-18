@@ -44,3 +44,47 @@ docker compose logs -f SERVICE
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/local-deep-researcher/service.yml`. Re-run `python -m bootstrapper.docs.regen local-deep-researcher` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| weaviate | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| chatterbox | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| docling | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| searxng | required | `http://searxng:<port>` | _unspecified_ |
+| searxng | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| speaches | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| n8n | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares local-deep-researcher in depends_on.required |
+| open-webui | optional | open-webui lists local-deep-researcher as optional dep |
+
+### Architecture diagram
+
+![local-deep-researcher architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

@@ -300,3 +300,38 @@ lsof -i :63024
 - [LiteLLM Gateway](../litellm/README.md) — the OpenAI-compatible front door OpenClaw points at by default
 - [Hermes Agent](../hermes/README.md) — the programmable agent runtime OpenClaw bridges to messaging channels
 - [OpenClaw GitHub Repository](https://github.com/openclaw/openclaw)
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/openclaw/service.yml`. Re-run `python -m bootstrapper.docs.regen openclaw` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| ollama | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares openclaw in depends_on.required |
+
+### Architecture diagram
+
+![openclaw architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

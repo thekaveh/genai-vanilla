@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>redis — Architecture (genai-vanilla)</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #020617; font-family: 'JetBrains Mono', monospace; color: #c0caf5; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 32px; }
+    h1 { font-size: 22px; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px; }
+    h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: #7dcfff; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
+    .subtitle { color: #94a3b8; font-size: 12px; margin-bottom: 24px; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+    .cards h3 { margin: 0 0 8px 0; font-size: 12px; color: #94a3b8; }
+    .cards .num { font-size: 24px; font-weight: 700; }
+    footer { color: #475569; font-size: 10px; margin-top: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1><span class="dot"></span> redis — Architecture</h1>
+    <div class="subtitle">category: data · source: single</div>
+    <div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 820">
+<defs>
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+  </pattern>
+  <marker id="arrowhead-solid" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+  </marker>
+  <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24"/>
+  </marker>
+</defs>
+
+<rect width="880" height="820" fill="url(#grid)"/>
+<text x="100" y="36" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">UPSTREAM (deps)</text>
+<text x="460" y="36" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">FOCUS</text>
+<text x="720" y="36" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">DOWNSTREAM (consumers)</text>
+<line x1="260" y1="110" x2="360" y2="430" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · http://supabase:&lt;port&gt;</title></line>
+<line x1="560" y1="430" x2="620" y2="110" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · kong declares redis in depends_on.required</title></line>
+<line x1="560" y1="430" x2="620" y2="210" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · litellm declares redis in depends_on.required</title></line>
+<line x1="560" y1="430" x2="620" y2="310" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · searxng declares redis in depends_on.required</title></line>
+<line x1="560" y1="430" x2="620" y2="410" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · n8n declares redis in depends_on.required</title></line>
+<line x1="560" y1="430" x2="620" y2="510" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · backend declares redis in depends_on.required</title></line>
+<line x1="560" y1="430" x2="620" y2="610" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · jupyterhub declares redis in depends_on.required</title></line>
+<line x1="560" y1="430" x2="620" y2="710" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · open-webui declares redis in depends_on.required</title></line>
+<g class="box-required">
+  <rect x="60" y="80" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="60" y="80" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
+  <text x="160" y="102" fill="white" font-size="11" font-weight="600" text-anchor="middle">supabase</text>
+  <text x="160" y="118" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-focus">
+  <rect x="360" y="370" width="200" height="120" rx="6" fill="#0f172a"/>
+  <rect x="360" y="370" width="200" height="120" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
+  <text x="460" y="394" fill="white" font-size="14" font-weight="600" text-anchor="middle">REDIS</text>
+  <text x="460" y="414" fill="#94a3b8" font-size="9" text-anchor="middle">data · single</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="80" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="80" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#f7768e" stroke-width="1.5"/>
+  <text x="720" y="102" fill="white" font-size="11" font-weight="600" text-anchor="middle">kong</text>
+  <text x="720" y="118" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="180" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="180" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#e0af68" stroke-width="1.5"/>
+  <text x="720" y="202" fill="white" font-size="11" font-weight="600" text-anchor="middle">litellm</text>
+  <text x="720" y="218" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="280" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="280" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#7aa2f7" stroke-width="1.5"/>
+  <text x="720" y="302" fill="white" font-size="11" font-weight="600" text-anchor="middle">searxng</text>
+  <text x="720" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="380" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="380" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#9ece6a" stroke-width="1.5"/>
+  <text x="720" y="402" fill="white" font-size="11" font-weight="600" text-anchor="middle">n8n</text>
+  <text x="720" y="418" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="480" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="480" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
+  <text x="720" y="502" fill="white" font-size="11" font-weight="600" text-anchor="middle">backend</text>
+  <text x="720" y="518" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="580" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="580" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
+  <text x="720" y="602" fill="white" font-size="11" font-weight="600" text-anchor="middle">jupyterhub</text>
+  <text x="720" y="618" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+<g class="box-required">
+  <rect x="620" y="680" width="200" height="60" rx="6" fill="#0f172a"/>
+  <rect x="620" y="680" width="200" height="60" rx="6"
+        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
+  <text x="720" y="702" fill="white" font-size="11" font-weight="600" text-anchor="middle">open-webui</text>
+  <text x="720" y="718" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+</g>
+
+</svg></div>
+    <div class="cards">
+      <div class="card"><h3>Required deps</h3><div class="num">1</div></div>
+      <div class="card"><h3>Optional/adaptive deps</h3><div class="num">0</div></div>
+      <div class="card"><h3>Consumers</h3><div class="num">7</div></div>
+    </div>
+    <footer>Regenerate: python -m bootstrapper.docs.regen redis</footer>
+  </div>
+</body>
+</html>

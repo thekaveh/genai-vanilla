@@ -219,3 +219,53 @@ Kong integrates tightly with:
 - **Dynamic Scaling**: Adapts to enabled/disabled services
 
 For more information on Kong's role in the overall architecture, see the system overview in the project [README](../../README.md) and the architecture diagram at `docs/diagrams/architecture.svg`.
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/kong/service.yml`. Re-run `python -m bootstrapper.docs.regen kong` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| minio | required | `http://minio:<port>` | _unspecified_ |
+| neo4j | required | `http://neo4j:<port>` | _unspecified_ |
+| redis | required | `http://redis:<port>` | _unspecified_ |
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| weaviate | required | `http://weaviate:<port>` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| ollama | required | `http://ollama:<port>` | _unspecified_ |
+| comfyui | required | `http://comfyui:<port>` | _unspecified_ |
+| docling | required | `http://docling:<port>` | _unspecified_ |
+| parakeet | required | `http://parakeet:<port>` | _unspecified_ |
+| searxng | required | `http://searxng:<port>` | _unspecified_ |
+| tts-provider | required | `http://tts-provider:<port>` | _unspecified_ |
+| hermes | required | `http://hermes:<port>` | _unspecified_ |
+| n8n | required | `http://n8n:<port>` | _unspecified_ |
+| openclaw | required | `http://openclaw:<port>` | _unspecified_ |
+| backend | required | `http://backend:<port>` | _unspecified_ |
+| jupyterhub | required | `http://jupyterhub:<port>` | _unspecified_ |
+| local-deep-researcher | required | `http://local-deep-researcher:<port>` | _unspecified_ |
+| open-webui | required | `http://open-webui:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+_No downstream consumers._
+
+### Architecture diagram
+
+![kong architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

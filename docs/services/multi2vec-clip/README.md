@@ -44,3 +44,33 @@ docker compose logs -f SERVICE
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/multi2vec-clip/service.yml`. Re-run `python -m bootstrapper.docs.regen multi2vec-clip` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+_No upstream dependencies._
+
+### Current — Downstream (services that depend on this)
+
+_No downstream consumers._
+
+### Architecture diagram
+
+![multi2vec-clip architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._
