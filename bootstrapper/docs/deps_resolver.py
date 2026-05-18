@@ -156,9 +156,18 @@ def build_graph(focus: str, services_root: Path) -> DepGraph:
 _CATEGORY_RANK = {"infra": 0, "data": 1, "llm": 2, "media": 3, "agents": 4, "apps": 5, "external": 6}
 
 
-def _edge_sort_key(e: DepEdge) -> tuple[int, str]:
-    """Stable sort within a tier (spec A.3 rule #5): by category, then alphabetically."""
-    return (_CATEGORY_RANK.get(e.other_category, 99), e.other)
+def _edge_sort_key(e: DepEdge) -> tuple[int, str, int, str]:
+    """Stable sort within a tier (spec A.3 rule #5): by category, then alphabetically.
+
+    Tiebreakers (kind rank, mechanism) guarantee byte-deterministic output when
+    a service appears twice with different edge kinds (e.g. comfyui surfaces as
+    both `adaptive` and `optional` from Hermes' manifest)."""
+    return (
+        _CATEGORY_RANK.get(e.other_category, 99),
+        e.other,
+        _kind_rank(e.kind),
+        e.mechanism,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────
