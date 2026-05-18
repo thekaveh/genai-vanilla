@@ -20,7 +20,10 @@ WORKDIR /home/jovyan
 # Copy requirements file
 COPY requirements.txt /tmp/requirements.txt
 
-# Install Python dependencies
+# PyG family packages (torch-scatter, torch-sparse, etc.) use legacy setup.py builds
+# that require `torch` to be importable at metadata-generation time. Install torch
+# first so pip can resolve those packages' build dependencies.
+RUN pip install --no-cache-dir torch==2.4.1  # keep in sync with requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy startup script

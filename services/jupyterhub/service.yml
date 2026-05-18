@@ -1,6 +1,6 @@
 # services/jupyterhub/service.yml — JupyterHub data-science notebook
 name: jupyterhub
-label: "JupyterHub (data science notebooks)"
+label: "JupyterHub (DS/ML + LLM notebooks)"
 category: apps
 docs: docs/services/jupyterhub.md
 
@@ -46,7 +46,7 @@ rows:
     port_var: JUPYTERHUB_PORT
     scale_var: JUPYTERHUB_SCALE
     alias: jupyter.localhost
-    description: "Data-science notebooks."
+    description: "DS/ML and LLM notebooks."
 
 exports: []
 

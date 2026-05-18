@@ -36,3 +36,24 @@ networkx>=3.3
 # Jupyter Extensions
 ipywidgets>=8.1.0
 jupyter-server-proxy>=4.1.0
+
+# Deep Learning — PyTorch core
+torch==2.4.1
+torchvision==0.19.1
+torchaudio==2.4.1
+
+# Deep Learning — higher-level frameworks
+pytorch-lightning==2.4.0
+torchmetrics==1.4.2
+
+# Graph Neural Networks (PyG) — wheels matched to torch 2.4 CPU build
+--find-links https://data.pyg.org/whl/torch-2.4.0+cpu.html  # index uses minor version (covers torch 2.4.x)
+torch-scatter==2.1.2
+torch-sparse==0.6.18
+torch-cluster==1.6.3
+torch-spline-conv==1.2.2
+torch_geometric==2.6.1
+
+# ML utilities
+tqdm>=4.66.0
+kaleido>=0.2.1
