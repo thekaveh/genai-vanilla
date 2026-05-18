@@ -42,6 +42,15 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 > at `docs/services/doc-processor.md`. The `doc-processor` name is the
 > stable public API; `docling` is the single engine implementing it.
 
+### Added (Cross-service deps + diagrams — Phase A foundations)
+- Migrated `docs/services/<name>.md` → `docs/services/<name>/README.md` (per-service folders).
+- Added standardized **Dependencies & Integrations** subsection to every service README, with Current (manifest-derived) tables and Future (placeholder) subsections.
+- Added per-service architecture diagrams (`architecture.html` + `architecture.svg`) under each service folder, generated from manifests via `python -m bootstrapper.docs.regen`.
+- Added CI drift gate (`bootstrapper/tests/test_docs_drift.py`) that fails when committed deps sections or diagrams diverge from manifest state.
+- Added internal-link validator (`scripts/check_doc_links.py`) covering README, CHANGELOG, and the whole `docs/` tree.
+- New optional manifest fields: `runtime_adaptive.<container>.failure_mode` (string) and `doc_extras.diagram.extra_consumers` (list of service names).
+- Cross-service deps + diagrams research/authoring (Phases B & C) deferred — see `docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+
 ### Added (Dependency vulnerability monitoring)
 - **`.github/dependabot.yml`** — weekly pip + GitHub Actions scans on every active manifest (`bootstrapper/`, `services/backend/app/`, `services/jupyterhub/build/`, `services/docling/provider/{gpu,localhost}/`, `services/parakeet/provider/{gpu,mlx}/`). Alerts grouped by ecosystem to reduce PR noise. `directories:` deliberately enumerates ALL active manifests so an omission doesn't silently drop coverage from the scan.
 - **`SECURITY.md` threat model** — published threat tiers, supported versions, and the responsible-disclosure address. Aligns with the dependabot scan-coverage list.
