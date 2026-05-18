@@ -50,7 +50,7 @@ WEAVIATE_ENABLE_MODULES=text2vec-openai,generative-openai
 CLIP_INFERENCE_API=
 ```
 
-## Dependencies and integration
+## Integration notes
 
 The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, or init containers depending on which SOURCE modes are enabled.
 

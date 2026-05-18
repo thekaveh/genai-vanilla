@@ -27,12 +27,6 @@ COMFYUI_SOURCE=<option>
 
 Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted changes when the CLI exposes one.
 
-## Dependencies and integration
-
-The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, Weaviate, or init containers depending on which SOURCE modes are enabled.
-
-If a dependency is disabled, adaptive services should degrade where supported. Some implementation-level dependency cleanup is tracked separately as bootstrapper work and is outside this documentation pass.
-
 ## Troubleshooting
 
 ```bash

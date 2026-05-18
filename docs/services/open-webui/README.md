@@ -27,7 +27,7 @@ OPEN_WEB_UI_SOURCE=<option>
 
 Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted changes when the CLI exposes one.
 
-## Dependencies and integration
+## Integration notes
 
 The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, Weaviate, or init containers depending on which SOURCE modes are enabled.
 

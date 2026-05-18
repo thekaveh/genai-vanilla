@@ -162,7 +162,7 @@ for scripted changes.
   may take up to 5 minutes to appear in the dropdown. Set
   `OPEN_WEB_UI_MODEL_CACHE_TTL=0` to disable while developing.
 
-## Dependencies and integration
+## Integration notes
 
 Depends on (must be alive for Hermes to be useful):
 

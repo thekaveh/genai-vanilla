@@ -40,7 +40,7 @@ LiteLLM resolves the upstream URL from `LITELLM_OLLAMA_UPSTREAM` (set automatica
 
 Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted changes when the CLI exposes one.
 
-## Dependencies and integration
+## Integration notes
 
 The Ollama service participates in the Docker Compose network and is consumed exclusively by:
 
