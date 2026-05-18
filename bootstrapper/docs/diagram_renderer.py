@@ -7,6 +7,7 @@ body; timestamps live in the HTML footer only).
 
 from __future__ import annotations
 
+import html
 import sys
 from pathlib import Path
 from string import Template
@@ -165,7 +166,8 @@ def _edge(x1: int, y1: int, x2: int, y2: int, e: DepEdge) -> str:
         stroke, marker, dash = "#fbbf24", "arrowhead-dashed", 'stroke-dasharray="4,4"'
     else:
         stroke, marker, dash = "#94a3b8", "arrowhead-solid", 'stroke-dasharray="2,3"'
-    title = f"<title>{e.kind} · {e.failure_mode or e.mechanism}</title>" if e.failure_mode or e.mechanism else ""
+    title_text = f"{e.kind} · {e.failure_mode or e.mechanism}" if e.failure_mode or e.mechanism else ""
+    title = f"<title>{html.escape(title_text)}</title>" if title_text else ""
     return (
         f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
         f'stroke="{stroke}" stroke-width="1.5" {dash} marker-end="url(#{marker})">'

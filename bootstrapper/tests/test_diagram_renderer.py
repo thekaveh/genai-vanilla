@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -100,3 +101,18 @@ def test_non_aggregate_has_no_rose_boundary():
     g = build_doc_graph("hermes", SERVICES_DIR)
     svg = render_svg(g)
     assert "#fb7185" not in svg
+
+
+def test_svg_is_well_formed_xml_across_services():
+    """Every service's SVG must parse as well-formed XML. Catches issues like
+    unescaped `<port>` placeholder text in mechanism strings breaking title elements."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+
+    services_to_check = ["hermes", "kong", "litellm", "redis", "stt-provider", "tts-provider", "ollama"]
+    for svc in services_to_check:
+        svg = render_svg(build_doc_graph(svc, SERVICES_DIR))
+        try:
+            ET.fromstring(svg)
+        except ET.ParseError as exc:
+            raise AssertionError(f"{svc}'s SVG is not well-formed XML: {exc}") from None
