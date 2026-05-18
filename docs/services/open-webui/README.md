@@ -46,3 +46,46 @@ docker compose logs -f SERVICE
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/open-webui/service.yml`. Re-run `python -m bootstrapper.docs.regen open-webui` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| redis | required | `http://redis:<port>` | _unspecified_ |
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| weaviate | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| chatterbox | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| docling | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| speaches | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| hermes | required | `http://hermes:<port>` | _unspecified_ |
+| local-deep-researcher | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares open-webui in depends_on.required |
+
+### Architecture diagram
+
+![open-webui architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

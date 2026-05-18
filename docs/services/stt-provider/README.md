@@ -153,3 +153,44 @@ If empty, `STT_PROVIDER_SOURCE` is `disabled`.
 - [Parakeet-MLX](https://github.com/senstella/parakeet-mlx)
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
 - [OpenAI Whisper API spec](https://platform.openai.com/docs/guides/speech-to-text)
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/stt-provider/service.yml`. Re-run `python -m bootstrapper.docs.regen stt-provider` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| tts-provider | required | `http://tts-provider:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares parakeet in depends_on.required |
+| hermes | optional | hermes lists parakeet as optional dep |
+| n8n | optional | n8n lists parakeet as optional dep |
+| backend | optional | backend lists parakeet as optional dep |
+| jupyterhub | optional | jupyterhub lists parakeet as optional dep |
+| local-deep-researcher | optional | local-deep-researcher lists parakeet as optional dep |
+| open-webui | optional | open-webui lists parakeet as optional dep |
+
+### Architecture diagram
+
+![stt-provider architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

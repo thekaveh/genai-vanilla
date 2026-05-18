@@ -44,3 +44,46 @@ docker compose logs -f SERVICE
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/n8n/service.yml`. Re-run `python -m bootstrapper.docs.regen n8n` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| redis | required | `http://redis:<port>` | _unspecified_ |
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| doc_processor | adaptive | `DOCLING_ENDPOINT=${DOCLING_ENDPOINT}` | _unspecified_ |
+| stt_provider | adaptive | `STT_ENDPOINT=${STT_ENDPOINT}` | _unspecified_ |
+| tts_provider | adaptive | `TTS_ENDPOINT=${TTS_ENDPOINT}` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares n8n in depends_on.required |
+| backend | optional | backend lists n8n as optional dep |
+| jupyterhub | optional | jupyterhub lists n8n as optional dep |
+| local-deep-researcher | optional | local-deep-researcher lists n8n as optional dep |
+
+### Architecture diagram
+
+![n8n architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

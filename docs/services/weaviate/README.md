@@ -67,3 +67,45 @@ docker compose logs -f SERVICE
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../quick-start/troubleshooting.md).
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/weaviate/service.yml`. Re-run `python -m bootstrapper.docs.regen weaviate` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| llm_provider | adaptive | `LITELLM_BASE_URL=http://litellm:4000` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares weaviate in depends_on.required |
+| backend | adaptive | backend adapts_to weaviate |
+| backend | optional | backend lists weaviate as optional dep |
+| jupyterhub | adaptive | jupyterhub adapts_to weaviate |
+| jupyterhub | optional | jupyterhub lists weaviate as optional dep |
+| local-deep-researcher | optional | local-deep-researcher lists weaviate as optional dep |
+| open-webui | optional | open-webui lists weaviate as optional dep |
+
+### Architecture diagram
+
+![weaviate architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._

@@ -199,3 +199,43 @@ engine. Override in Open WebUI admin → Audio, or set
 - [Chatterbox upstream](https://github.com/resemble-ai/chatterbox)
 - [chatterbox-tts-api server](https://github.com/travisvn/chatterbox-tts-api)
 - [OpenAI Audio API spec](https://platform.openai.com/docs/guides/text-to-speech)
+
+## Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/tts-provider/service.yml`. Re-run `python -m bootstrapper.docs.regen tts-provider` after manifest changes.
+
+### Current — Upstream (this service depends on)
+
+| Service | Type | Mechanism | Failure mode |
+|---|---|---|---|
+| litellm | required | `http://litellm:<port>` | _unspecified_ |
+| parakeet | required | `http://parakeet:<port>` | _unspecified_ |
+
+### Current — Downstream (services that depend on this)
+
+| Service | Type | Mechanism |
+|---|---|---|
+| kong | required | kong declares tts-provider in depends_on.required |
+| hermes | optional | hermes lists chatterbox as optional dep |
+| backend | optional | backend lists chatterbox as optional dep |
+| jupyterhub | optional | jupyterhub lists chatterbox as optional dep |
+| local-deep-researcher | optional | local-deep-researcher lists chatterbox as optional dep |
+| open-webui | optional | open-webui lists chatterbox as optional dep |
+
+### Architecture diagram
+
+![tts-provider architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### Future — Unused features in this service
+
+_No high-confidence opportunities identified._
