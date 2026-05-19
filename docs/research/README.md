@@ -1,0 +1,99 @@
+# Cross-service integration research
+
+This directory holds the **Phase B research artifacts** for the cross-service
+deps + diagrams project. The umbrella spec is at
+`docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+
+## Layout
+
+| Path | Purpose |
+|---|---|
+| `rows/<service>.md` | One per service doc folder under `docs/services/`. Captures the service's missing-pair integrations, candidate new services, and feature gaps. **One file = one author = one subagent run.** |
+| `candidates/<slug>.md` | One per candidate new service (e.g. `obsidian-mcp.md`, `langfuse.md`). Multiple rows may reference the same candidate. |
+| `integration-matrix.md` | Generated index that aggregates all rows by service, by category, plus a global candidates table. **Do not edit by hand.** Re-generate with `python -m bootstrapper.docs.merge_research`. |
+
+## Row file schema
+
+Each `rows/<service>.md` is a markdown file with frontmatter:
+
+```yaml
+---
+service: <doc-folder-name>          # e.g. hermes, stt-provider
+category: infra | data | llm | media | agents | apps
+generated: YYYY-MM-DD
+generator: phase-b-subagent | phase-b-controller | phase-b-hand-edit
+sources_consulted:
+  - <URL or local path>
+  - ...
+---
+```
+
+Followed by exactly three numbered sections:
+
+1. `## 1. Missing-pair integrations` — pairs of EXISTING stack services that should be wired together but aren't yet. Each bullet must include: Why valuable, Mechanism sketch, Effort (small | medium | large), Risks / open questions, Confidence (high | medium | low).
+2. `## 2. Candidate new services` — services NOT in the stack today that would slot in cleanly. Each bullet points at a full one-pager in `candidates/<slug>.md`. Each row file caps at **5 candidates**.
+3. `## 3. Per-service feature gaps` — features the upstream project exposes that we don't yet leverage.
+
+If a section has no findings, use the exact placeholder line:
+
+```
+_No high-confidence opportunities identified._
+```
+
+**Hard caps:**
+- 800 words total per row file.
+- 5 candidate cross-references per row file.
+
+## Candidate one-pager schema
+
+Each `candidates/<slug>.md`:
+
+```yaml
+---
+slug: <kebab-case>
+name: <Display Name>
+type: external-service
+category-fit: agents | data | media | infra | llm | apps
+generated: YYYY-MM-DD
+upstream: <URL>
+license: <SPDX identifier or "unknown">
+referenced-by: [<service>, ...]      # maintained by merge script, not by author
+---
+```
+
+Six required sections:
+
+1. `## Headline` — one sentence.
+2. `## Problem it solves` — 2-3 sentences.
+3. `## Stack wiring sketch` — bullets naming real services in the current topology.
+4. `## Effort` — small / medium / large + one sentence.
+5. `## Risks & open questions` — bullets (may be empty but heading is required).
+6. `## Upstream evidence` — at least one URL backing the claim.
+
+`## Why now (and why not sooner)` is optional.
+
+## Validation
+
+A schema validator lives at `scripts/validate_research_schema.py`. Run it on
+one file or all:
+
+```bash
+python scripts/validate_research_schema.py docs/research/rows/hermes.md
+python scripts/validate_research_schema.py --all
+```
+
+Exit 0 = valid, 1 = errors (printed with file:line refs).
+
+## Merging
+
+`python -m bootstrapper.docs.merge_research` reads all rows + candidates,
+emits `integration-matrix.md`, and reconciles `referenced-by:` on each
+candidate. Deterministic and idempotent.
+
+## Dispatch pattern (how Phase B was produced)
+
+21 parallel `Explore`-type subagents, one per doc folder, each given a
+programmatically-generated prompt by `bootstrapper.docs.research_subagent_prompt.build_research_prompt(name)`.
+WebFetch budget: 8 per subagent. Subagents write to their own row file
+(no contention) and may create candidate one-pagers (collision-safe via
+file-exists check + `## Cross-references` append).
