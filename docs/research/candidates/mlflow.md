@@ -1,12 +1,12 @@
 ---
-slug: mlflow
-name: MLflow
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/mlflow/mlflow
 license: Apache-2.0
-referenced-by: [jupyterhub]
+name: MLflow
+referenced-by: [backend, jupyterhub]
+slug: mlflow
+type: external-service
+upstream: https://github.com/mlflow/mlflow
 ---
 
 # MLflow

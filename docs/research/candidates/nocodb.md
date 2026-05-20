@@ -1,12 +1,12 @@
 ---
-slug: nocodb
-name: NocoDB
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/nocodb/nocodb
 license: AGPL-3.0
+name: NocoDB
 referenced-by: [n8n]
+slug: nocodb
+type: external-service
+upstream: https://github.com/nocodb/nocodb
 ---
 
 # NocoDB

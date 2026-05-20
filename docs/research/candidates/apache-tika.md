@@ -1,12 +1,12 @@
 ---
-slug: apache-tika
-name: Apache Tika
-type: external-service
 category-fit: media
 generated: 2026-05-19
-upstream: https://tika.apache.org/
 license: Apache-2.0
+name: Apache Tika
 referenced-by: [doc-processor]
+slug: apache-tika
+type: external-service
+upstream: https://tika.apache.org/
 ---
 
 # Apache Tika

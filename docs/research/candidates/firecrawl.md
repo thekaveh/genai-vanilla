@@ -1,12 +1,12 @@
 ---
-slug: firecrawl
-name: Firecrawl
-type: external-service
 category-fit: media
 generated: 2026-05-19
-upstream: https://github.com/mendableai/firecrawl
 license: AGPL-3.0
+name: Firecrawl
 referenced-by: [local-deep-researcher]
+slug: firecrawl
+type: external-service
+upstream: https://github.com/mendableai/firecrawl
 ---
 
 # Firecrawl

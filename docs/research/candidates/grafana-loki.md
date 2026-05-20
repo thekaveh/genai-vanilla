@@ -1,12 +1,12 @@
 ---
-slug: grafana-loki
-name: Grafana Loki
-type: external-service
 category-fit: infra
 generated: 2026-05-19
-upstream: https://grafana.com/docs/loki/latest/
 license: AGPL-3.0
+name: Grafana Loki
 referenced-by: [kong]
+slug: grafana-loki
+type: external-service
+upstream: https://grafana.com/docs/loki/latest/
 ---
 
 # Grafana Loki

@@ -1,12 +1,12 @@
 ---
-slug: verba
-name: Verba
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/weaviate/Verba
 license: BSD-3-Clause
+name: Verba
 referenced-by: [weaviate]
+slug: verba
+type: external-service
+upstream: https://github.com/weaviate/Verba
 ---
 
 # Verba

@@ -1,12 +1,12 @@
 ---
-slug: supavisor
-name: Supavisor
-type: external-service
 category-fit: data
 generated: 2026-05-19
-upstream: https://github.com/supabase/supavisor
 license: Apache-2.0
+name: Supavisor
 referenced-by: [supabase]
+slug: supavisor
+type: external-service
+upstream: https://github.com/supabase/supavisor
 ---
 
 # Supavisor

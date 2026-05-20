@@ -1,12 +1,12 @@
 ---
-slug: neo4j-llm-graph-builder
-name: Neo4j LLM Knowledge Graph Builder
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/neo4j-labs/llm-graph-builder
 license: Apache-2.0
+name: Neo4j LLM Knowledge Graph Builder
 referenced-by: [neo4j]
+slug: neo4j-llm-graph-builder
+type: external-service
+upstream: https://github.com/neo4j-labs/llm-graph-builder
 ---
 
 # Neo4j LLM Knowledge Graph Builder

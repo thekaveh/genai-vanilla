@@ -1,12 +1,12 @@
 ---
-slug: openlit
-name: OpenLIT
-type: external-service
 category-fit: infra
 generated: 2026-05-19
-upstream: https://github.com/openlit/openlit
 license: Apache-2.0
+name: OpenLIT
 referenced-by: [ollama]
+slug: openlit
+type: external-service
+upstream: https://github.com/openlit/openlit
 ---
 
 # OpenLIT

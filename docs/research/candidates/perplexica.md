@@ -1,12 +1,12 @@
 ---
-slug: perplexica
-name: Perplexica (Vane)
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/ItzCrazyKns/Perplexica
 license: MIT
+name: Perplexica (Vane)
 referenced-by: [searxng]
+slug: perplexica
+type: external-service
+upstream: https://github.com/ItzCrazyKns/Perplexica
 ---
 
 # Perplexica (Vane)

@@ -1,12 +1,12 @@
 ---
-slug: supabase-edge-functions
-name: Supabase Edge Functions (Deno runtime)
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://supabase.com/docs/guides/functions
 license: Apache-2.0
+name: Supabase Edge Functions (Deno runtime)
 referenced-by: [supabase]
+slug: supabase-edge-functions
+type: external-service
+upstream: https://supabase.com/docs/guides/functions
 ---
 
 # Supabase Edge Functions (Deno runtime)

@@ -1,12 +1,12 @@
 ---
-slug: iceberg-duckdb
-name: Apache Iceberg + DuckDB
-type: external-service
 category-fit: data
 generated: 2026-05-19
-upstream: https://iceberg.apache.org/
 license: Apache-2.0
+name: Apache Iceberg + DuckDB
 referenced-by: [minio]
+slug: iceberg-duckdb
+type: external-service
+upstream: https://iceberg.apache.org/
 ---
 
 # Apache Iceberg + DuckDB

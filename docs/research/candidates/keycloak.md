@@ -1,12 +1,12 @@
 ---
-slug: keycloak
-name: Keycloak
-type: external-service
 category-fit: infra
 generated: 2026-05-19
-upstream: https://www.keycloak.org/
 license: Apache-2.0
+name: Keycloak
 referenced-by: [kong]
+slug: keycloak
+type: external-service
+upstream: https://www.keycloak.org/
 ---
 
 # Keycloak

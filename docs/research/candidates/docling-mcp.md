@@ -1,12 +1,12 @@
 ---
-slug: docling-mcp
-name: Docling MCP Server
-type: external-service
 category-fit: agents
 generated: 2026-05-19
-upstream: https://github.com/docling-project/docling-mcp
 license: MIT
+name: Docling MCP Server
 referenced-by: [doc-processor]
+slug: docling-mcp
+type: external-service
+upstream: https://github.com/docling-project/docling-mcp
 ---
 
 # Docling MCP Server

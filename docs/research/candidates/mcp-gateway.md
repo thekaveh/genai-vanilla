@@ -1,12 +1,12 @@
 ---
-slug: mcp-gateway
-name: MCP Gateway
-type: external-service
 category-fit: agents
 generated: 2026-05-19
-upstream: https://github.com/modelcontextprotocol/servers
 license: MIT
+name: MCP Gateway
 referenced-by: [hermes]
+slug: mcp-gateway
+type: external-service
+upstream: https://github.com/modelcontextprotocol/servers
 ---
 
 # MCP Gateway

@@ -1,12 +1,12 @@
 ---
-slug: whisperx
-name: WhisperX
-type: external-service
 category-fit: media
 generated: 2026-05-19
-upstream: https://github.com/m-bain/whisperx
 license: BSD-2-Clause
+name: WhisperX
 referenced-by: [stt-provider]
+slug: whisperx
+type: external-service
+upstream: https://github.com/m-bain/whisperx
 ---
 
 # WhisperX
