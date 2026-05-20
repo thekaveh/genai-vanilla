@@ -21,9 +21,9 @@ sources_consulted:
 
 ## 2. Candidate new services
 
-- **Obsidian MCP server** → `../candidates/obsidian-mcp.md`
-  - Headline: extends Hermes's MCP client to read/write an Obsidian vault
-  - Other consumers in stack: backend (notes search), n8n (workflow nodes)
+- **Example Candidate** → `../candidates/example-candidate.md`
+  - Headline: synthetic example one-pager paired with this row fixture
+  - Other consumers in stack: backend, n8n (illustrative only)
 
 ## 3. Per-service feature gaps
 
