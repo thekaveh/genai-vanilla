@@ -1,12 +1,21 @@
 ---
-slug: langfuse
-name: Langfuse
-type: external-service
 category-fit: agents
 generated: 2026-05-19
-upstream: https://github.com/langfuse/langfuse
 license: MIT
-referenced-by: [comfyui, n8n]
+name: Langfuse
+referenced-by:
+  - backend
+  - comfyui
+  - hermes
+  - litellm
+  - local-deep-researcher
+  - minio
+  - n8n
+  - ollama
+  - open-webui
+slug: langfuse
+type: external-service
+upstream: https://github.com/langfuse/langfuse
 ---
 
 # Langfuse

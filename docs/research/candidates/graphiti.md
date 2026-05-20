@@ -1,12 +1,12 @@
 ---
-slug: graphiti
-name: Graphiti
-type: external-service
 category-fit: agents
 generated: 2026-05-19
-upstream: https://github.com/getzep/graphiti
 license: Apache-2.0
+name: Graphiti
 referenced-by: [neo4j]
+slug: graphiti
+type: external-service
+upstream: https://github.com/getzep/graphiti
 ---
 
 # Graphiti

@@ -1,12 +1,12 @@
 ---
-slug: browserless
-name: Browserless
-type: external-service
 category-fit: media
 generated: 2026-05-19
-upstream: https://github.com/browserless/browserless
 license: SSPL-1.0
-referenced-by: [n8n]
+name: Browserless
+referenced-by: [n8n, searxng]
+slug: browserless
+type: external-service
+upstream: https://github.com/browserless/browserless
 ---
 
 # Browserless

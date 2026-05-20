@@ -1,12 +1,12 @@
 ---
-slug: siglip2-vectorizer
-name: SigLIP 2 Vectorizer
-type: external-service
 category-fit: data
 generated: 2026-05-19
-upstream: https://github.com/weaviate/multi2vec-clip-inference
 license: Apache-2.0
+name: SigLIP 2 Vectorizer
 referenced-by: [multi2vec-clip]
+slug: siglip2-vectorizer
+type: external-service
+upstream: https://github.com/weaviate/multi2vec-clip-inference
 ---
 
 # SigLIP 2 Vectorizer

@@ -1,12 +1,12 @@
 ---
-slug: mcpo
-name: mcpo (MCP-to-OpenAPI Proxy)
-type: external-service
 category-fit: agents
 generated: 2026-05-19
-upstream: https://github.com/open-webui/mcpo
 license: MIT
+name: mcpo (MCP-to-OpenAPI Proxy)
 referenced-by: [open-webui]
+slug: mcpo
+type: external-service
+upstream: https://github.com/open-webui/mcpo
 ---
 
 # mcpo (MCP-to-OpenAPI Proxy)

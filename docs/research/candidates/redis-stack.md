@@ -1,12 +1,12 @@
 ---
-slug: redis-stack
-name: Redis Stack (redis-stack-server)
-type: external-service
 category-fit: data
 generated: 2026-05-19
-upstream: https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/
 license: RSALv2
+name: Redis Stack (redis-stack-server)
 referenced-by: [redis]
+slug: redis-stack
+type: external-service
+upstream: https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/
 ---
 
 # Redis Stack (redis-stack-server)

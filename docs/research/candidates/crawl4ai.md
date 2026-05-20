@@ -1,12 +1,12 @@
 ---
-slug: crawl4ai
-name: Crawl4AI
-type: external-service
 category-fit: media
 generated: 2026-05-19
-upstream: https://github.com/unclecode/crawl4ai
 license: Apache-2.0
+name: Crawl4AI
 referenced-by: [local-deep-researcher]
+slug: crawl4ai
+type: external-service
+upstream: https://github.com/unclecode/crawl4ai
 ---
 
 # Crawl4AI

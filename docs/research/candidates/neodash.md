@@ -1,12 +1,12 @@
 ---
-slug: neodash
-name: NeoDash
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/neo4j-labs/neodash
 license: Apache-2.0
+name: NeoDash
 referenced-by: [neo4j]
+slug: neodash
+type: external-service
+upstream: https://github.com/neo4j-labs/neodash
 ---
 
 # NeoDash

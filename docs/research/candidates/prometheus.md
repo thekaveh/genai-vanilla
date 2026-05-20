@@ -1,12 +1,12 @@
 ---
-slug: prometheus
-name: Prometheus
-type: external-service
 category-fit: infra
 generated: 2026-05-19
-upstream: https://prometheus.io/docs/introduction/overview/
 license: Apache-2.0
+name: Prometheus
 referenced-by: [kong]
+slug: prometheus
+type: external-service
+upstream: https://prometheus.io/docs/introduction/overview/
 ---
 
 # Prometheus

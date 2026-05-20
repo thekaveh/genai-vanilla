@@ -1,12 +1,12 @@
 ---
-slug: unmute
-name: Unmute (Kyutai)
-type: external-service
 category-fit: media
 generated: 2026-05-19
-upstream: https://github.com/kyutai-labs/unmute
 license: MIT
+name: Unmute (Kyutai)
 referenced-by: [tts-provider]
+slug: unmute
+type: external-service
+upstream: https://github.com/kyutai-labs/unmute
 ---
 
 # Unmute (Kyutai)

@@ -1,12 +1,12 @@
 ---
-slug: honcho
-name: Honcho
-type: external-service
 category-fit: data
 generated: 2026-05-19
-upstream: https://github.com/plastic-labs/honcho
 license: AGPL-3.0
+name: Honcho
 referenced-by: [openclaw]
+slug: honcho
+type: external-service
+upstream: https://github.com/plastic-labs/honcho
 ---
 
 # Honcho

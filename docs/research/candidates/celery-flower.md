@@ -1,12 +1,12 @@
 ---
-slug: celery-flower
-name: Celery + Flower
-type: external-service
 category-fit: infra
 generated: 2026-05-19
-upstream: https://github.com/celery/celery
 license: BSD-3-Clause
+name: Celery + Flower
 referenced-by: [backend]
+slug: celery-flower
+type: external-service
+upstream: https://github.com/celery/celery
 ---
 
 # Celery + Flower

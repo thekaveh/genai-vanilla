@@ -1,12 +1,12 @@
 ---
-slug: redisinsight
-name: RedisInsight
-type: external-service
 category-fit: data
 generated: 2026-05-19
-upstream: https://github.com/RedisInsight/RedisInsight
 license: SSPL-1.0
+name: RedisInsight
 referenced-by: [redis]
+slug: redisinsight
+type: external-service
+upstream: https://github.com/RedisInsight/RedisInsight
 ---
 
 # RedisInsight

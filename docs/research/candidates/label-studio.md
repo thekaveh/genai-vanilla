@@ -1,12 +1,12 @@
 ---
-slug: label-studio
-name: Label Studio
-type: external-service
 category-fit: apps
 generated: 2026-05-19
-upstream: https://github.com/HumanSignal/label-studio
 license: Apache-2.0
+name: Label Studio
 referenced-by: [jupyterhub]
+slug: label-studio
+type: external-service
+upstream: https://github.com/HumanSignal/label-studio
 ---
 
 # Label Studio
