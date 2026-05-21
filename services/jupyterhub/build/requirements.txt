@@ -43,7 +43,6 @@ torchvision==0.19.1
 torchaudio==2.4.1
 
 # Deep Learning — higher-level frameworks
-pytorch-lightning==2.4.0
 torchmetrics==1.4.2
 
 # Graph Neural Networks (PyG) — wheels matched to torch 2.4 CPU build
