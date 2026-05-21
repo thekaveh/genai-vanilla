@@ -4,7 +4,7 @@ This document outlines future development plans and enhancements for the GenAI V
 
 ## Current status
 
-The stack now orchestrates 30+ services across AI inference, workflow automation, data science, document processing, speech, and the Supabase ecosystem. An additional 30 candidate services are tracked across the Tier 1/2/3 sections below, including labelled sub-sections for the **3D / game-generation**, **financial / trading-AI**, and **RAG-enhancement** strategic tracks. Architectural milestones to date:
+The stack now orchestrates 30+ services across AI inference, workflow automation, data science, document processing, speech, and the Supabase ecosystem. An additional set of candidate services is tracked across the Tier 1/2/3 sections below, including labelled sub-sections for the **3D / game-generation**, **financial / trading-AI**, and **RAG-enhancement** strategic tracks. Architectural milestones to date:
 - Dynamic Kong API Gateway configuration
 - Python cross-platform bootstrapping with CLI SOURCE overrides
 - Service integration spanning Ollama, ComfyUI, n8n, Open WebUI, SearxNG, Supabase, Neo4j, OpenClaw, Weaviate, JupyterHub, and more
@@ -158,9 +158,75 @@ Consumed by (services that would call Infisical):
 - **All `.env`-reading services** — Backend, n8n, Hermes, OpenClaw, LiteLLM, Weaviate, Neo4j integrations, ComfyUI, JupyterHub, and the trading- / 3D-track candidates — via the Infisical agent / SDK injection pattern at container start
 - **Bootstrapper** — `.env` generation can pull live values from Infisical instead of hard-coding them in `.env.example`
 
+**OpenBao — production-grade key custody (complement to Infisical)**
+- Open-source fork of HashiCorp Vault (MPL-2.0; Linux Foundation–stewarded), pre-dating Vault's BSL relicense. Provides a Transit engine where private keys never leave the vault — encrypt and sign happen inside.
+- Different threat model from **Infisical** (Tier 1): Infisical is the right home for *ops secrets* (`.env` rotation, third-party-API keys for non-financial services). OpenBao is for *high-value cryptographic keys* — trading-account signing keys, web3 / wallet keys, code-signing keys, JWT signers.
+- Pair with a hardware root (YubiHSM, AWS / GCP / Azure cloud KMS) for the unseal key; per-consumer scoped tokens with deny-by-default policies.
+- Phase-2 prerequisite for the financial / trading-AI track moving from paper to live trading.
+
+**Stack integration points:**
+
+Depends on (services OpenBao would consume):
+- **Supabase (PostgreSQL)** — storage backend (alternative to file or Raft storage)
+- Optional hardware root (YubiHSM / cloud KMS) for unseal-key custody
+
+Consumed by (services that would call OpenBao):
+- **NautilusTrader / Hummingbot workers** (trading track) — request signatures for orders without ever holding the private key
+- **Backend (FastAPI)** — application-level signing operations (audit-trail anchors, signed promotion records, signed scene-export URLs)
+- **n8n / Windmill** — workflow steps that need cryptographic signing
+- **Audit-sealer worker** — Merkle-anchor signing for the immutable-archive pipeline
+
 ---
 
 ### Tier 2: planned candidates
+
+#### Cross-cutting infrastructure
+
+These services were surfaced during the financial / trading-AI scoping work but are pipeline-agnostic. They belong here at Tier 2 because every strategic track (3D / game-generation, financial / trading-AI, RAG specializations, and the forthcoming data-engineering track) benefits from them.
+
+**Ray cluster — parallel-work substrate (cross-cutting)**
+- Apache-2.0; Ray and Ray Tune are the de-facto 2026 OSS pattern for parallel computation and hyperparameter search. Any pipeline that needs to fan work across many cores or many nodes.
+- **Trading:** parallel backtest sweeps (NautilusTrader runs *inside* each Ray task), hyperparameter search over strategy configurations.
+- **Dreamscapes / 3D:** parallel batch rendering across camera angles, A/B mesh-candidate generation (InstantMesh vs Hunyuan3D-2), large WaveFunctionCollapse tile-world generation, NeRF training acceleration.
+- **RAG:** parallel embedding pipelines, re-indexing jobs over large corpora, batch reranking.
+- **Dask** (BSD-3) is the lighter alternative if Ray's footprint is too heavy for a given deployment.
+
+**Stack integration points:**
+
+Depends on (services Ray would consume):
+- **Supabase (PostgreSQL)** / **TimescaleDB** — historical / time-series input
+- **MinIO** — input and output artifacts (backtest results, rendered frames, splat outputs, embedding shards)
+
+Consumed by (services that would call Ray):
+- **JupyterHub** — research notebooks driving parameter sweeps
+- **Windmill** — scheduled batch jobs (backtests, asset pipelines, re-indexing)
+- **Hummingbot API** — fleet-level strategy evaluation
+- **Backend (FastAPI)** — fan-out for batch-rendering, batch-meshing, batch-embedding APIs
+- **NautilusTrader / promotion-gate Windmill flows** — pre-promotion walk-forward at scale
+- **n8n** — workflow steps that fan out to Ray tasks
+
+**E2B (self-hosted) — Firecracker sandbox for untrusted code (cross-cutting)**
+- Apache-2.0; the 2026 reference for safely executing untrusted code (LLM-generated, user-uploaded, or agent-authored). Firecracker microVM isolation, not just container kernel-sharing.
+- **Trading:** LLM-generated strategy code (FinGPT / FinRL outputs, agent-tuned variants), promotion-gate go / no-go execution.
+- **Dreamscapes / 3D:** user-authored or LLM-authored procedural-generation rules, scene scripts, custom shaders, asset-pipeline plugins.
+- **Open WebUI / Hermes:** code-interpreter mode for agent tool calls; sandboxed n8n custom-code nodes.
+- **Daytona** (Apache-2.0) is the lighter Docker-rootless alternative but kernel-sharing is *not* sufficient for untrusted code; use Daytona only for trusted (human-authored) research notebooks.
+
+**Stack integration points:**
+
+Depends on (services E2B would consume):
+- **MinIO** — code and artifact storage
+- **OpenSearch** — execution-trace search and forensic queries
+
+Consumed by (services that would call E2B):
+- **Hermes** — LLM-generated tool-call execution
+- **Open WebUI** — code-interpreter mode for chat
+- **Backend (FastAPI)** — sandbox-managed code runs for any application feature
+- **Hummingbot API** — sandboxed strategy evaluation
+- **Windmill** — promotion-gate flows and any "run untrusted code" workflow step
+- **n8n** — custom-code workflow nodes
+
+#### Specialized capabilities
 
 **LangFlow (AI workflow & agent builder)**
 - Low-code visual builder for AI agents and RAG pipelines
@@ -392,6 +458,65 @@ Consumed by (services that would call Browserless):
 - **n8n** — multi-step browser-automation workflow nodes
 - **Crawl4AI** — falls back to Browserless when a target needs persistent session handling
 
+**Three.js + react-three-fiber + glTF-Transform — browser 3D pipeline foundation**
+- The browser-first half of the 3D / game-generation track. **Three.js** (MIT) is the dominant self-hostable WebGL framework in 2026; **react-three-fiber** (MIT) is the React renderer for it; **glTF-Transform** (MIT) is the CLI / library that wraps KTX2 + Draco + meshopt asset compression in a single pass.
+- Three.js + r3f are frontend dependencies (no new container); glTF-Transform runs as a small FastAPI worker that ingests raw meshes from Hunyuan3D-2 / TRELLIS / InstantMesh / Blender exports and emits optimized glTF for browser delivery.
+- **Babylon.js** (Apache-2.0) is an acceptable secondary if physics + native WebXR become priorities; same integration shape.
+- Initial scope for Dreamscapes-like applications; native-desktop (Godot / Unreal export) and cloud-rendered (LiveKit-streamed) paths are forward-looking.
+
+**Stack integration points:**
+
+Depends on (services the 3D pipeline foundation would consume):
+- **Hunyuan3D-2 / TRELLIS / InstantMesh** — raw mesh outputs
+- **Blender** — assembled scene exports
+- **MinIO** — optimized-asset bucket (signed URLs via Backend)
+- **Kong** — `viewer.<host>` route for the WebGL app static delivery
+
+Consumed by (services that would call the 3D pipeline foundation):
+- **Backend (FastAPI)** — orchestrates the optimize → upload → index pipeline
+- **n8n** — asset-pipeline workflows
+- **Open WebUI** — embedded 3D-preview extensions
+- **Weaviate / LightRAG** — index the optimized assets for retrieval
+
+**Hummingbot API + Hummingbot Dashboard — trading-bot fleet manager**
+- Apache-2.0 ecosystem (Hummingbot Foundation): **`hummingbot-api`** is a multi-instance fleet manager (April 2026 update) that creates / backtests / deploys / monitors N bots with a one-click paper-or-live toggle; **`hummingbot-dashboard`** is the Streamlit / React UI on top.
+- The only self-hostable *fleet plane* in 2026; sits **above** the strategy engine. Use **NautilusTrader** (Tier 3 financial track) as a worker engine underneath when its Rust event loop is preferred; Hummingbot's own strategy runners cover the rest.
+- Phase 1 of the financial / trading-AI track — the paper-trading fleet ships against this orchestrator first.
+
+**Stack integration points:**
+
+Depends on (services Hummingbot would consume):
+- **Supabase (PostgreSQL)** — bot configuration and run history
+- **CCXT** (Tier 2) — exchange adapter library inside each bot worker
+- **OpenBB Platform** (Tier 3) — supplementary market-data feeds
+- **Redpanda** (Tier 3) — order-event fan-out to the risk-control service
+- **OpenBao** (Tier 1) — live-mode signing keys (Phase 2)
+
+Consumed by (services that would call Hummingbot):
+- **Backend (FastAPI)** — bot lifecycle management API surface
+- **MCP gateway** — exposes bot-fleet operations as MCP tools for LLM consumers
+- **Hermes** — agent-driven bot creation and tuning
+- **Windmill** — promotion-gate flows that flip bots from paper to live
+- **Grafana** — additional time-series dashboards alongside Hummingbot Dashboard
+
+**CCXT — unified crypto exchange adapter**
+- MIT-licensed library (not a service) supporting 100+ crypto exchanges with a single Python / JavaScript API. Certified-tier coverage on Binance / Coinbase / Kraken; the de-facto standard in 2026 for crypto trading bots.
+- Library inside the **Backend (FastAPI)** and **Hummingbot** workers — not a new container. Wrapped behind the in-house wallet / ledger service so paper-mode and live-mode share a single internal API.
+- No equivalent exists for traditional brokerages — equities use `alpaca-py`, `ib_insync`, etc., similarly wrapped behind the in-house abstraction. Documented for visibility.
+
+**Stack integration points:**
+
+Depends on (services CCXT would consume):
+- **OpenBao** — live-mode API credentials (read via Transit, never exfiltrated)
+- **Infisical** — paper-mode / read-only API credentials
+
+Consumed by (services that would use CCXT):
+- **Backend (FastAPI)** — internal wallet / ledger service
+- **Hummingbot** workers — direct exchange access
+- **NautilusTrader** workers — same
+- **JupyterHub** — research notebooks
+- **n8n / Windmill** — workflow steps that need exchange-data queries
+
 **Alternative vector database (Qdrant)**
 - Qdrant as alternative to Weaviate
 - Comparative performance analysis
@@ -455,6 +580,7 @@ Tier 3 is organized into four named sub-sections so the use-case tracks are scan
 - Data pipeline management
 - Scheduled AI processing jobs
 - Complex workflow dependencies
+- Cross-track role: alternative endpoint of the **`ORCHESTRATOR_SOURCE`** source-variant pattern proposed under the Data engineering track (Tier 3). **Dagster** is the recommended primary orchestrator for lakehouse / asset-centric work; Airflow is the alternative for task-centric workloads and for teams with existing Airflow muscle memory.
 
 **MeiliSearch (lightweight full-text search)**
 - Fast full-text search capabilities
@@ -695,6 +821,93 @@ Consumed by (services that would call Godot):
 - **Hermes** — agents that play / test generated games as a tool
 - **n8n** — automated game-test workflows
 
+**InstantMesh — fast-path image-to-3D**
+- TencentARC (Apache-2.0). Sub-15-second image-to-mesh, well below Hunyuan3D-2 / TRELLIS fidelity but ideal for drafts, previews, and A/B candidate generation. Pair with Hunyuan3D-2 for finals.
+- Phase 1 of Dreamscapes-class pipelines — lets the LLM-driven UI offer near-real-time iteration on the user's prompt before committing GPU time to a final mesh.
+
+**Stack integration points:**
+
+Depends on: **ComfyUI** (concept image), **MinIO** (mesh bucket).
+
+Consumed by: **Backend (FastAPI)** (draft-mesh API), **Hunyuan3D-2 / TRELLIS** (downstream refinement), **Blender** (cleanup and re-mesh), **Hermes** (agent draft-iteration tool).
+
+**DreamGaussian — Gaussian-splat output for snowdome-style scenes**
+- MIT. Produces both Gaussian Splats *and* meshes from a single image. The splat output skips the meshing step entirely — ideal when a snowdome-style interior doesn't need polygonal geometry.
+- Complements Hunyuan3D-2 / TRELLIS / InstantMesh (all mesh-output). Choose at generation time based on whether the user wants a "snow-globe" (splat) or a "mini-RTS-tile-map" (mesh).
+
+**Stack integration points:**
+
+Depends on: **ComfyUI**, **MinIO**.
+
+Consumed by: **Backend (FastAPI)**, **SuperSplat worker** (downstream optimization), **Three.js + r3f viewer** (3DGS loader in browser).
+
+**SuperSplat — Gaussian-Splat asset conversion worker**
+- MIT (PlayCanvas org). Headless `.ply → .splat / .ksplat` conversion plus in-browser editor; the canonical 2026 piece for the 3DGS branch of the pipeline.
+
+**Stack integration points:**
+
+Depends on: **DreamGaussian** (raw splat output), **MinIO**.
+
+Consumed by: **Three.js + r3f viewer**, **Backend (FastAPI)**, **n8n** (batch-splat workflows).
+
+**Vengi voxconvert — voxel format converter**
+- MIT, regularly released; the only currently-maintained permissive `.vox` ↔ `.obj / .ply / .gltf` converter in 2026 (npm `vox-to-gltf` is abandoned, MagicaVoxel CLI is closed-source freeware, Goxel is GPL-3).
+- Wraps the converter CLI as a small worker; emits glTF for the Three.js + r3f viewer.
+- Phase 2 of Dreamscapes-class pipelines — when the world representation graduates from free-form snowdomes to voxel grids.
+
+**Stack integration points:**
+
+Depends on: **MinIO** (voxel input + glTF output buckets).
+
+Consumed by: **Backend (FastAPI)**, **glTF-Transform worker** (downstream optimization), **n8n** (voxel-ingest workflows), **Three.js + r3f viewer** (final delivery).
+
+**PostGIS + Tegola + MapLibre GL JS — vector-tile stack**
+- The RTS-tile / GIS-style-map evolution of the 3D track. **PostGIS** (PostgreSQL License) is an extension on the existing Supabase Postgres (zero new container). **Tegola** (MIT, Go) is a single-binary vector-tile server that reads PostGIS and emits MVT. **MapLibre GL JS** (BSD-3) is the browser-side tile renderer.
+- Pairs naturally with the **WaveFunctionCollapse worker** (next entry): WFC generates tile constraints, PostGIS stores them, Tegola serves them as MVT, MapLibre renders them at scale.
+- Phase 2 of Dreamscapes-class pipelines.
+
+**Stack integration points:**
+
+Depends on (services the vector-tile stack would consume):
+- **Supabase (PostgreSQL)** — host for the PostGIS extension; zero new container
+- **MinIO** — large-asset storage for non-vector layers
+
+Consumed by (services that would call the vector-tile stack):
+- **Three.js + r3f viewer** — combined glTF (3D) + MapLibre (tile) renderer
+- **Backend (FastAPI)** — tile-pipeline orchestration
+- **n8n / Windmill** — batched tile-generation workflows
+- **WaveFunctionCollapse worker** — write-side producer of generated tiles
+
+**WaveFunctionCollapse worker — procedural tile generation**
+- mxgmn/WaveFunctionCollapse (MIT) — the reference open-source PCG algorithm in 2026. Wrap a Python / Rust port as a small worker; generates constraint-consistent tile-worlds from a small text seed.
+- Phase 2 of Dreamscapes-class pipelines; pairs with the vector-tile stack above for RTS-style worlds.
+
+**Stack integration points:**
+
+Depends on: **PostGIS + Tegola** (tile write-side persistence), **Ollama / LiteLLM** (LLM-derived constraint generation).
+
+Consumed by: **Backend (FastAPI)**, **n8n / Windmill** (tile-pipeline workflows).
+
+**Colyseus — authoritative multiplayer server**
+- MIT (Node.js); room-based authoritative state sync with schema diffing. Built for tick-rate game-style updates, distinct from Yjs / Hocuspocus (CRDT, document-shaped).
+- Phase 3 of Dreamscapes-class pipelines — enables shared "fly inside" sessions and multi-user world editing.
+
+**Stack integration points:**
+
+Depends on: **Supabase (Postgres + Auth)** — user identity and room persistence; **Redis** — pub/sub for room state.
+
+Consumed by: **Three.js + r3f viewer** (multiplayer client), **Backend (FastAPI)** (room provisioning), **Hermes** (agent NPC participants).
+
+**Excalidraw + excalidraw-room — collaborative sketch input surface**
+- Excalidraw (MIT) is a static frontend; `excalidraw-room` (MIT) is a tiny WebSocket collaboration server. End-to-end encrypted by default — the LLM consumes the user's exported PNG, not the room state, preserving privacy.
+- Phase 1 of Dreamscapes — the surface where the user draws (or co-draws) the sketch that ComfyUI conditions on.
+
+**Stack integration points:**
+
+Depends on: none at runtime.
+
+Consumed by: **ComfyUI** (sketch-conditioned image generation via ControlNet), **Backend (FastAPI)** (sketch export → image-gen pipeline).
+
 #### Financial / trading-AI track
 
 This track composes a full pipeline: **OpenBB Platform** provides multi-provider financial data; **TimescaleDB** (Postgres extension on the existing Supabase Postgres) stores tick / OHLC history; **Redpanda** carries real-time exchange feeds; **NautilusTrader** runs backtests, paper-trade, and live execution; **Hermes** and **Backend** generate or tune strategies via **LiteLLM**; **Langfuse** observes LLM-driven decisions; **Infisical** holds exchange credentials.
@@ -770,6 +983,164 @@ Consumed by (services that would call Redpanda):
 - **n8n** — event-trigger nodes
 - **Windmill** — event-driven job triggers
 - **OpenBB Platform** — streaming-quote relay
+
+**Note: cross-cutting Phase-3 dependencies (Ray and E2B)** — the financial track's parallel-backtest substrate (**Ray**) and Firecracker sandbox for LLM-generated strategy code (**E2B self-hosted**) live in **Tier 2 under "Cross-cutting infrastructure"** rather than here, because they serve the 3D / Dreamscapes, RAG, and forthcoming data-engineering tracks equally. See the Tier 2 entries for full details.
+
+**FinRL / FinGPT image flavors — AI-assisted strategy authoring**
+- AI4Finance Foundation (MIT). FinRL is the reinforcement-learning library for financial markets; FinGPT is the open-weights financial-LLM family. **Both are libraries, not services** — they ride inside JupyterHub kernel images and E2B sandbox templates.
+- Phase 3 of the financial / trading-AI track — packaged as image flavors that any environment can opt into; no new compose service required.
+
+**Stack integration points:**
+
+Depends on (services FinRL / FinGPT would consume):
+- **LiteLLM gateway** — model routing for FinGPT and any prompted-strategy generation
+- **OpenBB Platform** — features and market data
+- **TimescaleDB** — training-set storage
+
+Consumed by (services that would use FinRL / FinGPT):
+- **JupyterHub** — researcher notebooks
+- **E2B sandboxes** — agent-driven strategy generation
+- **Hermes** — finance-specialized agent personas
+
+**In-house components (documented for scope visibility, not third-party)**
+- **Wallet / ledger service** (Phase 1) — thin FastAPI service exposing a unified API to bots regardless of mode. Paper-mode is a synthetic ledger on Supabase Postgres tables; live-mode delegates to CCXT (crypto) and `alpaca-py` / `ib_insync` (equities) behind the same interface.
+- **Risk-control service** (Phase 2) — small FastAPI worker that subscribes to Redpanda order-event topics, enforces per-strategy notional caps, per-account drawdown, and market-wide circuit breakers, and publishes a `halt` topic every bot subscribes to.
+- **Audit-sealer worker** (Phase 2) — small Python worker that batches order events from Redpanda, computes a Merkle root, signs it via **OpenBao**, and writes a WORM-locked archive to MinIO Object Lock. The anchor record lives in Supabase Postgres for queryability.
+- These pieces are intentionally in-house: the OSS landscape for these specific roles is thin in 2026, and small targeted FastAPI services are cheaper to maintain than evaluating unmaintained third-party alternatives.
+
+#### Data engineering track
+
+This track composes a lakehouse + ingestion + BI + (optional) MLOps platform alongside the AI services, with the JVM / Scala lane explicitly available but **opt-in** (the rest of the stack stays Python-native via Spark Connect). Three notable divergences from the obvious 2024 picks: **Apache Zeppelin** is superseded by the **Almond Scala kernel** on the already-shipped **JupyterHub**; **Dagster** is the primary asset-centric orchestrator with **Apache Airflow** as a permitted alternative (via `ORCHESTRATOR_SOURCE`); and **Spark Connect** makes Scala client-side optional. Unusually strong reuse: the lake is MinIO (existing), every catalog stores metadata in Postgres (existing), Feast's online store is Redis (existing), OpenMetadata's search is OpenSearch (Tier 3 roadmap), Debezium's sink is Redpanda (Tier 3 financial track), and parallel work is the Tier 2 **Ray** cross-cutting service.
+
+**Apache Spark (standalone + Spark Connect) — distributed compute**
+- Apache-2.0; Spark 4.x. Single image, three roles: master, worker, and `spark-connect` server. Spark Connect (GA since Spark 3.4, recommended in 4.x) is a gRPC server that exposes Spark to Python / Scala / Go / Rust clients transparently — the cluster runs JVM, clients do not.
+- Phase 1 anchor of the data-engineering track. **The Spark Connect server is the architectural unlock**: it lets the FastAPI backend, JupyterHub Python kernels, Dagster / Airflow workers, and Hermes-orchestrated jobs use Spark without a JVM in their containers.
+
+**Stack integration points:**
+
+Depends on (services Spark would consume):
+- **MinIO** — `s3a://` access for lake reads/writes
+- **Lakekeeper** — Iceberg REST catalog
+- **Supabase (PostgreSQL)** — operational metadata when needed
+
+Consumed by (services that would call Spark):
+- **Dagster / Apache Airflow** — workflow steps invoking Spark jobs
+- **Backend (FastAPI)** — programmatic Spark Connect calls
+- **JupyterHub** — Python kernels via PySpark Connect, Scala kernels via Almond
+- **Trino** — federated reads / writes against Iceberg tables Spark wrote
+- **Hermes** — agent-driven analytical queries
+
+**Lakekeeper — Iceberg REST catalog**
+- Apache-2.0; Rust single-binary REST catalog for Apache Iceberg. Postgres-backed metadata.
+- Lighter alternative to **Apache Polaris** (Snowflake-donated, Apache governance, Spring Boot stack) for this stack's footprint. Polaris is a defensible upgrade if Apache governance is a hard requirement.
+
+**Stack integration points:**
+
+Depends on: **Supabase (PostgreSQL)** — catalog metadata storage.
+
+Consumed by: **Apache Spark**, **Trino**, **DuckDB** (via Iceberg connector), **Dagster** (Iceberg-as-asset definitions), **Backend (FastAPI)** (catalog-aware data APIs).
+
+**Trino — federated SQL engine**
+- Apache-2.0; JVM. The canonical 2026 lakehouse-SQL engine; first-class connectors for Iceberg, Postgres, Mongo, Kafka, Redpanda, OpenSearch, and many more. Heavy (JVM tuning) but well-understood.
+- **StarRocks** (Apache-2.0, C++) is a documented future accelerator if Trino dashboard latency becomes a real pain point — different shape (analytical DB with federation bolted on rather than pure federation engine), so not a like-for-like swap.
+
+**Stack integration points:**
+
+Depends on: **Lakekeeper** (Iceberg catalog), **Supabase (PostgreSQL)** (federation source + Trino's own metadata), **MinIO** (lake reads).
+
+Consumed by: **Apache Superset** (BI queries), **Backend (FastAPI)** (application analytical queries), **JupyterHub** (research notebooks), **Hermes / MCP gateway** (text-to-SQL agent tool), **Feast** (offline feature reads).
+
+**Apache Superset — BI dashboards**
+- Apache-2.0; deepest OSS viz library, native LDAP / OAuth / OIDC / SAML / row-level security in the free tier; Trino + Iceberg + Postgres connectors first-class. Postgres-backed metadata, Redis-backed caching.
+- **Metabase** (AGPL community + paid commercial features) is the open-core alternative; faster time-to-value for non-technical users but core RLS / audit / caching features are paywalled.
+
+**Stack integration points:**
+
+Depends on: **Supabase (PostgreSQL)** (metadata), **Redis** (caching), **Trino** + **Lakekeeper** + **MinIO** (data path).
+
+Consumed by: end users (browser dashboards), **Kong** (`superset.localhost` route), **Backend (FastAPI)** (programmatic dashboard embedding).
+
+**Dagster — primary asset-centric orchestrator**
+- Apache-2.0; the 2026 consensus pick for lakehouse / dbt / Iceberg-centric workflows. Software-defined Assets model fits Iceberg-as-asset thinking exactly; first-class dbt / Spark / Iceberg / OpenMetadata integration; better UI lineage than Airflow.
+- Roadmapped together with **Apache Airflow** (existing Tier 3 General-purpose entry) via the **`ORCHESTRATOR_SOURCE` source-variant pattern** (allowed values: `dagster-container`, `airflow-container`, `dagster-localhost`, `airflow-localhost`, `external`, `disabled`). Mirrors the existing `STT_PROVIDER_SOURCE` / `TTS_PROVIDER_SOURCE` patterns.
+
+**Stack integration points:**
+
+Depends on: **Supabase (PostgreSQL)** (run history + asset materialization records), **Redis** (sensor / queue state), **MinIO** (artifacts).
+
+Consumed by: **Apache Spark** (jobs run as Dagster assets), **dbt-core** (transformations run as Dagster assets), **JupyterHub** (notebooks-as-assets), **n8n / Windmill** (cross-orchestrator workflows), **Hermes / MCP gateway** (agent-driven asset materialization), **OpenMetadata** (lineage events).
+
+**dlt (data load tool) — Python-first ingestion**
+- Apache-2.0 library, not a service. Lives inside Dagster / Airflow workers and the FastAPI backend. 2.8–6× faster than Airbyte / Sling on SQL replication; vast schema-inference and incremental-load library.
+- **Skip Airbyte:** Docker Compose support deprecated in 2025; production now requires Kubernetes + Postgres + Redis + Temporal; ELv2 license is incompatible with the stack's permissive-boilerplate posture.
+- **Meltano** (MIT) is documented as the fallback when Singer connectors are specifically needed.
+
+**Soda Core + Elementary — data-quality observability**
+- Both Apache-2.0 libraries, not services. **Soda Core** uses YAML-based SodaCL for low-friction continuous data-quality assertions. **Elementary** is a dbt-augmenting observability layer (anomaly detection on top of dbt tests). Combine with **dbt tests** themselves and **Great Expectations** as a heavier-weight alternative.
+
+**Debezium Server — change-data-capture**
+- Apache-2.0; Debezium 3.x. Standalone mode (no Kafka Connect required) writing directly to **Redpanda** (Tier 3 financial track), NATS, Pulsar, Kinesis, or HTTP sinks. Single-purpose, lightweight.
+
+**Stack integration points:**
+
+Depends on: **Supabase (PostgreSQL)** (WAL source), **Redpanda** (event sink).
+
+Consumed by: **Dagster sensors** (asset-trigger from change events), **Backend (FastAPI)** (real-time application updates), **OpenMetadata** (lineage events), **n8n / Windmill** (event-driven flows).
+
+**OpenMetadata — data catalog with column-level lineage**
+- Apache-2.0; four-component architecture (Postgres / MySQL + Elasticsearch / OpenSearch + server + UI). **No Kafka, no separate graph DB** — much lighter than **DataHub** (LinkedIn, Apache-2.0 but GMS + MAE/MCE Kafka consumers + Elasticsearch + Neo4j footprint).
+- Broader connector list than Atlas / Marquez; column-level lineage; dataset / glossary / governance features.
+
+**Stack integration points:**
+
+Depends on: **Supabase (PostgreSQL)** (catalog metadata), **OpenSearch** (Tier 3 roadmap) (search + lineage graph).
+
+Consumed by: **Backend (FastAPI)** (catalog-aware data APIs), **Hermes / MCP gateway** (catalog-as-tool for agents), **Dagster** (asset materialization → lineage events), **Trino / Spark / dbt-core** (push lineage events on every run).
+
+**MLflow — experiment + model tracking (Phase 3)**
+- Apache-2.0; still dominant in 2026 for OSS experiment tracking. Postgres-backed registry + MinIO artifact store — both reuse existing services.
+- **ClearML** (Apache-2.0) is documented as a defensible richer alternative when MLflow's tracking-only feature surface becomes insufficient (datasets + pipelines + agent).
+- **W&B Local** requires a commercial license and is skipped on license grounds.
+
+**Stack integration points:**
+
+Depends on: **Supabase (PostgreSQL)** (registry), **MinIO** (artifacts).
+
+Consumed by: **JupyterHub** (notebook training runs), **Dagster** (training assets), **Backend (FastAPI)** (model-version-aware inference routing).
+
+**lakeFS — Git-like data versioning over MinIO (Phase 3)**
+- Apache-2.0; branches and merges over object-storage data, scales to petabytes without copying. Sits on top of the existing MinIO buckets.
+- **DVC** (Apache-2.0) is the Git-side companion library-in-image for Git-tracked ML experiments (small datasets, model snapshots).
+- **Pachyderm** is **skipped**: HPE discontinued OSS releases in 2024.
+
+**Stack integration points:**
+
+Depends on: **MinIO** (object backend), **Supabase (PostgreSQL)** (lakeFS's own metadata).
+
+Consumed by: **MLflow** (versioned dataset references), **Dagster** (asset materialization against branches), **JupyterHub** (branch-aware experiments), **Backend (FastAPI)** (versioned data exports).
+
+**Feast — feature store (Phase 3)**
+- Apache-2.0; the reference OSS feature-store impl in 2026. Online store on the existing **Redis**; offline store on **Apache Iceberg** read via **Trino**.
+- **Featureform** is documented as a smaller-community alternative; defer.
+
+**Stack integration points:**
+
+Depends on: **Redis** (online store), **Trino** + **Lakekeeper** + **MinIO** (offline store), **Supabase (PostgreSQL)** (registry).
+
+Consumed by: **JupyterHub** (feature-engineering notebooks), **Backend (FastAPI)** (online feature reads during inference), **Dagster** (feature-pipeline assets).
+
+**Almond Scala kernel on existing JupyterHub — Scala lane image flavor**
+- BSD-3 library, not a service. Adds a Scala / Spark / Iceberg notebook kernel to the already-shipped JupyterHub. The dominant 2026 Scala-notebook path; **supersedes Apache Zeppelin** for this stack (Zeppelin release cadence has slowed; Polynote is abandoned, last release 2022).
+
+**Library-in-image companions (Phase 1–3)**
+- **dbt-core** (Apache-2.0) — SQL transformations; lives inside the Dagster / Airflow worker image.
+- **SQLMesh** (Apache-2.0) — documented as a permitted dbt-core alternative (SQLGlot-based compile-time validation, virtual environments, native Python models).
+- **DuckDB** (MIT) — in-process columnar SQL; embed in Backend and JupyterHub for ad-hoc Iceberg reads without spinning up the cluster.
+- **dlt**, **Soda Core**, **Elementary**, **DVC** — see entries above; all libraries-in-image, not compose services.
+
+**`ORCHESTRATOR_SOURCE` source-variant pattern**
+- Mirrors the existing `STT_PROVIDER_SOURCE` and `TTS_PROVIDER_SOURCE` patterns. Allowed values: `dagster-container`, `airflow-container`, `dagster-localhost`, `airflow-localhost`, `external`, `disabled`. The bootstrapper enforces exactly one orchestrator is active when `ORCHESTRATOR_SOURCE != disabled`.
+- The existing **Apache Airflow integration** entry (under `#### General-purpose`) is the alternative endpoint of this source variant.
 
 #### Real-time / collaboration
 
@@ -876,6 +1247,42 @@ The following candidates were evaluated and explicitly *not* recommended at this
 - **A standalone JupyterHub alternative (Marimo-only)** — JupyterHub already ships; Marimo as a *complement* is possible but not on the Tier 1/2/3 path today.
 - **Mailpit / Mailhog as a roadmap item** — useful for development but too narrow to warrant Tier 1/2/3 placement; can be added ad-hoc when an email-capture use-case actually lands.
 
+**From the vertical-scenarios stack-fit research (2026-05-17 — see `docs/superpowers/specs/2026-05-17-vertical-scenarios-stack-fit.md`):**
+
+- **Needle Engine** — proprietary EULA with license-server requirement; fails the stack's permissive-boilerplate posture.
+- **PlayCanvas Engine as a primary viewer** — engine is MIT but its value is the proprietary cloud editor that cannot be self-hosted. Three.js + react-three-fiber covers the same ground without the lock-in.
+- **Stable Fast 3D (SF3D, Stability)** — Stability AI Community License is source-available but commercial-restricted; functionally overlaps Hunyuan3D-2 / TRELLIS. Pick those instead.
+- **Wonder3D / Wonder3D++** — CC-BY-NC non-commercial license; unusable for the stack's posture.
+- **Rodin (Hyper3D)** — closed-source SaaS; no self-host path.
+- **tldraw as the sketch surface** — commercial use requires watermark or paid license. Excalidraw + `excalidraw-room` covers the same ground under MIT.
+- **Drawpile / Goxel** — GPL-3.0 viral copyleft; Excalidraw and Vengi cover those slots permissively.
+- **Liveblocks self-hosted** — Apache-2.0 core but the practical production stack is SaaS-only; Colyseus (game-state) and Yjs / Hocuspocus (document-state, future) cover the multiplayer story.
+- **Yjs + Hocuspocus** as primary Dreamscapes multiplayer — CRDT shape suits *co-editing the scene graph*, not 60Hz position sync. Revisit only when co-edit features land.
+- **TileServer-GL** — for pre-baked MBTiles; Dreamscapes generates worlds dynamically, so Tegola is the better fit.
+- **Freqtrade / OctoBot as fleet manager** — GPL-3.0 viral copyleft; Hummingbot's API + Dashboard is the only Apache-2.0 fleet plane in 2026.
+- **NautilusTrader as the orchestrator** — its docs explicitly state distributed orchestration is out of scope. Run it as a worker engine under Hummingbot, not as the fleet plane.
+- **Jesse** — MIT but single-bot framework without fleet primitives.
+- **Lean / QuantConnect** — Apache-2.0 but C#-centric and heavy; the brokerage-abstraction value is realised better via direct CCXT + per-broker libraries inside the in-house wallet service.
+- **Silent Shard / Web3Auth MPC wallets** — over-engineered for a single-operator fleet; OpenBao Transit + per-exchange API-key scoping covers the threat model. Revisit if threshold signing across multiple machines becomes a real requirement.
+- **Daytona for the LLM-strategy sandbox** — Docker rootless gives only kernel-shared isolation; E2B's Firecracker microVMs are the correct safety bar for untrusted LLM-generated code.
+- **Blockchain-anchored / specialized trading audit-trail products** — proprietary, expensive, over-engineered at boutique scale; OpenSearch + MinIO Object Lock + Merkle anchors in Postgres is sufficient.
+
+**From the data-engineering stack-fit research (2026-05-21 — see `docs/superpowers/specs/2026-05-21-data-engineering-stack-fit.md`):**
+
+- **Apache Zeppelin** — release cadence slowed since 2024; the **Almond Scala kernel** on the already-shipped **JupyterHub** delivers the same Scala / Spark notebook capability without a redundant second notebook server. Revisit only if a deployment specifically requires Zeppelin's paragraph-interpreter model.
+- **Polynote (Netflix)** — abandoned; last release 2022.
+- **Airbyte** — Docker Compose support deprecated in 2025; production now requires Kubernetes + Postgres + Redis + Temporal; ELv2 license is incompatible with the stack's permissive-boilerplate posture. **dlt** (Apache-2.0 Python library) is the recommended Python-first replacement; **Meltano** (MIT) is the documented Singer-based fallback.
+- **DataHub** as the data catalog — GMS + MAE/MCE Kafka consumers + Elasticsearch + Neo4j is too heavy for compose; **OpenMetadata** (Postgres + OpenSearch + server + UI) has the right footprint.
+- **Apache Atlas** — legacy Hadoop-era; superseded by OpenMetadata / DataHub for modern lakehouse work.
+- **Apache Hive** — legacy; Trino + Iceberg replaces it.
+- **Apache Hudi** — declining mindshare in 2026; Apache Iceberg owns the table-format space.
+- **Apache Polaris** as the Iceberg catalog (vs Lakekeeper) — defensible (Apache governance, Snowflake-donated, supports Iceberg + Delta + Hudi) but operationally heavier than Lakekeeper's Rust single-binary for this stack's footprint. Documented as a permitted alternative.
+- **Pachyderm** — HPE discontinued OSS releases in 2024.
+- **Featureform** — smaller community than **Feast**; defer.
+- **W&B Local** — requires commercial license.
+- **StarRocks** as primary OLAP — different shape from Trino (analytical DB with federation bolted on, not a pure federation engine); defer until Trino dashboard latency becomes a real pain point.
+- **ClearML** as MLOps primary — richer than MLflow but operationally heavier; defer until MLflow's tracking-only feature surface is insufficient.
+
 ## Implementation strategy
 
 ### Development principles
@@ -934,9 +1341,10 @@ The following candidates were evaluated and explicitly *not* recommended at this
 - Cross-platform and cross-stack compatibility
 
 **Foundation for vertical AI applications**
-- **3D and game generation** — host the full pipeline end-to-end: text or image → 3D mesh (Hunyuan3D-2 / TRELLIS) → scene assembly (Blender headless) → real-scene capture (NerfStudio) → runtime (Godot headless), with **LightRAG** indexing the asset graph and **AudioCraft / MusicGen** providing procedural audio
-- **Financial / trading AI** — **LiteLLM** + **Hermes** agents over **OpenBB Platform** data, **TimescaleDB**-backed market history on the existing Supabase Postgres, **NautilusTrader** for backtest and execution, **Redpanda** for streaming fan-out, **Langfuse** for trace and eval, **Infisical**-managed exchange credentials, **MCP gateway** exposing the trading toolset to every LLM consumer
+- **3D and game generation** — host the full pipeline end-to-end: text or sketch (**Excalidraw** + ControlNet) → image (**ComfyUI**) → 3D mesh fast-path (**InstantMesh**) or fidelity-path (**Hunyuan3D-2** / **TRELLIS**) or splat-path (**DreamGaussian**) → scene assembly (**Blender headless**) → real-scene capture (**NerfStudio**) → optimized asset pipeline (**glTF-Transform** / **SuperSplat**) → browser viewer (**Three.js** + **react-three-fiber**) → multiplayer (**Colyseus**); world representations evolve from snowdome-style free-form scenes to voxel (**Vengi**-converted) and RTS-tile (**PostGIS** + **Tegola** + **MapLibre**) maps, with **LightRAG** indexing the asset graph and **AudioCraft / MusicGen** providing procedural audio
+- **Financial / trading AI** — paper-first fleet (**Hummingbot API** + Dashboard orchestrating **NautilusTrader** workers via **CCXT** and equities adapters) over **OpenBB Platform** data, **TimescaleDB**-backed market history on the existing Supabase Postgres, **Redpanda** for streaming fan-out; strategies promoted to live via signed **Windmill** flows, executed against **OpenBao**-custodied keys, gated by an in-house risk-control service, evaluated at fleet scale on **Ray** with **E2B** sandboxes for LLM-generated code, monitored via **Langfuse** + **Grafana** + Hummingbot Dashboard, audited via **OpenSearch** + **MinIO Object Lock** with Merkle anchors, and exposed to every LLM consumer through the **MCP gateway**
 - **RAG specializations** — compose domain-tuned RAG pipelines (legal, academic, financial-research, personal-knowledge) from **TEI** + **LightRAG** + **GROBID** / **Apache Tika** / **Docling** / **whisperX**, with the appropriate ingestion surface (**Karakeep** for captures, **SilverBullet** for authored notes, **Paperless-ngx** for OCR'd archives, **Crawl4AI** + **Browserless** for the open web)
+- **Data Engineering — lakehouse + ML platform** — host a complete data-engineering pipeline: **MinIO** lake → **Apache Iceberg** tables in **Lakekeeper** catalog → **Trino** + **DuckDB** for federated SQL → **dbt-core** transformations → **Apache Superset** for BI; orchestrated by **Dagster** (or **Apache Airflow** under `ORCHESTRATOR_SOURCE`); ingested via **dlt** + **Debezium Server** → Redpanda; quality enforced by **Soda Core** + **Elementary**; cataloged in **OpenMetadata**; MLOps via **MLflow** + **lakeFS** + **Feast**; Scala notebooks via **Almond** on existing **JupyterHub**, with **Spark Connect** keeping the rest of the stack Python-native
 
 ---
 
