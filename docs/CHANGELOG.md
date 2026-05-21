@@ -42,6 +42,14 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 > at `docs/services/doc-processor.md`. The `doc-processor` name is the
 > stable public API; `docling` is the single engine implementing it.
 
+### Added (Cross-service deps + diagrams — Phase B research)
+
+- Added 21 per-service integration-research files under `docs/research/rows/<service>.md` (missing-pair integrations, candidate new services, per-service feature gaps).
+- Added 32 candidate one-pagers under `docs/research/candidates/<slug>.md`.
+- Added generated master index at `docs/research/integration-matrix.md` (re-build with `python -m bootstrapper.docs.merge_research`).
+- New tooling: `scripts/validate_research_schema.py` (schema validator), `bootstrapper/docs/merge_research.py` (merge + index generator), `bootstrapper/docs/research_subagent_prompt.py` (programmatic Phase B subagent prompt builder).
+- Phase C (content authoring) is next — see `docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+
 ### Added (Cross-service deps + diagrams — Phase A foundations)
 - Migrated `docs/services/<name>.md` → `docs/services/<name>/README.md` (per-service folders).
 - Added standardized **Dependencies & Integrations** subsection to every service README, with Current (manifest-derived) tables and Future (placeholder) subsections.
