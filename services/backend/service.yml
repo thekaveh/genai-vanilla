@@ -90,3 +90,17 @@ runtime_deps:
     info_message: Backend enabled - will connect to available optional services (neo4j,
       searxng, n8n, weaviate, parakeet, speaches, chatterbox, docling)
 
+data_flow:
+  calls:
+    - supabase
+    - redis
+    - weaviate
+    - neo4j
+    - litellm
+    - hermes
+    - comfyui
+    - stt-provider
+    - tts-provider
+    - doc-processor
+    - n8n
+

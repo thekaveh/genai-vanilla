@@ -121,3 +121,10 @@ runtime_deps:
     info_message: Open WebUI enabled - will connect to available optional services
       (weaviate, local-deep-researcher, parakeet, speaches, chatterbox, docling)
 
+data_flow:
+  calls:
+    - litellm
+    - hermes
+    - doc-processor
+    - searxng
+

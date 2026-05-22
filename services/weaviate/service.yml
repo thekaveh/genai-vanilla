@@ -180,3 +180,8 @@ runtime_adaptive:
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
     extra_hosts_adaptation: inherit from llm_provider
 
+data_flow:
+  calls:
+    - litellm
+    - multi2vec-clip
+

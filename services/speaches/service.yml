@@ -57,3 +57,6 @@ rows: []
 # and dedupes when both pick a speaches-* variant). The runtime contract
 # lives in the parakeet / tts-provider manifests + the imperative
 # source-config code, not in a per-service runtime block.
+
+data_flow:
+  calls: []

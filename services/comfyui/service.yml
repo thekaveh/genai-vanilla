@@ -191,3 +191,8 @@ runtime_adaptive:
       COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT}
     extra_hosts_adaptation: inherit from comfyui
 
+data_flow:
+  calls:
+    - litellm
+    - minio
+

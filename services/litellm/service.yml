@@ -81,3 +81,11 @@ doc_extras:
   diagram:
     extra_consumers:
       - hermes
+
+data_flow:
+  calls:
+    - supabase
+    - redis
+    - ollama
+    - cloud-providers
+    - hermes

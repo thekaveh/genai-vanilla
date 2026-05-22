@@ -143,3 +143,8 @@ runtime_adaptive:
       OLLAMA_HOST_URL: ${LITELLM_OLLAMA_UPSTREAM}
     extra_hosts_adaptation: inherit from llm_provider
 
+data_flow:
+  calls:
+    - supabase
+    - litellm
+

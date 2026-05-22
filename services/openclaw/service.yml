@@ -116,3 +116,9 @@ runtime_deps:
     info_message: OpenClaw enabled - will connect to available LLM providers (ollama,
       anthropic, openai)
 
+data_flow:
+  calls:
+    - litellm
+    - hermes
+    - n8n
+

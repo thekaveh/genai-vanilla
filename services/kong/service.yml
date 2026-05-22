@@ -71,3 +71,28 @@ runtime_sc:
       deploy: {}
       extra_hosts: []
 
+# data_flow.calls for Kong uses the PROXY direction by convention:
+# Kong doesn't initiate outbound calls itself — it forwards inbound traffic
+# to these backends. Listing them here produces a diagram where Kong is
+# correctly shown as the front door for everything it routes to.
+data_flow:
+  calls:
+    - backend
+    - open-webui
+    - jupyterhub
+    - n8n
+    - hermes
+    - openclaw
+    - local-deep-researcher
+    - minio
+    - supabase
+    - weaviate
+    - neo4j
+    - comfyui
+    - searxng
+    - stt-provider
+    - tts-provider
+    - doc-processor
+    - litellm
+    - ollama
+

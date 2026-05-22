@@ -47,3 +47,6 @@ rows: []
 # `bootstrapper/services/service_config.py` based on TTS_PROVIDER_SOURCE,
 # so the runtime contract lives in the tts-provider virtual manifest plus
 # the imperative source-config code, not in a per-service runtime block.
+
+data_flow:
+  calls: []

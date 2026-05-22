@@ -139,3 +139,16 @@ runtime_deps:
     - weaviate
     error_message: 'n8n-worker disabled: requires weaviate for vector operations'
 
+data_flow:
+  calls:
+    - supabase
+    - weaviate
+    - comfyui
+    - doc-processor
+    - hermes
+    - litellm
+    - stt-provider
+    - tts-provider
+    - searxng
+    - minio
+
