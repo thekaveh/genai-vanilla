@@ -288,3 +288,64 @@ doc_extras:
     assert manifests[0].doc_extras == {
         "diagram": {"extra_consumers": ["openclaw", "n8n"]}
     }
+
+
+def test_data_flow_calls_round_trips(tmp_path):
+    """A manifest declaring data_flow.calls must parse and the values must be retrievable."""
+    from services.manifests import load_manifests
+
+    services_dir = tmp_path / "services"
+    svc = services_dir / "foo"
+    svc.mkdir(parents=True)
+    (svc / "service.yml").write_text(
+        "name: foo\n"
+        "label: Foo\n"
+        "category: data\n"
+        "env: []\n"
+        "data_flow:\n"
+        "  calls:\n"
+        "    - bar\n"
+        "    - baz\n"
+    )
+
+    manifests = load_manifests(services_dir)
+    assert len(manifests) == 1
+    assert manifests[0].data_flow == {"calls": ["bar", "baz"]}
+
+
+def test_data_flow_calls_optional(tmp_path):
+    """A manifest without data_flow loads cleanly with empty dict."""
+    from services.manifests import load_manifests
+
+    services_dir = tmp_path / "services"
+    svc = services_dir / "noflow"
+    svc.mkdir(parents=True)
+    (svc / "service.yml").write_text(
+        "name: noflow\n"
+        "label: NoFlow\n"
+        "category: data\n"
+        "env: []\n"
+    )
+
+    manifests = load_manifests(services_dir)
+    assert manifests[0].data_flow == {}
+
+
+def test_data_flow_calls_rejects_unknown_subkey(tmp_path):
+    """Unknown subkeys under data_flow (e.g. data_flow.bogus) are rejected by schema."""
+    from services.manifests import load_manifests
+
+    services_dir = tmp_path / "services"
+    svc = services_dir / "bad"
+    svc.mkdir(parents=True)
+    (svc / "service.yml").write_text(
+        "name: bad\n"
+        "label: Bad\n"
+        "category: data\n"
+        "env: []\n"
+        "data_flow:\n"
+        "  bogus: [a, b]\n"
+    )
+
+    with pytest.raises(ManifestLoadError):
+        load_manifests(services_dir)

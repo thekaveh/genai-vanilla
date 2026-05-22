@@ -44,6 +44,19 @@
         }
       }
     },
+    "data_flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Runtime data-flow declarations consumed by the diagram resolver. Independent of depends_on (which expresses bootstrap order).",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "uniqueItems": true,
+          "description": "Names of services this one calls at runtime in the request path. Init-time bootstrap calls do NOT count. Names must match either a doc-folder name under docs/services/ or a manifest name under services/."
+        }
+      }
+    },
     "docs": {
       "type": "string",
       "description": "Optional pointer to docs/services/<name>.md (or similar)."
