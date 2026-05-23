@@ -55,9 +55,6 @@ class AppState:
     license: str = "Apache License 2.0"
     repo_url: str = "github.com/thekaveh/genai-vanilla"
 
-    # Optional: shown in the box footer when the user is using a custom env file.
-    env_file_path: Optional[str] = None
-
     # Services grid — ordered as the user should see them.
     services: List[ServiceEntry] = field(default_factory=list)
 
@@ -65,20 +62,4 @@ class AppState:
     # since they're API credentials routed through LiteLLM, not containers.
     cloud_apis: List[CloudApiEntry] = field(default_factory=list)
 
-    hosts_configured: bool = False
     kong_port: str = "63002"
-
-    # Mode controls which decorations the box shows.
-    # "normal"  → just the services grid + footer.
-    # "wizard"  → adds a progress bar row above the services grid and a
-    #             command-preview row below it.
-    box_mode: str = "normal"
-
-    # Wizard-only fields (ignored when box_mode == "normal").
-    # `wizard_step` is the count of COMPLETED answers, in [0..wizard_total].
-    # The progress bar fills to wizard_step / wizard_total — 0% before the
-    # first answer, 100% only after the last. The user-facing "Step X of N"
-    # label is 1-indexed and derived in info_box._render_wizard_progress.
-    wizard_step: int = 0
-    wizard_total: int = 0
-    wizard_command_preview: str = ""  # e.g. "./start.sh --llm-provider-source ollama-localhost"

@@ -3,11 +3,8 @@ Textual widget subpackage for the GenAI Vanilla wizard.
 """
 
 from .block_logo import BlockLogo, BrandPanel
-from .brand_header import BrandHeader
-from .command_preview import CommandPreview
 from .command_summary import CommandSummary
 from .dependency_conflict import ConflictAction, DependencyConflict
-from .filter_input import FilterInput
 from .footer_bar import FooterBar
 from .info_box import (
     BrandInfo,
@@ -26,17 +23,14 @@ from .service_table import ServiceRow, ServiceTable
 
 __all__ = [
     "BlockLogo",
-    "BrandHeader",
     "BrandInfo",
     "BrandPanel",
     "CloudApiSummary",
     "CloudApisRow",
-    "CommandPreview",
     "CommandSummary",
     "ConflictAction",
     "DependencyConflict",
     "FilterChanged",
-    "FilterInput",
     "FooterBar",
     "InfoBoxState",
     "InfoPanel",

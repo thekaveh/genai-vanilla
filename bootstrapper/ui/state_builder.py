@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Optional
 
 from core.config_parser import ConfigParser
-from utils.hosts_manager import HostsManager
 from ui.state import AppState, CloudApiEntry, ServiceEntry
 from services.topology import get_topology, invalidate_cache, Topology
 
@@ -138,17 +137,11 @@ def _brand_field(env: dict, env_var: str, fallback: str) -> str:
 
 def build_app_state(
     config_parser: ConfigParser,
-    hosts_manager: Optional[HostsManager] = None,
-    *,
-    box_mode: str = "normal",
+    hosts_manager=None,  # noqa: ARG001  # kept for back-compat with start.py / integration.py callers
 ) -> AppState:
     """Build a fresh AppState snapshot from .env + per-service manifests."""
     env = config_parser.parse_env_file()
     service_sources = config_parser.parse_service_sources()
-
-    env_file_path = None
-    if config_parser.is_using_custom_env_file():
-        env_file_path = str(config_parser.env_file_path)
 
     # Brand metadata — overridable via .env. Defaults match the canonical
     # GenAI Vanilla project values declared on `AppState`.
@@ -187,15 +180,6 @@ def build_app_state(
             key_set=bool(key_value),
         ))
 
-    hosts_configured = False
-    if hosts_manager is not None:
-        try:
-            existing_missing = hosts_manager.check_missing_hosts()
-            all_hosts = hosts_manager.get_genai_hosts()
-            hosts_configured = bool(set(all_hosts) - set(existing_missing))
-        except Exception:
-            hosts_configured = False
-
     return AppState(
         brand_name=brand_name,
         tagline=tagline,
@@ -206,8 +190,5 @@ def build_app_state(
         repo_url=repo_url,
         services=services,
         cloud_apis=cloud_apis,
-        hosts_configured=hosts_configured,
         kong_port=env.get("KONG_HTTP_PORT", "63002"),
-        env_file_path=env_file_path,
-        box_mode=box_mode,
     )

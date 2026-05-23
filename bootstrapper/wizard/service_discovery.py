@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import List
 
 from core.config_parser import ConfigParser
+from utils.cloud_providers import CLOUD_PROVIDERS
 from utils.source_override_manager import SourceOverrideManager
 
 
@@ -23,9 +24,11 @@ from utils.source_override_manager import SourceOverrideManager
 # bespoke secret-input steps in ui/textual/integration.py rather than
 # the standard "enabled / disabled" tile prompt that auto-discovery
 # would emit. Discover() filters these out so they don't appear twice.
-CLOUD_PROVIDER_KEYS = frozenset({
-    'cloud_openai', 'cloud_anthropic', 'cloud_openrouter',
-})
+#
+# Derived from the canonical CLOUD_PROVIDERS list so adding a fourth
+# provider in utils/cloud_providers.py automatically extends this set
+# (otherwise the wizard would double-prompt the new provider).
+CLOUD_PROVIDER_KEYS = frozenset(f"cloud_{p.key}" for p in CLOUD_PROVIDERS)
 
 @dataclass
 class ServiceInfo:

@@ -52,6 +52,18 @@ def _wizard_warn(msg: str) -> None:
 
 # ─── helpers ─────────────────────────────────────────────────────────
 
+# Log-pane tag taxonomy. INTENTIONALLY DIFFERENT from the six topology
+# categories (infra/data/llm/media/agents/apps) — log-stream coloring uses
+# its own five-tag palette (INFRA/LLM/ML/DATA/TOOL) that groups services by
+# the visual shape of their log output rather than their stack role. Notable
+# divergences from `services.topology` categories:
+#   • backend (apps category) → "ML"  — ML-heavy logs
+#   • supabase (data category) → "INFRA" — substrate, treated as plumbing
+#   • n8n/searxng (media in topology) → "TOOL" — workflow-style logs
+# Topology already exports a category-tag mapping (`palette.CAT_*`) for
+# wizard/info-box rendering — those are different on purpose. If a new
+# service is added without an entry here, `_tag_for` returns "" (uncolored)
+# which is the desired fallback.
 _TAG_BY_KEY = {
     "supabase": "INFRA", "supabase-db": "INFRA", "supabase-studio": "INFRA",
     "redis": "INFRA", "kong": "INFRA", "kong_api_gateway": "INFRA",
@@ -293,7 +305,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         for i, s in enumerate(steps)
     ]
 
-    state = build_app_state(config_parser, hosts_manager, box_mode="wizard")
+    state = build_app_state(config_parser, hosts_manager)
     # Build the parallel CloudApiSummary list — same data the overview
     # box renders, derived from .env via state_builder.all_cloud_apis().
     from .widgets.info_box import CloudApiSummary as _CloudApiSummary
@@ -533,10 +545,14 @@ def run_setup_flow(
 
     class _SetupApp(App):
         CSS_PATH = str(_THEME_PATH)
-        TITLE = "GenAI Vanilla — Setup"
+        # TITLE is set dynamically in on_mount so it honors BRAND_NAME
+        # overrides (forks that rebrand via BRAND_* env vars get their own
+        # window title without code changes).
+        TITLE = "Setup"
         BINDINGS = [Binding("ctrl+c", "interrupt", "Quit", priority=True)]
 
         def on_mount(self) -> None:
+            self.title = f"{brand.name or 'GenAI Vanilla'} — Setup"
             self.push_screen(WizardScreen(
                 steps=steps, services=rows, brand=brand,
                 starter=starter,
@@ -669,10 +685,14 @@ def run_launch_flow(
 
     class _LaunchApp(App):
         CSS_PATH = str(_THEME_PATH)
-        TITLE = "GenAI Vanilla — Launch"
+        # TITLE is set dynamically in on_mount so it honors BRAND_NAME
+        # overrides (forks that rebrand via BRAND_* env vars get their own
+        # window title without code changes).
+        TITLE = "Launch"
         BINDINGS = [Binding("ctrl+c", "interrupt", "Quit", priority=True)]
 
         def on_mount(self) -> None:
+            self.title = f"{brand.name or 'GenAI Vanilla'} — Launch"
             # ``steps=[]`` is fine because auto_launch=True bypasses
             # the wizard entirely; the prompt panel is composed but
             # immediately removed by the launch transition.
