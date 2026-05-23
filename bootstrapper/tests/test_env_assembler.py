@@ -178,9 +178,15 @@ def test_committed_env_example_matches_assembler_output():
     and commit the resulting .env.example.
     """
     env_example_path = _REPO_ROOT / ".env.example"
+    # `.env.example` is a committed artifact regenerated from the manifests
+    # by `bootstrapper/services/env_assembler.py`. Missing it is not a
+    # CI-safe skip condition — it indicates a broken repo. Fail loudly.
     if not env_example_path.is_file():
         import pytest as _pytest
-        _pytest.skip(f"{env_example_path} missing")
+        _pytest.fail(
+            f"{env_example_path} is missing. Regenerate with:\n"
+            f"  cd bootstrapper && uv run python -m services.env_assembler"
+        )
 
     expected = assemble_env_example(load_manifests(_REPO_ROOT / "services"))
     actual = env_example_path.read_text()

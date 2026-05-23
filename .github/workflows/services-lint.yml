@@ -2,25 +2,25 @@ name: services-lint
 
 # Lints and tests the per-service modular configuration layout.
 #
-# Phase E gates:
+# Gates:
 #   - manifest validator (8 cross-manifest checks)
 #   - unit tests (loader, validator, assembler, hooks, validate_fragments CLI)
 #   - compose merge (`docker compose -f docker-compose.yml config -q`)
 #   - byte-equivalence vs the golden baseline at
 #     bootstrapper/tests/fixtures/rendered_config_baseline.yml
 #   - source-permutation matrix (every SOURCE value × compose config)
+#   - docs-drift gate (`bootstrapper.docs.regen --all --check`)
+#   - audit scripts: doc-links, compose source-deps, docs structure,
+#     Kong routes, research schema
 
 on:
   pull_request:
     paths:
       - "services/**"
+      - "docs/**"
+      - "scripts/**"
       - "docker-compose.yml"
-      - "bootstrapper/services/**"
-      - "bootstrapper/schemas/**"
-      - "bootstrapper/tools/**"
-      - "bootstrapper/tests/**"
-      - "bootstrapper/pyproject.toml"
-      - "bootstrapper/uv.lock"
+      - "bootstrapper/**"
       - ".env.example"
       - ".github/workflows/services-lint.yml"
   push:
@@ -86,3 +86,41 @@ jobs:
       - name: Source-permutation matrix (every SOURCE value × compose config)
         working-directory: bootstrapper
         run: uv run pytest tests/test_source_permutations.py -q
+
+  audit-scripts:
+    name: Docs drift + audit scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Sync dependencies
+        working-directory: bootstrapper
+        run: uv sync --extra dev
+
+      - name: Docs drift gate (regen --all --check)
+        # Per CLAUDE.md: gates that committed READMEs / SVGs / HTMLs match
+        # what the regenerator would emit from the manifests' data_flow.calls.
+        run: PYTHONPATH=bootstrapper uv run --project bootstrapper python -m bootstrapper.docs.regen --all --check
+
+      - name: Internal markdown link validator
+        run: uv run --project bootstrapper python scripts/check_doc_links.py
+
+      - name: Compose source-deps audit
+        run: uv run --project bootstrapper python scripts/check-compose-source-deps.py
+
+      - name: Docs-drift structural audit
+        run: uv run --project bootstrapper python scripts/check-docs-drift.py
+
+      - name: Kong route baseline-defaults audit
+        run: uv run --project bootstrapper python scripts/check-kong-routes.py
+
+      - name: Research schema validator
+        run: uv run --project bootstrapper python scripts/validate_research_schema.py --all

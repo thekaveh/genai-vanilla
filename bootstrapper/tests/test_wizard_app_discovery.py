@@ -37,7 +37,7 @@ EXPECTED_DISCOVERED = frozenset({
     "LLM Engine",
     "ComfyUI",
     "Document Processor",
-    "MinIO",
+    "MinIO Console",
     "n8n",
     "Neo4j Graph DB",
     "OpenClaw",
