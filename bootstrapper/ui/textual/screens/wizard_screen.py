@@ -2,7 +2,7 @@
 WizardScreen — single screen for the entire setup → launch → logs flow.
 
 Layout (top to bottom):
-    BlockLogo                           7 cells
+    BrandPanel (contains BlockLogo)     7 cells
     Vertical#wizard-body                1fr
         Vertical#info-section: InfoPanel        (always visible, auto)
         Vertical#lower-pane:

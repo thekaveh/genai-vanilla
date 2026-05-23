@@ -7,6 +7,12 @@ The canonical architecture diagram is generated from the live topology:
 
 ## Regenerating
 
+**Prerequisite:** Graphviz must be installed to render the SVG from `.dot`.
+
+- macOS: `brew install graphviz`
+- Debian/Ubuntu: `sudo apt-get install graphviz`
+- Windows: `choco install graphviz` (or download from https://graphviz.org/download/)
+
 ```bash
 cd bootstrapper && uv run python -m tools.generate_architecture_diagram   # rewrites architecture.dot
 dot -Tsvg docs/diagrams/architecture.dot > docs/diagrams/architecture.svg  # refreshes the SVG preview

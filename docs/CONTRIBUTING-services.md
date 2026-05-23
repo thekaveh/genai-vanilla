@@ -75,6 +75,24 @@ Each service folder can hold additional subdirectories beyond `service.yml` and 
 - New container in the family → add to `containers:` in the manifest AND to `services:` in the fragment.
 - New source variant → add to `sources.options[]` in the manifest.
 
+## Folder flavors: container, virtual, doc-only
+
+Three legitimate flavors of folder live under `services/`. Pick the right one when adding new content:
+
+| Flavor | `service.yml`? | `virtual: true`? | `compose.yml`? | Examples |
+|---|---|---|---|---|
+| Container service | ✓ | absent / false | ✓ | most services — backend, supabase, ollama, … |
+| Virtual manifest | ✓ | true | ✗ | `cloud-providers/` (LiteLLM-routed APIs), `globals/` (project + branding env), `tts-provider/` (engine selector) |
+| Doc-only folder | ✗ | n/a | ✗ | `stt-provider/`, `doc-processor/`, `multi2vec-clip/` — aggregator docs + diagrams for a role whose engines live in sibling folders |
+
+Use a **virtual manifest** when the folder owns env vars / `SOURCE` toggles that the bootstrapper must read, but no container runs. Use a **doc-only folder** when the role is a documentation surface aggregating other manifests and has no env vars of its own.
+
+## Cross-referencing sections in service READMEs
+
+Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
+
+**Never link to a sub-section by number across services.** "See section 5.4 in the backend README" breaks the moment the target README adds a new pre-Deps section and shifts to 6.4. Always reference by heading text instead: "See *Future — Missing pair integrations* in the backend README."
+
 ## Schema cheatsheet
 
 ```yaml

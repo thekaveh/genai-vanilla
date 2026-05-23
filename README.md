@@ -208,7 +208,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Data | Supabase API | 63014 | — |
 | Data | Supabase Realtime | 63015 | — |
 | Data | Supabase Studio | 63016 | studio.localhost |
-| Data | MinIO | 63017 | minio.localhost |
+| Data | MinIO Console | 63018 | minio.localhost |
 | Data | Neo4j Graph DB | 63020 | graph.localhost |
 | Data | Redis | 63021 | — |
 | Data | Weaviate | 63022 | weaviate.localhost |
