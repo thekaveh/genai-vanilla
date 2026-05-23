@@ -22,171 +22,113 @@
   <div class="wrap">
     <h1><span class="dot"></span> supabase — Architecture</h1>
     <div class="subtitle">category: data · source: single</div>
-    <div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1520">
+    <div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 442">
 <defs>
   <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
     <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
   </pattern>
-  <marker id="arrowhead-solid" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-    <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+  <marker id="arrowhead" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 9 3, 0 6" fill="#64748b"/>
   </marker>
-  <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-    <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24"/>
-  </marker>
+  <filter id="focus-glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+    <feFlood flood-color="#7dcfff" flood-opacity="0.6"/>
+    <feComposite in2="SourceAlpha" operator="in"/>
+    <feMerge>
+      <feMergeNode/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
 </defs>
-
-<rect width="880" height="1520" fill="url(#grid)"/>
-<text x="100" y="36" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">UPSTREAM (deps)</text>
-<text x="460" y="36" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">FOCUS</text>
-<text x="720" y="36" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="middle">DOWNSTREAM (consumers)</text>
-<line x1="260" y1="110" x2="360" y2="780" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · http://globals:&lt;port&gt;</title></line>
-<line x1="560" y1="780" x2="620" y2="110" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · kong declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="210" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · minio declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="310" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · neo4j declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="410" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · redis declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="510" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · weaviate declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="610" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · litellm declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="710" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · ollama declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="810" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · comfyui declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="910" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · searxng declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="1010" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · n8n declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="1110" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · backend declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="1210" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · jupyterhub declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="1310" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · local-deep-researcher declares supabase in depends_on.required</title></line>
-<line x1="560" y1="780" x2="620" y2="1410" stroke="#64748b" stroke-width="1.5"  marker-end="url(#arrowhead-solid)"><title>required · open-webui declares supabase in depends_on.required</title></line>
-<g class="box-required">
-  <rect x="60" y="80" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="60" y="80" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#f7768e" stroke-width="1.5"/>
-  <text x="160" y="102" fill="white" font-size="11" font-weight="600" text-anchor="middle">globals</text>
-  <text x="160" y="118" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+<rect width="920" height="442" fill="url(#grid)"/>
+<text x="180" y="36" fill="#94a3b8" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="0.08em">Upstream (calls)</text>
+<text x="460" y="36" fill="#94a3b8" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="0.08em">Focus</text>
+<text x="740" y="36" fill="#94a3b8" font-size="10" font-weight="600" text-anchor="middle" letter-spacing="0.08em">Downstream (consumers)</text>
+<line x1="560" y1="229" x2="620" y2="80" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<line x1="560" y1="229" x2="620" y2="148" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<line x1="560" y1="229" x2="620" y2="216" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<line x1="560" y1="229" x2="620" y2="284" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<line x1="560" y1="229" x2="620" y2="352" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<g><rect x="60" y="84" width="240" height="60" rx="6" fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3"/><text x="180" y="120" fill="#475569" font-size="10" font-style="italic" text-anchor="middle">— none —</text></g>
+<g>
+<g class="cluster">
+  <rect x="620" y="64" width="240" height="58" rx="8"
+        fill="rgba(30,41,59,0.35)"
+        stroke="#f7768e" stroke-width="1" stroke-dasharray="4,4" stroke-opacity="0.4"/>
+  <text x="630" y="78" fill="#f7768e" font-size="9" font-weight="700"
+        text-anchor="start" style="letter-spacing:0.06em;text-transform:uppercase;">infra</text>
+  <text x="850" y="78" fill="#f7768e" font-size="9" font-weight="600"
+        text-anchor="end">1</text>
 </g>
 
-<g class="box-focus">
-  <rect x="360" y="720" width="200" height="120" rx="6" fill="#0f172a"/>
-  <rect x="360" y="720" width="200" height="120" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
-  <text x="460" y="744" fill="white" font-size="14" font-weight="600" text-anchor="middle">SUPABASE</text>
-  <text x="460" y="764" fill="#94a3b8" font-size="9" text-anchor="middle">data · single</text>
+<g><rect x="628" y="88" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#f7768e" stroke-width="1"/><text x="682" y="103" fill="white" font-size="10" text-anchor="middle">kong</text></g>
+<g class="cluster">
+  <rect x="620" y="132" width="240" height="58" rx="8"
+        fill="rgba(30,41,59,0.35)"
+        stroke="#7dcfff" stroke-width="1" stroke-dasharray="4,4" stroke-opacity="0.4"/>
+  <text x="630" y="146" fill="#7dcfff" font-size="9" font-weight="700"
+        text-anchor="start" style="letter-spacing:0.06em;text-transform:uppercase;">data</text>
+  <text x="850" y="146" fill="#7dcfff" font-size="9" font-weight="600"
+        text-anchor="end">1</text>
 </g>
 
-<g class="box-required">
-  <rect x="620" y="80" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="80" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#f7768e" stroke-width="1.5"/>
-  <text x="720" y="102" fill="white" font-size="11" font-weight="600" text-anchor="middle">kong</text>
-  <text x="720" y="118" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+<g><rect x="628" y="156" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#7dcfff" stroke-width="1"/><text x="682" y="171" fill="white" font-size="10" text-anchor="middle">neo4j</text></g>
+<g class="cluster">
+  <rect x="620" y="200" width="240" height="58" rx="8"
+        fill="rgba(30,41,59,0.35)"
+        stroke="#e0af68" stroke-width="1" stroke-dasharray="4,4" stroke-opacity="0.4"/>
+  <text x="630" y="214" fill="#e0af68" font-size="9" font-weight="700"
+        text-anchor="start" style="letter-spacing:0.06em;text-transform:uppercase;">llm</text>
+  <text x="850" y="214" fill="#e0af68" font-size="9" font-weight="600"
+        text-anchor="end">2</text>
 </g>
 
-<g class="box-required">
-  <rect x="620" y="180" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="180" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
-  <text x="720" y="202" fill="white" font-size="11" font-weight="600" text-anchor="middle">minio</text>
-  <text x="720" y="218" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+<g><rect x="628" y="224" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#e0af68" stroke-width="1"/><text x="682" y="239" fill="white" font-size="10" text-anchor="middle">litellm</text></g>
+<g><rect x="740" y="224" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#e0af68" stroke-width="1"/><text x="794" y="239" fill="white" font-size="10" text-anchor="middle">ollama</text></g>
+<g class="cluster">
+  <rect x="620" y="268" width="240" height="58" rx="8"
+        fill="rgba(30,41,59,0.35)"
+        stroke="#9ece6a" stroke-width="1" stroke-dasharray="4,4" stroke-opacity="0.4"/>
+  <text x="630" y="282" fill="#9ece6a" font-size="9" font-weight="700"
+        text-anchor="start" style="letter-spacing:0.06em;text-transform:uppercase;">agents</text>
+  <text x="850" y="282" fill="#9ece6a" font-size="9" font-weight="600"
+        text-anchor="end">1</text>
 </g>
 
-<g class="box-required">
-  <rect x="620" y="280" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="280" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
-  <text x="720" y="302" fill="white" font-size="11" font-weight="600" text-anchor="middle">neo4j</text>
-  <text x="720" y="318" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+<g><rect x="628" y="292" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#9ece6a" stroke-width="1"/><text x="682" y="307" fill="white" font-size="10" text-anchor="middle">n8n</text></g>
+<g class="cluster">
+  <rect x="620" y="336" width="240" height="58" rx="8"
+        fill="rgba(30,41,59,0.35)"
+        stroke="#bb9af7" stroke-width="1" stroke-dasharray="4,4" stroke-opacity="0.4"/>
+  <text x="630" y="350" fill="#bb9af7" font-size="9" font-weight="700"
+        text-anchor="start" style="letter-spacing:0.06em;text-transform:uppercase;">apps</text>
+  <text x="850" y="350" fill="#bb9af7" font-size="9" font-weight="600"
+        text-anchor="end">2</text>
 </g>
 
-<g class="box-required">
-  <rect x="620" y="380" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="380" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
-  <text x="720" y="402" fill="white" font-size="11" font-weight="600" text-anchor="middle">redis</text>
-  <text x="720" y="418" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+<g><rect x="628" y="360" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#bb9af7" stroke-width="1"/><text x="682" y="375" fill="white" font-size="10" text-anchor="middle">backend</text></g>
+<g><rect x="740" y="360" width="108" height="22" rx="4" fill="rgba(15,23,42,0.7)" stroke="#bb9af7" stroke-width="1"/><text x="794" y="375" fill="white" font-size="10" text-anchor="middle">jupyterhub</text></g>
 </g>
-
-<g class="box-required">
-  <rect x="620" y="480" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="480" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7dcfff" stroke-width="1.5"/>
-  <text x="720" y="502" fill="white" font-size="11" font-weight="600" text-anchor="middle">weaviate</text>
-  <text x="720" y="518" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
+<g class="focus" filter="url(#focus-glow)">  <rect x="360" y="194" width="200" height="70" rx="8"         fill="#0f172a" stroke="#7dcfff" stroke-width="1.5"/>  <text x="460" y="222" fill="white" font-size="15" font-weight="700"         text-anchor="middle">SUPABASE</text>  <text x="460" y="242" fill="#94a3b8" font-size="10"         text-anchor="middle">data · single</text></g>
+<g class="legend"><line x1="160" y1="400" x2="760" y2="400" stroke="#1e293b" stroke-width="1"/>
+<circle cx="226" cy="412" r="4" fill="#f7768e"/>
+<text x="236" y="415" fill="#94a3b8" font-size="9" font-weight="400" text-anchor="start">infra</text>
+<circle cx="306" cy="412" r="4" fill="#7dcfff"/>
+<text x="316" y="415" fill="#94a3b8" font-size="9" font-weight="400" text-anchor="start">data</text>
+<circle cx="386" cy="412" r="4" fill="#e0af68"/>
+<text x="396" y="415" fill="#94a3b8" font-size="9" font-weight="400" text-anchor="start">llm</text>
+<circle cx="466" cy="412" r="4" fill="#7aa2f7"/>
+<text x="476" y="415" fill="#94a3b8" font-size="9" font-weight="400" text-anchor="start">media</text>
+<circle cx="546" cy="412" r="4" fill="#9ece6a"/>
+<text x="556" y="415" fill="#94a3b8" font-size="9" font-weight="400" text-anchor="start">agents</text>
+<circle cx="626" cy="412" r="4" fill="#bb9af7"/>
+<text x="636" y="415" fill="#94a3b8" font-size="9" font-weight="400" text-anchor="start">apps</text>
 </g>
-
-<g class="box-required">
-  <rect x="620" y="580" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="580" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#e0af68" stroke-width="1.5"/>
-  <text x="720" y="602" fill="white" font-size="11" font-weight="600" text-anchor="middle">litellm</text>
-  <text x="720" y="618" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="680" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="680" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#e0af68" stroke-width="1.5"/>
-  <text x="720" y="702" fill="white" font-size="11" font-weight="600" text-anchor="middle">ollama</text>
-  <text x="720" y="718" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="780" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="780" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7aa2f7" stroke-width="1.5"/>
-  <text x="720" y="802" fill="white" font-size="11" font-weight="600" text-anchor="middle">comfyui</text>
-  <text x="720" y="818" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="880" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="880" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#7aa2f7" stroke-width="1.5"/>
-  <text x="720" y="902" fill="white" font-size="11" font-weight="600" text-anchor="middle">searxng</text>
-  <text x="720" y="918" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="980" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="980" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#9ece6a" stroke-width="1.5"/>
-  <text x="720" y="1002" fill="white" font-size="11" font-weight="600" text-anchor="middle">n8n</text>
-  <text x="720" y="1018" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="1080" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="1080" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
-  <text x="720" y="1102" fill="white" font-size="11" font-weight="600" text-anchor="middle">backend</text>
-  <text x="720" y="1118" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="1180" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="1180" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
-  <text x="720" y="1202" fill="white" font-size="11" font-weight="600" text-anchor="middle">jupyterhub</text>
-  <text x="720" y="1218" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="1280" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="1280" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
-  <text x="720" y="1302" fill="white" font-size="11" font-weight="600" text-anchor="middle">local-deep-researcher</text>
-  <text x="720" y="1318" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
-<g class="box-required">
-  <rect x="620" y="1380" width="200" height="60" rx="6" fill="#0f172a"/>
-  <rect x="620" y="1380" width="200" height="60" rx="6"
-        fill="rgba(15, 23, 42, 0.7)" stroke="#bb9af7" stroke-width="1.5"/>
-  <text x="720" y="1402" fill="white" font-size="11" font-weight="600" text-anchor="middle">open-webui</text>
-  <text x="720" y="1418" fill="#94a3b8" font-size="9" text-anchor="middle">required</text>
-</g>
-
 </svg></div>
     <div class="cards">
-      <div class="card"><h3>Required deps</h3><div class="num">1</div></div>
-      <div class="card"><h3>Optional/adaptive deps</h3><div class="num">0</div></div>
-      <div class="card"><h3>Consumers</h3><div class="num">14</div></div>
+      <div class="card"><h3>Calls</h3><div class="num">0</div></div>
+      <div class="card"><h3>Consumers</h3><div class="num">7</div></div>
+      <div class="card"><h3>Categories</h3><div class="num">5</div></div>
     </div>
     <footer>Regenerate: python -m bootstrapper.docs.regen supabase</footer>
   </div>

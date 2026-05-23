@@ -41,28 +41,30 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/n8n/service.yml`. Re-run `python -m bootstrapper.docs.regen n8n` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/n8n/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen n8n` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| redis | required | `http://redis:<port>` | _unspecified_ |
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| doc_processor | adaptive | `DOCLING_ENDPOINT=${DOCLING_ENDPOINT}` | _unspecified_ |
-| stt_provider | adaptive | `STT_ENDPOINT=${STT_ENDPOINT}` | _unspecified_ |
-| tts_provider | adaptive | `TTS_ENDPOINT=${TTS_ENDPOINT}` | _unspecified_ |
+| Service | Category |
+|---|---|
+| minio | data |
+| supabase | data |
+| weaviate | data |
+| litellm | llm |
+| comfyui | media |
+| doc-processor | media |
+| searxng | media |
+| stt-provider | media |
+| tts-provider | media |
+| hermes | agents |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares n8n in depends_on.required |
-| backend | optional | backend lists n8n as optional dep |
-| jupyterhub | optional | jupyterhub lists n8n as optional dep |
-| local-deep-researcher | optional | local-deep-researcher lists n8n as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| openclaw | agents |
+| backend | apps |
 
 ### Architecture diagram
 

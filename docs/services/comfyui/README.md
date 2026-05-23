@@ -41,26 +41,23 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/comfyui/service.yml`. Re-run `python -m bootstrapper.docs.regen comfyui` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/comfyui/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen comfyui` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| ollama | required | `http://ollama:<port>` | _unspecified_ |
-| comfyui | adaptive | `COMFYUI_HOST_URL=${COMFYUI_ENDPOINT}` | _unspecified_ |
+| Service | Category |
+|---|---|
+| minio | data |
+| litellm | llm |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares comfyui in depends_on.required |
-| hermes | adaptive | hermes adapts_to comfyui |
-| hermes | optional | hermes lists comfyui as optional dep |
-| jupyterhub | adaptive | jupyterhub adapts_to comfyui |
-| jupyterhub | optional | jupyterhub lists comfyui as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| hermes | agents |
+| n8n | agents |
+| backend | apps |
 
 ### Architecture diagram
 

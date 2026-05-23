@@ -41,13 +41,13 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/multi2vec-clip/service.yml`. Re-run `python -m bootstrapper.docs.regen multi2vec-clip` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/multi2vec-clip/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen multi2vec-clip` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-_No upstream dependencies._
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
 _No downstream consumers._
 

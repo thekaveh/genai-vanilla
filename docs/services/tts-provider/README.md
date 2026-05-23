@@ -202,25 +202,20 @@ engine. Override in Open WebUI admin → Audio, or set
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/tts-provider/service.yml`. Re-run `python -m bootstrapper.docs.regen tts-provider` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/tts-provider/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen tts-provider` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| parakeet | required | `http://parakeet:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares tts-provider in depends_on.required |
-| hermes | optional | hermes lists chatterbox as optional dep |
-| backend | optional | backend lists chatterbox as optional dep |
-| jupyterhub | optional | jupyterhub lists chatterbox as optional dep |
-| local-deep-researcher | optional | local-deep-researcher lists chatterbox as optional dep |
-| open-webui | optional | open-webui lists chatterbox as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| hermes | agents |
+| n8n | agents |
+| backend | apps |
 
 ### Architecture diagram
 

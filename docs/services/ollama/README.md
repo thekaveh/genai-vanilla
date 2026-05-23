@@ -110,23 +110,21 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/ollama/service.yml`. Re-run `python -m bootstrapper.docs.regen ollama` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/ollama/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen ollama` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| llm_provider | adaptive | `OLLAMA_HOST_URL=${LITELLM_OLLAMA_UPSTREAM}` | _unspecified_ |
+| Service | Category |
+|---|---|
+| supabase | data |
+| litellm ↔ | llm |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares ollama in depends_on.required |
-| comfyui | required | comfyui declares ollama in depends_on.required |
-| openclaw | optional | openclaw lists ollama as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| litellm ↔ | llm |
 
 ### Architecture diagram
 

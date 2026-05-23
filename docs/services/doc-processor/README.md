@@ -532,23 +532,20 @@ Identifies and extracts code blocks with syntax preservation.
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/doc-processor/service.yml`. Re-run `python -m bootstrapper.docs.regen doc-processor` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/doc-processor/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen doc-processor` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| globals | required | `http://globals:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares docling in depends_on.required |
-| backend | optional | backend lists docling as optional dep |
-| jupyterhub | optional | jupyterhub lists docling as optional dep |
-| local-deep-researcher | optional | local-deep-researcher lists docling as optional dep |
-| open-webui | optional | open-webui lists docling as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| n8n | agents |
+| backend | apps |
+| open-webui | apps |
 
 ### Architecture diagram
 

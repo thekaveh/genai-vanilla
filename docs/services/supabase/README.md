@@ -219,32 +219,23 @@ For more troubleshooting help, see [../quick-start/troubleshooting.md](../../qui
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/supabase/service.yml`. Re-run `python -m bootstrapper.docs.regen supabase` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/supabase/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen supabase` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| globals | required | `http://globals:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares supabase in depends_on.required |
-| minio | required | minio declares supabase in depends_on.required |
-| neo4j | required | neo4j declares supabase in depends_on.required |
-| redis | required | redis declares supabase in depends_on.required |
-| weaviate | required | weaviate declares supabase in depends_on.required |
-| litellm | required | litellm declares supabase in depends_on.required |
-| ollama | required | ollama declares supabase in depends_on.required |
-| comfyui | required | comfyui declares supabase in depends_on.required |
-| searxng | required | searxng declares supabase in depends_on.required |
-| n8n | required | n8n declares supabase in depends_on.required |
-| backend | required | backend declares supabase in depends_on.required |
-| jupyterhub | required | jupyterhub declares supabase in depends_on.required |
-| local-deep-researcher | required | local-deep-researcher declares supabase in depends_on.required |
-| open-webui | required | open-webui declares supabase in depends_on.required |
+| Service | Category |
+|---|---|
+| kong | infra |
+| neo4j | data |
+| litellm | llm |
+| ollama | llm |
+| n8n | agents |
+| backend | apps |
+| jupyterhub | apps |
 
 ### Architecture diagram
 

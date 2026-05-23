@@ -156,26 +156,20 @@ If empty, `STT_PROVIDER_SOURCE` is `disabled`.
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/stt-provider/service.yml`. Re-run `python -m bootstrapper.docs.regen stt-provider` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/stt-provider/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen stt-provider` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| tts-provider | required | `http://tts-provider:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares parakeet in depends_on.required |
-| hermes | optional | hermes lists parakeet as optional dep |
-| n8n | optional | n8n lists parakeet as optional dep |
-| backend | optional | backend lists parakeet as optional dep |
-| jupyterhub | optional | jupyterhub lists parakeet as optional dep |
-| local-deep-researcher | optional | local-deep-researcher lists parakeet as optional dep |
-| open-webui | optional | open-webui lists parakeet as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| hermes | agents |
+| n8n | agents |
+| backend | apps |
 
 ### Architecture diagram
 

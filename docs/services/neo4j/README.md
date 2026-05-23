@@ -245,19 +245,21 @@ For more troubleshooting help, see [../quick-start/troubleshooting.md](../../qui
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/neo4j/service.yml`. Re-run `python -m bootstrapper.docs.regen neo4j` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/neo4j/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen neo4j` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
+| Service | Category |
+|---|---|
+| supabase | data |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares neo4j in depends_on.required |
+| Service | Category |
+|---|---|
+| kong | infra |
+| backend | apps |
+| jupyterhub | apps |
 
 ### Architecture diagram
 

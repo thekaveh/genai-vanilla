@@ -303,20 +303,21 @@ lsof -i :63024
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/openclaw/service.yml`. Re-run `python -m bootstrapper.docs.regen openclaw` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/openclaw/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen openclaw` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| ollama | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| Service | Category |
+|---|---|
+| litellm | llm |
+| hermes | agents |
+| n8n | agents |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares openclaw in depends_on.required |
+| Service | Category |
+|---|---|
+| kong | infra |
 
 ### Architecture diagram
 

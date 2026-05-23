@@ -41,32 +41,29 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/backend/service.yml`. Re-run `python -m bootstrapper.docs.regen backend` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/backend/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen backend` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| redis | required | `http://redis:<port>` | _unspecified_ |
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| weaviate | adaptive | `WEAVIATE_URL=http://weaviate:8080` | _unspecified_ |
-| weaviate | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| chatterbox | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| docling | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| searxng | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| speaches | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| n8n | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| doc_processor | adaptive | `DOCLING_ENDPOINT=${DOCLING_ENDPOINT}` | _unspecified_ |
-| llm_provider | adaptive | `LITELLM_BASE_URL=http://litellm:4000` | _unspecified_ |
-| stt_provider | adaptive | `STT_ENDPOINT=${STT_ENDPOINT}` | _unspecified_ |
-| tts_provider | adaptive | `TTS_ENDPOINT=${TTS_ENDPOINT}` | _unspecified_ |
+| Service | Category |
+|---|---|
+| neo4j | data |
+| redis | data |
+| supabase | data |
+| weaviate | data |
+| litellm | llm |
+| comfyui | media |
+| doc-processor | media |
+| stt-provider | media |
+| tts-provider | media |
+| hermes | agents |
+| n8n | agents |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares backend in depends_on.required |
+| Service | Category |
+|---|---|
+| kong | infra |
 
 ### Architecture diagram
 

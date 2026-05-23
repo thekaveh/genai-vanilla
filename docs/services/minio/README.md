@@ -114,19 +114,20 @@ MinIO data lives in the `${PROJECT_NAME}-minio-data` named Docker volume mounted
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/minio/service.yml`. Re-run `python -m bootstrapper.docs.regen minio` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/minio/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen minio` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares minio in depends_on.required |
+| Service | Category |
+|---|---|
+| kong | infra |
+| comfyui | media |
+| n8n | agents |
+| jupyterhub | apps |
 
 ### Architecture diagram
 

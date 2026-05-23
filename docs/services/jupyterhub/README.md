@@ -223,36 +223,24 @@ For the current high-level stack diagram, see [Architecture Diagram](../../diagr
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/jupyterhub/service.yml`. Re-run `python -m bootstrapper.docs.regen jupyterhub` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/jupyterhub/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen jupyterhub` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| redis | required | `http://redis:<port>` | _unspecified_ |
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| weaviate | adaptive | `WEAVIATE_URL=http://weaviate:8080` | _unspecified_ |
-| weaviate | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| chatterbox | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| comfyui | adaptive | `COMFYUI_BASE_URL=${COMFYUI_ENDPOINT}` | _unspecified_ |
-| comfyui | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| docling | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| searxng | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| speaches | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| n8n | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| doc_processor | adaptive | `DOCLING_ENDPOINT=${DOCLING_ENDPOINT}` | _unspecified_ |
-| llm_provider | adaptive | `LITELLM_BASE_URL=http://litellm:4000` | _unspecified_ |
-| neo4j-graph-db | adaptive | `LITELLM_BASE_URL=http://litellm:4000` | _unspecified_ |
-| stt_provider | adaptive | `STT_ENDPOINT=${STT_ENDPOINT}` | _unspecified_ |
-| tts_provider | adaptive | `TTS_ENDPOINT=${TTS_ENDPOINT}` | _unspecified_ |
+| Service | Category |
+|---|---|
+| minio | data |
+| neo4j | data |
+| supabase | data |
+| weaviate | data |
+| litellm | llm |
+| hermes | agents |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares jupyterhub in depends_on.required |
+| Service | Category |
+|---|---|
+| kong | infra |
 
 ### Architecture diagram
 

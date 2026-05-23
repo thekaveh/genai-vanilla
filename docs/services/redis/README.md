@@ -41,25 +41,18 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/redis/service.yml`. Re-run `python -m bootstrapper.docs.regen redis` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/redis/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen redis` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares redis in depends_on.required |
-| litellm | required | litellm declares redis in depends_on.required |
-| searxng | required | searxng declares redis in depends_on.required |
-| n8n | required | n8n declares redis in depends_on.required |
-| backend | required | backend declares redis in depends_on.required |
-| jupyterhub | required | jupyterhub declares redis in depends_on.required |
-| open-webui | required | open-webui declares redis in depends_on.required |
+| Service | Category |
+|---|---|
+| litellm | llm |
+| backend | apps |
 
 ### Architecture diagram
 

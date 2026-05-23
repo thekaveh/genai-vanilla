@@ -41,29 +41,20 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/local-deep-researcher/service.yml`. Re-run `python -m bootstrapper.docs.regen local-deep-researcher` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/local-deep-researcher/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen local-deep-researcher` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| weaviate | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| chatterbox | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| docling | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| parakeet | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| searxng | required | `http://searxng:<port>` | _unspecified_ |
-| searxng | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| speaches | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
-| n8n | optional | `(optional — wired conditionally; see manifest)` | _unspecified_ |
+| Service | Category |
+|---|---|
+| litellm | llm |
+| searxng | media |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares local-deep-researcher in depends_on.required |
-| open-webui | optional | open-webui lists local-deep-researcher as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
 
 ### Architecture diagram
 

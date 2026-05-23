@@ -41,26 +41,21 @@ For general startup and routing issues, see [Troubleshooting](../../quick-start/
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/searxng/service.yml`. Re-run `python -m bootstrapper.docs.regen searxng` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/searxng/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen searxng` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| redis | required | `http://redis:<port>` | _unspecified_ |
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
+_No upstream calls._
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
-| Service | Type | Mechanism |
-|---|---|---|
-| kong | required | kong declares searxng in depends_on.required |
-| hermes | adaptive | hermes adapts_to searxng |
-| hermes | optional | hermes lists searxng as optional dep |
-| backend | optional | backend lists searxng as optional dep |
-| jupyterhub | optional | jupyterhub lists searxng as optional dep |
-| local-deep-researcher | required | local-deep-researcher declares searxng in depends_on.required |
-| local-deep-researcher | optional | local-deep-researcher lists searxng as optional dep |
+| Service | Category |
+|---|---|
+| kong | infra |
+| hermes | agents |
+| n8n | agents |
+| local-deep-researcher | apps |
+| open-webui | apps |
 
 ### Architecture diagram
 

@@ -222,33 +222,32 @@ For more information on Kong's role in the overall architecture, see the system 
 
 ## Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/kong/service.yml`. Re-run `python -m bootstrapper.docs.regen kong` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from `services/kong/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen kong` after manifest changes.
 
-### Current — Upstream (this service depends on)
+### Current — Upstream (this service calls)
 
-| Service | Type | Mechanism | Failure mode |
-|---|---|---|---|
-| minio | required | `http://minio:<port>` | _unspecified_ |
-| neo4j | required | `http://neo4j:<port>` | _unspecified_ |
-| redis | required | `http://redis:<port>` | _unspecified_ |
-| supabase | required | `http://supabase:<port>` | _unspecified_ |
-| weaviate | required | `http://weaviate:<port>` | _unspecified_ |
-| litellm | required | `http://litellm:<port>` | _unspecified_ |
-| ollama | required | `http://ollama:<port>` | _unspecified_ |
-| comfyui | required | `http://comfyui:<port>` | _unspecified_ |
-| docling | required | `http://docling:<port>` | _unspecified_ |
-| parakeet | required | `http://parakeet:<port>` | _unspecified_ |
-| searxng | required | `http://searxng:<port>` | _unspecified_ |
-| tts-provider | required | `http://tts-provider:<port>` | _unspecified_ |
-| hermes | required | `http://hermes:<port>` | _unspecified_ |
-| n8n | required | `http://n8n:<port>` | _unspecified_ |
-| openclaw | required | `http://openclaw:<port>` | _unspecified_ |
-| backend | required | `http://backend:<port>` | _unspecified_ |
-| jupyterhub | required | `http://jupyterhub:<port>` | _unspecified_ |
-| local-deep-researcher | required | `http://local-deep-researcher:<port>` | _unspecified_ |
-| open-webui | required | `http://open-webui:<port>` | _unspecified_ |
+| Service | Category |
+|---|---|
+| minio | data |
+| neo4j | data |
+| supabase | data |
+| weaviate | data |
+| litellm | llm |
+| ollama | llm |
+| comfyui | media |
+| doc-processor | media |
+| searxng | media |
+| stt-provider | media |
+| tts-provider | media |
+| hermes | agents |
+| n8n | agents |
+| openclaw | agents |
+| backend | apps |
+| jupyterhub | apps |
+| local-deep-researcher | apps |
+| open-webui | apps |
 
-### Current — Downstream (services that depend on this)
+### Current — Downstream (services that call this)
 
 _No downstream consumers._
 
