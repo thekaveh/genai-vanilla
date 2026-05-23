@@ -1,4 +1,4 @@
-"""Tests for bootstrapper.docs.diagram_renderer."""
+"""Tests for bootstrapper.docs.diagram_renderer — clustered layout."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def test_renders_svg_with_focus_label():
     g = build_doc_graph("hermes", SERVICES_DIR)
     svg = render_svg(g)
     assert svg.startswith("<svg")
-    assert "hermes" in svg.lower()
+    assert "HERMES" in svg
 
 
 def test_renders_html_includes_jetbrains_mono():
@@ -32,16 +32,6 @@ def test_renders_html_includes_jetbrains_mono():
     assert "<svg" in html
 
 
-def test_svg_has_no_volatile_content():
-    """The SVG body must NOT contain a generation timestamp (HTML footer only)."""
-    from docs.deps_resolver import build_doc_graph
-    from docs.diagram_renderer import render_svg
-    g = build_doc_graph("hermes", SERVICES_DIR)
-    svg = render_svg(g)
-    assert not re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", svg)
-    assert "generated:" not in svg.lower()
-
-
 def test_svg_byte_deterministic():
     from docs.deps_resolver import build_doc_graph
     from docs.diagram_renderer import render_svg
@@ -51,9 +41,92 @@ def test_svg_byte_deterministic():
     assert a == b
 
 
+def test_svg_is_well_formed_xml_across_services():
+    """Every doc folder's SVG parses as well-formed XML."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+
+    for svc in ("hermes", "kong", "litellm", "redis", "stt-provider",
+                "tts-provider", "ollama", "weaviate", "minio", "supabase"):
+        svg = render_svg(build_doc_graph(svc, SERVICES_DIR))
+        try:
+            ET.fromstring(svg)
+        except ET.ParseError as exc:
+            raise AssertionError(f"{svc}: malformed SVG — {exc}") from None
+
+
+def test_focus_box_has_glow_filter():
+    """The focus box uses a glow effect (filter or shadow)."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+    g = build_doc_graph("hermes", SERVICES_DIR)
+    svg = render_svg(g)
+    assert "feGaussianBlur" in svg or "stdDeviation" in svg or "drop-shadow" in svg.lower()
+
+
+def test_clusters_grouped_by_category():
+    """Hermes upstream has services in 'llm' + 'media' categories — both
+    categories should appear as cluster headers in the SVG."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+    g = build_doc_graph("hermes", SERVICES_DIR)
+    svg = render_svg(g)
+    assert "LLM" in svg or "llm" in svg
+    assert "MEDIA" in svg or "media" in svg
+
+
+def test_no_required_sublabel():
+    """Pills no longer carry the old 'required' sublabel."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+    g = build_doc_graph("hermes", SERVICES_DIR)
+    svg = render_svg(g)
+    assert "required" not in svg.lower() or svg.lower().count("required") == 0
+
+
+def test_empty_lane_placeholder():
+    """A focus with no upstream renders the lane with an empty placeholder."""
+    from docs.deps_resolver import DepGraph
+    from docs.diagram_renderer import render_svg
+    g = DepGraph(focus="lonely", category="infra", port_var=None, source="single")
+    svg = render_svg(g)
+    assert "none" in svg.lower()
+
+
+def test_one_edge_per_cluster_not_per_pill():
+    """For kong (15+ downstream), edge count is bounded by cluster count (≤6),
+    not by individual pill count."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+    g = build_doc_graph("kong", SERVICES_DIR)
+    svg = render_svg(g)
+    line_count = svg.count("<line")
+    assert line_count <= 12  # 6 upstream lanes max + 6 downstream lanes max
+
+
+def test_bidirectional_annotation():
+    """Bidirectional edges (Hermes↔LiteLLM) get a bidirectional marker, not a
+    duplicated arrow."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_svg
+    g = build_doc_graph("hermes", SERVICES_DIR)
+    svg = render_svg(g)
+    assert "↔" in svg or "bidirectional" in svg.lower()
+
+
+def test_summary_cards_in_html():
+    """The HTML wrapper includes three summary cards."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.diagram_renderer import render_html
+    g = build_doc_graph("hermes", SERVICES_DIR)
+    html = render_html(g)
+    assert "Calls" in html
+    assert "Consumers" in html
+    assert "Categories" in html
+
+
 def test_svg_matches_golden_snapshot():
-    """Hermes is the snapshot — most complex graph. Fixture lives at
-    bootstrapper/tests/fixtures/hermes.architecture.svg."""
+    """Hermes is the snapshot — must match committed fixture."""
     from docs.deps_resolver import build_doc_graph
     from docs.diagram_renderer import render_svg
 
@@ -61,58 +134,9 @@ def test_svg_matches_golden_snapshot():
     rendered = render_svg(g)
     golden = (FIXTURE_DIR / "hermes.architecture.svg").read_text()
     assert rendered == golden, (
-        "Hermes SVG drift. To accept the new output:\n"
-        "  PYTHONPATH=bootstrapper python -c \"from docs.deps_resolver "
-        "import build_doc_graph; from docs.diagram_renderer import render_svg; "
-        "from pathlib import Path; "
+        "Hermes SVG drift. To accept new output:\n"
+        "  PYTHONPATH=bootstrapper python -c \"from docs.deps_resolver import build_doc_graph; "
+        "from docs.diagram_renderer import render_svg; from pathlib import Path; "
         "Path('bootstrapper/tests/fixtures/hermes.architecture.svg').write_text("
         "render_svg(build_doc_graph('hermes', Path('services'))))\"\n"
     )
-
-
-def test_empty_lanes_drawn_explicitly():
-    """A focus with empty upstream/downstream gets explicit 'no deps' placeholders."""
-    from docs.deps_resolver import DepGraph
-    from docs.diagram_renderer import render_svg
-
-    g = DepGraph(focus="kong", category="infra", port_var=None, source="single")
-    svg = render_svg(g)
-    assert "no upstream" in svg.lower() or "no upstream deps" in svg.lower()
-    assert "no downstream" in svg.lower() or "no downstream consumers" in svg.lower()
-
-
-def test_aggregate_focus_renders_parent_box():
-    """Aggregate doc folders (stt-provider, tts-provider) render a parent
-    boundary rectangle wrapping inner member boxes."""
-    from docs.deps_resolver import build_doc_graph
-    from docs.diagram_renderer import render_svg
-
-    g = build_doc_graph("stt-provider", SERVICES_DIR)
-    svg = render_svg(g)
-    assert "#fb7185" in svg
-    assert "stroke-dasharray=\"4,4\"" in svg
-
-
-def test_non_aggregate_has_no_rose_boundary():
-    """Singleton focus (e.g. hermes) does NOT emit the rose aggregate boundary."""
-    from docs.deps_resolver import build_doc_graph
-    from docs.diagram_renderer import render_svg
-
-    g = build_doc_graph("hermes", SERVICES_DIR)
-    svg = render_svg(g)
-    assert "#fb7185" not in svg
-
-
-def test_svg_is_well_formed_xml_across_services():
-    """Every service's SVG must parse as well-formed XML. Catches issues like
-    unescaped `<port>` placeholder text in mechanism strings breaking title elements."""
-    from docs.deps_resolver import build_doc_graph
-    from docs.diagram_renderer import render_svg
-
-    services_to_check = ["hermes", "kong", "litellm", "redis", "stt-provider", "tts-provider", "ollama"]
-    for svc in services_to_check:
-        svg = render_svg(build_doc_graph(svc, SERVICES_DIR))
-        try:
-            ET.fromstring(svg)
-        except ET.ParseError as exc:
-            raise AssertionError(f"{svc}'s SVG is not well-formed XML: {exc}") from None

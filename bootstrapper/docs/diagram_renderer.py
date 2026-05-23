@@ -1,14 +1,21 @@
-"""DepGraph → HTML+SVG renderer.
+"""DepGraph → HTML+SVG renderer — clustered-by-category layout.
 
-Applies the architecture-diagram skill's design system programmatically.
-Output is byte-deterministic for the same DepGraph (no timestamps in SVG
-body; timestamps live in the HTML footer only).
+Visual design (see spec docs/superpowers/specs/2026-05-22-diagram-refresh-design.md):
+- 3-lane layout: upstream | focus | downstream.
+- Each non-focus lane groups services into category clusters.
+- One edge per cluster (not per pill).
+- Focus box has a glow (filter blur + stroke).
+- Empty lanes show an italic "— none —" placeholder.
+- Legend bar + 3 summary cards below the diagram.
+
+Output is byte-deterministic for the same DepGraph.
 """
 
 from __future__ import annotations
 
-import html
+import html as html_mod
 import sys
+from collections import OrderedDict
 from pathlib import Path
 from string import Template
 
@@ -17,78 +24,68 @@ sys.path.insert(0, str(REPO_ROOT / "bootstrapper"))
 
 from services.topology import CATEGORY_COLORS  # noqa: E402
 
-from .deps_resolver import DepEdge, DepGraph
+from .deps_resolver import DepEdge, DepGraph  # noqa: E402
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
-# ───── Geometry constants ────────────────────────────────────────────────
+# ───── Geometry ──────────────────────────────────────────────────────────
 LANE_W = 240
-BOX_W = 200
-BOX_H = 60
-BOX_GAP = 40
-LANE_X = {
-    "upstream":   60,
-    "focus":      60 + LANE_W + 60,
-    "downstream": 60 + LANE_W + 60 + 200 + 60,  # focus is 200 wide
-}
+LANE_GAP = 60
 FOCUS_W = 200
-FOCUS_H = 120
+FOCUS_H = 70
+PILL_H = 22
+PILL_GAP = 4
+CLUSTER_PADDING_Y = 8
+CLUSTER_HEADER_H = 16
+CLUSTER_GAP = 10
 LANE_HEADER_Y = 36
-ROWS_TOP_Y = 80
+LANE_TOP_Y = 64
+LEGEND_H = 28
+CARDS_H = 56
+WIDTH = LANE_W + LANE_GAP + FOCUS_W + LANE_GAP + LANE_W + 120  # 880
+
+CATEGORY_ORDER = ("infra", "data", "llm", "media", "agents", "apps", "external")
 
 
 def render_svg(graph: DepGraph) -> str:
     """Render the architecture SVG. Pure function of graph state."""
+    up_clusters = _cluster_by_category(graph.upstream)
+    down_clusters = _cluster_by_category(graph.downstream)
 
-    defs = (TEMPLATE_DIR / "svg_defs.tmpl").read_text()
-    rows = max(len(graph.upstream), len(graph.downstream), 1)
-    height = ROWS_TOP_Y + rows * (BOX_H + BOX_GAP) + 40
-    width = LANE_X["downstream"] + BOX_W + 60
+    up_height = _clusters_height(up_clusters)
+    down_height = _clusters_height(down_clusters)
+    body_height = max(up_height, down_height, FOCUS_H + 40)
+    total_height = LANE_TOP_Y + body_height + LEGEND_H + 20
 
     parts: list[str] = []
-    parts.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">')
-    parts.append(defs)
-    parts.append(f'<rect width="{width}" height="{height}" fill="url(#grid)"/>')
+    parts.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {total_height}">')
+    parts.append(_defs(graph))
+    parts.append(f'<rect width="{WIDTH}" height="{total_height}" fill="url(#grid)"/>')
 
     # Lane headers
-    parts.append(_text(LANE_X["upstream"] + LANE_W // 2 - 80, LANE_HEADER_Y, "UPSTREAM (deps)", size=11, weight=600, color="#94a3b8", anchor="middle"))
-    parts.append(_text(LANE_X["focus"] + FOCUS_W // 2, LANE_HEADER_Y, "FOCUS", size=11, weight=600, color="#94a3b8", anchor="middle"))
-    parts.append(_text(LANE_X["downstream"] + BOX_W // 2, LANE_HEADER_Y, "DOWNSTREAM (consumers)", size=11, weight=600, color="#94a3b8", anchor="middle"))
+    parts.append(_text(60 + LANE_W // 2, LANE_HEADER_Y, "Upstream (calls)",
+                       size=10, color="#94a3b8", anchor="middle", weight=600, letter_spacing=0.08))
+    focus_x = 60 + LANE_W + LANE_GAP
+    parts.append(_text(focus_x + FOCUS_W // 2, LANE_HEADER_Y, "Focus",
+                       size=10, color="#94a3b8", anchor="middle", weight=600, letter_spacing=0.08))
+    down_x = focus_x + FOCUS_W + LANE_GAP
+    parts.append(_text(down_x + LANE_W // 2, LANE_HEADER_Y, "Downstream (consumers)",
+                       size=10, color="#94a3b8", anchor="middle", weight=600, letter_spacing=0.08))
 
-    # Edges first (drawn before boxes so they render behind)
-    parts.extend(_edges(graph))
+    # Edges drawn first (behind clusters)
+    parts.extend(_edges(graph, up_clusters, down_clusters, body_height))
 
-    # Upstream boxes
-    if graph.upstream:
-        for i, e in enumerate(graph.upstream):
-            y = ROWS_TOP_Y + i * (BOX_H + BOX_GAP)
-            parts.append(_box(LANE_X["upstream"], y, BOX_W, BOX_H, e.other, _sublabel(e), e.kind, _color_for(e)))
-    else:
-        parts.append(_placeholder(LANE_X["upstream"], ROWS_TOP_Y, "no upstream deps"))
+    # Clusters
+    parts.append(_render_lane(60, LANE_TOP_Y, LANE_W, up_clusters, "upstream"))
+    parts.append(_render_lane(down_x, LANE_TOP_Y, LANE_W, down_clusters, "downstream"))
 
-    # Focus
-    focus_y = ROWS_TOP_Y + (max(rows, 1) * (BOX_H + BOX_GAP) - FOCUS_H) // 2
-    focus_color = CATEGORY_COLORS.get(graph.category, "#94a3b8")
-    parts.append(_box(
-        LANE_X["focus"], focus_y, FOCUS_W, FOCUS_H,
-        graph.focus.upper(),
-        f"{graph.category} · {graph.source}",
-        "focus",
-        focus_color,
-        big=True,
-    ))
+    # Focus box (centered vertically in body)
+    focus_y = LANE_TOP_Y + (body_height - FOCUS_H) // 2
+    parts.append(_focus_box(focus_x, focus_y, FOCUS_W, FOCUS_H, graph))
 
-    # Downstream boxes
-    if graph.downstream:
-        for i, e in enumerate(graph.downstream):
-            y = ROWS_TOP_Y + i * (BOX_H + BOX_GAP)
-            parts.append(_box(LANE_X["downstream"], y, BOX_W, BOX_H, e.other, _sublabel(e), e.kind, _color_for(e)))
-    else:
-        parts.append(_placeholder(LANE_X["downstream"], ROWS_TOP_Y, "no downstream consumers"))
-
-    # Aggregate boundary box (for composite focus per spec A.7)
-    if graph.source == "(aggregate)":
-        parts.append(_aggregate_boundary(LANE_X["focus"], focus_y, FOCUS_W, FOCUS_H))
+    # Legend
+    legend_y = LANE_TOP_Y + body_height + 10
+    parts.append(_legend(WIDTH // 2, legend_y))
 
     parts.append("</svg>")
     return "\n".join(parts)
@@ -98,17 +95,17 @@ def render_html(graph: DepGraph) -> str:
     tmpl = Template((TEMPLATE_DIR / "architecture.html.tmpl").read_text())
     svg = render_svg(graph)
     cat_color = CATEGORY_COLORS.get(graph.category, "#94a3b8")
-    n_required = sum(1 for e in graph.upstream if e.kind == "required")
-    n_optional = sum(1 for e in graph.upstream if e.kind in ("optional", "adaptive"))
+    n_calls = len(graph.upstream)
     n_consumers = len(graph.downstream)
+    n_categories = len({e.other_category for e in graph.downstream})
     return tmpl.substitute(
         focus=graph.focus,
         subtitle=f"category: {graph.category} · source: {graph.source}",
         cat_color=cat_color,
         svg=svg,
-        n_required=n_required,
-        n_optional=n_optional,
-        n_consumers=n_consumers,
+        n_required=n_calls,         # "Calls" — template still uses these var names
+        n_optional=n_consumers,     # "Consumers"
+        n_consumers=n_categories,   # "Categories served"
         footer=f"Regenerate: python -m bootstrapper.docs.regen {graph.focus}",
     )
 
@@ -116,69 +113,187 @@ def render_html(graph: DepGraph) -> str:
 # ───── Internal helpers ──────────────────────────────────────────────────
 
 
-def _color_for(e: DepEdge) -> str:
-    """Spec A.3 rule #3: each box uses its category's palette token."""
-    return CATEGORY_COLORS.get(e.other_category, "#94a3b8")
+def _cluster_by_category(edges: tuple[DepEdge, ...]) -> "OrderedDict[str, list[DepEdge]]":
+    """Group edges by other_category. Preserves CATEGORY_ORDER ordering.
+    Returns empty OrderedDict if edges is empty."""
+    grouped: dict[str, list[DepEdge]] = {}
+    for e in edges:
+        grouped.setdefault(e.other_category, []).append(e)
+    return OrderedDict(
+        (cat, sorted(grouped[cat], key=lambda x: x.other))
+        for cat in CATEGORY_ORDER
+        if cat in grouped
+    )
 
 
-def _box(x: int, y: int, w: int, h: int, label: str, sublabel: str, kind: str, stroke: str, *, big: bool = False) -> str:
-    fill = "rgba(15, 23, 42, 0.7)"
+def _cluster_height(pills: list[DepEdge]) -> int:
+    """Height of a cluster containing N pills (in 2-column packed grid)."""
+    rows = (len(pills) + 1) // 2 if len(pills) > 1 else 1
+    return CLUSTER_PADDING_Y + CLUSTER_HEADER_H + rows * (PILL_H + PILL_GAP) + CLUSTER_PADDING_Y
+
+
+def _clusters_height(clusters: "OrderedDict[str, list[DepEdge]]") -> int:
+    if not clusters:
+        return 80  # empty-placeholder height
+    return sum(_cluster_height(pills) for pills in clusters.values()) + (len(clusters) - 1) * CLUSTER_GAP
+
+
+def _defs(graph: DepGraph) -> str:
+    focus_color = CATEGORY_COLORS.get(graph.category, "#94a3b8")
+    return f"""<defs>
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+  </pattern>
+  <marker id="arrowhead" markerWidth="9" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 9 3, 0 6" fill="#64748b"/>
+  </marker>
+  <filter id="focus-glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+    <feFlood flood-color="{focus_color}" flood-opacity="0.6"/>
+    <feComposite in2="SourceAlpha" operator="in"/>
+    <feMerge>
+      <feMergeNode/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+</defs>"""
+
+
+def _focus_box(x: int, y: int, w: int, h: int, graph: DepGraph) -> str:
+    color = CATEGORY_COLORS.get(graph.category, "#94a3b8")
     cx = x + w // 2
-    ty = y + 24 if big else y + 22
-    sy = y + 44 if big else y + 38
-    ts = 14 if big else 11
-    return Template((TEMPLATE_DIR / "svg_box.tmpl").read_text()).substitute(
-        x=x, y=y, w=w, h=h, kind=kind, fill=fill, stroke=stroke,
-        cx=cx, ty=ty, sy=sy, ts=ts, label=label, sublabel=sublabel or "",
-    )
-
-
-def _placeholder(x: int, y: int, text: str) -> str:
-    return f'<text x="{x + BOX_W // 2}" y="{y + BOX_H // 2}" fill="#475569" font-size="10" text-anchor="middle" font-style="italic">— {text} —</text>'
-
-
-def _aggregate_boundary(x: int, y: int, w: int, h: int) -> str:
-    pad = 14
     return (
-        f'<rect x="{x - pad}" y="{y - pad}" width="{w + 2 * pad}" height="{h + 2 * pad}" '
-        f'rx="12" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,4"/>'
+        f'<g class="focus" filter="url(#focus-glow)">'
+        f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" '
+        f'        fill="#0f172a" stroke="{color}" stroke-width="1.5"/>'
+        f'  <text x="{cx}" y="{y + 28}" fill="white" font-size="15" font-weight="700" '
+        f'        text-anchor="middle">{html_mod.escape(graph.focus.upper())}</text>'
+        f'  <text x="{cx}" y="{y + 48}" fill="#94a3b8" font-size="10" '
+        f'        text-anchor="middle">{html_mod.escape(graph.category)} · {html_mod.escape(graph.source)}</text>'
+        f'</g>'
     )
 
 
-def _edges(graph: DepGraph) -> list[str]:
-    out: list[str] = []
-    fy_focus = ROWS_TOP_Y + (max(len(graph.upstream), len(graph.downstream), 1) * (BOX_H + BOX_GAP)) // 2
-    for i, e in enumerate(graph.upstream):
-        y = ROWS_TOP_Y + i * (BOX_H + BOX_GAP) + BOX_H // 2
-        out.append(_edge(LANE_X["upstream"] + BOX_W, y, LANE_X["focus"], fy_focus, e))
-        if e.bidirectional:
-            out.append(_edge(LANE_X["focus"], fy_focus + 6, LANE_X["upstream"] + BOX_W, y + 6, e))
-    for i, e in enumerate(graph.downstream):
-        y = ROWS_TOP_Y + i * (BOX_H + BOX_GAP) + BOX_H // 2
-        out.append(_edge(LANE_X["focus"] + FOCUS_W, fy_focus, LANE_X["downstream"], y, e))
-    return out
+def _render_lane(x: int, y: int, w: int, clusters: "OrderedDict[str, list[DepEdge]]", direction: str) -> str:
+    if not clusters:
+        # Empty placeholder
+        return (
+            f'<g><rect x="{x}" y="{y + 20}" width="{w}" height="60" rx="6" '
+            f'fill="none" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3"/>'
+            f'<text x="{x + w // 2}" y="{y + 56}" fill="#475569" font-size="10" '
+            f'font-style="italic" text-anchor="middle">— none —</text></g>'
+        )
+
+    parts: list[str] = ['<g>']
+    cy = y
+    cluster_tmpl = Template((TEMPLATE_DIR / "cluster.tmpl").read_text())
+    for cat, pills in clusters.items():
+        ch = _cluster_height(pills)
+        color = CATEGORY_COLORS.get(cat, "#94a3b8")
+        parts.append(cluster_tmpl.substitute(
+            x=x, y=cy, w=w, h=ch,
+            stroke=color,
+            header_x=x + 10, header_y=cy + 14,
+            count_x=x + w - 10,
+            category=html_mod.escape(cat),
+            count=str(len(pills)),
+        ))
+        # Pills inside the cluster
+        pill_top = cy + CLUSTER_PADDING_Y + CLUSTER_HEADER_H
+        pill_w = (w - 24) // 2
+        for i, p in enumerate(pills):
+            row = i // 2
+            col = i % 2
+            px = x + 8 + col * (pill_w + 4)
+            py = pill_top + row * (PILL_H + PILL_GAP)
+            parts.append(_pill(px, py, pill_w, PILL_H, p.other, color))
+        cy += ch + CLUSTER_GAP
+
+    parts.append('</g>')
+    return "\n".join(parts)
 
 
-def _edge(x1: int, y1: int, x2: int, y2: int, e: DepEdge) -> str:
-    if e.kind == "required":
-        stroke, marker, dash = "#64748b", "arrowhead-solid", ""
-    elif e.kind == "adaptive":
-        stroke, marker, dash = "#fbbf24", "arrowhead-dashed", 'stroke-dasharray="4,4"'
-    else:
-        stroke, marker, dash = "#94a3b8", "arrowhead-solid", 'stroke-dasharray="2,3"'
-    title_text = f"{e.kind} · {e.failure_mode or e.mechanism}" if e.failure_mode or e.mechanism else ""
-    title = f"<title>{html.escape(title_text)}</title>" if title_text else ""
+def _pill(x: int, y: int, w: int, h: int, label: str, stroke: str) -> str:
     return (
-        f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-        f'stroke="{stroke}" stroke-width="1.5" {dash} marker-end="url(#{marker})">'
-        f'{title}</line>'
+        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" '
+        f'fill="rgba(15,23,42,0.7)" stroke="{stroke}" stroke-width="1"/>'
+        f'<text x="{x + w // 2}" y="{y + h // 2 + 4}" fill="white" font-size="10" '
+        f'text-anchor="middle">{html_mod.escape(label)}</text></g>'
     )
 
 
-def _text(x: int, y: int, text: str, *, size: int = 11, weight: int = 400, color: str = "#fff", anchor: str = "start") -> str:
-    return f'<text x="{x}" y="{y}" fill="{color}" font-size="{size}" font-weight="{weight}" text-anchor="{anchor}">{text}</text>'
+def _edges(graph: DepGraph, up_clusters: "OrderedDict[str, list[DepEdge]]",
+          down_clusters: "OrderedDict[str, list[DepEdge]]", body_height: int) -> list[str]:
+    """One edge per cluster. Edge connects focus side to cluster header."""
+    parts: list[str] = []
+    focus_x = 60 + LANE_W + LANE_GAP
+    focus_y_center = LANE_TOP_Y + body_height // 2
+
+    # Upstream: cluster → focus (arrow points right)
+    cy = LANE_TOP_Y
+    for cat, pills in up_clusters.items():
+        ch = _cluster_height(pills)
+        bidirectional = any(p.bidirectional for p in pills)
+        x1 = 60 + LANE_W
+        y1 = cy + CLUSTER_PADDING_Y + CLUSTER_HEADER_H // 2
+        parts.append(
+            f'<line x1="{x1}" y1="{y1}" x2="{focus_x}" y2="{focus_y_center}" '
+            f'stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>'
+        )
+        if bidirectional:
+            parts.append(
+                f'<line x1="{focus_x}" y1="{focus_y_center + 6}" x2="{x1}" y2="{y1 + 6}" '
+                f'stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>'
+            )
+            parts.append(
+                f'<text x="{(x1 + focus_x) // 2}" y="{(y1 + focus_y_center) // 2 - 4}" '
+                f'fill="#94a3b8" font-size="9" text-anchor="middle">↔ bidirectional</text>'
+            )
+        cy += ch + CLUSTER_GAP
+
+    # Downstream: focus → cluster (arrow points right)
+    down_x = focus_x + FOCUS_W + LANE_GAP
+    cy = LANE_TOP_Y
+    for cat, pills in down_clusters.items():
+        ch = _cluster_height(pills)
+        x2 = down_x
+        y2 = cy + CLUSTER_PADDING_Y + CLUSTER_HEADER_H // 2
+        parts.append(
+            f'<line x1="{focus_x + FOCUS_W}" y1="{focus_y_center}" x2="{x2}" y2="{y2}" '
+            f'stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>'
+        )
+        cy += ch + CLUSTER_GAP
+
+    return parts
 
 
-def _sublabel(e: DepEdge) -> str:
-    suffix = " · ↔" if e.bidirectional else ""
-    return f"{e.kind}{suffix}"
+def _legend(cx: int, y: int) -> str:
+    items = [
+        ("#f7768e", "infra"),
+        ("#7dcfff", "data"),
+        ("#e0af68", "llm"),
+        ("#7aa2f7", "media"),
+        ("#9ece6a", "agents"),
+        ("#bb9af7", "apps"),
+    ]
+    item_w = 80
+    total_w = item_w * len(items)
+    start_x = cx - total_w // 2
+    parts = [f'<g class="legend"><line x1="{start_x - 60}" y1="{y - 4}" x2="{cx + total_w // 2 + 60}" y2="{y - 4}" stroke="#1e293b" stroke-width="1"/>']
+    for i, (color, name) in enumerate(items):
+        ix = start_x + i * item_w
+        parts.append(f'<circle cx="{ix + 6}" cy="{y + 8}" r="4" fill="{color}"/>')
+        parts.append(_text(ix + 16, y + 11, name, size=9, color="#94a3b8", anchor="start"))
+    parts.append('</g>')
+    return "\n".join(parts)
+
+
+def _text(x: int, y: int, text: str, *,
+          size: int = 11, weight: int = 400, color: str = "#fff",
+          anchor: str = "start", letter_spacing: float = 0.0) -> str:
+    ls = f' letter-spacing="{letter_spacing}em"' if letter_spacing else ""
+    return (
+        f'<text x="{x}" y="{y}" fill="{color}" font-size="{size}" '
+        f'font-weight="{weight}" text-anchor="{anchor}"{ls}>'
+        f'{html_mod.escape(text)}</text>'
+    )
