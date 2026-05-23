@@ -13,7 +13,7 @@ sources_consulted:
   - services/hermes/compose.yml
   - services/hermes/README.md
   - services/jupyterhub/service.yml
-  - docs/services/backend/README.md
+  - services/backend/README.md
 ---
 
 # backend — Integration Research

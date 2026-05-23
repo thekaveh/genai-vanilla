@@ -10,7 +10,7 @@
 name: redis
 label: "Redis (cache & queue)"
 category: data
-docs: docs/services/redis.md
+docs: services/redis/README.md
 
 containers:
   - redis

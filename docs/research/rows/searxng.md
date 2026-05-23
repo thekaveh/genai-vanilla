@@ -16,7 +16,7 @@ sources_consulted:
   - services/n8n/init/config/searxng-research-workflow.json
   - services/open-webui/service.yml
   - services/open-webui/extras/tools/research_tool.py
-  - docs/services/searxng/README.md
+  - services/searxng/README.md
 ---
 
 # searxng — Integration Research

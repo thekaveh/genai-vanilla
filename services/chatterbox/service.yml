@@ -11,7 +11,7 @@
 name: chatterbox
 label: "Chatterbox (voice-cloning TTS, GPU)"
 category: media
-docs: docs/services/tts-provider.md
+docs: services/tts-provider/README.md
 
 containers:
   - chatterbox

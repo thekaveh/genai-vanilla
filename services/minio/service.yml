@@ -7,7 +7,7 @@
 name: minio
 label: "MinIO (S3-compatible object storage)"
 category: data
-docs: docs/services/minio.md
+docs: services/minio/README.md
 
 containers:
   - minio

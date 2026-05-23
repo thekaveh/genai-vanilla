@@ -2,7 +2,7 @@
 name: neo4j
 label: "Neo4j (graph database)"
 category: data
-docs: docs/services/neo4j.md
+docs: services/neo4j/README.md
 
 containers:
   - neo4j-graph-db

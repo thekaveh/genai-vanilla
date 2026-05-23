@@ -11,7 +11,7 @@ sources_consulted:
   - services/open-webui/service.yml
   - services/open-webui/compose.yml
   - services/open-webui/extras/tools/memory_tool.py
-  - docs/services/open-webui/README.md
+  - services/open-webui/README.md
 ---
 
 # open-webui — Integration Research

@@ -14,7 +14,7 @@ sources_consulted:
   - services/weaviate/service.yml
   - services/weaviate/compose.yml
   - services/weaviate/init/scripts/init-weaviate.sh
-  - docs/services/weaviate/README.md
+  - services/weaviate/README.md
 ---
 
 # weaviate — Integration Research

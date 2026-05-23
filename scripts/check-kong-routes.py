@@ -32,7 +32,7 @@ except ImportError:  # pragma: no cover - developer environment guard
     print("FAIL import: PyYAML is required to parse Kong config", file=sys.stderr)
     sys.exit(2)
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 ENV_EXAMPLE = ROOT / ".env.example"
 
 # Make the bootstrapper package importable.

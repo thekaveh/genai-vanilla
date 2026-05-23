@@ -2,7 +2,7 @@
 name: searxng
 label: "SearXNG (privacy metasearch)"
 category: media
-docs: docs/services/searxng.md
+docs: services/searxng/README.md
 
 containers:
   - searxng

@@ -10,7 +10,7 @@ sources_consulted:
   - https://jupyterhub.readthedocs.io/en/stable/reference/authenticators.html
   - services/jupyterhub/service.yml
   - services/jupyterhub/build/requirements.txt
-  - docs/services/jupyterhub/README.md
+  - services/jupyterhub/README.md
   - services/minio/service.yml
   - services/backend/service.yml
   - services/hermes/service.yml

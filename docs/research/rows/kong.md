@@ -5,7 +5,7 @@ generated: 2026-05-19
 generator: phase-b-subagent
 sources_consulted:
   - services/kong/service.yml
-  - docs/services/kong/README.md
+  - services/kong/README.md
   - bootstrapper/utils/kong_config_generator.py
   - https://docs.konghq.com/hub/kong-inc/prometheus/
   - https://docs.konghq.com/hub/kong-inc/opentelemetry/
@@ -21,10 +21,10 @@ sources_consulted:
 - **kong ↔ multi2vec-clip**
   - Why valuable: Today CLIP is reachable only through Weaviate's `nearImage`/`nearText` paths. Exposing the raw `/vectors` endpoint via Kong lets `backend`, `n8n` flows, and `jupyterhub` notebooks compute embeddings without round-tripping a Weaviate query — useful for re-ranking, similarity probes, and offline batch jobs.
   - Mechanism sketch: alias `clip.localhost` → `http://multi2vec-clip:8080/vectors` (the inference container's native endpoint) gated by `MULTI2VEC_CLIP_SOURCE != disabled`. CORS plugin only; no auth (parity with `weaviate.localhost`).
-  - Effort: small (one route block in `kong_config_generator.py`, one entry in `docs/services/kong/README.md`).
+  - Effort: small (one route block in `kong_config_generator.py`, one entry in `services/kong/README.md`).
   - Risks / open questions:
     - CLIP container has no rate limiting; busy notebooks could starve Weaviate's vectorizer pipeline. Add `rate-limiting` plugin to be safe.
-    - Confirm `MULTI2VEC_CLIP_SOURCE` is wired into the bootstrapper (`docs/services/multi2vec-clip/README.md` lists it as "optional" — manifest may not exist yet).
+    - Confirm `MULTI2VEC_CLIP_SOURCE` is wired into the bootstrapper (`services/multi2vec-clip/README.md` lists it as "optional" — manifest may not exist yet).
   - Confidence: low (no `services/multi2vec-clip/service.yml` exists; topology entry is doc-only).
 
 ## 2. Candidate new services

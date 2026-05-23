@@ -12,7 +12,7 @@ sources_consulted:
   - services/local-deep-researcher/build/scripts/init-config.py
   - services/backend/app/app/research_client.py
   - services/redis/service.yml
-  - docs/services/local-deep-researcher/README.md
+  - services/local-deep-researcher/README.md
 ---
 
 # local-deep-researcher — Integration Research

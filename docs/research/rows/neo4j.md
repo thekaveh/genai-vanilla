@@ -6,7 +6,7 @@ generator: phase-b-subagent
 sources_consulted:
   - services/neo4j/service.yml
   - services/neo4j/compose.yml
-  - docs/services/neo4j/README.md
+  - services/neo4j/README.md
   - services/backend/compose.yml
   - services/jupyterhub/service.yml
   - services/local-deep-researcher/service.yml

@@ -10,7 +10,7 @@
 name: cloud-providers
 label: "Cloud LLM providers (OpenAI, Anthropic, OpenRouter)"
 category: llm
-docs: docs/services/litellm.md  # cloud-provider routing is documented in the LiteLLM service doc
+docs: services/litellm/README.md  # cloud-provider routing is documented in the LiteLLM service doc
 
 # Virtual manifest: no containers, no compose fragment. The bootstrapper
 # skips virtual manifests when assembling the include list.

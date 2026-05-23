@@ -7,7 +7,7 @@ sources_consulted:
   - services/hermes/service.yml
   - services/hermes/init/templates/config.yaml.tmpl
   - services/hermes/init/scripts/init-hermes.sh
-  - docs/services/hermes/README.md
+  - services/hermes/README.md
   - services/neo4j/service.yml
   - services/weaviate/service.yml
   - services/minio/service.yml
@@ -56,7 +56,7 @@ sources_consulted:
   - Mechanism sketch: Skill POSTing to `http://docling:5001/v1/convert/file` (multipart) and feeding the result into context or Weaviate.
   - Effort: small
   - Risks / open questions: Large-file handling; where parsed text lands.
-  - Confidence: high (docling endpoint documented in `docs/services/doc-processor/`).
+  - Confidence: high (docling endpoint documented in `services/doc-processor/`).
 
 - **hermes ↔ supabase**
   - Why valuable: A JWT-scoped shared session store lets one Hermes session follow a user across Open WebUI, JupyterHub, and OpenClaw — `/opt/data` is single-tenant.

@@ -13,7 +13,7 @@
 name: hermes
 label: "Hermes (programmable AI agent)"
 category: agents
-docs: docs/services/hermes.md
+docs: services/hermes/README.md
 
 containers:
   - hermes

@@ -11,7 +11,7 @@
 name: tts-provider
 label: "TTS provider (text-to-speech engine selector)"
 category: media
-docs: docs/services/tts-provider.md
+docs: services/tts-provider/README.md
 virtual: true
 containers: []
 

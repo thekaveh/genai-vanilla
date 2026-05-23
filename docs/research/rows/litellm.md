@@ -6,7 +6,7 @@ generator: phase-b-subagent
 sources_consulted:
   - services/litellm/service.yml
   - services/litellm/init/scripts/init.py
-  - docs/services/litellm/README.md
+  - services/litellm/README.md
   - services/backend/service.yml
   - services/docling/service.yml
   - services/minio/service.yml

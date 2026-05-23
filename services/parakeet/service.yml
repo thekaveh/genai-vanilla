@@ -13,7 +13,7 @@
 name: parakeet
 label: "Parakeet (NVIDIA STT engine)"
 category: media
-docs: docs/services/stt-provider.md  # parakeet is one of the STT_PROVIDER_SOURCE engines (parakeet-container-gpu / parakeet-localhost)
+docs: services/stt-provider/README.md  # parakeet is one of the STT_PROVIDER_SOURCE engines (parakeet-container-gpu / parakeet-localhost)
 
 containers:
   - parakeet-gpu

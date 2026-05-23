@@ -122,7 +122,7 @@ You can change the model name in the Open WebUI admin panel — Audio settings.
 
 ## Full configuration reference
 
-See [docs/services/stt-provider.md](../../../docs/services/stt-provider.md).
+See [services/stt-provider/README.md](../../../services/stt-provider/README.md).
 
 ## References
 

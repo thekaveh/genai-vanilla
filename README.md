@@ -244,7 +244,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Neo4j Browser** | http://localhost:63020 | http://graph.localhost:63000 | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
-| **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants on `*_LOCALHOST_URL`. See [docs/services/tts-provider/README.md](docs/services/tts-provider/README.md) and [docs/services/stt-provider/README.md](docs/services/stt-provider/README.md). | None |
+| **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants on `*_LOCALHOST_URL`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
 | **Docling Processor** | http://localhost:63040 | http://docling.localhost:63000 | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63063 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
 | **Hermes Agent** | http://localhost:63060 (API), http://localhost:63061 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
@@ -483,7 +483,7 @@ For longer-form troubleshooting guides, see [docs/quick-start/troubleshooting.md
 
 - [Documentation index](docs/README.md)
 - [Quick Start guides](docs/quick-start/) — installation and first-run
-- [Service documentation](docs/services/) — individual service guides
+- [Service documentation](services/) — individual service guides
 - [Ports and Routes](docs/deployment/ports-and-routes.md) — canonical ports, direct URLs, and Kong routes
 - [Deployment guides](docs/deployment/) — deployment options, ports, routes, and configuration
 - [ROADMAP.md](docs/ROADMAP.md) — future development plans

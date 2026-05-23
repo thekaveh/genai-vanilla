@@ -6,7 +6,7 @@ generator: phase-b-subagent
 sources_consulted:
   - services/openclaw/service.yml
   - services/openclaw/compose.yml
-  - docs/services/openclaw/README.md
+  - services/openclaw/README.md
   - https://github.com/openclaw/openclaw
   - https://docs.openclaw.ai/
   - https://docs.openclaw.ai/llms.txt

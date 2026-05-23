@@ -2,7 +2,7 @@
 name: openclaw
 label: "OpenClaw (AI agent gateway)"
 category: agents
-docs: docs/services/openclaw.md
+docs: services/openclaw/README.md
 
 containers:
   - openclaw-gateway

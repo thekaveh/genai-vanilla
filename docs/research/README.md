@@ -8,7 +8,7 @@ deps + diagrams project. The umbrella spec is at
 
 | Path | Purpose |
 |---|---|
-| `rows/<service>.md` | One per service doc folder under `docs/services/`. Captures the service's missing-pair integrations, candidate new services, and feature gaps. **One file = one author = one subagent run.** |
+| `rows/<service>.md` | One per service doc folder under `services/`. Captures the service's missing-pair integrations, candidate new services, and feature gaps. **One file = one author = one subagent run.** |
 | `candidates/<slug>.md` | One per candidate new service (e.g. `obsidian-mcp.md`, `langfuse.md`). Multiple rows may reference the same candidate. |
 | `integration-matrix.md` | Generated index that aggregates all rows by service, by category, plus a global candidates table. **Do not edit by hand.** Re-generate with `python -m bootstrapper.docs.merge_research`. |
 

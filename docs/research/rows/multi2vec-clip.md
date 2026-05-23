@@ -9,7 +9,7 @@ sources_consulted:
   - https://docs.weaviate.io/weaviate/modules/multi2vec-clip
   - services/weaviate/service.yml
   - services/weaviate/compose.yml
-  - docs/services/multi2vec-clip/README.md
+  - services/multi2vec-clip/README.md
 ---
 
 # multi2vec-clip — Integration Research

@@ -43,7 +43,7 @@ def test_load_full_manifest(services_root, write_manifest, full_manifest_dict):
     assert len(manifests) == 1
     m = manifests[0]
     assert m.name == "ollama"
-    assert m.docs == "docs/services/ollama.md"
+    assert m.docs == "services/ollama/README.md"
     assert len(m.images) == 2
     assert m.images[0].var == "LLM_PROVIDER_IMAGE"
     assert m.sources is not None
@@ -143,12 +143,13 @@ def test_folder_name_must_match_manifest_name(
     assert "folder" in str(exc.value).lower() or "name" in str(exc.value).lower()
 
 
-def test_service_dir_missing_manifest_rejected(services_root):
+def test_service_dir_missing_manifest_skipped(services_root):
+    """A services/<X>/ folder without service.yml is silently skipped
+    (it's a doc-only folder, e.g. services/multi2vec-clip/)."""
     (services_root / "redis").mkdir()
     # no service.yml inside
-    with pytest.raises(ManifestLoadError) as exc:
-        load_manifests(services_root)
-    assert "service.yml" in str(exc.value)
+    manifests = load_manifests(services_root)
+    assert manifests == []
 
 
 def test_malformed_yaml_rejected(services_root):

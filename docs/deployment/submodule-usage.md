@@ -98,7 +98,7 @@ myproject/
 │   ├── start.sh
 │   ├── stop.sh
 │   ├── bootstrapper/
-│   ├── docs/services/       # Service documentation
+│   ├── services/       # Service documentation
 │   ├── backend/             # Backend service
 │   ├── supabase/            # Supabase config
 │   ├── n8n/                 # n8n config

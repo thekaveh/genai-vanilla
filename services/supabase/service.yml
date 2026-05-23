@@ -7,7 +7,7 @@
 name: supabase
 label: "Supabase (db, auth, api, storage, realtime, studio, meta)"
 category: data
-docs: docs/services/supabase.md
+docs: services/supabase/README.md
 
 containers:
   - supabase-db

@@ -53,13 +53,13 @@
           "type": "array",
           "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
           "uniqueItems": true,
-          "description": "Names of services this one calls at runtime in the request path. Init-time bootstrap calls do NOT count. Names must match either a doc-folder name under docs/services/ or a manifest name under services/."
+          "description": "Names of services this one calls at runtime in the request path. Init-time bootstrap calls do NOT count. Names must match either a doc-folder name under services/ or a manifest name under services/."
         }
       }
     },
     "docs": {
       "type": "string",
-      "description": "Optional pointer to docs/services/<name>.md (or similar)."
+      "description": "Optional pointer to services/<name>.md (or similar)."
     },
     "containers": {
       "type": "array",

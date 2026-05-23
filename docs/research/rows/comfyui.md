@@ -15,7 +15,7 @@ sources_consulted:
   - services/n8n/service.yml
   - services/minio/service.yml
   - services/weaviate/service.yml
-  - docs/services/comfyui/README.md
+  - services/comfyui/README.md
 ---
 
 # comfyui — Integration Research

@@ -12,7 +12,7 @@ sources_consulted:
   - services/comfyui/service.yml
   - services/weaviate/service.yml
   - services/redis/service.yml
-  - docs/services/n8n/README.md
+  - services/n8n/README.md
   - https://docs.n8n.io/integrations/builtin/app-nodes/
   - https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-langchain.mcptrigger/
   - https://docs.n8n.io/external-secrets/

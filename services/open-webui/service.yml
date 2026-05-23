@@ -2,7 +2,7 @@
 name: open-webui
 label: "Open WebUI (chat interface)"
 category: apps
-docs: docs/services/open-webui.md
+docs: services/open-webui/README.md
 
 containers:
   - open-web-ui

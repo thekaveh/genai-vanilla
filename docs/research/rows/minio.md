@@ -10,7 +10,7 @@ sources_consulted:
   - https://min.io/docs/minio/linux/administration/object-management/object-lifecycle-management.html
   - services/minio/service.yml
   - services/minio/init/scripts/init-minio.sh
-  - docs/services/minio/README.md
+  - services/minio/README.md
   - services/weaviate/service.yml
 ---
 
@@ -20,7 +20,7 @@ sources_consulted:
 
 - **minio ↔ backend**
   - Why valuable: `minio-init` already provisions a `backend` bucket plus scoped keys, but FastAPI never consumes them — large blobs, model checkpoints, and embedding caches have nowhere durable to land.
-  - Mechanism sketch: boto3 client against `http://minio:9000` with `MINIO_BACKEND_ACCESS_KEY`/`SECRET_KEY`, path-style addressing (recipe in `docs/services/minio/README.md`).
+  - Mechanism sketch: boto3 client against `http://minio:9000` with `MINIO_BACKEND_ACCESS_KEY`/`SECRET_KEY`, path-style addressing (recipe in `services/minio/README.md`).
   - Effort: small
   - Risks / open questions: backend lacks a storage abstraction; need MinIO-vs-Supabase-Storage routing rules.
   - Confidence: high (credentials and bucket exist in `init-minio.sh`; only consumer wiring is absent).

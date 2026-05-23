@@ -1,30 +1,291 @@
-# services/neo4j — Neo4j graph database
+# Neo4j Graph Database
 
-Long-term memory / graph store. Used by the backend's LangMem-equivalent
-service and surfaced through JupyterHub for ad-hoc Cypher.
+Neo4j provides graph database capabilities for the GenAI Vanilla Stack, enabling relationship modeling and graph-based queries.
 
-## Containers
+## 1. Overview
 
-| Container | Role | Image var |
-|---|---|---|
-| `neo4j-graph-db` | Neo4j 5.x with bundled snapshot-restore wrapper | `NEO4J_GRAPH_DB_IMAGE` (used as `BASE_IMAGE` in `build/Dockerfile`) |
+The Neo4j service provides:
+- Graph database for storing and querying relationships
+- Web-based browser interface for data visualization
+- Cypher query language support
+- APOC (Awesome Procedures on Cypher) extensions
+- Automatic backup and restore capabilities
 
-## Subfolders
+## 2. Access Information
 
-- **`build/`** — Dockerfile + scripts that wrap the upstream Neo4j
-  entrypoint:
-  - `scripts/backup.sh`, `scripts/restore.sh` — snapshot/restore helpers.
-  - `scripts/auto_restore.sh` — restores `build/snapshot/` on first boot.
-  - `scripts/docker-entrypoint-wrapper.sh` — composes the above before
-    chaining to the stock Neo4j entrypoint.
-  - `snapshot/` — seed-data snapshot bind-mounted at `/snapshot`.
+- **Browser Interface and HTTP API**: `http://localhost:${GRAPH_DB_DASHBOARD_PORT}` (default: 63011)
+- **Bolt Protocol**: `bolt://localhost:${GRAPH_DB_PORT}` (default: 63010)
 
-## Sources
+## 3. Default Credentials
 
-`NEO4J_GRAPH_DB_SOURCE` picks between `container` (default),
-`localhost` (use the user's existing host install — `NEO4J_URI` flips to
-`bolt://host.docker.internal:7687`), and `disabled`.
+- **Username**: `${GRAPH_DB_USER}` (default: `neo4j`)
+- **Password**: `${GRAPH_DB_PASSWORD}` (from .env file)
 
-## See also
+## 4. Backup and Restore
 
-- [`docs/services/neo4j.md`](../../docs/services/neo4j.md) — full service docs.
+The Neo4j service includes built-in backup and restore capabilities.
+
+### 4.1 Manual Backup
+
+To manually create a graph database backup:
+
+```bash
+# Create a backup (will temporarily stop and restart Neo4j)
+docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/backup.sh
+```
+
+The backup will be stored in the `/snapshot` directory inside the container, which is mounted to the `./services/neo4j/build/snapshot/` directory on your host machine.
+
+### 4.2 Manual Restore
+
+To restore from a previous backup:
+
+```bash
+# Restore from the latest backup
+docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
+```
+
+### 4.3 Automatic Restore
+
+- **Automatic restoration at startup** is enabled by default
+- When the container starts, it automatically restores from the latest backup if available
+- To disable automatic restore, remove or rename the `auto_restore.sh` script in the Dockerfile
+
+### 4.4 Important Backup Notes
+
+- By default, data persists in the Docker volume between restarts
+- Backups are incremental and space-efficient
+- Backup files are timestamped for easy identification
+- Manual backups can be created while the database is running
+
+## 5. Data Persistence
+
+Neo4j data is stored in Docker named volumes:
+- **Volume Name**: `genai-vanilla_graph_db_data`
+- **Mount Point**: `/data` (inside container)
+- **Backup Location**: `/snapshot` (mounted to host)
+
+## 6. Environment Variables
+
+Key environment variables for Neo4j:
+
+```bash
+# Authentication
+GRAPH_DB_USER=neo4j
+GRAPH_DB_PASSWORD=your_password
+GRAPH_DB_AUTH=neo4j/your_password  # Combined form consumed by the Neo4j container as NEO4J_AUTH
+
+# Port Configuration
+GRAPH_DB_PORT=63010            # Bolt protocol (mapped to 7687 inside the container)
+GRAPH_DB_DASHBOARD_PORT=63011  # Browser interface and HTTP API (mapped to 7474)
+
+# Database Settings
+NEO4J_dbms_memory_heap_initial__size=512m
+NEO4J_dbms_memory_heap_max__size=1G
+NEO4J_dbms_memory_pagecache_size=512m
+```
+
+## 7. Usage Examples
+
+### 7.1 Connect via Cypher Shell
+```bash
+# Connect using Docker
+docker exec -it genai-neo4j-graph-db cypher-shell -u neo4j -p ${GRAPH_DB_PASSWORD}
+
+# Sample queries
+MATCH (n) RETURN count(n);  // Count all nodes
+MATCH (n) DETACH DELETE n;  // Clear all data (use with caution)
+```
+
+### 7.2 Connect via Python
+```python
+from neo4j import GraphDatabase
+
+driver = GraphDatabase.driver(
+    "bolt://localhost:63010",
+    auth=("neo4j", "your_password")
+)
+
+with driver.session() as session:
+    result = session.run("MATCH (n) RETURN count(n) as node_count")
+    print(result.single()["node_count"])
+
+driver.close()
+```
+
+### 7.3 Basic Graph Operations
+```cypher
+// Create nodes
+CREATE (p:Person {name: 'Alice', age: 30})
+CREATE (p:Person {name: 'Bob', age: 25})
+
+// Create relationships
+MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'})
+CREATE (a)-[:KNOWS]->(b)
+
+// Query relationships
+MATCH (p:Person)-[:KNOWS]->(friend:Person)
+RETURN p.name, friend.name
+```
+
+## 8. Integration with Other Services
+
+### 8.1 Backend API
+The FastAPI backend can connect to Neo4j for:
+- Storing user relationships
+- Knowledge graph operations
+- Recommendation systems
+- Complex relationship queries
+
+### 8.2 n8n Workflows
+Neo4j can be integrated into workflows for:
+- Graph-based data processing
+- Relationship analysis
+- Network analysis workflows
+- Data enrichment with graph context
+
+## 9. Performance Tuning
+
+### 9.1 Memory Configuration
+Adjust memory settings based on your data size and available system memory:
+
+```bash
+# For larger datasets
+NEO4J_dbms_memory_heap_max__size=2G
+NEO4J_dbms_memory_pagecache_size=1G
+
+# For smaller datasets or limited memory
+NEO4J_dbms_memory_heap_max__size=512m
+NEO4J_dbms_memory_pagecache_size=256m
+```
+
+### 9.2 Query Optimization
+- Use indexes for frequently queried properties
+- Limit result sets with `LIMIT` clause
+- Use `EXPLAIN` and `PROFILE` to analyze query performance
+- Consider graph data modeling best practices
+
+## 10. Monitoring and Maintenance
+
+### 10.1 Health Checks
+```bash
+# Check container status
+docker logs genai-neo4j-graph-db -f
+
+# Test HTTP endpoint
+curl http://localhost:63011/
+
+# Check Bolt connection
+docker exec genai-neo4j-graph-db cypher-shell -u neo4j -p password "RETURN 'Connection OK'"
+```
+
+### 10.2 Database Statistics
+```cypher
+// Get database info
+CALL db.info()
+
+// Get node and relationship counts
+MATCH (n) RETURN labels(n), count(n) ORDER BY count(n) DESC
+
+// Check indexes
+CALL db.indexes()
+```
+
+### 10.3 Cleanup Operations
+```cypher
+// Remove all data (use with extreme caution)
+MATCH (n) DETACH DELETE n
+
+// Remove specific node types
+MATCH (p:Person) DETACH DELETE p
+
+// Remove orphaned relationships
+MATCH ()-[r]-() WHERE startNode(r) IS NULL OR endNode(r) IS NULL DELETE r
+```
+
+## 11. Troubleshooting
+
+### 11.1 Common Issues
+
+**Container won't start**: Check memory allocation and port conflicts
+**Authentication failures**: Verify `GRAPH_DB_PASSWORD` (and `GRAPH_DB_AUTH`) in `.env`
+**Connection refused**: Ensure ports are not blocked by firewall
+**Out of memory errors**: Increase heap size or reduce dataset size
+
+### 11.2 Debug Commands
+```bash
+# View detailed logs
+docker logs genai-neo4j-graph-db --tail=100 -f
+
+# Check resource usage
+docker stats genai-neo4j-graph-db
+
+# Verify configuration
+docker exec genai-neo4j-graph-db cat /var/lib/neo4j/conf/neo4j.conf
+```
+
+### 11.3 Recovery Procedures
+```bash
+# If database is corrupted, restore from backup
+docker exec -it genai-neo4j-graph-db /usr/local/bin/restore.sh
+
+# If backup is corrupted, reinitialize (data loss)
+docker volume rm genai-vanilla_graph_db_data
+docker compose up neo4j-graph-db
+```
+
+For more troubleshooting help, see [../quick-start/troubleshooting.md](../../docs/quick-start/troubleshooting.md).
+
+## 12. Further Reading
+
+- [Neo4j Documentation](https://neo4j.com/docs/)
+- [Cypher Query Language](https://neo4j.com/docs/cypher-manual/)
+- [Neo4j APOC Documentation](https://neo4j.com/docs/apoc/)
+- [Graph Data Modeling](https://neo4j.com/docs/graph-data-modeling/)
+
+## 13. Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/neo4j/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen neo4j` after manifest changes.
+
+### 13.1 Current — Upstream (this service calls)
+
+| Service | Category |
+|---|---|
+| supabase | data |
+
+### 13.2 Current — Downstream (services that call this)
+
+| Service | Category |
+|---|---|
+| kong | infra |
+| backend | apps |
+| jupyterhub | apps |
+
+### 13.3 Architecture diagram
+
+![neo4j architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### 13.4 Future — Missing pair integrations
+
+- **neo4j ↔ n8n** — *Why:* unlocks no-code graph automation (entity sync, alerting on graph patterns, hydrating workflows from Cypher). n8n ships a first-party Neo4j credential + node. *Mechanism:* n8n Neo4j node configured with `bolt://neo4j-graph-db:7687`, `neo4j` / `${GRAPH_DB_PASSWORD}`; add `NEO4J_URI` to `services/n8n/compose.yml` and a credential seed in n8n init. *Effort:* small. *Confidence:* high.
+- **neo4j ↔ minio** — *Why:* Neo4j currently dumps backups to a local bind mount (`./services/neo4j/build/snapshot/`). Pushing dumps to MinIO gives durable, versioned, off-node backup. *Mechanism:* modify `backup.sh` to `mc cp` the dump to `s3://${MINIO_BUCKET}/neo4j-backups/`. *Effort:* small. *Confidence:* high.
+- **neo4j ↔ hermes** — *Why:* persistent agent memory + entity/relation recall across sessions; Hermes skills write structured episodic memory as a graph and traverse it for context. *Mechanism:* Hermes custom skill via Bolt at `bolt://neo4j-graph-db:7687` using the official neo4j Python driver; `GRAPH_DB_USER`/`GRAPH_DB_PASSWORD` from `.env`. *Effort:* medium. *Confidence:* medium.
+- **neo4j ↔ weaviate** — *Why:* GraphRAG patterns — Weaviate finds semantically similar chunks, Neo4j expands the neighbourhood (entities, citations, relationships) for grounded answers. *Mechanism:* backend orchestrator: Weaviate `nearText` → take payload `entity_ids` → Cypher `MATCH (e)-[*1..2]-(n) RETURN n`. *Effort:* medium. *Confidence:* medium.
+- **neo4j ↔ doc-processor** — *Why:* Docling extracts structured document elements (sections, tables, references); persisting them as a graph turns the doc corpus into a navigable knowledge graph. *Mechanism:* backend route or n8n flow: docling JSON → LiteLLM entity/relation extractor → Cypher `MERGE` over Bolt. *Effort:* medium. *Confidence:* medium.
+- **neo4j ↔ local-deep-researcher** — *Why:* LDR lists neo4j as optional in `runtime_deps` but no concrete wiring exists; research runs naturally produce claim/source/entity graphs that benefit later sessions. *Mechanism:* LDR LangGraph node emitting Cypher on each research step via `bolt://neo4j-graph-db:7687`. *Effort:* small. *Confidence:* medium.
+
+### 13.5 Future — Candidate new services
+
+- **Neo4j LLM Knowledge Graph Builder** ([details](../../docs/research/candidates/neo4j-llm-graph-builder.md)) — *Headline:* first-party Neo4j Labs app that turns PDFs/web pages/YouTube transcripts into a queryable knowledge graph. *Wires into:* backend, doc-processor, open-webui, minio.
+- **Graphiti (Zep)** ([details](../../docs/research/candidates/graphiti.md)) — *Headline:* temporal knowledge-graph framework for agent memory, built on Neo4j. *Wires into:* hermes, backend, n8n, local-deep-researcher.
+- **NeoDash** ([details](../../docs/research/candidates/neodash.md)) — *Headline:* low-code Cypher dashboards over the existing Neo4j instance, no extra database. *Wires into:* kong (route at `dash.localhost`), backend.
+
+### 13.6 Future — Unused features in this service
+
+- **Native vector index (HNSW)** — *Why pursue:* Neo4j 5 ships an HNSW vector index, letting us store embeddings on graph nodes and combine ANN search with graph traversal in one DB. *Effort:* small.
+- **GenAI plugin (`genai.vector.encode*`)** — *Why pursue:* embed text directly inside Cypher via OpenAI/Vertex/Bedrock — wire it to LiteLLM and ingestion becomes one query. *Effort:* small.
+- **APOC core + extended** — *Why pursue:* image is plain `neo4j:5.19.0`; APOC is not preinstalled. APOC unlocks bulk import, periodic-iterate, JSON/HTTP, and LLM procedures. *Effort:* small.
+- **Neosemantics (n10s)** — *Why pursue:* RDF/ontology import/export bridges Neo4j with external semantic-web sources (Wikidata, schema.org). *Effort:* medium.
+- **Read-only role for LLM-generated Cypher** — *Why pursue:* safe execution of model-authored queries from open-webui/hermes; mitigates prompt-injection-to-`DETACH DELETE`. *Effort:* small.

@@ -43,7 +43,7 @@ findings.
 ## Remediation Reports
 
 Active and historical Dependabot remediation reports live under
-[`docs/security/`](docs/security/):
+the project's git history:
 
 - `2026-05-14-dependabot-remediation-report.md` — current (77 alerts triaged, 62 phantom, 15 actionable)
 - `2026-05-06-dependabot-remediation-report.md` — predecessor (102 alerts triaged, Phases 1.1/1.2/1.3 landed)

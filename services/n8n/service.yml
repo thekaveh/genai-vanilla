@@ -2,7 +2,7 @@
 name: n8n
 label: "n8n (workflow automation)"
 category: agents
-docs: docs/services/n8n.md
+docs: services/n8n/README.md
 
 containers:
   - n8n

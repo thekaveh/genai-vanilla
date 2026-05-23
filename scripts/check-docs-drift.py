@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import sys
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED_PARTS = {
     '.git', 'bootstrapper', 'textual', '__pycache__', '.venv', 'venv',
     'tts-venv', 'site-packages', 'plans', '.mypy_cache', '.superpowers', '.kilo',

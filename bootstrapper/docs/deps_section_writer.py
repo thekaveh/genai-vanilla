@@ -5,15 +5,21 @@ from __future__ import annotations
 from .deps_resolver import DepEdge, DepGraph
 
 
-def render_section(graph: DepGraph) -> str:
+def render_section(graph: DepGraph, position: int = 5) -> str:
     """Render the canonical 'Dependencies & Integrations' section.
 
-    Output is byte-deterministic for the same DepGraph. The Future-*
-    subsections emit placeholders until Phase C populates them.
+    Output is byte-deterministic for the same DepGraph and ``position``. The
+    Future-* subsections emit placeholders; the regen tool splices in any
+    user-authored Future content found in the existing README.
+
+    The ``position`` parameter is the top-level section number (e.g. 5 in
+    ``## 5. Dependencies & Integrations``). Subsections are numbered
+    ``position.1`` through ``position.6``. Defaults to 5, the canonical slot
+    in the standardized README layout.
     """
 
     lines: list[str] = []
-    lines.append("## Dependencies & Integrations")
+    lines.append(f"## {position}. Dependencies & Integrations")
     lines.append("")
     lines.append(
         "> Auto-generated section — the **Current** subsections are derived from "
@@ -24,7 +30,7 @@ def render_section(graph: DepGraph) -> str:
     lines.append("")
 
     # Current — Upstream
-    lines.append("### Current — Upstream (this service calls)")
+    lines.append(f"### {position}.1 Current — Upstream (this service calls)")
     lines.append("")
     if graph.upstream:
         lines.append("| Service | Category |")
@@ -37,7 +43,7 @@ def render_section(graph: DepGraph) -> str:
     lines.append("")
 
     # Current — Downstream
-    lines.append("### Current — Downstream (services that call this)")
+    lines.append(f"### {position}.2 Current — Downstream (services that call this)")
     lines.append("")
     if graph.downstream:
         lines.append("| Service | Category |")
@@ -50,7 +56,7 @@ def render_section(graph: DepGraph) -> str:
     lines.append("")
 
     # Diagram embed
-    lines.append("### Architecture diagram")
+    lines.append(f"### {position}.3 Architecture diagram")
     lines.append("")
     lines.append(f"![{graph.focus} architecture](./architecture.svg)")
     lines.append("")
@@ -59,9 +65,9 @@ def render_section(graph: DepGraph) -> str:
 
     # Future-* placeholders
     for heading in (
-        "### Future — Missing pair integrations",
-        "### Future — Candidate new services",
-        "### Future — Unused features in this service",
+        f"### {position}.4 Future — Missing pair integrations",
+        f"### {position}.5 Future — Candidate new services",
+        f"### {position}.6 Future — Unused features in this service",
     ):
         lines.append(heading)
         lines.append("")

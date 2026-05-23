@@ -2,7 +2,7 @@
 name: comfyui
 label: "ComfyUI (image generation)"
 category: media
-docs: docs/services/comfyui.md
+docs: services/comfyui/README.md
 
 containers:
   - comfyui

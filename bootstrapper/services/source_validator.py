@@ -338,7 +338,7 @@ class SourceValidator:
             print(
                 "ℹ️  TTS_PROVIDER_SOURCE=xtts-container-gpu auto-migrated to "
                 "speaches-container-gpu (openedai-speech was archived 2026-01-04). "
-                "See docs/services/tts-provider.md."
+                "See services/tts-provider/README.md."
             )
         elif tts_source == 'xtts-localhost':
             rewrites['TTS_PROVIDER_SOURCE'] = 'chatterbox-localhost'

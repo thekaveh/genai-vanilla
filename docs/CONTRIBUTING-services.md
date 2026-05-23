@@ -81,7 +81,7 @@ Each service folder can hold additional subdirectories beyond `service.yml` and 
 name: myservice
 label: "My service (human-readable)"
 category: apps                          # infra | data | llm | media | agents | apps
-docs: docs/services/myservice.md        # optional
+docs: services/myservice/README.md        # optional
 virtual: false                          # true for env-only manifests like cloud-providers
 
 containers:                             # may be [] when virtual: true
@@ -205,7 +205,7 @@ by any operational code. They exist for clarity and future use:
 
 - `images[].notes` — free-form note on what the image is used for. Not read
   by any Python code.
-- `docs:` — pointer to a `docs/services/<name>.md` file. Useful for grep,
+- `docs:` — pointer to a `services/<name>.md` file. Useful for grep,
   but no Python imports it.
 - `exports[]` — declares the env-var contract this service offers to other
   services. The cross-manifest validator (`bootstrapper/services/manifest_validator.py`)

@@ -28,13 +28,13 @@ def test_section_contains_canonical_headings():
     g = build_doc_graph("hermes", SERVICES_DIR)
     text = render_section(g)
     for heading in (
-        "## Dependencies & Integrations",
-        "### Current — Upstream",
-        "### Current — Downstream",
-        "### Architecture diagram",
-        "### Future — Missing pair integrations",
-        "### Future — Candidate new services",
-        "### Future — Unused features in this service",
+        "## 5. Dependencies & Integrations",
+        "### 5.1 Current — Upstream",
+        "### 5.2 Current — Downstream",
+        "### 5.3 Architecture diagram",
+        "### 5.4 Future — Missing pair integrations",
+        "### 5.5 Future — Candidate new services",
+        "### 5.6 Future — Unused features in this service",
     ):
         assert heading in text
 

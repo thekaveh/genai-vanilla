@@ -32,9 +32,13 @@ SERVICES_DIR = REPO_ROOT / "services"
 
 
 def _all_doc_folders() -> list[str]:
-    """List the 21 service doc folders (matches docs/services/ subdirs)."""
-    docs = REPO_ROOT / "docs" / "services"
-    return sorted(p.name for p in docs.iterdir() if p.is_dir())
+    """List the doc folders (matches services/<X>/ subdirs that hold a README)."""
+    return sorted(
+        p.name for p in SERVICES_DIR.iterdir()
+        if p.is_dir()
+        and not p.name.startswith(("_", "."))
+        and (p / "README.md").exists()
+    )
 
 
 def _do_not_propose_set(focus: str) -> list[str]:
@@ -128,7 +132,7 @@ Three research deliverables, in order:
 
 - **Doc folder:** `{doc_folder}`
 - **Existing manifest(s):** `services/{primary_manifest}/service.yml`{member_note}
-- **Existing doc:** `docs/services/{doc_folder}/README.md`
+- **Existing doc:** `services/{doc_folder}/README.md`
 
 ## Do NOT propose these (already wired)
 
@@ -155,7 +159,7 @@ generator: phase-b-subagent
 sources_consulted:
   - https://...                # upstream docs/repo
   - services/{doc_folder}/service.yml
-  - docs/services/{doc_folder}/README.md
+  - services/{doc_folder}/README.md
   - ...
 ---
 
@@ -244,7 +248,7 @@ referenced-by: [{doc_folder}]
 
 ## Process
 
-1. Read `services/{primary_manifest}/service.yml`, the existing README at `docs/services/{doc_folder}/README.md`, and any init scripts.
+1. Read `services/{primary_manifest}/service.yml`, the existing README at `services/{doc_folder}/README.md`, and any init scripts.
 2. Identify the strongest 3-7 missing-pair integration candidates from the other-20-services table.
 3. Identify 0-5 candidate new services that would slot in cleanly.
 4. Identify 0-N per-service feature gaps from upstream docs.

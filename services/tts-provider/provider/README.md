@@ -76,7 +76,7 @@ startup — Audio settings.
 
 ## Full configuration reference
 
-See [docs/services/tts-provider.md](../../../docs/services/tts-provider.md).
+See [services/tts-provider/README.md](../../../services/tts-provider/README.md).
 
 ## References
 

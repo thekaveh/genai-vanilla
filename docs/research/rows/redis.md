@@ -6,7 +6,7 @@ generator: phase-b-subagent
 sources_consulted:
   - services/redis/service.yml
   - services/redis/compose.yml
-  - docs/services/redis/README.md
+  - services/redis/README.md
   - services/comfyui/compose.yml
   - services/local-deep-researcher/compose.yml
   - services/n8n/compose.yml

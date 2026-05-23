@@ -6,7 +6,7 @@
 name: litellm
 label: "LiteLLM gateway (LLM router)"
 category: llm
-docs: docs/services/litellm.md
+docs: services/litellm/README.md
 
 containers:
   - litellm

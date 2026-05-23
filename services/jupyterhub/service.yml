@@ -2,7 +2,7 @@
 name: jupyterhub
 label: "JupyterHub (DS/ML + LLM notebooks)"
 category: apps
-docs: docs/services/jupyterhub.md
+docs: services/jupyterhub/README.md
 
 containers:
   - jupyterhub

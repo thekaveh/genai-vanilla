@@ -13,7 +13,7 @@ sources_consulted:
   - services/tts-provider/service.yml
   - services/chatterbox/service.yml
   - services/speaches/service.yml
-  - docs/services/tts-provider/README.md
+  - services/tts-provider/README.md
 ---
 
 # tts-provider — Integration Research

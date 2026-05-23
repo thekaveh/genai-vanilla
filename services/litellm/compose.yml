@@ -153,7 +153,7 @@ services:
     # one-shot burst of ~11 `relation "<...>" does not exist at character
     # 15` errors in `genai-supabase-db`'s log within a single ~40 ms
     # window, then silent forever. Upstream LiteLLM behaviour, not a
-    # bug in this stack — see docs/services/litellm.md →
+    # bug in this stack — see services/litellm/README.md →
     # "Expected startup noise" for the full diagnosis + verification
     # one-liners.
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "4"]

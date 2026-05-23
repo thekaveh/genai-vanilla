@@ -2,7 +2,7 @@
 name: local-deep-researcher
 label: "Local Deep Researcher (LangGraph research agent)"
 category: apps
-docs: docs/services/local-deep-researcher.md
+docs: services/local-deep-researcher/README.md
 
 containers:
   - local-deep-researcher

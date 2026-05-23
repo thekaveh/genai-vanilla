@@ -51,7 +51,7 @@ def test_check_mode_exits_2_on_drift(tmp_path):
 
 
 def test_all_processes_21_doc_folders(tmp_path):
-    """--all iterates every doc folder under docs/services/ and writes
+    """--all iterates every doc folder under services/ and writes
     artifacts to <out-root>/<doc-folder>/."""
     r = _run("--all", "--out-root", str(tmp_path))
     assert r.returncode == 0, r.stdout + r.stderr

@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover - developer environment guard
     print("FAIL import: PyYAML is required to parse docker-compose.yml", file=sys.stderr)
     sys.exit(2)
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILE = ROOT / "docker-compose.yml"
 
 # Edges where the dependency target is SOURCE-replaceable and should not be a

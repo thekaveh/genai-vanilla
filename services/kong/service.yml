@@ -2,7 +2,7 @@
 name: kong
 label: "Kong (API gateway)"
 category: infra
-docs: docs/services/kong.md
+docs: services/kong/README.md
 
 containers:
   - kong-api-gateway

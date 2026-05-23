@@ -3,7 +3,7 @@
 Pluggable speech-to-text layer. All backends speak the OpenAI
 `/v1/audio/transcriptions` protocol.
 
-## Source matrix
+## 1. Source matrix
 
 | `STT_PROVIDER_SOURCE` | Engine | Container image | License | Hardware |
 |---|---|---|---|---|
@@ -18,7 +18,7 @@ Speaches shares its container with the TTS provider when both are speaches —
 one running instance, two endpoints. If TTS picks one variant and STT picks
 the other (e.g. cpu vs gpu), GPU wins and the bootstrapper prints a notice.
 
-## Engine comparison
+## 2. Engine comparison
 
 | | Speaches (Faster-Whisper distil-large-v3) | Parakeet-TDT v3 | whisper.cpp (large-v3) |
 |---|---|---|---|
@@ -33,7 +33,7 @@ Speaches is the default because Faster-Whisper-distil-large-v3 has the best
 "works on every platform out of the box" profile. Parakeet remains the
 SOTA-quality NVIDIA choice. whisper.cpp is the best macOS-native path.
 
-## Quick start
+## 3. Quick start
 
 The default already runs:
 
@@ -68,11 +68,11 @@ cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0
 ./start.sh --stt-provider-source parakeet-localhost
 ```
 
-See [the whisper-cpp README](../../../services/parakeet/provider/whisper-cpp/README.md)
+See [the whisper-cpp README](../parakeet/provider/whisper-cpp/README.md)
 for the whisper.cpp walkthrough and Linux build instructions, or
-[the MLX README](../../../services/parakeet/provider/mlx/README.md) for Parakeet-MLX.
+[the MLX README](../parakeet/provider/mlx/README.md) for Parakeet-MLX.
 
-## Environment variables
+## 4. Environment variables
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -87,7 +87,7 @@ for the whisper.cpp walkthrough and Linux build instructions, or
 | `WHISPER_CPP_LOCALHOST_URL` | `http://host.docker.internal:63025` | Where the container reaches a host-side whisper.cpp server. |
 | `HUGGING_FACE_HUB_TOKEN` | (empty) | For gated models. |
 
-## OpenAI-compatible API
+## 5. OpenAI-compatible API
 
 Every engine implements the same call shape:
 
@@ -105,7 +105,7 @@ The `model` field is largely ignored — every engine returns whatever
 checkpoint is loaded. Pass `whisper-1` for maximum compatibility with the
 OpenAI client library.
 
-## Open WebUI integration
+## 6. Open WebUI integration
 
 The bootstrapper writes:
 
@@ -117,13 +117,13 @@ The bootstrapper writes:
 Open WebUI's microphone button starts working as soon as the STT service is
 healthy.
 
-## Supported audio formats
+## 7. Supported audio formats
 
 WAV (.wav), FLAC (.flac), MP3 (.mp3), M4A (.m4a), OGG (.ogg), OPUS (.opus),
 WEBM (.webm). Internally everything resamples to 16 kHz mono before
 inference.
 
-## Troubleshooting
+## 8. Troubleshooting
 
 **`speaches` container fails its healthcheck** — `docker logs
 <project>-speaches`. First request triggers a model download (~466 MB for
@@ -145,7 +145,7 @@ If empty, `STT_PROVIDER_SOURCE` is `disabled`.
 **whisper.cpp not detected as localhost** — make sure it's serving the
 `/v1/audio/transcriptions` path (use `--inference-path`).
 
-## References
+## 9. References
 
 - [Speaches](https://github.com/speaches-ai/speaches)
 - [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)
@@ -154,15 +154,15 @@ If empty, `STT_PROVIDER_SOURCE` is `disabled`.
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
 - [OpenAI Whisper API spec](https://platform.openai.com/docs/guides/speech-to-text)
 
-## Dependencies & Integrations
+## 10. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/stt-provider/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen stt-provider` after manifest changes.
 
-### Current — Upstream (this service calls)
+### 10.1 Current — Upstream (this service calls)
 
 _No upstream calls._
 
-### Current — Downstream (services that call this)
+### 10.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
@@ -171,20 +171,30 @@ _No upstream calls._
 | n8n | agents |
 | backend | apps |
 
-### Architecture diagram
+### 10.3 Architecture diagram
 
 ![stt-provider architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### Future — Missing pair integrations
+### 10.4 Future — Missing pair integrations
 
-_No high-confidence opportunities identified._
+- **stt-provider ↔ minio** — *Why:* transcripts vanish with the HTTP response — nothing persists source audio or transcript JSON. Pushing both to MinIO gives every service a stable URL and enables re-transcription on engine swap. *Mechanism:* new `stt-transcripts` bucket provisioned by `minio-init`; post-transcribe hook puts `s3://stt-transcripts/<sha256>.wav` plus sidecar `.json` via S3 SigV4 over `http://minio:9000`. *Effort:* small. *Confidence:* high.
+- **stt-provider ↔ weaviate** — *Why:* indexing durable transcripts turns long-form audio (meetings, podcasts, voice notes) into a semantically searchable corpus alongside the docling pipeline. *Mechanism:* `Transcript` class with `text`, `start_ms`, `end_ms`, `source_audio_uri`, vectorized by the active `text2vec-openai` module via `http://weaviate:8080/v1/objects`. *Effort:* medium. *Confidence:* medium.
+- **stt-provider ↔ redis** — *Why:* transcription is expensive and deterministic in `(audio-sha256, model, language)`. A cache cuts repeat cost to ~zero for n8n loops, re-runs, demos. *Mechanism:* `redis://redis:6379/2`, key `stt:{sha256}:{model}:{lang}` → transcript JSON, TTL 30d, sidecar wrapper in backend or a Kong plugin in front of `STT_ENDPOINT`. *Effort:* small. *Confidence:* medium.
+- **stt-provider ↔ doc-processor** — *Why:* docling parses PDFs/Office docs but does not handle audio. Composing `stt → docling` gives a unified "any media → markdown" ingest. *Mechanism:* caller hits `STT_ENDPOINT`, then POSTs transcript text to `http://docling:5001/v1/convert/source` as `text/plain`. No new service. *Effort:* small. *Confidence:* medium.
+- **stt-provider ↔ openclaw** — *Why:* Telegram/WhatsApp/Discord deliver voice notes as audio; OpenClaw routes text through Hermes today with no audio path. *Mechanism:* OpenClaw middleware POSTing incoming audio to `${STT_ENDPOINT}/v1/audio/transcriptions` (multipart), then forwarding the text result to its existing LLM-routing path. *Effort:* small. *Confidence:* medium.
+- **stt-provider ↔ supabase** — *Why:* transcript metadata (user, session, source URI, model, language, duration) belongs in a relational store; gives open-webui / backend a "my transcripts" view keyed by Supabase JWT `sub`. *Mechanism:* `transcripts` table via PostgREST at `http://supabase-api:3000`, RLS on `auth.uid()`; post-transcribe hook writes rows pointing at MinIO URIs. *Effort:* medium. *Confidence:* medium.
 
-### Future — Candidate new services
+### 10.5 Future — Candidate new services
 
-_No high-confidence opportunities identified._
+- **WhisperX** ([details](../../docs/research/candidates/whisperx.md)) — *Headline:* fourth STT engine adding speaker diarization and word-aligned timestamps behind the existing OpenAI shape. *Wires into:* backend, n8n, open-webui, hermes, openclaw, minio, weaviate.
 
-### Future — Unused features in this service
+### 10.6 Future — Unused features in this service
 
-_No high-confidence opportunities identified._
+- **Streaming / Realtime SSE+WebSocket** — *Why pursue:* Speaches ships SSE-streamed transcription and a WebSocket realtime API; we only expose the batch `/v1/audio/transcriptions`. Enables live captions in open-webui and live agent voice loops in Hermes. *Effort:* medium.
+- **Translation endpoint** — *Why pursue:* Speaches/Faster-Whisper support speech translation; we never expose `/v1/audio/translations`. Cheap multilingual UX gain. *Effort:* small.
+- **Per-engine model hot-swap** — *Why pursue:* Speaches loads/unloads models on demand; we hard-pin one model per engine. Lets users A/B `distil-large-v3` vs `large-v3` without restarting. *Effort:* small.
+- **Word/segment timestamps in API responses** — *Why pursue:* Parakeet and Speaches both expose them; open-webui wiring requests plain `json` and discards them. Needed for click-to-seek UX and for Weaviate chunking by utterance. *Effort:* small.
+- **Diarization** — *Why pursue:* no in-stack engine does it; prerequisite for meeting-grade transcripts (covered by WhisperX candidate). *Effort:* medium.
+- **Sentiment / emotional-tone analysis** — *Why pursue:* upstream Speaches advertises this; feeds n8n/backend dashboards without a separate NLP service. *Effort:* small.

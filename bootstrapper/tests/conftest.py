@@ -64,7 +64,7 @@ def full_manifest_dict():
             "name": name,
             "label": "Ollama (local LLM engine)",
             "category": "llm",
-            "docs": f"docs/services/{name}.md",
+            "docs": f"services/{name}/README.md",
             "containers": ["ollama", "ollama-pull"],
             "images": [
                 {

@@ -2,7 +2,7 @@
 name: backend
 label: "Backend API (FastAPI)"
 category: apps
-docs: docs/services/backend.md
+docs: services/backend/README.md
 
 containers:
   - backend

@@ -6,7 +6,7 @@ generator: phase-b-subagent
 sources_consulted:
   - services/parakeet/service.yml
   - services/speaches/service.yml
-  - docs/services/stt-provider/README.md
+  - services/stt-provider/README.md
   - services/minio/service.yml
   - services/weaviate/service.yml
   - services/redis/service.yml

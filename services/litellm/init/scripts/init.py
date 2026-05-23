@@ -211,7 +211,7 @@ def render_model_list(active_rows: list[tuple[str, str]]) -> list[dict[str, Any]
             # in ``bootstrapper/utils/llm_catalog.py`` with role
             # ``embeddings`` has "embed" in its name (nomic-embed-text,
             # qwen3-embedding:0.6b, bge-*, e5-*, mxbai-embed-*, ...).
-            # See docs/services/litellm.md → "Ollama adapter choice".
+            # See services/litellm/README.md → "Ollama adapter choice".
             #
             # ``think: false`` is set on chat entries only — it
             # defaults thinking-capable models to write their answer

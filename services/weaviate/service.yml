@@ -2,7 +2,7 @@
 name: weaviate
 label: "Weaviate (vector database)"
 category: data
-docs: docs/services/weaviate.md
+docs: services/weaviate/README.md
 
 containers:
   - weaviate

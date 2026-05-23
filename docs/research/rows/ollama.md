@@ -8,8 +8,8 @@ sources_consulted:
   - https://github.com/ollama/ollama/blob/main/envconfig/config.go
   - https://github.com/ollama/ollama/blob/main/README.md
   - services/ollama/service.yml
-  - docs/services/ollama/README.md
-  - docs/services/litellm/README.md
+  - services/ollama/README.md
+  - services/litellm/README.md
 ---
 
 # ollama — Integration Research

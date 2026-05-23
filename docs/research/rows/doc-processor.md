@@ -10,7 +10,7 @@ sources_consulted:
   - https://github.com/docling-project/docling/blob/main/docs/integrations/index.md
   - https://github.com/docling-project/docling/tree/main/docs/examples
   - services/docling/service.yml
-  - docs/services/doc-processor/README.md
+  - services/doc-processor/README.md
 ---
 
 # doc-processor — Integration Research

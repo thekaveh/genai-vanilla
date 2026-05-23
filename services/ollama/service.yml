@@ -2,7 +2,7 @@
 name: ollama
 label: "Ollama (local LLM engine)"
 category: llm
-docs: docs/services/ollama.md
+docs: services/ollama/README.md
 
 containers:
   - ollama

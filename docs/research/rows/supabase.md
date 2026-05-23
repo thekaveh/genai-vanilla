@@ -6,7 +6,7 @@ generator: phase-b-subagent
 sources_consulted:
   - services/supabase/service.yml
   - services/supabase/db/scripts/01-extensions.sql
-  - docs/services/supabase/README.md
+  - services/supabase/README.md
   - services/hermes/service.yml
   - services/docling/service.yml
   - services/openclaw/service.yml

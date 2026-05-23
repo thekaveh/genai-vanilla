@@ -215,7 +215,9 @@ class _PerManifestError(Exception):
 
 
 def _is_service_dir(path: Path) -> bool:
-    return path.is_dir() and not path.name.startswith(("_", "."))
+    if not path.is_dir() or path.name.startswith(("_", ".")):
+        return False
+    return (path / "service.yml").exists()
 
 
 def _load_one(service_dir: Path) -> Manifest:
