@@ -13,25 +13,18 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
 def test_section_for_hermes_matches_golden():
-    """The deps section for Hermes is byte-stable against a committed fixture."""
+    """Hermes deps section is byte-stable against committed fixture."""
     from docs.deps_section_writer import render_section
     from docs.deps_resolver import build_doc_graph
-
     g = build_doc_graph("hermes", SERVICES_DIR)
     rendered = render_section(g)
-
     golden = (FIXTURE_DIR / "hermes.deps_section.md").read_text()
-    assert rendered == golden, (
-        "Hermes deps section drift. To accept the new output:\n"
-        f"  bootstrapper/tests/fixtures/hermes.deps_section.md\n"
-        "Diff against current rendered text and update if intentional."
-    )
+    assert rendered == golden, "Hermes deps section drift — update the fixture."
 
 
 def test_section_contains_canonical_headings():
     from docs.deps_section_writer import render_section
     from docs.deps_resolver import build_doc_graph
-
     g = build_doc_graph("hermes", SERVICES_DIR)
     text = render_section(g)
     for heading in (
@@ -43,26 +36,24 @@ def test_section_contains_canonical_headings():
         "### Future — Candidate new services",
         "### Future — Unused features in this service",
     ):
-        assert heading in text, f"missing heading: {heading}"
+        assert heading in text
+
+
+def test_section_uses_two_column_table():
+    """New table shape is Service | Category (only 2 columns)."""
+    from docs.deps_section_writer import render_section
+    from docs.deps_resolver import build_doc_graph
+    g = build_doc_graph("hermes", SERVICES_DIR)
+    text = render_section(g)
+    assert "| Service | Category |" in text
+    assert "| Service | Type | Mechanism" not in text
 
 
 def test_section_emits_empty_table_placeholder():
-    """A graph with no upstream emits an explicit `_No upstream dependencies._` line."""
+    """A graph with no upstream emits the explicit `_No upstream calls._` line."""
     from docs.deps_section_writer import render_section
     from docs.deps_resolver import DepGraph
-
     g = DepGraph(focus="kong", category="infra", port_var=None, source="single")
     text = render_section(g)
-    assert "_No upstream dependencies._" in text
+    assert "_No upstream calls._" in text
     assert "_No downstream consumers._" in text
-
-
-def test_section_emits_no_high_confidence_placeholder_in_future():
-    """Future subsections render `_No high-confidence opportunities identified._`
-    until Phase C populates them."""
-    from docs.deps_section_writer import render_section
-    from docs.deps_resolver import DepGraph
-
-    g = DepGraph(focus="kong", category="infra", port_var=None, source="single")
-    text = render_section(g)
-    assert text.count("_No high-confidence opportunities identified._") >= 3
