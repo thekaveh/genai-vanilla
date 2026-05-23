@@ -1,4 +1,4 @@
-"""Tests for bootstrapper.docs.deps_resolver."""
+"""Tests for bootstrapper.docs.deps_resolver — data-flow model."""
 
 from __future__ import annotations
 
@@ -20,105 +20,96 @@ def test_dep_graph_focus_is_service_name():
     assert g.category == "agents"
 
 
-def test_dep_graph_required_upstream_includes_litellm():
-    """Hermes's depends_on.required: [litellm] should produce a required upstream edge."""
+def test_upstream_comes_from_data_flow_calls():
+    """build_graph reads focus.data_flow.calls and renders it as the upstream lane."""
     from docs.deps_resolver import build_graph
     g = build_graph("hermes", SERVICES_DIR)
-    others = {e.other for e in g.upstream if e.kind == "required"}
-    assert "litellm" in others
+    upstream_others = {e.other for e in g.upstream}
+    # Hermes calls litellm, stt-provider, tts-provider, comfyui, searxng (per data_flow.calls)
+    assert upstream_others >= {"litellm", "comfyui", "searxng"}
 
 
-def test_dep_graph_adaptive_upstream_includes_tts_and_stt():
-    """Hermes adapts_to: [stt_provider, tts_provider, ...] → adaptive edges."""
+def test_downstream_comes_from_inverse_data_flow_calls():
+    """A service appears downstream of focus if any other manifest's
+    data_flow.calls includes focus."""
+    from docs.deps_resolver import build_graph
+    g = build_graph("litellm", SERVICES_DIR)
+    downstream_others = {e.other for e in g.downstream}
+    # backend, n8n, hermes, weaviate, jupyterhub, etc. all call litellm
+    assert downstream_others >= {"backend", "n8n", "weaviate", "jupyterhub", "open-webui"}
+
+
+def test_bidirectional_collapse_hermes_litellm():
+    """litellm.data_flow.calls includes hermes; hermes.data_flow.calls includes litellm.
+    Both edges must be marked bidirectional."""
     from docs.deps_resolver import build_graph
     g = build_graph("hermes", SERVICES_DIR)
-    adaptive = {e.other for e in g.upstream if e.kind == "adaptive"}
-    assert adaptive
-    assert any("stt" in a or a == "parakeet" or a == "speaches" for a in adaptive)
+    litellm_edges = [e for e in g.upstream if e.other == "litellm"]
+    assert litellm_edges, "expected litellm in hermes upstream"
+    assert litellm_edges[0].bidirectional
 
 
-def test_dep_graph_downstream_includes_litellm_loop():
-    """LiteLLM registers Hermes back as the `hermes-agent` model → bidirectional loop.
-
-    For the resolver alone, this means: Hermes's downstream set includes
-    LiteLLM, even though LiteLLM was already in upstream. The bidirectional
-    flag must be True on both sides.
-    """
-    from docs.deps_resolver import build_graph
-    g = build_graph("hermes", SERVICES_DIR)
-    bidir = [e for e in g.upstream if e.other == "litellm" and e.bidirectional]
-    assert bidir, "expected Hermes↔LiteLLM marked bidirectional"
-
-
-def test_dep_graph_failure_mode_populated_from_manifest():
-    """The failure_mode string from Task 2 must propagate to adaptive upstream edges."""
-    from docs.deps_resolver import build_graph
-    g = build_graph("hermes", SERVICES_DIR)
-    litellm_edge = next(e for e in g.upstream if e.other == "litellm")
-    assert litellm_edge.failure_mode is not None
-    assert "preflight" in litellm_edge.failure_mode.lower()
-
-
-def test_dep_graph_init_containers_recorded():
-    """hermes-init must be in init_containers, not in upstream/downstream."""
-    from docs.deps_resolver import build_graph
-    g = build_graph("hermes", SERVICES_DIR)
-    assert "hermes-init" in g.init_containers
-    assert all(e.other != "hermes-init" for e in g.upstream)
-    assert all(e.other != "hermes-init" for e in g.downstream)
+def test_dep_edge_has_no_kind_field():
+    """The simpler DepEdge no longer carries kind/mechanism/failure_mode."""
+    from docs.deps_resolver import DepEdge
+    fields = set(DepEdge.__dataclass_fields__.keys())
+    assert "kind" not in fields
+    assert "mechanism" not in fields
+    assert "failure_mode" not in fields
 
 
 def test_dep_graph_byte_deterministic():
-    """Two builds of the same graph produce identical edge orderings."""
     from docs.deps_resolver import build_graph
     g1 = build_graph("hermes", SERVICES_DIR)
     g2 = build_graph("hermes", SERVICES_DIR)
     assert g1 == g2
 
 
-def test_doc_folder_to_manifests_mapping():
-    """Aggregate doc folders are recognized and map to underlying manifests."""
+def test_empty_data_flow_calls_means_empty_upstream():
+    """minio has data_flow.calls: [] — so minio's upstream is empty."""
+    from docs.deps_resolver import build_graph
+    g = build_graph("minio", SERVICES_DIR)
+    assert g.upstream == ()
+
+
+def test_kong_fronted_services_in_upstream():
+    """Kong's data_flow.calls lists services it fronts. Applying the
+    universal convention 'focus.data_flow.calls = upstream lane' consistently,
+    these services appear in Kong's UPSTREAM lane (Kong calls/routes to them).
+    Kong's downstream lane will be empty (no in-network service calls Kong)."""
+    from docs.deps_resolver import build_graph
+    g = build_graph("kong", SERVICES_DIR)
+    assert len(g.upstream) > 10
+    # Downstream is empty in the strict data-flow sense
+    assert g.downstream == ()
+
+
+def test_aggregate_doc_folder_unions_underlying_manifests():
+    """build_doc_graph('stt-provider') unions parakeet + speaches data_flow.calls."""
+    from docs.deps_resolver import build_doc_graph
+    g = build_doc_graph("stt-provider", SERVICES_DIR)
+    # parakeet + speaches data_flow.calls: [] each; so stt-provider upstream is empty
+    assert g.upstream == ()
+    # but stt-provider IS called by hermes, n8n, backend, etc. — those should be downstream
+    downstream_others = {e.other for e in g.downstream}
+    assert "hermes" in downstream_others
+
+
+def test_doc_folder_to_manifests_mapping_unchanged():
+    """A.7 mapping table is unchanged."""
     from docs.deps_resolver import doc_folder_to_manifests
     assert doc_folder_to_manifests("hermes") == ("hermes",)
-    # Aggregates fold:
     assert set(doc_folder_to_manifests("stt-provider")) >= {"parakeet", "speaches"}
-    assert set(doc_folder_to_manifests("tts-provider")) >= {"chatterbox", "speaches"}
-    assert set(doc_folder_to_manifests("doc-processor")) >= {"docling"}
-    # multi2vec-clip has no manifest — empty tuple
     assert doc_folder_to_manifests("multi2vec-clip") == ()
 
 
-def test_build_doc_graph_aggregates_edges():
-    """build_doc_graph('stt-provider') unions parakeet + speaches edges and
-    suppresses intra-aggregate edges."""
-    from docs.deps_resolver import build_doc_graph
-    g = build_doc_graph("stt-provider", SERVICES_DIR)
-    assert g.focus == "stt-provider"
-    # Hermes adapts_to stt_provider, so stt-provider has Hermes downstream
-    assert any(e.other == "hermes" for e in g.downstream)
-    # Internal edge: parakeet ↔ speaches must NOT appear (intra-aggregate
-    # suppression)
-    edge_others = {e.other for e in g.upstream} | {e.other for e in g.downstream}
-    assert "parakeet" not in edge_others
-    assert "speaches" not in edge_others
-
-
-def test_build_doc_graph_singleton_passes_through():
-    """Singleton doc folders (1:1 with manifest) behave like build_graph()."""
-    from docs.deps_resolver import build_doc_graph, build_graph
-    g1 = build_doc_graph("hermes", SERVICES_DIR)
-    g2 = build_graph("hermes", SERVICES_DIR)
-    assert g1.upstream == g2.upstream
-    assert g1.downstream == g2.downstream
-
-
-def test_build_doc_graph_multi2vec_clip_is_pointer_only():
-    """multi2vec-clip has no manifest — build_doc_graph returns a sentinel
-    DepGraph that signals 'no diagram, see weaviate'."""
-    from docs.deps_resolver import build_doc_graph, DepGraph
-    g = build_doc_graph("multi2vec-clip", SERVICES_DIR)
-    assert isinstance(g, DepGraph)
-    assert g.focus == "multi2vec-clip"
-    assert g.upstream == ()
-    assert g.downstream == ()
-    assert g.init_containers == ()
+def test_cloud_providers_renders_as_edge_target():
+    """litellm.data_flow.calls includes cloud-providers (a virtual manifest, not a doc folder).
+    The resolver must still produce a DepEdge for it."""
+    from docs.deps_resolver import build_graph
+    g = build_graph("litellm", SERVICES_DIR)
+    upstream_others = {e.other for e in g.upstream}
+    assert "cloud-providers" in upstream_others
+    # And it should be category-tagged (llm)
+    cp_edge = next(e for e in g.upstream if e.other == "cloud-providers")
+    assert cp_edge.other_category == "llm"

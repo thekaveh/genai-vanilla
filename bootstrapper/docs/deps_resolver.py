@@ -1,21 +1,16 @@
-"""Manifest-graph resolver.
+"""Manifest-graph resolver — data-flow model.
 
-For a given focus service, walks every manifest under services/ and builds
-a DepGraph describing:
-  - upstream edges (services this one depends on, classified as required /
-    adaptive / optional)
-  - downstream edges (services that depend on this one)
-  - bidirectional loops (A → B and B → A collapsed)
-  - init containers (recorded but excluded from edges per spec A.3 rule #7)
-
-The resolver is byte-deterministic for the same manifest state. It is the
-sole input to deps_section_writer and diagram_renderer.
+For a given focus doc-folder, walks every manifest under services/ and builds
+a DepGraph whose edges come exclusively from `data_flow.calls`. The legacy
+fields (depends_on.required, runtime_adaptive.adapts_to, runtime_deps.optional,
+doc_extras.diagram.extra_consumers) are NOT read here — they remain in
+manifests for compose orchestration but are invisible to the diagram.
 """
 
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -25,26 +20,20 @@ sys.path.insert(0, str(REPO_ROOT / "bootstrapper"))
 from services.manifests import Manifest, load_manifests  # noqa: E402
 
 
-EdgeKind = Literal["required", "optional", "adaptive"]
 EdgeDirection = Literal["upstream", "downstream"]
 
 
 @dataclass(frozen=True, order=True)
 class DepEdge:
-    """One edge on the focus service's dependency graph.
+    """One edge in the data-flow graph.
 
-    Ordered tuple-comparable so (kind, other) sorts stably across runs.
-
-    `other_category` carries the OTHER service's category so the renderer
-    can stroke each box with its own category color without reloading
-    manifests.
+    Simpler than Phase A's DepEdge — no kind/mechanism/failure_mode, because
+    we now have a single edge type ("calls"). `other_category` carries the
+    target's category so the renderer can colour-code without re-loading.
     """
 
     other: str
-    kind: EdgeKind
     direction: EdgeDirection
-    mechanism: str = ""
-    failure_mode: str | None = None
     bidirectional: bool = False
     other_category: str = "external"
 
@@ -60,320 +49,195 @@ class DepGraph:
     init_containers: tuple[str, ...] = ()
 
 
+# Category ordering matches services.topology.CATEGORY_ORDER.
+_CATEGORY_RANK = {
+    "infra": 0, "data": 1, "llm": 2, "media": 3, "agents": 4, "apps": 5,
+    "external": 6,
+}
+
+
+def _edge_sort_key(e: DepEdge) -> tuple[int, str]:
+    """Stable sort: by category-rank, then alphabetically."""
+    return (_CATEGORY_RANK.get(e.other_category, 99), e.other)
+
+
+def _category_of(name: str, all_m: dict[str, Manifest]) -> str:
+    if name in all_m:
+        return all_m[name].category
+    return "external"
+
+
+def _calls_of(m: Manifest) -> list[str]:
+    """Read m's data_flow.calls. Returns empty list if absent."""
+    df = m.data_flow or {}
+    return list(df.get("calls") or [])
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Doc-folder ↔ manifest mapping (spec A.7, unchanged)
+# ─────────────────────────────────────────────────────────────────────────
+
+_AGGREGATE_DOC_FOLDERS: dict[str, tuple[str, ...]] = {
+    "stt-provider":   ("parakeet", "speaches"),
+    "tts-provider":   ("chatterbox", "speaches", "tts-provider"),
+    "doc-processor":  ("docling",),
+    "multi2vec-clip": (),
+}
+
+
+def doc_folder_to_manifests(doc_folder: str) -> tuple[str, ...]:
+    if doc_folder in _AGGREGATE_DOC_FOLDERS:
+        return _AGGREGATE_DOC_FOLDERS[doc_folder]
+    return (doc_folder,)
+
+
+# A reverse map: which doc-folder a manifest belongs to (for inverse-pass
+# edge naming). E.g. parakeet → stt-provider.
+def _manifest_to_doc_folder(name: str) -> str:
+    for folder, members in _AGGREGATE_DOC_FOLDERS.items():
+        if name in members:
+            return folder
+    return name
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # Build
 # ─────────────────────────────────────────────────────────────────────────
 
 
 def build_graph(focus: str, services_root: Path) -> DepGraph:
-    """Build the DepGraph for a single service."""
-
+    """Build the DepGraph for a single manifest-name focus."""
     manifests_by_name = {m.name: m for m in load_manifests(services_root)}
     if focus not in manifests_by_name:
         raise KeyError(f"no manifest for service '{focus}' under {services_root}")
-
-    me = manifests_by_name[focus]
-
-    upstream: list[DepEdge] = []
-    upstream.extend(_required_upstream(me, manifests_by_name))
-    upstream.extend(_adaptive_upstream(me, manifests_by_name))
-    upstream.extend(_optional_upstream(me, manifests_by_name))
-
-    downstream: list[DepEdge] = []
-    for other_name, other_m in manifests_by_name.items():
-        if other_name == focus:
-            continue
-        # Inverse-pass: does `other_m` declare focus as a dep?
-        downstream.extend(_inverse_required(focus, other_m, manifests_by_name))
-        downstream.extend(_inverse_adaptive(focus, other_m, manifests_by_name))
-        downstream.extend(_inverse_optional(focus, other_m, manifests_by_name))
-        # Inverse extra_consumers: if `other` lists focus in its
-        # doc_extras.diagram.extra_consumers, then `other` registers focus
-        # as one of its consumers — from focus's POV that's a downstream
-        # tie back to `other` (runtime registration / reverse wiring not
-        # expressible via depends_on; e.g. litellm-init registering
-        # hermes as the `hermes-agent` model).
-        other_extras = other_m.doc_extras.get("diagram", {}).get("extra_consumers", [])
-        if focus in other_extras:
-            downstream.append(DepEdge(
-                other=other_name,
-                kind="optional",
-                direction="downstream",
-                mechanism=f"{other_name} registers {focus} as a consumer "
-                          f"(doc_extras.diagram.extra_consumers escape hatch)",
-                other_category=_cat(manifests_by_name, other_name),
-            ))
-
-    # doc_extras.diagram.extra_consumers — manual escape hatch (focus side)
-    extras = me.doc_extras.get("diagram", {}).get("extra_consumers", [])
-    for ex in extras:
-        if ex in manifests_by_name and ex != focus:
-            downstream.append(
-                DepEdge(other=ex, kind="optional", direction="downstream",
-                        mechanism="manual escape hatch (doc_extras.diagram.extra_consumers)",
-                        other_category=_cat(manifests_by_name, ex))
-            )
-
-    # Bidirectional collapse
-    upstream_names = {e.other for e in upstream}
-    downstream_names = {e.other for e in downstream}
-    both = upstream_names & downstream_names
-    upstream = [
-        DepEdge(**{**e.__dict__, "bidirectional": True}) if e.other in both else e
-        for e in upstream
-    ]
-    downstream = [
-        DepEdge(**{**e.__dict__, "bidirectional": True}) if e.other in both else e
-        for e in downstream
-    ]
-
-    # Init containers: anything in containers that ends with "-init"
-    init_containers = tuple(c for c in me.containers if c.endswith("-init"))
-
-    # Identify the primary source variant for the focus box label
-    source_label = me.sources.default if me.sources else "single"
-
-    # Port (use the first port-bearing env var that exists)
-    port_var = None
-    for env in me.env:
-        if env.name.endswith("_PORT") or env.name.endswith("_API_PORT"):
-            port_var = env.name
-            break
-
-    return DepGraph(
-        focus=focus,
-        category=me.category,
-        port_var=port_var,
-        source=source_label,
-        upstream=tuple(sorted(set(upstream), key=_edge_sort_key)),
-        downstream=tuple(sorted(set(downstream), key=_edge_sort_key)),
-        init_containers=init_containers,
-    )
-
-
-# Category ordering matches services.topology.CATEGORY_ORDER so lane sort
-# is consistent with the wizard's grouping.
-_CATEGORY_RANK = {"infra": 0, "data": 1, "llm": 2, "media": 3, "agents": 4, "apps": 5, "external": 6}
-
-
-def _edge_sort_key(e: DepEdge) -> tuple[int, str, int, str]:
-    """Stable sort within a tier (spec A.3 rule #5): by category, then alphabetically.
-
-    Tiebreakers (kind rank, mechanism) guarantee byte-deterministic output when
-    a service appears twice with different edge kinds (e.g. comfyui surfaces as
-    both `adaptive` and `optional` from Hermes' manifest)."""
-    return (
-        _CATEGORY_RANK.get(e.other_category, 99),
-        e.other,
-        _kind_rank(e.kind),
-        e.mechanism,
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────────
-# Edge extraction helpers
-# ─────────────────────────────────────────────────────────────────────────
-
-
-def _cat(all_m: dict[str, Manifest], name: str) -> str:
-    return all_m[name].category if name in all_m else "external"
-
-
-def _required_upstream(me: Manifest, all_m: dict[str, Manifest]) -> list[DepEdge]:
-    edges: list[DepEdge] = []
-    for dep in me.depends_on.required:
-        if dep in all_m:
-            edges.append(DepEdge(
-                other=dep,
-                kind="required",
-                direction="upstream",
-                mechanism=_extract_mechanism(me, dep, all_m),
-                failure_mode=_extract_failure_mode(me, dep),
-                other_category=_cat(all_m, dep),
-            ))
-    return edges
-
-
-def _adaptive_upstream(me: Manifest, all_m: dict[str, Manifest]) -> list[DepEdge]:
-    edges: list[DepEdge] = []
-    seen: set[str] = set()
-    for container, block in (me.runtime_adaptive or {}).items():
-        adapts_to = block.get("adapts_to", []) or []
-        # Tolerate scalar string form (some manifests use `adapts_to: llm_provider`)
-        if isinstance(adapts_to, str):
-            adapts_to = [adapts_to]
-        fm = block.get("failure_mode")
-        for target in adapts_to:
-            if target in seen:
-                continue
-            seen.add(target)
-            edges.append(DepEdge(
-                other=target,
-                kind="adaptive",
-                direction="upstream",
-                mechanism=_extract_adaptive_mechanism(block, target),
-                failure_mode=fm,
-                other_category=_cat(all_m, target),
-            ))
-    return edges
-
-
-def _optional_upstream(me: Manifest, all_m: dict[str, Manifest]) -> list[DepEdge]:
-    edges: list[DepEdge] = []
-    for container, block in (me.runtime_deps or {}).items():
-        for dep in block.get("optional", []) or []:
-            if dep in all_m and dep != me.name:
-                edges.append(DepEdge(
-                    other=dep,
-                    kind="optional",
-                    direction="upstream",
-                    mechanism="(optional — wired conditionally; see manifest)",
-                    other_category=_cat(all_m, dep),
-                ))
-    return edges
-
-
-def _inverse_required(focus: str, other: Manifest, all_m: dict[str, Manifest]) -> list[DepEdge]:
-    if focus in other.depends_on.required:
-        return [DepEdge(other=other.name, kind="required", direction="downstream",
-                        mechanism=f"{other.name} declares {focus} in depends_on.required",
-                        other_category=_cat(all_m, other.name))]
-    return []
-
-
-def _inverse_adaptive(focus: str, other: Manifest, all_m: dict[str, Manifest]) -> list[DepEdge]:
-    for container, block in (other.runtime_adaptive or {}).items():
-        adapts = block.get("adapts_to") or []
-        if isinstance(adapts, str):
-            adapts = [adapts]
-        if focus in adapts:
-            return [DepEdge(other=other.name, kind="adaptive", direction="downstream",
-                            mechanism=f"{other.name} adapts_to {focus}",
-                            other_category=_cat(all_m, other.name))]
-    return []
-
-
-def _inverse_optional(focus: str, other: Manifest, all_m: dict[str, Manifest]) -> list[DepEdge]:
-    for container, block in (other.runtime_deps or {}).items():
-        if focus in (block.get("optional") or []):
-            return [DepEdge(other=other.name, kind="optional", direction="downstream",
-                            mechanism=f"{other.name} lists {focus} as optional dep",
-                            other_category=_cat(all_m, other.name))]
-    return []
-
-
-def _extract_mechanism(me: Manifest, dep: str, all_m: dict[str, Manifest]) -> str:
-    """Best-effort mechanism string from env defaults."""
-    # First: look for <DEP>_LOCALHOST_URL or <DEP>_ENDPOINT in the focus manifest's env
-    for env in me.env:
-        if env.name.startswith(dep.upper()) and (
-            env.name.endswith("_LOCALHOST_URL") or env.name.endswith("_ENDPOINT")
-        ):
-            return str(env.default) or f"http://{dep}:<port>"
-    # Fallback: container DNS
-    return f"http://{dep}:<port>"
-
-
-def _extract_adaptive_mechanism(block: dict, target: str) -> str:
-    env_adapt = block.get("environment_adaptation") or {}
-    for k, v in env_adapt.items():
-        if target.split("_")[0].lower() in k.lower():
-            return f"{k}={v}"
-    if env_adapt:
-        return next(iter(f"{k}={v}" for k, v in env_adapt.items()))
-    return f"(adaptive; see manifest's runtime_adaptive block)"
-
-
-def _extract_failure_mode(me: Manifest, dep: str) -> str | None:
-    """If the focus declares a runtime_adaptive block where this dep appears as
-    a required upstream, surface the failure_mode. Otherwise None for now;
-    Task 7 + Phase C will broaden coverage."""
-    for container, block in (me.runtime_adaptive or {}).items():
-        adapts_to = block.get("adapts_to") or []
-        if isinstance(adapts_to, str):
-            adapts_to = [adapts_to]
-        if "llm_provider" in adapts_to and dep == "litellm":
-            return block.get("failure_mode")
-    return None
-
-
-# ─────────────────────────────────────────────────────────────────────────
-# Doc-folder → manifests mapping (spec A.7)
-# ─────────────────────────────────────────────────────────────────────────
-
-# Hard-coded for now. If aggregate membership changes, edit this table.
-# (Future refinement: derive from a `doc_folder:` field on each manifest.)
-_AGGREGATE_DOC_FOLDERS: dict[str, tuple[str, ...]] = {
-    "stt-provider":   ("parakeet", "speaches"),
-    "tts-provider":   ("chatterbox", "speaches", "tts-provider"),
-    "doc-processor":  ("docling",),
-    "multi2vec-clip": (),     # no manifest; pointer doc only
-}
-
-# Doc folders without an explicit aggregate entry are 1:1 with the manifest
-# of the same name. Validated at test time.
-def doc_folder_to_manifests(doc_folder: str) -> tuple[str, ...]:
-    if doc_folder in _AGGREGATE_DOC_FOLDERS:
-        return _AGGREGATE_DOC_FOLDERS[doc_folder]
-    # 1:1 default
-    return (doc_folder,)
+    return _build_for_manifests(focus, [manifests_by_name[focus]], manifests_by_name)
 
 
 def build_doc_graph(doc_folder: str, services_root: Path) -> DepGraph:
-    """Build a DepGraph for a doc folder. Folds aggregate manifests; for
-    singleton doc folders, identical to build_graph()."""
-
+    """Build the DepGraph for a doc folder. Folds aggregate manifests."""
     manifest_names = doc_folder_to_manifests(doc_folder)
+    manifests_by_name = {m.name: m for m in load_manifests(services_root)}
+
     if not manifest_names:
         # Pointer-only doc (e.g., multi2vec-clip)
         return DepGraph(
             focus=doc_folder,
-            category="data",  # multi2vec-clip is a Weaviate feature; data category
+            category="data",
             port_var=None,
             source="(pointer doc — see weaviate)",
-            upstream=(),
-            downstream=(),
-            init_containers=(),
         )
 
-    if len(manifest_names) == 1 and manifest_names[0] == doc_folder:
-        return build_graph(doc_folder, services_root)
+    members = [manifests_by_name[n] for n in manifest_names if n in manifests_by_name]
+    if len(members) == 1 and members[0].name == doc_folder:
+        return _build_for_manifests(doc_folder, members, manifests_by_name)
+    # Aggregate
+    return _build_for_manifests(doc_folder, members, manifests_by_name, aggregate=True)
 
-    # Aggregate: build each underlying graph and merge.
-    members = [build_graph(name, services_root) for name in manifest_names]
-    member_set = set(manifest_names)
 
-    merged_up: dict[tuple[str, str], DepEdge] = {}
-    merged_down: dict[tuple[str, str], DepEdge] = {}
-    for sub in members:
-        for e in sub.upstream:
-            if e.other in member_set:
-                continue  # intra-aggregate edge — suppress
-            key = (e.other, e.kind)
-            # Prefer "required" over "adaptive" over "optional" on collision
-            if key not in merged_up or _kind_rank(e.kind) < _kind_rank(merged_up[key].kind):
-                merged_up[key] = e
-        for e in sub.downstream:
-            if e.other in member_set:
-                continue
-            key = (e.other, e.kind)
-            if key not in merged_down or _kind_rank(e.kind) < _kind_rank(merged_down[key].kind):
-                merged_down[key] = e
+def _build_for_manifests(
+    focus: str,
+    members: list[Manifest],
+    all_m: dict[str, Manifest],
+    *,
+    aggregate: bool = False,
+) -> DepGraph:
+    """Common builder. `members` is one manifest for singletons, multiple for
+    aggregates. Edges are derived from members' data_flow.calls (upstream)
+    and from any other manifest whose data_flow.calls names the focus or any
+    member (downstream)."""
 
-    # Use the first member's category as canonical for the aggregate.
-    category = members[0].category
-    init_containers = tuple(sorted({c for m in members for c in m.init_containers}))
+    member_names = {m.name for m in members}
+
+    # Upstream — union of each member's data_flow.calls, with intra-aggregate
+    # edges suppressed. Targets are resolved to their doc-folder name where
+    # possible (so a member calling 'speaches' renders as 'stt-provider' or
+    # 'tts-provider' depending on context — but since 'speaches' the manifest
+    # is itself the underlying for both aggregates, we keep the raw name).
+    upstream: dict[str, DepEdge] = {}
+    for m in members:
+        for target in _calls_of(m):
+            if target in member_names:
+                continue  # intra-aggregate edge
+            # Resolve target name: prefer the doc-folder name if it's an
+            # aggregate (e.g. someone calling 'stt-provider' is calling the
+            # logical service, not an underlying manifest).
+            resolved = target
+            if resolved not in upstream:
+                upstream[resolved] = DepEdge(
+                    other=resolved,
+                    direction="upstream",
+                    other_category=_resolve_category(resolved, all_m),
+                )
+
+    # Downstream — every other manifest whose data_flow.calls names focus,
+    # any member, or the doc folder containing the focus.
+    downstream_keys: set[str] = {focus, *member_names}
+    downstream: dict[str, DepEdge] = {}
+    for other_name, other_m in all_m.items():
+        if other_name in member_names:
+            continue
+        for target in _calls_of(other_m):
+            if target in downstream_keys:
+                # Render the consumer under its doc-folder name where applicable
+                rendered = _manifest_to_doc_folder(other_name)
+                if rendered == focus or rendered in member_names:
+                    continue  # don't draw a self-loop via doc-folder collapse
+                if rendered not in downstream:
+                    downstream[rendered] = DepEdge(
+                        other=rendered,
+                        direction="downstream",
+                        other_category=_resolve_category(rendered, all_m),
+                    )
+                break  # one inbound edge per consumer
+
+    # Bidirectional collapse: same name in both directions.
+    both = set(upstream) & set(downstream)
+    for name in both:
+        u = upstream[name]
+        d = downstream[name]
+        upstream[name] = DepEdge(**{**u.__dict__, "bidirectional": True})
+        downstream[name] = DepEdge(**{**d.__dict__, "bidirectional": True})
+
+    # Focus metadata (use first member as canonical, or aggregate's defaults)
+    if aggregate:
+        category = members[0].category
+        source = "(aggregate)"
+        port_var = None
+    else:
+        me = members[0]
+        category = me.category
+        source = me.sources.default if me.sources else "single"
+        port_var = next(
+            (env.name for env in me.env
+             if env.name.endswith("_PORT") or env.name.endswith("_API_PORT")),
+            None,
+        )
+
+    init_containers = tuple(sorted({c for m in members for c in m.containers if c.endswith("-init")}))
 
     return DepGraph(
-        focus=doc_folder,
+        focus=focus,
         category=category,
-        port_var=None,
-        source="(aggregate)",
-        upstream=tuple(sorted(merged_up.values(), key=_edge_sort_key)),
-        downstream=tuple(sorted(merged_down.values(), key=_edge_sort_key)),
+        port_var=port_var,
+        source=source,
+        upstream=tuple(sorted(upstream.values(), key=_edge_sort_key)),
+        downstream=tuple(sorted(downstream.values(), key=_edge_sort_key)),
         init_containers=init_containers,
     )
 
 
-def _kind_rank(kind: str) -> int:
-    return {"required": 0, "adaptive": 1, "optional": 2}.get(kind, 3)
+def _resolve_category(name: str, all_m: dict[str, Manifest]) -> str:
+    """Lookup category for a target name. Handles three cases:
+       - Doc-folder name that's also a manifest name (1:1): use that manifest.
+       - Aggregate doc-folder name: use the first underlying manifest's category.
+       - Pure manifest name (e.g. underlying manifest for an aggregate, or
+         a virtual manifest like cloud-providers): look up directly.
+    """
+    if name in _AGGREGATE_DOC_FOLDERS:
+        members = _AGGREGATE_DOC_FOLDERS[name]
+        if members and members[0] in all_m:
+            return all_m[members[0]].category
+        return "data"  # fallback for pointer-only docs
+    if name in all_m:
+        return all_m[name].category
+    return "external"
