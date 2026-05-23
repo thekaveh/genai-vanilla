@@ -123,8 +123,11 @@ env:
     # default removed — computed by services/topology.py slot allocator
 
 depends_on:
-  required:
-    - globals
+  # Root infra — Supabase is the data/auth substrate every other service
+  # depends on. Has no upstream service dependencies of its own. (The
+  # virtual `globals` manifest is config-only and was removed from this
+  # list — depending on it conflated runtime ordering with config metadata.)
+  required: []
   optional: []
 
 rows:

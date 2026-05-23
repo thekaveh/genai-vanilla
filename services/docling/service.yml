@@ -56,8 +56,11 @@ env:
     description: "Used when DOC_PROCESSOR_SOURCE=docling-localhost. Override to point at a host-installed Docling on a non-default port; the same env var is consumed by Kong's docling.localhost route so both consumers stay in sync."
 
 depends_on:
-  required:
-    - globals
+  # Docling has no runtime upstream service dependencies — it's a leaf
+  # processor invoked over HTTP by the backend / n8n. (The virtual
+  # `globals` manifest is config-only and was removed from this list —
+  # depending on it conflated runtime ordering with config metadata.)
+  required: []
   optional: []
 
 exports: []

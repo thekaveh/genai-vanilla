@@ -34,6 +34,11 @@ env:
     description: "Computed by bootstrapper/services/service_config.py::_generate_tts_provider_config — set to 1 when TTS_PROVIDER_SOURCE=chatterbox-container-gpu."
 
 depends_on:
+  # Chatterbox is a leaf TTS engine selected via TTS_PROVIDER_SOURCE.
+  # The `tts-provider` virtual aggregator (which in turn depends on
+  # litellm) is listed in `required` so the bootstrapper's canonical
+  # order places this row in the media block after litellm — same
+  # display-order convention as ollama/parakeet. NOT a runtime call.
   required:
     - tts-provider
   optional: []

@@ -38,10 +38,17 @@ env:
     default: ""
 
 depends_on:
+  # Mirrors services/backend/compose.yml. LiteLLM is gated on service_healthy
+  # in compose because backend's startup performs first-call probes against
+  # it; Weaviate-init must finish so configure-backend.sh can read the shared
+  # config file; Kong is reachable but soft (proxy retries handle the race).
   required:
     - supabase
     - redis
-  optional: []
+    - litellm
+  optional:
+    - weaviate
+    - kong
 
 rows:
   - display_name: "Backend API"

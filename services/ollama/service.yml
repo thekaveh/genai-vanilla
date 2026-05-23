@@ -63,6 +63,16 @@ env:
     description: "Ollama URL the LiteLLM gateway forwards Ollama-routed requests to. Owned by ollama because the value flips with LLM_PROVIDER_SOURCE; consumed by litellm-init when rendering its config.yaml."
 
 depends_on:
+  # `litellm` is listed here NOT because the ollama container calls
+  # LiteLLM (the call direction is the opposite), but because the
+  # bootstrapper uses `depends_on.required` as the canonical-order
+  # backbone for the wizard / overview-box display. Keeping ollama →
+  # litellm here pins the rule that the LLM Engine row sits immediately
+  # after LiteLLM in the wizard's LLM block (see
+  # tests/test_row_order_stability.py). When a separate
+  # `display_order:` field is added, this edge moves there.
+  # `supabase` is the actual bootstrap blocker (llm-catalog-init reads
+  # public.llms before ollama-pull seeds models).
   required:
     - supabase
     - litellm

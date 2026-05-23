@@ -67,12 +67,17 @@ env:
     auto_managed: true
 
 depends_on:
+  # Open WebUI's real bootstrap gates (per compose.yml) are
+  # supabase-db-init + supabase-{realtime,storage} + redis + litellm —
+  # Hermes was over-claimed: Open WebUI reaches the `hermes-agent` model
+  # through LiteLLM's catalog, so Hermes is a runtime-optional path, not
+  # a startup blocker.
   required:
     - supabase
     - redis
     - litellm
+  optional:
     - hermes
-  optional: []
 
 rows:
   - display_name: "Open WebUI"

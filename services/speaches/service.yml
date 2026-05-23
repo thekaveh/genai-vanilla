@@ -41,6 +41,12 @@ env:
     description: "Computed by bootstrapper/services/service_config.py::_generate_stt_provider_config (or _generate_tts_provider_config) — set to 1 when STT_PROVIDER_SOURCE OR TTS_PROVIDER_SOURCE picks a speaches-* variant."
 
 depends_on:
+  # Speaches is a leaf STT/TTS engine selected via STT_PROVIDER_SOURCE or
+  # TTS_PROVIDER_SOURCE. Neither `parakeet` nor `tts-provider` is a runtime
+  # call edge — they're retained so the bootstrapper's canonical order
+  # places this row in the media block after the LLM/engine rows it's
+  # alternatively selected against. Same display-order convention as
+  # ollama/parakeet/chatterbox. NOT a runtime call.
   required:
     - parakeet
     - tts-provider

@@ -87,6 +87,11 @@ env:
 
 
 depends_on:
+  # ComfyUI's real compose gates are supabase-db-init + ollama-pull (i.e.
+  # supabase + ollama). The `litellm` entry is retained as part of the
+  # canonical-order backbone (see ollama/parakeet for the same
+  # convention) — ComfyUI does not call LiteLLM at startup, but listing
+  # litellm here pins ComfyUI's row position relative to the LLM block.
   required:
     - supabase
     - litellm
