@@ -42,6 +42,14 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 > at `docs/services/doc-processor.md`. The `doc-processor` name is the
 > stable public API; `docling` is the single engine implementing it.
 
+### Changed (Architecture diagrams — data-flow model + clustered layout)
+
+- Architecture diagrams under `docs/services/<name>/` now render the **data-flow** model (runtime "X calls Y" edges) instead of the bootstrap-dep model. Source of truth is a new optional `data_flow.calls` field per `services/<name>/service.yml`.
+- Diagram layout redesigned: services in the upstream and downstream lanes group by category (infra / data / llm / media / agents / apps) into mini-clusters; one edge per cluster (not per pill); focus box gains a category-colored glow; legend bar + 3 summary cards below.
+- Deps-section tables in each README simplified to `Service | Category` (the old Type / Mechanism / Failure mode columns no longer have data in the data-flow model).
+- `depends_on.required`, `runtime_adaptive.adapts_to`, `runtime_deps.optional`, and `doc_extras.diagram.extra_consumers` remain in manifests (still used by the compose layer) but the diagram resolver no longer reads them.
+- Spec: `docs/superpowers/specs/2026-05-22-diagram-refresh-design.md`.
+
 ### Added (Cross-service deps + diagrams — Phase B research)
 
 - Added 21 per-service integration-research files under `docs/research/rows/<service>.md` (missing-pair integrations, candidate new services, per-service feature gaps).
