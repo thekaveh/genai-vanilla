@@ -59,7 +59,18 @@ env:
     description: "Resolved per source: `ray://ray-head:10001` for container sources, `${RAY_EXTERNAL_ADDRESS}` for external, empty for disabled. Consumed by Backend / JupyterHub via runtime_adaptive."
 
 depends_on:
-  required: []
+  # Display-ordering pin: Ray is genuinely standalone at runtime (ships its
+  # own GCS / Plasma; no external service needed). Without this list Ray
+  # would sort BEFORE Kong in the infra block — `ray` (r-a) is alphabetically
+  # earlier than both `redis` and `kong`, and the topology slot allocator
+  # pops alphabetically when multiple manifests are simultaneously ready,
+  # which would shift Kong's `63000` / `63001` port slots. Matching Kong's
+  # own required list (supabase + redis) makes Ray and Kong ready at the
+  # same time, alphabetical break gives Kong precedence (k < r), and Kong
+  # keeps its slots. NEITHER edge is a runtime call.
+  required:
+    - supabase
+    - redis
   optional: []
 
 exports: []

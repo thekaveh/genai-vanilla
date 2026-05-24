@@ -200,8 +200,8 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 | Category | Service | Default port | Alias |
 |---|---|---:|---|
-| Infrastructure | Ray | 63000 | ray.localhost |
-| Infrastructure | Kong API Gateway | 63003 | — |
+| Infrastructure | Kong API Gateway | 63000 | — |
+| Infrastructure | Ray | 63002 | ray.localhost |
 | Data | Supabase DB | 63010 | — |
 | Data | Supabase Meta | 63011 | — |
 | Data | Supabase Storage | 63012 | — |

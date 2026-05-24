@@ -9,8 +9,8 @@ digraph stack {
     fontcolor="#f7768e";
     color="#f7768e";
     "globals" [fillcolor="#f7768e33"];
-    "ray" [fillcolor="#f7768e33"];
     "kong" [fillcolor="#f7768e33"];
+    "ray" [fillcolor="#f7768e33"];
   }
 
   subgraph "cluster_data" {
@@ -96,6 +96,8 @@ digraph stack {
   "litellm" -> "open-webui";
   "litellm" -> "openclaw";
   "litellm" -> "parakeet";
+  "supabase" -> "ray";
+  "redis" -> "ray";
   "supabase" -> "redis";
   "supabase" -> "searxng";
   "redis" -> "searxng";
