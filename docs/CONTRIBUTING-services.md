@@ -78,32 +78,6 @@ If you're new to this codebase, read Decisions 1–6 in sequence; the Qdrant wor
    cd bootstrapper && uv run pytest tests/ -q
    ```
 
-## Subdirectory naming convention
-
-Each service folder can hold additional subdirectories beyond `service.yml` and `compose.yml`. Use these well-known names so navigation stays predictable across the stack:
-
-| Subdir | Holds | Example |
-|---|---|---|
-| `app/` | Source code for an app the manifest builds (the manifest's primary container is **this** code) | `services/backend/app/` (FastAPI source) |
-| `build/` | Dockerfile + build inputs when the manifest builds a container from scratch | `services/jupyterhub/build/`, `services/neo4j/build/`, `services/local-deep-researcher/build/` |
-| `init/` | Scripts + templates bind-mounted into a `<service>-init` sidecar container that prepares state before the main container starts | `services/n8n/init/`, `services/hermes/init/`, `services/comfyui/init/`, `services/minio/init/`, `services/weaviate/init/` |
-| `catalog-init/` | Same as `init/` but for a *second* init sidecar that runs in a different tier (used by litellm only) | `services/litellm/catalog-init/` |
-| `pull/` | Same as `init/` but the sidecar is named `<service>-pull` (only ollama) | `services/ollama/pull/` |
-| `config/` | Read-only configuration files bind-mounted into the main container at runtime | `services/searxng/config/` (settings.yml) |
-| `db/` | Database snapshots + SQL migration scripts | `services/supabase/db/` (snapshot/ + scripts/) |
-| `provider/` | Multiple host/container providers for a single capability the manifest exposes via a SOURCE variable (one engine = one subfolder of `provider/`) | `services/parakeet/provider/{gpu,mlx,whisper-cpp,shared}`, `services/docling/provider/{gpu,localhost,shared}`, `services/tts-provider/provider/localhost` |
-| `extras/` | User-managed bind-mounted data exposed inside the running container (tools, functions, workflows you can edit on the host) | `services/open-webui/extras/{tools,functions,workflows}` |
-| `workflows-stage/` | Workflow JSON the init sidecar imports into the main container's DB on startup | `services/n8n/workflows-stage/` |
-
-**Family folders.** Some manifests own a family of related containers (e.g. supabase = 8 containers, n8n = main + worker + init). Each family folder gets a brief `README.md` listing the containers it ships and pointing at their definition in `compose.yml`. The fragment's `services:` keys are the authoritative container list; the manifest's `containers:` must match 1:1 (the manifest_validator enforces this — see "Validator rules" below).
-
-## Modifying an existing service
-
-- Env var default change → edit the manifest's `env:` block. Re-run the lint.
-- Image version bump → edit the manifest's `images[].default`. The compose fragment references the var, so no compose change is needed.
-- New container in the family → add to `containers:` in the manifest AND to `services:` in the fragment.
-- New source variant → add to `sources.options[]` in the manifest.
-
 ## Decision 1 — Folder flavor: container, virtual, or doc-only
 
 Three legitimate flavors of folder live under `services/`. Pick the right one before writing anything else.
@@ -553,6 +527,32 @@ Distilled from real audit findings — each entry cites the commit, PR, or memor
 
 - **A new service in a near-full category block can trip the category-overflow lint.** `data` and `media` blocks are 20 slots each but Supabase alone uses 7. Check current utilization before assuming there's room.
 - **Renaming a `row.display_name` breaks tests that hardcode it.** `test_wizard_app_discovery.py` has an `EXPECTED_DISCOVERED` frozenset; update it when renaming.
+
+## Subdirectory naming convention
+
+Each service folder can hold additional subdirectories beyond `service.yml` and `compose.yml`. Use these well-known names so navigation stays predictable across the stack:
+
+| Subdir | Holds | Example |
+|---|---|---|
+| `app/` | Source code for an app the manifest builds (the manifest's primary container is **this** code) | `services/backend/app/` (FastAPI source) |
+| `build/` | Dockerfile + build inputs when the manifest builds a container from scratch | `services/jupyterhub/build/`, `services/neo4j/build/`, `services/local-deep-researcher/build/` |
+| `init/` | Scripts + templates bind-mounted into a `<service>-init` sidecar container that prepares state before the main container starts | `services/n8n/init/`, `services/hermes/init/`, `services/comfyui/init/`, `services/minio/init/`, `services/weaviate/init/` |
+| `catalog-init/` | Same as `init/` but for a *second* init sidecar that runs in a different tier (used by litellm only) | `services/litellm/catalog-init/` |
+| `pull/` | Same as `init/` but the sidecar is named `<service>-pull` (only ollama) | `services/ollama/pull/` |
+| `config/` | Read-only configuration files bind-mounted into the main container at runtime | `services/searxng/config/` (settings.yml) |
+| `db/` | Database snapshots + SQL migration scripts | `services/supabase/db/` (snapshot/ + scripts/) |
+| `provider/` | Multiple host/container providers for a single capability the manifest exposes via a SOURCE variable (one engine = one subfolder of `provider/`) | `services/parakeet/provider/{gpu,mlx,whisper-cpp,shared}`, `services/docling/provider/{gpu,localhost,shared}`, `services/tts-provider/provider/localhost` |
+| `extras/` | User-managed bind-mounted data exposed inside the running container (tools, functions, workflows you can edit on the host) | `services/open-webui/extras/{tools,functions,workflows}` |
+| `workflows-stage/` | Workflow JSON the init sidecar imports into the main container's DB on startup | `services/n8n/workflows-stage/` |
+
+**Family folders.** Some manifests own a family of related containers (e.g. supabase = 8 containers, n8n = main + worker + init). Each family folder gets a brief `README.md` listing the containers it ships and pointing at their definition in `compose.yml`. The fragment's `services:` keys are the authoritative container list; the manifest's `containers:` must match 1:1 (the manifest_validator enforces this — see "Validator rules" below).
+
+## Modifying an existing service
+
+- Env var default change → edit the manifest's `env:` block. Re-run the lint.
+- Image version bump → edit the manifest's `images[].default`. The compose fragment references the var, so no compose change is needed.
+- New container in the family → add to `containers:` in the manifest AND to `services:` in the fragment.
+- New source variant → add to `sources.options[]` in the manifest.
 
 ## Cross-referencing sections in service READMEs
 
