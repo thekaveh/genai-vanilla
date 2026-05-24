@@ -306,6 +306,147 @@ Two adjacent fields that occasionally apply:
 
 Use these only if your service is genuinely adaptive. Today seven manifests declare `runtime_adaptive` (backend, comfyui, hermes, jupyterhub, n8n, ollama, weaviate); backend is the most heavily adaptive and the canonical reference. Don't reach for these fields by default — start with declarative `runtime_sc` and only escalate when the adaptive behavior is non-trivial.
 
+## Mechanics — putting it all together
+
+After making the six decisions, you write two files. Here's the full result for Qdrant. Line callouts (`# ← Decision N`) point back to the decision section that explains the choice.
+
+### `services/qdrant/service.yml`
+
+```yaml
+# services/qdrant/service.yml — Qdrant vector database
+name: qdrant
+label: "Qdrant (vector database)"
+category: data                                # ← Decision 2
+docs: services/qdrant/README.md
+
+containers:
+  - qdrant
+
+images:
+  - var: QDRANT_IMAGE
+    default: "qdrant/qdrant:v1.12.0"
+    container: qdrant
+
+sources:                                      # ← Decision 3
+  var: QDRANT_SOURCE
+  default: disabled                           # off by default; user opts in
+  options:
+    - id: container
+      label: "Container"
+    - id: localhost
+      label: "Host (existing Qdrant)"
+    - id: external
+      label: "External (custom URL)"
+      requires: [QDRANT_EXTERNAL_URL]
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: QDRANT_SOURCE
+    default: disabled
+  - name: QDRANT_PORT                         # ← Decision 4 (no default — auto-assigned)
+    # default removed — computed by services/topology.py slot allocator
+  - name: QDRANT_LOCALHOST_URL
+    default: "http://host.docker.internal:6333"
+    description: "Used when QDRANT_SOURCE=localhost. Same var consumed by Kong's qdrant.localhost route."
+  - name: QDRANT_EXTERNAL_URL
+    default: ""
+    description: "Required when QDRANT_SOURCE=external."
+  - name: QDRANT_ENDPOINT
+    auto_managed: true
+  - name: QDRANT_SCALE
+    auto_managed: true
+
+depends_on:                                   # ← Decision 5
+  required:
+    - supabase
+  optional: []
+
+exports: []
+
+rows:
+  - display_name: "Qdrant"
+    source_var: QDRANT_SOURCE
+    port_var: QDRANT_PORT
+    scale_var: QDRANT_SCALE
+    alias: qdrant.localhost
+    description: "Vector database (Qdrant)."
+    localhost_endpoint_var: QDRANT_ENDPOINT
+
+runtime_sc:                                   # ← Decision 6 (declarative, no hook)
+  qdrant:
+    container:
+      scale: 1
+      environment:
+        QDRANT_ENDPOINT: http://qdrant:6333
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        QDRANT_ENDPOINT: ${QDRANT_LOCALHOST_URL}
+      deploy: {}
+      extra_hosts: [host.docker.internal:host-gateway]
+    external:
+      scale: 0
+      environment:
+        QDRANT_ENDPOINT: ${QDRANT_EXTERNAL_URL}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        QDRANT_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls: []
+```
+
+### `services/qdrant/compose.yml`
+
+```yaml
+# services/qdrant/compose.yml — Qdrant vector database
+services:
+  qdrant:
+    image: ${QDRANT_IMAGE}
+    container_name: ${PROJECT_NAME}-qdrant
+    restart: unless-stopped
+    deploy:
+      replicas: ${QDRANT_SCALE:-0}
+    ports:
+      - "${QDRANT_PORT}:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:6333/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
+volumes:
+  qdrant-data:
+    name: ${PROJECT_NAME}-qdrant-data
+    driver: local
+```
+
+### `docker-compose.yml` — one new include line
+
+Add to the top-level `include:` block in the `# Data tier` section:
+
+```yaml
+  # Data tier
+  - services/supabase/compose.yml
+  - services/redis/compose.yml
+  - services/minio/compose.yml
+  - services/neo4j/compose.yml
+  - services/qdrant/compose.yml              # ← new
+```
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
