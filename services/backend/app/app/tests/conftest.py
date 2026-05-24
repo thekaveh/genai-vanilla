@@ -70,10 +70,23 @@ def mock_job_submission_client(monkeypatch):
 
 
 @pytest.fixture
-def fastapi_client(ray_enabled_env, mock_job_submission_client):
+def fastapi_client(monkeypatch, ray_enabled_env, mock_job_submission_client):
     """A TestClient bound to the Backend app, with Ray-enabled env + mocked
     JobSubmissionClient. No auth bypass needed (Backend has no auth).
+
+    Sets required env vars that main.py validates at module load time so
+    that importing ``from main import app`` succeeds in the test environment
+    without a running Docker stack.
     """
+    # Provide stub values for env vars main.py requires at import time.
+    # Only set if not already present so a real .env still wins.
+    for _var, _default in (
+        ("KONG_URL", "http://kong:8000"),
+        ("SUPABASE_SERVICE_KEY", "dummy-key"),
+        ("DATABASE_URL", "postgresql://x:x@localhost/x"),
+    ):
+        if not os.environ.get(_var):
+            monkeypatch.setenv(_var, _default)
     from fastapi.testclient import TestClient
     from main import app  # noqa: sys.path set above
     return TestClient(app)

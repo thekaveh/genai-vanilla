@@ -12,7 +12,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from .ray_client import RayClient, RayDisabledError
+from ray_client import RayClient, RayDisabledError
 
 logger = logging.getLogger(__name__)
 
