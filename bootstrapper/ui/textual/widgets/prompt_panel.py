@@ -848,14 +848,34 @@ class PromptPanel(Container):
                 kind="parent", abs_idx=i,
                 parent_value=opt.value, variant=None,
             ))
-            if opt.value in self._expanded and len(opt.sizes) >= 2:
+            # A family is expandable when ollama.com offers multiple sizes
+            # OR when the host has pulled any variant (so a custom tag like
+            # ``qwen3.6:35b-a3b-coding-mxfp8`` — not in the listing or detail
+            # page — still gets a visible leaf row).
+            is_expandable = len(opt.sizes) >= 2 or bool(opt.pulled_variants)
+            if opt.value in self._expanded and is_expandable:
                 detail = self._variant_cache.get(opt.value)
                 if detail is not None:
-                    # Real variant list from the detail page.
+                    # Real variant list from the detail page. Track tags
+                    # so we can splice in any pulled-but-not-on-the-page
+                    # variants right after.
+                    seen: set[str] = set()
                     for v in detail:
+                        seen.add(v.tag)
                         out.append(_VisibleRow(
                             kind="leaf", abs_idx=i,
                             parent_value=opt.value, variant=v.tag,
+                        ))
+                    # Pulled tags missing from the detail page (e.g.
+                    # community / custom builds the model-maker hasn't
+                    # listed) — surface them so the user can see what's
+                    # on their host, not just what's on ollama.com.
+                    for tag in sorted(opt.pulled_variants):
+                        if tag in seen:
+                            continue
+                        out.append(_VisibleRow(
+                            kind="leaf", abs_idx=i,
+                            parent_value=opt.value, variant=tag,
                         ))
                 elif opt.value in self._variant_loading:
                     # Fetch in flight — splash placeholder.
@@ -864,11 +884,23 @@ class PromptPanel(Container):
                         parent_value=opt.value, variant="__loading__",
                     ))
                 else:
-                    # Fallback: listing-page param-count sizes.
+                    # Fallback: listing-page param-count sizes + any
+                    # pulled variants not in that set (so the host's
+                    # real inventory is always represented even before
+                    # the detail-page worker lands).
+                    seen = set()
                     for v in (_LATEST_TAG, *opt.sizes):
+                        seen.add(v)
                         out.append(_VisibleRow(
                             kind="leaf", abs_idx=i,
                             parent_value=opt.value, variant=v,
+                        ))
+                    for tag in sorted(opt.pulled_variants):
+                        if tag in seen:
+                            continue
+                        out.append(_VisibleRow(
+                            kind="leaf", abs_idx=i,
+                            parent_value=opt.value, variant=tag,
                         ))
         return out
 
@@ -1038,10 +1070,11 @@ class PromptPanel(Container):
                     _row_variants(opt.value, self._checked_values)
                     if row_checked else frozenset()
                 )
-                # Expand-indicator state: only multi-variant parents
-                # can be expanded; everything else gets an alignment
-                # placeholder so checkbox columns stay flush.
-                if len(opt.sizes) >= 2:
+                # Expand-indicator state: parents are expandable when
+                # ollama.com lists multiple sizes OR when the host has
+                # pulled any variant (custom builds appear as a leaf
+                # row even without listing/detail-page coverage).
+                if len(opt.sizes) >= 2 or opt.pulled_variants:
                     expand_state = "expanded" if opt.value in self._expanded else "collapsed"
                 else:
                     expand_state = "none"
@@ -1363,10 +1396,13 @@ class PromptPanel(Container):
             self._mount_visible_rows(restore_identity=vrow.identity())
             return
 
-        # Parent (or non-tree multiselect option).
+        # Parent (or non-tree multiselect option). Expand on activation
+        # when ollama.com lists multiple sizes OR the host has pulled a
+        # variant — so families with a single listing-page size but a
+        # custom pulled tag still open into a leaf row.
         if (
             self._step.filter_tags
-            and len(opt.sizes) >= 2
+            and (len(opt.sizes) >= 2 or opt.pulled_variants)
         ):
             # Multi-variant parent → expand / collapse, no selection
             # change. Cursor stays on the parent.

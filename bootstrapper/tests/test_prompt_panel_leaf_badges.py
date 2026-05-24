@@ -157,3 +157,136 @@ def test_leaf_carries_no_status_when_pulled_variants_is_empty(panel):
     _, _, badges = panel._leaf_render_data(_leaf_row("27b"), opt)
     assert "pulled" not in badges
     assert "library" not in badges
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# _rebuild_visible — pulled tag must appear as a leaf row even when it's
+# absent from both the listing-page sizes and the detail-page variant
+# cache. Previously, ``qwen3.6:35b-a3b-coding-mxfp8`` was silently checked
+# but invisible because the fallback loop iterated ``(_LATEST_TAG, *sizes)``
+# without consulting ``opt.pulled_variants``.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class _RebuildStub:
+    """Minimal stand-in for PromptPanel exposing only the state that
+    ``_rebuild_visible`` reads. As with ``_PanelStub`` we sidestep
+    Textual's reactive plumbing — the method is a pure list-builder
+    on top of these attributes."""
+
+    _rebuild_visible = PromptPanel._rebuild_visible
+
+    def __init__(self, step, *, expanded=frozenset(), cache=None, loading=frozenset()):
+        self._step = step
+        self._filter_tag = "all"
+        self._search_query = ""
+        self._expanded = set(expanded)
+        self._variant_cache = dict(cache or {})
+        self._variant_loading = set(loading)
+
+
+def _fake_step(options):
+    """Stand-in for PromptStep accepting whatever attributes the test
+    setup needs. _rebuild_visible only reads ``options``."""
+    class _Step:
+        pass
+    s = _Step()
+    s.options = options
+    return s
+
+
+def test_rebuild_surfaces_pulled_tag_missing_from_listing_and_detail():
+    """The original screenshot bug: a user pulled
+    ``qwen3.6:35b-a3b-coding-mxfp8`` (a community/custom build that is
+    NOT on ollama.com's listing or detail page). With the parent
+    expanded and the detail-page cache empty, the fallback path used
+    to iterate only ``(latest, 27b, 35b)`` and silently drop the
+    custom tag — even though it was checked and would land in the
+    catalog CSV. After the fix, the pulled tag is appended as a leaf
+    row so the user can see what's on their host."""
+    opt = _qwen_parent_option(
+        pulled_variants=frozenset({"latest", "35b-a3b-coding-mxfp8"}),
+    )
+    stub = _RebuildStub(_fake_step([opt]), expanded={"qwen3.6"})
+    rows = stub._rebuild_visible()
+    leaves = [r.variant for r in rows if r.kind == "leaf"]
+    assert "35b-a3b-coding-mxfp8" in leaves, (
+        "Pulled tag absent from listing/detail page must still render "
+        f"as a leaf row. Got leaves: {leaves}"
+    )
+    # Listing-page sizes still show too (so library siblings remain
+    # available for selection).
+    for canonical in ("27b", "35b"):
+        assert canonical in leaves
+
+
+def test_rebuild_dedupes_pulled_tag_that_overlaps_listing():
+    """When a pulled tag is also in the listing-page sizes (e.g. the
+    user pulled exactly ``qwen3.6:27b``), it must appear once, not
+    twice, in the leaf list."""
+    opt = _qwen_parent_option(pulled_variants=frozenset({"27b"}))
+    stub = _RebuildStub(_fake_step([opt]), expanded={"qwen3.6"})
+    rows = stub._rebuild_visible()
+    leaves = [r.variant for r in rows if r.kind == "leaf"]
+    assert leaves.count("27b") == 1, (
+        f"27b should appear exactly once when listed AND pulled. "
+        f"Got: {leaves}"
+    )
+
+
+def test_rebuild_uses_detail_cache_then_appends_unlisted_pulled_tags():
+    """When the detail-page fetch has completed and populated the
+    cache, the cache drives the leaf order — and any pulled tag NOT in
+    the cache (still: community / custom builds) is appended so the
+    host's real inventory is fully represented."""
+    from ui.textual.widgets.prompt_panel import _VisibleRow  # noqa: F401
+    from utils.ollama_library import OllamaVariant
+
+    detail = [
+        OllamaVariant(
+            tag=t, size_label="—", context_label="256K",
+            input_modalities=("Text",), updated="just now",
+        )
+        for t in ("latest", "27b", "35b", "27b-mlx", "35b-mlx")
+    ]
+    opt = _qwen_parent_option(
+        pulled_variants=frozenset({"latest", "35b-a3b-coding-mxfp8"}),
+    )
+    stub = _RebuildStub(
+        _fake_step([opt]),
+        expanded={"qwen3.6"},
+        cache={"qwen3.6": detail},
+    )
+    rows = stub._rebuild_visible()
+    leaves = [r.variant for r in rows if r.kind == "leaf"]
+    # Detail-page tags come first, in detail order.
+    assert leaves[:5] == ["latest", "27b", "35b", "27b-mlx", "35b-mlx"], (
+        f"Detail-page tags must drive leaf order. Got: {leaves}"
+    )
+    # Pulled tag missing from the detail page is appended.
+    assert "35b-a3b-coding-mxfp8" in leaves[5:], (
+        f"Custom pulled tag must still appear when detail page omits "
+        f"it. Got: {leaves}"
+    )
+
+
+def test_rebuild_allows_expansion_when_only_pulled_variants_distinguish():
+    """A family with a single listing-page size but a pulled custom
+    variant must still be expandable. Before the fix the gate was
+    ``len(opt.sizes) >= 2``, hiding the custom tag entirely."""
+    opt = PromptOption(
+        value="customfam",
+        label="customfam",
+        hint="",
+        badges=["pulled"],
+        pulls=0,
+        sizes=("8b",),  # only one listing-page size — old gate would block
+        pulled_variants=frozenset({"8b-q4_K_M-custom"}),
+    )
+    stub = _RebuildStub(_fake_step([opt]), expanded={"customfam"})
+    rows = stub._rebuild_visible()
+    leaves = [r.variant for r in rows if r.kind == "leaf"]
+    assert "8b-q4_K_M-custom" in leaves, (
+        f"Single-size family with a custom pulled tag must still be "
+        f"expandable. Got leaves: {leaves}"
+    )
