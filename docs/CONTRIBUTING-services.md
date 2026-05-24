@@ -211,6 +211,51 @@ The `services/env_assembler.py` regen step emits the resolved port into `.env.ex
 
 > **Worked example — Qdrant:** Qdrant declares `QDRANT_PORT` with no default. Topology slots it into the `data` block at the next free offset, determined by where it lands in the topo sort relative to its siblings (Supabase microservices, Redis, MinIO, Neo4j, Weaviate). The exact number is auto-resolved at every regen — don't pin it.
 
+## Decision 5 — Dependencies (`depends_on.required` / `optional`)
+
+This is the most nuanced decision. The field `depends_on.required` in `service.yml` has **two semantics that get conflated**:
+
+**Runtime semantics (intended):** "These services must be up before this one boots." Maps to the corresponding `depends_on:` block in your `compose.yml` fragment.
+
+**Display-ordering semantics (overloaded):** The bootstrapper uses `depends_on.required` as the canonical-order backbone for the wizard's row order and the overview-box display. Within a category, services sort topologically; an edge from A → B means A appears AFTER B in the same category's wizard block.
+
+### Why this matters — the footgun
+
+Kong's manifest used to list 19 services in `required` because Kong **proxies** to them — but Kong doesn't need them to **boot** (only Supabase + Redis). Trimming the list to its real boot dependencies was correct.
+
+But trimming `litellm` from `ollama.depends_on.required` correctly removed a fake runtime edge — and broke a UI ordering test (`test_row_order_stability.py`), because `ollama` was relying on that edge to pin its position in the wizard's LLM block. Removing it shifted port slots throughout the LLM and media blocks.
+
+### Current convention (codified in manifest comments in commit `d98bc5a`)
+
+- Use `required` for **genuine bootstrap blockers** AND for **cross-category display-ordering pins**.
+- Comment any non-runtime edge inline as a display-ordering pin so readers don't try to "fix" it. Example from `services/ollama/service.yml`:
+
+  ```yaml
+  depends_on:
+    # `litellm` is listed here NOT because the ollama container calls
+    # LiteLLM (the call direction is the opposite), but because the
+    # bootstrapper uses `depends_on.required` as the canonical-order
+    # backbone for the wizard / overview-box display. […]
+    required:
+      - supabase
+      - litellm
+  ```
+
+- A future schema change may add a separate `display_order:` field that takes over the ordering job; until then, comment the intent.
+
+### Things to avoid
+
+- **Don't** list every service you *call* in `required`. Use `data_flow.calls` for that (it drives the architecture diagram and the per-service README's Dependencies & Integrations block — not topology).
+- **Don't** depend on virtual aggregates (`globals`, `cloud-providers`) in `required`. They have no runtime presence; the audit removed phantom `globals` edges from `supabase` and `docling`.
+- **Don't** list `optional` deps that compose doesn't enforce. The `optional` list is documentation; if compose doesn't gate on it, it has no effect.
+- **Don't** list a depends-on for a service that's source-replaceable (`localhost`, `external`, `disabled`). The audit script `scripts/check-compose-source-deps.py` enforces this; SOURCE-replaceable consumers should reach their target via endpoint env vars + runtime readiness checks, not via compose `depends_on`.
+
+> **Worked example — Qdrant:** Qdrant's only data-tier sibling that always runs is Supabase (the substrate the bootstrapper provisions before any other service starts). Listing it as a required dep pins Qdrant's position in the data block topologically. → `required: [supabase]`, `optional: []`.
+
+### `data_flow.calls` is separate
+
+The `data_flow.calls` field is a runtime call graph that drives the architecture diagram and the per-service README's Dependencies & Integrations block. It is **independent** of `depends_on`. Use it to describe which services this one calls at runtime in the request path (excluding init-time bootstrap calls).
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
