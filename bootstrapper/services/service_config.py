@@ -120,6 +120,14 @@ class ServiceConfig:
         hermes_config = self._generate_hermes_config()
         env_vars.update(hermes_config)
 
+        # Generate Ray cluster configuration
+        ray_source = self.service_sources.get("RAY_SOURCE", "disabled")
+        ray_config = self._generate_ray_config(
+            source_value=ray_source,
+            shared_env=env_vars,
+        )
+        env_vars.update(ray_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -558,6 +566,69 @@ class ServiceConfig:
             env_vars['HERMES_SCALE'] = '1'
 
         return env_vars
+
+    def _generate_ray_config(self, source_value: str, shared_env: dict) -> dict:
+        """Resolve Ray's auto-managed env vars from RAY_SOURCE + RAY_WORKER_COUNT.
+
+        Sets four env vars based on the active source:
+          - RAY_IMAGE — CPU or GPU image tag (compose interpolates this)
+          - RAY_HEAD_SCALE — 1 when container source, 0 otherwise
+          - RAY_WORKER_SCALE — RAY_WORKER_COUNT when container source, 0 otherwise
+          - RAY_ADDRESS — `ray://ray-head:10001` for container sources,
+            `${RAY_EXTERNAL_ADDRESS}` value for ray-external, empty otherwise
+
+        Args:
+            source_value: Current RAY_SOURCE value (one of `ray-container-cpu`,
+                `ray-container-gpu`, `ray-external`, `disabled`).
+            shared_env: Env vars accumulated by earlier generators + manifest
+                defaults. We read `RAY_WORKER_COUNT`, `RAY_IMAGE`,
+                `RAY_GPU_IMAGE`, `RAY_EXTERNAL_ADDRESS` from here.
+
+        Returns:
+            Dict of resolved env-var assignments. The caller merges this into
+            the .env-example output.
+        """
+        cpu_image = shared_env.get("RAY_IMAGE", "rayproject/ray:2.55.1") or "rayproject/ray:2.55.1"
+        gpu_image = shared_env.get("RAY_GPU_IMAGE", "rayproject/ray:2.55.1-gpu") or "rayproject/ray:2.55.1-gpu"
+        external_addr = (shared_env.get("RAY_EXTERNAL_ADDRESS", "") or "").strip()
+
+        # Parse RAY_WORKER_COUNT with safe fallback to the manifest default (2).
+        raw_count = shared_env.get("RAY_WORKER_COUNT", "2")
+        try:
+            worker_count = int(raw_count)
+            if worker_count < 0:
+                worker_count = 2
+        except (ValueError, TypeError):
+            worker_count = 2
+
+        if source_value == "ray-container-cpu":
+            return {
+                "RAY_IMAGE": cpu_image,
+                "RAY_HEAD_SCALE": "1",
+                "RAY_WORKER_SCALE": str(worker_count),
+                "RAY_ADDRESS": "ray://ray-head:10001",
+            }
+        if source_value == "ray-container-gpu":
+            return {
+                "RAY_IMAGE": gpu_image,
+                "RAY_HEAD_SCALE": "1",
+                "RAY_WORKER_SCALE": str(worker_count),
+                "RAY_ADDRESS": "ray://ray-head:10001",
+            }
+        if source_value == "ray-external":
+            return {
+                "RAY_IMAGE": cpu_image,  # irrelevant (scale=0) but must be set
+                "RAY_HEAD_SCALE": "0",
+                "RAY_WORKER_SCALE": "0",
+                "RAY_ADDRESS": external_addr,
+            }
+        # disabled (or any unknown source value): everything off, no address
+        return {
+            "RAY_IMAGE": cpu_image,
+            "RAY_HEAD_SCALE": "0",
+            "RAY_WORKER_SCALE": "0",
+            "RAY_ADDRESS": "",
+        }
 
     def _generate_openclaw_config(self) -> Dict[str, str]:
         """Generate OpenClaw AI Agent configuration."""
