@@ -51,6 +51,9 @@ EXPECTED_DISCOVERED = frozenset({
     "Open WebUI",
     "JupyterHub",
     "Local Deep Researcher",
+    # Ray (added 2026-05-24) — distributed-compute substrate. Wizard
+    # discovery requires `ray_source` in SourceOverrideManager.source_mapping.
+    "Ray",
 })
 
 
@@ -159,7 +162,12 @@ def test_source_mapping_includes_app_service_flags() -> None:
 
     cp = ConfigParser(str(REPO_ROOT))
     mgr = SourceOverrideManager(cp)
-    for cli_key in ("open_web_ui_source", "jupyterhub_source", "local_deep_researcher_source"):
+    for cli_key in (
+        "open_web_ui_source",
+        "jupyterhub_source",
+        "local_deep_researcher_source",
+        "ray_source",
+    ):
         assert cli_key in mgr.source_mapping, (
             f"{cli_key} missing from SourceOverrideManager.source_mapping — "
             f"wizard discover() will silently filter the service out."

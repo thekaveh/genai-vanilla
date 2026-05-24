@@ -126,7 +126,16 @@ class ServiceDiscovery:
             # Locked manifests (1 source variant) skip the wizard entirely.
             from services.topology import get_topology
             topology = get_topology()
-            target_source_var = key.upper().replace('-', '_') + '_SOURCE'
+            derived_source_var = key.upper().replace('-', '_') + '_SOURCE'
+            # Multi-container families (e.g. ray-head + ray-worker) drive
+            # discovery off the head's runtime_sc key while the canonical
+            # env var lives on the family (RAY_SOURCE, not RAY_HEAD_SOURCE).
+            # Source-mapping resolves the canonical var so the wizard saves
+            # selections to the right key.
+            from utils.source_override_manager import SourceOverrideManager
+            mapped_var = SourceOverrideManager(self.config_parser).source_mapping.get(cli_key)
+            target_source_var = mapped_var or derived_source_var
+
             is_locked = False
             for r in topology.rows:
                 if r.source_var == target_source_var:
@@ -135,7 +144,7 @@ class ServiceDiscovery:
             if is_locked:
                 continue
 
-            env_var_name = key.upper().replace('-', '_') + '_SOURCE'
+            env_var_name = target_source_var
             current_value = env_vars.get(env_var_name, '')
             options = list(config.keys())
 
@@ -173,11 +182,32 @@ class ServiceDiscovery:
         return False
 
     def _get_display_name(self, key: str) -> str:
-        """Get a human-readable display name for a service key via Topology."""
+        """Get a human-readable display name for a service key via Topology.
+
+        Resolution order:
+        1. Derive source-var from the key naming convention (`<key>_SOURCE`).
+        2. If that doesn't match any row, fall back to resolving through the
+           SourceOverrideManager's source_mapping — this handles families
+           whose container key differs from their source-var stem (e.g.
+           ray-head's runtime_sc key but RAY_SOURCE is the actual var).
+        3. Title-case fallback if neither path resolves.
+        """
         from services.topology import get_topology
         topology = get_topology()
+
         target_source_var = key.upper().replace('-', '_') + '_SOURCE'
         for r in topology.rows:
             if r.source_var == target_source_var:
                 return r.display_name
+
+        # Multi-container family: the runtime_sc key (e.g. `ray-head`) and the
+        # actual source-var (`RAY_SOURCE`) diverge. Resolve via source_mapping.
+        cli_key = key.replace('-', '_') + '_source'
+        from utils.source_override_manager import SourceOverrideManager
+        mapped_var = SourceOverrideManager(self.config_parser).source_mapping.get(cli_key)
+        if mapped_var:
+            for r in topology.rows:
+                if r.source_var == mapped_var:
+                    return r.display_name
+
         return key.replace('_', ' ').replace('-', ' ').title()

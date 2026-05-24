@@ -40,6 +40,18 @@ class SourceOverrideManager:
             'hermes_source': 'HERMES_SOURCE',
             'neo4j_graph_db_source': 'NEO4J_GRAPH_DB_SOURCE',
             'multi2vec_clip_source': 'MULTI2VEC_CLIP_SOURCE',
+            'ray_source': 'RAY_SOURCE',
+            # Ray's runtime_sc has two containers (ray-head + ray-worker)
+            # so source_configurable carries both as separate keys. Mapping
+            # `ray_head_source` (the head — main container) here makes
+            # ServiceDiscovery treat it as the wizard's discovery anchor;
+            # ray-worker has no entry here and gets filtered out, same way
+            # init containers like comfyui-init / hermes-init are filtered.
+            # Both `ray_source` and `ray_head_source` resolve to the same
+            # underlying env var (RAY_SOURCE) — only ray_source is wired to
+            # a CLI flag (--ray-source); ray_head_source exists purely as
+            # a discovery shim.
+            'ray_head_source': 'RAY_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:
