@@ -123,7 +123,7 @@ Three legitimate flavors of folder live under `services/`. Pick the right one be
 > **Worked example — Qdrant:** Qdrant ships as a container image (`qdrant/qdrant:v1.12.0`), exposes a real HTTP API, and has its own env vars → **container flavor**.
 
 **Common mistakes:**
-- Adding a virtual manifest with a compose fragment — the schema validator will reject it (`virtual: true` requires no `compose.yml`).
+- Adding a virtual manifest with a compose fragment — the schema validator will reject it. Either remove `compose.yml` (if no container runs) or unset `virtual: true` and keep the compose fragment (container flavor).
 - Adding a doc-only folder when the role has env vars to manage — use a virtual manifest instead.
 
 ## Cross-referencing sections in service READMEs
