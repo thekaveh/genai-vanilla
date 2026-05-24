@@ -56,7 +56,11 @@ _No upstream calls._
 
 ### 5.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| hermes | agents |
+| backend | apps |
+| jupyterhub | apps |
 
 ### 5.3 Architecture diagram
 

@@ -229,11 +229,13 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 | Service | Category |
 |---|---|
+| ray | infra |
 | litellm ↔ | llm |
 | comfyui | media |
 | searxng | media |
 | stt-provider | media |
 | tts-provider | media |
+| backend ↔ | apps |
 
 ### 9.2 Current — Downstream (services that call this)
 
@@ -243,7 +245,7 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 | litellm ↔ | llm |
 | n8n | agents |
 | openclaw | agents |
-| backend | apps |
+| backend ↔ | apps |
 | jupyterhub | apps |
 | open-webui | apps |
 

@@ -229,6 +229,7 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 
 | Service | Category |
 |---|---|
+| ray | infra |
 | minio | data |
 | neo4j | data |
 | supabase | data |

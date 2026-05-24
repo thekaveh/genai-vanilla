@@ -92,6 +92,7 @@ When any optional service is `disabled`, the corresponding backend feature degra
 
 | Service | Category |
 |---|---|
+| ray | infra |
 | neo4j | data |
 | redis | data |
 | supabase | data |
@@ -101,7 +102,7 @@ When any optional service is `disabled`, the corresponding backend feature degra
 | doc-processor | media |
 | stt-provider | media |
 | tts-provider | media |
-| hermes | agents |
+| hermes ↔ | agents |
 | n8n | agents |
 
 ### 5.2 Current — Downstream (services that call this)
@@ -109,6 +110,7 @@ When any optional service is `disabled`, the corresponding backend feature degra
 | Service | Category |
 |---|---|
 | kong | infra |
+| hermes ↔ | agents |
 
 ### 5.3 Architecture diagram
 
