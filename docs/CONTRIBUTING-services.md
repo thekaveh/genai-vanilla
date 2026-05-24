@@ -482,6 +482,45 @@ PYTHONPATH=. uv run python -m docs.regen qdrant
 
 **Graphviz prerequisite:** the `dot` command requires Graphviz. Install with `brew install graphviz` (macOS), `sudo apt-get install graphviz` (Debian/Ubuntu), or `choco install graphviz` (Windows). See `docs/diagrams/README.md`.
 
+## Audit-script + CI implications
+
+After adding a service, check these allowlists. Skipping them means CI fails on the next push.
+
+### `scripts/check-compose-source-deps.py` — two allowlists
+
+- **`REQUIRED_DEPENDS_ON`** — set of `(service, dependency)` tuples that MUST appear in compose `depends_on`. Add entries here if your compose fragment hard-depends on `litellm`, `redis`, `supabase-db`, `weaviate-init`, etc. The script fails CI if your manifest claims a hard dep that compose doesn't enforce, OR vice versa.
+- **`FORBIDDEN_OPTIONAL_DEPENDS_ON`** — set of edges that MUST NOT exist (depending on a SOURCE-replaceable service via `depends_on` is unsafe because that service may not run as a container). Add entries here if you have an intentional exception with documented justification.
+
+### `scripts/check-kong-routes.py` — baseline-default audit
+
+If your service publishes a `*.localhost` alias, the generated Kong route is checked against a baseline. Add an entry to the script's allowlist if your route uses non-default settings (e.g. `preserve_host: True` for browser SPAs, custom plugin chain, custom timeout).
+
+### `.github/dependabot.yml` — `directories:` list
+
+If your service ships a `requirements.txt` / `pyproject.toml` in a `build/` or `provider/` subdirectory, add the path to the `directories:` list of the `pip` ecosystem block. **Memory note:** all active manifests must be enumerated; omitted paths drop from scan coverage and silent vulnerabilities accumulate.
+
+### CI gates that run on every push
+
+The `.github/workflows/services-lint.yml` workflow has three jobs:
+
+| Job | What it catches |
+|---|---|
+| **Manifest lint + unit tests** | `validate_fragments` lint + 315+ pytest tests. Catches: manifest schema violations, dependency cycles, env-example drift, category overflow. |
+| **Compose merge + byte-equivalence + source-permutation matrix** | Renders `docker compose config` for the merged fragment list + verifies it matches the golden baseline + tests every source variant of every service. Catches: compose-syntax errors, source-permutation regressions. |
+| **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links`, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`). Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken markdown links, research-schema violations. |
+
+Run the equivalent of all three locally before pushing:
+
+```bash
+cd bootstrapper && uv run pytest -q                                    # job 1 + 2 (minus byte-equivalence)
+cd bootstrapper && uv run python -m tools.validate_fragments           # job 1 lint
+cp .env.example .env && docker compose -f docker-compose.yml config -q # job 2 merge check
+cd .. && PYTHONPATH=bootstrapper uv run --project bootstrapper python -m bootstrapper.docs.regen --all --check  # job 3 docs drift
+python scripts/check_doc_links.py                                      # job 3 link check
+python scripts/check-compose-source-deps.py                            # job 3 deps audit
+python scripts/check-kong-routes.py                                    # job 3 kong audit
+```
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
