@@ -493,7 +493,7 @@ After adding a service, check these allowlists. Skipping them means CI fails on 
 
 ### `scripts/check-kong-routes.py` — baseline-default audit
 
-If your service publishes a `*.localhost` alias, the generated Kong route is checked against a baseline. Add an entry to the script's allowlist if your route uses non-default settings (e.g. `preserve_host: True` for browser SPAs, custom plugin chain, custom timeout).
+The script runs the Kong route generator against `.env.example` defaults (in a tmp working dir) and verifies the resulting routes match a hardcoded `EXPECTED_HOST_ROUTES` table at the top of the script. If your service publishes a `*.localhost` alias AND its source variant is on-by-default (i.e. `<SVC>_SOURCE`'s default value renders a route), add an entry to `EXPECTED_HOST_ROUTES` mapping the host to the expected upstream URL. Services that are off by default need no entry.
 
 ### `.github/dependabot.yml` — `directories:` list
 
@@ -518,7 +518,9 @@ cp .env.example .env && docker compose -f docker-compose.yml config -q # job 2 m
 cd .. && PYTHONPATH=bootstrapper uv run --project bootstrapper python -m bootstrapper.docs.regen --all --check  # job 3 docs drift
 python scripts/check_doc_links.py                                      # job 3 link check
 python scripts/check-compose-source-deps.py                            # job 3 deps audit
+python scripts/check-docs-drift.py                                     # job 3 docs structural audit
 python scripts/check-kong-routes.py                                    # job 3 kong audit
+python scripts/validate_research_schema.py --all                       # job 3 research schema
 ```
 
 ## Cross-referencing sections in service READMEs
