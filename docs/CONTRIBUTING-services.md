@@ -289,7 +289,7 @@ runtime_sc:
 
 Write a helper in `bootstrapper/services/service_config.py` and wire it into `generate_service_environment()` ONLY when one of these is true:
 
-1. **Multi-input SOURCE dependencies.** Your output depends on more than one `<SVC>_SOURCE` value. Example: `_generate_stt_provider_config` reads BOTH `STT_PROVIDER_SOURCE` and `TTS_PROVIDER_SOURCE` to dedupe Speaches when it's selected for both roles.
+1. **Multi-input SOURCE dependencies.** Your output depends on more than one `<SVC>_SOURCE` value. Example: `_generate_stt_provider_config` and `_generate_tts_provider_config` cooperate via a `shared_env` dict — STT runs first and writes `SPEACHES_SCALE`; TTS reads STT's output and avoids double-scheduling Speaches when both roles pick a Speaches variant.
 2. **Derived / aggregated state.** You need to compute env vars from a set of toggles. Example: `_generate_cloud_providers_config` reads three `CLOUD_*_SOURCE` toggles + their API keys and emits `LITELLM_ENABLED_PROVIDERS` as a comma-separated string.
 3. **Runtime-computed values.** You need an env var whose value depends on another service's port, computed at runtime from `BASE_PORT`.
 
@@ -304,7 +304,7 @@ Two adjacent fields that occasionally apply:
 - **`runtime_adaptive`** — for services like `backend` that adapt their behavior based on which upstream services are enabled. Declares `adapts_to:` (a list of provider keys) and `environment_adaptation:` (env vars conditionally set when those providers are active). See `services/backend/service.yml` for the reference pattern.
 - **`runtime_deps`** — declares optional runtime dependencies (services this one calls only if they're enabled). Drives the info-message shown to the user during the wizard.
 
-Use these only if your service is genuinely adaptive (backend + open-webui are the only two today). Don't reach for them by default.
+Use these only if your service is genuinely adaptive. Today seven manifests declare `runtime_adaptive` (backend, comfyui, hermes, jupyterhub, n8n, ollama, weaviate); backend is the most heavily adaptive and the canonical reference. Don't reach for these fields by default — start with declarative `runtime_sc` and only escalate when the adaptive behavior is non-trivial.
 
 ## Cross-referencing sections in service READMEs
 
