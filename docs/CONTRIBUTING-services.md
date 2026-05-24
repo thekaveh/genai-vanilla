@@ -39,6 +39,8 @@ If you're new to this codebase, read Decisions 1–6 in sequence; the Qdrant wor
 
 ## Adding a new service
 
+> For a decision-driven walkthrough with worked example, see [TL;DR — the 60-second checklist](#tldr--the-60-second-checklist) and the six **Decision** sections that follow it. The 9-step list below is the terse "I know what I'm doing" path.
+
 1. Create the folder: `mkdir services/myservice`
 2. Write `services/myservice/service.yml`. Schema: `bootstrapper/schemas/service.schema.json`.
    - `name:` must equal the folder name (kebab-case).
@@ -554,6 +556,15 @@ Each service folder can hold additional subdirectories beyond `service.yml` and 
 - New container in the family → add to `containers:` in the manifest AND to `services:` in the fragment.
 - New source variant → add to `sources.options[]` in the manifest.
 
+### Common modification flows
+
+Short walk-throughs for the modifications you'll do most often:
+
+- **Add a new source variant to an existing service.** Edit `sources.options` + `runtime_sc.<key>` to include the new source. Regen `.env.example`. The source-permutation matrix in CI will exercise every variant — make sure your new variant has a valid `runtime_sc` slice.
+- **Rename a service's display name (`rows[].display_name`).** Update the row, then regen the README topology block. Search the test suite for the old name — `bootstrapper/tests/test_wizard_app_discovery.py::EXPECTED_DISCOVERED` is the most common dependency.
+- **Bump a container image version.** Edit `images[].default` only. The compose fragment uses `${X_IMAGE}` interpolation, so nothing else changes. Don't forget to test the new image locally before committing.
+- **Split a service family into multiple manifests.** Non-trivial. The supabase manifest (8 containers in one family) is the reference pattern; consult it before splitting.
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
@@ -561,6 +572,8 @@ Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, 
 **Never link to a sub-section by number across services.** "See section 5.4 in the backend README" breaks the moment the target README adds a new pre-Deps section and shifts to 6.4. Always reference by heading text instead: "See *Future — Missing pair integrations* in the backend README."
 
 ## Schema cheatsheet
+
+> This section is a quick field reference. For guidance on which fields apply when (and why), see Decisions 1–6 above.
 
 ```yaml
 name: myservice
