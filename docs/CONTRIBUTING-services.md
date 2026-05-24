@@ -529,7 +529,7 @@ Distilled from real audit findings — each entry cites the commit, PR, or memor
 
 ### Dependency-list gotchas
 
-- **Cross-category `depends_on.required` is a display-order pin.** Removing `litellm` from `ollama.required` is correct from a runtime POV but shifts the wizard's row order and reshuffles port slots in the media block. Keep cross-category edges and document the intent inline. See commit `d98bc5a`.
+- **Cross-category `depends_on.required` is a display-order pin.** Removing `litellm` from `ollama.required` is correct from a runtime POV but shifts the wizard's row order in the llm block (and transitively can affect media services like ComfyUI that chain through ollama). Keep cross-category edges and document the intent inline. See commit `d98bc5a`.
 - **Don't depend on virtual aggregates in `required`.** `globals`, `cloud-providers`, `tts-provider` are virtual — no container, no compose. Depending on them adds a phantom node to the topo sort. The audit removed phantom `globals` edges from `supabase` and `docling`.
 - **Compose-only deps vs. manifest deps must align both ways.** Kong's manifest used to list 19 proxy targets in `required` but compose only had 5 (truly correct — over-claimed). Backend's manifest only listed `[supabase, redis]` but compose waited for `litellm` health (under-claimed). The audit corrected both; `scripts/check-compose-source-deps.py` now catches missing edges.
 
