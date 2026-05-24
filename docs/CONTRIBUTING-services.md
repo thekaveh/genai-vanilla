@@ -8,6 +8,35 @@ The stack uses a **per-service folder layout** under `services/<name>/`. Each se
 
 The thin top-level `docker-compose.yml` merges fragments via Compose's native `include:` directive (requires Compose ≥ v2.20; v2.26+ recommended).
 
+## TL;DR — the 60-second checklist
+
+A maintainer who already understands the stack can land a new service in under an hour by following this list. Each step links to the relevant deep-dive section.
+
+- [ ] **Pick a folder flavor** → [Decision 1](#decision-1--folder-flavor-container-virtual-or-doc-only)
+- [ ] **Pick a category** → [Decision 2](#decision-2--category)
+- [ ] **Pick your sources** → [Decision 3](#decision-3--source-variants)
+- [ ] **Write `services/<name>/service.yml`** → [Mechanics](#mechanics--putting-it-all-together)
+- [ ] **Write `services/<name>/compose.yml`** (only if folder flavor = container) → [Mechanics](#mechanics--putting-it-all-together)
+- [ ] **Add the `include:` line to `docker-compose.yml`** (only if you wrote a compose fragment)
+- [ ] **Run the four-command regen + lint chain** → [After you save the files](#after-you-save-the-files--regen--lint-commands-in-order)
+- [ ] **Update audit-script allowlists** if your service has hard deps → [Audit-script + CI implications](#audit-script--ci-implications)
+- [ ] **Commit and push.** CI's three jobs (manifest-lint+pytest, compose-equivalence+permutation matrix, docs-drift+audit-scripts) gate the change.
+
+If you're new to this codebase, read the six decisions sections in order before touching code. The worked example threads through them.
+
+## The six decisions you have to make
+
+| # | Decision | Default if you're unsure | Drill-down |
+|---|----------|--------------------------|------------|
+| 1 | Folder flavor | `container` | [Decision 1](#decision-1--folder-flavor-container-virtual-or-doc-only) |
+| 2 | Category | the category of the service you're most similar to | [Decision 2](#decision-2--category) |
+| 3 | Source variants | `container` + `disabled` (minimum); add `localhost` if users might run this themselves | [Decision 3](#decision-3--source-variants) |
+| 4 | Port allocation | nothing — it's auto-assigned. Just declare `<NAME>_PORT` in the env block. | [Decision 4](#decision-4--port-allocation) |
+| 5 | Dependencies | the manifest of the closest sibling in your category, to preserve display order | [Decision 5](#decision-5--dependencies-depends_onrequired--optional) |
+| 6 | Adaptive / hooks | none — start with declarative `runtime_sc`, escalate to a Python helper only when YAML can't express it | [Decision 6](#decision-6--adaptive-behavior--when-to-write-a-hook) |
+
+> **Worked example throughout:** Adding **Qdrant**, a self-hosted vector database. (Qdrant is real software but NOT currently in the stack — Weaviate is our vector DB. Used here purely as an instructional example, not a proposal.)
+
 ## Adding a new service
 
 1. Create the folder: `mkdir services/myservice`
