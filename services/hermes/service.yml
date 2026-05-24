@@ -190,4 +190,6 @@ data_flow:
     - tts-provider
     - comfyui
     - searxng
+    - backend
+    - ray
 
