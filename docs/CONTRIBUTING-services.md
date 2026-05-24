@@ -177,6 +177,40 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 > - `external` — `requires: [QDRANT_EXTERNAL_URL]`
 > - `disabled` — scale=0
 
+## Decision 4 — Port allocation
+
+**The bootstrapper auto-assigns ports. You do not pick a port.**
+
+**How it works:**
+- `BASE_PORT` (default `63000`) is the bottom of the port range. Users can override with `./start.sh --base-port 64000`.
+- `CATEGORY_SLOTS` in `bootstrapper/services/topology.py` assigns each category an `(offset, block_size)` tuple. Current values (accurate as of 2026-05-24):
+
+  | Category | Offset | Block size | Resolved range with default `BASE_PORT=63000` |
+  |---|---:|---:|---|
+  | `infra` | 0 | 10 | 63000-63009 |
+  | `data` | 10 | 20 | 63010-63029 |
+  | `llm` | 30 | 10 | 63030-63039 |
+  | `media` | 40 | 20 | 63040-63059 |
+  | `agents` | 60 | 20 | 63060-63079 |
+  | `apps` | 80 | 20 | 63080-63099 |
+
+- Within each category block, services consume slots in **topological order** (driven by `depends_on.required` — see Decision 5). Multi-port services (e.g. Supabase's 8 containers, Weaviate's HTTP + gRPC pair, MinIO's API + Console pair) get a contiguous run.
+- A category-overflow lint trips if you blow past your block. Fixes: move manifests to a different category (rare), or extend the block size in `CATEGORY_SLOTS` (also rare — coordinate with maintainers).
+
+**How to declare a port:**
+
+In your `env:` block, declare `name: <SVC>_PORT` with NO `default:` line. Convention is a single-line comment:
+
+```yaml
+env:
+  - name: QDRANT_PORT
+    # default removed — computed by services/topology.py slot allocator
+```
+
+The `services/env_assembler.py` regen step emits the resolved port into `.env.example`. Never hand-edit `.env.example` — it's a generated artifact (byte-equivalence-tested in CI).
+
+> **Worked example — Qdrant:** Qdrant declares `QDRANT_PORT` with no default. Topology slots it into the `data` block at the next free offset, determined by where it lands in the topo sort relative to its siblings (Supabase microservices, Redis, MinIO, Neo4j, Weaviate). The exact number is auto-resolved at every regen — don't pin it.
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
