@@ -104,17 +104,27 @@ Each service folder can hold additional subdirectories beyond `service.yml` and 
 - New container in the family → add to `containers:` in the manifest AND to `services:` in the fragment.
 - New source variant → add to `sources.options[]` in the manifest.
 
-## Folder flavors: container, virtual, doc-only
+## Decision 1 — Folder flavor: container, virtual, or doc-only
 
-Three legitimate flavors of folder live under `services/`. Pick the right one when adding new content:
+Three legitimate flavors of folder live under `services/`. Pick the right one before writing anything else.
 
-| Flavor | `service.yml`? | `virtual: true`? | `compose.yml`? | Examples |
+| Flavor | `service.yml`? | `virtual: true`? | `compose.yml`? | Examples in this repo |
 |---|---|---|---|---|
-| Container service | ✓ | absent / false | ✓ | most services — backend, supabase, ollama, … |
-| Virtual manifest | ✓ | true | ✗ | `cloud-providers/` (LiteLLM-routed APIs), `globals/` (project + branding env), `tts-provider/` (engine selector) |
-| Doc-only folder | ✗ | n/a | ✗ | `stt-provider/`, `doc-processor/`, `multi2vec-clip/` — aggregator docs + diagrams for a role whose engines live in sibling folders |
+| **Container service** | yes | absent / false | yes | most services — backend, supabase, ollama, weaviate, … |
+| **Virtual manifest** | yes | `true` | no | `cloud-providers/` (LiteLLM-routed APIs), `globals/` (project + branding env), `tts-provider/` (engine selector) |
+| **Doc-only folder** | no | n/a | no | `stt-provider/`, `doc-processor/`, `multi2vec-clip/` — aggregator docs + diagrams for a role whose engines live in sibling folders |
 
-Use a **virtual manifest** when the folder owns env vars / `SOURCE` toggles that the bootstrapper must read, but no container runs. Use a **doc-only folder** when the role is a documentation surface aggregating other manifests and has no env vars of its own.
+**Flowchart:**
+
+1. Does it run as a container with its own image? → **container**.
+2. Does it own env vars / `SOURCE` toggles but with no compose fragment of its own? → **virtual**. Set `virtual: true`; omit `compose.yml`. The validator enforces this.
+3. Is it documentation-only — aggregating other manifests under one user-facing role? → **doc-only**. No `service.yml`, no `compose.yml`, just `README.md` + `architecture.svg` / `architecture.html`.
+
+> **Worked example — Qdrant:** Qdrant ships as a container image (`qdrant/qdrant:v1.12.0`), exposes a real HTTP API, and has its own env vars → **container flavor**.
+
+**Common mistakes:**
+- Adding a virtual manifest with a compose fragment — the schema validator will reject it (`virtual: true` requires no `compose.yml`).
+- Adding a doc-only folder when the role has env vars to manage — use a virtual manifest instead.
 
 ## Cross-referencing sections in service READMEs
 
