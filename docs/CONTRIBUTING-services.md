@@ -256,6 +256,56 @@ But trimming `litellm` from `ollama.depends_on.required` correctly removed a fak
 
 The `data_flow.calls` field is a runtime call graph that drives the architecture diagram and the per-service README's Dependencies & Integrations block. It is **independent** of `depends_on`. Use it to describe which services this one calls at runtime in the request path (excluding init-time bootstrap calls).
 
+## Decision 6 — Adaptive behavior + when to write a hook
+
+Most services express their per-source behavior with declarative `runtime_sc` YAML. The synthesizer in `bootstrapper/services/sc_synthesizer.py` concatenates all manifests' `runtime_sc` slices into the runtime service-config dict the bootstrapper consumes.
+
+**Declarative example** (suffices for ~90% of services):
+
+```yaml
+runtime_sc:
+  qdrant:
+    container:
+      scale: 1
+      environment:
+        QDRANT_LOG_LEVEL: info
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        QDRANT_ENDPOINT: ${QDRANT_LOCALHOST_URL}
+      deploy: {}
+      extra_hosts:
+        - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+```
+
+### When you need a `_generate_<svc>_config()` Python helper
+
+Write a helper in `bootstrapper/services/service_config.py` and wire it into `generate_service_environment()` ONLY when one of these is true:
+
+1. **Multi-input SOURCE dependencies.** Your output depends on more than one `<SVC>_SOURCE` value. Example: `_generate_stt_provider_config` reads BOTH `STT_PROVIDER_SOURCE` and `TTS_PROVIDER_SOURCE` to dedupe Speaches when it's selected for both roles.
+2. **Derived / aggregated state.** You need to compute env vars from a set of toggles. Example: `_generate_cloud_providers_config` reads three `CLOUD_*_SOURCE` toggles + their API keys and emits `LITELLM_ENABLED_PROVIDERS` as a comma-separated string.
+3. **Runtime-computed values.** You need an env var whose value depends on another service's port, computed at runtime from `BASE_PORT`.
+
+For everything else, stay declarative. Adding a hook means writing Python, adding a unit test for it, and giving future maintainers an extra place to read.
+
+> **Worked example — Qdrant:** Single SOURCE, no cross-service dependencies, no derived state. → **No hook needed.** The declarative `runtime_sc` covers all four sources.
+
+### `runtime_adaptive` and `runtime_deps`
+
+Two adjacent fields that occasionally apply:
+
+- **`runtime_adaptive`** — for services like `backend` that adapt their behavior based on which upstream services are enabled. Declares `adapts_to:` (a list of provider keys) and `environment_adaptation:` (env vars conditionally set when those providers are active). See `services/backend/service.yml` for the reference pattern.
+- **`runtime_deps`** — declares optional runtime dependencies (services this one calls only if they're enabled). Drives the info-message shown to the user during the wizard.
+
+Use these only if your service is genuinely adaptive (backend + open-webui are the only two today). Don't reach for them by default.
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
