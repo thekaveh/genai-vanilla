@@ -24,6 +24,9 @@ include:
   - services/minio/compose.yml
   - services/neo4j/compose.yml
 
+  # Compute substrate (infra)
+  - services/ray/compose.yml
+
   # LLM tier (cloud-providers + tts-provider are virtual; no compose fragment)
   - services/litellm/compose.yml
   - services/ollama/compose.yml
