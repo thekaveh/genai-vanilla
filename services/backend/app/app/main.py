@@ -18,6 +18,7 @@ from memory_models import (
     MemoryConsolidateResponse, MemorySummarizeResponse,
     MemoryListResponse, MemoryHealthResponse,
 )
+from ray_routes import router as ray_router
 
 
 def _validate_uuid_param(value: str, name: str = "parameter"):
@@ -71,6 +72,9 @@ storage_client = StorageClient(
         "apikey": SERVICE_KEY,  # Supabase storage requires the service key as apikey header
     },
 )
+
+
+app.include_router(ray_router)
 
 
 class HealthResponse(BaseModel):
