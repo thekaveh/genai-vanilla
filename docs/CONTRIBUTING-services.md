@@ -523,6 +523,37 @@ python scripts/check-kong-routes.py                                    # job 3 k
 python scripts/validate_research_schema.py --all                       # job 3 research schema
 ```
 
+## Common gotchas + anti-patterns
+
+Distilled from real audit findings — each entry cites the commit, PR, or memory note it came from.
+
+### Dependency-list gotchas
+
+- **Cross-category `depends_on.required` is a display-order pin.** Removing `litellm` from `ollama.required` is correct from a runtime POV but shifts the wizard's row order and reshuffles port slots in the media block. Keep cross-category edges and document the intent inline. See commit `d98bc5a`.
+- **Don't depend on virtual aggregates in `required`.** `globals`, `cloud-providers`, `tts-provider` are virtual — no container, no compose. Depending on them adds a phantom node to the topo sort. The audit removed phantom `globals` edges from `supabase` and `docling`.
+- **Compose-only deps vs. manifest deps must align both ways.** Kong's manifest used to list 19 proxy targets in `required` but compose only had 5 (truly correct — over-claimed). Backend's manifest only listed `[supabase, redis]` but compose waited for `litellm` health (under-claimed). The audit corrected both; `scripts/check-compose-source-deps.py` now catches missing edges.
+
+### URL / localhost handling
+
+- **`<SVC>_LOCALHOST_URL` overrides must be symmetric.** If you read it in a new in-container consumer, Kong's route generator must read the same var too. Otherwise the two paths silently disagree about where the upstream lives.
+- **Kong routes fronting browser SPAs need `preserve_host: True`.** Without it the SPA emits unreachable redirect URLs containing the internal Docker hostname.
+
+### Init-container patterns
+
+- **Init containers use vanilla `alpine:latest` + inline `apk add`.** Don't ship a Dockerfile that builds a custom init image — the global `alpine:latest` tag gets clobbered.
+- **TTS/STT engine in-container ports are NOT all 8000.** Parakeet, Speaches, Docling listen on `8000`; Chatterbox listens on `4123`. Don't assume.
+
+### Regen / test gotchas
+
+- **`.env.example` is byte-equivalence-tested.** After any manifest change affecting env vars or port allocation, regen `.env.example` or `test_env_example_consistency` will fail CI.
+- **`test_fragment_equivalence` is sensitive to Compose-version defaults.** Don't regenerate the golden baseline reflexively when this test fails. Extend `_strip_volatile_defaults` in the test fixture instead.
+- **`docker compose config` needs `.env` to render properly.** In CI, the audit-scripts job copies `.env.example` to `.env` before running the source-deps audit. Locally, you have a real `.env` so this is invisible — but if you remove your `.env`, the audit script's fallback to raw parsing of the top-level `docker-compose.yml` (which is an `include:`-only shell) produces spurious "missing required core dependency" failures.
+
+### Topology / category gotchas
+
+- **A new service in a near-full category block can trip the category-overflow lint.** `data` and `media` blocks are 20 slots each but Supabase alone uses 7. Check current utilization before assuming there's room.
+- **Renaming a `row.display_name` breaks tests that hardcode it.** `test_wizard_app_discovery.py` has an `EXPECTED_DISCOVERED` frozenset; update it when renaming.
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
