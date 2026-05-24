@@ -1200,6 +1200,70 @@ services:
       target: /home/node/.openclaw/workspace
       type: volume
       volume: {}
+  ray-head:
+    command:
+    - bash
+    - -c
+    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port\
+      \ 10001 \\\n  --dashboard-port 8265 \\\n  --block\n"
+    container_name: genai-ray-head
+    deploy:
+      replicas: 0
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
+      test:
+      - CMD-SHELL
+      - curl -f http://localhost:8265/api/version || exit 1
+      timeout: 10s
+    hostname: ray-head
+    image: rayproject/ray:2.55.1
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      protocol: tcp
+      published: '63002'
+      target: 8265
+    - mode: ingress
+      protocol: tcp
+      published: '63003'
+      target: 6379
+    - mode: ingress
+      protocol: tcp
+      published: '63004'
+      target: 10001
+    restart: unless-stopped
+    shm_size: '4294967296'
+    volumes:
+    - source: ray-tmp
+      target: /tmp/ray
+      type: volume
+      volume: {}
+  ray-worker:
+    command:
+    - bash
+    - -c
+    - 'ray start --address=ray-head:6379 --block
+
+      '
+    depends_on:
+      ray-head:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    image: rayproject/ray:2.55.1
+    networks:
+      backend-network: null
+    restart: unless-stopped
+    shm_size: '4294967296'
+    volumes:
+    - source: ray-tmp-worker
+      target: /tmp/ray
+      type: volume
+      volume: {}
   redis:
     command:
     - redis-server
@@ -1701,6 +1765,12 @@ volumes:
   openclaw-workspace:
     driver: local
     name: genai-openclaw-workspace
+  ray-tmp:
+    driver: local
+    name: genai-ray-tmp
+  ray-tmp-worker:
+    driver: local
+    name: genai-ray-tmp-worker
   redis-data:
     driver: local
     name: genai-redis-data
