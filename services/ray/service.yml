@@ -1,0 +1,140 @@
+name: ray
+label: "Ray (distributed compute substrate)"
+category: infra
+docs: services/ray/README.md
+
+containers:
+  - ray-head
+  - ray-worker
+
+images:
+  - var: RAY_IMAGE
+    default: "rayproject/ray:2.55.1"
+    container: ray-head
+    notes: "CPU build. Same image used for both head and CPU workers."
+  - var: RAY_GPU_IMAGE
+    default: "rayproject/ray:2.55.1-gpu"
+    container: ray-head
+    notes: "GPU build with CUDA runtime. Selected by ray-container-gpu source."
+
+sources:
+  var: RAY_SOURCE
+  default: disabled
+  options:
+    - id: ray-container-cpu
+      label: "Container (CPU)"
+    - id: ray-container-gpu
+      label: "Container (GPU, NVIDIA)"
+    - id: ray-external
+      label: "External (Anyscale or custom cluster URL)"
+      requires: [RAY_EXTERNAL_ADDRESS]
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: RAY_SOURCE
+    default: disabled
+  - name: RAY_DASHBOARD_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for the Ray dashboard + REST job-submission API (in-container 8265)."
+  - name: RAY_GCS_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for the Ray GCS (in-container 6379). Distinct from the project's Redis cache container; Ray bundles its own GCS process."
+  - name: RAY_CLIENT_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for the Ray client server (in-container 10001). Used by host Python: `ray.init('ray://localhost:<port>')`."
+  - name: RAY_WORKER_COUNT
+    default: 2
+    description: "Number of ray-worker replicas. The wizard prompts for this with default 2. Valid values: 0 (head-only mode) and up. No hard upper bound — bounded by host resources."
+  - name: RAY_EXTERNAL_ADDRESS
+    default: ""
+    description: "Required when RAY_SOURCE=ray-external. Format: `ray://hostname:10001` (Anyscale or custom Ray cluster URL)."
+  - name: RAY_HEAD_SCALE
+    auto_managed: true
+  - name: RAY_WORKER_SCALE
+    auto_managed: true
+    description: "Resolved by the bootstrapper from RAY_WORKER_COUNT when source is ray-container-{cpu,gpu}; 0 otherwise."
+  - name: RAY_ADDRESS
+    auto_managed: true
+    description: "Resolved per source: `ray://ray-head:10001` for container sources, `${RAY_EXTERNAL_ADDRESS}` for external, empty for disabled. Consumed by Backend / JupyterHub via runtime_adaptive."
+
+depends_on:
+  required: []
+  optional: []
+
+exports: []
+
+rows:
+  - display_name: "Ray"
+    source_var: RAY_SOURCE
+    port_var: RAY_DASHBOARD_PORT
+    scale_var: RAY_HEAD_SCALE
+    alias: ray.localhost
+    description: "Distributed-compute substrate (cluster controller + workers)."
+
+runtime_sc:
+  # Note: scale values here are bootstrapper-display defaults. Actual
+  # compose replicas are driven by ${RAY_HEAD_SCALE} / ${RAY_WORKER_SCALE}
+  # in compose.yml, which the _generate_ray_config() hook writes to .env
+  # based on RAY_SOURCE + RAY_WORKER_COUNT. Same pattern for the image:
+  # compose.yml says `image: ${RAY_IMAGE}` and the hook sets RAY_IMAGE
+  # to the CPU or GPU image tag based on source.
+  ray-head:
+    ray-container-cpu:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    ray-container-gpu:
+      scale: 1
+      environment:
+        NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+    ray-external:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  ray-worker:
+    ray-container-cpu:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    ray-container-gpu:
+      scale: 1
+      environment:
+        NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+    ray-external:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls: []
