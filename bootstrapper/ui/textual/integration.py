@@ -226,6 +226,9 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # pairs) live in wizard/llm_steps.py; spliced in below right after
     # the LLM Engine source step so the LLM section reads coherently.
     from wizard.llm_steps import build_ollama_steps, build_cloud_steps
+    # Ray follow-up steps (worker count + external address) live in
+    # wizard/ray_steps.py; spliced in right after the Ray source step.
+    from wizard.ray_steps import build_ray_followup_steps
 
     for i, svc in enumerate(services_info):
         opts = [
@@ -254,6 +257,13 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         if svc.display_name == "LLM Engine":
             steps.extend(build_ollama_steps(env_vars, _wizard_warn))
             steps.extend(build_cloud_steps(env_vars, _wizard_warn))
+        # Splice Ray follow-up prompts RIGHT AFTER the Ray source step.
+        # Each sub-step carries its own skip_if_prev predicate so only
+        # the appropriate prompt fires for the chosen source.
+        if svc.key == "ray":
+            steps.extend(build_ray_followup_steps(env_vars, {
+                "RAY_SOURCE": svc.current_value or "disabled",
+            }))
 
     steps.append(PromptStep(
         title="Cold start  ·  rebuild", step_index=len(services_info) + 2,
@@ -365,6 +375,10 @@ def _selections_to_args(
         cloud_models_title,
         cloud_secret_title,
     )
+    from wizard.ray_steps import (
+        RAY_WORKER_COUNT_TITLE,
+        RAY_EXTERNAL_ADDRESS_TITLE,
+    )
     env_vars = env_vars or {}
 
     source_args: dict = {}
@@ -455,6 +469,19 @@ def _selections_to_args(
             ollama_user_models["OLLAMA_CUSTOM_MODELS"] = ""
         else:
             ollama_user_models["OLLAMA_CUSTOM_MODELS"] = custom
+
+    # Ray follow-up env vars — written alongside model selections so
+    # the same ``apply_user_model_selections`` pipeline step persists them.
+    ray_worker_count = selections.get(RAY_WORKER_COUNT_TITLE)
+    if ray_worker_count is not None:
+        # Validate: must be a non-negative integer string.
+        try:
+            ollama_user_models["RAY_WORKER_COUNT"] = str(max(0, int(ray_worker_count)))
+        except (ValueError, TypeError):
+            pass  # leave .env unchanged if the user entered garbage
+    ray_external_address = selections.get(RAY_EXTERNAL_ADDRESS_TITLE)
+    if ray_external_address is not None:
+        ollama_user_models["RAY_EXTERNAL_ADDRESS"] = ray_external_address.strip()
 
     bp = selections.get("Base port  ·  range")
     try:
