@@ -137,6 +137,10 @@ class KongConfigGenerator:
         if minio_service:
             services.append(minio_service)
 
+        ray_service = self.generate_ray_service()
+        if ray_service:
+            services.append(ray_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -730,6 +734,51 @@ class KongConfigGenerator:
                 }
             ],
             'plugins': [{'name': 'cors'}]
+        }
+
+    def generate_ray_service(self) -> Optional[Dict[str, Any]]:
+        """Generate Ray dashboard Kong route.
+
+        Routes ``ray.localhost:${KONG_HTTP_PORT}`` to the Ray dashboard
+        at ``http://ray-head:8265``.
+
+        Why ``preserve_host: True``: the Ray dashboard SPA constructs
+        redirect and asset URLs from the Host header. Without
+        ``preserve_host``, Kong rewrites Host to ``ray-head:8265`` and
+        the browser cannot resolve that internal Docker hostname. Same
+        pattern as n8n / LiteLLM / MinIO.
+
+        Basic-auth is applied using the shared ``DASHBOARD_USERNAME`` /
+        ``DASHBOARD_PASSWORD`` credentials (same consumer as the
+        Supabase meta route), so the dashboard is not exposed without
+        authentication.
+
+        Gated on ``RAY_SOURCE`` ∈ {``ray-container-cpu``,
+        ``ray-container-gpu``}. When ``RAY_SOURCE=disabled`` or
+        ``ray-external``, no ``ray-head`` container exists and the
+        route would immediately 502 — so we skip it.
+        """
+        source = self.get_env_value('RAY_SOURCE')
+
+        if source not in ('ray-container-cpu', 'ray-container-gpu'):
+            return None
+
+        return {
+            'name': 'ray-dashboard',
+            'url': 'http://ray-head:8265/',
+            'routes': [
+                {
+                    'name': 'ray-dashboard-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['ray.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+                {'name': 'basic-auth'},
+                {'name': 'acl', 'config': {'allow': ['dashboard_user']}},
+            ],
         }
 
     def get_adaptive_services(self) -> List[Dict[str, Any]]:

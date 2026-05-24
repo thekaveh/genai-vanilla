@@ -64,6 +64,13 @@ EXPECTED_HOST_ROUTES = {
     # openclaw is opt-in: .env.example defaults OPENCLAW_SOURCE=disabled, so
     # the generator omits its route. Add an opt-in check separately if the
     # default ever flips to OPENCLAW_SOURCE=container.
+    #
+    # ray.localhost is NOT listed here. .env.example defaults
+    # RAY_SOURCE=disabled; the generator only emits the Ray dashboard
+    # route for RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}.
+    # At default-env runtime there is no ray-head container to route to,
+    # so the route is correctly absent. If the default ever flips to a
+    # container source, add "ray.localhost": "http://ray-head:8265/" here.
 }
 
 
