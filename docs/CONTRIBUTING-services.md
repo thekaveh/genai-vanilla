@@ -148,6 +148,35 @@ Every manifest declares one of six categories. The category drives two things: t
 
 **How to pick when you're unsure:** find the most-similar existing service and use its category. If your service genuinely doesn't fit any of the six, that's a design conversation, not a category decision — open an issue first.
 
+## Decision 3 — Source variants
+
+Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads its values from the `sources.options` block in your manifest.
+
+**Standard option names** (use these; don't invent new ones unless your service genuinely needs them):
+
+| Option | Meaning | When to offer it |
+|---|---|---|
+| `container` | Run as a Docker container alongside the stack | Always, for container-flavor services |
+| `container-cpu` / `container-gpu` | Split when the container has CPU/GPU variants | When you publish a GPU variant of the image |
+| `localhost` | Connect to a user-managed instance on the host | When users typically already have this software installed locally (e.g. Ollama, ComfyUI) |
+| `external` | Connect to a remote URL | When users may point at a managed cloud version |
+| `api` | Use a hosted cloud API (no container) | LLM gateways only |
+| `disabled` | Excluded from compose entirely | Always — every optional service must support this |
+| `<engine>-*` | Engine-specific sub-variants | For aggregator services that pick from multiple engines (STT/TTS) |
+
+**Implications of your choices:**
+
+- **Locked vs. user-choice.** A service with only one source variant is "locked" — the wizard skips its prompt entirely. The `_is_locked` helper in `bootstrapper/services/topology.py` enforces this. Services like Backend, Kong, LiteLLM are locked because they're always-on.
+- **`requires:` per option.** Use `requires: [<ENV_VAR>]` on a source option to declare prerequisite env vars (e.g. `external` typically requires `<SVC>_EXTERNAL_URL`).
+- **`<SVC>_LOCALHOST_URL` symmetry.** If you offer `localhost`, BOTH the in-container consumers (`runtime_sc.<svc>.localhost.environment`) AND the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) must read the SAME `<SVC>_LOCALHOST_URL` env var. Otherwise Kong and in-container clients silently disagree about where the localhost upstream lives. See [Common gotchas](#common-gotchas--anti-patterns).
+- **`runtime_sc` slice per source.** Every source variant declared in `sources.options` must have a matching `runtime_sc.<key>.<source>` slice with `scale`, `environment`, `deploy`, `extra_hosts`. The manifest validator enforces this.
+
+> **Worked example — Qdrant:** Most users won't already run Qdrant locally, so `container` is the primary path. But we offer all four anyway for flexibility:
+> - `container` — default, scale=1
+> - `localhost` — `QDRANT_LOCALHOST_URL` defaults to `http://host.docker.internal:6333` (Qdrant's standard host port)
+> - `external` — `requires: [QDRANT_EXTERNAL_URL]`
+> - `disabled` — scale=0
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
