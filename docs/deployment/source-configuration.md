@@ -411,6 +411,49 @@ HERMES_SOURCE=disabled
 - **Cons**: No agent loop, skills, voice, or programmable behaviour
 - **Requirements**: None — `litellm-init` automatically omits the `hermes-agent` row from the model_list when disabled
 
+### RAY_SOURCE
+
+Ray is the stack's distributed-compute substrate (head + worker containers, `infra` category). Consumers reach it via `RAY_ADDRESS` set per source by the bootstrapper's `_generate_ray_config()` hook. See [Ray service README](../../services/ray/README.md) for the full configuration reference.
+
+#### `disabled` (Default)
+```bash
+RAY_SOURCE=disabled
+```
+- **Use case**: No distributed compute needed; Backend's `/api/ray/*` returns 503 and JupyterHub notebooks calling `ray.init()` error cleanly
+- **Pros**: Zero footprint
+- **Cons**: No parallel job submission
+- **Requirements**: None
+
+#### `ray-container-cpu`
+```bash
+RAY_SOURCE=ray-container-cpu
+RAY_WORKER_COUNT=2   # number of ray-worker replicas; 0 = head-only
+```
+- **Use case**: Default container deployment; suitable for dev machines without GPU passthrough
+- **Pros**: Head + N workers, dashboard at `ray.localhost`, REST job-submission API, client server reachable from host Python via `ray://localhost:${RAY_CLIENT_PORT}`
+- **Cons**: CPU-only — slow for heavy ML workloads. `shm_size: 4gb` required (compose handles this; rootless Docker may not honor it)
+- **Requirements**: ~2-3 GB image disk + ~1 GB RAM per worker
+
+#### `ray-container-gpu`
+```bash
+RAY_SOURCE=ray-container-gpu
+RAY_WORKER_COUNT=2
+```
+- **Use case**: GPU-accelerated parallel work (multi-host Linux primarily — Mac Docker has no GPU passthrough)
+- **Pros**: NVIDIA-runtime workers, same API surface as CPU mode
+- **Cons**: Requires NVIDIA Container Toolkit on host. Image is ~5.9 GB
+- **Requirements**: NVIDIA GPU + Container Toolkit installed on host
+
+#### `ray-external`
+```bash
+RAY_SOURCE=ray-external
+RAY_EXTERNAL_ADDRESS=ray://my-cluster.anyscale.com:10001
+```
+- **Use case**: Point at a managed Anyscale cluster or self-hosted external Ray cluster
+- **Pros**: Zero local compute cost; offload heavy work to dedicated infrastructure
+- **Cons**: Requires the external cluster to exist; `ray.init()` from JupyterHub picks up `RAY_ADDRESS` automatically. Override `RAY_DASHBOARD_URL` if the dashboard isn't at `:8265` on the same host
+- **Requirements**: Reachable Ray cluster URL + matching Ray client version
+
 ## Configuration Patterns
 
 ### Development Setup
