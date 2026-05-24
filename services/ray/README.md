@@ -43,7 +43,7 @@ Active when `RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}`. The `ray-ex
 
 **Consumers in the stack:**
 - **Backend** — exposes `/api/ray/jobs/{submit,status,stop,cluster-status}` for HTTP-driven job submission. Adapts via `RAY_ADDRESS` set by `_generate_ray_config()`.
-- **JupyterHub** — notebooks can `import ray; ray.init()` directly (RAY_ADDRESS picked up from env). Sample notebook: `services/jupyterhub/notebooks/hello-ray.ipynb`.
+- **JupyterHub** — notebooks can `import ray; ray.init()` directly (RAY_ADDRESS picked up from env). Sample notebook: `services/jupyterhub/build/notebooks/07_ray_cluster.ipynb` (mounted read-only at `/home/jovyan/notebooks/` inside the JupyterHub container).
 - **Hermes** — agents can submit Ray jobs by calling Backend's `/api/ray/jobs/submit` (Hermes already calls Backend via `data_flow.calls`). No Hermes code change.
 
 ## 5. Dependencies & Integrations

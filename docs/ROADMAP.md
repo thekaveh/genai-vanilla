@@ -99,23 +99,89 @@ _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 - Audit logging capabilities
 - Security hardening guides
 
-**MCP gateway (`mcpo` + MetaMCP)**
-- Model Context Protocol gateway: aggregates self-hosted MCP servers into a unified, namespaced tool surface for every LLM consumer in the stack
-- Two-part deployment — **`mcpo`** (from the Open WebUI org, MIT) wraps any MCP server as an OpenAPI endpoint; **MetaMCP** (MIT, metatool-ai/metamcp) adds namespace-based aggregation/RBAC once more than 2–3 MCP servers are wired up
-- Open WebUI already speaks MCP natively as of v0.6.31; `mcpo` is the lowest-friction first deployment
-- Exposes existing stack capabilities (Postgres, Neo4j, Weaviate, SearXNG, ComfyUI, n8n workflows, OpenBB Platform, NautilusTrader) as MCP tools without bespoke per-consumer glue
+**MCP gateway and curated server set**
+
+The Model Context Protocol (Anthropic, late 2024) turns LLM-callable tools into a uniform protocol so every LLM consumer in the stack (Open WebUI, Backend, Hermes, n8n, OpenClaw, Local Deep Researcher) reaches the same tool surface through one interface. Architecturally the deployment is **three layers**:
+
+```
+Layer 3 — Consumers  : Open WebUI · Backend · Hermes · n8n · OpenClaw · LDR
+                         │
+                         ▼  (MCP protocol natively, OR OpenAPI via the aggregator)
+Layer 2 — Aggregator : one of two options below
+                         │
+                         ▼  (MCP protocol)
+Layer 1 — MCP servers : N small adapter containers wrapping individual
+                        stack services (postgres-mcp, neo4j-mcp, …)
+```
+
+Two architecturally distinct adoption paths are supported. Both are real OSS in 2026. Either can ship.
+
+#### Option A (recommended default): MetaMCP + curated server sidecars
+
+- **MetaMCP** (metatool-ai, MIT, v2.4.22 Dec 2025, 2.3k+ stars) — single aggregator container, **native OpenAPI surface** (no separate translator needed), namespace-based RBAC for per-consumer tool scopes (Open WebUI can see one set, Hermes another), Postgres-backed metadata co-located on the existing Supabase Postgres.
+- **MCP server sidecars** — small (50–100 MB) adapter containers connecting to existing stack services via their native protocols (Postgres wire, Bolt, REST/gRPC). Existing service images are **unchanged**.
+- **No `/var/run/docker.sock` mount required.** No special privileges.
+- Compose footprint: 1 aggregator + N small sidecars + 1 schema on the existing Supabase Postgres.
+
+**Phase 1 starter set (three MCP servers):**
+- `mcp/postgres` (Anthropic official, MIT) → Supabase queries
+- `mcp/neo4j` (Neo4j official, MIT) → Cypher queries
+- `mcp-server-searxng` (community) → web search via existing SearXNG
+
+**Phase 2 expansions (as value is proven):**
+- `mcp-weaviate` (community — evaluate quality before pinning) → vector search
+- `mcp-server-s3` against MinIO → artifact ops
+- `n8n-mcp` (community) → workflow triggering and inspection
+- Custom Backend MCP server (~150–200 LOC Python wrapping app-specific routes including LangMem)
+
+#### Option B (documented alternative): Docker MCP Gateway + Catalog + mcpo
+
+- **Docker MCP Gateway** (`docker/mcp-gateway`, MIT, v0.42.1 May 2026) — single binary / container. Pulls MCP server images from the **Docker MCP Catalog** (hub.docker.com/mcp, 300+ vendor-signed images) **on demand**, spawning them as sibling containers via the mounted host docker socket.
+- **`mcpo`** (Open WebUI org, MIT) — small protocol translator. Required in front of the Gateway because the Gateway speaks MCP only (no native OpenAPI). Open WebUI consumers can hit MCP directly; FastAPI Backend / n8n / OpenClaw typically go through `mcpo`.
+- **Requires `/var/run/docker.sock` mount** so the Gateway can spawn sibling containers. This is a non-trivial container-escape attack surface — a compromise of the Gateway grants effective root-equivalent control of the host's Docker daemon.
+- Compose footprint: 1 Gateway service + 1 `mcpo` service + dynamically-spawned server containers (lifecycle managed by the Gateway, not declared in compose).
+
+**When Option B beats Option A:**
+- Deployment integrates many SaaS-vendor MCP servers out of the box (Stripe, GitHub, Notion, AWS, MongoDB Atlas, Grafana Cloud, etc.) — the 300+ catalog is the genuine differentiator.
+- Vendor-signed image provenance is a hard organisational requirement.
+- *For most self-hosted AI-stack deployments wrapping their own internal services, Option A wins on every other axis.*
+
+#### Coverage matrix — which stack services need MCP, and which don't
+
+MCP is for **LLM-callable tools**, not arbitrary service-to-service integration. These categories help avoid wasted wrapper work:
+
+**Worth MCP-wrapping (target of an MCP server adapter):**
+- **Data stores** — Supabase (Postgres), Neo4j, Weaviate, Redis (limited use-cases)
+- **Search** — SearXNG
+- **Storage** — MinIO (via generic S3 MCP)
+- **Workflow** — n8n (triggering / inspection)
+- **Notebooks** — JupyterHub (execute / inspect; community implementations vary)
+- **Custom application surface** — Backend (FastAPI) custom routes (LangMem operations, app-specific endpoints) — requires writing the wrapper ourselves
+
+**Already reachable through other paths (MCP-wrapping would be redundant):**
+- **LiteLLM, Ollama** — they *are* the LLM endpoint; MCP-wrapping is circular
+- **ComfyUI, Speaches, Parakeet, Chatterbox, Docling** — OpenAI-compatible HTTP surfaces routed via LiteLLM; LLMs reach them directly
+- **Cloud Providers** (virtual manifest) — toggles only
+
+**Consumers, not targets** (they *use* MCP rather than expose it):
+- **Hermes, Open WebUI, Local Deep Researcher, OpenClaw**
+
+**Infrastructure with no LLM-callable surface:**
+- **Kong, Globals, Bootstrapper, TTS Provider / STT Provider** (virtual manifests)
+
+So "the full MCP-ification of the stack" is realistically ~6–9 MCP servers, not one-per-service. The Phase 1 starter set covers the most useful 3.
 
 **Stack integration points:**
 
 Depends on (services the MCP gateway would consume):
-- **Backend MCP servers** wrapping Postgres / Weaviate / Neo4j / SearXNG / ComfyUI / n8n / domain endpoints
+- **MCP server adapters** wrapping individual stack services (Postgres / Neo4j / Weaviate / SearXNG / MinIO / n8n / custom Backend)
 - **Kong API Gateway** — exposes the MCP gateway via an `mcp.localhost` route
-- **Supabase (PostgreSQL)** — MetaMCP namespace and auth persistence (when MetaMCP is added)
+- **Supabase (PostgreSQL)** — MetaMCP namespace + auth persistence (Option A), or Gateway's small config (Option B)
 
 Consumed by (services that would call the MCP gateway):
-- **Open WebUI** — native MCP client (v0.6.31+)
+- **Open WebUI** — native MCP client (v0.6.31+); reaches MCP directly
+- **Backend (FastAPI)** — programmatic tool invocation via OpenAPI (Option A native; Option B via `mcpo`)
 - **Hermes** — agent tool surface
-- **Backend (FastAPI)** — programmatic tool invocation from application code
 - **n8n** — workflow nodes invoking MCP tools
 - **OpenClaw** — messaging-platform agents reuse the same tool catalog
 - **Local Deep Researcher** — research workflows tap MCP-exposed sources
@@ -176,34 +242,60 @@ Consumed by (services that would call OpenBao):
 - **n8n / Windmill** — workflow steps that need cryptographic signing
 - **Audit-sealer worker** — Merkle-anchor signing for the immutable-archive pipeline
 
+**Ray cluster — parallel-work substrate**
+- Apache-2.0; the de-facto 2026 OSS distributed-compute framework. Generic substrate for "run N independent units of work in parallel across many CPUs and/or GPUs." Promoted from Tier 2 cross-cutting infrastructure to Tier 1 (2026-05-22) as an immediate-add.
+- Pipeline-agnostic by design — useful to every strategic track:
+  - **Financial / trading-AI track:** parallel backtest sweeps (NautilusTrader runs *inside* each Ray task), strategy-parameter hyperparameter search.
+  - **3D / Dreamscapes track:** parallel batch rendering across camera angles, A/B mesh-candidate generation (e.g. 50 InstantMesh variants from 50 prompt seeds), large WaveFunctionCollapse tile-world generation, NeRF training acceleration. Server-side asset *preparation* — distinct from the client-side rendering (browser WebGL, native iOS Metal, native Android Vulkan) which is not Ray's domain.
+  - **RAG specializations:** parallel embedding pipelines (when paired with multi-replica TEI or similar), batch reranking, re-indexing over large corpora.
+  - **Data engineering track:** Ray Tune parameter sweeps over Spark / dbt / ML training jobs.
+- **Honest scope note:** Ray's throughput value scales with parallel inference capacity. On a single-GPU Mac development machine with no Docker GPU passthrough, Ray adds orchestration polish (pipeline chaining, retries, result aggregation, checkpointing) but **not transformative throughput** — a well-written `asyncio` script captures ~70–80% of the value at that scale. Ray earns its keep when crossing into (a) multi-GPU Linux hosts, (b) batch jobs in the millions-of-units range, or (c) workloads long enough that fault tolerance and resumability matter. Adopting now provides a clean substrate to grow into without rewriting batch pipelines later.
+- **Dask** (BSD-3) is the lighter single-machine alternative if Ray's footprint feels heavy for a given deployment.
+
+**Source-variant pattern: `RAY_SOURCE`**
+
+Mirrors the existing `STT_PROVIDER_SOURCE` and `TTS_PROVIDER_SOURCE` patterns. Allowed values:
+- `container-cpu` — head + N workers in Docker, CPU-only. **Default on Mac** (Docker Desktop on macOS has no GPU passthrough as of 2026 — containerised Ray on Mac is CPU-only regardless).
+- `container-gpu` — head + N workers in Docker, each worker pinned to one NVIDIA GPU via NVIDIA Container Toolkit. **Linux + NVIDIA only.**
+- `localhost` — connect to a Ray cluster running natively on the host machine (the user already runs Ray, e.g. via `ray start --head`).
+- `external` — connect to a remote Ray cluster.
+- `disabled` — no Ray deployed.
+
+**Wizard parameters and recommended defaults**
+
+| Parameter | Default | Rationale |
+|---|---|---|
+| `RAY_WORKER_COUNT` | **2** | One worker means no parallelism (sequential execution); two is the minimum demonstrating fan-out. Conservative enough not to oversubscribe an 8-core dev laptop; easy to opt up. |
+| `RAY_WORKER_CPU_LIMIT` | **2** (per worker) | Two cores × two workers = four cores at idle. Leaves headroom on a typical 8–16 core host for ComfyUI, Backend, Open WebUI, Supabase. |
+| `RAY_WORKER_MEMORY_LIMIT` | **4 GiB** (per worker) | Reasonable for non-GPU batch work; raise for embedding-pipeline or in-memory aggregation workloads. |
+| `RAY_DASHBOARD_PORT` | **`${BASE_PORT}+<slot>`** | Same convention as every other service. |
+| `RAY_HEAD_GCS_PORT` | **`${BASE_PORT}+<slot>`** | Ray GCS / head-node port. |
+
+**Wizard step (new, under `infra` category):** prompts for `RAY_SOURCE` selection, then `RAY_WORKER_COUNT` (editable, default 2), with inline guidance ("match worker count to GPU count when using container-gpu; bump CPU / memory limits for embedding-pipeline workloads").
+
+**Stack integration points:**
+
+Depends on (services Ray would consume):
+- **Supabase (PostgreSQL)** / **TimescaleDB** — historical / time-series input
+- **MinIO** — input and output artifacts (backtest results, rendered frames, splat outputs, embedding shards, training checkpoints)
+- **Redis** — *optional* HA backend for the Ray GCS (default GCS is in-memory and does not need external Redis)
+
+Consumed by (services that would call Ray):
+- **JupyterHub** — research notebooks driving parameter sweeps
+- **Backend (FastAPI)** — fan-out for batch-rendering, batch-meshing, batch-embedding APIs
+- **Windmill / Dagster / Apache Airflow** — scheduled batch jobs (backtests, asset pipelines, re-indexing)
+- **Hummingbot API** (trading track) — fleet-level strategy evaluation
+- **NautilusTrader / promotion-gate Windmill flows** — pre-promotion walk-forward at scale
+- **n8n** — workflow steps that fan out to Ray tasks
+- **ComfyUI / InstantMesh / Hunyuan3D-2** (3D track) — fan-out for batch generation (note: requires multiple GPU-bearing replicas of those services to provide real throughput; Ray does not bypass single-process GPU serialisation)
+
 ---
 
 ### Tier 2: planned candidates
 
 #### Cross-cutting infrastructure
 
-These services were surfaced during the financial / trading-AI scoping work but are pipeline-agnostic. They belong here at Tier 2 because every strategic track (3D / game-generation, financial / trading-AI, RAG specializations, and the forthcoming data-engineering track) benefits from them.
-
-**Ray cluster — parallel-work substrate (cross-cutting)**
-- Apache-2.0; Ray and Ray Tune are the de-facto 2026 OSS pattern for parallel computation and hyperparameter search. Any pipeline that needs to fan work across many cores or many nodes.
-- **Trading:** parallel backtest sweeps (NautilusTrader runs *inside* each Ray task), hyperparameter search over strategy configurations.
-- **Dreamscapes / 3D:** parallel batch rendering across camera angles, A/B mesh-candidate generation (InstantMesh vs Hunyuan3D-2), large WaveFunctionCollapse tile-world generation, NeRF training acceleration.
-- **RAG:** parallel embedding pipelines, re-indexing jobs over large corpora, batch reranking.
-- **Dask** (BSD-3) is the lighter alternative if Ray's footprint is too heavy for a given deployment.
-
-**Stack integration points:**
-
-Depends on (services Ray would consume):
-- **Supabase (PostgreSQL)** / **TimescaleDB** — historical / time-series input
-- **MinIO** — input and output artifacts (backtest results, rendered frames, splat outputs, embedding shards)
-
-Consumed by (services that would call Ray):
-- **JupyterHub** — research notebooks driving parameter sweeps
-- **Windmill** — scheduled batch jobs (backtests, asset pipelines, re-indexing)
-- **Hummingbot API** — fleet-level strategy evaluation
-- **Backend (FastAPI)** — fan-out for batch-rendering, batch-meshing, batch-embedding APIs
-- **NautilusTrader / promotion-gate Windmill flows** — pre-promotion walk-forward at scale
-- **n8n** — workflow steps that fan out to Ray tasks
+These services are pipeline-agnostic — useful to every strategic track (3D / game-generation, financial / trading-AI, RAG specializations, data-engineering) rather than belonging to any one. **Ray** was promoted out of this sub-section to Tier 1 (2026-05-22) as an immediate-add; only E2B remains here today.
 
 **E2B (self-hosted) — Firecracker sandbox for untrusted code (cross-cutting)**
 - Apache-2.0; the 2026 reference for safely executing untrusted code (LLM-generated, user-uploaded, or agent-authored). Firecracker microVM isolation, not just container kernel-sharing.
@@ -1282,6 +1374,15 @@ The following candidates were evaluated and explicitly *not* recommended at this
 - **W&B Local** — requires commercial license.
 - **StarRocks** as primary OLAP — different shape from Trino (analytical DB with federation bolted on, not a pure federation engine); defer until Trino dashboard latency becomes a real pain point.
 - **ClearML** as MLOps primary — richer than MLflow but operationally heavier; defer until MLflow's tracking-only feature surface is insufficient.
+
+**From the MCP gateway research (2026-05-22 — both options documented in the Tier 1 MCP entry):**
+
+- **Smithery** — SaaS-only control plane (no self-hosted server inventory); a June 2025 path-traversal CVE exposed 3,000 customer-deployed servers. Not a self-host product, regardless of operational appeal.
+- **PulseMCP** — a directory / catalog site indexing other people's MCP servers; not a self-hostable component.
+- **`hwdsl2/docker-mcp-gateway`** — Caddy + MCPHub community wrapper with a handful of MCP servers bundled. Only ~4 GitHub stars at time of evaluation; insufficient community trust for production roadmap. The underlying engine (MCPHub) is fine on its own.
+- **Pure MCPHub** (samanhappy/mcphub) as the aggregator — Apache-2.0 and active, but **MetaMCP is strictly more capable for the same operational cost** (MetaMCP also has native OpenAPI, namespacing, RBAC, OAuth, and an inspector; MCPHub lacks OpenAPI). Pick MCPHub only if a deployment specifically needs its lighter footprint and accepts MCP-only protocol exposure.
+- **Klavis "Strata" aggregator** (Apache-2.0, 100+ pre-built vendor server images) — defer; smaller ecosystem than MetaMCP and Docker MCP Gateway, and the "one Compose service per server" model is operationally heavier than MetaMCP for our scale. Worth revisiting if vendor-blessed OAuth-shaped SaaS connectors become a hard requirement.
+- **Anthropic reference MCP servers as standalone offering (no aggregator)** — fine as the *source* of individual MCP servers (used in our Phase 1 starter set), but does not solve the aggregation / namespacing / OpenAPI problem on its own. Combine with MetaMCP (Option A) or Docker MCP Gateway (Option B), not as a replacement for either.
 
 ## Implementation strategy
 

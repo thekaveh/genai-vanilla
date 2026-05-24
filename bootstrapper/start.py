@@ -1443,6 +1443,19 @@ class GenAIStackStarter:
               type=click.Choice(['container-cpu', 'container-gpu',
                                 'disabled'], case_sensitive=False),
               help='Override MULTI2VEC_CLIP_SOURCE')
+@click.option('--ray-source',
+              type=click.Choice(['ray-container-cpu', 'ray-container-gpu',
+                                'ray-external', 'disabled'], case_sensitive=False),
+              help='Override RAY_SOURCE (Ray distributed-compute cluster). '
+                   'Use "ray-external" with --ray-external-address pointing at an '
+                   'Anyscale or self-hosted Ray cluster URL.')
+@click.option('--ray-worker-count', type=int, default=None,
+              help='Override RAY_WORKER_COUNT — number of ray-worker replicas '
+                   'when --ray-source is ray-container-cpu or ray-container-gpu. '
+                   '0 = head-only single-node mode. Defaults to 2 in .env.example.')
+@click.option('--ray-external-address', type=str, default=None,
+              help='Override RAY_EXTERNAL_ADDRESS — required when --ray-source=ray-external. '
+                   'Format: ray://hostname:10001.')
 @click.option('--no-tui', is_flag=True,
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
@@ -1460,7 +1473,9 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          stt_provider_source, tts_provider_source,
          doc_processor_source, openclaw_source, hermes_source,
          neo4j_graph_db_source,
-         multi2vec_clip_source, no_tui, no_port_migrate):
+         multi2vec_clip_source,
+         ray_source, ray_worker_count, ray_external_address,
+         no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
     starter = GenAIStackStarter()
@@ -1551,7 +1566,14 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'hermes_source': hermes_source,
             'neo4j_graph_db_source': neo4j_graph_db_source,
             'multi2vec_clip_source': multi2vec_clip_source,
+            'ray_source': ray_source,
         }
+        # Ray non-SOURCE settings (worker count + external address) get
+        # plumbed via update_env_file the same way the cloud-API keys do.
+        if ray_worker_count is not None:
+            user_model_selections['RAY_WORKER_COUNT'] = str(ray_worker_count)
+        if ray_external_address is not None:
+            user_model_selections['RAY_EXTERNAL_ADDRESS'] = ray_external_address
 
         # Step 0: Early sudo check for CLI --setup-hosts flag
         if setup_hosts:
