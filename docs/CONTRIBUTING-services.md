@@ -133,16 +133,16 @@ Every manifest declares one of six categories. The category drives two things: t
 | Category | Wizard block | Services currently in this category | When to pick |
 |---|---|---|---|
 | `infra` | Infrastructure | Kong, globals | Gateways, project-wide config, observability |
-| `data` | Data | Supabase, Redis, MinIO, Neo4j, Weaviate | Databases, caches, object storage |
+| `data` | Data | Supabase, Redis, MinIO, Neo4j, Weaviate (+ `multi2vec-clip` as a Weaviate sub-module) | Databases, caches, object storage |
 | `llm` | LLM Core | LiteLLM, Ollama, cloud-providers | LLM gateways / engines |
-| `media` | Media | ComfyUI, parakeet, speaches, chatterbox, docling, searxng, multi2vec-clip, tts-provider | Multimodal AI (image / audio / doc / search) |
+| `media` | Media | ComfyUI, parakeet, speaches, chatterbox, docling, searxng, tts-provider | Multimodal AI (image / audio / doc / search) |
 | `agents` | Agents & Workflows | Hermes, n8n, openclaw | Programmable AI agents, workflow runners |
 | `apps` | Apps & UIs | Backend, Open WebUI, JupyterHub, Local Deep Researcher | User-facing UIs |
 
 **Effects of the category:**
 - **Wizard placement.** Categories render in fixed order (`infra` → `data` → `llm` → `media` → `agents` → `apps`). Within a category, services follow topological order (driven by `depends_on.required`).
 - **Port-slot block.** Each category gets its own port-offset range — see [Decision 4](#decision-4--port-allocation).
-- **Architecture-diagram clustering.** The generated `docs/diagrams/architecture.svg` clusters services by category.
+- **Architecture-diagram clustering.** The full-stack diagram at `docs/diagrams/architecture.svg` (generated from `architecture.dot`) clusters services by category. (Per-service architecture diagrams under `services/<name>/architecture.svg` are a different artifact — they cluster the call graph instead.)
 
 > **Worked example — Qdrant:** Qdrant is a vector database. Its closest siblings in the stack are Weaviate and Supabase (which are also `data`-tier). → **`category: data`**.
 
