@@ -20,9 +20,9 @@ A maintainer who already understands the stack can land a new service in under a
 - [ ] **Add the `include:` line to `docker-compose.yml`** (only if you wrote a compose fragment)
 - [ ] **Run the four-command regen + lint chain** → [After you save the files](#after-you-save-the-files--regen--lint-commands-in-order)
 - [ ] **Update audit-script allowlists** if your service has hard deps → [Audit-script + CI implications](#audit-script--ci-implications)
-- [ ] **Commit and push.** CI's three jobs (manifest-lint+pytest, compose-equivalence+permutation matrix, docs-drift+audit-scripts) gate the change.
+- [ ] **Commit and push.** CI gates the change (three jobs: manifest-lint+pytest, compose-equivalence+permutation matrix, docs-drift+audit-scripts).
 
-If you're new to this codebase, read the six decisions sections in order before touching code. The worked example threads through them.
+If you're new to this codebase, read Decisions 1–6 in sequence; the Qdrant worked example illustrates each one.
 
 ## The six decisions you have to make
 
