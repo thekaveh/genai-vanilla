@@ -73,6 +73,7 @@ runtime_adaptive:
     - stt_provider
     - tts_provider
     - doc_processor
+    - ray
     environment_adaptation:
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
@@ -82,6 +83,7 @@ runtime_adaptive:
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      RAY_ADDRESS: ${RAY_ADDRESS}
     extra_hosts_adaptation: inherit from llm_provider
 
 runtime_deps:
@@ -107,4 +109,5 @@ data_flow:
     - neo4j
     - minio
     - supabase
+    - ray
 

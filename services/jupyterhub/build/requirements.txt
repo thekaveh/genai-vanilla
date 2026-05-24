@@ -56,3 +56,6 @@ torch_geometric==2.6.1
 # ML utilities
 tqdm>=4.66.0
 kaleido>=0.2.1
+
+# Distributed compute
+ray[client]>=2.55.1,<2.56
