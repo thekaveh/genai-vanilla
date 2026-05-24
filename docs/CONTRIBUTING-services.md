@@ -447,6 +447,41 @@ Add to the top-level `include:` block in the `# Data tier` section:
   - services/qdrant/compose.yml              # ← new
 ```
 
+## After you save the files — regen + lint commands in order
+
+Five commands, in this order:
+
+```bash
+cd bootstrapper
+
+# 1. Regenerate .env.example from manifests
+uv run python -m services.env_assembler
+
+# 2. Regenerate README.md TOPOLOGY block (auto-includes the new row)
+uv run python -m tools.generate_readme_topology
+
+# 3. Regenerate docs/diagrams/architecture.dot (+ render the SVG via Graphviz)
+uv run python -m tools.generate_architecture_diagram
+dot -Tsvg ../docs/diagrams/architecture.dot > ../docs/diagrams/architecture.svg
+
+# 4. Lint — fails if any of steps 1-3 were skipped
+uv run python -m tools.validate_fragments
+
+# 5. (Optional, recommended for new manifests) Regen per-service README + diagram
+PYTHONPATH=. uv run python -m docs.regen qdrant
+# After this, services/qdrant/{README.md, architecture.svg, architecture.html} exist.
+```
+
+**When to re-run each step:**
+
+- **`env_assembler`** — after any change to a manifest's `env:` block, port allocation, or source variants.
+- **`generate_readme_topology`** — after any change to a manifest's `rows:`, `display_name`, `category`, or `alias`.
+- **`generate_architecture_diagram` + `dot -Tsvg`** — after any change to a manifest's `depends_on` or `data_flow.calls`.
+- **`validate_fragments`** — always, as the final check before committing.
+- **`docs.regen`** — only after creating a new service, or after editing `data_flow.calls` on an existing service. The drift gate in CI (`bootstrapper.docs.regen --all --check`) catches stale per-service READMEs/SVGs/HTMLs.
+
+**Graphviz prerequisite:** the `dot` command requires Graphviz. Install with `brew install graphviz` (macOS), `sudo apt-get install graphviz` (Debian/Ubuntu), or `choco install graphviz` (Windows). See `docs/diagrams/README.md`.
+
 ## Cross-referencing sections in service READMEs
 
 Service READMEs follow a numbered convention (`## 1. Overview`, `## 2. Access`, …). The "Dependencies & Integrations" block sits at whatever section number N the README's structure places it — typically 5, but 7/9/12/14 in READMEs with extra pre-Deps content. The `bootstrapper/docs/regen.py` tool detects N and emits matching subsection numbering (`### N.1` through `### N.6`) inside the block.
