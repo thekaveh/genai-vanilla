@@ -12,6 +12,7 @@ The thin top-level `docker-compose.yml` merges fragments via Compose's native `i
 
 A maintainer who already understands the stack can land a new service in under an hour by following this list. Each step links to the relevant deep-dive section.
 
+- [ ] **Study the candidate service's upstream docs** (license, default port, API shape, runtime deps) → [Pre-flight](#pre-flight--study-the-candidate-service)
 - [ ] **Pick a folder flavor** → [Decision 1](#decision-1--folder-flavor-container-virtual-or-doc-only)
 - [ ] **Pick a category** → [Decision 2](#decision-2--category)
 - [ ] **Pick your sources** → [Decision 3](#decision-3--source-variants)
@@ -79,6 +80,67 @@ If you're new to this codebase, read Decisions 1–6 in sequence; the Qdrant wor
    ```bash
    cd bootstrapper && uv run pytest tests/ -q
    ```
+
+> **First time adding this service?** Before step 1 above, do the [Pre-flight study](#pre-flight--study-the-candidate-service) below — it lists the upstream-doc questions whose answers feed every later decision.
+
+## Pre-flight — study the candidate service
+
+Before you touch any manifest, spend 15–30 minutes with the candidate service's upstream docs. The six decisions below all depend on facts you'll find there. The wrong answer to "what port does it listen on?" or "does it speak the OpenAI API?" cascades into a wrong category, wrong sources, wrong compose mapping, wrong Kong route — every later step.
+
+### Research checklist — what to extract from upstream docs
+
+| Question | Where to find it | Why it matters downstream |
+|---|---|---|
+| One-line elevator pitch | Upstream README / project homepage | Drives `label:` in your manifest + the wizard prompt hint |
+| Protocol exposed (REST/HTTP, gRPC, WebSocket, custom binary) | Upstream API docs | Determines whether Kong can proxy it + which existing services can call it |
+| OpenAI-API-compatible? | Upstream "API compatibility" docs | If yes → likely belongs behind LiteLLM. If no → direct integration. |
+| Default in-container listen port(s) | Upstream `Dockerfile` / `docker-compose` example / `docker run` examples | Compose `ports: <host>:<container>` mapping (Decision 4) |
+| Published container images (CPU/GPU/MLX, arch tags) | Docker Hub / GHCR / quay.io page | Decision 3 — which `container-*` source variants to offer |
+| License | LICENSE file in upstream repo | Compatibility check. Apache 2.0, MIT, BSD-3 are fine; AGPL / SSPL / source-available licenses require explicit maintainer review before adoption. |
+| Runtime dependencies (DB? cache? object store? files?) | Upstream "Configuration" / "Deployment" docs | Decision 5 — `depends_on.required` entries AND whether existing stack services can satisfy them (no need to add a fresh Postgres if Supabase Postgres works). |
+| Healthcheck endpoint | Upstream `Dockerfile` `HEALTHCHECK` or operational docs | For the compose fragment's `healthcheck:` block |
+| Managed cloud version available? | Upstream project website | Decide if `external` source variant is worth offering |
+| Common host-install footprint (do users already run this themselves?) | Project ecosystem knowledge / Reddit / HN | Decide if `localhost` source variant is worth offering |
+| Configuration style (env vars, mounted YAML, both) | Upstream "Configuration" docs | Drives `runtime_sc.<key>.environment` vs. `volumes:` mounts in compose |
+| GPU passthrough required? | Upstream "Hardware requirements" / README | If yes → split `container-gpu` from `container-cpu`, set `runtime: nvidia` in compose |
+| Persistent state (writes to disk vs. fully stateless) | Upstream "Storage" / "Persistence" docs | Determines whether you need a named volume in compose |
+
+### Integration discovery — how does this fit our stack?
+
+Once you understand the candidate, scan our existing 24-manifest stack to identify integration points:
+
+- **Upstream callers (who in our stack would call this new service).** Run `grep -l "^data_flow:" services/*/service.yml` and skim each service's `data_flow.calls` list. Which existing services would benefit from calling this new one? (E.g., a new vector DB → Backend, n8n, JupyterHub, possibly Hermes Agent.) These become entries in those EXISTING manifests' `data_flow.calls` lists — NOT in your new service's `depends_on`. (See [Decision 5](#decision-5--dependencies-depends_onrequired--optional) for why `data_flow.calls` is separate from `depends_on`.)
+- **Downstream callees (what this service calls).** Does the candidate make outbound calls to anything we already run? Most app-tier services touch Supabase (auth/storage), LiteLLM (LLM access), and Redis (caching). These would be entries in YOUR new service's `data_flow.calls`.
+- **Source-variant precedents.** Find the closest existing service that ships similar source variants and use its manifest as a template:
+  - New vector DB → `services/weaviate/service.yml`
+  - New LLM gateway / engine → `services/litellm/`, `services/ollama/`
+  - New STT/TTS engine → `services/parakeet/`, `services/speaches/`, plus the aggregator pattern in `services/stt-provider/` + `services/tts-provider/`
+  - New app-tier UI → `services/open-webui/`, `services/jupyterhub/`
+  - New cloud-API toggle (not a container) → `services/cloud-providers/service.yml`
+
+### Worked example — Qdrant pre-flight
+
+| Question | Qdrant answer | Source |
+|---|---|---|
+| Elevator pitch | Open-source vector database with HTTP+gRPC APIs and built-in clustering. | qdrant.tech |
+| Protocol | REST/HTTP on 6333, gRPC on 6334. | Qdrant API docs |
+| OpenAI-compatible? | No — Qdrant has its own REST API. Backend would call it directly. | API reference |
+| Default port | 6333 (HTTP). | Upstream `docker-compose.yml` |
+| Container images | `qdrant/qdrant:vX.Y.Z` (Docker Hub). CPU-only public image; GPU support is built in but isn't a separate image tag. | hub.docker.com/r/qdrant/qdrant |
+| License | Apache 2.0 ✓ | LICENSE file in repo |
+| Runtime deps | Self-contained — writes its own storage to a mounted volume. No external DB or cache. | Qdrant "Storage" docs |
+| Healthcheck | `GET /healthz` returns 200 when ready. | Qdrant operational docs |
+| Managed cloud? | Yes — Qdrant Cloud. Worth offering `external`. | cloud.qdrant.io |
+| Host install common? | Less common than Postgres/Weaviate for typical users; offer `localhost` for flexibility but expect rare use. | Ecosystem knowledge |
+| Config style | Env vars (`QDRANT__SERVICE__GRPC_PORT`, …) + optional `config.yaml` volume mount. | Qdrant "Configuration" docs |
+| GPU passthrough? | No. | — |
+| Persistent state | Yes — writes to `/qdrant/storage` (mount a named volume). | Qdrant "Storage" docs |
+
+**Integration discovery for Qdrant.** Backend and n8n already call Weaviate; Qdrant would be a sibling vector-DB option for users who prefer it. JupyterHub users running RAG experiments might want a second vector store for A/B comparisons. No service in our stack would be a downstream caller — Qdrant is a leaf vector store. → On Qdrant's manifest, `data_flow.calls: []`. Integration entries appear in `services/{backend,n8n,jupyterhub}/service.yml`'s `data_flow.calls` lists (added in those manifests, not in Qdrant's).
+
+**Source-variant precedent.** Weaviate is the closest sibling — same category (`data`), same role (vector DB), similar source-variant shape. Open `services/weaviate/service.yml` side-by-side while drafting `services/qdrant/service.yml`.
+
+With pre-flight complete, the six decisions become near-mechanical — proceed to [Decision 1](#decision-1--folder-flavor-container-virtual-or-doc-only).
 
 ## Decision 1 — Folder flavor: container, virtual, or doc-only
 
