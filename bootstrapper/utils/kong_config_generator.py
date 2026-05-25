@@ -83,16 +83,39 @@ class KongConfigGenerator:
         return config
     
     def get_consumers(self) -> List[Dict[str, Any]]:
-        """Get Kong consumers configuration."""
+        """Get Kong consumers configuration.
+
+        Two gotchas worth knowing:
+
+        * **No ``${VAR}`` substitution in Kong DB-less declarative
+          config.** The YAML loaded via ``KONG_DECLARATIVE_CONFIG`` is
+          taken literally — a value of ``${DASHBOARD_USERNAME}`` becomes
+          the literal credential string, not the env value. Resolve the
+          credential strings HERE (from .env) before writing the YAML.
+        * **ACL plugin checks group membership, not consumer username.**
+          A route guarded by ``acl: { allow: [dashboard_user] }`` lets
+          through any consumer that belongs to the ``dashboard_user``
+          group — NOT the consumer named ``dashboard_user``. The
+          consumer must carry an explicit ``acls: [{group: ...}]``
+          entry; otherwise basic-auth passes but ACL returns 403.
+        """
+        # Read from the already-parsed .env snapshot — these values
+        # land in the YAML as literal strings; Kong reads them straight
+        # into its basic-auth credentials table on startup.
+        dashboard_username = self.get_env_value('DASHBOARD_USERNAME', 'kong_admin')
+        dashboard_password = self.get_env_value('DASHBOARD_PASSWORD', 'kong_password')
         return [
             {
                 'username': 'dashboard_user',
                 'basicauth_credentials': [
                     {
-                        'username': '${DASHBOARD_USERNAME}',
-                        'password': '${DASHBOARD_PASSWORD}'
+                        'username': dashboard_username,
+                        'password': dashboard_password,
                     }
-                ]
+                ],
+                'acls': [
+                    {'group': 'dashboard_user'},
+                ],
             }
         ]
     
