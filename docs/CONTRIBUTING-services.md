@@ -19,6 +19,7 @@ A maintainer who already understands the stack can land a new service in under a
 - [ ] **Write `services/<name>/service.yml`** → [Mechanics](#mechanics--putting-it-all-together)
 - [ ] **Write `services/<name>/compose.yml`** (only if folder flavor = container) → [Mechanics](#mechanics--putting-it-all-together)
 - [ ] **Add the `include:` line to `docker-compose.yml`** (only if you wrote a compose fragment)
+- [ ] **Register CLI key in `source_mapping`** → [Mechanics — source_override_manager registration](#bootstrapperutilssource_override_managerpy--register-the-cli-key). Without this the wizard silently skips your service.
 - [ ] **Run the four-command regen + lint chain** → [After you save the files](#after-you-save-the-files--regen--lint-commands-in-order)
 - [ ] **Update audit-script allowlists** if your service has hard deps → [Audit-script + CI implications](#audit-script--ci-implications)
 - [ ] **Commit and push.** CI gates the change (three jobs: manifest-lint+pytest, compose-equivalence+permutation matrix, docs-drift+audit-scripts).
@@ -485,6 +486,25 @@ Add to the top-level `include:` block in the `# Data tier` section:
   - services/qdrant/compose.yml              # ← new
 ```
 
+### `bootstrapper/utils/source_override_manager.py` — register the CLI key
+
+This is a **mandatory registration step** that's easy to forget. `SourceOverrideManager.source_mapping` is a hardcoded dict; the wizard's `ServiceDiscovery.discover()` filters every service through it. **A service NOT in this mapping is silently dropped from the wizard** — the user never sees a prompt for it.
+
+For a single-container family (most services), add ONE entry:
+
+```python
+self.source_mapping = {
+    # … existing entries …
+    'qdrant_source': 'QDRANT_SOURCE',          # ← new
+}
+```
+
+For a multi-container family (head + worker, or app + init), the runtime_sc top-level key drives discovery. Map the "main" container's `<key>_source` to the family's actual env var. Example: Ray has `ray-head` and `ray-worker` containers in runtime_sc but a single `RAY_SOURCE` env var — so the mapping is `'ray_head_source': 'RAY_SOURCE'` (the worker has no entry → filtered out, mirroring how `comfyui-init` / `hermes-init` are skipped).
+
+The CLI flag binding in `bootstrapper/start.py` (`@click.option('--qdrant-source', …)` + the `source_args` dict) uses the family-level `qdrant_source` key — different from the discovery key for multi-container families. If your service is multi-container, you'll have TWO entries in `source_mapping` pointing to the SAME env var (one for CLI plumbing, one for discovery).
+
+The pinning test `bootstrapper/tests/test_wizard_app_discovery.py::test_source_mapping_includes_app_service_flags` enforces this — add your service's CLI key to the assertion list so future regressions fail loudly.
+
 ## After you save the files — regen + lint commands in order
 
 Five commands, in this order:
@@ -591,6 +611,11 @@ Distilled from real audit findings — each entry cites the commit, PR, or memor
 
 - **A new service in a near-full category block can trip the category-overflow lint.** `data` and `media` blocks are 20 slots each but Supabase alone uses 7. Check current utilization before assuming there's room.
 - **Renaming a `row.display_name` breaks tests that hardcode it.** `test_wizard_app_discovery.py` has an `EXPECTED_DISCOVERED` frozenset; update it when renaming.
+
+### Wizard discovery gotchas
+
+- **A service missing from `SourceOverrideManager.source_mapping` is silently dropped from the wizard.** The wizard's `ServiceDiscovery.discover()` filters every service through the mapping — anything whose `<runtime_sc_key>_source` isn't a mapping key gets skipped without warning. Symptom: the user runs `./start.sh`, picks a base port, and the wizard jumps right past your new service. Fix: register the entry as described in [Mechanics — source_override_manager registration](#bootstrapperutilssource_override_managerpy--register-the-cli-key). The pinning test in `test_wizard_app_discovery.py::test_source_mapping_includes_app_service_flags` enforces this — add your CLI key to its assertion list. (This bit Ray in commit `2d027b9`; the runbook didn't flag the registration step before.)
+- **Multi-container families need TWO source_mapping entries.** One for CLI flag plumbing (the family-level `<name>_source`), one for ServiceDiscovery to find the runtime_sc top-level key (the head container's `<head>_source`). Both point to the same env var. See the Ray example in `bootstrapper/utils/source_override_manager.py`.
 
 ## Subdirectory naming convention
 
