@@ -229,6 +229,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # Ray follow-up steps (worker count + external address) live in
     # wizard/ray_steps.py; spliced in right after the Ray source step.
     from wizard.ray_steps import build_ray_followup_steps
+    from .widgets.prompt_panel import SecondaryNumberInput
 
     for i, svc in enumerate(services_info):
         opts = [
@@ -241,6 +242,30 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         default = svc.current_value if svc.current_value in svc.options else (
             svc.options[0] if svc.options else None
         )
+        # Inline secondary integer input: Ray's source prompt asks for
+        # worker count on the same screen as the source tiles when the
+        # user picks a container variant. Generic widget — future
+        # localhost service prompts will use this same field to override
+        # default host ports.
+        secondary: SecondaryNumberInput | None = None
+        if svc.key in ("ray", "ray-head") or svc.display_name == "Ray":
+            raw_default = (env_vars.get("RAY_WORKER_COUNT") or "2").strip()
+            try:
+                worker_default = max(0, min(64, int(raw_default)))
+            except ValueError:
+                worker_default = 2
+            secondary = SecondaryNumberInput(
+                env_var="RAY_WORKER_COUNT",
+                description=(
+                    "Ray worker replicas alongside the head node "
+                    "(0 = head-only single-node cluster). 0-64."
+                ),
+                default_value=worker_default,
+                number_min=0,
+                number_max=64,
+                show_when=("ray-container-cpu", "ray-container-gpu"),
+                unit_suffix="workers",
+            )
         steps.append(PromptStep(
             title=f"{svc.display_name}  ·  source",
             step_index=i + 2, step_total=total,
@@ -248,6 +273,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             subtitle=svc.description or "",
             options=opts, default_value=default, service_name=svc.display_name,
             service_key=svc.key,
+            secondary_number=secondary,
         ))
         # Splice the entire LLM cluster RIGHT AFTER the LLM Engine
         # source step: Ollama variants, then cloud-provider key+model
@@ -378,10 +404,7 @@ def _selections_to_args(
         cloud_models_title,
         cloud_secret_title,
     )
-    from wizard.ray_steps import (
-        RAY_WORKER_COUNT_TITLE,
-        RAY_EXTERNAL_ADDRESS_TITLE,
-    )
+    from wizard.ray_steps import RAY_EXTERNAL_ADDRESS_TITLE
     env_vars = env_vars or {}
 
     source_args: dict = {}
@@ -473,18 +496,26 @@ def _selections_to_args(
         else:
             ollama_user_models["OLLAMA_CUSTOM_MODELS"] = custom
 
-    # Ray follow-up env vars — written alongside model selections so
-    # the same ``apply_user_model_selections`` pipeline step persists them.
-    ray_worker_count = selections.get(RAY_WORKER_COUNT_TITLE)
-    if ray_worker_count is not None:
-        # Validate: must be a non-negative integer string.
-        try:
-            ollama_user_models["RAY_WORKER_COUNT"] = str(max(0, int(ray_worker_count)))
-        except (ValueError, TypeError):
-            pass  # leave .env unchanged if the user entered garbage
+    # Ray external-address cascade — still a text cascade because the
+    # value is a URL, not an integer (out of v1 scope for the inline
+    # secondary widget). Worker count comes through the
+    # ``__secondary__:RAY_WORKER_COUNT`` path below.
     ray_external_address = selections.get(RAY_EXTERNAL_ADDRESS_TITLE)
     if ray_external_address is not None:
         ollama_user_models["RAY_EXTERNAL_ADDRESS"] = ray_external_address.strip()
+
+    # Inline secondary integer inputs — any prompt step that mounted a
+    # ``SecondaryNumberInput`` writes its value under a synthetic key
+    # ``__secondary__:<ENV_VAR>`` in the selections dict (see
+    # WizardScreen._action_confirm). Drain all of them into the env-write
+    # bag here so the same ``apply_user_model_selections`` pipeline
+    # persists them. Generic — works for RAY_WORKER_COUNT today and any
+    # future localhost-port override tomorrow.
+    for sel_key, sel_val in selections.items():
+        if isinstance(sel_key, str) and sel_key.startswith("__secondary__:"):
+            env_var = sel_key.split(":", 1)[1]
+            if env_var:
+                ollama_user_models[env_var] = sel_val
 
     bp = selections.get("Base port  ·  range")
     try:

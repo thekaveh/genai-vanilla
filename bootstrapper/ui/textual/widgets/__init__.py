@@ -17,7 +17,7 @@ from .info_box import (
 from .log_filter_chips import LogFilterChips
 from .log_pane import LogPane
 from .multiselect_filter_chips import FilterChanged, MultiselectFilterChips
-from .option_row import OptionRow
+from .option_row import OptionRow, OptionRowWithInput
 from .prompt_panel import PromptOption, PromptPanel, PromptStep
 from .service_table import ServiceRow, ServiceTable
 
@@ -38,6 +38,7 @@ __all__ = [
     "LogPane",
     "MultiselectFilterChips",
     "OptionRow",
+    "OptionRowWithInput",
     "PromptOption",
     "PromptPanel",
     "PromptStep",

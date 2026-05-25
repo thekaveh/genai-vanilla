@@ -1,12 +1,14 @@
-"""Wizard cascade for Ray: source-variant tile drives a follow-up number
-prompt for RAY_WORKER_COUNT (when container-*) or a text prompt for
-RAY_EXTERNAL_ADDRESS (when ray-external)."""
+"""Wizard cascade for Ray: external address is the only follow-up step.
+
+Worker count for container variants is collected inline on the Ray source
+prompt via ``SecondaryNumberInput`` (no separate cascade step). See
+``tests/test_prompt_panel_secondary_input.py`` for the widget contract.
+"""
 
 from __future__ import annotations
 
 from wizard.ray_steps import (  # type: ignore
     RAY_EXTERNAL_ADDRESS_TITLE,
-    RAY_WORKER_COUNT_TITLE,
     build_ray_followup_steps,
 )
 
@@ -18,17 +20,14 @@ def _build(source: str, env_overrides: dict | None = None):
     return build_ray_followup_steps(env_vars=env, selections={"RAY_SOURCE": source})
 
 
-def test_container_cpu_emits_worker_count_step():
-    steps = _build("ray-container-cpu")
-    assert len(steps) == 1
-    assert steps[0].title == RAY_WORKER_COUNT_TITLE
-    assert steps[0].default_value == "2"
+def test_container_cpu_emits_no_cascade():
+    # Worker count is collected via the inline secondary widget on the
+    # source prompt — no follow-up step.
+    assert _build("ray-container-cpu") == []
 
 
-def test_container_gpu_emits_worker_count_step():
-    steps = _build("ray-container-gpu")
-    assert len(steps) == 1
-    assert steps[0].title == RAY_WORKER_COUNT_TITLE
+def test_container_gpu_emits_no_cascade():
+    assert _build("ray-container-gpu") == []
 
 
 def test_external_emits_address_step():
@@ -38,10 +37,4 @@ def test_external_emits_address_step():
 
 
 def test_disabled_emits_no_followup():
-    steps = _build("disabled")
-    assert steps == []
-
-
-def test_worker_count_default_from_env():
-    steps = _build("ray-container-cpu", env_overrides={"RAY_WORKER_COUNT": "5"})
-    assert steps[0].default_value == "5"
+    assert _build("disabled") == []

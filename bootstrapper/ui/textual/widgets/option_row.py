@@ -51,7 +51,10 @@ shape so simple non-Ollama steps see zero change.
 from __future__ import annotations
 
 from rich.text import Text
+from textual.app import ComposeResult
+from textual.containers import Container
 from textual.widget import Widget
+from textual.widgets import Input, Static
 
 from .. import palette as P
 
@@ -609,3 +612,229 @@ class OptionRow(Widget):
         out.append("\n")
         out.append(line2)
         return out
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# OptionRowWithInput — composite row for prompts with a SecondaryNumberInput
+# ────────────────────────────────────────────────────────────────────────────
+
+
+class _LabelOnlyRender(Widget):
+    """Renders only the cursor + dot indicator + label (one line). No
+    hint, no badges, no trailing padding.
+
+    Used inside ``OptionRowWithInput`` so the horizontal top row can
+    have a fixed-width label cell that aligns the textbox + badges
+    columns across rows. The hint (when present) is rendered as a
+    separate Static below the horizontal row so it can flow at full
+    container width without being clipped by the label cell's
+    constrained width — which was the bug in the previous
+    ``_LabelHintRender`` design.
+    """
+
+    DEFAULT_CSS = """
+    _LabelOnlyRender { height: 1; }
+    """
+
+    can_focus = False
+
+    def __init__(self, label: str, selected: bool) -> None:
+        super().__init__()
+        self._label = label
+        self.selected = selected
+
+    def set_selected(self, value: bool) -> None:
+        if value == self.selected:
+            return
+        self.selected = value
+        self.refresh()
+
+    def render(self) -> Text:
+        line = Text()
+        if self.selected:
+            line.append(P.ARROW_RIGHT, style=f"bold {P.ACCENT}")
+            line.append(" ")
+            line.append(P.DOT_FILLED, style=P.ACCENT)
+        else:
+            line.append("  ")
+            line.append(P.DOT_HOLLOW, style=P.TEXT_FAINT)
+        # 4-cell inter-column gap after the dot indicator, matching
+        # OptionRow's line 1 layout so eligible / ineligible rows stay
+        # column-aligned.
+        line.append("    ")
+        label_color = P.ACCENT if self.selected else P.TEXT
+        line.append(
+            self._label,
+            style=f"bold {label_color}" if self.selected else label_color,
+        )
+        return line
+
+
+SECONDARY_INPUT_SLOT_WIDTH = 12  # cells reserved for the textbox column
+# 7 prefix cells: 3 for cursor + dot indicator, 4 for the inter-column gap.
+# Used so PromptPanel can compute ``label_width`` = 7 + max(option label
+# widths) and pass it to every row in the step — eligible AND ineligible
+# — so the textbox column starts at the same horizontal position on
+# every row.
+SECONDARY_LABEL_PREFIX_WIDTH = 7
+
+
+class OptionRowWithInput(Container):
+    """Composite row: ``[label + hint] [textbox-slot] [badges]`` in
+    horizontal layout, used by every row in a prompt step whose
+    ``secondary_number`` is set — eligible AND ineligible alike.
+
+    The textbox slot has a FIXED width (``SECONDARY_INPUT_SLOT_WIDTH``)
+    on every row so the textbox column lines up across the screen; only
+    eligible rows mount a real ``Input``, the rest mount an invisible
+    spacer Static of the same width. The badges Static therefore also
+    starts at the same horizontal column on every row.
+
+    All eligible-row inputs in a single prompt step share one logical
+    value — ``PromptPanel`` mirrors keystrokes across siblings via its
+    ``on_input_changed`` handler.
+    """
+
+    DEFAULT_CSS = """
+    OptionRowWithInput {
+        height: auto;
+        padding: 0 1;
+        layout: vertical;
+    }
+    OptionRowWithInput.option-selected { background: #1c2034; }
+
+    OptionRowWithInput > Container.row-top {
+        height: 1;
+        layout: horizontal;
+    }
+    OptionRowWithInput > Container.row-top > Input.secondary-inline {
+        height: 1;
+        border: none;
+        padding: 0 1;
+        margin: 0 2 0 2;
+        background: #11141f;
+    }
+    OptionRowWithInput > Container.row-top > Static.secondary-inline-placeholder {
+        height: 1;
+        margin: 0 2 0 2;
+        padding: 0 1;
+    }
+    OptionRowWithInput > Container.row-top > Static.secondary-inline-suffix {
+        width: auto;
+        height: 1;
+        margin: 0 2 0 0;
+    }
+    OptionRowWithInput > Container.row-top > Static.row-badges {
+        width: auto;
+        height: 1;
+    }
+    OptionRowWithInput > Static.row-hint {
+        height: auto;
+        width: 1fr;
+        padding-left: 7;
+    }
+    """
+
+    can_focus = False
+
+    def __init__(
+        self,
+        label: str,
+        *,
+        hint: str = "",
+        badges: list[str] | None = None,
+        selected: bool = False,
+        input_widget: "Input | None" = None,
+        label_width: int = 0,
+        unit_suffix: str = "",
+        id: str | None = None,
+    ) -> None:
+        super().__init__(id=id)
+        self.label_text = label
+        self.hint = hint or ""
+        self.badges = list(badges or [])
+        self.selected = selected
+        # ``input_widget`` is None for ineligible rows — they still
+        # participate in the layout (so the badges column stays aligned)
+        # but the textbox slot renders as an invisible Static spacer.
+        self._input_widget = input_widget
+        self._label_width = label_width
+        # Short suffix rendered right after the textbox on eligible rows
+        # ("workers", "port", "MB", …). Empty string skips the suffix
+        # entirely. Ineligible rows never render it — they have no
+        # textbox, so a dangling unit label would be confusing.
+        self._unit_suffix = unit_suffix
+        if input_widget is not None:
+            # Tag the Input so the composite's CSS rule applies. Safe to
+            # re-add — Textual de-dupes classes.
+            input_widget.add_class("secondary-inline")
+        if selected:
+            self.add_class("option-selected")
+        self._label_widget: _LabelOnlyRender | None = None
+
+    def compose(self) -> ComposeResult:
+        # Top row — fixed-width label + fixed-width textbox slot + badges.
+        # Horizontal layout means widths are independent of any sibling
+        # below (the hint), so each column's start position is stable
+        # across rows. Class-based selector (NOT id) because each row
+        # mounts its own ``row-top`` — Textual requires widget ids to
+        # be globally unique within the app.
+        top = Container(classes="row-top")
+        with top:
+            self._label_widget = _LabelOnlyRender(
+                self.label_text, self.selected,
+            )
+            # Fixed label-cell width passed in by PromptPanel: max label
+            # width across the step + cursor+dot+gap prefix. Hint length
+            # is intentionally ignored here — the hint lives in its own
+            # full-width row below and isn't clipped by this width.
+            if self._label_width > 0:
+                self._label_widget.styles.width = self._label_width
+            yield self._label_widget
+            if self._input_widget is not None:
+                # Inline width keeps the eligible-row Input the same
+                # cell width as the ineligible-row placeholder so the
+                # badges column stays column-aligned across rows.
+                self._input_widget.styles.width = SECONDARY_INPUT_SLOT_WIDTH
+                yield self._input_widget
+            else:
+                placeholder = Static("", classes="secondary-inline-placeholder")
+                placeholder.styles.width = SECONDARY_INPUT_SLOT_WIDTH
+                yield placeholder
+            # Unit suffix ("workers", "port", …) right after the textbox.
+            # Rendered on eligible rows; replaced by an equal-length run
+            # of spaces on ineligible rows so the badges column starts
+            # at the same horizontal cell on every row in the step. A
+            # visible dangling label on a row without a textbox would
+            # be confusing, but the spacer keeps alignment intact.
+            suffix_raw = self._unit_suffix.strip()
+            if suffix_raw:
+                if self._input_widget is not None:
+                    suffix_widget_text = Text(suffix_raw, style=P.TEXT_FAINT)
+                else:
+                    suffix_widget_text = Text(" " * len(suffix_raw))
+                yield Static(
+                    suffix_widget_text,
+                    classes="secondary-inline-suffix",
+                )
+            badges_text = Text()
+            badges_text.append(_render_capability_block(self.badges, aligned=False))
+            badges_text.append(_render_status_badges(self.badges))
+            yield Static(badges_text, classes="row-badges")
+        yield top
+        # Second row — hint, full container width. Padding-left of 7
+        # matches OptionRow's hint indent ("  " * 5 inside its render
+        # plus a 2-cell extra to align under the label).
+        if self.hint:
+            yield Static(
+                Text(self.hint, style=P.TEXT_FAINT),
+                classes="row-hint",
+            )
+
+    def set_selected(self, value: bool) -> None:
+        if value == self.selected:
+            return
+        self.selected = value
+        self.set_class(value, "option-selected")
+        if self._label_widget is not None:
+            self._label_widget.set_selected(value)

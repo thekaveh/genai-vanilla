@@ -1,9 +1,12 @@
 """Ray wizard cascade — follow-up prompts after RAY_SOURCE is selected.
 
-When the user picks ``ray-container-cpu`` or ``ray-container-gpu``, prompt for
-RAY_WORKER_COUNT (number, default 2, min 0, max 64). When the user picks
-``ray-external``, prompt for RAY_EXTERNAL_ADDRESS (free-form text). ``disabled``
-triggers no follow-up.
+For container sources (``ray-container-cpu`` / ``ray-container-gpu``), the
+worker count is collected INLINE on the Ray source prompt via the generic
+``SecondaryNumberInput`` widget (see ``ui.textual.widgets.prompt_panel`` and
+the Ray-specific wiring in ``ui.textual.integration``) — no follow-up step.
+
+For ``ray-external``, prompt for ``RAY_EXTERNAL_ADDRESS`` (free-form text).
+``disabled`` triggers no follow-up.
 
 This module is parallel to ``wizard.llm_steps`` — same pattern, simpler
 scope (no library scrape, no multiselect).
@@ -19,12 +22,8 @@ from typing import List
 
 from ui.textual.widgets.prompt_panel import PromptStep  # type: ignore
 
-# Exported so integration.py can extract the selected values by title.
-RAY_WORKER_COUNT_TITLE = "Ray  ·  worker count"
+# Exported so integration.py can extract the selected value by title.
 RAY_EXTERNAL_ADDRESS_TITLE = "Ray  ·  external address"
-
-# Container sources that trigger the worker-count follow-up.
-_CONTAINER_SOURCES = {"ray-container-cpu", "ray-container-gpu"}
 
 
 def build_ray_followup_steps(env_vars: dict, selections: dict) -> List[PromptStep]:
@@ -35,37 +34,11 @@ def build_ray_followup_steps(env_vars: dict, selections: dict) -> List[PromptSte
         selections: User selections accumulated so far; expects ``RAY_SOURCE``.
 
     Returns:
-        List of ``PromptStep`` instances. Empty when source is ``disabled``.
+        List of ``PromptStep`` instances. Empty for container/disabled sources
+        — container worker count is collected via the inline secondary input
+        on the Ray source prompt itself, not a separate step.
     """
     source = selections.get("RAY_SOURCE", env_vars.get("RAY_SOURCE", "disabled"))
-
-    if source in _CONTAINER_SOURCES:
-        raw_default = (env_vars.get("RAY_WORKER_COUNT") or "2").strip()
-        try:
-            default_int = max(0, int(raw_default))
-        except (ValueError, TypeError):
-            default_int = 2
-        return [
-            PromptStep(
-                title=RAY_WORKER_COUNT_TITLE,
-                step_index=0,
-                step_total=0,
-                heading="How many Ray worker containers?",
-                subtitle=(
-                    "Number of ray-worker replicas launched alongside the head node. "
-                    "0 = head-only single-node cluster (Ray still works; useful for small "
-                    "dev boxes). Upper bound is your host's CPU/memory budget."
-                ),
-                default_value=str(default_int),
-                kind="number",
-                number_min=0,
-                number_max=64,
-                service_name="Ray",
-                service_key="ray",
-                skip_if_prev=lambda sel: sel.get("RAY_SOURCE", "disabled")
-                not in _CONTAINER_SOURCES,
-            )
-        ]
 
     if source == "ray-external":
         default_val = (env_vars.get("RAY_EXTERNAL_ADDRESS") or "").strip()
