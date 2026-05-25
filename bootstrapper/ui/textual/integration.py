@@ -260,7 +260,10 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         # Splice Ray follow-up prompts RIGHT AFTER the Ray source step.
         # Each sub-step carries its own skip_if_prev predicate so only
         # the appropriate prompt fires for the chosen source.
-        if svc.key == "ray":
+        # Ray's runtime_sc has two containers (`ray-head` + `ray-worker`),
+        # so ServiceDiscovery assigns the family key `ray-head` to the
+        # discovery anchor. Match both forms defensively.
+        if svc.key in ("ray", "ray-head") or svc.display_name == "Ray":
             steps.extend(build_ray_followup_steps(env_vars, {
                 "RAY_SOURCE": svc.current_value or "disabled",
             }))

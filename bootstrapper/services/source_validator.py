@@ -61,15 +61,15 @@ class SourceValidator:
         """
         Build service mapping dynamically from YAML configuration.
         Maps SOURCE variable names to service keys in YAML.
-        
+
         Returns:
             dict: Mapping of SOURCE variables to YAML service keys
         """
         if not self.yaml_config:
             return {}
-            
+
         service_mapping = {}
-        
+
         # Get source_configurable services
         source_configurable = self.yaml_config.get('source_configurable', {})
         for service_key in source_configurable.keys():
@@ -77,13 +77,32 @@ class SourceValidator:
             # e.g., 'llm_provider' -> 'LLM_PROVIDER_SOURCE'
             source_var = service_key.upper().replace('-', '_') + '_SOURCE'
             service_mapping[source_var] = service_key
-            
+
         # Get fixed_services (services that only have one configuration)
         fixed_services = self.yaml_config.get('fixed_services', {})
         for service_key in fixed_services.keys():
             source_var = service_key.upper().replace('-', '_') + '_SOURCE'
             service_mapping[source_var] = service_key
-            
+
+        # Multi-container families (e.g. ray-head + ray-worker, both keyed
+        # in source_configurable) have a single canonical env var (RAY_SOURCE)
+        # that doesn't match either container's derived <KEY>_SOURCE. Resolve
+        # those aliases through SourceOverrideManager.source_mapping, which
+        # already carries the runtime_sc-key → canonical-env-var indirection.
+        # Without this, the validator reports "Unknown SOURCE variable:
+        # RAY_SOURCE" the moment a user writes it to .env.
+        from utils.source_override_manager import SourceOverrideManager
+        sm = SourceOverrideManager(self.config_parser).source_mapping
+        for cli_key, canonical_env_var in sm.items():
+            if canonical_env_var in service_mapping:
+                continue  # already covered by source_configurable / fixed_services
+            # cli_key is e.g. 'ray_head_source' → strip suffix → 'ray_head'
+            # → kebab-case → 'ray-head' (the runtime_sc top-level key)
+            stem = cli_key[:-len('_source')] if cli_key.endswith('_source') else cli_key
+            container_key = stem.replace('_', '-')
+            if container_key in source_configurable:
+                service_mapping[canonical_env_var] = container_key
+
         return service_mapping
         
     def get_adaptive_services_from_yaml(self) -> Set[str]:
