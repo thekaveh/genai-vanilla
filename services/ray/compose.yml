@@ -22,10 +22,20 @@ services:
       - "${RAY_DASHBOARD_PORT}:8265"
       - "${RAY_GCS_PORT}:6379"
       - "${RAY_CLIENT_PORT}:10001"
-    volumes:
-      - ray-tmp:/tmp/ray
+    # No /tmp/ray volume — the rayproject/ray image runs as user ``ray``
+    # (UID 1000), but a named Docker volume gets initialized as
+    # root:root because the image doesn't pre-create /tmp/ray. The
+    # mount would then make /tmp/ray unwritable by ``ray`` and Ray
+    # would crash at startup with EACCES on its session dir. Ray's
+    # session state is intentionally per-run (re-created on every
+    # ``ray start``), so letting it live in the container's writable
+    # layer is correct — matches the upstream Ray Docker examples.
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8265/api/version || exit 1"]
+      # rayproject/ray:2.55.1 ships wget but not curl — use wget so the
+      # probe actually succeeds. A curl-based probe silently fails
+      # ("command not found"), keeps ray-head unhealthy forever, and
+      # blocks every dependent (ray-worker, backend, …) from starting.
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8265/api/version || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -47,15 +57,8 @@ services:
     depends_on:
       ray-head:
         condition: service_healthy
-    volumes:
-      - ray-tmp-worker:/tmp/ray
+    # No /tmp/ray volume — same reasoning as ray-head above (image runs
+    # as UID 1000, named volumes default to root:root, Ray needs to
+    # write its session dir on every start).
     networks:
       - backend-network
-
-volumes:
-  ray-tmp:
-    name: ${PROJECT_NAME}-ray-tmp
-    driver: local
-  ray-tmp-worker:
-    name: ${PROJECT_NAME}-ray-tmp-worker
-    driver: local
