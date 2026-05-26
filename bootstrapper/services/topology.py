@@ -110,6 +110,11 @@ class Row:
     alias: str | None
     description: str
     localhost_endpoint_var: str | None
+    # The env var holding the overridable host port for this row's
+    # localhost source variant. None when the manifest doesn't declare
+    # one (service has no localhost source, OR legacy service not yet
+    # migrated to the LOCALHOST_PORT pattern).
+    localhost_port_var: str | None
     category: str
     locked: bool
 
@@ -317,6 +322,7 @@ def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology
                 alias=r.alias or None,
                 description=r.description,
                 localhost_endpoint_var=r.localhost_endpoint_var or None,
+                localhost_port_var=r.localhost_port_var or None,
                 category=m.category,
                 locked=locked_by_name[m.name],
             ))

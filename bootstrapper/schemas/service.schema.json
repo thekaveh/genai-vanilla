@@ -301,6 +301,11 @@
             "type": "string",
             "pattern": "^[A-Z][A-Z0-9_]*$",
             "description": "Env var holding the URL when source is a localhost variant."
+          },
+          "localhost_port_var": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "Env var holding the user-overridable host port for the localhost source variant. Empty for services without an overridable localhost port."
           }
         }
       }

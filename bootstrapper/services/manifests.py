@@ -104,6 +104,14 @@ class Row:
     alias: str = ""
     description: str = ""
     localhost_endpoint_var: str = ""
+    # Env var holding the user-overridable host port for the localhost
+    # source variant. Read by ui.state_builder.resolve_port to show the
+    # port column on localhost rows; written by the wizard via the
+    # inline SecondaryNumberInput widget. Empty string means the
+    # service has no overridable localhost port (mostly: services with
+    # no localhost source variant, OR legacy services not yet migrated
+    # to the LOCALHOST_PORT pattern).
+    localhost_port_var: str = ""
 
 
 @dataclass(frozen=True)
@@ -335,6 +343,7 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
             alias=r.get("alias", ""),
             description=r.get("description", ""),
             localhost_endpoint_var=r.get("localhost_endpoint_var", ""),
+            localhost_port_var=r.get("localhost_port_var", ""),
         )
         for r in raw.get("rows") or []
     ]
