@@ -194,36 +194,35 @@ def _mask_secret(value: str) -> str:
 
 @dataclass
 class SecondaryNumberInput:
-    """An inline integer textbox attached to a ``kind="options"`` prompt
-    step. Each eligible row renders the input directly between its label
-    and its badges (see ``OptionRowWithInput``).
+    """An inline integer textbox attached to a ``PromptOption``. The
+    option renders the input directly between its label and its badges
+    (see ``OptionRowWithInput``).
 
     On confirm, the integer value is captured alongside the tile
     selection and written to ``env_var`` via the wizard's selection
     pipeline.
 
-    ``show_when`` filters which option values activate persistence:
-      - Empty tuple → the value is always written regardless of selection
-        (the input is always editable; useful for unconditional parameters)
-      - Non-empty tuple → the value is only persisted when the currently-
-        selected option's ``value`` is in this set. Selecting a tile NOT
-        in show_when greys out the input and skips the env-var write.
+    Eligibility for the inline input is now per-option: a
+    ``PromptOption`` either carries one of these (eligible — input
+    rendered) or doesn't (no input on that row). The earlier
+    ``show_when`` filter on this dataclass is gone — equivalent
+    behaviour comes from attaching the config to the matching options.
 
     ``unit_suffix`` is the short label rendered immediately to the
     right of the textbox on eligible rows ("workers", "port", "MB", …)
-    so the user reads the row as ``ray-container-cpu [ 2 ] workers
-    [rec.] [CPU]``. Empty string hides the suffix entirely.
+    so the user reads the row as ``ollama-localhost [ 11434 ] port
+    [rec.]``. Empty string hides the suffix entirely.
 
-    Generic by design — Ray uses this for ``RAY_WORKER_COUNT`` on
-    container sources; future localhost service variants can use it for
-    host ports.
+    Sibling-sync semantics (when two rows on the same step both carry
+    a config): inputs writing the SAME ``env_var`` mirror keystrokes
+    so the user only types once; inputs writing DIFFERENT ``env_var``s
+    are independent (e.g. STT step's parakeet vs. whisper-cpp ports).
     """
     env_var: str
     description: str = ""
     default_value: int = 0
     number_min: int = 0
     number_max: int = 1_000_000
-    show_when: tuple[str, ...] = ()
     unit_suffix: str = ""
 
 
@@ -249,6 +248,11 @@ class PromptOption:
     # falls back to the parent's status (correct for container modes
     # where /api/tags wasn't consulted).
     pulled_variants: frozenset[str] = field(default_factory=frozenset)
+    # Inline secondary integer input attached to THIS row. When set, the
+    # row renders via OptionRowWithInput with an editable textbox between
+    # the label and the badges. When None (the default), the row renders
+    # via the plain OptionRow. See SecondaryNumberInput for semantics.
+    secondary_number: "SecondaryNumberInput | None" = None
 
 
 @dataclass
@@ -301,12 +305,9 @@ class PromptStep:
     # ``[ALL] tag1 tag2 …`` and filters visible options by membership
     # in ``PromptOption.badges``.
     filter_tags: tuple[str, ...] = ()
-    # Optional inline secondary integer input rendered below the tiles
-    # when ``kind="options"``. See ``SecondaryNumberInput`` for semantics.
-    # When set, the wizard captures BOTH the tile selection AND the
-    # secondary integer at confirm time and persists the integer to
-    # ``env_var`` via the wizard's selection pipeline.
-    secondary_number: "SecondaryNumberInput | None" = None
+    # secondary_number REMOVED 2026-05-25 — config now lives on each
+    # PromptOption (see PromptOption.secondary_number). Eligibility is
+    # "option carries a config" instead of "step-level show_when filter."
 
 
 def _progress_braille(step: int, total: int, width: int = 10) -> str:
