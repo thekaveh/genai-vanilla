@@ -287,12 +287,15 @@ def _allocate_slots(
                 # category's first real port (e.g. KONG_HTTP_PORT) lands at
                 # slot 0 of the infra block.
                 continue
-            if env.name.endswith("_LOCALHOST_PORT"):
-                # *_LOCALHOST_PORT vars describe the *host machine's* port for a
-                # localhost source variant — they're external hints, not stack
-                # slots. Skip them so the slot allocator doesn't consume a slot
-                # for them AND so their manifest-declared default survives into
-                # .env.example.
+            if "_LOCALHOST_" in env.name and env.name.endswith("_PORT"):
+                # Vars matching ``*_LOCALHOST_*_PORT`` (including the simpler
+                # ``*_LOCALHOST_PORT``) describe the *host machine's* port
+                # for a localhost source variant — they're external hints,
+                # not stack slots. Skip them so the slot allocator doesn't
+                # consume a slot for them AND so their manifest-declared
+                # default survives into .env.example. Examples:
+                #   COMFYUI_LOCALHOST_PORT (single port)
+                #   NEO4J_LOCALHOST_HTTP_PORT / NEO4J_LOCALHOST_BOLT_PORT
                 continue
             if next_slot[cat] >= block_end:
                 raise TopologyError(

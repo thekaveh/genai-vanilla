@@ -1283,7 +1283,7 @@ services:
     ports:
     - mode: ingress
       protocol: tcp
-      published: '63023'
+      published: '63021'
       target: 6379
     restart: unless-stopped
     volumes:
@@ -1650,11 +1650,11 @@ services:
     ports:
     - mode: ingress
       protocol: tcp
-      published: '63024'
+      published: '63022'
       target: 8080
     - mode: ingress
       protocol: tcp
-      published: '63025'
+      published: '63023'
       target: 50051
     restart: unless-stopped
     volumes:
