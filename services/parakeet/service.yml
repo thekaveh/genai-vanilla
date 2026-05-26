@@ -64,11 +64,12 @@ env:
     default: cuda
   - name: PARAKEET_GPU_COMPUTE_TYPE
     default: float16
-  - name: PARAKEET_LOCALHOST_URL
-    default: "http://host.docker.internal:63022"
-  - name: WHISPER_CPP_LOCALHOST_URL
-    default: "http://host.docker.internal:63025"
-    description: "Used when STT_PROVIDER_SOURCE=whisper-cpp-localhost."
+  - name: PARAKEET_LOCALHOST_PORT
+    default: "63022"
+    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63022."
+  - name: WHISPER_CPP_LOCALHOST_PORT
+    default: "63025"
+    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63025."
   - name: HUGGING_FACE_HUB_TOKEN
     default: ""
     secret: true
@@ -101,6 +102,7 @@ rows:
     alias: stt.localhost
     description: "Speech-to-text transcription."
     localhost_endpoint_var: STT_ENDPOINT
+    localhost_port_var: PARAKEET_LOCALHOST_PORT
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy
@@ -150,14 +152,14 @@ runtime_sc:
     parakeet-localhost:
       scale: 0
       environment:
-        STT_ENDPOINT: ${PARAKEET_LOCALHOST_URL:-http://host.docker.internal:63022}
+        STT_ENDPOINT: http://host.docker.internal:${PARAKEET_LOCALHOST_PORT:-63022}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway
     whisper-cpp-localhost:
       scale: 0
       environment:
-        STT_ENDPOINT: ${WHISPER_CPP_LOCALHOST_URL:-http://host.docker.internal:63025}
+        STT_ENDPOINT: http://host.docker.internal:${WHISPER_CPP_LOCALHOST_PORT:-63025}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway

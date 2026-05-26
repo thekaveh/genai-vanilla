@@ -287,6 +287,13 @@ def _allocate_slots(
                 # category's first real port (e.g. KONG_HTTP_PORT) lands at
                 # slot 0 of the infra block.
                 continue
+            if env.name.endswith("_LOCALHOST_PORT"):
+                # *_LOCALHOST_PORT vars describe the *host machine's* port for a
+                # localhost source variant — they're external hints, not stack
+                # slots. Skip them so the slot allocator doesn't consume a slot
+                # for them AND so their manifest-declared default survives into
+                # .env.example.
+                continue
             if next_slot[cat] >= block_end:
                 raise TopologyError(
                     f"{cat} block full (size {block_size}); cannot allocate "

@@ -70,8 +70,9 @@ env:
     description: "Container user — match a host UID to read hermes-data from outside."
   - name: HERMES_GID
     default: 10000
-  - name: HERMES_LOCALHOST_URL
-    default: "http://host.docker.internal:63028"
+  - name: HERMES_LOCALHOST_PORT
+    default: "63028"
+    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63028."
   - name: HERMES_INIT_SOURCE
     default: container
     description: "Auto-managed by hermes. Container/disabled."
@@ -108,6 +109,7 @@ rows:
     alias: hermes.localhost
     description: "Programmable AI agent runtime (Nous Research)."
     localhost_endpoint_var: HERMES_ENDPOINT
+    localhost_port_var: HERMES_LOCALHOST_PORT
 
 exports: []
 
@@ -128,7 +130,7 @@ runtime_sc:
     localhost:
       scale: 0
       environment:
-        HERMES_ENDPOINT: ${HERMES_LOCALHOST_URL:-http://host.docker.internal:63028}
+        HERMES_ENDPOINT: http://host.docker.internal:${HERMES_LOCALHOST_PORT:-63028}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway
