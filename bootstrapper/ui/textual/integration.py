@@ -232,29 +232,19 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     from .widgets.prompt_panel import SecondaryNumberInput
 
     for i, svc in enumerate(services_info):
-        opts = [
-            PromptOption(
-                value=opt, label=opt, hint=_option_hint(opt),
-                badges=_badges_for_option(opt, recommended=(opt == svc.current_value)),
-            )
-            for opt in svc.options
-        ]
-        default = svc.current_value if svc.current_value in svc.options else (
-            svc.options[0] if svc.options else None
-        )
-        # Inline secondary integer input: Ray's source prompt asks for
-        # worker count on the same screen as the source tiles when the
-        # user picks a container variant. Generic widget — future
-        # localhost service prompts will use this same field to override
-        # default host ports.
-        secondary: SecondaryNumberInput | None = None
+        # Per-option secondary_number: attach the inline integer input to
+        # the specific option rows where it makes sense.
+        # • Ray: worker count on the container-cpu / container-gpu rows.
+        # • Localhost-port overrides: attached per-localhost-row in
+        #   Task 10. None of the localhost-attachments live here today.
+        ray_secondary: SecondaryNumberInput | None = None
         if svc.key in ("ray", "ray-head") or svc.display_name == "Ray":
             raw_default = (env_vars.get("RAY_WORKER_COUNT") or "2").strip()
             try:
                 worker_default = max(0, min(64, int(raw_default)))
             except ValueError:
                 worker_default = 2
-            secondary = SecondaryNumberInput(
+            ray_secondary = SecondaryNumberInput(
                 env_var="RAY_WORKER_COUNT",
                 description=(
                     "Ray worker replicas alongside the head node "
@@ -263,9 +253,28 @@ def _build_steps_and_rows(config_parser, hosts_manager):
                 default_value=worker_default,
                 number_min=0,
                 number_max=64,
-                show_when=("ray-container-cpu", "ray-container-gpu"),
                 unit_suffix="workers",
             )
+        opts = [
+            PromptOption(
+                value=opt,
+                label=opt,
+                hint=_option_hint(opt),
+                badges=_badges_for_option(opt, recommended=(opt == svc.current_value)),
+                # Attach Ray's worker-count config to the container-cpu
+                # and container-gpu options (the eligible source variants).
+                secondary_number=(
+                    ray_secondary
+                    if ray_secondary is not None
+                       and opt in ("ray-container-cpu", "ray-container-gpu")
+                    else None
+                ),
+            )
+            for opt in svc.options
+        ]
+        default = svc.current_value if svc.current_value in svc.options else (
+            svc.options[0] if svc.options else None
+        )
         steps.append(PromptStep(
             title=f"{svc.display_name}  ·  source",
             step_index=i + 2, step_total=total,
@@ -273,7 +282,8 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             subtitle=svc.description or "",
             options=opts, default_value=default, service_name=svc.display_name,
             service_key=svc.key,
-            secondary_number=secondary,
+            # secondary_number REMOVED from PromptStep — config is now
+            # on individual PromptOption entries above.
         ))
         # Splice the entire LLM cluster RIGHT AFTER the LLM Engine
         # source step: Ollama variants, then cloud-provider key+model
