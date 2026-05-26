@@ -78,39 +78,53 @@ def test_secondary_values_empty_when_no_options_have_config():
     assert panel.secondary_values() == []
 
 
-def test_secondary_values_returns_one_tuple_per_eligible_option():
+def test_secondary_values_returns_one_tuple_for_selected_option():
+    """The CURRENTLY-SELECTED option drives whether a tuple is emitted.
+    Two options both carrying the same env_var: only the selected
+    option's tuple is returned. Sibling sync keeps their values in
+    lockstep (T3) so reading from either would be equivalent, but
+    spec §7.5 says only the selected one persists."""
     cfg = SecondaryNumberInput(env_var="X", default_value=5, number_min=0, number_max=100)
-    panel = _PanelStub(_step([_opt("a", secondary=cfg), _opt("b", secondary=cfg), _opt("c")]))
+    panel = _PanelStub(
+        _step([_opt("a", secondary=cfg), _opt("b", secondary=cfg), _opt("c")]),
+        selected_index=0,  # "a"
+    )
     panel._secondary_inputs = [
         _InputStub(value="5", associated_env_var="X"),
         _InputStub(value="5", associated_env_var="X"),
     ]
-    tuples = panel.secondary_values()
-    assert tuples == [("X", "5"), ("X", "5")]
+    assert panel.secondary_values() == [("X", "5")]
 
 
-def test_secondary_values_distinct_env_vars_yield_distinct_tuples():
+def test_secondary_values_distinct_env_vars_only_selected_persists():
+    """STT case: parakeet-localhost writes PARAKEET_LOCALHOST_PORT,
+    whisper-cpp-localhost writes WHISPER_CPP_LOCALHOST_PORT. Both
+    visible inputs RENDER, but only the SELECTED engine's tuple is
+    emitted to selections — per spec §7.5."""
     cfg_a = SecondaryNumberInput(env_var="PARAKEET", default_value=63022,
                                  number_min=1024, number_max=65535)
     cfg_b = SecondaryNumberInput(env_var="WHISPER", default_value=63025,
                                  number_min=1024, number_max=65535)
-    panel = _PanelStub(_step([_opt("p", secondary=cfg_a), _opt("w", secondary=cfg_b)]))
+    panel = _PanelStub(
+        _step([_opt("p", secondary=cfg_a), _opt("w", secondary=cfg_b)]),
+        selected_index=1,  # whisper
+    )
     panel._secondary_inputs = [
         _InputStub(value="63022", associated_env_var="PARAKEET"),
         _InputStub(value="63025", associated_env_var="WHISPER"),
     ]
-    assert panel.secondary_values() == [("PARAKEET", "63022"), ("WHISPER", "63025")]
+    # Only the selected (whisper) tuple should be returned.
+    assert panel.secondary_values() == [("WHISPER", "63025")]
 
 
-def test_secondary_values_clamps_each_independently():
-    cfg_a = SecondaryNumberInput(env_var="A", default_value=8000, number_min=1024, number_max=65535)
-    cfg_b = SecondaryNumberInput(env_var="B", default_value=11434, number_min=1024, number_max=65535)
-    panel = _PanelStub(_step([_opt("a", secondary=cfg_a), _opt("b", secondary=cfg_b)]))
-    panel._secondary_inputs = [
-        _InputStub(value="99999", associated_env_var="A"),
-        _InputStub(value="50",    associated_env_var="B"),
-    ]
-    assert panel.secondary_values() == [("A", "65535"), ("B", "1024")]
+def test_secondary_values_clamps_selected_to_its_range():
+    """Clamping uses the selected option's own min/max. A value above
+    number_max snaps to number_max."""
+    cfg = SecondaryNumberInput(env_var="A", default_value=8000,
+                               number_min=1024, number_max=65535)
+    panel = _PanelStub(_step([_opt("a", secondary=cfg)]))
+    panel._secondary_inputs = [_InputStub(value="99999", associated_env_var="A")]
+    assert panel.secondary_values() == [("A", "65535")]
 
 
 def test_secondary_values_falls_back_to_default_on_garbage_input():
@@ -125,6 +139,30 @@ def test_secondary_values_empty_input_uses_default():
     panel = _PanelStub(_step([_opt("a", secondary=cfg)]))
     panel._secondary_inputs = [_InputStub(value="", associated_env_var="X")]
     assert panel.secondary_values() == [("X", "8000")]
+
+
+def test_secondary_values_returns_empty_when_selection_moves_to_ineligible():
+    """Per spec §7.5: the user can type a value into an eligible row's
+    textbox, then navigate the cursor to a row WITHOUT a secondary
+    config. On confirm, secondary_values returns [] — the typed value
+    is NOT persisted to .env because the user's final selection wasn't
+    an eligible row.
+
+    Mirrors the localhost-port use case: user types 9000 in
+    `comfyui-localhost`'s textbox, then picks `comfyui-container`,
+    confirms. COMFYUI_LOCALHOST_PORT must not be written.
+    """
+    cfg = SecondaryNumberInput(env_var="COMFYUI_LOCALHOST_PORT",
+                               default_value=8000, number_min=1024, number_max=65535)
+    panel = _PanelStub(
+        _step([_opt("comfyui-container"), _opt("localhost", secondary=cfg)]),
+        selected_index=0,  # container — the NON-eligible row
+    )
+    # The localhost-row's input exists and has a value the user typed.
+    panel._secondary_inputs = [_InputStub(value="9000", associated_env_var="COMFYUI_LOCALHOST_PORT")]
+    # But because the user's final selection is the container row
+    # (not eligible), nothing is captured.
+    assert panel.secondary_values() == []
 
 
 # ─── _sync_secondary_inputs: keyed by env_var ─────────────────────────

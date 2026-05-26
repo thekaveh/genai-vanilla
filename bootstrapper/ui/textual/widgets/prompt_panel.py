@@ -1345,42 +1345,55 @@ class PromptPanel(Container):
         return self._selected_index
 
     def secondary_values(self) -> list[tuple[str, str]]:
-        """Return one ``(env_var, value)`` tuple per visible eligible
-        input on the active step, or ``[]`` when the step has no
-        secondary inputs.
+        """Return ``[(env_var, value)]`` for the currently-selected
+        option's ``secondary_number`` config, or ``[]`` when:
+          - the step isn't ``kind="options"``, OR
+          - no option is selected, OR
+          - the selected option has no ``secondary_number`` config.
 
-        Different rows can write different env_vars (e.g. STT step's
-        parakeet-localhost vs whisper-cpp-localhost). The caller routes
-        each tuple through ``selections["__secondary__:<env_var>"]``.
+        Returning a list (rather than a single Optional tuple) keeps
+        the wizard's drain loop generic — a future step could expose
+        multiple env vars per selected option without a signature
+        change. Today the list always has 0 or 1 entries.
 
-        Per-input clamping into the configured ``[number_min, number_max]``
-        range; non-numeric input falls back to ``default_value``.
+        Per spec §7.5: writes are gated by the CURRENTLY-SELECTED
+        option. Typing a value in an eligible row and then navigating
+        away to a non-eligible row produces ``[]`` here, so ``.env``
+        is not written with the abandoned row's value. This mirrors
+        the pre-refactor ``show_when`` filter behaviour.
 
-        Eligibility is now per-option: this method iterates the
-        active step's options, finds those carrying a
-        ``secondary_number`` config, and pairs each with the matching
-        Input from ``self._secondary_inputs`` (in mount order).
+        Per-input clamping into the configured ``[number_min,
+        number_max]`` range; non-numeric input falls back to
+        ``default_value``.
         """
         if self._step is None or self._step.kind != "options":
             return []
-        results: list[tuple[str, str]] = []
+        sel = self.selected_option
+        if sel is None or sel.secondary_number is None:
+            return []
+        cfg = sel.secondary_number
+        # Find the mounted Input for this option in mount order. The
+        # mount-order pairing convention from load_step: each eligible
+        # option contributes one Input to ``_secondary_inputs`` in the
+        # same order as ``step.options``. Walk both lists in lockstep
+        # to find the input matching the selected option.
         input_iter = iter(self._secondary_inputs)
         for opt in self._step.options:
-            cfg = opt.secondary_number
-            if cfg is None:
+            if opt.secondary_number is None:
                 continue
             try:
                 inp = next(input_iter)
             except StopIteration:
-                break
-            raw = (inp.value or "").strip()
-            try:
-                value = int(raw) if raw else int(cfg.default_value)
-            except ValueError:
-                value = int(cfg.default_value)
-            value = max(cfg.number_min, min(cfg.number_max, value))
-            results.append((cfg.env_var, str(value)))
-        return results
+                return []
+            if opt is sel:
+                raw = (inp.value or "").strip()
+                try:
+                    value = int(raw) if raw else int(cfg.default_value)
+                except ValueError:
+                    value = int(cfg.default_value)
+                value = max(cfg.number_min, min(cfg.number_max, value))
+                return [(cfg.env_var, str(value))]
+        return []
 
     @property
     def selected_option(self) -> PromptOption | None:
