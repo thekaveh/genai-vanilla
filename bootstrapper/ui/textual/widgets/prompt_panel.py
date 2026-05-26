@@ -725,36 +725,43 @@ class PromptPanel(Container):
 
         # Options-list mounting.
         #
-        # When the step has ``secondary_number`` set, EVERY row uses the
-        # ``OptionRowWithInput`` composite so the textbox column and
-        # the badges column align across the entire screen — eligible
-        # rows mount a real ``Input``, ineligible rows mount a spacer
-        # Static of the same width. Without this, ineligible rows would
-        # render via plain ``OptionRow`` (no textbox slot) and the
-        # badges column would drift across rows.
+        # When ANY option on the step carries a ``secondary_number``
+        # config, EVERY row uses the ``OptionRowWithInput`` composite
+        # so the textbox column and the badges column align across the
+        # screen — eligible rows mount a real ``Input`` tagged with the
+        # env_var it writes, ineligible rows mount a spacer Static of
+        # the same width.
         #
-        # When the step has no ``secondary_number``, every row falls
-        # back to the plain ``OptionRow`` — the existing baseline.
+        # When NO option on the step has a secondary_number, every row
+        # falls back to the plain ``OptionRow`` — the existing baseline.
         self._secondary_inputs = []
-        secondary = step.secondary_number
-        default_str = str(secondary.default_value) if secondary else ""
-        eligible_filter = (
-            secondary.show_when if (secondary and secondary.show_when) else None
-        )
-        # Fixed label column width (in cells) for the composite layout:
-        # cursor + dot indicator (3 cells) + inter-column gap (4 cells)
-        # + the longest option label in this step. Every row uses the
-        # same value so the textbox column lands at the same x on
-        # every row.
+        any_secondary = any(opt.secondary_number is not None for opt in step.options)
+
+        # Fixed label column width for the composite layout (cells):
+        # cursor + dot indicator (3) + inter-column gap (4) + the
+        # longest option label in this step. Every row uses the same
+        # value so the textbox column lands at the same x on every row.
         label_col_width = 0
-        if secondary is not None and step.options:
+        if any_secondary and step.options:
             label_col_width = SECONDARY_LABEL_PREFIX_WIDTH + max(
                 len(opt.label) for opt in step.options
             )
 
+        # Compute the longest unit_suffix in the step so every row's
+        # suffix cell reserves the same width (eligible rows render the
+        # text, ineligible rows render a space-padded equivalent).
+        unit_suffix_for_row = ""
+        if any_secondary:
+            unit_suffix_for_row = max(
+                (opt.secondary_number.unit_suffix
+                 for opt in step.options if opt.secondary_number is not None),
+                key=len,
+                default="",
+            )
+
         self._option_list.remove_children()
         for i, opt in enumerate(step.options):
-            if secondary is None:
+            if not any_secondary:
                 self._option_list.mount(OptionRow(
                     opt.label,
                     hint=opt.hint,
@@ -762,12 +769,17 @@ class PromptPanel(Container):
                     selected=(i == self._selected_index),
                 ))
                 continue
-            is_eligible = (
-                eligible_filter is None or opt.value in eligible_filter
-            )
+            cfg = opt.secondary_number
             inp: "Input | None" = None
-            if is_eligible:
-                inp = Input(value=default_str, placeholder=default_str)
+            if cfg is not None:
+                inp = Input(
+                    value=str(cfg.default_value),
+                    placeholder=str(cfg.default_value),
+                )
+                # Tag the input with its env_var so _sync_secondary_inputs
+                # can mirror only between siblings sharing one. The
+                # attribute is consumed in T3's sync refactor.
+                inp.associated_env_var = cfg.env_var  # type: ignore[attr-defined]
                 self._secondary_inputs.append(inp)
             self._option_list.mount(OptionRowWithInput(
                 opt.label,
@@ -776,7 +788,7 @@ class PromptPanel(Container):
                 selected=(i == self._selected_index),
                 input_widget=inp,
                 label_width=label_col_width,
-                unit_suffix=secondary.unit_suffix,
+                unit_suffix=unit_suffix_for_row,
             ))
 
     def _sync_secondary_inputs(self, source: Input) -> None:
