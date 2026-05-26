@@ -137,19 +137,19 @@ def test_localhost_source_routes_via_host_docker_internal():
         )
 
 
-def test_localhost_url_env_override_is_honored():
-    """Users can override the localhost target via ``<SVC>_LOCALHOST_URL``
-    env vars. Only services whose compose runtime_sc *also* reads the
-    same env var get an override here — keeping Kong's view in sync
-    with what the in-container consumers see.
+def test_localhost_port_env_override_is_honored():
+    """Users can override the localhost target via ``<SVC>_LOCALHOST_PORT``
+    env vars. Kong's route URL is built by the ``_localhost_url`` helper,
+    which reads the same PORT var compose's runtime_sc consumes — so
+    Kong and the in-container clients always agree.
     """
     config = _generate(
         "STT_PROVIDER_SOURCE=whisper-cpp-localhost\n"
-        "WHISPER_CPP_LOCALHOST_URL=http://host.docker.internal:7777\n"
+        "WHISPER_CPP_LOCALHOST_PORT=7777\n"
         "DOC_PROCESSOR_SOURCE=docling-localhost\n"
-        "DOCLING_LOCALHOST_URL=http://host.docker.internal:8888\n"
+        "DOCLING_LOCALHOST_PORT=8888\n"
         "TTS_PROVIDER_SOURCE=chatterbox-localhost\n"
-        "CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:6666\n"
+        "CHATTERBOX_LOCALHOST_PORT=6666\n"
     )
     by_host_with_url = {
         host: svc["url"]
@@ -216,3 +216,52 @@ def test_stt_and_tts_container_urls_match_compose_listen_ports():
         assert svc["url"] == expected, (
             f"{name} should route to {expected} for env={env!r}, got {svc['url']}"
         )
+
+
+import pytest
+
+
+@pytest.mark.parametrize("env_var,svc_source_var,svc_source_value,expected_port", [
+    ("COMFYUI_LOCALHOST_PORT",      "COMFYUI_SOURCE",            "localhost",              "9999"),
+    ("DOCLING_LOCALHOST_PORT",      "DOC_PROCESSOR_SOURCE",      "docling-localhost",      "9999"),
+    ("HERMES_LOCALHOST_PORT",       "HERMES_SOURCE",             "localhost",              "9999"),
+    ("OPENCLAW_LOCALHOST_PORT",     "OPENCLAW_SOURCE",           "localhost",              "9999"),
+    ("PARAKEET_LOCALHOST_PORT",     "STT_PROVIDER_SOURCE",       "parakeet-localhost",     "9999"),
+    ("WHISPER_CPP_LOCALHOST_PORT",  "STT_PROVIDER_SOURCE",       "whisper-cpp-localhost",  "9999"),
+    ("CHATTERBOX_LOCALHOST_PORT",   "TTS_PROVIDER_SOURCE",       "chatterbox-localhost",   "9999"),
+    ("OLLAMA_LOCALHOST_PORT",       "LLM_PROVIDER_SOURCE",       "ollama-localhost",       "9999"),
+    ("NEO4J_LOCALHOST_HTTP_PORT",   "NEO4J_GRAPH_DB_SOURCE",     "localhost",              "9999"),
+    ("WEAVIATE_LOCALHOST_PORT",     "WEAVIATE_SOURCE",           "localhost",              "9999"),
+])
+def test_kong_localhost_route_reads_port_var(
+    env_var, svc_source_var, svc_source_value, expected_port, tmp_path
+):
+    """Each localhost-mode route's `url` is derived from the matching
+    LOCALHOST_PORT env var. Sets a non-default port and asserts the
+    generated route URL reflects it."""
+    from utils.kong_config_generator import KongConfigGenerator
+    from core.config_parser import ConfigParser
+
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        f"{svc_source_var}={svc_source_value}\n"
+        f"{env_var}={expected_port}\n"
+        "DASHBOARD_USERNAME=u\nDASHBOARD_PASSWORD=p\n",
+        encoding="utf-8",
+    )
+    cp = ConfigParser(str(tmp_path))
+    cp.env_file_path = env_path
+    cp.parse_env_file()
+    gen = KongConfigGenerator(cp)
+    gen.load_environment_variables()
+    cfg = gen.generate_kong_config()
+    found = []
+    for svc in cfg["services"]:
+        url = svc.get("url", "") or ""
+        if f":{expected_port}" in url and "host.docker.internal" in url:
+            found.append((svc["name"], url))
+    assert found, (
+        f"Expected at least one Kong service route to target "
+        f"host.docker.internal:{expected_port} (matching {env_var}). "
+        f"Got services: {[(s['name'], s.get('url')) for s in cfg['services']]}"
+    )

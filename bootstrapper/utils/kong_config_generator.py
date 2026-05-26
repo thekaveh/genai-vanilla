@@ -41,7 +41,19 @@ class KongConfigGenerator:
             str: Environment variable value
         """
         return self.env_vars.get(key, default)
-    
+
+    def _localhost_url(self, port_var: str, default_port) -> str:
+        """Build a localhost-source upstream URL from a PORT env var.
+
+        Returns ``http://host.docker.internal:<port>/`` where <port> is
+        the value of ``port_var`` in .env if set, else ``default_port``.
+        Centralized helper so the 10 localhost routes all share one
+        substitution path — drift between them is the bug class memory
+        ``feedback_localhost_url_override_symmetry`` warns against.
+        """
+        port = self.get_env_value(port_var) or str(default_port)
+        return f"http://host.docker.internal:{port}/"
+
     def check_localhost_service(self, host: str, port: int, service_name: str) -> bool:
         """
         Check if a localhost service is available before adding to Kong configuration.
@@ -191,14 +203,12 @@ class KongConfigGenerator:
         whisper-cpp); the container name (and the localhost port) is
         derived from the source-id prefix.
         """
-        # Localhost-mode URLs match the hardcoded defaults each service's
-        # runtime_sc block uses (services/<svc>/service.yml). For services
-        # whose compose already honors a ``<SVC>_LOCALHOST_URL`` override,
-        # Kong honors the same var so both consumers stay in sync.
-        # neo4j / weaviate / ollama have no such override today — their
-        # compose blocks hardcode the URL — so we hardcode here too,
-        # rather than introducing a Kong-only override that would skew
-        # away from the in-container consumer's view.
+        # Localhost-mode URLs are built via ``_localhost_url`` which reads
+        # each service's ``<SVC>_LOCALHOST_PORT`` env var (with the
+        # manifest's default-port as fallback). Compose's runtime_sc reads
+        # the same PORT var, so Kong and the in-container consumers stay
+        # in sync — closing the symmetry gap memory note
+        # ``feedback_localhost_url_override_symmetry`` warns against.
         rows: List[tuple] = [
             # (alias, service_name, source_var,
             #  container_url_factory, localhost_url_factory)
@@ -206,13 +216,13 @@ class KongConfigGenerator:
                 "graph.localhost", "neo4j-browser",
                 "NEO4J_GRAPH_DB_SOURCE",
                 lambda _src: "http://neo4j-graph-db:7474/",
-                lambda _src: "http://host.docker.internal:7474/",
+                lambda _src: self._localhost_url("NEO4J_LOCALHOST_HTTP_PORT", "7474"),
             ),
             (
                 "weaviate.localhost", "weaviate-api",
                 "WEAVIATE_SOURCE",
                 lambda _src: "http://weaviate:8080/",
-                lambda _src: "http://host.docker.internal:8080/",
+                lambda _src: self._localhost_url("WEAVIATE_LOCALHOST_PORT", "8080"),
             ),
             (
                 "ollama.localhost", "ollama-api",
@@ -226,7 +236,7 @@ class KongConfigGenerator:
                 # (LiteLLM forwards via LLM_PROVIDER_EXTERNAL_URL) so we
                 # skip it here.
                 lambda src: (
-                    "http://host.docker.internal:11434/"
+                    self._localhost_url("OLLAMA_LOCALHOST_PORT", "11434")
                     if src == "ollama-localhost" else None
                 ),
             ),
@@ -234,12 +244,7 @@ class KongConfigGenerator:
                 "docling.localhost", "docling-api",
                 "DOC_PROCESSOR_SOURCE",
                 lambda _src: "http://docling-gpu:8000/",
-                # DOCLING_LOCALHOST_URL also flows through to compose via
-                # docling-localhost's DOCLING_ENDPOINT — same fallback string.
-                lambda _src: (
-                    self.get_env_value("DOCLING_LOCALHOST_URL")
-                    or "http://host.docker.internal:63021"
-                ).rstrip("/") + "/",
+                lambda _src: self._localhost_url("DOCLING_LOCALHOST_PORT", "63021"),
             ),
             (
                 "research.localhost", "research-api",
@@ -305,17 +310,11 @@ class KongConfigGenerator:
         return None
 
     def _stt_localhost_url(self, source: str) -> Optional[str]:
-        """STT host-install URL — engine-specific override env var."""
+        """STT host-install URL — engine-specific PORT env var."""
         if source == "parakeet-localhost":
-            return (
-                self.get_env_value("PARAKEET_LOCALHOST_URL")
-                or "http://host.docker.internal:63022"
-            ).rstrip("/") + "/"
+            return self._localhost_url("PARAKEET_LOCALHOST_PORT", "63022")
         if source == "whisper-cpp-localhost":
-            return (
-                self.get_env_value("WHISPER_CPP_LOCALHOST_URL")
-                or "http://host.docker.internal:63025"
-            ).rstrip("/") + "/"
+            return self._localhost_url("WHISPER_CPP_LOCALHOST_PORT", "63025")
         return None
 
     @staticmethod
@@ -331,12 +330,9 @@ class KongConfigGenerator:
         return None
 
     def _tts_localhost_url(self, source: str) -> Optional[str]:
-        """TTS host-install URL — engine-specific override env var."""
+        """TTS host-install URL — engine-specific PORT env var."""
         if source == "chatterbox-localhost":
-            return (
-                self.get_env_value("CHATTERBOX_LOCALHOST_URL")
-                or "http://host.docker.internal:63027"
-            ).rstrip("/") + "/"
+            return self._localhost_url("CHATTERBOX_LOCALHOST_PORT", "63027")
         return None
     
     def get_supabase_services(self) -> List[Dict[str, Any]]:
@@ -533,17 +529,14 @@ class KongConfigGenerator:
         
         # Dynamic URL based on SOURCE
         if source == 'localhost':
-            # Honor COMFYUI_LOCALHOST_URL so users with a non-default
+            # Honor COMFYUI_LOCALHOST_PORT so users with a non-default
             # localhost port (.env override) get a Kong route that
             # actually points at their service.
-            localhost_url = (
-                self.get_env_value('COMFYUI_LOCALHOST_URL')
-                or 'http://host.docker.internal:8000'
-            )
+            localhost_url = self._localhost_url('COMFYUI_LOCALHOST_PORT', '8000')
             parsed = urlparse(localhost_url)
             probe_port = parsed.port or 8000
             self.check_localhost_service('localhost', probe_port, 'ComfyUI')
-            service['url'] = localhost_url.rstrip('/') + '/'
+            service['url'] = localhost_url
         elif source == 'external':
             external_url = self.get_env_value('COMFYUI_EXTERNAL_URL')
             if not external_url:
@@ -671,9 +664,10 @@ class KongConfigGenerator:
 
         # Dynamic URL based on SOURCE
         if source == 'localhost':
-            port = self.get_env_value('OPENCLAW_GATEWAY_PORT') or '63024'
-            self.check_localhost_service('localhost', int(port), 'OpenClaw')
-            service['url'] = f'http://host.docker.internal:{port}/'
+            localhost_url = self._localhost_url('OPENCLAW_LOCALHOST_PORT', '63024')
+            probe_port = urlparse(localhost_url).port or 63024
+            self.check_localhost_service('localhost', probe_port, 'OpenClaw')
+            service['url'] = localhost_url
         else:
             service['url'] = 'http://openclaw-gateway:18789/'
 
@@ -715,9 +709,10 @@ class KongConfigGenerator:
         }
 
         if source == 'localhost':
-            port = self.get_env_value('HERMES_DASHBOARD_PORT') or '63029'
-            self.check_localhost_service('localhost', int(port), 'Hermes Dashboard')
-            service['url'] = f'http://host.docker.internal:{port}/'
+            localhost_url = self._localhost_url('HERMES_LOCALHOST_PORT', '63028')
+            probe_port = urlparse(localhost_url).port or 63028
+            self.check_localhost_service('localhost', probe_port, 'Hermes Dashboard')
+            service['url'] = localhost_url
         else:  # container
             service['url'] = 'http://hermes:9119/'
 
