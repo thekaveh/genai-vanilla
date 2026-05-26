@@ -31,16 +31,29 @@ class _InputStub:
 
 class _PanelStub:
     """Stand-in for PromptPanel exposing only what secondary_values and
-    _sync_secondary_inputs need."""
+    _sync_secondary_inputs need.
 
-    secondary_values = PromptPanel.secondary_values
-    _sync_secondary_inputs = PromptPanel._sync_secondary_inputs
-    selected_option = PromptPanel.selected_option
+    Methods are bound LAZILY (looked up on PromptPanel inside each
+    forwarder) so this file is collectable by pytest even before T3
+    introduces ``PromptPanel.secondary_values``. Without lazy binding,
+    the class body would AttributeError at import time, blocking the 3
+    dataclass-shape tests that ought to pass after T1.
+    """
 
     def __init__(self, step: PromptStep, *, selected_index: int = 0):
         self._step = step
         self._selected_index = selected_index
         self._secondary_inputs: list[_InputStub] = []
+
+    def secondary_values(self):
+        return PromptPanel.secondary_values(self)
+
+    def _sync_secondary_inputs(self, source):
+        return PromptPanel._sync_secondary_inputs(self, source)
+
+    @property
+    def selected_option(self):
+        return PromptPanel.selected_option.fget(self)
 
 
 def _opt(value: str, *, secondary: SecondaryNumberInput | None = None) -> PromptOption:
