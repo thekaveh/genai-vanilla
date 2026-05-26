@@ -791,19 +791,27 @@ class PromptPanel(Container):
                 unit_suffix=unit_suffix_for_row,
             ))
 
-    def _sync_secondary_inputs(self, source: Input) -> None:
-        """Mirror ``source.value`` across every sibling secondary input.
+    def _sync_secondary_inputs(self, source: "Input") -> None:
+        """Mirror ``source.value`` across every sibling secondary input
+        that writes the SAME ``env_var``.
 
         Called from ``on_input_changed`` whenever any eligible-row Input
-        emits a Changed event. The siblings share a single logical value
-        — the textbox visually appears on each eligible row but they all
-        write the same env var, so the .env outcome is deterministic
-        regardless of which row's input the user actually typed in.
+        emits a Changed event. Inputs writing the same env_var share
+        one logical value (e.g. Ray's two container-source rows both
+        write RAY_WORKER_COUNT and stay synced); inputs writing
+        different env_vars are independent (e.g. STT step's parakeet
+        vs. whisper-cpp ports).
+
+        The associated env_var was stamped on each Input as
+        ``associated_env_var`` when it was mounted (see ``load_step``).
         """
+        source_env_var = getattr(source, "associated_env_var", "")
         new_value = source.value or ""
         for other in self._secondary_inputs:
             if other is source:
                 continue
+            if getattr(other, "associated_env_var", "") != source_env_var:
+                continue  # different env_var — independent
             if other.value == new_value:
                 continue
             other.value = new_value
@@ -1336,36 +1344,43 @@ class PromptPanel(Container):
     def selected_index(self) -> int:
         return self._selected_index
 
-    def secondary_value(self) -> tuple[str, str] | None:
-        """Return ``(env_var, value)`` for the active step's inline secondary
-        integer input, or ``None`` when the step has no secondary input OR
-        the current selection isn't in the configured ``show_when`` set.
+    def secondary_values(self) -> list[tuple[str, str]]:
+        """Return one ``(env_var, value)`` tuple per visible eligible
+        input on the active step, or ``[]`` when the step has no
+        secondary inputs.
 
-        Called by the wizard after each confirm so the integer value gets
-        merged into the selections dict alongside the tile selection.
+        Different rows can write different env_vars (e.g. STT step's
+        parakeet-localhost vs whisper-cpp-localhost). The caller routes
+        each tuple through ``selections["__secondary__:<env_var>"]``.
 
-        All eligible-row inputs are kept in sync (see
-        ``_sync_secondary_inputs``), so reading from the first one is
-        equivalent to reading from any of them.
+        Per-input clamping into the configured ``[number_min, number_max]``
+        range; non-numeric input falls back to ``default_value``.
+
+        Eligibility is now per-option: this method iterates the
+        active step's options, finds those carrying a
+        ``secondary_number`` config, and pairs each with the matching
+        Input from ``self._secondary_inputs`` (in mount order).
         """
         if self._step is None or self._step.kind != "options":
-            return None
-        cfg = self._step.secondary_number
-        if cfg is None or not self._secondary_inputs:
-            return None
-        if cfg.show_when:
-            sel = self.selected_option
-            if sel is None or sel.value not in cfg.show_when:
-                return None
-        raw = (self._secondary_inputs[0].value or "").strip()
-        try:
-            value = int(raw) if raw else int(cfg.default_value)
-        except ValueError:
-            value = int(cfg.default_value)
-        # Clamp into the configured bounds (mirrors how kind="number" handles
-        # out-of-range typed values).
-        value = max(cfg.number_min, min(cfg.number_max, value))
-        return (cfg.env_var, str(value))
+            return []
+        results: list[tuple[str, str]] = []
+        input_iter = iter(self._secondary_inputs)
+        for opt in self._step.options:
+            cfg = opt.secondary_number
+            if cfg is None:
+                continue
+            try:
+                inp = next(input_iter)
+            except StopIteration:
+                break
+            raw = (inp.value or "").strip()
+            try:
+                value = int(raw) if raw else int(cfg.default_value)
+            except ValueError:
+                value = int(cfg.default_value)
+            value = max(cfg.number_min, min(cfg.number_max, value))
+            results.append((cfg.env_var, str(value)))
+        return results
 
     @property
     def selected_option(self) -> PromptOption | None:
