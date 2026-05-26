@@ -500,11 +500,11 @@ class PromptPanel(Container):
     def load_step(self, step: PromptStep) -> None:
         self._step = step
         # Drop the per-row secondary-input registry: the options-branch
-        # below repopulates it when (and only when) ``step.secondary_number``
-        # is set. Any other step kind (number / secret / text /
-        # multiselect) finishes with an empty list, which is exactly the
-        # "no secondary input on this step" signal that ``secondary_value``
-        # uses.
+        # below repopulates it when (and only when) at least one
+        # ``opt.secondary_number`` is set on the step. Any other step
+        # kind (number / secret / text / multiselect) finishes with an
+        # empty list, which is exactly the "no secondary input on this
+        # step" signal that ``secondary_values()`` uses.
         self._secondary_inputs = []
         # All caption info on the top border title — service name +
         # step counter + a small progress bar.
