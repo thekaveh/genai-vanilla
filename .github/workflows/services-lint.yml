@@ -22,6 +22,11 @@ on:
       - "docker-compose.yml"
       - "bootstrapper/**"
       - ".env.example"
+      - ".gitignore"
+      - "README.md"
+      - "SECURITY.md"
+      - "start.sh"
+      - "stop.sh"
       - ".github/workflows/services-lint.yml"
   push:
     branches: [main]
