@@ -438,7 +438,11 @@ genai-vanilla/
 │   ├── local-deep-researcher/ # Research agent (with build/ Dockerfile)
 │   ├── openclaw/              # OpenClaw agent gateway + init
 │   ├── kong/                  # Kong API gateway
+│   ├── ray/                   # Ray distributed-compute substrate (head + workers)
 │   ├── cloud-providers/       # Virtual manifest — OpenAI/Anthropic/OpenRouter toggles
+│   ├── stt-provider/          # Doc-only — aggregate STT provider documentation
+│   ├── doc-processor/         # Doc-only — aggregate doc-processor documentation
+│   ├── multi2vec-clip/        # Doc-only — aggregate multi2vec-clip documentation (container ships inside weaviate/)
 │   └── _user/                 # (Gitignored) downstream submodule consumers' overlay slot
 ├── docs/                      # User, service, deployment, diagram, and planning docs
 │   ├── CONTRIBUTING-services.md  # How to add a new service to the modular layout
