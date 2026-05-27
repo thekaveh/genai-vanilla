@@ -1,3 +1,5 @@
+> **Status:** COMPLETED 2026-05-24. All tasks below shipped — see `docs/CONTRIBUTING-services.md` for the delivered runbook. Checkboxes are not retroactively flipped; consult `git log` for actual deliverables. Retained as a historical record of the plan-as-executed.
+
 # Adding-a-Service Runbook Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

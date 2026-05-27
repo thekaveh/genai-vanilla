@@ -1,3 +1,5 @@
+> **Status:** COMPLETED 2026-05-26 (PR #10). All tasks below shipped — checkboxes are not retroactively flipped; consult `git log` for actual deliverables. Retained as a historical record of the plan-as-executed.
+
 # Localhost Port Override Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
