@@ -76,7 +76,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - Diagram layout redesigned: services in the upstream and downstream lanes group by category (infra / data / llm / media / agents / apps) into mini-clusters; one edge per cluster (not per pill); focus box gains a category-colored glow; legend bar + 3 summary cards below.
 - Deps-section tables in each README simplified to `Service | Category` (the old Type / Mechanism / Failure mode columns no longer have data in the data-flow model).
 - `depends_on.required`, `runtime_adaptive.adapts_to`, `runtime_deps.optional`, and `doc_extras.diagram.extra_consumers` remain in manifests (still used by the compose layer) but the diagram resolver no longer reads them.
-- Spec: `docs/superpowers/specs/2026-05-22-diagram-refresh-design.md`.
+- Spec: diagram-refresh design (2026-05-22) — `docs/superpowers/` was retired; see git log for the design doc and the commits around that date.
 
 ### Added (Cross-service deps + diagrams — Phase B research)
 
@@ -84,7 +84,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - Added 32 candidate one-pagers under `docs/research/candidates/<slug>.md`.
 - Added generated master index at `docs/research/integration-matrix.md` (re-build with `python -m bootstrapper.docs.merge_research`).
 - New tooling: `scripts/validate_research_schema.py` (schema validator), `bootstrapper/docs/merge_research.py` (merge + index generator), `bootstrapper/docs/research_subagent_prompt.py` (programmatic Phase B subagent prompt builder).
-- Phase C (content authoring) is next — see `docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+- Phase C (content authoring) is next — see the cross-service deps + diagrams design (2026-05-16); `docs/superpowers/` was retired, consult git log for the doc.
 
 ### Added (Cross-service deps + diagrams — Phase A foundations)
 - Migrated `services/<name>.md` → `services/<name>/README.md` (per-service folders).
@@ -93,7 +93,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - Added CI drift gate (`bootstrapper/tests/test_docs_drift.py`) that fails when committed deps sections or diagrams diverge from manifest state.
 - Added internal-link validator (`scripts/check_doc_links.py`) covering README, CHANGELOG, and the whole `docs/` tree.
 - New optional manifest fields: `runtime_adaptive.<container>.failure_mode` (string) and `doc_extras.diagram.extra_consumers` (list of service names).
-- Cross-service deps + diagrams research/authoring (Phases B & C) deferred — see `docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+- Cross-service deps + diagrams research/authoring (Phases B & C) deferred — see the cross-service deps + diagrams design (2026-05-16); `docs/superpowers/` was retired, consult git log for the doc.
 
 ### Added (Dependency vulnerability monitoring)
 - **`.github/dependabot.yml`** — weekly pip + GitHub Actions scans on every active manifest (`bootstrapper/`, `services/backend/app/`, `services/jupyterhub/build/`, `services/docling/provider/{gpu,localhost}/`, `services/parakeet/provider/{gpu,mlx}/`). Alerts grouped by ecosystem to reduce PR noise. `directories:` deliberately enumerates ALL active manifests so an omission doesn't silently drop coverage from the scan.
