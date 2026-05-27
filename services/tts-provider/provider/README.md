@@ -31,7 +31,7 @@ Speaches (default — already enabled in `.env.example`):
 ```bash
 ./start.sh
 # wait for the speaches container to come healthy (~60s on first run)
-curl http://localhost:63026/v1/audio/speech \
+curl http://localhost:63044/v1/audio/speech \
   -X POST -H "Content-Type: application/json" \
   -d '{"model":"hexgrad/Kokoro-82M","input":"hello","voice":"af_heart"}' \
   --output speech.wav

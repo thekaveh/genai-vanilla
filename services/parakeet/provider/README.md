@@ -55,7 +55,7 @@ Speaches (default — already enabled in `.env.example`):
 
 ```bash
 ./start.sh
-curl -X POST http://localhost:63026/v1/audio/transcriptions \
+curl -X POST http://localhost:63042/v1/audio/transcriptions \
   -F file=@sample.wav -F model=whisper-1
 ```
 
