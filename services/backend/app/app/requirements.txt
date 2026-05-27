@@ -23,7 +23,6 @@ numpy>=1.26.0
 pytz>=2024.1
 apscheduler>=3.10.4
 scikit-learn>=1.4.0
-pydantic-ai<=0.0.44
 langchain>=0.1.14
 langchain-core>=0.1.22
 langchain-community>=0.0.24

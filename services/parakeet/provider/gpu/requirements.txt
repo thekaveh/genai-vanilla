@@ -1,16 +1,19 @@
-# NVIDIA NeMo for ASR
-nemo_toolkit[asr]>=2.2.0
+# NVIDIA NeMo for ASR. Pinned to a known-compatible minor — NeMo has had
+# breaking minor releases, but we don't snapshot exact pins here because
+# the GPU image base (PARAKEET_GPU_IMAGE) already pins the Python + CUDA
+# stack; we let Dependabot propose minor bumps inside that compatible range.
+nemo_toolkit[asr]>=2.2.0,<3.0
 
 # Audio processing
-soundfile
-librosa
-numpy
+soundfile>=0.12.0
+librosa>=0.10.0
+numpy>=1.26.0
 
 # API Server
-fastapi
-uvicorn[standard]
-pydantic
-python-multipart
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
 
 # HuggingFace Hub
-huggingface_hub
+huggingface_hub>=0.20.0
