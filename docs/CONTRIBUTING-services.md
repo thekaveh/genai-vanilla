@@ -791,8 +791,8 @@ by any operational code. They exist for clarity and future use:
 
 - `images[].notes` — free-form note on what the image is used for. Not read
   by any Python code.
-- `docs:` — pointer to a `services/<name>.md` file. Useful for grep,
-  but no Python imports it.
+- `docs:` — pointer to the service's `services/<name>/README.md`. Useful
+  for grep, but no Python imports it.
 - `exports[]` — declares the env-var contract this service offers to other
   services. The cross-manifest validator (`bootstrapper/services/manifest_validator.py`)
   checks closure (every consumer name resolves) but does NOT check that the
