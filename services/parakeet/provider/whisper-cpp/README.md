@@ -64,7 +64,7 @@ On macOS the Homebrew install puts models at
 ## Run the server (OpenAI-compatible)
 
 ```bash
-# Default port matches WHISPER_CPP_LOCALHOST_URL in .env (63025).
+# Default port matches WHISPER_CPP_LOCALHOST_PORT in .env (63025).
 whisper-server \
   --host 0.0.0.0 \
   --port 63025 \
@@ -82,10 +82,11 @@ Parakeet also expose).
 ./start.sh --stt-provider-source whisper-cpp-localhost
 ```
 
-If you used a port other than 63025, update `.env`:
+If you used a port other than 63025, update `.env` (URL is derived inline
+as `http://host.docker.internal:${WHISPER_CPP_LOCALHOST_PORT:-63025}`):
 
 ```bash
-WHISPER_CPP_LOCALHOST_URL=http://host.docker.internal:63041
+WHISPER_CPP_LOCALHOST_PORT=63041
 ```
 
 ## Verify

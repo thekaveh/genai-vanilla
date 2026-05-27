@@ -221,7 +221,7 @@ COMFYUI_SOURCE=localhost
 - **Use case**: Existing ComfyUI installation
 - **Pros**: Custom workflows, existing setups
 - **Cons**: Manual setup required
-- **Requirements**: ComfyUI running locally at `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
+- **Requirements**: ComfyUI running locally on the port given by `COMFYUI_LOCALHOST_PORT` (default `8000`; override to e.g. `8188` if your installation uses another port). The URL is derived as `http://host.docker.internal:${COMFYUI_LOCALHOST_PORT}` at compose-render time.
 
 Setup for localhost:
 ```bash
@@ -236,7 +236,8 @@ pip install -r requirements.txt
 python main.py --port 8000
 
 # If your local ComfyUI uses the common native/default port 8188 instead, set:
-# COMFYUI_LOCALHOST_URL=http://host.docker.internal:8188
+# COMFYUI_LOCALHOST_PORT=8188
+# (URL is derived as http://host.docker.internal:8188 at compose-render time.)
 ```
 
 #### `external`
@@ -304,10 +305,10 @@ WEAVIATE_SOURCE=disabled
 ```bash
 MINIO_SOURCE=container
 MINIO_ENDPOINT=http://minio:9000
-MINIO_PUBLIC_ENDPOINT=http://localhost:63030
+MINIO_PUBLIC_ENDPOINT=http://localhost:63017
 ```
 - **Use case**: S3-compatible artifact-tier object storage (ComfyUI outputs, Backend blobs, n8n files, JupyterHub datasets, Doc Processor output)
-- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63031`
+- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63018`
 - **Cons**: Container resource usage
 - **Requirements**: None
 
@@ -354,7 +355,8 @@ openclaw onboard
 openclaw gateway --port 63024
 
 # If your local OpenClaw uses its native/default port 18789 instead, set:
-# OPENCLAW_LOCALHOST_URL=http://host.docker.internal:18789
+# OPENCLAW_LOCALHOST_PORT=18789
+# (URL is derived as http://host.docker.internal:18789 at compose-render time.)
 ```
 
 #### `disabled` (Default)
@@ -399,7 +401,8 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh
 hermes gateway run
 
 # If your local Hermes uses a different port, set:
-# HERMES_LOCALHOST_URL=http://host.docker.internal:<your-port>
+# HERMES_LOCALHOST_PORT=<your-port>
+# (URL is derived as http://host.docker.internal:<your-port> at compose-render time.)
 ```
 
 #### `disabled`
@@ -603,9 +606,9 @@ Understanding which services depend on others:
 ```bash
 # Check if service is running locally
 curl http://localhost:11434/api/tags  # Ollama (LiteLLM upstream when LLM_PROVIDER_SOURCE=ollama-localhost)
-curl http://localhost:63012/health/liveliness  # LiteLLM gateway (always-on)
+curl http://localhost:63030/health/liveliness  # LiteLLM gateway (always-on)
 curl http://localhost:8000/           # ComfyUI default localhost URL
-curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_URL to 8188
+curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_PORT to 8188
 
 # Check service logs
 docker logs genai-backend -f
@@ -616,8 +619,8 @@ docker logs genai-backend -f
 # Use different base port
 ./start.sh --base-port 64000
 
-# Check port usage
-lsof -i :63015
+# Check port usage (Open WebUI default; substitute your conflicting port)
+lsof -i :63082
 ```
 
 **Kong routing not working**:

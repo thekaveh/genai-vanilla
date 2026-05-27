@@ -27,7 +27,7 @@ class Tools:
     def __init__(self):
         self.valves = self.Valves()
 
-    def remember(self, conversation: str, __user__: dict = {}) -> str:
+    def remember(self, conversation: str, __user__: dict | None = None) -> str:
         """
         Extract and store memories from a conversation. Use this when the user
         asks you to remember something or when important facts are shared.
@@ -35,15 +35,16 @@ class Tools:
         :param conversation: The conversation text to extract memories from
         :return: Extracted memory facts
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
-            return str("Memory tool is currently disabled.")
+            return "Memory tool is currently disabled."
 
         if not conversation:
-            return str("Please provide conversation text to extract memories from.")
+            return "Please provide conversation text to extract memories from."
 
         user_id = __user__.get("id", "")
         if not user_id:
-            return str("Error: User ID not available. Please ensure you are logged in.")
+            return "Error: User ID not available. Please ensure you are logged in."
 
         try:
             messages = [{"role": "user", "content": conversation}]
@@ -62,7 +63,7 @@ class Tools:
 
             facts = result.get("facts", [])
             if not facts:
-                return str("No new facts were extracted from the conversation.")
+                return "No new facts were extracted from the conversation."
 
             output_lines = [f"Extracted {len(facts)} memory fact(s):"]
             for fact in facts:
@@ -72,17 +73,17 @@ class Tools:
                     f"(confidence: {fact.get('confidence', 0):.1%})"
                 )
 
-            return str("\n".join(output_lines))
+            return "\n".join(output_lines)
 
         except requests.exceptions.ConnectionError:
-            return str(
+            return (
                 "Could not connect to the memory service. "
                 "Please check if the Backend is running."
             )
         except Exception as e:
-            return str(f"Error extracting memories: {str(e)}")
+            return f"Error extracting memories: {str(e)}"
 
-    def recall(self, query: str, __user__: dict = {}) -> str:
+    def recall(self, query: str, __user__: dict | None = None) -> str:
         """
         Recall relevant memories for a given topic or question. Use this when
         the user asks what you remember about something.
@@ -90,15 +91,16 @@ class Tools:
         :param query: The topic or question to recall memories about
         :return: Relevant memory facts
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
-            return str("Memory tool is currently disabled.")
+            return "Memory tool is currently disabled."
 
         if not query:
-            return str("Please provide a query to recall memories about.")
+            return "Please provide a query to recall memories about."
 
         user_id = __user__.get("id", "")
         if not user_id:
-            return str("Error: User ID not available. Please ensure you are logged in.")
+            return "Error: User ID not available. Please ensure you are logged in."
 
         try:
             response = requests.post(
@@ -119,7 +121,7 @@ class Tools:
             summary = result.get("context_summary")
 
             if not memories:
-                return str("No relevant memories found for this query.")
+                return "No relevant memories found for this query."
 
             output_lines = [f"Found {len(memories)} relevant memory(ies):"]
             for mem in memories:
@@ -132,17 +134,17 @@ class Tools:
             if summary:
                 output_lines.append(f"\nSummary: {summary}")
 
-            return str("\n".join(output_lines))
+            return "\n".join(output_lines)
 
         except requests.exceptions.ConnectionError:
-            return str(
+            return (
                 "Could not connect to the memory service. "
                 "Please check if the Backend is running."
             )
         except Exception as e:
-            return str(f"Error recalling memories: {str(e)}")
+            return f"Error recalling memories: {str(e)}"
 
-    def forget(self, memory_id: str, __user__: dict = {}) -> str:
+    def forget(self, memory_id: str, __user__: dict | None = None) -> str:
         """
         Delete a specific memory by its ID. Use this when the user wants
         to remove a stored memory.
@@ -150,11 +152,12 @@ class Tools:
         :param memory_id: The UUID of the memory to delete
         :return: Confirmation message
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
-            return str("Memory tool is currently disabled.")
+            return "Memory tool is currently disabled."
 
         if not memory_id:
-            return str("Please provide a memory ID to delete.")
+            return "Please provide a memory ID to delete."
 
         try:
             response = requests.delete(
@@ -163,33 +166,34 @@ class Tools:
             )
             response.raise_for_status()
 
-            return str(f"Memory {memory_id} has been deleted successfully.")
+            return f"Memory {memory_id} has been deleted successfully."
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                return str(f"Memory {memory_id} not found.")
-            return str(f"Error deleting memory: {str(e)}")
+                return f"Memory {memory_id} not found."
+            return f"Error deleting memory: {str(e)}"
         except requests.exceptions.ConnectionError:
-            return str(
+            return (
                 "Could not connect to the memory service. "
                 "Please check if the Backend is running."
             )
         except Exception as e:
-            return str(f"Error deleting memory: {str(e)}")
+            return f"Error deleting memory: {str(e)}"
 
-    def list_memories(self, __user__: dict = {}) -> str:
+    def list_memories(self, __user__: dict | None = None) -> str:
         """
         List all stored memories for the current user. Use this when the user
         wants to see everything that has been remembered about them.
 
         :return: List of all active memory facts
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
-            return str("Memory tool is currently disabled.")
+            return "Memory tool is currently disabled."
 
         user_id = __user__.get("id", "")
         if not user_id:
-            return str("Error: User ID not available. Please ensure you are logged in.")
+            return "Error: User ID not available. Please ensure you are logged in."
 
         try:
             response = requests.get(
@@ -204,7 +208,7 @@ class Tools:
             total = result.get("total", 0)
 
             if not memories:
-                return str("No memories stored yet.")
+                return "No memories stored yet."
 
             output_lines = [f"You have {total} stored memory(ies):"]
             for mem in memories:
@@ -215,12 +219,12 @@ class Tools:
                     f"confidence: {mem.get('confidence', 0):.1%})"
                 )
 
-            return str("\n".join(output_lines))
+            return "\n".join(output_lines)
 
         except requests.exceptions.ConnectionError:
-            return str(
+            return (
                 "Could not connect to the memory service. "
                 "Please check if the Backend is running."
             )
         except Exception as e:
-            return str(f"Error listing memories: {str(e)}")
+            return f"Error listing memories: {str(e)}"

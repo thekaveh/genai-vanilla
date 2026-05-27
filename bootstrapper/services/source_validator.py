@@ -78,12 +78,6 @@ class SourceValidator:
             source_var = service_key.upper().replace('-', '_') + '_SOURCE'
             service_mapping[source_var] = service_key
 
-        # Get fixed_services (services that only have one configuration)
-        fixed_services = self.yaml_config.get('fixed_services', {})
-        for service_key in fixed_services.keys():
-            source_var = service_key.upper().replace('-', '_') + '_SOURCE'
-            service_mapping[source_var] = service_key
-
         # Multi-container families (e.g. ray-head + ray-worker, both keyed
         # in source_configurable) have a single canonical env var (RAY_SOURCE)
         # that doesn't match either container's derived <KEY>_SOURCE. Resolve
@@ -95,7 +89,7 @@ class SourceValidator:
         sm = SourceOverrideManager(self.config_parser).source_mapping
         for cli_key, canonical_env_var in sm.items():
             if canonical_env_var in service_mapping:
-                continue  # already covered by source_configurable / fixed_services
+                continue  # already covered by source_configurable
             # cli_key is e.g. 'ray_head_source' → strip suffix → 'ray_head'
             # → kebab-case → 'ray-head' (the runtime_sc top-level key)
             stem = cli_key[:-len('_source')] if cli_key.endswith('_source') else cli_key

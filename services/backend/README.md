@@ -12,7 +12,7 @@ Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts 
 
 | Path | URL | Notes |
 |---|---|---|
-| Direct | `http://localhost:${BACKEND_PORT}` (default `63016`) | Always exposed when the container is up. |
+| Direct | `http://localhost:${BACKEND_PORT}` (default `63080`) | Always exposed when the container is up. |
 | Kong | `http://api.localhost:${KONG_HTTP_PORT}` | Requires `./start.sh --setup-hosts`. Recommended for browser-side calls. |
 | Health | `GET /health` | Returns service + upstream-probe matrix. |
 
@@ -24,7 +24,7 @@ The backend has no source-variants beyond `container`. Customization happens thr
 
 ```bash
 BACKEND_SOURCE=container          # only value
-BACKEND_PORT=63016                # computed by topology.py from BASE_PORT
+BACKEND_PORT=63080                # computed by topology.py from BASE_PORT
 ```
 
 LangMem long-term memory:
@@ -93,24 +93,18 @@ When any optional service is `disabled`, the corresponding backend feature degra
 | Service | Category |
 |---|---|
 | ray | infra |
-| neo4j | data |
-| redis | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
 | comfyui | media |
-| doc-processor | media |
-| stt-provider | media |
-| tts-provider | media |
-| hermes ↔ | agents |
 | n8n | agents |
+| local-deep-researcher | apps |
 
 ### 5.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
 | kong | infra |
-| hermes ↔ | agents |
 
 ### 5.3 Architecture diagram
 

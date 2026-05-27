@@ -121,8 +121,7 @@ class KeyGenerator:
                 backup_path = self.root_dir / f".env.backup.{timestamp}"
                 import shutil
                 shutil.copy2(self.env_file_path, backup_path)
-                pass  # silent backup
-            
+
             # Read current content
             with open(self.env_file_path, 'r') as f:
                 content = f.read()
@@ -166,10 +165,7 @@ class KeyGenerator:
             return True
 
         new_key = self.generate_n8n_encryption_key()
-        if self.update_env_key('N8N_ENCRYPTION_KEY', new_key):
-            return True
-        else:
-            return False
+        return bool(self.update_env_key('N8N_ENCRYPTION_KEY', new_key))
     
     def generate_and_update_searxng_secret(self, force: bool = False) -> bool:
         """
@@ -187,10 +183,7 @@ class KeyGenerator:
             return True
 
         new_secret = self.generate_searxng_secret()
-        if self.update_env_key('SEARXNG_SECRET', new_secret):
-            return True
-        else:
-            return False
+        return bool(self.update_env_key('SEARXNG_SECRET', new_secret))
     
     def generate_and_update_litellm_master_key(self, force: bool = False) -> bool:
         """Generate LITELLM_MASTER_KEY when absent. Idempotent: never overwrites

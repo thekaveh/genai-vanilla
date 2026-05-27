@@ -1,14 +1,16 @@
 # MinIO
 
+## 1. Overview
+
 S3-compatible object storage for the artifact tier of the stack. Complements Supabase Storage rather than replacing it: Supabase Storage stays the app-tier surface (row-level-security uploads, signed URLs, ≤50 MB files); MinIO is the artifact-tier surface for high-throughput, large-blob workloads.
 
-## 1. Endpoints
+## 2. Endpoints
 
 | Surface | URL | Notes |
 |---|---|---|
 | Admin console (Kong alias) | `http://minio.localhost:${KONG_HTTP_PORT}` | **Use this from your browser.** Requires `./start.sh --setup-hosts` so `minio.localhost` resolves to `127.0.0.1`. Login `minioadmin` / `${MINIO_ROOT_PASSWORD}`. |
-| Admin console (direct port) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `63031`) | Equivalent; no hosts setup required. |
-| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `63030`) | NOT aliased through Kong — S3 clients use full URLs with explicit ports anyway, and Kong proxying introduces unhelpful preserve-host complications for the S3 signature workflow. |
+| Admin console (direct port) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `63018`) | Equivalent; no hosts setup required. |
+| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `63017`) | NOT aliased through Kong — S3 clients use full URLs with explicit ports anyway, and Kong proxying introduces unhelpful preserve-host complications for the S3 signature workflow. |
 | S3 API (internal) | `http://minio:9000` | What sibling containers (backend, n8n, ComfyUI, JupyterHub, docling consumers) call via the per-bucket service-account credentials. |
 | Admin console (internal) | `http://minio:9001` | What Kong proxies for the alias. |
 
@@ -19,14 +21,14 @@ so the MinIO console SPA constructs login / session-cookie URLs
 against the browser's real hostname instead of the internal
 `minio:9001`. Same pattern n8n / Hermes / LiteLLM use.
 
-## 2. Default credentials
+## 3. Default credentials
 
 - **Root user:** `MINIO_ROOT_USER` (default `minioadmin`)
 - **Root password:** `MINIO_ROOT_PASSWORD` — auto-generated to `.env` on first `./start.sh`. Retrieve with `grep ^MINIO_ROOT_PASSWORD= .env`. Use these credentials to log into the admin console.
 
 Root credentials are NEVER surfaced to consumers — see Service accounts below.
 
-## 3. Bucket layout
+## 4. Bucket layout
 
 Five buckets are pre-provisioned by `minio-init`. Bucket names are the bare service identifier:
 
@@ -40,7 +42,7 @@ Five buckets are pre-provisioned by `minio-init`. Bucket names are the bare serv
 
 Bucket names are overridable via `MINIO_BUCKET_<NAME>` env vars; hand-edits stick.
 
-## 4. Service accounts
+## 5. Service accounts
 
 Each consumer has its own MinIO service account with an inline IAM policy scoped to a single bucket:
 
@@ -58,7 +60,7 @@ Each consumer has its own MinIO service account with an inline IAM policy scoped
 
 Credentials are auto-generated to `.env` and exposed as `MINIO_<NAME>_ACCESS_KEY` and `MINIO_<NAME>_SECRET_KEY` where `<NAME>` ∈ `{COMFYUI, BACKEND, N8N, JUPYTER, DOCLING}`. A cross-bucket access attempt with a consumer credential returns `403 AccessDenied`.
 
-## 5. Consumer integration recipe (for follow-up PRs)
+## 6. Consumer integration recipe (for follow-up PRs)
 
 Python (boto3):
 
@@ -85,7 +87,7 @@ mc alias set local http://localhost:${MINIO_PORT} "$MINIO_BACKEND_ACCESS_KEY" "$
 mc cp ./somefile local/backend/somefile
 ```
 
-## 6. Source variants
+## 7. Source variants
 
 `MINIO_SOURCE` may be:
 
@@ -94,23 +96,15 @@ mc cp ./somefile local/backend/somefile
 
 `localhost` and `external` variants are not provided in this release.
 
-## 7. Data persistence
+## 8. Data persistence
 
 MinIO data lives in the `${PROJECT_NAME}-minio-data` named Docker volume mounted at `/data`. `./stop.sh --cold` removes this volume.
 
-## 8. Operations
+## 9. Operations
 
 - **Add a bucket manually:** `mc mb local/<bucket>` from a host with `mc` and the root alias configured.
 - **Rotate a service-account key:** edit `MINIO_<NAME>_ACCESS_KEY` and `MINIO_<NAME>_SECRET_KEY` in `.env`, then run `docker compose up --force-recreate minio-init` to re-provision.
 - **Logs:** `docker logs ${PROJECT_NAME}-minio` and `docker logs ${PROJECT_NAME}-minio-init`.
-
-## 9. Troubleshooting
-
-- **`SignatureDoesNotMatch`** — most often clock skew between host and container. Sync your host clock.
-- **Browser-based S3 client fails with CORS** — MinIO's default CORS config rejects unrecognized origins. Configure via `mc admin config` if browser uploads are required.
-- **`403 AccessDenied`** — confirm the consumer credential's scoped policy matches the target bucket. Use root credentials to inspect: `mc admin policy info local <consumer>-policy`.
-- **Cross-path-style failures** — MinIO requires path-style addressing. In boto3 use `Config(s3={"addressing_style": "path"})`.
-- **`minio` container restart-loops** — typically `MINIO_ROOT_PASSWORD` is empty. Confirm `.env` has it populated; if blank, delete the line and re-run `./start.sh` (the bootstrapper will regenerate).
 
 ## 10. Dependencies & Integrations
 
@@ -125,8 +119,6 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
-| comfyui | media |
-| n8n | agents |
 | jupyterhub | apps |
 
 ### 10.3 Architecture diagram
@@ -156,3 +148,11 @@ _No upstream calls._
 - **Server-side encryption (SSE-S3 / SSE-KMS)** — *Why pursue:* stack stores secrets and user uploads in plaintext on the host volume; SSE-S3 with auto-generated KEK gives at-rest encryption without consumer changes. *Effort:* medium.
 - **Prometheus metrics endpoint** — *Why pursue:* MinIO exposes `/minio/v2/metrics/cluster`; natural feeder if a metrics stack lands. *Effort:* small.
 - **STS / AssumeRole for per-user JupyterHub creds** — *Why pursue:* replaces the single shared `MINIO_JUPYTER_*` credential with short-lived per-user tokens. *Effort:* large.
+
+## 11. Troubleshooting
+
+- **`SignatureDoesNotMatch`** — most often clock skew between host and container. Sync your host clock.
+- **Browser-based S3 client fails with CORS** — MinIO's default CORS config rejects unrecognized origins. Configure via `mc admin config` if browser uploads are required.
+- **`403 AccessDenied`** — confirm the consumer credential's scoped policy matches the target bucket. Use root credentials to inspect: `mc admin policy info local <consumer>-policy`.
+- **Cross-path-style failures** — MinIO requires path-style addressing. In boto3 use `Config(s3={"addressing_style": "path"})`.
+- **`minio` container restart-loops** — typically `MINIO_ROOT_PASSWORD` is empty. Confirm `.env` has it populated; if blank, delete the line and re-run `./start.sh` (the bootstrapper will regenerate).

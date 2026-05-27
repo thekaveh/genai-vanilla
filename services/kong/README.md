@@ -58,7 +58,7 @@ Plain `python3 scripts/check-kong-routes.py` works too if `PyYAML` is on your sy
 - `stt.localhost` → STT engine (`STT_PROVIDER_SOURCE != disabled`; container resolves to `parakeet-gpu` or `speaches`, localhost to `host.docker.internal` on the per-engine port)
 - `tts.localhost` → TTS engine (`TTS_PROVIDER_SOURCE != disabled`; container resolves to `speaches:8000` or `chatterbox:4123`, localhost to `host.docker.internal` on the per-engine port)
 
-Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports can override via `<SVC>_LOCALHOST_URL` env vars where the service's compose already reads them (docling, parakeet, whisper-cpp, chatterbox). Neo4j, Weaviate, and Ollama hardcode the default port — Kong matches the compose `runtime_sc` block so both consumers stay in sync.
+Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports override via `<SVC>_LOCALHOST_PORT` env vars; both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) and the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) read the same PORT var and derive the URL as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT}`, keeping both paths in sync.
 
 ## 4. SOURCE-Based Configuration
 
@@ -66,7 +66,8 @@ Each `*-localhost` source still gets a Kong route — Kong proxies through `host
 ```python
 # Generated based on COMFYUI_SOURCE
 if source == 'localhost':
-    service['url'] = COMFYUI_LOCALHOST_URL or 'http://host.docker.internal:8000/'
+    port = os.environ.get('COMFYUI_LOCALHOST_PORT', '8000')
+    service['url'] = f'http://host.docker.internal:{port}/'
 elif source == 'external':
     service['url'] = external_url
 elif source in ['container-cpu', 'container-gpu']:
@@ -152,7 +153,7 @@ cat volumes/api/kong-dynamic.yml
 docker logs genai-kong-api-gateway -f
 
 # Test Kong health
-curl http://localhost:63002/health
+curl http://localhost:63000/health
 ```
 
 ### 10.2 Verify Routes
@@ -161,47 +162,16 @@ curl http://localhost:63002/health
 docker exec genai-kong-api-gateway kong config -c /kong.yml dump
 
 # Test specific routes
-curl -H "Host: comfyui.localhost" http://localhost:63002/
-curl -H "Host: n8n.localhost" http://localhost:63002/
-curl -H "Host: jupyter.localhost" http://localhost:63002/
-curl -H "Host: openclaw.localhost" http://localhost:63002/
-curl -H "Host: hermes.localhost" http://localhost:63002/
-curl -H "Host: litellm.localhost" http://localhost:63002/ui/
-curl -H "Host: minio.localhost" http://localhost:63002/
+curl -H "Host: comfyui.localhost" http://localhost:63000/
+curl -H "Host: n8n.localhost" http://localhost:63000/
+curl -H "Host: jupyter.localhost" http://localhost:63000/
+curl -H "Host: openclaw.localhost" http://localhost:63000/
+curl -H "Host: hermes.localhost" http://localhost:63000/
+curl -H "Host: litellm.localhost" http://localhost:63000/ui/
+curl -H "Host: minio.localhost" http://localhost:63000/
 ```
 
-## 11. Troubleshooting
-
-### 11.1 Common Issues
-
-**Route not found (404)**
-- Check if service SOURCE is enabled
-- Verify service is running and healthy
-- Check hosts file configuration
-
-**Connection refused**
-- For localhost routes, ensure service is running on specified port
-- Check firewall settings for localhost services
-- Verify Docker network connectivity
-
-**Authentication errors**
-- Check if service requires API key authentication
-- Verify Supabase keys are properly generated
-- Ensure proper headers are sent
-
-### 11.2 Debug Commands
-```bash
-# Check Kong gateway status
-docker compose ps | grep kong
-
-# View detailed Kong configuration
-docker exec genai-kong-api-gateway cat /kong.yml
-
-# Test internal Kong admin API
-docker exec genai-kong-api-gateway curl http://localhost:8001/status
-```
-
-## 12. Advanced Configuration
+## 11. Advanced Configuration
 
 For advanced Kong configuration needs, modify the `KongConfigGenerator` class in `bootstrapper/utils/kong_config_generator.py`.
 
@@ -210,7 +180,7 @@ Key methods:
 - `check_localhost_service()` - Health check implementation
 - `generate_*_service()` - Service-specific route generators
 
-## 13. Integration with Other Services
+## 12. Integration with Other Services
 
 Kong integrates tightly with:
 - **Service Configuration**: Uses SOURCE values from service_config.py
@@ -220,11 +190,11 @@ Kong integrates tightly with:
 
 For more information on Kong's role in the overall architecture, see the system overview in the project [README](../../README.md) and the architecture diagram at `docs/diagrams/architecture.svg`.
 
-## 14. Dependencies & Integrations
+## 13. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/kong/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen kong` after manifest changes.
 
-### 14.1 Current — Upstream (this service calls)
+### 13.1 Current — Upstream (this service calls)
 
 | Service | Category |
 |---|---|
@@ -247,27 +217,27 @@ For more information on Kong's role in the overall architecture, see the system 
 | local-deep-researcher | apps |
 | open-webui | apps |
 
-### 14.2 Current — Downstream (services that call this)
+### 13.2 Current — Downstream (services that call this)
 
 _No downstream consumers._
 
-### 14.3 Architecture diagram
+### 13.3 Architecture diagram
 
 ![kong architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 14.4 Future — Missing pair integrations
+### 13.4 Future — Missing pair integrations
 
 - **kong ↔ multi2vec-clip** — *Why:* exposing CLIP's raw `/vectors` endpoint via Kong lets backend, n8n, and jupyterhub compute embeddings directly instead of round-tripping a Weaviate query, unlocking re-ranking and offline batch jobs. *Mechanism:* alias `clip.localhost` → `http://multi2vec-clip:8080/vectors`, gated by `MULTI2VEC_CLIP_SOURCE != disabled`, CORS plugin only. *Effort:* small. *Confidence:* low.
 
-### 14.5 Future — Candidate new services
+### 13.5 Future — Candidate new services
 
 - **Prometheus** ([details](../../docs/research/candidates/prometheus.md)) — *Headline:* time-series database that turns Kong's bundled `prometheus` plugin plus per-service exporters into a single observability spine. *Wires into:* kong, redis, supabase, n8n, ollama, litellm, backend.
 - **Keycloak** ([details](../../docs/research/candidates/keycloak.md)) — *Headline:* self-hosted OIDC/OAuth2 provider replacing the stack's ad-hoc per-service basic-auth with a single SSO layer fronted by Kong. *Wires into:* kong, jupyterhub, open-webui, n8n, minio, neo4j, openclaw, backend.
 - **Grafana Loki** ([details](../../docs/research/candidates/grafana-loki.md)) — *Headline:* log-aggregation backend that pairs with Kong's `http-log` plugin to give the stack a single queryable log store across every routed service. *Wires into:* kong, backend, litellm, n8n, hermes, comfyui, supabase.
 
-### 14.6 Future — Unused features in this service
+### 13.6 Future — Unused features in this service
 
 - **`prometheus` plugin** — *Why pursue:* Kong 3.9 OSS bundles it; enabling it per-route gives free p50/p95/error-rate per upstream with zero code changes. *Effort:* small.
 - **`opentelemetry` plugin** — *Why pursue:* emit OTLP spans for every gateway hop so requests through Kong → LiteLLM → Ollama can be stitched into a single trace. *Effort:* small.
@@ -278,3 +248,34 @@ _No downstream consumers._
 - **`ai-prompt-guard` plugin** — *Why pursue:* regex allow/deny on prompt content at the gateway gives a defense-in-depth layer before LiteLLM. *Effort:* medium.
 - **Health-check active probing** — *Why pursue:* swap the one-shot TCP probe at startup for Kong's `healthchecks.active` block so localhost services auto-recover when they bounce. *Effort:* small.
 - **Admin API on a private port** — *Why pursue:* Kong's admin API (8001) is currently disabled; selectively exposing read-only `/status` on an internal port would unblock health dashboards. *Effort:* small.
+
+## 14. Troubleshooting
+
+### 14.1 Common Issues
+
+**Route not found (404)**
+- Check if service SOURCE is enabled
+- Verify service is running and healthy
+- Check hosts file configuration
+
+**Connection refused**
+- For localhost routes, ensure service is running on specified port
+- Check firewall settings for localhost services
+- Verify Docker network connectivity
+
+**Authentication errors**
+- Check if service requires API key authentication
+- Verify Supabase keys are properly generated
+- Ensure proper headers are sent
+
+### 14.2 Debug Commands
+```bash
+# Check Kong gateway status
+docker compose ps | grep kong
+
+# View detailed Kong configuration
+docker exec genai-kong-api-gateway cat /kong.yml
+
+# Test internal Kong admin API
+docker exec genai-kong-api-gateway curl http://localhost:8001/status
+```

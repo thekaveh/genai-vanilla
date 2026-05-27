@@ -29,9 +29,6 @@ services:
       - redis-data:/data
     ports:
       - "${REDIS_PORT}:6379"
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 30s

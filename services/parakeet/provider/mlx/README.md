@@ -140,8 +140,9 @@ python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
 # Use different port (if 63022 is in use)
 python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63099
 
-# Update .env to match
-PARAKEET_LOCALHOST_URL=http://host.docker.internal:63099
+# Update .env to match (URL is derived inline as
+# http://host.docker.internal:${PARAKEET_LOCALHOST_PORT:-63022})
+PARAKEET_LOCALHOST_PORT=63099
 STT_PROVIDER_PORT=63099
 ```
 

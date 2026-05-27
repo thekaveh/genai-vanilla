@@ -8,7 +8,7 @@ Each slot has these sub-columns, in order:
     [lock]  [port]  [name]  [source]  [full alias URL]
 
 Where:
-- ``port``: the assigned port (``:63002``) — ``—`` when disabled
+- ``port``: the assigned port (``:63000``) — ``—`` when disabled
 - ``lock``: 🔒 for always-on infrastructure whose source the user
   cannot change; blank for services the wizard will ask about
 - ``name``: the service display name

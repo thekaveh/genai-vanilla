@@ -122,7 +122,7 @@ async def transcribe(
         try:
             if 'tmp_path' in locals():
                 os.unlink(tmp_path)
-        except:
+        except Exception:
             pass
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -169,7 +169,7 @@ async def transcribe_advanced(
         try:
             if 'tmp_path' in locals():
                 os.unlink(tmp_path)
-        except:
+        except Exception:
             pass
         raise HTTPException(status_code=500, detail=str(e))
 

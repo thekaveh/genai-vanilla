@@ -150,5 +150,4 @@ data_flow:
     - stt-provider
     - tts-provider
     - searxng
-    - minio
 

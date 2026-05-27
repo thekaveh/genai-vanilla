@@ -143,7 +143,7 @@ After service configuration, the wizard prompts for:
 Before launching, a configuration summary inside the same anchored info-box shows:
 
 - Every service with its selected source, alias (when hosts are configured), and direct port.
-- Hosted endpoints (e.g., `chat.localhost:63002`) if hosts file entries are configured.
+- Hosted endpoints (e.g., `chat.localhost:63000`) if hosts file entries are configured.
 - A separate **Cloud APIs** sub-section lists OpenAI / Anthropic / OpenRouter status (`enabled · key set ✓`, `disabled`, `enabled · key MISSING ⚠`). Cloud providers don't run as containers, so they render below the services grid rather than alongside real services.
 - Color-coded source choices (container = green, localhost / external / cloud = cyan, off = slate).
 

@@ -102,15 +102,10 @@ runtime_deps:
 data_flow:
   calls:
     - supabase
-    - redis
     - weaviate
-    - neo4j
     - litellm
-    - hermes
     - comfyui
-    - stt-provider
-    - tts-provider
-    - doc-processor
     - n8n
     - ray
+    - local-deep-researcher
 

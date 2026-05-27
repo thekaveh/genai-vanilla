@@ -12,7 +12,7 @@ Image: `ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7` (CPU default) or the latest
 
 | Path | URL | Notes |
 |---|---|---|
-| Direct | `http://localhost:${COMFYUI_PORT}` (default `63018`) | Web UI + REST API. |
+| Direct | `http://localhost:${COMFYUI_PORT}` (default `63041`) | Web UI + REST API. |
 | Kong | `http://comfyui.localhost:${KONG_HTTP_PORT}` | Browser-friendly; needs `./start.sh --setup-hosts`. |
 | Internal | `${COMFYUI_ENDPOINT}` | Resolved per `COMFYUI_SOURCE`: `http://comfyui:18188` for container, `http://host.docker.internal:8000` for localhost, custom URL for external. |
 | WebSocket | `ws://comfyui:18188/ws` | Streams progress events; one connection per caller today. |
@@ -23,7 +23,7 @@ Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.
 
 ```bash
 COMFYUI_SOURCE=container-cpu                # container-cpu | container-gpu | localhost | external | disabled
-COMFYUI_PORT=63018                          # computed by topology.py
+COMFYUI_PORT=63041                          # computed by topology.py
 COMFYUI_BASE_URL=http://comfyui:18188       # in-container default
 COMFYUI_ARGS=--listen                       # bootstrapper injects --cpu or --force-fp16 per source
 COMFYUI_PLATFORM=linux/amd64
@@ -36,7 +36,7 @@ COMFYUI_AUTO_UPDATE=false                   # GPU variant flips this to true ups
 Localhost / external overrides:
 
 ```bash
-COMFYUI_LOCALHOST_URL=http://host.docker.internal:8000
+COMFYUI_LOCALHOST_PORT=8000                 # URL is derived as http://host.docker.internal:8000 at compose-render time
 COMFYUI_EXTERNAL_URL=                       # required when COMFYUI_SOURCE=external
 COMFYUI_LOCAL_MODELS_PATH=~/Documents/ComfyUI/models   # bind-mounted when SOURCE=localhost
 ```
@@ -69,7 +69,6 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 | Service | Category |
 |---|---|
-| minio | data |
 | litellm | llm |
 
 ### 5.2 Current — Downstream (services that call this)
@@ -105,7 +104,27 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 - **Video model support (Mochi / LTX-Video)** — *Why pursue:* ComfyUI upstream supports video diffusion but `COMFYUI_MODEL_SET` has no `video` tier, so GPU users hand-edit the init script. *Effort:* medium.
 - **Authentication on the ComfyUI endpoint** — *Why pursue:* `server.py` ships no auth and Kong fronts ComfyUI on `comfyui.localhost`. A Kong basic-auth or JWT plugin would prevent any LAN peer from queueing GPU jobs. *Effort:* small.
 
-## 6. Operations
+## 6. Troubleshooting
+
+**`AssertionError: Torch not compiled with CUDA enabled` on GPU mode.** You selected `container-gpu` but the host lacks NVIDIA Container Toolkit. Verify with `docker info | grep -i runtime`; expect `nvidia` listed. Otherwise switch to `container-cpu` or install the toolkit.
+
+**Init container downloads stall mid-workflow.** `comfyui-init` runs in the background of the first `./start.sh`; large model sets (`full`) take ~10 GB and 5-15 min. Workflows referencing not-yet-downloaded models 404 until init exits. `docker logs <project>-comfyui-init -f` shows progress.
+
+**Generated images don't appear in Supabase.** Confirm `COMFYUI_UPLOAD_TO_SUPABASE=true` and `SUPABASE_SERVICE_KEY` is valid. Upload happens after each successful workflow; failure mode is silent retry (check `docker logs <project>-comfyui` for `[supabase upload] …`).
+
+**Localhost mode (`COMFYUI_SOURCE=localhost`) — containers can't reach host.** Linux Docker needs `host.docker.internal` mapped to the host gateway. The bootstrapper injects `extra_hosts: ["host.docker.internal:host-gateway"]` automatically; if you bypassed it, that's the gap. Kong's compose has the same wiring for the same reason.
+
+**`ws://comfyui:18188/ws` 502s through Kong.** Kong's WebSocket support is wired but consumers using `comfyui.localhost` instead of `comfyui:18188` may hit timeout-related drops. From sibling containers prefer the internal DNS name.
+
+```bash
+docker compose ps comfyui comfyui-init
+docker compose logs -f comfyui
+curl -s http://localhost:${COMFYUI_PORT}/system_stats | jq .   # GPU/CPU info, queue depth
+```
+
+For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).
+
+## 7. Operations
 
 **Switch model sets.** Edit `COMFYUI_MODEL_SET` in `.env` (`minimal | sd15 | sdxl | full`) and re-run `./start.sh`. `comfyui-init` re-runs and downloads anything missing into the `comfyui-models` volume; existing checkpoints are not deleted.
 
@@ -136,29 +155,9 @@ curl http://localhost:${COMFYUI_PORT}/history/abc-123
 # Event types: status, executing, executed, progress, execution_error
 ```
 
-## 7. Performance notes
+## 8. Performance notes
 
 - **CPU mode is slow.** A 512×512 SD 1.5 generation takes ~30-90s on CPU; the same on a modest GPU takes 2-5s. Use CPU mode for testing workflows, not for production.
 - **GPU FP16.** The GPU variant injects `--force-fp16` automatically; halves VRAM usage with negligible quality impact for most SD/SDXL workloads.
 - **Model loading dominates first-run latency.** Each checkpoint is ~2-7 GB; the first workflow using a model pays a 5-30s load cost as ComfyUI maps it into memory. Subsequent runs reuse the cached model.
 - **No batching today.** ComfyUI processes one workflow at a time; concurrent requests queue. For high throughput, add replicas (out of scope for the default stack).
-
-## 8. Troubleshooting
-
-**`AssertionError: Torch not compiled with CUDA enabled` on GPU mode.** You selected `container-gpu` but the host lacks NVIDIA Container Toolkit. Verify with `docker info | grep -i runtime`; expect `nvidia` listed. Otherwise switch to `container-cpu` or install the toolkit.
-
-**Init container downloads stall mid-workflow.** `comfyui-init` runs in the background of the first `./start.sh`; large model sets (`full`) take ~10 GB and 5-15 min. Workflows referencing not-yet-downloaded models 404 until init exits. `docker logs <project>-comfyui-init -f` shows progress.
-
-**Generated images don't appear in Supabase.** Confirm `COMFYUI_UPLOAD_TO_SUPABASE=true` and `SUPABASE_SERVICE_KEY` is valid. Upload happens after each successful workflow; failure mode is silent retry (check `docker logs <project>-comfyui` for `[supabase upload] …`).
-
-**Localhost mode (`COMFYUI_SOURCE=localhost`) — containers can't reach host.** Linux Docker needs `host.docker.internal` mapped to the host gateway. The bootstrapper injects `extra_hosts: ["host.docker.internal:host-gateway"]` automatically; if you bypassed it, that's the gap. Kong's compose has the same wiring for the same reason.
-
-**`ws://comfyui:18188/ws` 502s through Kong.** Kong's WebSocket support is wired but consumers using `comfyui.localhost` instead of `comfyui:18188` may hit timeout-related drops. From sibling containers prefer the internal DNS name.
-
-```bash
-docker compose ps comfyui comfyui-init
-docker compose logs -f comfyui
-curl -s http://localhost:${COMFYUI_PORT}/system_stats | jq .   # GPU/CPU info, queue depth
-```
-
-For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).

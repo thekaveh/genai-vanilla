@@ -4,9 +4,9 @@ This guide covers common issues and their solutions when using the GenAI Vanilla
 
 ## .env Migration (LiteLLM rollout)
 
-If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about missing variables or about port `63012` being unavailable for Ollama. Apply these changes:
+If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about missing variables. Apply these changes:
 
-- Rename `LLM_PROVIDER_PORT` to `LITELLM_PORT` (still defaults to `63012` — the slot now belongs to the LiteLLM gateway, not Ollama).
+- Rename `LLM_PROVIDER_PORT` to `LITELLM_PORT` (default is now `63030` under the topology-v1 port layout — the slot belongs to the LiteLLM gateway, not Ollama).
 - Remove `OLLAMA_ENDPOINT` and any `OLLAMA_BASE_URL` lines — consumers now read `LITELLM_BASE_URL` and `LITELLM_API_KEY` (where `LITELLM_API_KEY=$LITELLM_MASTER_KEY`).
 - If you previously set `LLM_PROVIDER_SOURCE=api` or `LLM_PROVIDER_SOURCE=disabled`, change it to `LLM_PROVIDER_SOURCE=none` and enable at least one of `CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE`.
 
@@ -36,10 +36,10 @@ Inspect it after a failed launch — it captures everything the log pane showed,
 ./start.sh --base-port 64000  # Use different port range
 
 # Find what's using the port
-lsof -i :63015
+lsof -i :63082
 
 # Kill process using the port (if safe)
-kill -9 $(lsof -t -i:63015)
+kill -9 $(lsof -t -i:63082)
 ```
 
 ### Memory Issues
@@ -81,10 +81,10 @@ chmod +x start.sh stop.sh
 **LiteLLM not responding / consumers can't reach LLMs:**
 ```bash
 # Liveness check (no auth required)
-curl http://localhost:63012/health/liveliness
+curl http://localhost:63030/health/liveliness
 
 # List registered models (auth required)
-curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63012/v1/models
+curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63030/v1/models
 
 # Inspect LiteLLM logs
 docker logs genai-litellm -f
@@ -104,7 +104,7 @@ ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
-Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http://localhost:63012/v1`) or via `docker exec` for direct `/api/*` calls.
+Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http://localhost:63030/v1`) or via `docker exec` for direct `/api/*` calls.
 
 **Out of memory during model loading:**
 ```bash
@@ -130,7 +130,7 @@ docker logs genai-comfyui -f
 ./start.sh --setup-hosts
 
 # Access via direct URL
-curl http://localhost:63018  # Direct port access
+curl http://localhost:63041  # Direct port access
 ```
 
 ### n8n Issues
@@ -141,10 +141,10 @@ curl http://localhost:63018  # Direct port access
 docker logs genai-n8n -f
 
 # Try direct access
-curl http://localhost:63017
+curl http://localhost:63062
 
 # Check Kong routing
-curl -H "Host: n8n.localhost" http://localhost:63002/
+curl -H "Host: n8n.localhost" http://localhost:63000/
 ```
 
 **Workflow execution fails:**
@@ -190,7 +190,7 @@ cat bootstrapper/utils/kong_config_generator.py
 docker logs genai-kong-api-gateway -f
 
 # Test Kong health
-curl http://localhost:63002/health
+curl http://localhost:63000/health
 ```
 
 **Service routing not working:**
@@ -245,8 +245,8 @@ echo "127.0.0.1 n8n.localhost comfyui.localhost search.localhost api.localhost c
 
 ```bash
 # Check if ports are accessible
-telnet localhost 63015
-nc -zv localhost 63015
+telnet localhost 63082
+nc -zv localhost 63082
 
 # For localhost services, check host firewall
 sudo ufw status  # Ubuntu/Debian
@@ -320,8 +320,8 @@ docker exec genai-litellm curl http://genai-ollama:11434/api/tags
 docker exec genai-kong-api-gateway curl http://genai-supabase-api:3000/health
 
 # Test external access
-curl http://localhost:63015
-curl -H "Host: n8n.localhost" http://localhost:63002/
+curl http://localhost:63082
+curl -H "Host: n8n.localhost" http://localhost:63000/
 ```
 
 ## Getting Help

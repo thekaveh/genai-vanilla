@@ -1,6 +1,6 @@
 # Design — Add Ray distributed-compute cluster to the stack
 
-**Status:** awaiting user review (brainstorm phase complete)
+**Status:** Implemented 2026-05-24 — Ray cluster shipped (commits e30a666 through 446195f).
 **Author:** Kaveh + Claude (brainstorm session 2026-05-24)
 **Scope:** add `services/ray/` as a new container family + minimum-viable client integration in Backend and JupyterHub. Defers Ray Serve LLM, Hermes tool catalog entry, and multi-host Ray clusters.
 

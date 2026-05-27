@@ -1,6 +1,6 @@
 # Design — Expand `docs/CONTRIBUTING-services.md` into a decision-driven service-addition runbook
 
-**Status:** approved (brainstorm phase), awaiting writing-plans
+**Status:** Implemented 2026-05-24 — see docs/CONTRIBUTING-services.md.
 **Author:** Kaveh + Claude (audit + brainstorm session 2026-05-23 / 24)
 **Target:** rewrite of `docs/CONTRIBUTING-services.md` (in place, expanding the existing 234-line file to ~600-750 lines).
 

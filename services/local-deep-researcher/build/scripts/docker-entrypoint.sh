@@ -4,6 +4,15 @@ set -e
 REPO_URL="https://github.com/langchain-ai/local-deep-researcher.git"
 REPO_DIR="/app/repo"
 
+# Guard against unbounded glob expansion of $REPO_DIR (e.g. empty or "/").
+# `rm -rf "$REPO_DIR"/.*` can match `..` on some shells and walk into the
+# parent directory; use `find -mindepth 1 -delete` instead which skips
+# `.` and `..` by design.
+if [ -z "$REPO_DIR" ] || [ "$REPO_DIR" = "/" ]; then
+    echo "Local Deep Researcher: ERROR - REPO_DIR is unsafe: '$REPO_DIR'"
+    exit 1
+fi
+
 echo "Local Deep Researcher: Starting initialization..."
 
 # -------------------------------------------------------------------
@@ -16,12 +25,12 @@ if [ -d "$REPO_DIR/.git" ]; then
         echo "Local Deep Researcher: Repository updated successfully"
     else
         echo "Local Deep Researcher: Pull failed — re-cloning..."
-        rm -rf "$REPO_DIR"/.* "$REPO_DIR"/* 2>/dev/null || true
+        find "$REPO_DIR" -mindepth 1 -delete 2>/dev/null || true
         git clone "$REPO_URL" "$REPO_DIR"
     fi
 else
     echo "Local Deep Researcher: Cloning repository..."
-    rm -rf "$REPO_DIR"/.* "$REPO_DIR"/* 2>/dev/null || true
+    find "$REPO_DIR" -mindepth 1 -delete 2>/dev/null || true
     git clone "$REPO_URL" "$REPO_DIR"
 fi
 

@@ -21,6 +21,31 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 
 ## [Unreleased]
 
+### Known follow-ups (deferred from the 2026-05-27 repo-wide audit pass)
+
+The cleanup PR documented at the top of this section deliberately defers four classes of work — each large enough to deserve its own plan rather than a drive-by fix:
+
+- **Backend test coverage.** `services/backend/app/app/` has ~3,700 LOC of production Python across `main.py` (33 FastAPI endpoints), `memory_service.py`, `research_service.py`, `comfyui_client.py`, `n8n_client.py`, `memory_store.py`, `research_client.py`. Only the `ray_routes` / `ray_client` surfaces have tests. Smoke-level TestClient suites for the memory / research / comfyui / workflow endpoint families are tracked for a follow-up.
+- **Bootstrapper utility test gaps.** `bootstrapper/utils/{localhost_validator,key_generator,llm_catalog,cloud_models,supabase_keys,docker_manager}.py` and `bootstrapper/services/source_validator.py` have zero unit tests. The drift gates + integration tests cover them transitively, but no isolated unit coverage exists. Adding targeted tests is tracked separately.
+- **Architecture-diagram skill rewrite.** The current `docs/diagrams/architecture.{dot,svg}` is Graphviz-rendered with the Tokyo-Night-mapped category palette. The user's `architecture-diagram` skill (cyan/emerald/violet/amber/rose/orange/slate palette, JetBrains Mono, layered topological flow, standalone HTML) is the target shape; full rewrite is deferred to a dedicated spec. Per-service architecture SVGs (`services/<x>/architecture.svg`) are already auto-regenerated and stay in scope of the drift gate.
+- **Bootstrapper god-class refactors.** `bootstrapper/start.py::GenAIStackStarter` (~1,000 LOC, 25+ responsibilities), the 17 near-identical `_generate_<svc>_config` methods in `bootstrapper/services/service_config.py`, and the 11 `generate_<svc>_service` methods in `bootstrapper/utils/kong_config_generator.py` are flagged for table-driven consolidation in a separate refactor plan. The current code paths are all tested and correct; these are maintenance-debt items, not bugs.
+
+### Added — Ray distributed-compute cluster
+
+- New `services/ray/` family with head + worker containers, dashboard at `ray.localhost`, RAY_SOURCE source-variant pattern.
+- Wizard wires Ray worker count inline via the SecondaryNumberInput widget on the source step.
+- Backend `/api/ray/*` endpoints (submit/status/stop/cluster-status) gated on RAY_ADDRESS — return 503 when Ray is disabled.
+- JupyterHub picks up `ray[client]` dep + seeded `07_ray_cluster.ipynb` notebook.
+- Hermes Agent + Backend agents can dispatch compute jobs to the cluster (future integration; Ray exposes only via Backend REST today).
+
+### Changed — Localhost port override (URL → PORT migration)
+
+- Replaced the 7 per-service `<SVC>_LOCALHOST_URL` env vars with `<SVC>_LOCALHOST_PORT` integer vars; the URL is derived at compose-render time as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}`.
+- 3 newly-overridable services (Ollama, Neo4j HTTP + Bolt, Weaviate) gain dedicated LOCALHOST_PORT env vars.
+- Wizard adds an inline integer textbox per localhost source row using the SecondaryNumberInput widget; the override propagates symmetrically through `.env`, runtime_sc, Kong routes, and the wizard's service-table.
+- New migration `bootstrapper/services/migrations/migration_v2.py` rewrites users' existing `.env` files (gated by `BOOTSTRAPPER_PORT_LAYOUT_VERSION` 1→2).
+- Pre-launch summary surfaces port collisions as warnings (warn-don't-block).
+
 > **Path-reference note:** entries written before the per-service
 > configuration-modularization change below reference top-level directory
 > names (`hermes-init/`, `litellm-init/`, `llm-catalog-init/`,
@@ -60,7 +85,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - Diagram layout redesigned: services in the upstream and downstream lanes group by category (infra / data / llm / media / agents / apps) into mini-clusters; one edge per cluster (not per pill); focus box gains a category-colored glow; legend bar + 3 summary cards below.
 - Deps-section tables in each README simplified to `Service | Category` (the old Type / Mechanism / Failure mode columns no longer have data in the data-flow model).
 - `depends_on.required`, `runtime_adaptive.adapts_to`, `runtime_deps.optional`, and `doc_extras.diagram.extra_consumers` remain in manifests (still used by the compose layer) but the diagram resolver no longer reads them.
-- Spec: `docs/superpowers/specs/2026-05-22-diagram-refresh-design.md`.
+- Spec: diagram-refresh design (2026-05-22) — `docs/superpowers/` was retired; see git log for the design doc and the commits around that date.
 
 ### Added (Cross-service deps + diagrams — Phase B research)
 
@@ -68,7 +93,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - Added 32 candidate one-pagers under `docs/research/candidates/<slug>.md`.
 - Added generated master index at `docs/research/integration-matrix.md` (re-build with `python -m bootstrapper.docs.merge_research`).
 - New tooling: `scripts/validate_research_schema.py` (schema validator), `bootstrapper/docs/merge_research.py` (merge + index generator), `bootstrapper/docs/research_subagent_prompt.py` (programmatic Phase B subagent prompt builder).
-- Phase C (content authoring) is next — see `docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+- Phase C (content authoring) is next — see the cross-service deps + diagrams design (2026-05-16); `docs/superpowers/` was retired, consult git log for the doc.
 
 ### Added (Cross-service deps + diagrams — Phase A foundations)
 - Migrated `services/<name>.md` → `services/<name>/README.md` (per-service folders).
@@ -77,7 +102,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - Added CI drift gate (`bootstrapper/tests/test_docs_drift.py`) that fails when committed deps sections or diagrams diverge from manifest state.
 - Added internal-link validator (`scripts/check_doc_links.py`) covering README, CHANGELOG, and the whole `docs/` tree.
 - New optional manifest fields: `runtime_adaptive.<container>.failure_mode` (string) and `doc_extras.diagram.extra_consumers` (list of service names).
-- Cross-service deps + diagrams research/authoring (Phases B & C) deferred — see `docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+- Cross-service deps + diagrams research/authoring (Phases B & C) deferred — see the cross-service deps + diagrams design (2026-05-16); `docs/superpowers/` was retired, consult git log for the doc.
 
 ### Added (Dependency vulnerability monitoring)
 - **`.github/dependabot.yml`** — weekly pip + GitHub Actions scans on every active manifest (`bootstrapper/`, `services/backend/app/`, `services/jupyterhub/build/`, `services/docling/provider/{gpu,localhost}/`, `services/parakeet/provider/{gpu,mlx}/`). Alerts grouped by ecosystem to reduce PR noise. `directories:` deliberately enumerates ALL active manifests so an omission doesn't silently drop coverage from the scan.
@@ -129,7 +154,7 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 - **Hermes Agent registered LiteLLM twice in its provider picker** — `services/hermes/init/templates/config.yaml.tmpl` declared the gateway via both `model.provider: custom` + `base_url: http://litellm:4000/v1` AND a named `custom_providers[] = {name: litellm, base_url: http://litellm:4000/v1}` entry. Hermes's `get_compatible_custom_providers()` dedupe path did not collapse the inline anonymous entry against the named one, so the provider picker showed two `litellm` rows — one with the default model bound, the second orphaned at "0 models". Fix: kept the inline `model.provider: custom` block (Hermes's documented enum is `auto | openrouter | nous | codex | custom` — there's no `litellm` enum value) and emptied `custom_providers`. Future skills that need to address LiteLLM by an explicit named alias can add it back under a non-colliding name (e.g. `litellm-aux`).
 
 ### Changed (Per-service configuration modularization)
-- **Monolithic `docker-compose.yml` retired** — the 1,425-line file split into per-service fragments under `services/<name>/compose.yml` merged at the top level via native Docker Compose `include:` directive. The new root `docker-compose.yml` is a 55-line shell. Requires Compose v2.21+ (v2.26+ recommended). Byte-equivalent rendering preserved across the full 36-container stack via the golden baseline at `bootstrapper/tests/fixtures/rendered_config_baseline.yml`.
+- **Monolithic `docker-compose.yml` retired** — the 1,425-line file split into per-service fragments under `services/<name>/compose.yml` merged at the top level via native Docker Compose `include:` directive. The new root `docker-compose.yml` is a 55-line shell. Requires Compose v2.20+ (v2.26+ recommended). Byte-equivalent rendering preserved across the full 36-container stack via the golden baseline at `bootstrapper/tests/fixtures/rendered_config_baseline.yml`.
 - **`bootstrapper/service-configs.yml` deleted** — each service's runtime data (source variants, adaptive bindings, dependency declarations) now lives in its manifest at `services/<name>/service.yml` under `runtime_sc:`, `runtime_adaptive:`, `runtime_deps:` blocks; the stack-wide tier ordering moved to `services/globals/service.yml` under `runtime_dependency_tiers:`. A new `bootstrapper/services/sc_synthesizer.py` concatenates these slices into the dict shape consumers (`service_config.py`, `source_validator.py`, `dependency_manager.py`, `ui/state_builder.py`, `wizard/llm_steps.py`) used to load from YAML. `ConfigParser.load_yaml_config()` now calls the synthesizer.
 - **Each service is now a folder** (`services/<name>/`) containing `service.yml` (manifest — env vars, source variants, image refs, dependencies, plus per-source bootstrapper runtime data under `runtime_sc:`) and `compose.yml` (Compose fragment). 24 manifests total — 21 container-backed + 3 virtual (cloud-providers, tts-provider, globals). Schema-validated against `bootstrapper/schemas/service.schema.json`.
 - **`docs/CONTRIBUTING-services.md`** documents how to add a new service.

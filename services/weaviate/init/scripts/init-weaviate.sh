@@ -15,14 +15,14 @@ apk add --no-cache postgresql-client
 
 echo "weaviate-init: Waiting for database to be ready..."
 sleep 5 # Initial wait
-until PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -c '\q' 2>/dev/null; do
+until PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -c '\q' 2>/dev/null; do
   echo "weaviate-init: Waiting for database..."
   sleep 5
 done
 echo "weaviate-init: Database is available."
 
 echo "weaviate-init: Querying active Ollama embedding models from database..."
-psql_output=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings > 0 ORDER BY embeddings DESC LIMIT 1;")
+psql_output=$(PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -t -c "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND embeddings > 0 ORDER BY embeddings DESC LIMIT 1;")
 
 # Trim whitespace and check result
 embedding_model=$(echo "$psql_output" | xargs)
@@ -49,7 +49,7 @@ cat /shared/weaviate-config.env
 
 # Verify model will be available in Ollama
 echo "weaviate-init: Verifying model '$embedding_model' will be pulled by ollama-pull service..."
-model_in_db=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "SELECT count(*) FROM public.llms WHERE provider = 'ollama' AND active = true AND name = '$embedding_model';")
+model_in_db=$(PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -t -c "SELECT count(*) FROM public.llms WHERE provider = 'ollama' AND active = true AND name = '$embedding_model';")
 model_count=$(echo "$model_in_db" | xargs)
 
 if [ "$model_count" = "1" ]; then

@@ -201,5 +201,4 @@ runtime_adaptive:
 data_flow:
   calls:
     - litellm
-    - minio
 

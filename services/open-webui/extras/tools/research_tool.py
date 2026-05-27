@@ -9,6 +9,7 @@ version: 1.4.0
 license: MIT
 """
 
+import json
 import time
 import requests
 from pydantic import BaseModel, Field
@@ -51,8 +52,6 @@ class Tools:
 
         try:
             # Create a new thread with unique metadata
-            import time
-
             timestamp = int(time.time() * 1000)  # millisecond timestamp for uniqueness
 
             thread_resp = requests.post(
@@ -102,7 +101,7 @@ class Tools:
                         json={"run_id": "*"},  # Cancel all runs for safety
                         timeout=5,
                     )
-                except:
+                except Exception:
                     pass  # Ignore cancel errors
                 return str(
                     f"❌ Research timed out after {self.valves.timeout}s (15 minutes). The request has been cancelled to prevent system issues."
@@ -126,8 +125,6 @@ class Tools:
                 return str(f"❌ Failed to parse research response: {str(e)}")
 
             # ULTRA-SAFE: Force immediate plain text conversion to prevent [object Object]
-            import json
-
             # Convert response to plain text immediately - no complex object handling
             try:
                 # Simple text extraction approach
@@ -231,8 +228,6 @@ class Tools:
 
             # Additional safety: check for object references
             if "[object" in final_output.lower():
-                import json
-
                 return f"✅ Research completed for: {query}\n\nSafe JSON result:\n{json.dumps(result, indent=2, default=str)}"
 
             return final_output

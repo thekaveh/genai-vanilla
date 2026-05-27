@@ -2,11 +2,17 @@ import asyncio
 import asyncpg
 import os
 from typing import Dict, Any, List, Optional, AsyncGenerator
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from uuid import UUID, uuid4
 
-from research_client import ResearchClient, ResearchRequest, ResearchStatus, ResearchResult
+from research_client import (
+    ResearchClient,
+    ResearchRequest,
+    ResearchStatus,
+    ResearchResult,
+    ResearchError,
+)
 
 
 class ResearchService:
@@ -43,7 +49,7 @@ class ResearchService:
                 (id, query, status, max_loops, search_api, user_id, started_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
             """, session_id, query, ResearchStatus.PENDING.value, max_loops, search_api, 
-                UUID(user_id) if user_id else None, datetime.utcnow())
+                UUID(user_id) if user_id else None, datetime.now(timezone.utc))
             
             # Log the start
             await conn.execute("""
@@ -86,7 +92,7 @@ class ResearchService:
                 UPDATE public.research_sessions 
                 SET status = $1, started_at = $2
                 WHERE id = $3
-            """, ResearchStatus.RUNNING.value, datetime.utcnow(), session_id)
+            """, ResearchStatus.RUNNING.value, datetime.now(timezone.utc), session_id)
 
             await conn.execute("""
                 INSERT INTO public.research_logs (session_id, step_number, step_type, message)
@@ -110,7 +116,7 @@ class ResearchService:
                 UPDATE public.research_sessions 
                 SET status = $1, completed_at = $2, error_message = $3
                 WHERE id = $4
-            """, ResearchStatus.FAILED.value, datetime.utcnow(), str(e), session_id)
+            """, ResearchStatus.FAILED.value, datetime.now(timezone.utc), str(e), session_id)
 
             await conn.execute("""
                 INSERT INTO public.research_logs (session_id, step_number, step_type, message)
@@ -135,7 +141,7 @@ class ResearchService:
         research_response = await self.research_client.start_research(request)
         
         if research_response.status != ResearchStatus.RUNNING:
-            raise Exception(f"Failed to start research: {research_response.message}")
+            raise ResearchError(f"Failed to start research: {research_response.message}")
         
         remote_session_id = research_response.session_id
         
@@ -156,9 +162,9 @@ class ResearchService:
                 # Store the results
                 await self._store_research_result(conn, session_id, research_result)
             else:
-                raise Exception("Failed to retrieve research results")
+                raise ResearchError("Failed to retrieve research results")
         else:
-            raise Exception(f"Research failed: {final_response.message}")
+            raise ResearchError(f"Research failed: {final_response.message}")
 
     async def _store_research_result(
         self, 
@@ -198,7 +204,7 @@ class ResearchService:
             UPDATE public.research_sessions 
             SET status = $1, completed_at = $2
             WHERE id = $3
-        """, ResearchStatus.COMPLETED.value, datetime.utcnow(), session_id)
+        """, ResearchStatus.COMPLETED.value, datetime.now(timezone.utc), session_id)
 
     async def get_research_status(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get research session status"""
@@ -328,7 +334,7 @@ class ResearchService:
                 UPDATE public.research_sessions 
                 SET status = $1, completed_at = $2
                 WHERE id = $3
-            """, ResearchStatus.CANCELLED.value, datetime.utcnow(), session_id)
+            """, ResearchStatus.CANCELLED.value, datetime.now(timezone.utc), session_id)
 
             await conn.execute("""
                 INSERT INTO public.research_logs (session_id, step_number, step_type, message)

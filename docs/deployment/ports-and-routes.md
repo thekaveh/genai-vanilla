@@ -52,9 +52,9 @@ A few services have engine-specific listen ports that won't match a naive `*_POR
 - **Ollama** — container listens on `11434`; same on host for `ollama-localhost`.
 - **Weaviate** — container listens on `8080`; same on host for `weaviate-localhost`.
 
-## Localhost-mode URL overrides
+## Localhost-mode port overrides
 
-For services whose compose `runtime_sc` reads a `<SVC>_LOCALHOST_URL` env var, that same var also overrides Kong's view, so both consumers stay in sync. Today: `DOCLING_LOCALHOST_URL`, `PARAKEET_LOCALHOST_URL`, `WHISPER_CPP_LOCALHOST_URL`, `CHATTERBOX_LOCALHOST_URL`. Neo4j, Weaviate, and Ollama hardcode the default container port in both sides — Kong matches that.
+Every localhost-source service exposes a `<SVC>_LOCALHOST_PORT` integer env var. The URL is derived inline as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}` at compose-render time AND by `bootstrapper/utils/kong_config_generator.py`, so both consumers stay in sync. Today: `COMFYUI_LOCALHOST_PORT`, `DOCLING_LOCALHOST_PORT`, `HERMES_LOCALHOST_PORT` (API) / `HERMES_LOCALHOST_DASHBOARD_PORT`, `OPENCLAW_LOCALHOST_PORT`, `OLLAMA_LOCALHOST_PORT`, `NEO4J_LOCALHOST_HTTP_PORT` / `NEO4J_LOCALHOST_BOLT_PORT`, `WEAVIATE_LOCALHOST_PORT`, `PARAKEET_LOCALHOST_PORT`, `WHISPER_CPP_LOCALHOST_PORT`, `CHATTERBOX_LOCALHOST_PORT`. See `docs/specs/2026-05-25-localhost-port-override-design.md` §4.1.
 
 ## Advanced overrides
 

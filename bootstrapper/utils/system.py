@@ -42,7 +42,7 @@ def is_elevated() -> bool:
         try:
             # Windows: check if running as administrator
             return ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except:
+        except Exception:
             return False
     else:
         # Unix-like: check if running as root

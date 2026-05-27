@@ -108,7 +108,7 @@ Before you touch any manifest, spend 15–30 minutes with the candidate service'
 
 ### Integration discovery — how does this fit our stack?
 
-Once you understand the candidate, scan our existing 24-manifest stack to identify integration points:
+Once you understand the candidate, scan our existing 25-manifest stack to identify integration points:
 
 - **Upstream callers (who in our stack would call this new service).** Run `grep -l "^data_flow:" services/*/service.yml` and skim each service's `data_flow.calls` list. Which existing services would benefit from calling this new one? (E.g., a new vector DB → Backend, n8n, JupyterHub, possibly Hermes Agent.) These become entries in those EXISTING manifests' `data_flow.calls` lists — NOT in your new service's `depends_on`. (See [Decision 5](#decision-5--dependencies-depends_onrequired--optional) for why `data_flow.calls` is separate from `depends_on`.)
 - **Downstream callees (what this service calls).** Does the candidate make outbound calls to anything we already run? Most app-tier services touch Supabase (auth/storage), LiteLLM (LLM access), and Redis (caching). These would be entries in YOUR new service's `data_flow.calls`.
@@ -207,12 +207,12 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 
 - **Locked vs. user-choice.** A service with only one source variant is "locked" — the wizard skips its prompt entirely. The `_is_locked` helper in `bootstrapper/services/topology.py` enforces this. Services like Backend, Kong, LiteLLM are locked because they're always-on.
 - **`requires:` per option.** Use `requires: [<ENV_VAR>]` on a source option to declare prerequisite env vars (e.g. `external` typically requires `<SVC>_EXTERNAL_URL`).
-- **`<SVC>_LOCALHOST_URL` symmetry.** If you offer `localhost`, BOTH the in-container consumers (`runtime_sc.<svc>.localhost.environment`) AND the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) must read the SAME `<SVC>_LOCALHOST_URL` env var. Otherwise Kong and in-container clients silently disagree about where the localhost upstream lives. See [Common gotchas](#common-gotchas--anti-patterns).
+- **`<SVC>_LOCALHOST_PORT` as the single source of truth.** If you offer `localhost`, declare a `<SVC>_LOCALHOST_PORT` env var (integer string, defaulting to the upstream's standard host port). The URL is then derived at compose-render time and Kong-config-generation time as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}`. Both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) AND the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) MUST read the same PORT var so the two paths agree on where the localhost upstream lives. The wizard surfaces an inline integer textbox on the `localhost` row so users can override it without editing `.env`. See [`docs/specs/2026-05-25-localhost-port-override-design.md`](specs/2026-05-25-localhost-port-override-design.md) §4.1 for the full design, and [Common gotchas](#common-gotchas--anti-patterns) for the symmetry rule.
 - **`runtime_sc` slice per source.** Every source variant declared in `sources.options` should have a matching `runtime_sc.<key>.<source>` slice with `scale`, `environment`, `deploy`, `extra_hosts`. The manifest validator does NOT currently check coverage — a missing slice silently scales that source to 0 — so add a slice for every option you declare.
 
 > **Worked example — Qdrant:** Most users won't already run Qdrant locally, so `container` is the primary path. But we offer all four anyway for flexibility:
 > - `container` — default, scale=1
-> - `localhost` — `QDRANT_LOCALHOST_URL` defaults to `http://host.docker.internal:6333` (Qdrant's standard host port)
+> - `localhost` — `QDRANT_LOCALHOST_PORT` defaults to `"6333"` (Qdrant's standard host port); the URL is derived at compose-render time as `http://host.docker.internal:6333`
 > - `external` — `requires: [QDRANT_EXTERNAL_URL]`
 > - `disabled` — scale=0
 
@@ -313,7 +313,7 @@ runtime_sc:
     localhost:
       scale: 0
       environment:
-        QDRANT_ENDPOINT: ${QDRANT_LOCALHOST_URL}
+        QDRANT_ENDPOINT: http://host.docker.internal:${QDRANT_LOCALHOST_PORT:-6333}
       deploy: {}
       extra_hosts:
         - host.docker.internal:host-gateway
@@ -385,9 +385,9 @@ env:
     default: disabled
   - name: QDRANT_PORT                         # ← Decision 4 (no default — auto-assigned)
     # default removed — computed by services/topology.py slot allocator
-  - name: QDRANT_LOCALHOST_URL
-    default: "http://host.docker.internal:6333"
-    description: "Used when QDRANT_SOURCE=localhost. Same var consumed by Kong's qdrant.localhost route."
+  - name: QDRANT_LOCALHOST_PORT
+    default: "6333"
+    description: "Host port for the qdrant-localhost source variant. URL is derived at compose-render time as http://host.docker.internal:6333. Same var consumed by Kong's qdrant.localhost route."
   - name: QDRANT_EXTERNAL_URL
     default: ""
     description: "Required when QDRANT_SOURCE=external."
@@ -411,6 +411,7 @@ rows:
     alias: qdrant.localhost
     description: "Vector database (Qdrant)."
     localhost_endpoint_var: QDRANT_ENDPOINT
+    localhost_port_var: QDRANT_LOCALHOST_PORT
 
 runtime_sc:                                   # ← Decision 6 (declarative, no hook)
   qdrant:
@@ -423,7 +424,7 @@ runtime_sc:                                   # ← Decision 6 (declarative, no 
     localhost:
       scale: 0
       environment:
-        QDRANT_ENDPOINT: ${QDRANT_LOCALHOST_URL}
+        QDRANT_ENDPOINT: http://host.docker.internal:${QDRANT_LOCALHOST_PORT:-6333}
       deploy: {}
       extra_hosts: [host.docker.internal:host-gateway]
     external:
@@ -563,7 +564,7 @@ The `.github/workflows/services-lint.yml` workflow has three jobs:
 
 | Job | What it catches |
 |---|---|
-| **Manifest lint + unit tests** | `validate_fragments` lint + 315+ pytest tests. Catches: manifest schema violations, dependency cycles, env-example drift, category overflow. |
+| **Manifest lint + unit tests** | `validate_fragments` lint + 390+ pytest tests. Catches: manifest schema violations, dependency cycles, env-example drift, category overflow. |
 | **Compose merge + byte-equivalence + source-permutation matrix** | Renders `docker compose config` for the merged fragment list + verifies it matches the golden baseline + tests every source variant of every service. Catches: compose-syntax errors, source-permutation regressions. |
 | **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links`, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`). Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken markdown links, research-schema violations. |
 
@@ -593,7 +594,7 @@ Distilled from real audit findings — each entry cites the commit, PR, or memor
 
 ### URL / localhost handling
 
-- **`<SVC>_LOCALHOST_URL` overrides must be symmetric.** If you read it in a new in-container consumer, Kong's route generator must read the same var too. Otherwise the two paths silently disagree about where the upstream lives.
+- **`<SVC>_LOCALHOST_PORT` is the single source of truth.** Per PR #10 (see [`docs/specs/2026-05-25-localhost-port-override-design.md`](specs/2026-05-25-localhost-port-override-design.md)), localhost variants no longer carry a `<SVC>_LOCALHOST_URL` env var. Declare an integer-valued `<SVC>_LOCALHOST_PORT` instead and let every consumer derive the URL inline: `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}`. The same PORT var must be read by the in-container consumer (`runtime_sc.<svc>.localhost.environment`), the Kong route generator (`bootstrapper/utils/kong_config_generator.py`), and the wizard's inline-input widget (`rows[].localhost_port_var`). Asymmetric reads (e.g. Kong reads PORT but the consumer reads a hard-coded URL) silently let the two paths disagree about where the localhost upstream lives — `memory: feedback_localhost_url_override_symmetry`.
 - **Kong routes fronting browser SPAs need `preserve_host: True`.** Without it the SPA emits unreachable redirect URLs containing the internal Docker hostname.
 
 ### Init-container patterns
@@ -790,8 +791,8 @@ by any operational code. They exist for clarity and future use:
 
 - `images[].notes` — free-form note on what the image is used for. Not read
   by any Python code.
-- `docs:` — pointer to a `services/<name>.md` file. Useful for grep,
-  but no Python imports it.
+- `docs:` — pointer to the service's `services/<name>/README.md`. Useful
+  for grep, but no Python imports it.
 - `exports[]` — declares the env-var contract this service offers to other
   services. The cross-manifest validator (`bootstrapper/services/manifest_validator.py`)
   checks closure (every consumer name resolves) but does NOT check that the

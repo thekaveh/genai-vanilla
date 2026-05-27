@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+#
+# Shared dispatcher used by start.sh, stop.sh, and
+# bootstrapper/generate_supabase_keys.sh.
+#
+# Picks `uv` when available (fast venv resolution, locked deps), falls
+# back to system `python3` otherwise. Usage:
+#
+#   sh bootstrapper/_run.sh <script.py> [args...]
+#
+# The <script.py> path is interpreted relative to this file's directory
+# (i.e. bootstrapper/), so callers can pass plain `start.py`, `stop.py`,
+# or `generate_supabase_keys.py`.
+
+set -e
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <python-script-relative-to-bootstrapper> [args...]" >&2
+    exit 64
+fi
+
+SCRIPT_REL="$1"
+shift
+
+# Resolve the bootstrapper directory (this script's parent).
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+if command -v uv >/dev/null 2>&1; then
+    echo "📦 Using uv for dependency management..."
+    exec uv run --directory "$SELF_DIR" "$SCRIPT_REL" "$@"
+else
+    echo "📦 Using system Python (install uv for better dependency management)..."
+    exec python3 "$SELF_DIR/$SCRIPT_REL" "$@"
+fi

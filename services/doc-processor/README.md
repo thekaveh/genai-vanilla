@@ -61,7 +61,7 @@ DOC_PROCESSOR_SOURCE=disabled
 ## 3. Test the API
 
 ```bash
-curl -X POST http://localhost:63021/v1/document/convert \
+curl -X POST http://localhost:63040/v1/document/convert \
   -F "file=@document.pdf" \
   -F "output_format=markdown" \
   -F "use_ocr=auto" \
@@ -75,7 +75,7 @@ curl -X POST http://localhost:63021/v1/document/convert \
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DOC_PROCESSOR_SOURCE` | Service source (docling-container-gpu, docling-localhost, disabled) | `disabled` |
-| `DOC_PROCESSOR_PORT` | External port (auto-calculated: base_port + 21) | `63021` |
+| `DOC_PROCESSOR_PORT` | External port (container mode) | `63040` |
 | `DOCLING_OUTPUT_FORMAT` | Output format (markdown, html, json, doctags) | `markdown` |
 | `DOCLING_USE_OCR` | OCR mode (auto, always, never) | `auto` |
 | `DOCLING_TABLE_MODE` | Table extraction (accurate, fast) | `accurate` |
@@ -102,7 +102,7 @@ curl -X POST http://localhost:63021/v1/document/convert \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOCLING_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:63021` |
+| `DOCLING_LOCALHOST_PORT` | Local service port. URL is derived as `http://host.docker.internal:${DOCLING_LOCALHOST_PORT}` at compose-render time. | `63021` |
 
 ## 5. API Reference
 
@@ -113,7 +113,7 @@ Convert documents to structured format.
 **Request:**
 
 ```bash
-curl -X POST http://localhost:63021/v1/document/convert \
+curl -X POST http://localhost:63040/v1/document/convert \
   -F "file=@document.pdf" \
   -F "output_format=markdown" \
   -F "use_ocr=auto" \
@@ -169,7 +169,7 @@ Health check endpoint.
 **Request:**
 
 ```bash
-curl http://localhost:63021/health
+curl http://localhost:63040/health
 ```
 
 **Response:**
@@ -189,7 +189,7 @@ List available models and configurations.
 **Request:**
 
 ```bash
-curl http://localhost:63021/v1/models
+curl http://localhost:63040/v1/models
 ```
 
 **Response:**
@@ -314,7 +314,7 @@ The backend service automatically exposes doc processor endpoints if available.
 ### 10.1 Enable Chunking
 
 ```bash
-curl -X POST http://localhost:63021/v1/document/convert \
+curl -X POST http://localhost:63040/v1/document/convert \
   -F "file=@document.pdf" \
   -F "enable_chunking=true" \
   -F "chunk_size=512" \
@@ -338,7 +338,7 @@ import json
 # 1. Convert document with chunking
 with open("document.pdf", "rb") as f:
     response = requests.post(
-        "http://localhost:63021/v1/document/convert",
+        "http://localhost:63040/v1/document/convert",
         files={"file": f},
         data={"enable_chunking": True, "chunk_size": 512}
     )
@@ -360,55 +360,7 @@ context = "\n\n".join([c["text"] for c in relevant_chunks])
 answer = llm_query(f"Context: {context}\n\nQuestion: {query}")
 ```
 
-## 11. Troubleshooting
-
-### 11.1 Model Download Fails
-
-**Problem**: First startup fails to download models
-
-**Solution**:
-1. Check Hugging Face Hub access
-2. Set `HUGGING_FACE_HUB_TOKEN` if needed
-3. Verify disk space (~1GB required)
-
-### 11.2 Slow Processing
-
-**Problem**: Document processing slower than expected
-
-**Solution**:
-- **GPU**: Check CUDA drivers (`nvidia-smi`)
-- **GPU**: Use `table_mode=fast` for faster (less accurate) table extraction
-- **Memory**: Ensure sufficient RAM/VRAM available
-
-### 11.3 OCR Issues
-
-**Problem**: Text not extracted from scanned PDFs
-
-**Solution**:
-- Set `use_ocr=always` to force OCR on all documents
-- Check document quality (low-res images may fail)
-- Verify OCR dependencies are installed
-
-### 11.4 Container Won't Start
-
-**Problem**: docling-gpu fails to start
-
-**Solution**:
-1. Check logs: `docker logs genai-docling-gpu`
-2. Verify SOURCE setting matches your hardware
-3. Ensure Docker has sufficient resources allocated
-4. Check GPU drivers and CUDA version
-
-### 11.5 File Size Errors
-
-**Problem**: "File too large" error
-
-**Solution**:
-- Increase `DOCLING_MAX_FILE_SIZE` in `.env`
-- Split large documents into smaller files
-- Compress images in PDF documents
-
-## 12. Architecture
+## 11. Architecture
 
 ```
 services/docling/provider/
@@ -429,9 +381,9 @@ services/docling/provider/
     └── utils.py           # File handling and chunking
 ```
 
-## 13. Source Modes
+## 12. Source Modes
 
-### 13.1 docling-container-gpu
+### 12.1 docling-container-gpu
 
 Runs Docling in Docker container with NVIDIA GPU acceleration.
 
@@ -444,7 +396,7 @@ Runs Docling in Docker container with NVIDIA GPU acceleration.
 - Isolated environment
 - No local installation needed
 
-### 13.2 docling-localhost
+### 12.2 docling-localhost
 
 Connects to Docling running on host machine.
 
@@ -457,7 +409,7 @@ Connects to Docling running on host machine.
 - Can use native GPU drivers
 - Easier debugging
 
-### 13.3 disabled
+### 12.3 disabled
 
 No document processing service.
 
@@ -465,13 +417,13 @@ No document processing service.
 
 **Impact**: Document upload/conversion features unavailable
 
-## 14. Dependencies
+## 13. Required Services
 
-### 14.1 Required
+### 13.1 Required
 
 - None (Document processor is optional for all services)
 
-### 14.2 Optional (Can Use Doc Processor)
+### 13.2 Optional (Can Use Doc Processor)
 
 - **open-web-ui**: Document upload and processing
 - **n8n**: Document processing workflows
@@ -479,9 +431,9 @@ No document processing service.
 - **jupyterhub**: Notebooks with document processing capabilities
 - **local-deep-researcher**: Research document analysis
 
-## 15. Advanced Features
+## 14. Advanced Features
 
-### 15.1 Table Extraction Modes
+### 14.1 Table Extraction Modes
 
 **Accurate Mode** (default):
 - Uses TableFormer model for precise table extraction
@@ -493,7 +445,7 @@ No document processing service.
 - 10x faster than accurate mode
 - Best for simple tables
 
-### 15.2 OCR Modes
+### 14.2 OCR Modes
 
 **Auto** (default):
 - Only uses OCR when needed (scanned PDFs, images)
@@ -507,7 +459,7 @@ No document processing service.
 - Disables OCR completely
 - Fastest but may miss text in images
 
-### 15.3 Formula Extraction
+### 14.3 Formula Extraction
 
 ```bash
 DOCLING_ENABLE_FORMULAS=true
@@ -515,7 +467,7 @@ DOCLING_ENABLE_FORMULAS=true
 
 Extracts mathematical formulas in LaTeX format.
 
-### 15.4 Code Block Extraction
+### 14.4 Code Block Extraction
 
 ```bash
 DOCLING_ENABLE_CODE_BLOCKS=true
@@ -523,37 +475,35 @@ DOCLING_ENABLE_CODE_BLOCKS=true
 
 Identifies and extracts code blocks with syntax preservation.
 
-## 16. References
+## 15. References
 
 - [IBM Docling Documentation](https://ds4sd.github.io/docling/)
 - [Docling GitHub](https://github.com/DS4SD/docling)
 - [TableFormer Paper](https://arxiv.org/abs/2203.01017)
 - [DocLayNet Dataset](https://github.com/DS4SD/DocLayNet)
 
-## 17. Dependencies & Integrations
+## 16. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/doc-processor/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen doc-processor` after manifest changes.
 
-### 17.1 Current — Upstream (this service calls)
+### 16.1 Current — Upstream (this service calls)
 
 _No upstream calls._
 
-### 17.2 Current — Downstream (services that call this)
+### 16.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
 | kong | infra |
 | n8n | agents |
-| backend | apps |
-| open-webui | apps |
 
-### 17.3 Architecture diagram
+### 16.3 Architecture diagram
 
 ![doc-processor architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 17.4 Future — Missing pair integrations
+### 16.4 Future — Missing pair integrations
 
 - **doc-processor ↔ weaviate** — *Why:* closes the RAG loop — Docling already emits structure-aware chunks; persisting them straight into the stack's vector store removes per-consumer reimplementation. *Mechanism:* post-convert callback writes to `http://weaviate:8080/v1/objects` (upstream ships `rag_weaviate.ipynb` showing the pattern). *Effort:* medium. *Confidence:* high.
 - **doc-processor ↔ minio** — *Why:* convert is slow (1-8s/page) and the same source is frequently re-requested. Caching `(sha256 → DocTags JSON)` in MinIO removes re-processing cost and gives stable S3 URIs that n8n/backend can reference. *Mechanism:* sidecar writes `s3://docling-cache/<sha>.json` via boto3 on convert; subsequent requests short-circuit. *Effort:* medium. *Confidence:* medium.
@@ -561,15 +511,63 @@ _No upstream calls._
 - **doc-processor ↔ hermes** — *Why:* Hermes agents lack a "read this document" tool. Docling-MCP exposes convert/extract directly to MCP-capable runtimes. *Mechanism:* run `docling-mcp` as a streamable-HTTP MCP endpoint registered as a Hermes custom provider. *Effort:* medium. *Confidence:* medium.
 - **doc-processor ↔ redis** — *Why:* response-cache the slow conversions in the stack's already-deployed cache. *Mechanism:* keyed on `sha256(file)+options`, TTL 24h, stored at `redis://redis:6379/2` with compressed JSON. *Effort:* small. *Confidence:* medium.
 
-### 17.5 Future — Candidate new services
+### 16.5 Future — Candidate new services
 
 - **Docling MCP Server** ([details](../../docs/research/candidates/docling-mcp.md)) — *Headline:* first-party MCP wrapper exposing Docling convert/extract tools to agent runtimes. *Wires into:* hermes, openclaw, backend.
 - **Apache Tika** ([details](../../docs/research/candidates/apache-tika.md)) — *Headline:* fallback extractor for legacy/exotic formats Docling doesn't cover (RTF, ODT, EML, MSG, ZIP). *Wires into:* n8n, backend.
 
-### 17.6 Future — Unused features in this service
+### 16.6 Future — Unused features in this service
 
 - **Audio/ASR pipeline** — *Why pursue:* Docling natively parses WAV/MP3/WebVTT to DoclingDocument with timestamps + sections, more structured than raw STT output. *Effort:* medium.
 - **HybridChunker (tokenizer-aware)** — *Why pursue:* replaces naive `chunk_size`/`chunk_overlap` with embedding-model-aware boundaries, materially improving RAG recall. *Effort:* small.
 - **DocTags lossless output** — *Why pursue:* enables round-trip editing and full-fidelity caching; we currently consume only markdown. *Effort:* small.
 - **VLM pipeline (GraniteDocling 258M)** — *Why pursue:* better layout + chart understanding than the default DocLayNet/TableFormer pair, at low VRAM cost. *Effort:* medium.
 - **Structured information extraction (beta)** — *Why pursue:* enables doc → entities/relations without a separate LLM step, feeding the proposed Neo4j integration. *Effort:* large.
+
+## 17. Troubleshooting
+
+### 17.1 Model Download Fails
+
+**Problem**: First startup fails to download models
+
+**Solution**:
+1. Check Hugging Face Hub access
+2. Set `HUGGING_FACE_HUB_TOKEN` if needed
+3. Verify disk space (~1GB required)
+
+### 17.2 Slow Processing
+
+**Problem**: Document processing slower than expected
+
+**Solution**:
+- **GPU**: Check CUDA drivers (`nvidia-smi`)
+- **GPU**: Use `table_mode=fast` for faster (less accurate) table extraction
+- **Memory**: Ensure sufficient RAM/VRAM available
+
+### 17.3 OCR Issues
+
+**Problem**: Text not extracted from scanned PDFs
+
+**Solution**:
+- Set `use_ocr=always` to force OCR on all documents
+- Check document quality (low-res images may fail)
+- Verify OCR dependencies are installed
+
+### 17.4 Container Won't Start
+
+**Problem**: docling-gpu fails to start
+
+**Solution**:
+1. Check logs: `docker logs genai-docling-gpu`
+2. Verify SOURCE setting matches your hardware
+3. Ensure Docker has sufficient resources allocated
+4. Check GPU drivers and CUDA version
+
+### 17.5 File Size Errors
+
+**Problem**: "File too large" error
+
+**Solution**:
+- Increase `DOCLING_MAX_FILE_SIZE` in `.env`
+- Split large documents into smaller files
+- Compress images in PDF documents

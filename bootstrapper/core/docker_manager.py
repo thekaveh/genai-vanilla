@@ -5,6 +5,7 @@ Python implementation of Docker functions from start.sh and stop.sh.
 """
 
 import os
+import re
 import signal
 import subprocess
 from typing import Callable, List, Optional
@@ -241,17 +242,17 @@ class DockerManager:
     def remove_project_networks(self, project_name: str) -> bool:
         """
         Remove project-specific Docker networks.
-        
+
         Args:
             project_name: Name of the project
-            
+
         Returns:
             bool: True if successful or network doesn't exist
         """
         network_name = f"{project_name}-network"
-        
+
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ['docker', 'network', 'rm', network_name],
                 capture_output=True,
                 check=False
@@ -477,7 +478,6 @@ class DockerManager:
             
             if result.returncode == 0 and result.stdout.strip():
                 # Extract port number from output like "0.0.0.0:63000"
-                import re
                 match = re.search(r':(\d+)$', result.stdout.strip())
                 if match:
                     return match.group(1)

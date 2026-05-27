@@ -257,7 +257,7 @@ class ServiceConfig:
         # MINIO_CONSOLE_PORT), NOT the S3 API.
         console_template = config.get('environment', {}).get('MINIO_PUBLIC_CONSOLE_ENDPOINT', '')
         if console_template:
-            console_port = current_env.get('MINIO_CONSOLE_PORT', '63031')
+            console_port = current_env.get('MINIO_CONSOLE_PORT', '63018')
             env_vars['MINIO_PUBLIC_CONSOLE_ENDPOINT'] = console_template.replace('${MINIO_CONSOLE_PORT}', console_port)
         else:
             env_vars['MINIO_PUBLIC_CONSOLE_ENDPOINT'] = ''
@@ -744,7 +744,7 @@ class ServiceConfig:
 
         return env_vars
     
-    def _generate_adaptive_services_config(self, all_env_vars: Dict[str, str] = None) -> Dict[str, str]:
+    def _generate_adaptive_services_config(self, all_env_vars: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Generate configuration for adaptive services."""
         env_vars = {}
         sources = self.config_parser.parse_service_sources()

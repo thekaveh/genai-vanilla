@@ -32,9 +32,22 @@ while ! curl -s --fail "$N8N_API_URL/" > /dev/null 2>&1; do
 done
 echo "n8n-init: n8n API is ready."
 
-# Additional wait to ensure n8n is fully initialized
-echo "n8n-init: Allowing additional time for n8n full initialization..."
-sleep 15
+# Wait for the community-packages REST endpoint to come online. n8n's
+# root / responds before the REST router is wired up, so a blanket
+# `sleep 15` was previously used as a crude readiness gate. Polling the
+# actual endpoint we depend on tightens the loop and removes the
+# unconditional 15s startup tax on warm restarts.
+echo "n8n-init: Waiting for n8n community-packages endpoint to be ready..."
+pkg_timeout=120
+pkg_elapsed=0
+while ! curl -s --fail "$N8N_API_URL/rest/community-packages" -H "Content-Type: application/json" >/dev/null 2>&1; do
+  if [ $pkg_elapsed -ge $pkg_timeout ]; then
+    echo "n8n-init: WARNING - /rest/community-packages still not ready after ${pkg_timeout}s; proceeding anyway."
+    break
+  fi
+  sleep 2
+  pkg_elapsed=$((pkg_elapsed + 2))
+done
 
 # Get nodes to install from environment variable or config file
 if [ -n "$N8N_INIT_NODES" ]; then
@@ -64,35 +77,39 @@ echo "$NODES_TO_INSTALL"
 success_count=0
 failure_count=0
 
-echo "$NODES_TO_INSTALL" | while IFS= read -r node_name; do
+# NOTE: do NOT pipe into the while loop. POSIX shells run the right-hand
+# side of a pipeline in a subshell, so success_count / failure_count
+# increments inside the loop body would be lost on exit. A here-doc
+# (`done <<EOF ... EOF`) keeps the loop in the current shell.
+while IFS= read -r node_name; do
   # Skip empty lines
   node_clean=$(echo "$node_name" | xargs)
   if [ -z "$node_clean" ]; then
     continue
   fi
-  
+
   echo "n8n-init: Installing node: $node_clean"
-  
+
   # Try to install the node via n8n REST API
   # First, check if the node is already installed
   installed_check=$(curl -s -X GET "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" 2>/dev/null || echo "[]")
-  
+
   # Check if node is already installed
   if echo "$installed_check" | jq -e --arg name "$node_clean" '.[] | select(.packageName == $name)' > /dev/null 2>&1; then
     echo "n8n-init: Node $node_clean is already installed, skipping."
     success_count=$((success_count + 1))
     continue
   fi
-  
+
   # Install the node
   install_response=$(curl -s -X POST "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" \
     -d "{\"name\": \"$node_clean\"}" \
     2>&1)
-  
+
   curl_exit_code=$?
-  
+
   if [ $curl_exit_code -eq 0 ]; then
     # Check if response contains error
     if echo "$install_response" | jq -e '.error' > /dev/null 2>&1; then
@@ -108,10 +125,12 @@ echo "$NODES_TO_INSTALL" | while IFS= read -r node_name; do
     echo "n8n-init: Response: $install_response"
     failure_count=$((failure_count + 1))
   fi
-  
+
   # Small delay between installations
   sleep 2
-done
+done <<EOF
+$NODES_TO_INSTALL
+EOF
 
 echo "n8n-init: Installation summary:"
 echo "n8n-init: - Successful installations: $success_count"

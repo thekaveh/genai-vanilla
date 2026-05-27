@@ -58,7 +58,6 @@ _No upstream calls._
 
 | Service | Category |
 |---|---|
-| hermes | agents |
 | backend | apps |
 | jupyterhub | apps |
 

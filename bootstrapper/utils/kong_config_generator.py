@@ -729,7 +729,7 @@ class KongConfigGenerator:
 
         Routes ``minio.localhost:${KONG_HTTP_PORT}`` to the MinIO admin
         console on internal port 9001 (host port ``MINIO_CONSOLE_PORT``,
-        default 63031). The S3 API at port 9000 is deliberately NOT
+        default 63018). The S3 API at port 9000 is deliberately NOT
         aliased — S3 clients use full URLs with explicit ports anyway
         and don't benefit from a friendly hostname.
 

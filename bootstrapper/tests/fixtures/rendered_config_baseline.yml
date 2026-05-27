@@ -1262,10 +1262,6 @@ services:
     - --requirepass
     - redis_password
     container_name: genai-redis
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
     healthcheck:
       interval: 30s
       retries: 3
@@ -1296,9 +1292,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-        required: true
-      supabase-db-init:
-        condition: service_completed_successfully
         required: true
     deploy:
       replicas: 1

@@ -111,14 +111,6 @@ class GenAIStackStarter:
         """Display the startup banner."""
         self.banner.show_banner()
 
-    # Note: a hand-written ``show_usage()`` used to live here. Removed
-    # because Click's auto-generated ``--help`` already lists every flag
-    # (defined just above ``def main(...)`` below); maintaining a second
-    # text was a steady source of drift — it lagged the cloud-provider
-    # and live-model flags, and listed an obsolete ``api`` value for
-    # ``--llm-provider-source`` that no longer exists. Click ``--help``
-    # is now the single source of truth.
-
     def ensure_dependencies_available(self) -> bool:
         """Ensure all required dependencies are available."""
         self.banner.show_section_header("Checking Dependencies", "🔍")
@@ -988,16 +980,13 @@ class GenAIStackStarter:
     def generate_encryption_keys(self, cold_start: bool = False) -> bool:
         """
         Generate missing encryption keys for services.
-        
-        BEHAVIORAL DIFFERENCE FROM ORIGINAL BASH:
-        - Original: Only generates N8N_ENCRYPTION_KEY on cold start, SearxNG secret only if missing
-        - Python: Always generates missing keys, regenerates ALL keys on cold start
-        
-        This is an IMPROVEMENT as it ensures all required keys are always present.
-        
+
+        Always generates missing keys; regenerates ALL keys on cold start
+        (``cold_start=True``).
+
         Args:
             cold_start: If True, regenerate all keys. If False, only generate missing ones.
-            
+
         Returns:
             bool: True if successful
         """
@@ -1154,7 +1143,7 @@ class GenAIStackStarter:
 
         env_vars = self.config_parser.parse_env_file()
         service_sources = self.config_parser.parse_service_sources()
-        kong_port = env_vars.get('KONG_HTTP_PORT', '63002')
+        kong_port = env_vars.get('KONG_HTTP_PORT', '63000')
 
         # Check if hosts entries are configured (yields the set of hostnames
         # that are PRESENT in /etc/hosts).

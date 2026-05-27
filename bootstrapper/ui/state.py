@@ -62,4 +62,4 @@ class AppState:
     # since they're API credentials routed through LiteLLM, not containers.
     cloud_apis: List[CloudApiEntry] = field(default_factory=list)
 
-    kong_port: str = "63002"
+    kong_port: str = "63000"

@@ -6,13 +6,11 @@
 
 | Service | Category |
 |---|---|
-| ray | infra |
 | litellm ↔ | llm |
 | comfyui | media |
 | searxng | media |
 | stt-provider | media |
 | tts-provider | media |
-| backend ↔ | apps |
 
 ### 5.2 Current — Downstream (services that call this)
 
@@ -22,9 +20,7 @@
 | litellm ↔ | llm |
 | n8n | agents |
 | openclaw | agents |
-| backend ↔ | apps |
 | jupyterhub | apps |
-| open-webui | apps |
 
 ### 5.3 Architecture diagram
 
