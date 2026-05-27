@@ -32,9 +32,22 @@ while ! curl -s --fail "$N8N_API_URL/" > /dev/null 2>&1; do
 done
 echo "n8n-init: n8n API is ready."
 
-# Additional wait to ensure n8n is fully initialized
-echo "n8n-init: Allowing additional time for n8n full initialization..."
-sleep 15
+# Wait for the community-packages REST endpoint to come online. n8n's
+# root / responds before the REST router is wired up, so a blanket
+# `sleep 15` was previously used as a crude readiness gate. Polling the
+# actual endpoint we depend on tightens the loop and removes the
+# unconditional 15s startup tax on warm restarts.
+echo "n8n-init: Waiting for n8n community-packages endpoint to be ready..."
+pkg_timeout=120
+pkg_elapsed=0
+while ! curl -s --fail "$N8N_API_URL/rest/community-packages" -H "Content-Type: application/json" >/dev/null 2>&1; do
+  if [ $pkg_elapsed -ge $pkg_timeout ]; then
+    echo "n8n-init: WARNING - /rest/community-packages still not ready after ${pkg_timeout}s; proceeding anyway."
+    break
+  fi
+  sleep 2
+  pkg_elapsed=$((pkg_elapsed + 2))
+done
 
 # Get nodes to install from environment variable or config file
 if [ -n "$N8N_INIT_NODES" ]; then

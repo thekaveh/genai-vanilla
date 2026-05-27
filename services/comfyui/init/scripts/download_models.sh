@@ -149,16 +149,23 @@ else
       # Download with progress indication and resume capability
       if wget --progress=bar:force:noscroll -c -O "$target_file" "$download_url"; then
         echo "comfyui-init: Successfully downloaded $filename"
-        
-        # Verify file size if we have the expected size
+
+        # Verify file size if we have the expected size. The size math
+        # uses `bc` (added via apk above); when running on a base image
+        # without it, skip the check loudly instead of silently
+        # swallowing the failure via `2>/dev/null || echo "0"`.
         if [ -n "$file_size_gb" ] && [ "$file_size_gb" != "null" ]; then
-          actual_size=$(stat -c%s "$target_file" 2>/dev/null || echo "0")
-          expected_size=$(echo "$file_size_gb * 1024 * 1024 * 1024" | bc 2>/dev/null || echo "0")
-          
-          if [ "$actual_size" -gt 0 ] && [ "$expected_size" -gt 0 ]; then
-            size_diff=$(echo "scale=2; ($actual_size - $expected_size) / $expected_size * 100" | bc 2>/dev/null || echo "0")
-            if [ "${size_diff%.*}" -gt 10 ] || [ "${size_diff%.*}" -lt -10 ]; then
-              echo "comfyui-init: Warning: Downloaded file size ($actual_size bytes) differs significantly from expected size ($expected_size bytes)"
+          if ! command -v bc >/dev/null 2>&1; then
+            echo "comfyui-init: Notice - bc not found in PATH; skipping size verification for $filename."
+          else
+            actual_size=$(stat -c%s "$target_file" 2>/dev/null || echo "0")
+            expected_size=$(echo "$file_size_gb * 1024 * 1024 * 1024" | bc)
+
+            if [ "$actual_size" -gt 0 ] && [ "$expected_size" -gt 0 ]; then
+              size_diff=$(echo "scale=2; ($actual_size - $expected_size) / $expected_size * 100" | bc)
+              if [ "${size_diff%.*}" -gt 10 ] || [ "${size_diff%.*}" -lt -10 ]; then
+                echo "comfyui-init: Warning: Downloaded file size ($actual_size bytes) differs significantly from expected size ($expected_size bytes)"
+              fi
             fi
           fi
         fi
