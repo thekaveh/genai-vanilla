@@ -21,6 +21,22 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 
 ## [Unreleased]
 
+### Added — Ray distributed-compute cluster
+
+- New `services/ray/` family with head + worker containers, dashboard at `ray.localhost`, RAY_SOURCE source-variant pattern.
+- Wizard wires Ray worker count inline via the SecondaryNumberInput widget on the source step.
+- Backend `/api/ray/*` endpoints (submit/status/stop/cluster-status) gated on RAY_ADDRESS — return 503 when Ray is disabled.
+- JupyterHub picks up `ray[client]` dep + seeded `07_ray_cluster.ipynb` notebook.
+- Hermes Agent + Backend agents can dispatch compute jobs to the cluster (future integration; Ray exposes only via Backend REST today).
+
+### Changed — Localhost port override (URL → PORT migration)
+
+- Replaced the 7 per-service `<SVC>_LOCALHOST_URL` env vars with `<SVC>_LOCALHOST_PORT` integer vars; the URL is derived at compose-render time as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}`.
+- 3 newly-overridable services (Ollama, Neo4j HTTP + Bolt, Weaviate) gain dedicated LOCALHOST_PORT env vars.
+- Wizard adds an inline integer textbox per localhost source row using the SecondaryNumberInput widget; the override propagates symmetrically through `.env`, runtime_sc, Kong routes, and the wizard's service-table.
+- New migration `bootstrapper/services/migrations/migration_v2.py` rewrites users' existing `.env` files (gated by `BOOTSTRAPPER_PORT_LAYOUT_VERSION` 1→2).
+- Pre-launch summary surfaces port collisions as warnings (warn-don't-block).
+
 > **Path-reference note:** entries written before the per-service
 > configuration-modularization change below reference top-level directory
 > names (`hermes-init/`, `litellm-init/`, `llm-catalog-init/`,
