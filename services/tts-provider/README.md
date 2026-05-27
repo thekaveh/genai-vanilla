@@ -90,7 +90,7 @@ for the full Chatterbox-on-host walkthrough.
 | `SPEACHES_SCALE` | (auto) | 1 when speaches is active. |
 | `CHATTERBOX_IMAGE` | `travisvn/chatterbox-tts-api:gpu` | GPU build tag. No version-locked GPU tag yet — pin to a digest for production. |
 | `CHATTERBOX_PORT` | `63045` | Chatterbox container external port. |
-| `CHATTERBOX_LOCALHOST_PORT` | `63027` | Port the stack reaches your host's chatterbox-tts-api on (matches CHATTERBOX_PORT for symmetry). URL is derived as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT}` at compose-render time. |
+| `CHATTERBOX_LOCALHOST_PORT` | `63027` | Port the stack reaches your host's chatterbox-tts-api on — independent of the container `CHATTERBOX_PORT` (63045); the two were briefly aliased while the localhost-port-override feature shipped, but their slot allocator outputs now differ. URL is derived as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT}` at compose-render time. |
 | `SPEACHES_PRELOAD_MODELS` | (derived from SPEACHES_TTS_MODEL+SPEACHES_STT_MODEL) | Comma-separated list of HF model IDs Speaches downloads at startup. Skips the first-request cold-start. |
 
 ## 5. OpenAI-compatible API
