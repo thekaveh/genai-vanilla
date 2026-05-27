@@ -22,7 +22,7 @@ done
 echo "ollama-pull: Ollama API is available."
 
 echo "ollama-pull: Fetching active Ollama models from database $PGDATABASE on $PGHOST..."
-psql_output=$(PGPASSWORD=$PGPASSWORD psql -h $PGHOST -p $PGPORT -d $PGDATABASE -U $PGUSER -t -c "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true;")
+psql_output=$(PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -t -c "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true;")
 
 if [ -z "$psql_output" ]; then
   echo "ollama-pull: No active Ollama models found in database."
