@@ -150,7 +150,7 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 - **`bootstrapper/services/env_assembler.py`** — pure-function .env.example assembler from manifests (library-only).
 - **`bootstrapper/tools/validate_fragments.py`** — `python -m tools.validate_fragments` CLI entry.
 - **`bootstrapper/tests/`** — 110+ tests: loader, cross-manifest validator, env assembler, validate_fragments CLI, fragment-equivalence (byte-equiv vs golden baseline), source-permutation matrix, env-example consistency (manifest ↔ .env.example parity), backfill interplay (manifest change → backfill → user .env propagation).
-- **`.github/workflows/services-lint.yml`** — two CI jobs: `lint` (unit tests + validator + audit scripts) and `compose-equivalence` (rendered byte-equiv + source-permutation matrix).
+- **`.github/workflows/services-lint.yml`** — three CI jobs: `lint` (manifest validator + unit tests), `compose-equivalence` (rendered byte-equiv + source-permutation matrix), and `audit-scripts` (docs drift + doc-links + compose-source-deps + Kong routes + research-schema).
 - **`docs/scripts/check-compose-source-deps.py`** updated to render compose via `docker compose config` so it sees the merged shape rather than only the thin include shell.
 
 ### Added (Hermes Agent — auto-pick default model, embedded Chat tab, dual Ollama aliases in LiteLLM)
