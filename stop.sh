@@ -9,12 +9,4 @@
 # Change to the script directory
 cd "$(dirname "$0")"
 
-# Check if uv is available and use it for better dependency management
-if command -v uv >/dev/null 2>&1; then
-    echo "📦 Using uv for dependency management..."
-    exec uv run --directory bootstrapper stop.py "$@"
-else
-    # Fallback to system Python
-    echo "📦 Using system Python (install uv for better dependency management)..."
-    exec python3 bootstrapper/stop.py "$@"
-fi
+exec sh bootstrapper/_run.sh stop.py "$@"
