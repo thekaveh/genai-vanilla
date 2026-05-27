@@ -92,39 +92,7 @@ _No upstream calls._
 - **`maxmemory` + eviction policy** — *Why pursue:* cache use-cases (embedding cache, doc cache) need `allkeys-lru`; currently unbounded. *Effort:* small.
 - **RDB snapshots alongside AOF** — *Why pursue:* faster cold-start restore; current `--appendonly yes` is durable but slow to replay on large datasets. *Effort:* small.
 
-## 6. Operations
-
-**Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `langmem:` (backend memory locks), `kong:` (rate-limit counters). Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
-
-**Watch traffic live.** `redis-cli MONITOR` dumps every command server-side. Useful when verifying a new consumer is connecting to the right db index. Verbose — turn off as soon as you're done.
-
-**Force AOF rewrite.** `BGREWRITEAOF`. After heavy churn the AOF grows non-linearly; a rewrite compacts it. Safe to run any time.
-
-**Cold-start vs warm-start.** `./stop.sh` (no flags) preserves the AOF and Redis replays it on next boot — n8n queue + sessions survive. `./stop.sh --cold` deletes the volume entirely.
-
-**Capacity rule of thumb.** With AOF and no `maxmemory`, the container OOMs at the Docker memory limit. The stack default is whatever Docker Desktop allocates (~2 GB). For production deployments, set `maxmemory` explicitly to ~75% of the container's memory budget and pick an eviction policy per workload.
-
-## 7. Tuning
-
-Stack-relevant knobs that aren't currently exposed via `.env`:
-
-| Knob | Default | Recommended for stack |
-|---|---|---|
-| `maxmemory` | unbounded | 75% of container memory budget |
-| `maxmemory-policy` | `noeviction` | `allkeys-lru` for cache workloads; keep `noeviction` only if AOF durability matters more than uptime |
-| `appendfsync` | `everysec` | leave as-is; `always` is overkill, `no` loses queue state on crash |
-| `save` (RDB) | disabled | enable for faster cold-start replay |
-
-To change these today, edit the `command:` line in `services/redis/compose.yml`. Adding them to `service.yml` as proper env vars is a small future change.
-
-## 8. Security
-
-- **Shared password.** Every consumer uses the same `REDIS_PASSWORD`. A compromised n8n container can read Kong's rate-limit cache, LiteLLM's budget counters, and backend sessions. Redis 7 ACLs would fix this — see Future — Unused features.
-- **No TLS in-cluster.** Traffic on `backend-network` is unencrypted. Acceptable for the single-host stack; not for multi-host deployments. Wrap with `stunnel` or upgrade to a Redis variant with native TLS if you cross trust boundaries.
-- **Host port exposed.** `REDIS_PORT` (default 63021) is published on the host. With the default password this is a soft target if anyone has LAN access. Either rotate `REDIS_PASSWORD` aggressively or remove the host-port publish from `services/redis/compose.yml` and use `docker exec` for debugging.
-- **AOF includes commands, not just data.** `appendonly.aof` is a literal command log; anyone with read access to the volume can reconstruct every key. Treat the volume as confidential.
-
-## 9. Troubleshooting
+## 6. Troubleshooting
 
 **`NOAUTH Authentication required`.** Consumer's `REDIS_URL` is missing the password segment. Inspect with `docker exec <project>-backend env | grep REDIS_URL`. Expected shape: `redis://:${REDIS_PASSWORD}@redis:6379/<db>` — note the leading colon before the password (no username).
 
@@ -141,6 +109,38 @@ docker exec <project>-redis redis-cli -a "$REDIS_PASSWORD" INFO server
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).
+
+## 7. Operations
+
+**Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `langmem:` (backend memory locks), `kong:` (rate-limit counters). Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
+
+**Watch traffic live.** `redis-cli MONITOR` dumps every command server-side. Useful when verifying a new consumer is connecting to the right db index. Verbose — turn off as soon as you're done.
+
+**Force AOF rewrite.** `BGREWRITEAOF`. After heavy churn the AOF grows non-linearly; a rewrite compacts it. Safe to run any time.
+
+**Cold-start vs warm-start.** `./stop.sh` (no flags) preserves the AOF and Redis replays it on next boot — n8n queue + sessions survive. `./stop.sh --cold` deletes the volume entirely.
+
+**Capacity rule of thumb.** With AOF and no `maxmemory`, the container OOMs at the Docker memory limit. The stack default is whatever Docker Desktop allocates (~2 GB). For production deployments, set `maxmemory` explicitly to ~75% of the container's memory budget and pick an eviction policy per workload.
+
+## 8. Tuning
+
+Stack-relevant knobs that aren't currently exposed via `.env`:
+
+| Knob | Default | Recommended for stack |
+|---|---|---|
+| `maxmemory` | unbounded | 75% of container memory budget |
+| `maxmemory-policy` | `noeviction` | `allkeys-lru` for cache workloads; keep `noeviction` only if AOF durability matters more than uptime |
+| `appendfsync` | `everysec` | leave as-is; `always` is overkill, `no` loses queue state on crash |
+| `save` (RDB) | disabled | enable for faster cold-start replay |
+
+To change these today, edit the `command:` line in `services/redis/compose.yml`. Adding them to `service.yml` as proper env vars is a small future change.
+
+## 9. Security
+
+- **Shared password.** Every consumer uses the same `REDIS_PASSWORD`. A compromised n8n container can read Kong's rate-limit cache, LiteLLM's budget counters, and backend sessions. Redis 7 ACLs would fix this — see Future — Unused features.
+- **No TLS in-cluster.** Traffic on `backend-network` is unencrypted. Acceptable for the single-host stack; not for multi-host deployments. Wrap with `stunnel` or upgrade to a Redis variant with native TLS if you cross trust boundaries.
+- **Host port exposed.** `REDIS_PORT` (default 63021) is published on the host. With the default password this is a soft target if anyone has LAN access. Either rotate `REDIS_PASSWORD` aggressively or remove the host-port publish from `services/redis/compose.yml` and use `docker exec` for debugging.
+- **AOF includes commands, not just data.** `appendonly.aof` is a literal command log; anyone with read access to the volume can reconstruct every key. Treat the volume as confidential.
 
 ## 10. Further reading
 

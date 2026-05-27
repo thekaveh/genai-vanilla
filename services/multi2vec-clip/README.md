@@ -110,7 +110,25 @@ _No downstream consumers._
 - **`/meta` health surfacing** — *Why pursue:* container exposes `/meta` with model config; not scraped or shown in the wizard's service-table health column. *Effort:* small.
 - **`trust_remote_code` for custom CLIP variants** — *Why pursue:* enables loading community models (Qwen3-VL, ColPali) already supported by the upstream loader. *Effort:* medium (security review needed).
 
-## 6. Operations
+## 6. Troubleshooting
+
+**Container OOMs on CPU.** ViT-B-32 needs ~1.5 GB RSS at idle, more under load. Docker Desktop's default 2 GB host limit will kill it. Raise the Docker memory budget or switch to `container-gpu` if a GPU is available.
+
+**Weaviate ingest fails with `connection refused to multi2vec-clip:8080`.** Either `MULTI2VEC_CLIP_SOURCE=disabled` or the container is unhealthy. `docker compose ps multi2vec-clip` and `curl http://localhost:<host-port-if-published>/meta` from the host (note: no host port by default — `docker exec` into Weaviate and curl from there).
+
+**Embeddings look random / clustering broken.** Confirm `/meta` returns the expected model name. A stale image cache after a model change can pin you to the old checkpoint. `docker compose pull multi2vec-clip && docker compose up -d --force-recreate multi2vec-clip`.
+
+**Module not available in Weaviate.** `WEAVIATE_ENABLE_MODULES` must list `multi2vec-clip`. Check `docker exec <project>-weaviate env | grep ENABLE_MODULES`.
+
+```bash
+docker compose ps multi2vec-clip
+docker compose logs -f multi2vec-clip
+docker exec <project>-weaviate curl -s http://multi2vec-clip:8080/meta | jq .
+```
+
+For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).
+
+## 7. Operations
 
 **Smoke-test from a sibling container.**
 
@@ -132,27 +150,9 @@ Output vectors are 512-d for ViT-B/32. Cosine similarity between a text vector a
 
 **Restart without rebuilding.** Stateless — `docker compose restart multi2vec-clip` is safe. The model file is in the image; container restart re-mmaps the same weights from disk in <5s.
 
-## 7. Performance notes
+## 8. Performance notes
 
 - **CPU latency.** ~50-150ms per `/vectorize` call on a modern x86 core for a single text or single image; throughput scales near-linearly with parallel HTTP calls until you hit CPU saturation.
 - **GPU latency.** The GPU variant is ~5-10× faster but the round-trip cost dominates for single-image calls; batch images (`images: [b64_1, b64_2, …]`) to amortize.
 - **Batching window.** The container processes one HTTP request at a time. Concurrent calls queue inside `uvicorn`; for high throughput, run multiple replicas (one per GPU/CPU).
 - **Vector dimensionality is fixed by the model.** ViT-B/32 → 512. Other models (SigLIP 2 → 768, larger CLIPs → 768/1024) require updating Weaviate's collection schema to match.
-
-## 8. Troubleshooting
-
-**Container OOMs on CPU.** ViT-B-32 needs ~1.5 GB RSS at idle, more under load. Docker Desktop's default 2 GB host limit will kill it. Raise the Docker memory budget or switch to `container-gpu` if a GPU is available.
-
-**Weaviate ingest fails with `connection refused to multi2vec-clip:8080`.** Either `MULTI2VEC_CLIP_SOURCE=disabled` or the container is unhealthy. `docker compose ps multi2vec-clip` and `curl http://localhost:<host-port-if-published>/meta` from the host (note: no host port by default — `docker exec` into Weaviate and curl from there).
-
-**Embeddings look random / clustering broken.** Confirm `/meta` returns the expected model name. A stale image cache after a model change can pin you to the old checkpoint. `docker compose pull multi2vec-clip && docker compose up -d --force-recreate multi2vec-clip`.
-
-**Module not available in Weaviate.** `WEAVIATE_ENABLE_MODULES` must list `multi2vec-clip`. Check `docker exec <project>-weaviate env | grep ENABLE_MODULES`.
-
-```bash
-docker compose ps multi2vec-clip
-docker compose logs -f multi2vec-clip
-docker exec <project>-weaviate curl -s http://multi2vec-clip:8080/meta | jq .
-```
-
-For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).

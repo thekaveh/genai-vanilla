@@ -209,24 +209,15 @@ docker logs genai-supabase-api -f
 docker logs genai-supabase-studio -f
 ```
 
-## 8. Troubleshooting
-
-**Database connection issues**: Verify SUPABASE_DB_USER is set to `supabase_admin`
-**Auth service errors**: Check JWT secret consistency across services
-**Studio access issues**: Verify dashboard credentials in .env file
-**Initialization failures**: Check supabase-db-init logs for SQL script errors
-
-For more troubleshooting help, see [../quick-start/troubleshooting.md](../../docs/quick-start/troubleshooting.md).
-
-## 9. Dependencies & Integrations
+## 8. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/supabase/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen supabase` after manifest changes.
 
-### 9.1 Current — Upstream (this service calls)
+### 8.1 Current — Upstream (this service calls)
 
 _No upstream calls._
 
-### 9.2 Current — Downstream (services that call this)
+### 8.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
@@ -238,13 +229,13 @@ _No upstream calls._
 | backend | apps |
 | jupyterhub | apps |
 
-### 9.3 Architecture diagram
+### 8.3 Architecture diagram
 
 ![supabase architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 9.4 Future — Missing pair integrations
+### 8.4 Future — Missing pair integrations
 
 - **supabase ↔ hermes** — *Why:* Hermes persists agent state to a `hermes-data` volume only (the manifest header says "no Postgres/Redis dependency"). Backing sessions, skills, and tool-call history with Postgres gives durable cross-restart memory, multi-replica safety, and stack-wide queryability. *Mechanism:* `postgresql://supabase_admin@supabase-db:5432/postgres` with a dedicated `hermes` schema; `hermes-init` creates tables with `IF NOT EXISTS`. *Effort:* medium. *Confidence:* medium.
 - **supabase ↔ doc-processor** — *Why:* docling extracts structured chunks that today flow only into Weaviate as vectors. Persisting raw chunk text + source metadata in Postgres gives RLS-scoped tenant isolation, exact-match search, and a source-of-truth row Weaviate can be rebuilt from. *Mechanism:* docling writes via PostgREST at `http://supabase-api:3000/rest/v1/doc_chunks` using `SUPABASE_SERVICE_KEY`; embeddings still go to Weaviate. *Effort:* medium. *Confidence:* medium.
@@ -252,13 +243,13 @@ _No upstream calls._
 - **supabase ↔ tts-provider** — *Why:* generated audio is ephemeral. Storing TTS output in `supabase-storage` keyed by `(user_id, text_hash, voice)` gives a free cache (skip re-synth on identical inputs) and a per-user history pane. *Mechanism:* `PUT http://supabase-storage:5000/object/tts/<user>/<hash>.wav` with `SUPABASE_SERVICE_KEY`; metadata row via PostgREST. *Effort:* small. *Confidence:* high.
 - **supabase ↔ stt-provider** — *Why:* parakeet/speaches transcripts vanish after the response. Writing them to a `transcripts` table with the caller's JWT `sub` enables history search, RAG-over-meetings, and per-user RLS isolation. *Mechanism:* stt-provider POSTs to PostgREST `/rest/v1/transcripts` with the forwarded `Authorization: Bearer <jwt>` header so RLS picks up the user. *Effort:* small. *Confidence:* medium.
 
-### 9.5 Future — Candidate new services
+### 8.5 Future — Candidate new services
 
 - **Supabase Edge Functions (Deno)** ([details](../../docs/research/candidates/supabase-edge-functions.md)) — *Headline:* self-hosted Deno serverless layer that lets Postgres triggers and Kong routes invoke short TypeScript handlers without standing up n8n. *Wires into:* litellm, n8n, supabase-storage, kong.
 - **Supavisor** ([details](../../docs/research/candidates/supavisor.md)) — *Headline:* Supabase's own Postgres connection pooler — protects `supabase-db` from the 10+ stack services that each open their own pool. *Wires into:* backend, n8n, litellm, jupyterhub, local-deep-researcher.
 - **imgproxy** ([details](../../docs/research/candidates/imgproxy.md)) — *Headline:* on-the-fly image transform/resize sidecar that Supabase Storage's `IMGPROXY_URL` is purpose-built to talk to. *Wires into:* supabase-storage, minio, comfyui, open-webui, backend.
 
-### 9.6 Future — Unused features in this service
+### 8.6 Future — Unused features in this service
 
 - **`pg_cron` + `pg_net` extensions** — *Why pursue:* enables scheduled jobs and outbound HTTP from inside Postgres (database webhooks to Hermes/n8n/Edge Functions); `01-extensions.sql` currently enables only `vector`/`postgis`/`pgcrypto`. *Effort:* small.
 - **Database Webhooks** — *Why pursue:* lets row-level changes trigger LiteLLM calls or n8n flows without a polling worker; depends on `pg_net`. *Effort:* small.
@@ -267,3 +258,12 @@ _No upstream calls._
 - **`pg_graphql` endpoint** — *Why pursue:* README mentions "GraphQL endpoint available" but Kong has no route and no consumer; would give n8n/backend a typed schema. *Effort:* small.
 - **Realtime broadcast + presence channels** — *Why pursue:* `supabase-realtime` runs but nothing subscribes; broadcast channels would let backend push job-status updates to open-webui without polling. *Effort:* medium.
 - **Storage image transformation** — *Why pursue:* prerequisite for the imgproxy candidate; lights up resize URLs once `IMGPROXY_URL` is set. *Effort:* small.
+
+## 9. Troubleshooting
+
+**Database connection issues**: Verify SUPABASE_DB_USER is set to `supabase_admin`
+**Auth service errors**: Check JWT secret consistency across services
+**Studio access issues**: Verify dashboard credentials in .env file
+**Initialization failures**: Check supabase-db-init logs for SQL script errors
+
+For more troubleshooting help, see [../quick-start/troubleshooting.md](../../docs/quick-start/troubleshooting.md).

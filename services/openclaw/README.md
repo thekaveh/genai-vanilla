@@ -238,9 +238,63 @@ No OpenClaw agent (default).
 - **Anthropic direct** (override): `OPENCLAW_ANTHROPIC_API_KEY`
 - **OpenAI direct** (override): `OPENCLAW_OPENAI_API_KEY`
 
-## 11. Troubleshooting
+## 11. References
 
-### 11.1 Permission Denied on Startup
+- [OpenClaw Documentation](https://docs.openclaw.ai/)
+- [OpenClaw Docker Guide](https://docs.openclaw.ai/install/docker)
+- [LiteLLM Gateway](../litellm/README.md) — the OpenAI-compatible front door OpenClaw points at by default
+- [Hermes Agent](../hermes/README.md) — the programmable agent runtime OpenClaw bridges to messaging channels
+- [OpenClaw GitHub Repository](https://github.com/openclaw/openclaw)
+
+## 12. Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/openclaw/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen openclaw` after manifest changes.
+
+### 12.1 Current — Upstream (this service calls)
+
+| Service | Category |
+|---|---|
+| litellm | llm |
+| hermes | agents |
+| n8n | agents |
+
+### 12.2 Current — Downstream (services that call this)
+
+| Service | Category |
+|---|---|
+| kong | infra |
+
+### 12.3 Architecture diagram
+
+![openclaw architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### 12.4 Future — Missing pair integrations
+
+- **openclaw ↔ hermes** — *Why:* OpenClaw is positioned as a channel adapter (40+ messaging surfaces); Hermes is the programmable agent runtime already in the stack. The compose file already passes `HERMES_ENDPOINT`/`HERMES_API_KEY` — only the bridge wiring is missing. *Mechanism:* OpenClaw skill or webhook plugin forwarding inbound messages to `http://hermes:8000/v1/chat/completions`; replies posted back via OpenClaw's `send` RPC. *Effort:* medium. *Confidence:* high.
+- **openclaw ↔ n8n** — *Why:* OpenClaw's webhooks plugin explicitly lists n8n as a primary trigger source; gives non-developers a visual surface to wire messaging events to stack workflows. *Mechanism:* n8n HTTP Request node → `POST http://openclaw-gateway:18789/webhooks/<route>` with `Authorization: Bearer <route-secret>`. *Effort:* small. *Confidence:* high.
+- **openclaw ↔ minio** — *Why:* Workspace files, voice notes, and media attachments live only in the `openclaw-workspace` Docker volume — not addressable by other stack services. *Mechanism:* configure S3 backend with `endpoint=http://minio:9000`, dedicated `openclaw` bucket alongside the existing `MINIO_BUCKET_*` set. *Effort:* small. *Confidence:* medium.
+- **openclaw ↔ doc-processor** — *Why:* when users drop PDFs/Office docs into a chat, OpenClaw's built-in PDF handling is shallow; doc-processor (Docling) produces structured markdown + chunks the rest of the stack uses. *Mechanism:* custom OpenClaw skill posting attachments to `http://docling:5001/v1/convert/file`; persist markdown to workspace + MinIO. *Effort:* medium. *Confidence:* high.
+- **openclaw ↔ weaviate** — *Why:* OpenClaw lists "memory search across persistent knowledge bases" but has no backend wired; Weaviate is the stack's vector DB. *Mechanism:* skill or MCP server bridging to `http://weaviate:8080/v1/objects` (REST) or `:50051` (gRPC); embedding via LiteLLM's embeddings endpoint. *Effort:* medium. *Confidence:* medium.
+- **openclaw ↔ searxng** — *Why:* OpenClaw ships web-search tools with multiple providers but defaults to commercial APIs; SearXNG is the stack's privacy-preserving metasearch. *Mechanism:* set OpenClaw's web-search provider to a custom HTTP backend pointing at `${SEARXNG_INTERNAL_URL}/search?format=json&q=...`. *Effort:* small. *Confidence:* medium.
+
+### 12.5 Future — Candidate new services
+
+- **Honcho** ([details](../../docs/research/candidates/honcho.md)) — *Headline:* hosted/self-hostable user-memory store explicitly listed as an OpenClaw memory-engine backend. *Wires into:* hermes, backend, local-deep-researcher.
+
+### 12.6 Future — Unused features in this service
+
+- **MCP CLI / external MCP server support** — *Why pursue:* lets OpenClaw consume any MCP server (Neo4j, Weaviate, GitHub) over stdio/SSE/streamable-http, unlocking RAG and graph tools without bespoke skills. *Effort:* medium.
+- **Webhooks plugin (inbound TaskFlow trigger)** — *Why pursue:* standard surface for n8n/CI/external triggers; auth model already defined. *Effort:* small.
+- **Sandbox runners (Docker/SSH backends)** — *Why pursue:* non-main sessions can run tools in Docker sandboxes — meaningfully safer than current host-bound execution. *Effort:* medium.
+- **Local TTS/STT providers** — *Why pursue:* stack already runs `tts-provider` and `stt-provider`; swap OpenClaw's cloud STT/TTS for local providers to keep voice fully on-device. *Effort:* small.
+- **Memory engines (Honcho / QMD search)** — *Why pursue:* persistent cross-session memory currently absent. *Effort:* medium.
+- **S3 / object-storage backend** — *Why pursue:* wire workspace + media to MinIO for cross-service file sharing. *Effort:* small.
+
+## 13. Troubleshooting
+
+### 13.1 Permission Denied on Startup
 
 **Problem**: `EACCES: permission denied, open '/home/node/.openclaw/openclaw.json'`
 
@@ -249,7 +303,7 @@ No OpenClaw agent (default).
 2. If it persists, manually fix: `docker run --rm -v genai-openclaw-config:/data alpine chown -R 1000:1000 /data`
 3. Restart the gateway: `docker restart genai-openclaw-gateway`
 
-### 11.2 Gateway Won't Start
+### 13.2 Gateway Won't Start
 
 **Problem**: OpenClaw container fails to start
 
@@ -259,7 +313,7 @@ No OpenClaw agent (default).
 3. Ensure ports 63063/63064 are not in use
 4. Check Docker has sufficient memory (2GB+ recommended)
 
-### 11.3 Can't See LLM Models
+### 13.3 Can't See LLM Models
 
 **Problem**: OpenClaw doesn't see any models
 
@@ -270,7 +324,7 @@ No OpenClaw agent (default).
 4. Confirm `LITELLM_BASE_URL` and `LITELLM_API_KEY` are present in the OpenClaw container environment
 5. If you specifically need Ollama models, ensure `LLM_PROVIDER_SOURCE` is set to one of the `ollama-*` values (not `none`) so LiteLLM has an Ollama upstream to forward to
 
-### 11.4 Dashboard Not Loading
+### 13.4 Dashboard Not Loading
 
 **Problem**: Web dashboard returns errors
 
@@ -280,7 +334,7 @@ No OpenClaw agent (default).
 3. If using Kong, verify hosts file: `./start.sh --setup-hosts`
 4. Check if `OPENCLAW_GATEWAY_TOKEN` is required
 
-### 11.5 Port Already in Use
+### 13.5 Port Already in Use
 
 **Problem**: Port 63063 or 63064 is occupied
 
@@ -292,57 +346,3 @@ No OpenClaw agent (default).
 # Or check what's using the port
 lsof -i :63063
 ```
-
-## 12. References
-
-- [OpenClaw Documentation](https://docs.openclaw.ai/)
-- [OpenClaw Docker Guide](https://docs.openclaw.ai/install/docker)
-- [LiteLLM Gateway](../litellm/README.md) — the OpenAI-compatible front door OpenClaw points at by default
-- [Hermes Agent](../hermes/README.md) — the programmable agent runtime OpenClaw bridges to messaging channels
-- [OpenClaw GitHub Repository](https://github.com/openclaw/openclaw)
-
-## 13. Dependencies & Integrations
-
-> Auto-generated section — the **Current** subsections are derived from `services/openclaw/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen openclaw` after manifest changes.
-
-### 13.1 Current — Upstream (this service calls)
-
-| Service | Category |
-|---|---|
-| litellm | llm |
-| hermes | agents |
-| n8n | agents |
-
-### 13.2 Current — Downstream (services that call this)
-
-| Service | Category |
-|---|---|
-| kong | infra |
-
-### 13.3 Architecture diagram
-
-![openclaw architecture](./architecture.svg)
-
-[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
-
-### 13.4 Future — Missing pair integrations
-
-- **openclaw ↔ hermes** — *Why:* OpenClaw is positioned as a channel adapter (40+ messaging surfaces); Hermes is the programmable agent runtime already in the stack. The compose file already passes `HERMES_ENDPOINT`/`HERMES_API_KEY` — only the bridge wiring is missing. *Mechanism:* OpenClaw skill or webhook plugin forwarding inbound messages to `http://hermes:8000/v1/chat/completions`; replies posted back via OpenClaw's `send` RPC. *Effort:* medium. *Confidence:* high.
-- **openclaw ↔ n8n** — *Why:* OpenClaw's webhooks plugin explicitly lists n8n as a primary trigger source; gives non-developers a visual surface to wire messaging events to stack workflows. *Mechanism:* n8n HTTP Request node → `POST http://openclaw-gateway:18789/webhooks/<route>` with `Authorization: Bearer <route-secret>`. *Effort:* small. *Confidence:* high.
-- **openclaw ↔ minio** — *Why:* Workspace files, voice notes, and media attachments live only in the `openclaw-workspace` Docker volume — not addressable by other stack services. *Mechanism:* configure S3 backend with `endpoint=http://minio:9000`, dedicated `openclaw` bucket alongside the existing `MINIO_BUCKET_*` set. *Effort:* small. *Confidence:* medium.
-- **openclaw ↔ doc-processor** — *Why:* when users drop PDFs/Office docs into a chat, OpenClaw's built-in PDF handling is shallow; doc-processor (Docling) produces structured markdown + chunks the rest of the stack uses. *Mechanism:* custom OpenClaw skill posting attachments to `http://docling:5001/v1/convert/file`; persist markdown to workspace + MinIO. *Effort:* medium. *Confidence:* high.
-- **openclaw ↔ weaviate** — *Why:* OpenClaw lists "memory search across persistent knowledge bases" but has no backend wired; Weaviate is the stack's vector DB. *Mechanism:* skill or MCP server bridging to `http://weaviate:8080/v1/objects` (REST) or `:50051` (gRPC); embedding via LiteLLM's embeddings endpoint. *Effort:* medium. *Confidence:* medium.
-- **openclaw ↔ searxng** — *Why:* OpenClaw ships web-search tools with multiple providers but defaults to commercial APIs; SearXNG is the stack's privacy-preserving metasearch. *Mechanism:* set OpenClaw's web-search provider to a custom HTTP backend pointing at `${SEARXNG_INTERNAL_URL}/search?format=json&q=...`. *Effort:* small. *Confidence:* medium.
-
-### 13.5 Future — Candidate new services
-
-- **Honcho** ([details](../../docs/research/candidates/honcho.md)) — *Headline:* hosted/self-hostable user-memory store explicitly listed as an OpenClaw memory-engine backend. *Wires into:* hermes, backend, local-deep-researcher.
-
-### 13.6 Future — Unused features in this service
-
-- **MCP CLI / external MCP server support** — *Why pursue:* lets OpenClaw consume any MCP server (Neo4j, Weaviate, GitHub) over stdio/SSE/streamable-http, unlocking RAG and graph tools without bespoke skills. *Effort:* medium.
-- **Webhooks plugin (inbound TaskFlow trigger)** — *Why pursue:* standard surface for n8n/CI/external triggers; auth model already defined. *Effort:* small.
-- **Sandbox runners (Docker/SSH backends)** — *Why pursue:* non-main sessions can run tools in Docker sandboxes — meaningfully safer than current host-bound execution. *Effort:* medium.
-- **Local TTS/STT providers** — *Why pursue:* stack already runs `tts-provider` and `stt-provider`; swap OpenClaw's cloud STT/TTS for local providers to keep voice fully on-device. *Effort:* small.
-- **Memory engines (Honcho / QMD search)** — *Why pursue:* persistent cross-session memory currently absent. *Effort:* medium.
-- **S3 / object-storage backend** — *Why pursue:* wire workspace + media to MinIO for cross-service file sharing. *Effort:* small.

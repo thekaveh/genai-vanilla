@@ -112,7 +112,27 @@ DOCLING_ENDPOINT=...
 - **LangSmith tracing** — *Why pursue:* `LANGSMITH_API_KEY` ships upstream; superseded if Langfuse lands but useful as a stopgap. *Effort:* small.
 - **LangGraph Studio UI via Kong** — *Why pursue:* `/threads`/`/runs/stream` UI is reachable on port 2024 but has no Kong alias (e.g. `research.localhost`), forcing direct-port access. *Effort:* small.
 
-## 6. Operations
+## 6. Troubleshooting
+
+**Container restarts every 30s.** Usually the upstream repo clone or `pip install -e .` failed on first run. `docker logs <project>-local-deep-researcher` shows the failing step. Network or PyPI mirror issues are the most common root cause.
+
+**Research returns empty / "no sources gathered".** SearXNG returned no JSON results. Check `curl 'http://localhost:${SEARXNG_PORT}/search?q=test&format=json'`; if the JSON format is disabled, fix `services/searxng/config/settings.yml`.
+
+**Runs hang at `summarize_sources`.** LiteLLM is unreachable or the configured model is overloaded. `docker logs <project>-litellm -f` and confirm the model in use is registered.
+
+**State lost on restart.** Expected — see the in-memory checkpointer note above. The fix is the Redis-checkpointer integration listed under Future.
+
+**Kong route 404 for `research.localhost`.** No Kong route is generated for LDR today despite the manifest defining the alias; access via the direct port until the Kong-route generator picks it up.
+
+```bash
+docker compose ps local-deep-researcher
+docker compose logs -f local-deep-researcher
+curl -s http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/threads -X POST -H 'content-type: application/json' -d '{}'
+```
+
+For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).
+
+## 7. Operations
 
 **Run a research session from the CLI.**
 
@@ -141,28 +161,8 @@ Returns `running_summary`, `sources_gathered`, `loop_count`, current node — us
 
 **Configure the LLM used per step.** The upstream repo's `init-config.py` hard-pins models; to swap them, edit that file in the clone (inside the container) and restart, or override via `LANGCHAIN_*` env vars supported upstream.
 
-## 7. Performance notes
+## 8. Performance notes
 
 - **Cost per run.** ~5 LLM calls per loop × `LOOPS` loops = 15 calls for the default. Plus one SearXNG call per loop. Local Ollama → free + slow (~30-90s/loop); cloud APIs via LiteLLM → fast + metered.
 - **No streaming back to backend.** The `/runs/stream` SSE channel exists but the planned backend wrapper (`research_client.py`) consumes it synchronously today. Once wired, the backend can fan out events to Open WebUI via Supabase Realtime.
 - **Thread state size.** A 3-loop run produces ~30-60 KB of state (summary + sources). The in-memory checkpointer holds the last N threads in process; under load it can grow unbounded — restart cleans it.
-
-## 8. Troubleshooting
-
-**Container restarts every 30s.** Usually the upstream repo clone or `pip install -e .` failed on first run. `docker logs <project>-local-deep-researcher` shows the failing step. Network or PyPI mirror issues are the most common root cause.
-
-**Research returns empty / "no sources gathered".** SearXNG returned no JSON results. Check `curl 'http://localhost:${SEARXNG_PORT}/search?q=test&format=json'`; if the JSON format is disabled, fix `services/searxng/config/settings.yml`.
-
-**Runs hang at `summarize_sources`.** LiteLLM is unreachable or the configured model is overloaded. `docker logs <project>-litellm -f` and confirm the model in use is registered.
-
-**State lost on restart.** Expected — see the in-memory checkpointer note above. The fix is the Redis-checkpointer integration listed under Future.
-
-**Kong route 404 for `research.localhost`.** No Kong route is generated for LDR today despite the manifest defining the alias; access via the direct port until the Kong-route generator picks it up.
-
-```bash
-docker compose ps local-deep-researcher
-docker compose logs -f local-deep-researcher
-curl -s http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}/threads -X POST -H 'content-type: application/json' -d '{}'
-```
-
-For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).
