@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Local documentation drift checks for GenAI Vanilla.
 
-Default scope excludes historical audit/plan files, bootstrapper/Textual parallel work,
-local virtualenvs, and generated dependency directories.
+Default scope excludes:
+  * historical audit/plan files
+  * bootstrapper/ — pytest fixtures under bootstrapper/tests/fixtures/
+    contain intentionally-malformed sample Markdown that would generate
+    false positives; user-facing bootstrapper docs are surfaced via the
+    main README.md hub instead
+  * local virtualenvs + generated dependency directories
 """
 from pathlib import Path
 import re
