@@ -19,7 +19,7 @@ echo "db-init-runner: Database is ready. Running post-initialization scripts fro
 # Loop through SQL files in mounted directory in alphabetical/numerical order
 # Use find to handle potential spaces or special characters in filenames (though unlikely here)
 # and sort to ensure numerical order (01, 02, ..., 10, etc.)
-find /scripts -maxdepth 1 -name '*.sql' -print | sort | while read f; do
+find /scripts -maxdepth 1 -name '*.sql' -print | sort | while IFS= read -r f; do
   if [ -f "$f" ]; then
     echo "db-init-runner: Running $f..."
     # Execute script using psql, stop on error

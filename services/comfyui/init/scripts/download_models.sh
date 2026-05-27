@@ -197,4 +197,4 @@ else
   echo "comfyui-init: Models are available in: $COMFYUI_MODELS_PATH"
 fi
 echo "comfyui-init: Directory structure:"
-find "$TARGET_MODELS_PATH" -type f -name "*.safetensors" -o -name "*.pt" -o -name "*.pth" -o -name "*.bin" | head -20
+find "$TARGET_MODELS_PATH" -type f \( -name "*.safetensors" -o -name "*.pt" -o -name "*.pth" -o -name "*.bin" \) | head -20
