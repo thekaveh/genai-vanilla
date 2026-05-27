@@ -19,6 +19,11 @@ from services.migrations.migration_v1 import (
     needs_migration as _needs_v1,
     stamp_version as _stamp_v1,
 )
+from services.migrations.migration_v2 import (
+    apply as _apply_v2,
+    needs_migration as _needs_v2,
+    stamp_version as _stamp_v2,
+)
 
 
 def _format_today() -> str:
@@ -685,62 +690,95 @@ class GenAIStackStarter:
         return True
 
     def run_port_migration(self, no_port_migrate: bool) -> None:
-        """v0 → v1 port-layout .env migration.
+        """Chained .env migrations: v0 → v1 (port-layout), v1 → v2 (URL→PORT).
 
-        Idempotent. Reads ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the
-        active env file (honors ``GENAI_ENV_FILE``); if absent or < 1,
-        rewrites every port var whose current value matches the v0
+        Idempotent. Each step is gated by its own ``_needs_*`` predicate
+        so re-running is safe and stamping is independent. Reads
+        ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the active env file
+        (honors ``GENAI_ENV_FILE``).
+
+        v1: rewrites every port var whose current value matches the v0
         default to the topology-derived v1 default. User-customized
         values are left alone.
 
-        When ``no_port_migrate`` is True we skip the rewrite AND skip
-        the sentinel stamp so the next run re-prompts — matches the
+        v2: rewrites legacy ``<SVC>_LOCALHOST_URL`` lines into
+        ``<SVC>_LOCALHOST_PORT`` lines, commenting the old URLs for
+        audit. Drives both compose runtime and Kong routes off the new
+        PORT schema.
+
+        When ``no_port_migrate`` is True we skip BOTH rewrites AND skip
+        the sentinel stamps so the next run re-prompts — matches the
         user intent "skip this run, ask next time."
 
         Must be called AFTER setup_env_file + backfill so the file
         exists and is fully populated, and BEFORE any caller that
-        relies on the v1 port values.
+        relies on the v2 port values.
         """
         env_path = self.config_parser.env_file_path
-        if not _needs_v1(env_path):
-            return
 
-        if no_port_migrate:
-            self.banner.console.print(
-                "[dim]Skipping port-layout v1 migration (--no-port-migrate); "
-                "will re-prompt next run.[/dim]"
-            )
-            return
-
-        from services.topology import get_topology as _get_topology
-        services_root = self.root_dir / "services"
-        env_vars = self.config_parser.parse_env_file()
-        # ``.get(key, default)`` returns the empty string when the key is
-        # present-but-blank — only missing keys hit the default. A blank
-        # BASE_PORT (auto-managed quirk) would crash ``int("")``.
-        _raw_base = (env_vars.get("BASE_PORT") or "").strip()
-        try:
-            base_port = int(_raw_base) if _raw_base else DEFAULT_BASE_PORT
-        except ValueError:
-            base_port = DEFAULT_BASE_PORT
-        topology = _get_topology(services_root, base_port=base_port)
-        result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
-        if result.backup_path:
-            self.banner.console.print(
-                f"[green]• Backed up .env to {result.backup_path}[/green]"
-            )
-        self.banner.console.print(
-            f"[green]• Port layout updated (v0 → v1)[/green]: "
-            f"rewrote {len(result.rewritten)} ports; "
-            f"preserved {len(result.preserved)} customizations."
-        )
-        if result.rewritten:
-            self.banner.console.print("[dim]  Changes:[/dim]")
-            for var, (old, new) in sorted(result.rewritten.items()):
+        # v0 → v1: port-layout rewrite.
+        if _needs_v1(env_path):
+            if no_port_migrate:
                 self.banner.console.print(
-                    f"[dim]    {var}: {old} → {new}[/dim]"
+                    "[dim]Skipping port-layout v1 migration (--no-port-migrate); "
+                    "will re-prompt next run.[/dim]"
                 )
-        _stamp_v1(env_path, 1)
+            else:
+                from services.topology import get_topology as _get_topology
+                services_root = self.root_dir / "services"
+                env_vars = self.config_parser.parse_env_file()
+                # ``.get(key, default)`` returns the empty string when the key is
+                # present-but-blank — only missing keys hit the default. A blank
+                # BASE_PORT (auto-managed quirk) would crash ``int("")``.
+                _raw_base = (env_vars.get("BASE_PORT") or "").strip()
+                try:
+                    base_port = int(_raw_base) if _raw_base else DEFAULT_BASE_PORT
+                except ValueError:
+                    base_port = DEFAULT_BASE_PORT
+                topology = _get_topology(services_root, base_port=base_port)
+                result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
+                if result.backup_path:
+                    self.banner.console.print(
+                        f"[green]• Backed up .env to {result.backup_path}[/green]"
+                    )
+                self.banner.console.print(
+                    f"[green]• Port layout updated (v0 → v1)[/green]: "
+                    f"rewrote {len(result.rewritten)} ports; "
+                    f"preserved {len(result.preserved)} customizations."
+                )
+                if result.rewritten:
+                    self.banner.console.print("[dim]  Changes:[/dim]")
+                    for var, (old, new) in sorted(result.rewritten.items()):
+                        self.banner.console.print(
+                            f"[dim]    {var}: {old} → {new}[/dim]"
+                        )
+                _stamp_v1(env_path, 1)
+
+        # v1 → v2: URL → PORT schema rewrite. Idempotent on re-run.
+        # Runs after v1 so the sentinel transitions cleanly 0/none → 1 → 2
+        # rather than skipping intermediate state on a v0 .env (the
+        # combined behavior is what we want for users on older checkouts
+        # who haven't run any bootstrapper since the topology refactor).
+        if _needs_v2(env_path):
+            if no_port_migrate:
+                self.banner.console.print(
+                    "[dim]Skipping LOCALHOST schema migration "
+                    "(--no-port-migrate); will re-prompt next run.[/dim]"
+                )
+            else:
+                self.banner.show_status_message(
+                    "Migrating .env to LOCALHOST_PORT schema (v2) ...",
+                    "info",
+                )
+                _apply_v2(env_path)
+                _stamp_v2(env_path)
+                self.banner.show_status_message(
+                    "LOCALHOST schema migration complete (v2). "
+                    "Old <SVC>_LOCALHOST_URL lines are commented out for "
+                    "audit; new <SVC>_LOCALHOST_PORT lines drive both "
+                    "compose runtime and Kong routes.",
+                    "success",
+                )
 
     def generate_service_configuration(self) -> bool:
         """Generate and update service configuration."""
