@@ -15,7 +15,7 @@ upstream: https://github.com/imgproxy/imgproxy
 The exact image-transformation sidecar Supabase Storage upstream is designed to talk to — resizes, re-encodes, and signs image URLs on the fly so ComfyUI outputs and user uploads can be served at multiple sizes from one source object.
 
 ## Problem it solves
-Today `supabase-storage` and `minio` hold raw images (ComfyUI generations, user uploads, OpenWebUI attachments) and serve them at their original dimensions. Anything consuming them (Open WebUI thumbnails, future frontend galleries, JupyterHub previews) has to download the full file. imgproxy is the canonical companion the Supabase Storage `IMGPROXY_URL` env var was built for; turning it on unlocks transform URLs like `/render/image/resize/width/256/...` without touching the source bytes.
+Today `supabase-storage` and `minio` hold raw images (ComfyUI generations, user uploads, Open WebUI attachments) and serve them at their original dimensions. Anything consuming them (Open WebUI thumbnails, future frontend galleries, JupyterHub previews) has to download the full file. imgproxy is the canonical companion the Supabase Storage `IMGPROXY_URL` env var was built for; turning it on unlocks transform URLs like `/render/image/resize/width/256/...` without touching the source bytes.
 
 ## Stack wiring sketch
 - supabase-storage -> imgproxy via `IMGPROXY_URL=http://imgproxy:8080`
