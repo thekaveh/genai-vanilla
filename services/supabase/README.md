@@ -222,9 +222,7 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
-| neo4j | data |
 | litellm | llm |
-| ollama | llm |
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |

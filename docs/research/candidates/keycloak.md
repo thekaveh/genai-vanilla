@@ -15,12 +15,12 @@ upstream: https://www.keycloak.org/
 Self-hosted OpenID Connect / OAuth2 / SAML identity provider that replaces the stack's ad-hoc per-service basic-auth with a single SSO layer fronted by Kong.
 
 ## Problem it solves
-The stack currently has at least six independent credential surfaces — Supabase GoTrue (users), Kong dashboard basic-auth, JupyterHub PAM, MinIO root, Neo4j neo4j/password, n8n owner — and no single sign-on. Kong's `key-auth` is only applied to Supabase routes; every other `*.localhost` alias is open on the LAN. Keycloak provides a single OIDC issuer that Kong's `openid-connect`-style flows (via the OSS-compatible community `kong-oidc` plugin or Kong's built-in `jwt` plugin pointed at Keycloak's JWKs) can validate, and that JupyterHub/Open-WebUI/n8n/MinIO/Neo4j all natively support.
+The stack currently has at least six independent credential surfaces — Supabase GoTrue (users), Kong dashboard basic-auth, JupyterHub PAM, MinIO root, Neo4j neo4j/password, n8n owner — and no single sign-on. Kong's `key-auth` is only applied to Supabase routes; every other `*.localhost` alias is open on the LAN. Keycloak provides a single OIDC issuer that Kong's `openid-connect`-style flows (via the OSS-compatible community `kong-oidc` plugin or Kong's built-in `jwt` plugin pointed at Keycloak's JWKs) can validate, and that JupyterHub/Open WebUI/n8n/MinIO/Neo4j all natively support.
 
 ## Stack wiring sketch
 - kong → keycloak via `https://keycloak:8443/realms/genai/.well-known/openid-configuration` (JWKs for the `jwt` plugin)
 - jupyterhub → keycloak via the official `oauthenticator` package (already a JupyterHub dep)
-- open-webui → keycloak via Open-WebUI's `OAUTH_*` env vars
+- open-webui → keycloak via Open WebUI's `OAUTH_*` env vars
 - n8n → keycloak via n8n's SSO config (`N8N_SSO_*`)
 - minio → keycloak via MinIO's OIDC config (`MINIO_IDENTITY_OPENID_*`)
 - neo4j → keycloak via Neo4j's `dbms.security.oidc.*` settings

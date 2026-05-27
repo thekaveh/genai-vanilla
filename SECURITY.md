@@ -42,8 +42,15 @@ findings.
 
 ## Remediation Reports
 
-Active and historical Dependabot remediation reports live under
-the project's git history:
+Historical Dependabot remediation reports were retired from the working
+tree in commit `ebdc9d4` (the `docs/security/` folder used to host them).
+The reports are accessible only through `git log` / `git show`:
 
-- `2026-05-14-dependabot-remediation-report.md` — current (77 alerts triaged, 62 phantom, 15 actionable)
-- `2026-05-06-dependabot-remediation-report.md` — predecessor (102 alerts triaged, Phases 1.1/1.2/1.3 landed)
+```bash
+git log --oneline -- docs/security/                   # list the reports' history
+git show ebdc9d4^:docs/security/2026-05-14-dependabot-remediation-report.md
+git show ebdc9d4^:docs/security/2026-05-06-dependabot-remediation-report.md
+```
+
+- 2026-05-14 report — 77 alerts triaged, 62 phantom, 15 actionable
+- 2026-05-06 report — 102 alerts triaged, Phases 1.1/1.2/1.3 landed

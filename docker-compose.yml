@@ -10,7 +10,7 @@
 #   - Each folder has a `service.yml` manifest (env vars, source variants,
 #     dependencies, image refs) and a `compose.yml` fragment.
 #   - Top-level `volumes:` from fragments are merged into the project
-#     scope by Compose v2.21+; cross-fragment `depends_on` works since
+#     scope by Compose v2.20+; cross-fragment `depends_on` works since
 #     v2.20+. Minimum documented version is v2.20; v2.26+ recommended.
 #
 # Adding a service: create services/<name>/{service.yml, compose.yml}, add

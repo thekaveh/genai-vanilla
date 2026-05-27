@@ -104,6 +104,9 @@ runtime_sc:
       extra_hosts: []
 
 data_flow:
-  calls:
-    - supabase
+  # Neo4j is a leaf graph database; it doesn't issue outbound calls at
+  # request time. The historical supabase edge was an init-time
+  # bootstrap contact, which the schema explicitly excludes from
+  # data_flow.calls.
+  calls: []
 

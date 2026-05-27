@@ -102,13 +102,14 @@ while IFS= read -r node_name; do
     continue
   fi
 
-  # Install the node
+  # Install the node. `set -e` above would abort on the first failed install
+  # before the manual error-handling below runs, so we explicitly tolerate
+  # non-zero exits here and rely on the if-check on $? instead.
+  curl_exit_code=0
   install_response=$(curl -s -X POST "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" \
     -d "{\"name\": \"$node_clean\"}" \
-    2>&1)
-
-  curl_exit_code=$?
+    2>&1) || curl_exit_code=$?
 
   if [ $curl_exit_code -eq 0 ]; then
     # Check if response contains error

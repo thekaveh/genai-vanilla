@@ -14,7 +14,7 @@ Ollama on `:11500` instead of `:11434`, ComfyUI on `:9000` instead of `:8000`)
 edits that port **inline on the wizard's source-selection step** using the same
 `OptionRowWithInput` widget shipped for Ray. The override must propagate
 symmetrically through every downstream consumer — Kong gateway routes,
-in-container clients (Backend, n8n, OpenWebUI, …), and the wizard's own
+in-container clients (Backend, n8n, Open WebUI, …), and the wizard's own
 service-table port column — with no asymmetric drift between them.
 
 ## 2. Background

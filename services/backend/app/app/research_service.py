@@ -259,8 +259,8 @@ class ResearchService:
                 "title": row["title"],
                 "summary": row["summary"],
                 "content": row["content"],
-                "sources": row["sources"],
-                "metadata": row["metadata"],
+                "sources": json.loads(row["sources"]) if isinstance(row["sources"], str) else (row["sources"] or []),
+                "metadata": json.loads(row["metadata"]) if isinstance(row["metadata"], str) else (row["metadata"] or {}),
                 "created_at": row["created_at"].isoformat(),
                 "status": row["status"]
             }
@@ -362,7 +362,7 @@ class ResearchService:
                     "step_number": row["step_number"],
                     "step_type": row["step_type"],
                     "message": row["message"],
-                    "data": row["data"],
+                    "data": json.loads(row["data"]) if isinstance(row["data"], str) else row["data"],
                     "timestamp": row["created_at"].isoformat()
                 }
                 for row in rows

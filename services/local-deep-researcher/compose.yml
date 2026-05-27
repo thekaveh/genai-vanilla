@@ -1,4 +1,4 @@
-# services/local-deep-researcher/compose.yml
+# services/local-deep-researcher/compose.yml — LangGraph deep-research workflow runner
 services:
   local-deep-researcher:
     build:

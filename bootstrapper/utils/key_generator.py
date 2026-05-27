@@ -205,7 +205,7 @@ class KeyGenerator:
 
     def generate_and_update_hermes_api_key(self, force: bool = False) -> bool:
         """Generate HERMES_API_KEY when absent. Idempotent: existing keys are
-        preserved so already-running Hermes sessions / saved Open-WebUI client
+        preserved so already-running Hermes sessions / saved Open WebUI client
         config keep working across re-runs.
         """
         current_value = self.get_current_env_value('HERMES_API_KEY')

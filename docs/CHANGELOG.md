@@ -5,30 +5,90 @@ All notable changes to the GenAI Vanilla Stack will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-05-15 (Topology-Driven Ordering & Port Layout v1)
-
-**Visual:** every service row in the setup wizard now leads with a thin category-color bar; six categories (Infra, Data, LLM Core, Media, Agents & Workflows, Apps & UIs) explained in a legend below the grid. Unanswered configurable services show a yellow ◌ placeholder ("pending") instead of guessing their port/source/alias before you've picked them.
-
-**Ordering:** display order — and the wizard's question sequence — is now derived from each `service.yml`'s `depends_on:` and `category:` fields. The hand-edited `services/_order.yml` has been retired.
-
-**Port renumbering:** default ports are computed from a per-category slot allocator, not hand-edited per manifest. On first start after this upgrade, your existing `.env` is auto-rewritten with the new defaults (a backup is taken to `.env.backup.<timestamp>`). User-customized port values (i.e., not matching the old default) are preserved untouched. Pass `--no-port-migrate` if you want to opt out of the rewrite.
-
-To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_LAYOUT_VERSION/d' .env` (or simply delete the sentinel line so the migration re-applies on next start).
-
-**Aliases:** eight new `*.localhost` aliases — studio, graph, weaviate, ollama, stt, tts, docling, research. Total alias count goes from 10 to 18. Run `--setup-hosts` to add them to `/etc/hosts`. Each alias works in both container and host-install (`-localhost`) modes — Kong proxies through `host.docker.internal` to the user's host port when the source is `-localhost` (Kong's compose now declares `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too). `*-external` sources don't get a Kong route — LiteLLM forwards those itself.
-
-**Internals:** eight scattered metadata constants across `bootstrapper/` (`_SERVICES`, `_HOST_ALIAS`, `DISPLAY_NAME_OVERRIDES`, `SERVICE_DESCRIPTIONS`, `LOCKED_SERVICES`, `LOCALHOST_ENDPOINT_VARS`, `GENAI_HOSTS`, `services/_order.yml`) have collapsed into manifest fields. Adding a new service is now a one-folder operation.
-
 ## [Unreleased]
+
+### 2026-05-27 overnight audit (second pass — follow-up to PR #11)
+
+A second convergence audit ran the night PR #11 merged. 14 verification
+iterations dispatched ~14 parallel domain audits and surfaced ~80
+genuine findings on top of the ~280 from PR #11. The fix pass landed
+in this PR; the residual ~16 follow-up findings (smaller-scope
+ergonomic / refactor / wizard-info items that risked behaviour
+changes outside this PR's scope) are recorded in the Known
+follow-ups block beneath this entry.
+
+Highlights of what landed:
+
+- **Correctness:** asyncpg JSONB strings now decoded in
+  `research_service.get_research_result` / `get_research_logs` (used
+  to 500 on real data — fixed via the same `json.loads-if-str`
+  pattern memory_service already had). The two duplicate
+  `execute_workflow` FastAPI handlers in `backend/app/main.py` were
+  shadowing each other at module scope; renamed to `execute_n8n_workflow`
+  / `execute_comfyui_workflow`. Sync Ray-SDK calls in the async
+  `/api/ray/*` handlers were blocking the event loop; wrapped via
+  `asyncio.to_thread`. UUID validation added to the four
+  `/research/{session_id}/*` endpoints. Init-script `set -e` was
+  silently aborting on the first failed `curl` in `ollama-pull` and
+  `n8n-init` (the explicit "continue on failure" branches were
+  unreachable); wrapped each curl with `|| curl_exit_code=$?`.
+
+- **Data-flow.calls schema alignment:** `services/ollama/service.yml`
+  and `services/neo4j/service.yml` carried init-time bootstrap edges
+  (supabase + litellm) in `data_flow.calls`, contradicting the
+  schema's "runtime in the request path; init-time excluded"
+  description. Dropped them. `services/open-webui/service.yml` was
+  understating its surface area; added `comfyui`, `stt-provider`,
+  `tts-provider`, `doc-processor`, `local-deep-researcher`, `weaviate`
+  to match what `runtime_deps.optional` already listed.
+
+- **Stale port literals + fallbacks:** TTS/STT aggregator READMEs and
+  the deeper provider/* sub-READMEs cited 63022/63023/63026/63027
+  defaults; the post-port-layout-v1 values are 63042/63044/63046/63045.
+  Compose-fragment `${X_PORT:-NNNNN}` fallbacks had drifted in
+  speaches, parakeet, parakeet/mlx api_server, chatterbox, hermes, and
+  openclaw. The JupyterHub welcome README hardcoded `localhost:63009`
+  for Supabase Studio (now 63016).
+
+- **Documentation hub:** README.md §9 was rebuilt as a four-tier index
+  (First-time users / Operators / Contributors / Release history) so
+  SECURITY.md, CONTRIBUTING-services.md, the deployment/* + quick-start/*
+  guides, and the research integration matrix are discoverable from the
+  main README. `docs/README.md` gained the missing Ray service entry.
+  README §2.1 stopped framing Ray as "always-on" (it defaults to
+  `RAY_SOURCE=disabled`).
+
+- **Naming normalization:** 20+ sites across 10 files normalized from
+  `OpenWebUI` / `Open-WebUI` to canonical `Open WebUI` (HTTP `User-Agent`
+  values left as-is). 5 `litellm-init/init.py` file-path comments
+  updated to the post-modularization path; the `_LITELLM_INIT_SENTINEL`
+  string was left intact for upgrade-detection compatibility.
+
+- **Audit-script + CI hardening:** `scripts/check-compose-source-deps.py`
+  now falls back to `.env.example` when `.env` is absent and exits 2
+  with stderr surface when `docker compose config` fails (previously
+  silently produced wrong-answer output). `scripts/check_doc_links.py`
+  now scans `services/<name>/README.md` by default (the primary doc
+  location since the 2026-05-22 retirement of `docs/services/`).
+  `.github/workflows/services-lint.yml` `pull_request.paths:` now
+  includes root-level README.md / SECURITY.md / start.sh / stop.sh /
+  .gitignore.
+
+- **CHANGELOG hygiene:** Reordered so `[Unreleased]` sits above
+  `[3.0.0]` per Keep-a-Changelog convention. Corrected the
+  "engine READMEs removed" claim (they exist as pointer stubs);
+  the god-class-refactor figures (LOC + method counts) were stale.
+  Pointed retired remediation reports' history-only location explicitly
+  via `git show <SHA>:docs/security/<file>` commands in SECURITY.md.
 
 ### Known follow-ups (deferred from the 2026-05-27 repo-wide audit pass)
 
 The cleanup PR documented at the top of this section deliberately defers four classes of work — each large enough to deserve its own plan rather than a drive-by fix:
 
 - **Backend test coverage.** `services/backend/app/app/` has ~3,700 LOC of production Python across `main.py` (33 FastAPI endpoints), `memory_service.py`, `research_service.py`, `comfyui_client.py`, `n8n_client.py`, `memory_store.py`, `research_client.py`. Only the `ray_routes` / `ray_client` surfaces have tests. Smoke-level TestClient suites for the memory / research / comfyui / workflow endpoint families are tracked for a follow-up.
-- **Bootstrapper utility test gaps.** `bootstrapper/utils/{localhost_validator,key_generator,llm_catalog,cloud_models,supabase_keys,docker_manager}.py` and `bootstrapper/services/source_validator.py` have zero unit tests. The drift gates + integration tests cover them transitively, but no isolated unit coverage exists. Adding targeted tests is tracked separately.
+- **Bootstrapper utility test gaps.** `bootstrapper/utils/{localhost_validator,key_generator,llm_catalog,cloud_models,supabase_keys}.py`, `bootstrapper/core/docker_manager.py`, and `bootstrapper/services/source_validator.py` have zero unit tests. The drift gates + integration tests cover them transitively, but no isolated unit coverage exists. Adding targeted tests is tracked separately.
 - **Architecture-diagram skill rewrite.** The current `docs/diagrams/architecture.{dot,svg}` is Graphviz-rendered with the Tokyo-Night-mapped category palette. The user's `architecture-diagram` skill (cyan/emerald/violet/amber/rose/orange/slate palette, JetBrains Mono, layered topological flow, standalone HTML) is the target shape; full rewrite is deferred to a dedicated spec. Per-service architecture SVGs (`services/<x>/architecture.svg`) are already auto-regenerated and stay in scope of the drift gate.
-- **Bootstrapper god-class refactors.** `bootstrapper/start.py::GenAIStackStarter` (~1,000 LOC, 25+ responsibilities), the 17 near-identical `_generate_<svc>_config` methods in `bootstrapper/services/service_config.py`, and the 11 `generate_<svc>_service` methods in `bootstrapper/utils/kong_config_generator.py` are flagged for table-driven consolidation in a separate refactor plan. The current code paths are all tested and correct; these are maintenance-debt items, not bugs.
+- **Bootstrapper god-class refactors.** `bootstrapper/start.py::GenAIStackStarter` (~1,800 LOC, 31 methods), the 14 near-identical `_generate_<svc>_config` methods in `bootstrapper/services/service_config.py`, and the 10 `generate_<svc>_service` methods in `bootstrapper/utils/kong_config_generator.py` are flagged for table-driven consolidation in a separate refactor plan. The current code paths are all tested and correct; these are maintenance-debt items, not bugs.
 
 ### Added — Ray distributed-compute cluster
 
@@ -71,7 +131,7 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 
 - **Service docs moved alongside their services.** Every per-service README, architecture SVG, and architecture HTML moved from `docs/services/<name>/` to `services/<name>/`. The `docs/services/` directory is retired entirely. Each service folder is now the single source of truth for that service: manifest (`service.yml`), compose fragment (`compose.yml`), any `init/` scaffolding, and the human-facing `README.md` + diagrams sit in one place.
 - **Three doc-only folders introduced** for the aggregate doc-folders without a single-manifest owner: `services/stt-provider/`, `services/doc-processor/`, `services/multi2vec-clip/`. The manifest loader skips dirs without `service.yml` (`_is_service_dir` now requires the file), so these doc-only folders are invisible to the bootstrapper.
-- **Constituent engine READMEs removed.** `services/parakeet/README.md`, `services/speaches/README.md`, `services/chatterbox/README.md`, `services/docling/README.md` were terse directory-layout notes that duplicated information already in the aggregate STT/TTS/doc-processor docs. The aggregate docs are now authoritative.
+- **Constituent engine READMEs reduced to pointer stubs.** `services/parakeet/README.md`, `services/speaches/README.md`, `services/chatterbox/README.md`, `services/docling/README.md` previously duplicated the user-facing description from their aggregator (STT-provider / TTS-provider / doc-processor). They now each contain a single "Engine quick reference" section + a pointer link to the aggregator + the auto-regenerated Dependencies & Integrations block — kept around because each owns a `service.yml` and is in scope of the drift gate, but no longer authoritative for user-facing prose.
 - **Hierarchical section numbering.** Every service README uses `## N. <Title>` for top-level sections and `### N.M <Title>` for subsections. The `## Dependencies & Integrations` section keeps its position-driven numbering — the regen tool detects whatever number the section sits at (5 in the canonical 6-section layout, but READMEs with more pre-deps content can have it at 7, 9, 14, etc.) and emits matching `### N.1` … `### N.6` subsections.
 - **`bootstrapper/docs/regen.py` learned to preserve Phase C Future content.** The auto-block (`## N. Dependencies & Integrations` + `### N.1` Current Upstream + `### N.2` Current Downstream + `### N.3` Architecture diagram + `### N.4-6` Future placeholders) is regenerated from manifests on every run, BUT any user-authored content under `### N.4 Future — Missing pair integrations`, `### N.5 Future — Candidate new services`, and `### N.6 Future — Unused features in this service` is preserved across regen passes. New helper `_render_section_with_future` extracts the existing Future bodies before re-rendering and splices them back in.
 - **Phase C content populated in all 21 service READMEs.** Each of the three Future-* subsections in every service doc now lists concrete bullets (pair integrations to wire, candidate new services to add, unused upstream features to pursue) sourced from the Phase B research artifacts under `docs/research/rows/<svc>.md` and `docs/research/candidates/<slug>.md`. The seven previously-thin docs (backend, comfyui, local-deep-researcher, multi2vec-clip, n8n, redis, searxng) were rewritten to Hermes-grade depth (≥150 lines each, all canonical sections present).
@@ -164,7 +224,7 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 - **`bootstrapper/services/env_assembler.py`** — pure-function .env.example assembler from manifests (library-only).
 - **`bootstrapper/tools/validate_fragments.py`** — `python -m tools.validate_fragments` CLI entry.
 - **`bootstrapper/tests/`** — 110+ tests: loader, cross-manifest validator, env assembler, validate_fragments CLI, fragment-equivalence (byte-equiv vs golden baseline), source-permutation matrix, env-example consistency (manifest ↔ .env.example parity), backfill interplay (manifest change → backfill → user .env propagation).
-- **`.github/workflows/services-lint.yml`** — two CI jobs: `lint` (unit tests + validator + audit scripts) and `compose-equivalence` (rendered byte-equiv + source-permutation matrix).
+- **`.github/workflows/services-lint.yml`** — three CI jobs: `lint` (manifest validator + unit tests), `compose-equivalence` (rendered byte-equiv + source-permutation matrix), and `audit-scripts` (docs drift + doc-links + compose-source-deps + Kong routes + research-schema).
 - **`docs/scripts/check-compose-source-deps.py`** updated to render compose via `docker compose config` so it sees the merged shape rather than only the thin include shell.
 
 ### Added (Hermes Agent — auto-pick default model, embedded Chat tab, dual Ollama aliases in LiteLLM)
@@ -198,7 +258,7 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 ### Added (Hermes Agent runtime)
 - **New `hermes` service** (`nousresearch/hermes-agent:latest` — upstream publishes only `latest` + immutable `sha-<commit>` tags, no semver; production should pin to a specific sha per `services/hermes/README.md`) — programmable AI agent runtime by Nous Research. Promoted from `docs/ROADMAP.md` Tier 2 to shipped. Container by default (3 SOURCE modes: `container`, `localhost`, `disabled`), ~2-4 GB RAM, no GPU. File-based persistence under `/opt/data` (`hermes-data` named volume) — no Postgres / Redis dependency. OpenAI-compatible API on port 8642 → host `63028`; web dashboard on 9119 → host `63029`, Kong-aliased as `hermes.localhost`.
 - **New `hermes-init` companion** — renders `/opt/data/config.yaml` from environment before Hermes starts. Wires LiteLLM (`http://litellm:4000/v1`) for reasoning, Speaches / Chatterbox / Parakeet via OpenAI-compatible base-URL overrides for voice (`TTS_ENDPOINT` / `STT_ENDPOINT`), ComfyUI via a skill-override file at `/opt/data/skills/creative-comfyui-host-override.md`, and SearXNG for web search. Empty endpoint → block omitted from `config.yaml` (graceful degradation when a dependency is disabled). Bootstraps deps via inline `apk add` then re-execs under bash (matches openclaw-init / weaviate-init convention).
-- **`hermes-agent` registered in the LiteLLM model_list** — `litellm-init/scripts/init.py` appends a `hermes-agent` row pointing at `${HERMES_ENDPOINT}/v1` when `HERMES_SOURCE != disabled`. Consequence: Open-WebUI, n8n, backend, jupyterhub, openclaw all see the new model automatically with no per-consumer wiring.
+- **`hermes-agent` registered in the LiteLLM model_list** — `litellm-init/scripts/init.py` appends a `hermes-agent` row pointing at `${HERMES_ENDPOINT}/v1` when `HERMES_SOURCE != disabled`. Consequence: Open WebUI, n8n, backend, jupyterhub, openclaw all see the new model automatically with no per-consumer wiring.
 - **`HERMES_ENDPOINT` + `HERMES_API_KEY` plumbed to consumers** — backend, n8n, jupyterhub, openclaw-gateway env blocks for direct API / webhook access (LiteLLM-routed `hermes-agent` model is the default surface).
 - **Bootstrapper integration** — new `services/hermes/service.yml` manifest (`container` / `localhost` / `disabled` sources + cross-deps on stt_provider / tts_provider / comfyui / searxng for init-time URL wiring, all under `runtime_sc:` / `runtime_adaptive:` / `runtime_deps:` blocks; synthesized into the legacy dict shape by `bootstrapper/services/sc_synthesizer.py`), `_generate_hermes_config()` in `bootstrapper/services/service_config.py` (mirror of `_generate_openclaw_config()`), `HERMES_ENDPOINT` in `bootstrapper/utils/endpoint_vars.py`, CLI flag `--hermes-source`, port-clear list, localhost validator, source override manager, dependency manager scale/source mappings, wizard tile (`bootstrapper/ui/state_builder.py`), service discovery name/description, hosts manager (`hermes.localhost` written by `--setup-hosts`), log-pane TOOL tag, `HERMES_API_KEY` auto-generation (32-byte URL-safe token, idempotent like LITELLM_MASTER_KEY).
 - **Kong route `hermes.localhost` → `http://hermes:9119`** — added to `bootstrapper/utils/kong_config_generator.py:generate_hermes_service()`. Gated on `HERMES_SOURCE != disabled` AND `HERMES_DASHBOARD_ENABLED=true`.
@@ -358,6 +418,20 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 - Removed `InquirerPy` (replaced earlier in this `[Unreleased]` cycle).
 - Bumped `requires-python` from `>=3.8` to `>=3.10` (Textual minimum and current LTS floor; the intermediate `>=3.9` bump landed first then was tightened to `>=3.10` when the dependency upgrade pass below required it).
 
+## [3.0.0] - 2026-05-15 (Topology-Driven Ordering & Port Layout v1)
+
+**Visual:** every service row in the setup wizard now leads with a thin category-color bar; six categories (Infra, Data, LLM Core, Media, Agents & Workflows, Apps & UIs) explained in a legend below the grid. Unanswered configurable services show a yellow ◌ placeholder ("pending") instead of guessing their port/source/alias before you've picked them.
+
+**Ordering:** display order — and the wizard's question sequence — is now derived from each `service.yml`'s `depends_on:` and `category:` fields. The hand-edited `services/_order.yml` has been retired.
+
+**Port renumbering:** default ports are computed from a per-category slot allocator, not hand-edited per manifest. On first start after this upgrade, your existing `.env` is auto-rewritten with the new defaults (a backup is taken to `.env.backup.<timestamp>`). User-customized port values (i.e., not matching the old default) are preserved untouched. Pass `--no-port-migrate` if you want to opt out of the rewrite.
+
+To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_LAYOUT_VERSION/d' .env` (or simply delete the sentinel line so the migration re-applies on next start).
+
+**Aliases:** eight new `*.localhost` aliases — studio, graph, weaviate, ollama, stt, tts, docling, research. Total alias count goes from 10 to 18. Run `--setup-hosts` to add them to `/etc/hosts`. Each alias works in both container and host-install (`-localhost`) modes — Kong proxies through `host.docker.internal` to the user's host port when the source is `-localhost` (Kong's compose now declares `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too). `*-external` sources don't get a Kong route — LiteLLM forwards those itself.
+
+**Internals:** eight scattered metadata constants across `bootstrapper/` (`_SERVICES`, `_HOST_ALIAS`, `DISPLAY_NAME_OVERRIDES`, `SERVICE_DESCRIPTIONS`, `LOCKED_SERVICES`, `LOCALHOST_ENDPOINT_VARS`, `GENAI_HOSTS`, `services/_order.yml`) have collapsed into manifest fields. Adding a new service is now a one-folder operation.
+
 ## [2.0.0] - 2025-08-31 (Python Migration & Modular Architecture)
 
 ### Added
@@ -402,7 +476,7 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 #### Service configuration
 - **SOURCE system refinement**: Clear documentation of which services support localhost
 - **Localhost support clarification**: Only Ollama, ComfyUI, and Weaviate support localhost SOURCE
-- **Container-only services**: N8N, SearxNG, Open-WebUI, Backend API are container-only
+- **Container-only services**: N8N, SearxNG, Open WebUI, Backend API are container-only
 - **External URL support**: Proper handling of external service configurations
 
 ### Fixed

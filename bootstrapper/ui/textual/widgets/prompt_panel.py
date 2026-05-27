@@ -49,7 +49,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
-from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container, VerticalScroll
 from textual.widgets import Input, Static

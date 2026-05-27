@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-litellm-init/init.py — provision the LiteLLM Postgres database and
-render ``volumes/litellm/config.yaml`` from the active rows in
-``public.llms``.
+services/litellm/init/scripts/init.py — provision the LiteLLM Postgres
+database and render ``volumes/litellm/config.yaml`` from the active rows
+in ``public.llms``.
 
 Replaces the previous alpine + ensure-litellm-db.sh approach. The
 existing shell script only handled DB creation; this Python script
@@ -84,7 +84,7 @@ LITELLM_OLLAMA_UPSTREAM = os.environ.get("LITELLM_OLLAMA_UPSTREAM", "http://olla
 # Hermes Agent — appended as a `hermes-agent` model_list entry when
 # HERMES_SOURCE != disabled. Hermes is a *runtime* (programmable agent
 # loop), not a model provider, so it's deliberately kept out of the
-# llm_catalog / public.llms taxonomy and stitched in here. Open-WebUI,
+# llm_catalog / public.llms taxonomy and stitched in here. Open WebUI,
 # n8n, backend, jupyterhub all see it for free via LiteLLM.
 HERMES_SOURCE = os.environ.get("HERMES_SOURCE", "disabled").strip().lower()
 HERMES_ENDPOINT = os.environ.get("HERMES_ENDPOINT", "").strip()

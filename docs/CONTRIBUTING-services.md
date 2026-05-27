@@ -41,48 +41,17 @@ If you're new to this codebase, read Decisions 1–6 in sequence; the Qdrant wor
 
 ## Adding a new service
 
-> For a decision-driven walkthrough with worked example, see [TL;DR — the 60-second checklist](#tldr--the-60-second-checklist) and the six **Decision** sections that follow it. The 9-step list below is the terse "I know what I'm doing" path.
+The full walkthrough is the six **Decision** sections below — they cover
+folder flavor, category, source variants, port allocation, dependencies,
+and adaptive behavior with a Qdrant-as-example thread running through.
 
-1. Create the folder: `mkdir services/myservice`
-2. Write `services/myservice/service.yml`. Schema: `bootstrapper/schemas/service.schema.json`.
-   - `name:` must equal the folder name (kebab-case).
-   - `category:` one of `infra | data | llm | media | agents | apps`.
-   - `containers:` lists every container name in your compose.yml.
-   - `env:` declares every env var the service owns. Use `auto_managed: true` for vars computed by `runtime_sc.<key>.<source>.environment` or a Python helper in `bootstrapper/services/service_config.py`; use `secret: true` for credentials (default never echoed into `.env.example`).
-   - `sources:` (optional) declares source variants the wizard surfaces — each option carries an `id`, `label`, and optional `requires:` list.
-   - `runtime_sc:` carries the per-source bootstrapper data (`scale`, `environment`, `deploy`, `extra_hosts`) for each source variant. This is the operational source the bootstrapper consumes; the sources block is wizard-only.
-   - `images:` lists each container's `${X_IMAGE}` env var so version bumps happen in one place.
-3. Write `services/myservice/compose.yml`. Use `${VAR}` interpolation; never inline literal images. Conventions:
-   - `services:` lists only this family's containers
-   - `volumes:` lists only this family's named volumes (`name: ${PROJECT_NAME}-<service>-<purpose>`, plus `driver: local` for byte-equivalence with the legacy monolithic shape)
-   - `networks:` references `backend-network`; never redefines it
-   - Bind-mount paths are **relative to the fragment file** — i.e., to `services/myservice/` (e.g., `./init/scripts:/scripts`, `./build/snapshot:/snapshot`). Use `../../` only to reach genuinely cross-cutting locations: `../../bootstrapper/utils/` (catalog modules) and `../../volumes/...` (bootstrapper-generated runtime config like `volumes/litellm/config.yaml` and `volumes/api/kong-dynamic.yml`).
-4. Add the fragment to the `include:` list in `docker-compose.yml`.
-5. Service order is derived automatically from `depends_on:` topology — no manual ordering file needed.
-6. If declarative `runtime_sc.<key>.<source>.environment` blocks can't
-   express your computation, add the logic to
-   `bootstrapper/services/service_config.py` as a new
-   `_generate_<name>_config()` method and call it from
-   `generate_service_environment()`. Cross-service computations
-   (e.g. `_generate_cloud_providers_config()` aggregating three
-   `CLOUD_*_SOURCE` toggles into the `LITELLM_ENABLED_PROVIDERS` list)
-   already live there; follow the same shape.
-7. Run the lint locally:
-   ```bash
-   cd bootstrapper && uv run python -m tools.validate_fragments
-   ```
-8. If you added or renamed a service, regenerate the generated artifacts:
-   ```bash
-   cd bootstrapper && uv run python -m tools.generate_architecture_diagram
-   cd bootstrapper && uv run python -m tools.generate_readme_topology
-   ```
-   The lint in step (7) will fail if these are out of sync.
-9. Run the test suite:
-   ```bash
-   cd bootstrapper && uv run pytest tests/ -q
-   ```
+If you already know the moving parts, the [TL;DR — 60-second checklist](#tldr--the-60-second-checklist)
+condenses it to one block, and the canonical regen + lint chain lives at
+[After you save the files](#after-you-save-the-files--regen--lint-commands-in-order)
+(five commands, in this order — running fewer trips the byte-equivalence
+test or docs-drift gate in CI).
 
-> **First time adding this service?** Before step 1 above, do the [Pre-flight study](#pre-flight--study-the-candidate-service) below — it lists the upstream-doc questions whose answers feed every later decision.
+> **First time adding a service?** Start with the [Pre-flight study](#pre-flight--study-the-candidate-service) below — it lists the upstream-doc questions whose answers feed every later decision.
 
 ## Pre-flight — study the candidate service
 

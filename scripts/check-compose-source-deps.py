@@ -72,25 +72,44 @@ def load_compose() -> dict:
     fragments under services/<name>/compose.yml. yaml.safe_load on the raw
     file would only see the empty `services:` block at the top, so we
     delegate to `docker compose config` which renders the merged shape.
-    Falls back to raw parse if the docker CLI is not available (CI lint
-    can run without a docker daemon — but the rendered shape is what
-    matters for dependency checks).
+
+    Falls back to `.env.example` when `.env` is missing (matching CI's
+    `cp .env.example .env` step), and only falls back to the raw parse
+    when the docker CLI itself isn't available — a `docker compose config`
+    that exits non-zero is an audit-script failure, not a recoverable
+    condition. Silently returning the wrapper's empty `services:` block
+    would emit spurious `missing required dependency` lines for every
+    edge in REQUIRED_DEPENDS_ON.
     """
     import subprocess  # local import — keeps script importable without docker
 
     env_file = ROOT / ".env"
+    env_fallback = ROOT / ".env.example"
     args = ["docker", "compose"]
     if env_file.is_file():
         args.extend(["--env-file", str(env_file)])
+    elif env_fallback.is_file():
+        args.extend(["--env-file", str(env_fallback)])
     args.extend(["-f", str(COMPOSE_FILE), "config"])
     try:
         result = subprocess.run(args, capture_output=True, text=True, check=False)
-        if result.returncode == 0:
-            return yaml.safe_load(result.stdout) or {}
     except FileNotFoundError:
-        pass  # docker not on PATH; fall through to raw read
-    with COMPOSE_FILE.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+        # docker not on PATH — fall through to the raw parse so the script
+        # is still importable / linter-runnable on machines without docker.
+        with COMPOSE_FILE.open("r", encoding="utf-8") as handle:
+            return yaml.safe_load(handle) or {}
+    if result.returncode != 0:
+        # docker is present but `compose config` failed — surface the
+        # stderr instead of producing wrong-answer output.
+        print(
+            "FAIL load_compose: `docker compose config` exited "
+            f"{result.returncode}",
+            file=sys.stderr,
+        )
+        if result.stderr.strip():
+            print(result.stderr.rstrip(), file=sys.stderr)
+        sys.exit(2)
+    return yaml.safe_load(result.stdout) or {}
 
 
 def dependency_names(service_def: dict) -> set[str]:

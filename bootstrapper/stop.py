@@ -7,7 +7,6 @@ Cross-platform stop script for the GenAI development environment.
 """
 
 import sys
-import os
 from pathlib import Path
 import click
 

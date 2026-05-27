@@ -113,10 +113,10 @@ runtime_sc:
 
 runtime_deps:
   openclaw-gateway:
-    optional:
-    - ollama
-    info_message: OpenClaw enabled - will connect to available LLM providers (ollama,
-      anthropic, openai)
+    optional: []
+    info_message: OpenClaw enabled - reasons over the LiteLLM gateway (every active
+      provider — Ollama / OpenAI / Anthropic / OpenRouter — appears in the routing
+      table; OpenClaw never calls those upstreams directly).
 
 data_flow:
   calls:

@@ -30,6 +30,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [JupyterHub (Data Science IDE)](../services/jupyterhub/README.md) — interactive Jupyter Lab environment
 - [OpenClaw (AI Agent)](../services/openclaw/README.md) — AI agent for messaging platforms
 - [Hermes Agent](../services/hermes/README.md) — programmable AI agent runtime (Nous Research)
+- [Ray](../services/ray/README.md) — distributed compute substrate (head + workers, opt-in via `RAY_SOURCE`)
 
 ### Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants

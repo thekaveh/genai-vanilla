@@ -21,8 +21,6 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widget import Widget
 
-from .. import palette as P
-
 
 # 6 rows × 13 zones, each (color_idx, glyph). Color indices are vestigial;
 # the renderer paints each row in a single solid color.

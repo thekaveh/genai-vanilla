@@ -2,8 +2,8 @@
 ComfyUI client for interfacing with ComfyUI API
 """
 import httpx
-import json
 import asyncio
+import time
 import uuid
 from typing import Dict, Any, Optional, List
 import os
@@ -253,11 +253,11 @@ class ComfyUIClient:
     
     async def wait_for_completion(self, prompt_id: str, timeout: int = 300) -> Dict[str, Any]:
         """Wait for a prompt to complete execution"""
-        start_time = asyncio.get_event_loop().time()
+        start_time = time.monotonic()
         
         while True:
             # Check if timeout exceeded
-            if asyncio.get_event_loop().time() - start_time > timeout:
+            if time.monotonic() - start_time > timeout:
                 return {
                     "success": False,
                     "error": "Timeout waiting for completion"

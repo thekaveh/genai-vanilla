@@ -23,8 +23,6 @@ from textual.containers import Container, Horizontal
 from textual.widgets import SelectionList, Static
 from textual.widgets.selection_list import Selection
 
-from .. import palette as P
-
 
 LEVEL_KEYS = ("all", "error", "warn", "info")
 LEVEL_LABELS = {"all": "All", "error": "Errors", "warn": "Warns", "info": "Info"}

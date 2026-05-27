@@ -5,6 +5,10 @@ __pycache__/
 *.so
 .Python
 build/
+# Tracked service-folder 'build/' dirs (Docker image source) — exempt from
+# the generic Python-build-artifact pattern above so 'git add' on tracked
+# files inside them doesn't warn/exit-non-zero on every new file.
+!services/*/build/
 develop-eggs/
 dist/
 downloads/
@@ -124,3 +128,6 @@ ascii_drape_water_out/
 # itself but a custom downstream loader can be configured to read its
 # children). Local-only by default; not tracked in the upstream repo.
 services/_user/
+
+# Audit working tree (overnight audit logs)
+.audit/

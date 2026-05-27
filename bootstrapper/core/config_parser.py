@@ -6,7 +6,6 @@ Python implementation of configuration parsing from start.sh and stop.sh.
 
 import os
 import re
-import yaml
 from typing import Dict, Optional, Any
 from pathlib import Path
 

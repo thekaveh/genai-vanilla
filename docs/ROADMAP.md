@@ -465,7 +465,7 @@ Consumed by (services that would call Stirling-PDF):
 
 **Mem0 — external agent memory layer**
 - Open-source agent-memory framework (Apache-2.0) providing per-user, per-agent persistent memory with automatic extraction, deduplication, and recall
-- Different scope from the existing **LangMem** (which is embedded in the backend service and Open-WebUI-centric): Mem0 is an external service usable across Hermes, OpenClaw, and other agent runtimes uniformly
+- Different scope from the existing **LangMem** (which is embedded in the backend service and Open WebUI-centric): Mem0 is an external service usable across Hermes, OpenClaw, and other agent runtimes uniformly
 - Reuses the existing Weaviate (vector) and Supabase Postgres — no new datastore
 
 **Stack integration points:**
@@ -592,7 +592,7 @@ Lives in [services/hermes/README.md](../services/hermes/README.md). Shipped as t
 only `latest` + per-commit `sha-<digest>` tags, no semver; production
 pins via `HERMES_IMAGE=nousresearch/hermes-agent:sha-...`) plus
 `hermes-init` companion. Registered in the LiteLLM model catalog as
-`hermes-agent`, so every consumer (Open-WebUI, n8n, backend, jupyterhub,
+`hermes-agent`, so every consumer (Open WebUI, n8n, backend, jupyterhub,
 openclaw) sees it in the model dropdown automatically. Dashboard exposed
 at `http://hermes.localhost:63000`.
 
@@ -1251,7 +1251,7 @@ Consumed by (services that would call LiveKit):
 - **LLM observability vs infra metrics**: Langfuse covers prompts / traces / evals / cost attribution; Prometheus + Grafana covers container and host metrics. Both belong in the stack — they don't substitute.
 
 ### Agent memory
-- **LangMem (existing, in-backend) vs Mem0 (external, light) vs Letta / MemGPT (external, stateful)**: LangMem is Open-WebUI-centric and embedded; Mem0 is the multi-agent external default; Letta is the upgrade for agents that need to reason over their own memory hierarchy
+- **LangMem (existing, in-backend) vs Mem0 (external, light) vs Letta / MemGPT (external, stateful)**: LangMem is Open WebUI-centric and embedded; Mem0 is the multi-agent external default; Letta is the upgrade for agents that need to reason over their own memory hierarchy
 - **Complementary, not competing**: a deployment can hold all three for different consumers (backend uses LangMem; Hermes / OpenClaw use Mem0; long-running Hermes personas optionally use Letta)
 
 ### Image-generation UIs

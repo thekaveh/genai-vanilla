@@ -4,7 +4,7 @@
 
 LiteLLM is the always-on OpenAI-compatible front door for every LLM provider in the stack. Every consumer service (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw, Weaviate vectorization) talks to **one URL** and **one API key** — `LITELLM_BASE_URL` / `LITELLM_API_KEY` — and LiteLLM routes each request to the right upstream based on the model name.
 
-When [Hermes Agent](../hermes/README.md) is enabled, `services/litellm/init/scripts/init.py` appends a `hermes-agent` row to `model_list` whose `api_base` is `${HERMES_ENDPOINT}/v1`. The entry is NOT sourced from `public.llms` (Hermes is a service/runtime, not a model provider type), so it lives outside the LLM catalog taxonomy but uses the same `os.environ/HERMES_API_KEY` bearer token. Effect: Open-WebUI, n8n, backend, jupyterhub, openclaw all see `hermes-agent` in the dropdown with no per-consumer wiring.
+When [Hermes Agent](../hermes/README.md) is enabled, `services/litellm/init/scripts/init.py` appends a `hermes-agent` row to `model_list` whose `api_base` is `${HERMES_ENDPOINT}/v1`. The entry is NOT sourced from `public.llms` (Hermes is a service/runtime, not a model provider type), so it lives outside the LLM catalog taxonomy but uses the same `os.environ/HERMES_API_KEY` bearer token. Effect: Open WebUI, n8n, backend, jupyterhub, openclaw all see `hermes-agent` in the dropdown with no per-consumer wiring.
 
 ## 2. Image and ports
 
@@ -139,7 +139,7 @@ LiteLLM ships two Ollama integrations and **they are not interchangeable**:
 | `ollama_chat/<model>` | `/api/chat` | Chat completions (`/v1/chat/completions`) | Real OpenAI-shaped: multi-turn history, tool calls, vision payloads, and the Ollama-native `think` parameter all flow through. |
 | `ollama/<model>` | `/api/generate` | Embeddings (`/v1/embeddings`) | Single-prompt completion. Tool calls do **not** work; multi-turn history is flattened to a single prompt; the `think` parameter is silently dropped. Required for embedding routes because `ollama_chat/` rejects `/v1/embeddings` with `Unmapped LLM provider for this endpoint`. |
 
-`litellm-init/scripts/init.py::render_model_list` picks per-row using a
+`services/litellm/init/scripts/init.py::render_model_list` picks per-row using a
 name heuristic: any model whose name contains `embed` (case-insensitive)
 gets `ollama/` for the `/v1/embeddings` path; everything else gets
 `ollama_chat/` + `think: false` so chat completions return populated
@@ -273,7 +273,7 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | redis | data |
 | supabase | data |
 | cloud-providers | llm |
-| ollama ↔ | llm |
+| ollama | llm |
 | hermes ↔ | agents |
 
 ### 13.2 Current — Downstream (services that call this)
@@ -282,7 +282,6 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 |---|---|
 | kong | infra |
 | weaviate | data |
-| ollama ↔ | llm |
 | comfyui | media |
 | hermes ↔ | agents |
 | n8n | agents |

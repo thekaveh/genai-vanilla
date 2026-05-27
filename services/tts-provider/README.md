@@ -40,7 +40,7 @@ The default already runs:
 ```bash
 ./start.sh
 # wait ~60s for the speaches container to download Kokoro and become healthy
-curl http://localhost:63026/v1/audio/speech \
+curl http://localhost:63046/v1/audio/speech \
   -X POST -H "Content-Type: application/json" \
   -d '{"model":"hexgrad/Kokoro-82M","input":"hello world","voice":"af_heart"}' \
   --output /tmp/hello.wav
@@ -80,17 +80,17 @@ for the full Chatterbox-on-host walkthrough.
 | Variable | Default | Notes |
 |---|---|---|
 | `TTS_PROVIDER_SOURCE` | `speaches-container-cpu` | The single dial that drives everything below. |
-| `TTS_PROVIDER_PORT` | `63023` | Wizard display port; bootstrapper rewrites this to match the active container. |
+| `TTS_PROVIDER_PORT` | `63044` | Wizard display port; bootstrapper rewrites this to match the active container. |
 | `TTS_ENDPOINT` | (auto) | Internal URL containers reach the TTS service on. Read by Open WebUI / n8n / backend / JupyterHub. |
 | `TTS_PROVIDER_SCALE` | (auto) | 1 when any container variant is active, else 0. |
 | `SPEACHES_IMAGE` | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu` | Override to pin a different release. |
 | `SPEACHES_GPU_IMAGE` | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda` | CUDA build pin. |
 | `SPEACHES_TTS_MODEL` | `hexgrad/Kokoro-82M` | HuggingFace repo of the active TTS model. |
-| `SPEACHES_PORT` | `63026` | Speaches container external port. |
+| `SPEACHES_PORT` | `63046` | Speaches container external port. |
 | `SPEACHES_SCALE` | (auto) | 1 when speaches is active. |
 | `CHATTERBOX_IMAGE` | `travisvn/chatterbox-tts-api:gpu` | GPU build tag. No version-locked GPU tag yet — pin to a digest for production. |
-| `CHATTERBOX_PORT` | `63027` | Chatterbox container external port. |
-| `CHATTERBOX_LOCALHOST_PORT` | `63027` | Port the stack reaches your host's chatterbox-tts-api on (matches CHATTERBOX_PORT for symmetry). URL is derived as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT}` at compose-render time. |
+| `CHATTERBOX_PORT` | `63045` | Chatterbox container external port. |
+| `CHATTERBOX_LOCALHOST_PORT` | `63027` | Port the stack reaches your host's chatterbox-tts-api on — independent of the container `CHATTERBOX_PORT` (63045); the two were briefly aliased while the localhost-port-override feature shipped, but their slot allocator outputs now differ. URL is derived as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT}` at compose-render time. |
 | `SPEACHES_PRELOAD_MODELS` | (derived from SPEACHES_TTS_MODEL+SPEACHES_STT_MODEL) | Comma-separated list of HF model IDs Speaches downloads at startup. Skips the first-request cold-start. |
 
 ## 5. OpenAI-compatible API
@@ -199,6 +199,7 @@ _No upstream calls._
 | kong | infra |
 | hermes | agents |
 | n8n | agents |
+| open-webui | apps |
 
 ### 9.3 Architecture diagram
 

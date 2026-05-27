@@ -43,8 +43,14 @@ If a dependency is disabled, adaptive services should degrade where supported. S
 
 | Service | Category |
 |---|---|
+| weaviate | data |
 | litellm | llm |
+| comfyui | media |
+| doc-processor | media |
 | searxng | media |
+| stt-provider | media |
+| tts-provider | media |
+| local-deep-researcher | apps |
 
 ### 5.2 Current — Downstream (services that call this)
 

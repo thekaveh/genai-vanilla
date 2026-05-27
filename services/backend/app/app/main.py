@@ -201,7 +201,7 @@ async def get_workflow(workflow_id: str):
 
 
 @app.post("/workflows/{workflow_id}/execute", response_model=WorkflowExecutionResponse)
-async def execute_workflow(workflow_id: str, request: WorkflowExecuteRequest):
+async def execute_n8n_workflow(workflow_id: str, request: WorkflowExecuteRequest):
     """Execute a specific n8n workflow by ID"""
     try:
         execution = await n8n_client.execute_workflow(workflow_id, request.data)
@@ -333,6 +333,7 @@ async def start_research(request: ResearchStartRequest):
 @app.get("/research/{session_id}/status", response_model=ResearchSessionResponse)
 async def get_research_status(session_id: str):
     """Get the status of a research session"""
+    _validate_uuid_param(session_id, "session_id")
     try:
         result = await research_service.get_research_status(session_id)
         if not result:
@@ -353,6 +354,7 @@ async def get_research_status(session_id: str):
 @app.get("/research/{session_id}/result", response_model=ResearchResultResponse)
 async def get_research_result(session_id: str):
     """Get the result of a completed research session"""
+    _validate_uuid_param(session_id, "session_id")
     try:
         result = await research_service.get_research_result(session_id)
         if not result:
@@ -373,6 +375,7 @@ async def get_research_result(session_id: str):
 @app.post("/research/{session_id}/cancel", response_model=ResearchResponse)
 async def cancel_research(session_id: str):
     """Cancel a running research session"""
+    _validate_uuid_param(session_id, "session_id")
     try:
         success = await research_service.cancel_research(session_id)
         if not success:
@@ -397,6 +400,7 @@ async def cancel_research(session_id: str):
 @app.get("/research/{session_id}/logs", response_model=List[ResearchLogResponse])
 async def get_research_logs(session_id: str):
     """Get logs for a research session"""
+    _validate_uuid_param(session_id, "session_id")
     try:
         logs = await research_service.get_research_logs(session_id)
         return [ResearchLogResponse(**log) for log in logs]
@@ -577,7 +581,7 @@ async def generate_image(request: ComfyUIGenerateRequest):
 
 
 @app.post("/comfyui/workflow", response_model=ComfyUIResponse)
-async def execute_workflow(request: ComfyUIWorkflowRequest):
+async def execute_comfyui_workflow(request: ComfyUIWorkflowRequest):
     """Execute a custom ComfyUI workflow"""
     try:
         async with ComfyUIClient() as client:

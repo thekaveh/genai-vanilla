@@ -81,6 +81,7 @@ DOCLING_ENDPOINT=...
 |---|---|
 | kong | infra |
 | backend | apps |
+| open-webui | apps |
 
 ### 5.3 Architecture diagram
 

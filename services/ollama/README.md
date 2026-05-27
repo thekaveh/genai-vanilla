@@ -99,17 +99,14 @@ For `ollama-container-*` sources, `ollama-pull` reads the active set from `publi
 
 ### 6.1 Current — Upstream (this service calls)
 
-| Service | Category |
-|---|---|
-| supabase | data |
-| litellm ↔ | llm |
+_No upstream calls._
 
 ### 6.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
 | kong | infra |
-| litellm ↔ | llm |
+| litellm | llm |
 
 ### 6.3 Architecture diagram
 

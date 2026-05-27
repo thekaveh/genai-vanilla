@@ -8,8 +8,9 @@
 #   local-deep-researcher/, open-webui-init/) are implicitly NOT scanned, which
 #   prevents future deletions from accumulating phantom alerts.
 # - Groups collapse what would be one PR per CVE into a small weekly digest.
-# - GitHub Actions ecosystem is enabled proactively even though no workflows
-#   exist today, so future workflow files are tracked from day one.
+# - GitHub Actions ecosystem keeps the actions/checkout / actions/setup-python /
+#   astral-sh/setup-uv pins in .github/workflows/services-lint.yml in sync with
+#   the upstream majors.
 
 version: 2
 

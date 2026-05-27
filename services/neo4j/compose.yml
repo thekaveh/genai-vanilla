@@ -1,4 +1,4 @@
-# services/neo4j/compose.yml
+# services/neo4j/compose.yml — Neo4j graph database (Bolt + HTTP)
 services:
   neo4j-graph-db:
     build:
