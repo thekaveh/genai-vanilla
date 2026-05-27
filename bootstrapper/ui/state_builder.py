@@ -190,5 +190,5 @@ def build_app_state(
         repo_url=repo_url,
         services=services,
         cloud_apis=cloud_apis,
-        kong_port=env.get("KONG_HTTP_PORT", "63002"),
+        kong_port=env.get("KONG_HTTP_PORT", "63000"),
     )

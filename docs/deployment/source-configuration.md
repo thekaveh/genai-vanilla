@@ -305,10 +305,10 @@ WEAVIATE_SOURCE=disabled
 ```bash
 MINIO_SOURCE=container
 MINIO_ENDPOINT=http://minio:9000
-MINIO_PUBLIC_ENDPOINT=http://localhost:63030
+MINIO_PUBLIC_ENDPOINT=http://localhost:63017
 ```
 - **Use case**: S3-compatible artifact-tier object storage (ComfyUI outputs, Backend blobs, n8n files, JupyterHub datasets, Doc Processor output)
-- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63031`
+- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63018`
 - **Cons**: Container resource usage
 - **Requirements**: None
 
@@ -619,8 +619,8 @@ docker logs genai-backend -f
 # Use different base port
 ./start.sh --base-port 64000
 
-# Check port usage
-lsof -i :63015
+# Check port usage (Open WebUI default; substitute your conflicting port)
+lsof -i :63082
 ```
 
 **Kong routing not working**:

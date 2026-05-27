@@ -36,10 +36,10 @@ Inspect it after a failed launch — it captures everything the log pane showed,
 ./start.sh --base-port 64000  # Use different port range
 
 # Find what's using the port
-lsof -i :63015
+lsof -i :63082
 
 # Kill process using the port (if safe)
-kill -9 $(lsof -t -i:63015)
+kill -9 $(lsof -t -i:63082)
 ```
 
 ### Memory Issues
@@ -130,7 +130,7 @@ docker logs genai-comfyui -f
 ./start.sh --setup-hosts
 
 # Access via direct URL
-curl http://localhost:63018  # Direct port access
+curl http://localhost:63041  # Direct port access
 ```
 
 ### n8n Issues
@@ -141,10 +141,10 @@ curl http://localhost:63018  # Direct port access
 docker logs genai-n8n -f
 
 # Try direct access
-curl http://localhost:63017
+curl http://localhost:63062
 
 # Check Kong routing
-curl -H "Host: n8n.localhost" http://localhost:63002/
+curl -H "Host: n8n.localhost" http://localhost:63000/
 ```
 
 **Workflow execution fails:**
@@ -190,7 +190,7 @@ cat bootstrapper/utils/kong_config_generator.py
 docker logs genai-kong-api-gateway -f
 
 # Test Kong health
-curl http://localhost:63002/health
+curl http://localhost:63000/health
 ```
 
 **Service routing not working:**
@@ -245,8 +245,8 @@ echo "127.0.0.1 n8n.localhost comfyui.localhost search.localhost api.localhost c
 
 ```bash
 # Check if ports are accessible
-telnet localhost 63015
-nc -zv localhost 63015
+telnet localhost 63082
+nc -zv localhost 63082
 
 # For localhost services, check host firewall
 sudo ufw status  # Ubuntu/Debian
@@ -320,8 +320,8 @@ docker exec genai-litellm curl http://genai-ollama:11434/api/tags
 docker exec genai-kong-api-gateway curl http://genai-supabase-api:3000/health
 
 # Test external access
-curl http://localhost:63015
-curl -H "Host: n8n.localhost" http://localhost:63002/
+curl http://localhost:63082
+curl -H "Host: n8n.localhost" http://localhost:63000/
 ```
 
 ## Getting Help

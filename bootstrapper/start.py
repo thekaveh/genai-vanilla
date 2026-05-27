@@ -1143,7 +1143,7 @@ class GenAIStackStarter:
 
         env_vars = self.config_parser.parse_env_file()
         service_sources = self.config_parser.parse_service_sources()
-        kong_port = env_vars.get('KONG_HTTP_PORT', '63002')
+        kong_port = env_vars.get('KONG_HTTP_PORT', '63000')
 
         # Check if hosts entries are configured (yields the set of hostnames
         # that are PRESENT in /etc/hosts).

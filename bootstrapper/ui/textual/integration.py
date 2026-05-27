@@ -114,8 +114,6 @@ def _option_hint(opt: str) -> str:
         return "Use an instance you already run on this host"
     if "external" in s:
         return "Connect to an instance running elsewhere"
-    if s == "api":
-        return "Use a hosted cloud API (OpenAI / Anthropic / OpenRouter)"
     if s == "disabled":
         return "Skip this service entirely"
     return ""
