@@ -147,6 +147,7 @@ _No upstream calls._
 | kong | infra |
 | hermes | agents |
 | n8n | agents |
+| open-webui | apps |
 
 ### 9.3 Architecture diagram
 

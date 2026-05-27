@@ -216,9 +216,7 @@ MATCH ()-[r]-() WHERE startNode(r) IS NULL OR endNode(r) IS NULL DELETE r
 
 ### 12.1 Current — Upstream (this service calls)
 
-| Service | Category |
-|---|---|
-| supabase | data |
+_No upstream calls._
 
 ### 12.2 Current — Downstream (services that call this)
 

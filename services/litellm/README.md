@@ -273,7 +273,7 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | redis | data |
 | supabase | data |
 | cloud-providers | llm |
-| ollama ↔ | llm |
+| ollama | llm |
 | hermes ↔ | agents |
 
 ### 13.2 Current — Downstream (services that call this)
@@ -282,7 +282,6 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 |---|---|
 | kong | infra |
 | weaviate | data |
-| ollama ↔ | llm |
 | comfyui | media |
 | hermes ↔ | agents |
 | n8n | agents |

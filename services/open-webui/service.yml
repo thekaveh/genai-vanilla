@@ -127,7 +127,17 @@ runtime_deps:
       (weaviate, local-deep-researcher, parakeet, speaches, chatterbox, docling)
 
 data_flow:
+  # Open WebUI reaches every plugged-in media + agent feature at request
+  # time. Calls beyond litellm + searxng are guarded by their SOURCE
+  # being != disabled; runtime_deps.open-web-ui.optional lists the same
+  # services from a different angle (wizard hints + compose ordering).
   calls:
     - litellm
     - searxng
+    - comfyui
+    - stt-provider
+    - tts-provider
+    - doc-processor
+    - local-deep-researcher
+    - weaviate
 
