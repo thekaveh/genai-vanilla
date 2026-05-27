@@ -15,25 +15,18 @@ LATEST_BACKUP=$(find /snapshot -name "backup_*.dump" -type f -printf "%T@ %p\n" 
 if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
   echo "Found backup file: ${LATEST_BACKUP}"
   echo "Automatically restoring Neo4j database from backup..."
-  
+
   # Get backup filename without path
   BACKUP_FILENAME=$(basename "${LATEST_BACKUP}")
-  
-  # Stop Neo4j if it's running
-  if neo4j status | grep -q "Neo4j is running"; then
-    echo "Stopping Neo4j for restore..."
-    neo4j stop
-    
-    # Wait for Neo4j to stop
-    echo "Waiting for Neo4j to stop..."
-    until ! neo4j status | grep -q "Neo4j is running"; do
-      sleep 1
-    done
-  fi
-  
+
+  # Note: this script runs from docker-entrypoint-wrapper.sh BEFORE the
+  # neo4j server is started, so no `neo4j stop` dance is needed here.
+  # (Earlier revisions guarded with `if neo4j status | grep -q running`,
+  # but the check was unreachable in this execution path.)
+
   # Restore the database
   neo4j-admin database restore neo4j --from-path="/snapshot" --input-name="${BACKUP_FILENAME}" --force
-  
+
   echo "Database automatically restored successfully."
 else
   echo "No backup file found. Skipping automatic restore."
