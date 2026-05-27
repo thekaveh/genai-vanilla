@@ -63,6 +63,17 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - Admin console at `http://localhost:63031`; S3 API at `http://localhost:63030` (host) / `http://minio:9000` (internal).
 - Complements Supabase Storage rather than replacing it. Per-consumer wiring (ComfyUI, Backend, n8n, JupyterHub, Doc Processor) ships in dedicated follow-up PRs — credentials and bucket names are in `.env` from day one for opt-in by env-only change.
 
+**Ray distributed-compute cluster**
+- Apache-2.0; the de-facto 2026 OSS distributed-compute framework. Generic substrate for "run N independent units of work in parallel across many CPUs and/or GPUs."
+- `services/ray/` ships head + worker containers under `RAY_SOURCE` with variants `ray-container-cpu`, `ray-container-gpu`, `ray-external`, and `disabled`. (No `ray-localhost` variant — connecting to a host-run Ray cluster is left to the `external` source.)
+- Wizard wires `RAY_WORKER_COUNT` inline on the source step via the `SecondaryNumberInput` widget (the same pattern later generalised for the localhost-port override).
+- Backend exposes `/api/ray/{submit,status,stop,cluster-status}` REST endpoints gated on `RAY_ADDRESS` — returns 503 when Ray is disabled.
+- JupyterHub picks up `ray[client]` in its build image and ships a seeded `07_ray_cluster.ipynb` notebook.
+- Hermes Agent + Backend agents can dispatch compute jobs to the cluster via the Backend REST surface (Ray's `JobSubmissionClient` is not exposed directly outside Backend today).
+- Pipeline-agnostic by design — useful to every strategic track: parallel backtest sweeps (financial / trading-AI), parallel batch rendering and asset preparation (3D / Dreamscapes), parallel embedding pipelines and batch reranking (RAG specializations), Ray Tune parameter sweeps (data engineering).
+- **Honest scope note (preserved from the Tier 1 candidate write-up):** Ray's throughput value scales with parallel inference capacity. On a single-GPU Mac dev machine with no Docker GPU passthrough, Ray adds orchestration polish (pipeline chaining, retries, result aggregation, checkpointing) but **not transformative throughput** — a well-written `asyncio` script captures ~70–80% of the value at that scale. Ray earns its keep when crossing into (a) multi-GPU Linux hosts, (b) batch jobs in the millions-of-units range, or (c) workloads long enough that fault tolerance and resumability matter.
+- **Dask** (BSD-3) remains documented as the lighter single-machine alternative if Ray's footprint feels heavy for a given deployment.
+
 ---
 
 ### Tier 1: high-priority candidates
@@ -242,60 +253,13 @@ Consumed by (services that would call OpenBao):
 - **n8n / Windmill** — workflow steps that need cryptographic signing
 - **Audit-sealer worker** — Merkle-anchor signing for the immutable-archive pipeline
 
-**Ray cluster — parallel-work substrate**
-- Apache-2.0; the de-facto 2026 OSS distributed-compute framework. Generic substrate for "run N independent units of work in parallel across many CPUs and/or GPUs." Promoted from Tier 2 cross-cutting infrastructure to Tier 1 (2026-05-22) as an immediate-add.
-- Pipeline-agnostic by design — useful to every strategic track:
-  - **Financial / trading-AI track:** parallel backtest sweeps (NautilusTrader runs *inside* each Ray task), strategy-parameter hyperparameter search.
-  - **3D / Dreamscapes track:** parallel batch rendering across camera angles, A/B mesh-candidate generation (e.g. 50 InstantMesh variants from 50 prompt seeds), large WaveFunctionCollapse tile-world generation, NeRF training acceleration. Server-side asset *preparation* — distinct from the client-side rendering (browser WebGL, native iOS Metal, native Android Vulkan) which is not Ray's domain.
-  - **RAG specializations:** parallel embedding pipelines (when paired with multi-replica TEI or similar), batch reranking, re-indexing over large corpora.
-  - **Data engineering track:** Ray Tune parameter sweeps over Spark / dbt / ML training jobs.
-- **Honest scope note:** Ray's throughput value scales with parallel inference capacity. On a single-GPU Mac development machine with no Docker GPU passthrough, Ray adds orchestration polish (pipeline chaining, retries, result aggregation, checkpointing) but **not transformative throughput** — a well-written `asyncio` script captures ~70–80% of the value at that scale. Ray earns its keep when crossing into (a) multi-GPU Linux hosts, (b) batch jobs in the millions-of-units range, or (c) workloads long enough that fault tolerance and resumability matter. Adopting now provides a clean substrate to grow into without rewriting batch pipelines later.
-- **Dask** (BSD-3) is the lighter single-machine alternative if Ray's footprint feels heavy for a given deployment.
-
-**Source-variant pattern: `RAY_SOURCE`**
-
-Mirrors the existing `STT_PROVIDER_SOURCE` and `TTS_PROVIDER_SOURCE` patterns. Allowed values:
-- `container-cpu` — head + N workers in Docker, CPU-only. **Default on Mac** (Docker Desktop on macOS has no GPU passthrough as of 2026 — containerised Ray on Mac is CPU-only regardless).
-- `container-gpu` — head + N workers in Docker, each worker pinned to one NVIDIA GPU via NVIDIA Container Toolkit. **Linux + NVIDIA only.**
-- `localhost` — connect to a Ray cluster running natively on the host machine (the user already runs Ray, e.g. via `ray start --head`).
-- `external` — connect to a remote Ray cluster.
-- `disabled` — no Ray deployed.
-
-**Wizard parameters and recommended defaults**
-
-| Parameter | Default | Rationale |
-|---|---|---|
-| `RAY_WORKER_COUNT` | **2** | One worker means no parallelism (sequential execution); two is the minimum demonstrating fan-out. Conservative enough not to oversubscribe an 8-core dev laptop; easy to opt up. |
-| `RAY_WORKER_CPU_LIMIT` | **2** (per worker) | Two cores × two workers = four cores at idle. Leaves headroom on a typical 8–16 core host for ComfyUI, Backend, Open WebUI, Supabase. |
-| `RAY_WORKER_MEMORY_LIMIT` | **4 GiB** (per worker) | Reasonable for non-GPU batch work; raise for embedding-pipeline or in-memory aggregation workloads. |
-| `RAY_DASHBOARD_PORT` | **`${BASE_PORT}+<slot>`** | Same convention as every other service. |
-| `RAY_HEAD_GCS_PORT` | **`${BASE_PORT}+<slot>`** | Ray GCS / head-node port. |
-
-**Wizard step (new, under `infra` category):** prompts for `RAY_SOURCE` selection, then `RAY_WORKER_COUNT` (editable, default 2), with inline guidance ("match worker count to GPU count when using container-gpu; bump CPU / memory limits for embedding-pipeline workloads").
-
-**Stack integration points:**
-
-Depends on (services Ray would consume):
-- **Supabase (PostgreSQL)** / **TimescaleDB** — historical / time-series input
-- **MinIO** — input and output artifacts (backtest results, rendered frames, splat outputs, embedding shards, training checkpoints)
-- **Redis** — *optional* HA backend for the Ray GCS (default GCS is in-memory and does not need external Redis)
-
-Consumed by (services that would call Ray):
-- **JupyterHub** — research notebooks driving parameter sweeps
-- **Backend (FastAPI)** — fan-out for batch-rendering, batch-meshing, batch-embedding APIs
-- **Windmill / Dagster / Apache Airflow** — scheduled batch jobs (backtests, asset pipelines, re-indexing)
-- **Hummingbot API** (trading track) — fleet-level strategy evaluation
-- **NautilusTrader / promotion-gate Windmill flows** — pre-promotion walk-forward at scale
-- **n8n** — workflow steps that fan out to Ray tasks
-- **ComfyUI / InstantMesh / Hunyuan3D-2** (3D track) — fan-out for batch generation (note: requires multiple GPU-bearing replicas of those services to provide real throughput; Ray does not bypass single-process GPU serialisation)
-
 ---
 
 ### Tier 2: planned candidates
 
 #### Cross-cutting infrastructure
 
-These services are pipeline-agnostic — useful to every strategic track (3D / game-generation, financial / trading-AI, RAG specializations, data-engineering) rather than belonging to any one. **Ray** was promoted out of this sub-section to Tier 1 (2026-05-22) as an immediate-add; only E2B remains here today.
+These services are pipeline-agnostic — useful to every strategic track (3D / game-generation, financial / trading-AI, RAG specializations, data-engineering) rather than belonging to any one. **Ray** was promoted out of this sub-section to Tier 1 (2026-05-22) and shipped 2026-05-24 — see the Completed section above; only E2B remains here today.
 
 **E2B (self-hosted) — Firecracker sandbox for untrusted code (cross-cutting)**
 - Apache-2.0; the 2026 reference for safely executing untrusted code (LLM-generated, user-uploaded, or agent-authored). Firecracker microVM isolation, not just container kernel-sharing.
@@ -1076,7 +1040,7 @@ Consumed by (services that would call Redpanda):
 - **Windmill** — event-driven job triggers
 - **OpenBB Platform** — streaming-quote relay
 
-**Note: cross-cutting Phase-3 dependencies (Ray and E2B)** — the financial track's parallel-backtest substrate (**Ray**) and Firecracker sandbox for LLM-generated strategy code (**E2B self-hosted**) live in **Tier 2 under "Cross-cutting infrastructure"** rather than here, because they serve the 3D / Dreamscapes, RAG, and forthcoming data-engineering tracks equally. See the Tier 2 entries for full details.
+**Note: cross-cutting Phase-3 dependencies (Ray and E2B)** — the financial track's parallel-backtest substrate (**Ray**) shipped 2026-05-24 and is documented in the **Completed** section above. The Firecracker sandbox for LLM-generated strategy code (**E2B self-hosted**) remains in **Tier 2 under "Cross-cutting infrastructure"**, because it serves the 3D / Dreamscapes, RAG, and forthcoming data-engineering tracks equally. See the Tier 2 entry for full details.
 
 **FinRL / FinGPT image flavors — AI-assisted strategy authoring**
 - AI4Finance Foundation (MIT). FinRL is the reinforcement-learning library for financial markets; FinGPT is the open-weights financial-LLM family. **Both are libraries, not services** — they ride inside JupyterHub kernel images and E2B sandbox templates.
@@ -1102,7 +1066,7 @@ Consumed by (services that would use FinRL / FinGPT):
 
 #### Data engineering track
 
-This track composes a lakehouse + ingestion + BI + (optional) MLOps platform alongside the AI services, with the JVM / Scala lane explicitly available but **opt-in** (the rest of the stack stays Python-native via Spark Connect). Three notable divergences from the obvious 2024 picks: **Apache Zeppelin** is superseded by the **Almond Scala kernel** on the already-shipped **JupyterHub**; **Dagster** is the primary asset-centric orchestrator with **Apache Airflow** as a permitted alternative (via `ORCHESTRATOR_SOURCE`); and **Spark Connect** makes Scala client-side optional. Unusually strong reuse: the lake is MinIO (existing), every catalog stores metadata in Postgres (existing), Feast's online store is Redis (existing), OpenMetadata's search is OpenSearch (Tier 3 roadmap), Debezium's sink is Redpanda (Tier 3 financial track), and parallel work is the Tier 2 **Ray** cross-cutting service.
+This track composes a lakehouse + ingestion + BI + (optional) MLOps platform alongside the AI services, with the JVM / Scala lane explicitly available but **opt-in** (the rest of the stack stays Python-native via Spark Connect). Three notable divergences from the obvious 2024 picks: **Apache Zeppelin** is superseded by the **Almond Scala kernel** on the already-shipped **JupyterHub**; **Dagster** is the primary asset-centric orchestrator with **Apache Airflow** as a permitted alternative (via `ORCHESTRATOR_SOURCE`); and **Spark Connect** makes Scala client-side optional. Unusually strong reuse: the lake is MinIO (existing), every catalog stores metadata in Postgres (existing), Feast's online store is Redis (existing), OpenMetadata's search is OpenSearch (Tier 3 roadmap), Debezium's sink is Redpanda (Tier 3 financial track), and parallel work is the now-shipped **Ray** cluster (see the Completed section above).
 
 **Apache Spark (standalone + Spark Connect) — distributed compute**
 - Apache-2.0; Spark 4.x. Single image, three roles: master, worker, and `spark-connect` server. Spark Connect (GA since Spark 3.4, recommended in 4.x) is a gRPC server that exposes Spark to Python / Scala / Go / Rust clients transparently — the cluster runs JVM, clients do not.
@@ -1339,7 +1303,7 @@ The following candidates were evaluated and explicitly *not* recommended at this
 - **A standalone JupyterHub alternative (Marimo-only)** — JupyterHub already ships; Marimo as a *complement* is possible but not on the Tier 1/2/3 path today.
 - **Mailpit / Mailhog as a roadmap item** — useful for development but too narrow to warrant Tier 1/2/3 placement; can be added ad-hoc when an email-capture use-case actually lands.
 
-**From the vertical-scenarios stack-fit research (2026-05-17 — see `docs/superpowers/specs/2026-05-17-vertical-scenarios-stack-fit.md`):**
+**From the vertical-scenarios stack-fit research (2026-05-17 — see git log for the design doc, retired with `docs/superpowers/` 2026-05-22):**
 
 - **Needle Engine** — proprietary EULA with license-server requirement; fails the stack's permissive-boilerplate posture.
 - **PlayCanvas Engine as a primary viewer** — engine is MIT but its value is the proprietary cloud editor that cannot be self-hosted. Three.js + react-three-fiber covers the same ground without the lock-in.
@@ -1359,7 +1323,7 @@ The following candidates were evaluated and explicitly *not* recommended at this
 - **Daytona for the LLM-strategy sandbox** — Docker rootless gives only kernel-shared isolation; E2B's Firecracker microVMs are the correct safety bar for untrusted LLM-generated code.
 - **Blockchain-anchored / specialized trading audit-trail products** — proprietary, expensive, over-engineered at boutique scale; OpenSearch + MinIO Object Lock + Merkle anchors in Postgres is sufficient.
 
-**From the data-engineering stack-fit research (2026-05-21 — see `docs/superpowers/specs/2026-05-21-data-engineering-stack-fit.md`):**
+**From the data-engineering stack-fit research (2026-05-21 — see git log for the design doc, retired with `docs/superpowers/` 2026-05-22):**
 
 - **Apache Zeppelin** — release cadence slowed since 2024; the **Almond Scala kernel** on the already-shipped **JupyterHub** delivers the same Scala / Spark notebook capability without a redundant second notebook server. Revisit only if a deployment specifically requires Zeppelin's paragraph-interpreter model.
 - **Polynote (Netflix)** — abandoned; last release 2022.
