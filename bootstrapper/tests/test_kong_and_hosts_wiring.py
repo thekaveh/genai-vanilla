@@ -56,8 +56,8 @@ def gen_with_all_enabled() -> KongConfigGenerator:
     env = {
         "BACKEND_SOURCE": "container",
         "OPEN_WEB_UI_SOURCE": "container",
-        "KONG_HTTP_PORT": "63002",
-        "LITELLM_PORT": "63012",
+        "KONG_HTTP_PORT": "63000",
+        "LITELLM_PORT": "63030",
     }
     return KongConfigGenerator(_StubConfigParser(env))
 
