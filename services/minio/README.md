@@ -1,8 +1,10 @@
 # MinIO
 
+## 1. Overview
+
 S3-compatible object storage for the artifact tier of the stack. Complements Supabase Storage rather than replacing it: Supabase Storage stays the app-tier surface (row-level-security uploads, signed URLs, ≤50 MB files); MinIO is the artifact-tier surface for high-throughput, large-blob workloads.
 
-## 1. Endpoints
+## 2. Endpoints
 
 | Surface | URL | Notes |
 |---|---|---|
@@ -19,14 +21,14 @@ so the MinIO console SPA constructs login / session-cookie URLs
 against the browser's real hostname instead of the internal
 `minio:9001`. Same pattern n8n / Hermes / LiteLLM use.
 
-## 2. Default credentials
+## 3. Default credentials
 
 - **Root user:** `MINIO_ROOT_USER` (default `minioadmin`)
 - **Root password:** `MINIO_ROOT_PASSWORD` — auto-generated to `.env` on first `./start.sh`. Retrieve with `grep ^MINIO_ROOT_PASSWORD= .env`. Use these credentials to log into the admin console.
 
 Root credentials are NEVER surfaced to consumers — see Service accounts below.
 
-## 3. Bucket layout
+## 4. Bucket layout
 
 Five buckets are pre-provisioned by `minio-init`. Bucket names are the bare service identifier:
 
@@ -40,7 +42,7 @@ Five buckets are pre-provisioned by `minio-init`. Bucket names are the bare serv
 
 Bucket names are overridable via `MINIO_BUCKET_<NAME>` env vars; hand-edits stick.
 
-## 4. Service accounts
+## 5. Service accounts
 
 Each consumer has its own MinIO service account with an inline IAM policy scoped to a single bucket:
 
@@ -58,7 +60,7 @@ Each consumer has its own MinIO service account with an inline IAM policy scoped
 
 Credentials are auto-generated to `.env` and exposed as `MINIO_<NAME>_ACCESS_KEY` and `MINIO_<NAME>_SECRET_KEY` where `<NAME>` ∈ `{COMFYUI, BACKEND, N8N, JUPYTER, DOCLING}`. A cross-bucket access attempt with a consumer credential returns `403 AccessDenied`.
 
-## 5. Consumer integration recipe (for follow-up PRs)
+## 6. Consumer integration recipe (for follow-up PRs)
 
 Python (boto3):
 
@@ -85,7 +87,7 @@ mc alias set local http://localhost:${MINIO_PORT} "$MINIO_BACKEND_ACCESS_KEY" "$
 mc cp ./somefile local/backend/somefile
 ```
 
-## 6. Source variants
+## 7. Source variants
 
 `MINIO_SOURCE` may be:
 
@@ -94,17 +96,17 @@ mc cp ./somefile local/backend/somefile
 
 `localhost` and `external` variants are not provided in this release.
 
-## 7. Data persistence
+## 8. Data persistence
 
 MinIO data lives in the `${PROJECT_NAME}-minio-data` named Docker volume mounted at `/data`. `./stop.sh --cold` removes this volume.
 
-## 8. Operations
+## 9. Operations
 
 - **Add a bucket manually:** `mc mb local/<bucket>` from a host with `mc` and the root alias configured.
 - **Rotate a service-account key:** edit `MINIO_<NAME>_ACCESS_KEY` and `MINIO_<NAME>_SECRET_KEY` in `.env`, then run `docker compose up --force-recreate minio-init` to re-provision.
 - **Logs:** `docker logs ${PROJECT_NAME}-minio` and `docker logs ${PROJECT_NAME}-minio-init`.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 - **`SignatureDoesNotMatch`** — most often clock skew between host and container. Sync your host clock.
 - **Browser-based S3 client fails with CORS** — MinIO's default CORS config rejects unrecognized origins. Configure via `mc admin config` if browser uploads are required.
@@ -112,28 +114,28 @@ MinIO data lives in the `${PROJECT_NAME}-minio-data` named Docker volume mounted
 - **Cross-path-style failures** — MinIO requires path-style addressing. In boto3 use `Config(s3={"addressing_style": "path"})`.
 - **`minio` container restart-loops** — typically `MINIO_ROOT_PASSWORD` is empty. Confirm `.env` has it populated; if blank, delete the line and re-run `./start.sh` (the bootstrapper will regenerate).
 
-## 10. Dependencies & Integrations
+## 11. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/minio/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen minio` after manifest changes.
 
-### 10.1 Current — Upstream (this service calls)
+### 11.1 Current — Upstream (this service calls)
 
 _No upstream calls._
 
-### 10.2 Current — Downstream (services that call this)
+### 11.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
 | kong | infra |
 | jupyterhub | apps |
 
-### 10.3 Architecture diagram
+### 11.3 Architecture diagram
 
 ![minio architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 10.4 Future — Missing pair integrations
+### 11.4 Future — Missing pair integrations
 
 - **minio ↔ backend** — *Why:* `minio-init` provisions a `backend` bucket plus scoped keys, but FastAPI never consumes them — large blobs, model checkpoints, embedding caches have nowhere durable to land. *Mechanism:* boto3 client at `http://minio:9000` with `MINIO_BACKEND_ACCESS_KEY`/`SECRET_KEY`, path-style addressing. *Effort:* small. *Confidence:* high.
 - **minio ↔ n8n** — *Why:* the `n8n` bucket and keys are pre-provisioned, and n8n ships a first-party S3 node with custom-endpoint support; workflows could persist files without hitting Supabase Storage's 50 MB ceiling. *Mechanism:* n8n S3 credential at `http://minio:9000`; optional `N8N_EXTERNAL_BINARY_DATA_MODE=s3`. *Effort:* small. *Confidence:* high.
@@ -142,12 +144,12 @@ _No upstream calls._
 - **minio ↔ comfyui** — *Why:* ComfyUI outputs sit in an ephemeral volume; a `comfyui` bucket exists. Persisting renders lets backend/n8n/open-webui share artifacts across `./stop.sh --cold`. *Mechanism:* post-generation hook (custom node or sidecar) uploads `output/` to `s3://comfyui/` via `MINIO_COMFYUI_*`. *Effort:* medium. *Confidence:* medium.
 - **minio ↔ doc-processor** — *Why:* docling parses have no persistent landing zone; the `docling` bucket is unused, blocking downstream RAG flows from finding outputs at stable URIs. *Mechanism:* doc-processor writes payloads to `s3://docling/<source-hash>/` via `MINIO_DOCLING_*` keys. *Effort:* small. *Confidence:* high.
 
-### 10.5 Future — Candidate new services
+### 11.5 Future — Candidate new services
 
 - **Langfuse** ([details](../../docs/research/candidates/langfuse.md)) — *Headline:* LLM observability platform that uses S3 (MinIO) for long-term trace/blob storage. *Wires into:* litellm, hermes, backend, open-webui, local-deep-researcher.
 - **Apache Iceberg + DuckDB** ([details](../../docs/research/candidates/iceberg-duckdb.md)) — *Headline:* open table format on top of MinIO that gives the stack a queryable analytics tier. *Wires into:* jupyterhub, backend, n8n.
 
-### 10.6 Future — Unused features in this service
+### 11.6 Future — Unused features in this service
 
 - **Bucket notifications (webhook/Redis/NATS targets)** — *Why pursue:* MinIO can POST object-created events to a webhook or Redis stream; would let backend/n8n/Weaviate react to uploads instead of polling. *Effort:* medium.
 - **Object lifecycle rules (expiration + versioning)** — *Why pursue:* `comfyui` and `jupyter` buckets will grow unbounded; per-bucket ILM rules (expire after N days, keep N versions) are a one-shot `mc ilm` config in `init-minio.sh`. *Effort:* small.
