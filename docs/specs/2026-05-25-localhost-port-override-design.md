@@ -1,6 +1,6 @@
 # Localhost Port Override — Design
 
-**Status:** Approved 2026-05-25 — ready for implementation planning.
+**Status:** Implemented 2026-05-26 — PR #10 merged.
 **Author:** Kaveh Razavi (via Claude brainstorming).
 **Spec lineage:** Extends the inline `SecondaryNumberInput` widget pattern shipped on
 2026-05-25 for Ray worker count (commit `4f79394`).
