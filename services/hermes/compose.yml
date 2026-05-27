@@ -108,8 +108,8 @@ services:
     volumes:
       - hermes-data:/opt/data
     ports:
-      - "${HERMES_API_PORT:-63028}:8642"
-      - "${HERMES_DASHBOARD_PORT:-63029}:9119"
+      - "${HERMES_API_PORT:-63060}:8642"
+      - "${HERMES_DASHBOARD_PORT:-63061}:9119"
     networks:
       - backend-network
     healthcheck:

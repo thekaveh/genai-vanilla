@@ -49,7 +49,8 @@ with the `PORT` env var.
 
 ```bash
 # Bind on the port the genai-vanilla containers reach you on (63027
-# matches CHATTERBOX_LOCALHOST_PORT / CHATTERBOX_PORT defaults).
+# matches the CHATTERBOX_LOCALHOST_PORT default — independent of the
+# container CHATTERBOX_PORT, which is 63045).
 PORT=63027 uv run main.py
 # or, after `source .venv/bin/activate`:
 PORT=63027 python main.py
