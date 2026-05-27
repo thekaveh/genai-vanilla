@@ -370,7 +370,7 @@ OPENCLAW_SOURCE=disabled
 
 ### HERMES_SOURCE
 
-The programmable AI agent runtime by Nous Research. Hermes reasons over the LiteLLM gateway and exposes an OpenAI-compatible API; `litellm-init` auto-registers `hermes-agent` as a model in the gateway when `HERMES_SOURCE != disabled`, so Open-WebUI / n8n / backend / jupyterhub / openclaw all see Hermes for free.
+The programmable AI agent runtime by Nous Research. Hermes reasons over the LiteLLM gateway and exposes an OpenAI-compatible API; `litellm-init` auto-registers `hermes-agent` as a model in the gateway when `HERMES_SOURCE != disabled`, so Open WebUI / n8n / backend / jupyterhub / openclaw all see Hermes for free.
 
 See [Hermes Agent](../../services/hermes/README.md) for the full service doc.
 
@@ -378,7 +378,7 @@ See [Hermes Agent](../../services/hermes/README.md) for the full service doc.
 ```bash
 HERMES_SOURCE=container
 ```
-- **Use case**: Run Hermes as a stack service consumed by Open-WebUI, n8n, OpenClaw, etc.
+- **Use case**: Run Hermes as a stack service consumed by Open WebUI, n8n, OpenClaw, etc.
 - **Pros**: Easy setup, isolated environment, available to every consumer without per-service wiring
 - **Cons**: ~2–4 GB RAM, ~5.66 GB image on disk, no GPU required
 - **Requirements**: `HERMES_DEFAULT_MODEL` must reference a model with ≥64K context window (stock Ollama defaults to 4096 — pull with `--ctx-size 65536` or use a cloud model)

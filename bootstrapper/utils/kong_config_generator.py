@@ -814,7 +814,7 @@ class KongConfigGenerator:
         if backend_service:
             services.append(backend_service)
 
-        # Open-WebUI
+        # Open WebUI
         openwebui_service = self.generate_openwebui_service()
         if openwebui_service:
             services.append(openwebui_service)
@@ -845,7 +845,7 @@ class KongConfigGenerator:
         }
     
     def generate_openwebui_service(self) -> Optional[Dict[str, Any]]:
-        """Generate Open-WebUI service configuration based on SOURCE."""
+        """Generate Open WebUI service configuration based on SOURCE."""
         source = self.get_env_value('OPEN_WEB_UI_SOURCE')
 
         if source == 'disabled':

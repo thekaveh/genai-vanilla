@@ -50,7 +50,7 @@ Hermes is wired into the stack in two directions:
    the model via `HERMES_DEFAULT_MODEL` (any name LiteLLM exposes).
 2. **LiteLLM → Hermes (inbound)** — `services/litellm/init/scripts/init.py` appends
    a `hermes-agent` row to LiteLLM's `model_list` when `HERMES_SOURCE !=
-   disabled`. Consequence: Open-WebUI, n8n, backend, JupyterHub, OpenClaw
+   disabled`. Consequence: Open WebUI, n8n, backend, JupyterHub, OpenClaw
    all see `hermes-agent` in their model dropdowns automatically — no
    per-consumer wiring.
 
@@ -112,7 +112,7 @@ for scripted changes.
 
 | Scenario | Recommended SOURCE |
 |---|---|
-| Hermes consumed by Open-WebUI / n8n / OpenClaw (default) | **container** |
+| Hermes consumed by Open WebUI / n8n / OpenClaw (default) | **container** |
 | Hermes operates your real machine (real shell, real browser) | `localhost` |
 | Microphone-driven live voice mode | `localhost` (container mic passthrough is non-trivial) |
 | Resource-constrained machine | `disabled` |
@@ -157,7 +157,7 @@ for scripted changes.
 - **64K context floor** — small Ollama models (default 4096 ctx) will fail
   Hermes's preflight check. Pull with `ollama run <model> --ctx-size 65536`
   or pick a cloud model.
-- **Open-WebUI model-list cache** — Open-WebUI caches the LiteLLM model list
+- **Open WebUI model-list cache** — Open WebUI caches the LiteLLM model list
   for 5 minutes (`MODEL_LIST_CACHE_TTL=300`). After first start, `hermes-agent`
   may take up to 5 minutes to appear in the dropdown. Set
   `OPEN_WEB_UI_MODEL_CACHE_TTL=0` to disable while developing.
@@ -179,7 +179,7 @@ Optionally consumes (wired automatically when the SOURCE != disabled):
 Consumed by (the `hermes-agent` model name appears in their dropdowns or
 their env exposes `HERMES_ENDPOINT`):
 
-- **Open-WebUI** — `hermes-agent` model in the chat dropdown (via LiteLLM).
+- **Open WebUI** — `hermes-agent` model in the chat dropdown (via LiteLLM).
 - **n8n** — `hermes-agent` callable from any HTTP-Request or AI node; also
   `HERMES_ENDPOINT` in the worker process env.
 - **Backend API** — `HERMES_ENDPOINT` + `HERMES_API_KEY` for code paths that
@@ -193,7 +193,7 @@ their env exposes `HERMES_ENDPOINT`):
 
 - Upstream repo — <https://github.com/NousResearch/hermes-agent>
 - Official docs — <https://hermes-agent.nousresearch.com/docs/>
-- Open-WebUI integration guide — <https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui>
+- Open WebUI integration guide — <https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui>
 - Docker / bridged-network compose form — <https://hermes-agent.nousresearch.com/docs/user-guide/docker>
 
 ## 8. Dependencies & Integrations
