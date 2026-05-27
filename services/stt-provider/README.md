@@ -83,8 +83,8 @@ for the whisper.cpp walkthrough and Linux build instructions, or
 | `SPEACHES_STT_MODEL` | `Systran/faster-distil-whisper-large-v3` | HuggingFace repo of the active model. Faster-Whisper accepts any whisper-format checkpoint. |
 | `PARAKEET_MODEL` | `nvidia/parakeet-tdt-0.6b-v3` | Or `…-v2` for English-only (slightly faster). |
 | `PARAKEET_GPU_IMAGE` | `nvcr.io/nvidia/pytorch:25.01-py3` | Base for the Parakeet GPU Dockerfile. |
-| `PARAKEET_LOCALHOST_URL` | `http://host.docker.internal:63022` | Where the container reaches a host-side Parakeet server. |
-| `WHISPER_CPP_LOCALHOST_URL` | `http://host.docker.internal:63025` | Where the container reaches a host-side whisper.cpp server. |
+| `PARAKEET_LOCALHOST_PORT` | `63022` | Host port where a host-side Parakeet server listens. URL is derived as `http://host.docker.internal:63022`. |
+| `WHISPER_CPP_LOCALHOST_PORT` | `63025` | Host port where a host-side whisper.cpp server listens. URL is derived as `http://host.docker.internal:63025`. |
 | `HUGGING_FACE_HUB_TOKEN` | (empty) | For gated models. |
 
 ## 5. OpenAI-compatible API

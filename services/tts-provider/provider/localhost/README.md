@@ -49,7 +49,7 @@ with the `PORT` env var.
 
 ```bash
 # Bind on the port the genai-vanilla containers reach you on (63027
-# matches CHATTERBOX_LOCALHOST_URL / CHATTERBOX_PORT defaults).
+# matches CHATTERBOX_LOCALHOST_PORT / CHATTERBOX_PORT defaults).
 PORT=63027 uv run main.py
 # or, after `source .venv/bin/activate`:
 PORT=63027 python main.py
@@ -67,10 +67,11 @@ Then in another terminal point the stack at it:
 ./start.sh --tts-provider-source chatterbox-localhost
 ```
 
-Optional: change the host URL in `.env` if you used a different port:
+Optional: change the host port in `.env` if you used a different one (URL
+is derived inline as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63027}`):
 
 ```bash
-CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:63041
+CHATTERBOX_LOCALHOST_PORT=63041
 ```
 
 ## Verify
@@ -139,7 +140,7 @@ Reinstall PyTorch with MPS support: `pip install --upgrade --force-reinstall tor
 ```bash
 chatterbox-tts-api --host 0.0.0.0 --port 63041
 # then in .env:
-CHATTERBOX_LOCALHOST_URL=http://host.docker.internal:63041
+CHATTERBOX_LOCALHOST_PORT=63041
 ```
 
 **First request times out** — the model downloads on first call (~2 GB).
