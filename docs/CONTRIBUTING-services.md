@@ -150,7 +150,7 @@ Every manifest declares one of six categories. The category drives two things: t
 **Effects of the category:**
 - **Wizard placement.** Categories render in fixed order (`infra` → `data` → `llm` → `media` → `agents` → `apps`). Within a category, services follow topological order (driven by `depends_on.required`).
 - **Port-slot block.** Each category gets its own port-offset range — see [Decision 4](#decision-4--port-allocation).
-- **Architecture-diagram clustering.** The full-stack diagram at `docs/diagrams/architecture.svg` (generated from `architecture.dot`) clusters services by category. (Per-service architecture diagrams under `services/<name>/architecture.svg` are a different artifact — they cluster the call graph instead.)
+- **Architecture-diagram clustering.** The full-stack diagram at `docs/diagrams/architecture.svg` (hand-authored via the architecture-diagram skill) groups services by category band. Per-service architecture diagrams under `services/<name>/architecture.svg` use the same category palette but cluster the call graph instead.
 
 > **Worked example — Qdrant:** Qdrant is a vector database. Its closest siblings in the stack are Weaviate and Supabase (which are also `data`-tier). → **`category: data`**.
 
@@ -488,9 +488,10 @@ uv run python -m services.env_assembler
 # 2. Regenerate README.md TOPOLOGY block (auto-includes the new row)
 uv run python -m tools.generate_readme_topology
 
-# 3. Regenerate docs/diagrams/architecture.dot (+ render the SVG via Graphviz)
-uv run python -m tools.generate_architecture_diagram
-dot -Tsvg ../docs/diagrams/architecture.dot > ../docs/diagrams/architecture.svg
+# 3. (top-level architecture diagram — hand-authored; no regen step)
+#    Update docs/diagrams/architecture.svg by hand via the
+#    architecture-diagram skill if your service materially changes the
+#    full-stack topology (new category band, new always-on tier, etc.).
 
 # 4. Lint — fails if any of steps 1-3 were skipped
 uv run python -m tools.validate_fragments
@@ -504,11 +505,11 @@ PYTHONPATH=. uv run python -m docs.regen qdrant
 
 - **`env_assembler`** — after any change to a manifest's `env:` block, port allocation, or source variants.
 - **`generate_readme_topology`** — after any change to a manifest's `rows:`, `display_name`, `category`, or `alias`.
-- **`generate_architecture_diagram` + `dot -Tsvg`** — after any change to a manifest's `depends_on` or `data_flow.calls`.
+- **Top-level `docs/diagrams/architecture.svg`** — hand-authored; touch ONLY when a service is added/removed at the band-level (new category, new gateway, etc.). Routine `data_flow.calls` edits flow into per-service diagrams via `bootstrapper.docs.regen`.
 - **`validate_fragments`** — always, as the final check before committing.
 - **`docs.regen`** — only after creating a new service, or after editing `data_flow.calls` on an existing service. The drift gate in CI (`bootstrapper.docs.regen --all --check`) catches stale per-service READMEs/SVGs/HTMLs.
 
-**Graphviz prerequisite:** the `dot` command requires Graphviz. Install with `brew install graphviz` (macOS), `sudo apt-get install graphviz` (Debian/Ubuntu), or `choco install graphviz` (Windows). See `docs/diagrams/README.md`.
+**No external prerequisites.** Graphviz used to be required for the top-level diagram regen; that step is retired now that the diagram is hand-authored via the architecture-diagram skill.
 
 ## Audit-script + CI implications
 

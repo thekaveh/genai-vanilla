@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Architecture diagrams — skill-driven rewrite
+
+The top-level architecture diagram (`docs/diagrams/architecture.svg`) is now
+hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram) — JetBrains Mono on a slate-950
+background, category palette of cyan / emerald / violet / amber / rose /
+orange / slate, layered topological flow from external clients down
+through Kong → Apps → Agents → LLM Core → Media → Data → Ray. The
+previous Graphviz pipeline (`docs/diagrams/architecture.dot` +
+`bootstrapper/tools/generate_architecture_diagram.py`) is retired
+alongside the Graphviz prerequisite from the contributor docs.
+
+Per-service diagrams (`services/<name>/architecture.{svg,html}`) keep
+their auto-regenerated workflow via `bootstrapper.docs.regen`, but their
+renderer migrated to the same design system:
+`bootstrapper/services/topology.py::CATEGORY_COLORS` now exposes the
+skill palette (`#fb7185` rose / `#a78bfa` violet / `#fbbf24` amber /
+`#fb923c` orange / `#34d399` emerald / `#22d3ee` cyan) and a sibling
+`CATEGORY_FILLS` dict carries the matching `rgba(..., 0.3–0.4)`
+semi-transparent fills the skill uses for component boxes.
+`bootstrapper/docs/diagram_renderer.py` now stamps `font-family` on the
+root SVG, paints a `#020617` background before the grid, and renders
+both pills and the focus box with the two-rect (opaque backdrop +
+themed fill) pattern.
+
+All 21 per-service SVG + HTML files were regenerated against the new
+renderer; the hermes golden snapshot under
+`bootstrapper/tests/fixtures/hermes.architecture.svg` was refreshed.
+
+This closes the `Architecture-diagram skill rewrite` item that was
+deferred in the 2026-05-27 audit's `Known follow-ups` block.
+
 ### 2026-05-27 overnight audit (second pass — follow-up to PR #11)
 
 A second convergence audit ran the night PR #11 merged. 14 verification
@@ -87,7 +118,6 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 
 - **Backend test coverage.** `services/backend/app/app/` has ~3,700 LOC of production Python across `main.py` (33 FastAPI endpoints), `memory_service.py`, `research_service.py`, `comfyui_client.py`, `n8n_client.py`, `memory_store.py`, `research_client.py`. Only the `ray_routes` / `ray_client` surfaces have tests. Smoke-level TestClient suites for the memory / research / comfyui / workflow endpoint families are tracked for a follow-up.
 - **Bootstrapper utility test gaps.** `bootstrapper/utils/{localhost_validator,key_generator,llm_catalog,cloud_models,supabase_keys}.py`, `bootstrapper/core/docker_manager.py`, and `bootstrapper/services/source_validator.py` have zero unit tests. The drift gates + integration tests cover them transitively, but no isolated unit coverage exists. Adding targeted tests is tracked separately.
-- **Architecture-diagram skill rewrite.** The current `docs/diagrams/architecture.{dot,svg}` is Graphviz-rendered with the Tokyo-Night-mapped category palette. The user's `architecture-diagram` skill (cyan/emerald/violet/amber/rose/orange/slate palette, JetBrains Mono, layered topological flow, standalone HTML) is the target shape; full rewrite is deferred to a dedicated spec. Per-service architecture SVGs (`services/<x>/architecture.svg`) are already auto-regenerated and stay in scope of the drift gate.
 - **Bootstrapper god-class refactors.** `bootstrapper/start.py::GenAIStackStarter` (~1,800 LOC, 31 methods), the 14 near-identical `_generate_<svc>_config` methods in `bootstrapper/services/service_config.py`, and the 10 `generate_<svc>_service` methods in `bootstrapper/utils/kong_config_generator.py` are flagged for table-driven consolidation in a separate refactor plan. The current code paths are all tested and correct; these are maintenance-debt items, not bugs.
 
 ### Added — Ray distributed-compute cluster
