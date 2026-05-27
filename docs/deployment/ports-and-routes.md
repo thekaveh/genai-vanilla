@@ -7,7 +7,7 @@ Ports and Kong hostnames are derived from `BASE_PORT` in `.env` (default `63000`
 The full per-service port + Kong-alias mapping is maintained in three places (kept in sync by tests):
 
 - **`.env.example`** at the repo root — every `*_PORT` env var with its default; the auto-regenerated baseline.
-- **README "Service overview" table** — every browser-facing service with both direct and Kong URLs (§ 3.1).
+- **README "Service overview" table** — every browser-facing service with both direct and Kong URLs (§ 4.1).
 - **`bootstrapper/services/topology.py`** — code-level source of truth; `Topology.port_defaults` and `Topology.aliases`.
 
 ## Kong hostnames

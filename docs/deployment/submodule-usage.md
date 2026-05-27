@@ -97,13 +97,13 @@ myproject/
 │   ├── docker-compose.yml
 │   ├── start.sh
 │   ├── stop.sh
-│   ├── bootstrapper/
-│   ├── services/       # Service documentation
-│   ├── backend/             # Backend service
-│   ├── supabase/            # Supabase config
-│   ├── n8n/                 # n8n config
-│   ├── jupyterhub/          # Notebook environment
-│   └── ...                  # Other top-level service/init directories
+│   ├── bootstrapper/        # Python orchestration + wizard
+│   └── services/            # Per-service manifests, compose fragments, READMEs
+│       ├── backend/         # Backend FastAPI service
+│       ├── supabase/        # Supabase ecosystem
+│       ├── n8n/             # n8n workflow automation
+│       ├── jupyterhub/      # Notebook environment
+│       └── ...              # Every other service folder
 ├── scripts/
 │   ├── start-all.sh         # Start infra + your app
 │   └── stop-all.sh
@@ -193,8 +193,6 @@ Connect your application services to the genai-vanilla network.
 **Parent docker-compose.yml:**
 
 ```yaml
-version: '3.8'
-
 networks:
   # Connect to genai-vanilla network
   infra-network:

@@ -110,7 +110,7 @@ Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http:
 ```bash
 # Use a localhost Ollama upstream to free up Docker memory
 ./start.sh --llm-provider-source ollama-localhost
-ollama pull llama2:7b  # Smaller model
+ollama pull qwen3:1.7b  # Smaller model
 ```
 
 ### ComfyUI Issues
