@@ -41,7 +41,6 @@ env:
 
 depends_on:
   required:
-    - supabase
     - redis
   optional: []
 

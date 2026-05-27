@@ -56,9 +56,7 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 | Service | Category |
 |---|---|
 | litellm | llm |
-| doc-processor | media |
 | searxng | media |
-| hermes | agents |
 
 ### 6.2 Current — Downstream (services that call this)
 

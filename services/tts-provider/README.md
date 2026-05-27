@@ -215,7 +215,6 @@ _No upstream calls._
 | kong | infra |
 | hermes | agents |
 | n8n | agents |
-| backend | apps |
 
 ### 10.3 Architecture diagram
 

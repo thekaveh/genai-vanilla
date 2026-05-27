@@ -64,7 +64,6 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | litellm | llm |
-| backend | apps |
 
 ### 5.3 Architecture diagram
 

@@ -258,7 +258,6 @@ For more troubleshooting help, see [../quick-start/troubleshooting.md](../../doc
 | Service | Category |
 |---|---|
 | kong | infra |
-| backend | apps |
 | jupyterhub | apps |
 
 ### 13.3 Architecture diagram

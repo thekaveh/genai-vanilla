@@ -80,6 +80,7 @@ DOCLING_ENDPOINT=...
 | Service | Category |
 |---|---|
 | kong | infra |
+| backend | apps |
 
 ### 5.3 Architecture diagram
 

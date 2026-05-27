@@ -87,7 +87,6 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 
 | Service | Category |
 |---|---|
-| minio | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |

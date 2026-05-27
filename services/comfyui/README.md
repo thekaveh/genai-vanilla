@@ -69,7 +69,6 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 | Service | Category |
 |---|---|
-| minio | data |
 | litellm | llm |
 
 ### 5.2 Current — Downstream (services that call this)

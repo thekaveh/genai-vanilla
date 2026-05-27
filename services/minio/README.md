@@ -125,8 +125,6 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
-| comfyui | media |
-| n8n | agents |
 | jupyterhub | apps |
 
 ### 10.3 Architecture diagram

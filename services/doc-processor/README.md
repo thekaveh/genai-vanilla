@@ -544,8 +544,6 @@ _No upstream calls._
 |---|---|
 | kong | infra |
 | n8n | agents |
-| backend | apps |
-| open-webui | apps |
 
 ### 17.3 Architecture diagram
 

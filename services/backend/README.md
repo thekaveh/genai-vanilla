@@ -93,24 +93,18 @@ When any optional service is `disabled`, the corresponding backend feature degra
 | Service | Category |
 |---|---|
 | ray | infra |
-| neo4j | data |
-| redis | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
 | comfyui | media |
-| doc-processor | media |
-| stt-provider | media |
-| tts-provider | media |
-| hermes ↔ | agents |
 | n8n | agents |
+| local-deep-researcher | apps |
 
 ### 5.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
 | kong | infra |
-| hermes ↔ | agents |
 
 ### 5.3 Architecture diagram
 

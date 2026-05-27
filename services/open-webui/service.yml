@@ -129,7 +129,5 @@ runtime_deps:
 data_flow:
   calls:
     - litellm
-    - hermes
-    - doc-processor
     - searxng
 
