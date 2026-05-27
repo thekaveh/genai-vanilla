@@ -5,20 +5,6 @@ All notable changes to the GenAI Vanilla Stack will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-05-15 (Topology-Driven Ordering & Port Layout v1)
-
-**Visual:** every service row in the setup wizard now leads with a thin category-color bar; six categories (Infra, Data, LLM Core, Media, Agents & Workflows, Apps & UIs) explained in a legend below the grid. Unanswered configurable services show a yellow ◌ placeholder ("pending") instead of guessing their port/source/alias before you've picked them.
-
-**Ordering:** display order — and the wizard's question sequence — is now derived from each `service.yml`'s `depends_on:` and `category:` fields. The hand-edited `services/_order.yml` has been retired.
-
-**Port renumbering:** default ports are computed from a per-category slot allocator, not hand-edited per manifest. On first start after this upgrade, your existing `.env` is auto-rewritten with the new defaults (a backup is taken to `.env.backup.<timestamp>`). User-customized port values (i.e., not matching the old default) are preserved untouched. Pass `--no-port-migrate` if you want to opt out of the rewrite.
-
-To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_LAYOUT_VERSION/d' .env` (or simply delete the sentinel line so the migration re-applies on next start).
-
-**Aliases:** eight new `*.localhost` aliases — studio, graph, weaviate, ollama, stt, tts, docling, research. Total alias count goes from 10 to 18. Run `--setup-hosts` to add them to `/etc/hosts`. Each alias works in both container and host-install (`-localhost`) modes — Kong proxies through `host.docker.internal` to the user's host port when the source is `-localhost` (Kong's compose now declares `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too). `*-external` sources don't get a Kong route — LiteLLM forwards those itself.
-
-**Internals:** eight scattered metadata constants across `bootstrapper/` (`_SERVICES`, `_HOST_ALIAS`, `DISPLAY_NAME_OVERRIDES`, `SERVICE_DESCRIPTIONS`, `LOCKED_SERVICES`, `LOCALHOST_ENDPOINT_VARS`, `GENAI_HOSTS`, `services/_order.yml`) have collapsed into manifest fields. Adding a new service is now a one-folder operation.
-
 ## [Unreleased]
 
 ### Known follow-ups (deferred from the 2026-05-27 repo-wide audit pass)
@@ -357,6 +343,20 @@ The cleanup PR documented at the top of this section deliberately defers four cl
 - Removed `readchar` (was used by the now-deleted Rich Live prompt widgets).
 - Removed `InquirerPy` (replaced earlier in this `[Unreleased]` cycle).
 - Bumped `requires-python` from `>=3.8` to `>=3.10` (Textual minimum and current LTS floor; the intermediate `>=3.9` bump landed first then was tightened to `>=3.10` when the dependency upgrade pass below required it).
+
+## [3.0.0] - 2026-05-15 (Topology-Driven Ordering & Port Layout v1)
+
+**Visual:** every service row in the setup wizard now leads with a thin category-color bar; six categories (Infra, Data, LLM Core, Media, Agents & Workflows, Apps & UIs) explained in a legend below the grid. Unanswered configurable services show a yellow ◌ placeholder ("pending") instead of guessing their port/source/alias before you've picked them.
+
+**Ordering:** display order — and the wizard's question sequence — is now derived from each `service.yml`'s `depends_on:` and `category:` fields. The hand-edited `services/_order.yml` has been retired.
+
+**Port renumbering:** default ports are computed from a per-category slot allocator, not hand-edited per manifest. On first start after this upgrade, your existing `.env` is auto-rewritten with the new defaults (a backup is taken to `.env.backup.<timestamp>`). User-customized port values (i.e., not matching the old default) are preserved untouched. Pass `--no-port-migrate` if you want to opt out of the rewrite.
+
+To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_LAYOUT_VERSION/d' .env` (or simply delete the sentinel line so the migration re-applies on next start).
+
+**Aliases:** eight new `*.localhost` aliases — studio, graph, weaviate, ollama, stt, tts, docling, research. Total alias count goes from 10 to 18. Run `--setup-hosts` to add them to `/etc/hosts`. Each alias works in both container and host-install (`-localhost`) modes — Kong proxies through `host.docker.internal` to the user's host port when the source is `-localhost` (Kong's compose now declares `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too). `*-external` sources don't get a Kong route — LiteLLM forwards those itself.
+
+**Internals:** eight scattered metadata constants across `bootstrapper/` (`_SERVICES`, `_HOST_ALIAS`, `DISPLAY_NAME_OVERRIDES`, `SERVICE_DESCRIPTIONS`, `LOCKED_SERVICES`, `LOCALHOST_ENDPOINT_VARS`, `GENAI_HOSTS`, `services/_order.yml`) have collapsed into manifest fields. Adding a new service is now a one-folder operation.
 
 ## [2.0.0] - 2025-08-31 (Python Migration & Modular Architecture)
 
