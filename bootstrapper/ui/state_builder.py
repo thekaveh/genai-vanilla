@@ -11,7 +11,6 @@ picks a new SOURCE for a service.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Optional
 
@@ -65,20 +64,21 @@ def lookup_service_meta(name: str) -> Optional[dict]:
 
 def resolve_port(name: str, source: str, port_var: Optional[str], env: dict) -> Optional[str]:
     """Compute the displayed port for a service given its current SOURCE, its
-    port env var, and the parsed .env."""
+    port env var, and the parsed .env.
+
+    For localhost sources, the port is the value of the row's
+    ``localhost_port_var`` in env (the new override pattern from T5+T6+T7).
+    Returns None when the var is unset or empty — the wizard's pending row
+    state then surfaces the manifest default via .env.example backfill
+    before the next read.
+    """
     if source == "disabled":
         return None
     if "localhost" in source:
-        endpoint_var = None
         for r in _get_topology().rows:
-            if r.display_name == name:
-                endpoint_var = r.localhost_endpoint_var
-                break
-        if endpoint_var:
-            endpoint = env.get(endpoint_var, "")
-            match = re.search(r":(\d+)", endpoint)
-            if match:
-                return f":{match.group(1)}"
+            if r.display_name == name and r.localhost_port_var:
+                port = env.get(r.localhost_port_var, "").strip()
+                return f":{port}" if port else None
         return None
     if port_var:
         port = env.get(port_var, "")

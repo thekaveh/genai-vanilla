@@ -607,15 +607,12 @@ class WizardScreen(Screen):
         if opt is None:
             return
         self._selections[step.title] = opt.value
-        # Inline secondary integer input (kind="options" + secondary_number):
-        # capture its value under a synthetic ``__secondary__:<ENV_VAR>`` key
-        # so _selections_to_args can route it to the env-write bag without
-        # needing a separate cascade step. Returns None when the step has
-        # no secondary input OR the selection isn't in the configured
-        # show_when set, in which case nothing is persisted.
-        secondary = self._prompt.secondary_value()
-        if secondary is not None:
-            env_var, value = secondary
+        # Inline secondary integer inputs (kind="options" + per-option
+        # secondary_number): capture each visible eligible input's value
+        # under a synthetic ``__secondary__:<ENV_VAR>`` key so
+        # _selections_to_args can route them to the env-write bag.
+        # Empty list when the step has no eligible rows.
+        for env_var, value in self._prompt.secondary_values():
             self._selections[f"__secondary__:{env_var}"] = value
         # Cloud secret step: live-update the Cloud APIs row in the
         # overview to reflect the user's choice.

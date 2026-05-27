@@ -231,30 +231,63 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     from wizard.ray_steps import build_ray_followup_steps
     from .widgets.prompt_panel import SecondaryNumberInput
 
-    for i, svc in enumerate(services_info):
-        opts = [
-            PromptOption(
-                value=opt, label=opt, hint=_option_hint(opt),
-                badges=_badges_for_option(opt, recommended=(opt == svc.current_value)),
-            )
-            for opt in svc.options
-        ]
-        default = svc.current_value if svc.current_value in svc.options else (
-            svc.options[0] if svc.options else None
+    # Per-service localhost-port wiring. Each entry maps a service's
+    # source-step display name + the option value(s) eligible for the
+    # inline-port widget → the matching env var name + the well-known
+    # default. PromptOption.secondary_number is attached for any option
+    # whose (service, value) appears here. Generic by construction —
+    # the widget doesn't know about ports; this table is the only
+    # place that does. Adding a new localhost-capable service is one
+    # row here + a manifest entry per Task 7.
+    LOCALHOST_PORT_WIRING: dict[tuple[str, str], tuple[str, int]] = {
+        ("ComfyUI",            "localhost"):             ("COMFYUI_LOCALHOST_PORT", 8000),
+        ("Document Processor", "docling-localhost"):     ("DOCLING_LOCALHOST_PORT", 63021),
+        ("Hermes Agent",       "localhost"):             ("HERMES_LOCALHOST_PORT", 63028),
+        ("OpenClaw",           "localhost"):             ("OPENCLAW_LOCALHOST_PORT", 63024),
+        ("LLM Engine",         "ollama-localhost"):      ("OLLAMA_LOCALHOST_PORT", 11434),
+        ("Neo4j Graph DB",     "localhost"):             ("NEO4J_LOCALHOST_BOLT_PORT", 7687),
+        ("Weaviate",           "localhost"):             ("WEAVIATE_LOCALHOST_PORT", 8080),
+        ("STT Provider",       "parakeet-localhost"):    ("PARAKEET_LOCALHOST_PORT", 63022),
+        ("STT Provider",       "whisper-cpp-localhost"): ("WHISPER_CPP_LOCALHOST_PORT", 63025),
+        ("TTS Provider",       "chatterbox-localhost"):  ("CHATTERBOX_LOCALHOST_PORT", 63027),
+    }
+
+    def _localhost_port_config(display: str, opt_value: str) -> "SecondaryNumberInput | None":
+        """Build the per-option SecondaryNumberInput for a localhost row,
+        or None if this (service, option) isn't in the wiring table."""
+        wiring = LOCALHOST_PORT_WIRING.get((display, opt_value))
+        if wiring is None:
+            return None
+        env_var, default_port = wiring
+        raw = (env_vars.get(env_var) or str(default_port)).strip()
+        try:
+            current = int(raw) if raw else int(default_port)
+        except ValueError:
+            current = int(default_port)
+        current = max(1024, min(65535, current))
+        return SecondaryNumberInput(
+            env_var=env_var,
+            description=f"Host port for {display.lower()} in localhost mode (1024-65535).",
+            default_value=current,
+            number_min=1024,
+            number_max=65535,
+            unit_suffix="port",
         )
-        # Inline secondary integer input: Ray's source prompt asks for
-        # worker count on the same screen as the source tiles when the
-        # user picks a container variant. Generic widget — future
-        # localhost service prompts will use this same field to override
-        # default host ports.
-        secondary: SecondaryNumberInput | None = None
+
+    for i, svc in enumerate(services_info):
+        # Per-option secondary_number: attach the inline integer input to
+        # the specific option rows where it makes sense.
+        # • Ray: worker count on the container-cpu / container-gpu rows.
+        # • Localhost-port overrides: attached per-localhost-row in
+        #   Task 10. None of the localhost-attachments live here today.
+        ray_secondary: SecondaryNumberInput | None = None
         if svc.key in ("ray", "ray-head") or svc.display_name == "Ray":
             raw_default = (env_vars.get("RAY_WORKER_COUNT") or "2").strip()
             try:
                 worker_default = max(0, min(64, int(raw_default)))
             except ValueError:
                 worker_default = 2
-            secondary = SecondaryNumberInput(
+            ray_secondary = SecondaryNumberInput(
                 env_var="RAY_WORKER_COUNT",
                 description=(
                     "Ray worker replicas alongside the head node "
@@ -263,9 +296,29 @@ def _build_steps_and_rows(config_parser, hosts_manager):
                 default_value=worker_default,
                 number_min=0,
                 number_max=64,
-                show_when=("ray-container-cpu", "ray-container-gpu"),
                 unit_suffix="workers",
             )
+        opts = [
+            PromptOption(
+                value=opt,
+                label=opt,
+                hint=_option_hint(opt),
+                badges=_badges_for_option(opt, recommended=(opt == svc.current_value)),
+                secondary_number=(
+                    # Ray's container variants → worker-count.
+                    ray_secondary
+                    if ray_secondary is not None
+                       and opt in ("ray-container-cpu", "ray-container-gpu")
+                    # Otherwise: per-localhost-row port widget (None if
+                    # this option isn't a localhost variant in the wiring).
+                    else _localhost_port_config(svc.display_name, opt)
+                ),
+            )
+            for opt in svc.options
+        ]
+        default = svc.current_value if svc.current_value in svc.options else (
+            svc.options[0] if svc.options else None
+        )
         steps.append(PromptStep(
             title=f"{svc.display_name}  ·  source",
             step_index=i + 2, step_total=total,
@@ -273,7 +326,8 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             subtitle=svc.description or "",
             options=opts, default_value=default, service_name=svc.display_name,
             service_key=svc.key,
-            secondary_number=secondary,
+            # secondary_number REMOVED from PromptStep — config is now
+            # on individual PromptOption entries above.
         ))
         # Splice the entire LLM cluster RIGHT AFTER the LLM Engine
         # source step: Ollama variants, then cloud-provider key+model

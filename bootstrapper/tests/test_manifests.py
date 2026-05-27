@@ -350,3 +350,45 @@ def test_data_flow_calls_rejects_unknown_subkey(tmp_path):
 
     with pytest.raises(ManifestLoadError):
         load_manifests(services_dir)
+
+
+def test_row_carries_localhost_port_var_through_topology(tmp_path):
+    """Newly-added field on manifest Row → topology Row, surfaced
+    intact so state_builder.resolve_port can read it without going
+    back through the YAML."""
+    from services.topology import build_topology
+
+    # Synthetic minimal manifest with the new field.
+    services_root = tmp_path / "services"
+    manifest_yml = services_root / "minimal" / "service.yml"
+    manifest_yml.parent.mkdir(parents=True)
+    manifest_yml.write_text(
+        "name: minimal\n"
+        "label: Minimal\n"
+        "category: apps\n"
+        "containers: [minimal]\n"
+        "sources:\n"
+        "  var: MINIMAL_SOURCE\n"
+        "  default: container\n"
+        "  options:\n"
+        "    - id: container\n"
+        "      label: Container\n"
+        "    - id: localhost\n"
+        "      label: Localhost\n"
+        "env:\n"
+        "  - name: MINIMAL_PORT\n"
+        "rows:\n"
+        "  - display_name: Minimal\n"
+        "    source_var: MINIMAL_SOURCE\n"
+        "    port_var: MINIMAL_PORT\n"
+        "    localhost_endpoint_var: MINIMAL_ENDPOINT\n"
+        "    localhost_port_var: MINIMAL_LOCALHOST_PORT\n"
+    )
+    topology = build_topology(services_root)
+    matching = [r for r in topology.rows if r.display_name == "Minimal"]
+    assert len(matching) == 1
+    row = matching[0]
+    assert row.localhost_port_var == "MINIMAL_LOCALHOST_PORT", (
+        f"localhost_port_var did not survive manifest -> Row round-trip; "
+        f"got {row.localhost_port_var!r}"
+    )

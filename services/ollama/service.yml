@@ -61,6 +61,9 @@ env:
   - name: LITELLM_OLLAMA_UPSTREAM
     auto_managed: true
     description: "Ollama URL the LiteLLM gateway forwards Ollama-routed requests to. Owned by ollama because the value flips with LLM_PROVIDER_SOURCE; consumed by litellm-init when rendering its config.yaml."
+  - name: OLLAMA_LOCALHOST_PORT
+    default: "11434"
+    description: "Host port for the ollama-localhost source variant. URL is derived at compose-render time as http://host.docker.internal:11434."
 
 depends_on:
   # `litellm` is listed here NOT because the ollama container calls
@@ -85,6 +88,7 @@ rows:
     alias: ollama.localhost
     description: "Local Ollama upstream the LiteLLM gateway forwards to."
     localhost_endpoint_var: LITELLM_OLLAMA_UPSTREAM
+    localhost_port_var: OLLAMA_LOCALHOST_PORT
 
 exports: []
 
@@ -118,7 +122,7 @@ runtime_sc:
     ollama-localhost:
       scale: 0
       environment:
-        OLLAMA_ENDPOINT: http://host.docker.internal:11434
+        OLLAMA_ENDPOINT: http://host.docker.internal:${OLLAMA_LOCALHOST_PORT:-11434}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway

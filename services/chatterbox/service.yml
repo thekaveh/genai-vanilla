@@ -26,9 +26,9 @@ env:
   - name: CHATTERBOX_PORT
     # default computed by services/topology.py slot allocator
     description: "Host port for the Chatterbox container (in-container listen port is 4123)."
-  - name: CHATTERBOX_LOCALHOST_URL
-    default: "http://host.docker.internal:63027"
-    description: "Used when TTS_PROVIDER_SOURCE=chatterbox-localhost."
+  - name: CHATTERBOX_LOCALHOST_PORT
+    default: "63027"
+    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63027."
   - name: CHATTERBOX_SCALE
     auto_managed: true
     description: "Computed by bootstrapper/services/service_config.py::_generate_tts_provider_config — set to 1 when TTS_PROVIDER_SOURCE=chatterbox-container-gpu."

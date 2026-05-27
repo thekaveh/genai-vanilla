@@ -110,6 +110,11 @@ class Row:
     alias: str | None
     description: str
     localhost_endpoint_var: str | None
+    # The env var holding the overridable host port for this row's
+    # localhost source variant. None when the manifest doesn't declare
+    # one (service has no localhost source, OR legacy service not yet
+    # migrated to the LOCALHOST_PORT pattern).
+    localhost_port_var: str | None
     category: str
     locked: bool
 
@@ -282,6 +287,16 @@ def _allocate_slots(
                 # category's first real port (e.g. KONG_HTTP_PORT) lands at
                 # slot 0 of the infra block.
                 continue
+            if "_LOCALHOST_" in env.name and env.name.endswith("_PORT"):
+                # Vars matching ``*_LOCALHOST_*_PORT`` (including the simpler
+                # ``*_LOCALHOST_PORT``) describe the *host machine's* port
+                # for a localhost source variant — they're external hints,
+                # not stack slots. Skip them so the slot allocator doesn't
+                # consume a slot for them AND so their manifest-declared
+                # default survives into .env.example. Examples:
+                #   COMFYUI_LOCALHOST_PORT (single port)
+                #   NEO4J_LOCALHOST_HTTP_PORT / NEO4J_LOCALHOST_BOLT_PORT
+                continue
             if next_slot[cat] >= block_end:
                 raise TopologyError(
                     f"{cat} block full (size {block_size}); cannot allocate "
@@ -317,6 +332,7 @@ def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology
                 alias=r.alias or None,
                 description=r.description,
                 localhost_endpoint_var=r.localhost_endpoint_var or None,
+                localhost_port_var=r.localhost_port_var or None,
                 category=m.category,
                 locked=locked_by_name[m.name],
             ))

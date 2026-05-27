@@ -19,6 +19,11 @@ from services.migrations.migration_v1 import (
     needs_migration as _needs_v1,
     stamp_version as _stamp_v1,
 )
+from services.migrations.migration_v2 import (
+    apply as _apply_v2,
+    needs_migration as _needs_v2,
+    stamp_version as _stamp_v2,
+)
 
 
 def _format_today() -> str:
@@ -42,6 +47,44 @@ from services.source_validator import SourceValidator
 from services.service_config import ServiceConfig
 from services.dependency_manager import DependencyManager
 from utils.source_override_manager import SourceOverrideManager
+
+
+def _detect_port_collisions(rows) -> list[str]:
+    """Return human-readable warning strings, one per colliding host port.
+
+    A *collision* is two or more rows whose port value (the ":<num>"
+    suffix or just the bare number) is equal AND nonempty. Disabled
+    rows (port = "-" / "" / None) don't participate.
+
+    `rows` is an iterable of ``(name, port_val)`` tuples — the same
+    shape the pre-launch summary builder already accumulates as it
+    iterates services. Kept as a module-level free function so it can
+    be unit-tested without instantiating ``GenAIStackStarter``.
+
+    The warnings are purely informational — launch still proceeds.
+    Compose-up would otherwise fail with an opaque "address already in
+    use" error from Docker, so this gives the user a chance to ack and
+    continue or step back and pick another port.
+    """
+    by_port: dict[str, list[str]] = {}
+    for name, port_val in rows:
+        port = (port_val or "").lstrip(":").strip()
+        if not port or port == "-":
+            continue
+        # Only digits count as a host port. Skip anything that doesn't
+        # look like a numeric port (e.g. an external URL).
+        if not port.isdigit():
+            continue
+        by_port.setdefault(port, []).append(name or "<unknown>")
+    warnings: list[str] = []
+    for port, names in by_port.items():
+        if len(names) >= 2:
+            warnings.append(
+                f"⚠  port {port} used by {' + '.join(names)} — "
+                f"compose-up may fail to bind."
+            )
+    return warnings
+
 
 class GenAIStackStarter:
     """Main class for starting the GenAI Stack."""
@@ -685,62 +728,95 @@ class GenAIStackStarter:
         return True
 
     def run_port_migration(self, no_port_migrate: bool) -> None:
-        """v0 → v1 port-layout .env migration.
+        """Chained .env migrations: v0 → v1 (port-layout), v1 → v2 (URL→PORT).
 
-        Idempotent. Reads ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the
-        active env file (honors ``GENAI_ENV_FILE``); if absent or < 1,
-        rewrites every port var whose current value matches the v0
+        Idempotent. Each step is gated by its own ``_needs_*`` predicate
+        so re-running is safe and stamping is independent. Reads
+        ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the active env file
+        (honors ``GENAI_ENV_FILE``).
+
+        v1: rewrites every port var whose current value matches the v0
         default to the topology-derived v1 default. User-customized
         values are left alone.
 
-        When ``no_port_migrate`` is True we skip the rewrite AND skip
-        the sentinel stamp so the next run re-prompts — matches the
+        v2: rewrites legacy ``<SVC>_LOCALHOST_URL`` lines into
+        ``<SVC>_LOCALHOST_PORT`` lines, commenting the old URLs for
+        audit. Drives both compose runtime and Kong routes off the new
+        PORT schema.
+
+        When ``no_port_migrate`` is True we skip BOTH rewrites AND skip
+        the sentinel stamps so the next run re-prompts — matches the
         user intent "skip this run, ask next time."
 
         Must be called AFTER setup_env_file + backfill so the file
         exists and is fully populated, and BEFORE any caller that
-        relies on the v1 port values.
+        relies on the v2 port values.
         """
         env_path = self.config_parser.env_file_path
-        if not _needs_v1(env_path):
-            return
 
-        if no_port_migrate:
-            self.banner.console.print(
-                "[dim]Skipping port-layout v1 migration (--no-port-migrate); "
-                "will re-prompt next run.[/dim]"
-            )
-            return
-
-        from services.topology import get_topology as _get_topology
-        services_root = self.root_dir / "services"
-        env_vars = self.config_parser.parse_env_file()
-        # ``.get(key, default)`` returns the empty string when the key is
-        # present-but-blank — only missing keys hit the default. A blank
-        # BASE_PORT (auto-managed quirk) would crash ``int("")``.
-        _raw_base = (env_vars.get("BASE_PORT") or "").strip()
-        try:
-            base_port = int(_raw_base) if _raw_base else DEFAULT_BASE_PORT
-        except ValueError:
-            base_port = DEFAULT_BASE_PORT
-        topology = _get_topology(services_root, base_port=base_port)
-        result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
-        if result.backup_path:
-            self.banner.console.print(
-                f"[green]• Backed up .env to {result.backup_path}[/green]"
-            )
-        self.banner.console.print(
-            f"[green]• Port layout updated (v0 → v1)[/green]: "
-            f"rewrote {len(result.rewritten)} ports; "
-            f"preserved {len(result.preserved)} customizations."
-        )
-        if result.rewritten:
-            self.banner.console.print("[dim]  Changes:[/dim]")
-            for var, (old, new) in sorted(result.rewritten.items()):
+        # v0 → v1: port-layout rewrite.
+        if _needs_v1(env_path):
+            if no_port_migrate:
                 self.banner.console.print(
-                    f"[dim]    {var}: {old} → {new}[/dim]"
+                    "[dim]Skipping port-layout v1 migration (--no-port-migrate); "
+                    "will re-prompt next run.[/dim]"
                 )
-        _stamp_v1(env_path, 1)
+            else:
+                from services.topology import get_topology as _get_topology
+                services_root = self.root_dir / "services"
+                env_vars = self.config_parser.parse_env_file()
+                # ``.get(key, default)`` returns the empty string when the key is
+                # present-but-blank — only missing keys hit the default. A blank
+                # BASE_PORT (auto-managed quirk) would crash ``int("")``.
+                _raw_base = (env_vars.get("BASE_PORT") or "").strip()
+                try:
+                    base_port = int(_raw_base) if _raw_base else DEFAULT_BASE_PORT
+                except ValueError:
+                    base_port = DEFAULT_BASE_PORT
+                topology = _get_topology(services_root, base_port=base_port)
+                result = _apply_v1(env_path, topology.port_defaults, base_port=base_port)
+                if result.backup_path:
+                    self.banner.console.print(
+                        f"[green]• Backed up .env to {result.backup_path}[/green]"
+                    )
+                self.banner.console.print(
+                    f"[green]• Port layout updated (v0 → v1)[/green]: "
+                    f"rewrote {len(result.rewritten)} ports; "
+                    f"preserved {len(result.preserved)} customizations."
+                )
+                if result.rewritten:
+                    self.banner.console.print("[dim]  Changes:[/dim]")
+                    for var, (old, new) in sorted(result.rewritten.items()):
+                        self.banner.console.print(
+                            f"[dim]    {var}: {old} → {new}[/dim]"
+                        )
+                _stamp_v1(env_path, 1)
+
+        # v1 → v2: URL → PORT schema rewrite. Idempotent on re-run.
+        # Runs after v1 so the sentinel transitions cleanly 0/none → 1 → 2
+        # rather than skipping intermediate state on a v0 .env (the
+        # combined behavior is what we want for users on older checkouts
+        # who haven't run any bootstrapper since the topology refactor).
+        if _needs_v2(env_path):
+            if no_port_migrate:
+                self.banner.console.print(
+                    "[dim]Skipping LOCALHOST schema migration "
+                    "(--no-port-migrate); will re-prompt next run.[/dim]"
+                )
+            else:
+                self.banner.show_status_message(
+                    "Migrating .env to LOCALHOST_PORT schema (v2) ...",
+                    "info",
+                )
+                _apply_v2(env_path)
+                _stamp_v2(env_path)
+                self.banner.show_status_message(
+                    "LOCALHOST schema migration complete (v2). "
+                    "Old <SVC>_LOCALHOST_URL lines are commented out for "
+                    "audit; new <SVC>_LOCALHOST_PORT lines drive both "
+                    "compose runtime and Kong routes.",
+                    "success",
+                )
 
     def generate_service_configuration(self) -> bool:
         """Generate and update service configuration."""
@@ -1132,6 +1208,10 @@ class GenAIStackStarter:
         services.sort(key=_sort_key)
 
         from ui.textual.palette import style_for_source_choice as _style_for_source
+        # Collected `(name, port_val)` for post-loop collision detection.
+        # Disabled / portless rows still flow through here as ("-",); the
+        # detector filters them out.
+        collision_rows: list[tuple[str, str]] = []
         for name, source_var, port_var, scale_var in services:
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
             scale = env_vars.get(scale_var, '0') if scale_var else '1'
@@ -1170,6 +1250,7 @@ class GenAIStackStarter:
                 alias_text,
                 Text(status_text, style=status_style),
             )
+            collision_rows.append((name, port_val))
 
         # Cloud APIs panel — renders below the services table. Cloud
         # providers don't run as containers (scale: 0) so they don't
@@ -1206,6 +1287,19 @@ class GenAIStackStarter:
             padding=(0, 1),
             expand=True,
         )
+
+        # Port-collision warnings — informational only (warn-don't-block).
+        # When two rows resolve to the same host port (e.g. the user
+        # picked ollama-localhost on Kong's port), surface that here so
+        # the user can step back and adjust before Docker barfs with an
+        # opaque "address already in use" error.
+        warning_lines = _detect_port_collisions(collision_rows)
+        if warning_lines:
+            warning_texts = [
+                Text.from_markup(f"[yellow]{msg}[/yellow]")
+                for msg in warning_lines
+            ]
+            return Group(table, cloud_panel, *warning_texts)
         return Group(table, cloud_panel)
 
     @staticmethod

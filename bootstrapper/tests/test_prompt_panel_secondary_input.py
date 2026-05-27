@@ -1,19 +1,10 @@
-"""Unit tests for the inline ``SecondaryNumberInput`` widget contract.
+"""Unit tests for the per-option ``SecondaryNumberInput`` widget contract.
 
-The widget lets a ``kind="options"`` PromptStep carry an integer textbox
-that's rendered BELOW the tile grid in the same prompt. The wizard
-captures the value via ``PromptPanel.secondary_value()`` and forwards it
-through a ``__secondary__:<ENV_VAR>`` key in the selections dict (see
-``ui.textual.integration._selections_to_args``).
-
-These tests exercise ``secondary_value`` on a stub PromptPanel — the
-method only reads ``self._step`` / ``self._secondary_input`` /
-``self.selected_option`` so we can sidestep Textual's reactive plumbing.
-
-The widget is generic: today Ray uses it for ``RAY_WORKER_COUNT`` on
-container sources; tomorrow localhost-mode services will use it to
-override default host ports. The Ray-specific wiring lives in
-``ui/textual/integration.py``; this file verifies only the contract.
+Eligibility is now per-option: a ``PromptOption`` either carries a
+``SecondaryNumberInput`` config (eligible — renders an inline textbox)
+or doesn't (no textbox slot rendered on that row). Different options
+on the same step can carry configs writing to DIFFERENT env vars; the
+widget mirrors keystrokes only between siblings sharing an env_var.
 """
 
 from __future__ import annotations
@@ -31,213 +22,191 @@ from ui.textual.widgets.prompt_panel import (
 )
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Stubs — minimal stand-ins that satisfy what `secondary_value` reads.
-# ────────────────────────────────────────────────────────────────────────────
-
-
 @dataclass
 class _InputStub:
-    """Stand-in for textual.widgets.Input — only exposes ``value``."""
+    """Stand-in for textual.widgets.Input — exposes value + env_var."""
     value: str = ""
+    associated_env_var: str = ""
 
 
 class _PanelStub:
-    """Minimal stand-in for PromptPanel. ``secondary_value`` only reads
-    ``_step``, ``_secondary_input``, and the ``selected_option`` property,
-    so we don't need a live Textual app."""
+    """Stand-in for PromptPanel exposing only what secondary_values and
+    _sync_secondary_inputs need.
 
-    secondary_value = PromptPanel.secondary_value
-    selected_option = PromptPanel.selected_option
+    Methods are bound LAZILY (looked up on PromptPanel inside each
+    forwarder) so this file is collectable by pytest even before T3
+    introduces ``PromptPanel.secondary_values``. Without lazy binding,
+    the class body would AttributeError at import time, blocking the 3
+    dataclass-shape tests that ought to pass after T1.
+    """
 
-    def __init__(self, step: PromptStep, *, selected_index: int = 0, raw: str = ""):
+    def __init__(self, step: PromptStep, *, selected_index: int = 0):
         self._step = step
         self._selected_index = selected_index
-        # Per-row inputs list — populated by load_step() in the real
-        # PromptPanel; here we seed it with one stub so secondary_value
-        # has something to read. Empty list models the "no eligible rows
-        # on this step" case.
-        if raw is None:
-            self._secondary_inputs: list[_InputStub] = []
-        else:
-            self._secondary_inputs = [_InputStub(value=raw)]
+        self._secondary_inputs: list[_InputStub] = []
+
+    def secondary_values(self):
+        return PromptPanel.secondary_values(self)
+
+    def _sync_secondary_inputs(self, source):
+        return PromptPanel._sync_secondary_inputs(self, source)
+
+    @property
+    def selected_option(self):
+        return PromptPanel.selected_option.fget(self)
 
 
-def _options_step(secondary: SecondaryNumberInput | None,
-                  values: tuple[str, ...] = ("a", "b")) -> PromptStep:
+def _opt(value: str, *, secondary: SecondaryNumberInput | None = None) -> PromptOption:
+    return PromptOption(value=value, label=value, secondary_number=secondary)
+
+
+def _step(options: list[PromptOption]) -> PromptStep:
     return PromptStep(
         title="test step",
         step_index=1,
         step_total=1,
         heading="",
-        options=[PromptOption(value=v, label=v) for v in values],
+        options=options,
         kind="options",
-        secondary_number=secondary,
     )
 
 
-def _ray_secondary(default: int = 2) -> SecondaryNumberInput:
-    """The Ray wiring's exact shape — covers the documented use case."""
-    return SecondaryNumberInput(
-        env_var="RAY_WORKER_COUNT",
-        default_value=default,
-        number_min=0,
-        number_max=64,
-        show_when=("ray-container-cpu", "ray-container-gpu"),
-        unit_suffix="workers",
+# ─── secondary_values: returns ALL eligible rows' values ──────────────
+
+def test_secondary_values_empty_when_no_options_have_config():
+    panel = _PanelStub(_step([_opt("a"), _opt("b")]))
+    assert panel.secondary_values() == []
+
+
+def test_secondary_values_returns_one_tuple_for_selected_option():
+    """The CURRENTLY-SELECTED option drives whether a tuple is emitted.
+    Two options both carrying the same env_var: only the selected
+    option's tuple is returned. Sibling sync keeps their values in
+    lockstep (T3) so reading from either would be equivalent, but
+    spec §7.5 says only the selected one persists."""
+    cfg = SecondaryNumberInput(env_var="X", default_value=5, number_min=0, number_max=100)
+    panel = _PanelStub(
+        _step([_opt("a", secondary=cfg), _opt("b", secondary=cfg), _opt("c")]),
+        selected_index=0,  # "a"
     )
+    panel._secondary_inputs = [
+        _InputStub(value="5", associated_env_var="X"),
+        _InputStub(value="5", associated_env_var="X"),
+    ]
+    assert panel.secondary_values() == [("X", "5")]
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Contract: returns None when not applicable
-# ────────────────────────────────────────────────────────────────────────────
-
-
-def test_returns_none_when_step_has_no_secondary():
-    """A vanilla options step (no secondary_number set) reports None."""
-    panel = _PanelStub(_options_step(secondary=None))
-    assert panel.secondary_value() is None
-
-
-def test_returns_none_when_step_is_not_options_kind():
-    """Number/secret/text kinds never carry a secondary."""
-    step = PromptStep(title="x", step_index=1, step_total=1, heading="",
-                      kind="number", number_min=0, number_max=10)
-    panel = _PanelStub(step, raw=None)  # no eligible rows on a number step
-    assert panel.secondary_value() is None
-
-
-def test_returns_none_when_no_eligible_rows():
-    """An options step whose secondary's show_when matches no option
-    yields an empty ``_secondary_inputs`` list — secondary_value is None."""
-    panel = _PanelStub(_options_step(secondary=_ray_secondary()), raw=None)
-    assert panel.secondary_value() is None
-
-
-def test_returns_none_when_selected_option_not_in_show_when():
-    """``show_when`` filters out options that shouldn't trigger persistence.
-    Picking ``ray-disabled`` (or ``ray-external``) must skip the worker-count
-    write entirely — otherwise we'd corrupt .env for non-container sources."""
-    step = _options_step(
-        secondary=_ray_secondary(),
-        values=("ray-container-cpu", "ray-external", "disabled"),
+def test_secondary_values_distinct_env_vars_only_selected_persists():
+    """STT case: parakeet-localhost writes PARAKEET_LOCALHOST_PORT,
+    whisper-cpp-localhost writes WHISPER_CPP_LOCALHOST_PORT. Both
+    visible inputs RENDER, but only the SELECTED engine's tuple is
+    emitted to selections — per spec §7.5."""
+    cfg_a = SecondaryNumberInput(env_var="PARAKEET", default_value=63022,
+                                 number_min=1024, number_max=65535)
+    cfg_b = SecondaryNumberInput(env_var="WHISPER", default_value=63025,
+                                 number_min=1024, number_max=65535)
+    panel = _PanelStub(
+        _step([_opt("p", secondary=cfg_a), _opt("w", secondary=cfg_b)]),
+        selected_index=1,  # whisper
     )
-    # selected_index=1 ⇒ "ray-external" — not in show_when
-    panel = _PanelStub(step, selected_index=1, raw="5")
-    assert panel.secondary_value() is None
+    panel._secondary_inputs = [
+        _InputStub(value="63022", associated_env_var="PARAKEET"),
+        _InputStub(value="63025", associated_env_var="WHISPER"),
+    ]
+    # Only the selected (whisper) tuple should be returned.
+    assert panel.secondary_values() == [("WHISPER", "63025")]
 
 
-def test_empty_show_when_always_persists():
-    """A SecondaryNumberInput with no show_when (empty tuple) is the
-    "always write" mode — e.g. for a future localhost host-port override
-    where the integer applies regardless of which tile is picked."""
-    sec = SecondaryNumberInput(
-        env_var="SOME_PORT",
-        default_value=8080,
-        number_min=1024,
-        number_max=65535,
-        show_when=(),
-        unit_suffix="port",
+def test_secondary_values_clamps_selected_to_its_range():
+    """Clamping uses the selected option's own min/max. A value above
+    number_max snaps to number_max."""
+    cfg = SecondaryNumberInput(env_var="A", default_value=8000,
+                               number_min=1024, number_max=65535)
+    panel = _PanelStub(_step([_opt("a", secondary=cfg)]))
+    panel._secondary_inputs = [_InputStub(value="99999", associated_env_var="A")]
+    assert panel.secondary_values() == [("A", "65535")]
+
+
+def test_secondary_values_falls_back_to_default_on_garbage_input():
+    cfg = SecondaryNumberInput(env_var="X", default_value=8000, number_min=1024, number_max=65535)
+    panel = _PanelStub(_step([_opt("a", secondary=cfg)]))
+    panel._secondary_inputs = [_InputStub(value="not-a-number", associated_env_var="X")]
+    assert panel.secondary_values() == [("X", "8000")]
+
+
+def test_secondary_values_empty_input_uses_default():
+    cfg = SecondaryNumberInput(env_var="X", default_value=8000, number_min=1024, number_max=65535)
+    panel = _PanelStub(_step([_opt("a", secondary=cfg)]))
+    panel._secondary_inputs = [_InputStub(value="", associated_env_var="X")]
+    assert panel.secondary_values() == [("X", "8000")]
+
+
+def test_secondary_values_returns_empty_when_selection_moves_to_ineligible():
+    """Per spec §7.5: the user can type a value into an eligible row's
+    textbox, then navigate the cursor to a row WITHOUT a secondary
+    config. On confirm, secondary_values returns [] — the typed value
+    is NOT persisted to .env because the user's final selection wasn't
+    an eligible row.
+
+    Mirrors the localhost-port use case: user types 9000 in
+    `comfyui-localhost`'s textbox, then picks `comfyui-container`,
+    confirms. COMFYUI_LOCALHOST_PORT must not be written.
+    """
+    cfg = SecondaryNumberInput(env_var="COMFYUI_LOCALHOST_PORT",
+                               default_value=8000, number_min=1024, number_max=65535)
+    panel = _PanelStub(
+        _step([_opt("comfyui-container"), _opt("localhost", secondary=cfg)]),
+        selected_index=0,  # container — the NON-eligible row
     )
-    step = _options_step(secondary=sec, values=("localhost", "container"))
-    panel = _PanelStub(step, selected_index=0, raw="9090")
-    assert panel.secondary_value() == ("SOME_PORT", "9090")
-    panel2 = _PanelStub(step, selected_index=1, raw="9090")
-    assert panel2.secondary_value() == ("SOME_PORT", "9090")
+    # The localhost-row's input exists and has a value the user typed.
+    panel._secondary_inputs = [_InputStub(value="9000", associated_env_var="COMFYUI_LOCALHOST_PORT")]
+    # But because the user's final selection is the container row
+    # (not eligible), nothing is captured.
+    assert panel.secondary_values() == []
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Contract: value capture & default-handling
-# ────────────────────────────────────────────────────────────────────────────
+# ─── _sync_secondary_inputs: keyed by env_var ─────────────────────────
 
-
-def test_returns_default_when_input_empty():
-    """Empty input ⇒ fall back to ``default_value`` (Enter-to-accept)."""
-    step = _options_step(
-        secondary=_ray_secondary(default=2),
-        values=("ray-container-cpu",),
-    )
-    panel = _PanelStub(step, selected_index=0, raw="")
-    assert panel.secondary_value() == ("RAY_WORKER_COUNT", "2")
-
-
-def test_returns_typed_integer_value():
-    step = _options_step(
-        secondary=_ray_secondary(),
-        values=("ray-container-cpu",),
-    )
-    panel = _PanelStub(step, selected_index=0, raw="7")
-    assert panel.secondary_value() == ("RAY_WORKER_COUNT", "7")
-
-
-def test_clamps_value_above_max():
-    """A typed value above number_max gets clamped (matches kind='number')."""
-    step = _options_step(
-        secondary=_ray_secondary(),  # max=64
-        values=("ray-container-cpu",),
-    )
-    panel = _PanelStub(step, selected_index=0, raw="9999")
-    assert panel.secondary_value() == ("RAY_WORKER_COUNT", "64")
-
-
-def test_clamps_value_below_min():
-    """Negative values clamp up to number_min (Ray min=0 ⇒ 0)."""
-    step = _options_step(
-        secondary=_ray_secondary(),
-        values=("ray-container-cpu",),
-    )
-    panel = _PanelStub(step, selected_index=0, raw="-5")
-    assert panel.secondary_value() == ("RAY_WORKER_COUNT", "0")
-
-
-def test_falls_back_to_default_on_garbage_input():
-    """Non-numeric input ⇒ swallow the ValueError and use the default
-    rather than crashing the wizard mid-launch."""
-    step = _options_step(
-        secondary=_ray_secondary(default=3),
-        values=("ray-container-cpu",),
-    )
-    panel = _PanelStub(step, selected_index=0, raw="not-a-number")
-    assert panel.secondary_value() == ("RAY_WORKER_COUNT", "3")
-
-
-# ────────────────────────────────────────────────────────────────────────────
-# Contract: sibling-sync between per-row inputs
-# ────────────────────────────────────────────────────────────────────────────
-
-
-def test_sync_mirrors_value_across_siblings():
-    """Two eligible rows ⇒ two Input widgets. Typing in one must mirror
-    to the other (shared logical value). Reading from either matches."""
-    step = _options_step(
-        secondary=_ray_secondary(default=2),
-        values=("ray-container-cpu", "ray-container-gpu", "disabled"),
-    )
-
-    class _PanelWithSync:
-        _sync_secondary_inputs = PromptPanel._sync_secondary_inputs
-
-    panel = _PanelWithSync()
-    a, b = _InputStub(value="2"), _InputStub(value="2")
-    panel._secondary_inputs = [a, b]
-    # User types "7" into the cpu row's Input
+def test_sync_mirrors_value_across_siblings_sharing_env_var():
+    panel = _PanelStub(_step([]))
+    a = _InputStub(value="2", associated_env_var="X")
+    b = _InputStub(value="2", associated_env_var="X")
+    c = _InputStub(value="9000", associated_env_var="Y")
+    panel._secondary_inputs = [a, b, c]
     a.value = "7"
     panel._sync_secondary_inputs(a)
-    assert b.value == "7", f"Sibling not synced: a={a.value} b={b.value}"
-
-    # User then edits the gpu row's Input to "12"
-    b.value = "12"
-    panel._sync_secondary_inputs(b)
-    assert a.value == "12"
+    assert b.value == "7", "Same-env_var sibling not synced"
+    assert c.value == "9000", "Different-env_var sibling should be independent"
 
 
 def test_sync_is_idempotent_when_values_already_match():
-    """A no-op sync (siblings already equal) must not loop."""
-    class _PanelWithSync:
-        _sync_secondary_inputs = PromptPanel._sync_secondary_inputs
-
-    panel = _PanelWithSync()
-    a, b = _InputStub(value="5"), _InputStub(value="5")
+    panel = _PanelStub(_step([]))
+    a = _InputStub(value="5", associated_env_var="X")
+    b = _InputStub(value="5", associated_env_var="X")
     panel._secondary_inputs = [a, b]
     panel._sync_secondary_inputs(a)
     assert a.value == "5" and b.value == "5"
+
+
+# ─── dataclass shape ──────────────────────────────────────────────────
+
+def test_secondary_number_input_dropped_show_when_field():
+    fields = {f for f in SecondaryNumberInput.__dataclass_fields__}
+    assert "show_when" not in fields, (
+        f"SecondaryNumberInput should no longer have show_when. Fields: {fields}"
+    )
+
+
+def test_prompt_option_has_secondary_number_field():
+    fields = PromptOption.__dataclass_fields__
+    assert "secondary_number" in fields, (
+        f"PromptOption should carry secondary_number. Fields: {set(fields)}"
+    )
+    assert fields["secondary_number"].default is None
+
+
+def test_prompt_step_no_longer_has_secondary_number_field():
+    fields = {f for f in PromptStep.__dataclass_fields__}
+    assert "secondary_number" not in fields, (
+        f"PromptStep should no longer carry secondary_number. Fields: {fields}"
+    )

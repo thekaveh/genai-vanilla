@@ -4,7 +4,6 @@ Localhost service validation utilities.
 Validates that localhost services are accessible when configured as SOURCE=localhost.
 """
 
-import re
 import socket
 import urllib.request
 import urllib.error
@@ -49,7 +48,7 @@ class LocalhostValidator:
         },
         # STT and TTS providers use per-source configs because each
         # localhost variant runs a *different* binary with a different port
-        # (read from its own URL env var) and a different health-probe path
+        # (read from its own PORT env var) and a different health-probe path
         # (Parakeet MLX has /health, whisper.cpp-server only has /inference
         # and /load — no health endpoint — so we TCP-probe it instead).
         # Symmetric story on TTS: Chatterbox exposes /health, so HTTP-probe.
@@ -57,7 +56,7 @@ class LocalhostValidator:
             'per_source': {
                 'parakeet-localhost': {
                     'check_type': 'http',
-                    'url_env_var': 'PARAKEET_LOCALHOST_URL',
+                    'port_env_var': 'PARAKEET_LOCALHOST_PORT',
                     'health_path': '/health',
                     'default_port': 63022,
                     'service_name': 'Parakeet STT (host-side)',
@@ -70,7 +69,7 @@ class LocalhostValidator:
                     # "server not running" without false-negatives on the
                     # unsupported health URL.
                     'check_type': 'tcp',
-                    'url_env_var': 'WHISPER_CPP_LOCALHOST_URL',
+                    'port_env_var': 'WHISPER_CPP_LOCALHOST_PORT',
                     'default_port': 63025,
                     'service_name': 'whisper.cpp STT (host-side)',
                     'hint': 'Start whisper-server — see services/parakeet/provider/whisper-cpp/README.md.',
@@ -81,7 +80,7 @@ class LocalhostValidator:
             'per_source': {
                 'chatterbox-localhost': {
                     'check_type': 'http',
-                    'url_env_var': 'CHATTERBOX_LOCALHOST_URL',
+                    'port_env_var': 'CHATTERBOX_LOCALHOST_PORT',
                     'health_path': '/health',
                     'default_port': 63027,
                     'service_name': 'Chatterbox TTS (host-side)',
@@ -181,25 +180,6 @@ class LocalhostValidator:
             return top
         return None
 
-    @staticmethod
-    def _port_from_url(url: str, fallback: int) -> int:
-        """Extract the port number from a ``host:port[/...]`` URL.
-
-        Falls back to ``fallback`` when the URL has no port (rare). Treats
-        bash-substitution syntax like ``${VAR:-http://host:63025}`` correctly
-        by matching the first ``:digits`` group (same approach
-        state_builder.resolve_port uses for the wizard's port column).
-        """
-        if not url:
-            return fallback
-        match = re.search(r':(\d+)', url)
-        if match:
-            try:
-                return int(match.group(1))
-            except ValueError:
-                pass
-        return fallback
-
     def validate_service(self, source_var: str, source_value: str) -> Tuple[bool, List[str]]:
         """
         Validate a specific service configuration.
@@ -221,26 +201,21 @@ class LocalhostValidator:
         if config['check_type'] == 'http':
             # HTTP endpoint validation. Two ways the endpoint URL is built:
             #
-            # 1. Per-source: ``url_env_var`` names a URL env var (e.g.
-            #    ``WHISPER_CPP_LOCALHOST_URL=http://host.docker.internal:63025``).
-            #    We extract the port from that URL and append ``health_path``.
-            #    This is the correct path for STT/TTS providers because each
-            #    localhost variant has its own URL env var; using a generic
-            #    ``port_env_var`` would test the wrong port.
+            # 1. ``port_env_var`` names a PORT env var (e.g.
+            #    ``WHISPER_CPP_LOCALHOST_PORT=63025`` or
+            #    ``DOC_PROCESSOR_PORT=63021``). The probe URL is
+            #    ``http://localhost:<port><health_path|/health>``. STT/TTS
+            #    use per-source ``LOCALHOST_PORT`` vars because each
+            #    localhost variant has its own port; the same var that
+            #    compose's runtime_sc and Kong's _localhost_url helper read.
             #
-            # 2. Legacy: ``port_env_var`` names a port env var (e.g.
-            #    ``DOC_PROCESSOR_PORT=63021``), or ``endpoints`` is a hardcoded
-            #    list. Preserved for the single-engine services (ComfyUI,
-            #    Weaviate, …) so this refactor doesn't ripple beyond audio.
-            if 'url_env_var' in config:
-                env_vars = self.config_parser.parse_env_file()
-                url_value = env_vars.get(config['url_env_var'], '')
-                port = self._port_from_url(url_value, config['default_port'])
-                endpoints = [f"http://localhost:{port}{config.get('health_path', '/health')}"]
-            elif 'port_env_var' in config:
+            # 2. Legacy: ``endpoints`` is a hardcoded list. Preserved for
+            #    single-engine services (ComfyUI, Weaviate, …) so this
+            #    refactor doesn't ripple beyond audio.
+            if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
                 port = env_vars.get(config['port_env_var'], config['default_port'])
-                endpoints = [f"http://localhost:{port}/health"]
+                endpoints = [f"http://localhost:{port}{config.get('health_path', '/health')}"]
             else:
                 endpoints = config['endpoints']
 
@@ -272,10 +247,9 @@ class LocalhostValidator:
             # GET endpoint (whisper-server only has /inference and /load,
             # both POST-only; a GET probe would return 405, which the HTTP
             # check treats as "down").
-            if 'url_env_var' in config:
+            if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
-                url_value = env_vars.get(config['url_env_var'], '')
-                port = self._port_from_url(url_value, config['default_port'])
+                port = env_vars.get(config['port_env_var'], config['default_port'])
                 host = 'localhost'
             else:
                 host = config['host']

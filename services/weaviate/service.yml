@@ -73,6 +73,9 @@ env:
     auto_managed: true
   - name: CLIP_DEPLOY_RESOURCES
     default: "~"
+  - name: WEAVIATE_LOCALHOST_PORT
+    default: "8080"
+    description: "Host port for the weaviate-localhost source variant. URL is derived at compose-render time as http://host.docker.internal:8080."
 
 
 depends_on:
@@ -89,6 +92,7 @@ rows:
     alias: weaviate.localhost
     description: "Vector database for semantic search & RAG."
     localhost_endpoint_var: WEAVIATE_URL
+    localhost_port_var: WEAVIATE_LOCALHOST_PORT
   - display_name: "Multi2Vec CLIP"
     source_var: MULTI2VEC_CLIP_SOURCE
     scale_var: CLIP_SCALE
@@ -125,7 +129,7 @@ runtime_sc:
     localhost:
       scale: 0
       environment:
-        WEAVIATE_URL: http://host.docker.internal:8080
+        WEAVIATE_URL: http://host.docker.internal:${WEAVIATE_LOCALHOST_PORT:-8080}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway

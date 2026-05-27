@@ -194,36 +194,35 @@ def _mask_secret(value: str) -> str:
 
 @dataclass
 class SecondaryNumberInput:
-    """An inline integer textbox attached to a ``kind="options"`` prompt
-    step. Each eligible row renders the input directly between its label
-    and its badges (see ``OptionRowWithInput``).
+    """An inline integer textbox attached to a ``PromptOption``. The
+    option renders the input directly between its label and its badges
+    (see ``OptionRowWithInput``).
 
     On confirm, the integer value is captured alongside the tile
     selection and written to ``env_var`` via the wizard's selection
     pipeline.
 
-    ``show_when`` filters which option values activate persistence:
-      - Empty tuple → the value is always written regardless of selection
-        (the input is always editable; useful for unconditional parameters)
-      - Non-empty tuple → the value is only persisted when the currently-
-        selected option's ``value`` is in this set. Selecting a tile NOT
-        in show_when greys out the input and skips the env-var write.
+    Eligibility for the inline input is now per-option: a
+    ``PromptOption`` either carries one of these (eligible — input
+    rendered) or doesn't (no input on that row). The earlier
+    ``show_when`` filter on this dataclass is gone — equivalent
+    behaviour comes from attaching the config to the matching options.
 
     ``unit_suffix`` is the short label rendered immediately to the
     right of the textbox on eligible rows ("workers", "port", "MB", …)
-    so the user reads the row as ``ray-container-cpu [ 2 ] workers
-    [rec.] [CPU]``. Empty string hides the suffix entirely.
+    so the user reads the row as ``ollama-localhost [ 11434 ] port
+    [rec.]``. Empty string hides the suffix entirely.
 
-    Generic by design — Ray uses this for ``RAY_WORKER_COUNT`` on
-    container sources; future localhost service variants can use it for
-    host ports.
+    Sibling-sync semantics (when two rows on the same step both carry
+    a config): inputs writing the SAME ``env_var`` mirror keystrokes
+    so the user only types once; inputs writing DIFFERENT ``env_var``s
+    are independent (e.g. STT step's parakeet vs. whisper-cpp ports).
     """
     env_var: str
     description: str = ""
     default_value: int = 0
     number_min: int = 0
     number_max: int = 1_000_000
-    show_when: tuple[str, ...] = ()
     unit_suffix: str = ""
 
 
@@ -249,6 +248,11 @@ class PromptOption:
     # falls back to the parent's status (correct for container modes
     # where /api/tags wasn't consulted).
     pulled_variants: frozenset[str] = field(default_factory=frozenset)
+    # Inline secondary integer input attached to THIS row. When set, the
+    # row renders via OptionRowWithInput with an editable textbox between
+    # the label and the badges. When None (the default), the row renders
+    # via the plain OptionRow. See SecondaryNumberInput for semantics.
+    secondary_number: "SecondaryNumberInput | None" = None
 
 
 @dataclass
@@ -301,12 +305,9 @@ class PromptStep:
     # ``[ALL] tag1 tag2 …`` and filters visible options by membership
     # in ``PromptOption.badges``.
     filter_tags: tuple[str, ...] = ()
-    # Optional inline secondary integer input rendered below the tiles
-    # when ``kind="options"``. See ``SecondaryNumberInput`` for semantics.
-    # When set, the wizard captures BOTH the tile selection AND the
-    # secondary integer at confirm time and persists the integer to
-    # ``env_var`` via the wizard's selection pipeline.
-    secondary_number: "SecondaryNumberInput | None" = None
+    # secondary_number REMOVED 2026-05-25 — config now lives on each
+    # PromptOption (see PromptOption.secondary_number). Eligibility is
+    # "option carries a config" instead of "step-level show_when filter."
 
 
 def _progress_braille(step: int, total: int, width: int = 10) -> str:
@@ -499,11 +500,11 @@ class PromptPanel(Container):
     def load_step(self, step: PromptStep) -> None:
         self._step = step
         # Drop the per-row secondary-input registry: the options-branch
-        # below repopulates it when (and only when) ``step.secondary_number``
-        # is set. Any other step kind (number / secret / text /
-        # multiselect) finishes with an empty list, which is exactly the
-        # "no secondary input on this step" signal that ``secondary_value``
-        # uses.
+        # below repopulates it when (and only when) at least one
+        # ``opt.secondary_number`` is set on the step. Any other step
+        # kind (number / secret / text / multiselect) finishes with an
+        # empty list, which is exactly the "no secondary input on this
+        # step" signal that ``secondary_values()`` uses.
         self._secondary_inputs = []
         # All caption info on the top border title — service name +
         # step counter + a small progress bar.
@@ -724,36 +725,43 @@ class PromptPanel(Container):
 
         # Options-list mounting.
         #
-        # When the step has ``secondary_number`` set, EVERY row uses the
-        # ``OptionRowWithInput`` composite so the textbox column and
-        # the badges column align across the entire screen — eligible
-        # rows mount a real ``Input``, ineligible rows mount a spacer
-        # Static of the same width. Without this, ineligible rows would
-        # render via plain ``OptionRow`` (no textbox slot) and the
-        # badges column would drift across rows.
+        # When ANY option on the step carries a ``secondary_number``
+        # config, EVERY row uses the ``OptionRowWithInput`` composite
+        # so the textbox column and the badges column align across the
+        # screen — eligible rows mount a real ``Input`` tagged with the
+        # env_var it writes, ineligible rows mount a spacer Static of
+        # the same width.
         #
-        # When the step has no ``secondary_number``, every row falls
-        # back to the plain ``OptionRow`` — the existing baseline.
+        # When NO option on the step has a secondary_number, every row
+        # falls back to the plain ``OptionRow`` — the existing baseline.
         self._secondary_inputs = []
-        secondary = step.secondary_number
-        default_str = str(secondary.default_value) if secondary else ""
-        eligible_filter = (
-            secondary.show_when if (secondary and secondary.show_when) else None
-        )
-        # Fixed label column width (in cells) for the composite layout:
-        # cursor + dot indicator (3 cells) + inter-column gap (4 cells)
-        # + the longest option label in this step. Every row uses the
-        # same value so the textbox column lands at the same x on
-        # every row.
+        any_secondary = any(opt.secondary_number is not None for opt in step.options)
+
+        # Fixed label column width for the composite layout (cells):
+        # cursor + dot indicator (3) + inter-column gap (4) + the
+        # longest option label in this step. Every row uses the same
+        # value so the textbox column lands at the same x on every row.
         label_col_width = 0
-        if secondary is not None and step.options:
+        if any_secondary and step.options:
             label_col_width = SECONDARY_LABEL_PREFIX_WIDTH + max(
                 len(opt.label) for opt in step.options
             )
 
+        # Compute the longest unit_suffix in the step so every row's
+        # suffix cell reserves the same width (eligible rows render the
+        # text, ineligible rows render a space-padded equivalent).
+        unit_suffix_for_row = ""
+        if any_secondary:
+            unit_suffix_for_row = max(
+                (opt.secondary_number.unit_suffix
+                 for opt in step.options if opt.secondary_number is not None),
+                key=len,
+                default="",
+            )
+
         self._option_list.remove_children()
         for i, opt in enumerate(step.options):
-            if secondary is None:
+            if not any_secondary:
                 self._option_list.mount(OptionRow(
                     opt.label,
                     hint=opt.hint,
@@ -761,12 +769,17 @@ class PromptPanel(Container):
                     selected=(i == self._selected_index),
                 ))
                 continue
-            is_eligible = (
-                eligible_filter is None or opt.value in eligible_filter
-            )
+            cfg = opt.secondary_number
             inp: "Input | None" = None
-            if is_eligible:
-                inp = Input(value=default_str, placeholder=default_str)
+            if cfg is not None:
+                inp = Input(
+                    value=str(cfg.default_value),
+                    placeholder=str(cfg.default_value),
+                )
+                # Tag the input with its env_var so _sync_secondary_inputs
+                # can mirror only between siblings sharing one. The
+                # attribute is consumed in T3's sync refactor.
+                inp.associated_env_var = cfg.env_var  # type: ignore[attr-defined]
                 self._secondary_inputs.append(inp)
             self._option_list.mount(OptionRowWithInput(
                 opt.label,
@@ -775,22 +788,30 @@ class PromptPanel(Container):
                 selected=(i == self._selected_index),
                 input_widget=inp,
                 label_width=label_col_width,
-                unit_suffix=secondary.unit_suffix,
+                unit_suffix=unit_suffix_for_row,
             ))
 
-    def _sync_secondary_inputs(self, source: Input) -> None:
-        """Mirror ``source.value`` across every sibling secondary input.
+    def _sync_secondary_inputs(self, source: "Input") -> None:
+        """Mirror ``source.value`` across every sibling secondary input
+        that writes the SAME ``env_var``.
 
         Called from ``on_input_changed`` whenever any eligible-row Input
-        emits a Changed event. The siblings share a single logical value
-        — the textbox visually appears on each eligible row but they all
-        write the same env var, so the .env outcome is deterministic
-        regardless of which row's input the user actually typed in.
+        emits a Changed event. Inputs writing the same env_var share
+        one logical value (e.g. Ray's two container-source rows both
+        write RAY_WORKER_COUNT and stay synced); inputs writing
+        different env_vars are independent (e.g. STT step's parakeet
+        vs. whisper-cpp ports).
+
+        The associated env_var was stamped on each Input as
+        ``associated_env_var`` when it was mounted (see ``load_step``).
         """
+        source_env_var = getattr(source, "associated_env_var", "")
         new_value = source.value or ""
         for other in self._secondary_inputs:
             if other is source:
                 continue
+            if getattr(other, "associated_env_var", "") != source_env_var:
+                continue  # different env_var — independent
             if other.value == new_value:
                 continue
             other.value = new_value
@@ -1323,36 +1344,56 @@ class PromptPanel(Container):
     def selected_index(self) -> int:
         return self._selected_index
 
-    def secondary_value(self) -> tuple[str, str] | None:
-        """Return ``(env_var, value)`` for the active step's inline secondary
-        integer input, or ``None`` when the step has no secondary input OR
-        the current selection isn't in the configured ``show_when`` set.
+    def secondary_values(self) -> list[tuple[str, str]]:
+        """Return ``[(env_var, value)]`` for the currently-selected
+        option's ``secondary_number`` config, or ``[]`` when:
+          - the step isn't ``kind="options"``, OR
+          - no option is selected, OR
+          - the selected option has no ``secondary_number`` config.
 
-        Called by the wizard after each confirm so the integer value gets
-        merged into the selections dict alongside the tile selection.
+        Returning a list (rather than a single Optional tuple) keeps
+        the wizard's drain loop generic — a future step could expose
+        multiple env vars per selected option without a signature
+        change. Today the list always has 0 or 1 entries.
 
-        All eligible-row inputs are kept in sync (see
-        ``_sync_secondary_inputs``), so reading from the first one is
-        equivalent to reading from any of them.
+        Per spec §7.5: writes are gated by the CURRENTLY-SELECTED
+        option. Typing a value in an eligible row and then navigating
+        away to a non-eligible row produces ``[]`` here, so ``.env``
+        is not written with the abandoned row's value. This mirrors
+        the pre-refactor ``show_when`` filter behaviour.
+
+        Per-input clamping into the configured ``[number_min,
+        number_max]`` range; non-numeric input falls back to
+        ``default_value``.
         """
         if self._step is None or self._step.kind != "options":
-            return None
-        cfg = self._step.secondary_number
-        if cfg is None or not self._secondary_inputs:
-            return None
-        if cfg.show_when:
-            sel = self.selected_option
-            if sel is None or sel.value not in cfg.show_when:
-                return None
-        raw = (self._secondary_inputs[0].value or "").strip()
-        try:
-            value = int(raw) if raw else int(cfg.default_value)
-        except ValueError:
-            value = int(cfg.default_value)
-        # Clamp into the configured bounds (mirrors how kind="number" handles
-        # out-of-range typed values).
-        value = max(cfg.number_min, min(cfg.number_max, value))
-        return (cfg.env_var, str(value))
+            return []
+        sel = self.selected_option
+        if sel is None or sel.secondary_number is None:
+            return []
+        cfg = sel.secondary_number
+        # Find the mounted Input for this option in mount order. The
+        # mount-order pairing convention from load_step: each eligible
+        # option contributes one Input to ``_secondary_inputs`` in the
+        # same order as ``step.options``. Walk both lists in lockstep
+        # to find the input matching the selected option.
+        input_iter = iter(self._secondary_inputs)
+        for opt in self._step.options:
+            if opt.secondary_number is None:
+                continue
+            try:
+                inp = next(input_iter)
+            except StopIteration:
+                return []
+            if opt is sel:
+                raw = (inp.value or "").strip()
+                try:
+                    value = int(raw) if raw else int(cfg.default_value)
+                except ValueError:
+                    value = int(cfg.default_value)
+                value = max(cfg.number_min, min(cfg.number_max, value))
+                return [(cfg.env_var, str(value))]
+        return []
 
     @property
     def selected_option(self) -> PromptOption | None:

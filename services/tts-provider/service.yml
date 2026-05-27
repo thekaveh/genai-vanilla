@@ -60,6 +60,7 @@ rows:
     alias: tts.localhost
     description: "Text-to-speech synthesis."
     localhost_endpoint_var: TTS_ENDPOINT
+    localhost_port_var: CHATTERBOX_LOCALHOST_PORT
 
 # ─────────────────────────────────────────────────────────
 # Bootstrapper runtime data (migrated from the legacy
@@ -104,7 +105,7 @@ runtime_sc:
     chatterbox-localhost:
       scale: 0
       environment:
-        TTS_ENDPOINT: ${CHATTERBOX_LOCALHOST_URL:-http://host.docker.internal:63027}
+        TTS_ENDPOINT: http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63027}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway
