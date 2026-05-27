@@ -110,7 +110,7 @@ class Tools:
                 try:
                     error_data = resp.json()
                     return f"❌ Image generation failed: {error_data.get('detail', 'Unknown error')}"
-                except:
+                except Exception:
                     return f"❌ Image generation failed: HTTP {resp.status_code}"
 
             result = resp.json()

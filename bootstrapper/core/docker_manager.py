@@ -241,17 +241,17 @@ class DockerManager:
     def remove_project_networks(self, project_name: str) -> bool:
         """
         Remove project-specific Docker networks.
-        
+
         Args:
             project_name: Name of the project
-            
+
         Returns:
             bool: True if successful or network doesn't exist
         """
         network_name = f"{project_name}-network"
-        
+
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ['docker', 'network', 'rm', network_name],
                 capture_output=True,
                 check=False

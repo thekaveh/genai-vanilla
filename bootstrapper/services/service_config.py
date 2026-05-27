@@ -744,7 +744,7 @@ class ServiceConfig:
 
         return env_vars
     
-    def _generate_adaptive_services_config(self, all_env_vars: Dict[str, str] = None) -> Dict[str, str]:
+    def _generate_adaptive_services_config(self, all_env_vars: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Generate configuration for adaptive services."""
         env_vars = {}
         sources = self.config_parser.parse_service_sources()

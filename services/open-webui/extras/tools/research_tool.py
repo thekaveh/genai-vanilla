@@ -102,7 +102,7 @@ class Tools:
                         json={"run_id": "*"},  # Cancel all runs for safety
                         timeout=5,
                     )
-                except:
+                except Exception:
                     pass  # Ignore cancel errors
                 return str(
                     f"❌ Research timed out after {self.valves.timeout}s (15 minutes). The request has been cancelled to prevent system issues."

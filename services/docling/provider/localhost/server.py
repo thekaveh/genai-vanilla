@@ -92,8 +92,10 @@ async def convert_document(
     except Exception as e:
         logger.error(f"Error: {str(e)}", exc_info=True)
         if 'tmp_path' in locals():
-            try: os.unlink(tmp_path)
-            except: pass
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
