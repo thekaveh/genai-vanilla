@@ -6,6 +6,7 @@ with a clear error message rather than 500.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -42,10 +43,13 @@ async def submit_job(payload: SubmitJobRequest) -> SubmitJobResponse:
     """Submit a job to the Ray cluster."""
     try:
         client = RayClient.get()
-        job_id = client.submit_job(
-            entrypoint=payload.entrypoint,
-            runtime_env=payload.runtime_env,
-            metadata=payload.metadata,
+        # RayClient methods wrap the sync ray.job_submission SDK; run them in a
+        # worker thread so this handler doesn't block the FastAPI event loop.
+        job_id = await asyncio.to_thread(
+            client.submit_job,
+            payload.entrypoint,
+            payload.runtime_env,
+            payload.metadata,
         )
         return SubmitJobResponse(job_id=job_id)
     except RayDisabledError as e:
@@ -59,7 +63,7 @@ async def submit_job(payload: SubmitJobRequest) -> SubmitJobResponse:
 async def get_job_status(job_id: str) -> dict:
     """Get the status of a Ray job."""
     try:
-        return RayClient.get().get_job_status(job_id)
+        return await asyncio.to_thread(RayClient.get().get_job_status, job_id)
     except RayDisabledError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception:
@@ -71,7 +75,7 @@ async def get_job_status(job_id: str) -> dict:
 async def stop_job(job_id: str) -> dict:
     """Stop a running Ray job."""
     try:
-        stopped = RayClient.get().stop_job(job_id)
+        stopped = await asyncio.to_thread(RayClient.get().stop_job, job_id)
         return {"stopped": stopped}
     except RayDisabledError as e:
         raise HTTPException(status_code=503, detail=str(e))
@@ -84,7 +88,7 @@ async def stop_job(job_id: str) -> dict:
 async def cluster_status() -> dict:
     """Get Ray cluster status from the dashboard API."""
     try:
-        return RayClient.get().cluster_status()
+        return await asyncio.to_thread(RayClient.get().cluster_status)
     except RayDisabledError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception:
