@@ -39,7 +39,7 @@ The default already runs:
 
 ```bash
 ./start.sh
-curl -X POST http://localhost:63026/v1/audio/transcriptions \
+curl -X POST http://localhost:63042/v1/audio/transcriptions \
   -F file=@sample.wav -F model=whisper-1
 # expect: {"text":"..."}
 ```
@@ -77,7 +77,7 @@ for the whisper.cpp walkthrough and Linux build instructions, or
 | Variable | Default | Notes |
 |---|---|---|
 | `STT_PROVIDER_SOURCE` | `speaches-container-cpu` | Engine selector. |
-| `STT_PROVIDER_PORT` | `63022` | Wizard display port; bootstrapper rewrites to match the active container. |
+| `STT_PROVIDER_PORT` | `63042` | Wizard display port; bootstrapper rewrites to match the active container. |
 | `STT_ENDPOINT` | (auto) | Internal URL containers reach STT on. |
 | `STT_PROVIDER_SCALE` | (auto) | 1 when any container variant is active. |
 | `SPEACHES_STT_MODEL` | `Systran/faster-distil-whisper-large-v3` | HuggingFace repo of the active model. Faster-Whisper accepts any whisper-format checkpoint. |
