@@ -4,9 +4,9 @@ This guide covers common issues and their solutions when using the GenAI Vanilla
 
 ## .env Migration (LiteLLM rollout)
 
-If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about missing variables or about port `63012` being unavailable for Ollama. Apply these changes:
+If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about missing variables. Apply these changes:
 
-- Rename `LLM_PROVIDER_PORT` to `LITELLM_PORT` (still defaults to `63012` — the slot now belongs to the LiteLLM gateway, not Ollama).
+- Rename `LLM_PROVIDER_PORT` to `LITELLM_PORT` (default is now `63030` under the topology-v1 port layout — the slot belongs to the LiteLLM gateway, not Ollama).
 - Remove `OLLAMA_ENDPOINT` and any `OLLAMA_BASE_URL` lines — consumers now read `LITELLM_BASE_URL` and `LITELLM_API_KEY` (where `LITELLM_API_KEY=$LITELLM_MASTER_KEY`).
 - If you previously set `LLM_PROVIDER_SOURCE=api` or `LLM_PROVIDER_SOURCE=disabled`, change it to `LLM_PROVIDER_SOURCE=none` and enable at least one of `CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE`.
 

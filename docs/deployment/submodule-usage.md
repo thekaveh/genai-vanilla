@@ -237,7 +237,7 @@ Use Kong (port 63000) to access all infrastructure services from your applicatio
 # Python example
 import requests
 
-KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 2
+KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 0
 
 # Access Supabase through Kong
 supabase_url = f"{KONG_BASE}/supabase"
@@ -249,7 +249,7 @@ n8n_url = f"{KONG_BASE}/n8n"
 
 ```javascript
 // JavaScript example
-const KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 2;
+const KONG_BASE = "http://localhost:63000";  // default BASE_PORT + 0
 
 // Access services through Kong
 const supabaseUrl = `${KONG_BASE}/supabase`;
@@ -267,8 +267,8 @@ import os
 # Development configuration
 LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:63030")
 LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")  # equals LITELLM_MASTER_KEY
-SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:63001")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:63007")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:63014")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:63021")
 ```
 
 ### Pattern 4: Service Extension
@@ -490,7 +490,7 @@ docker network inspect myproject-network
 DATABASE_URL=postgresql://user:pass@myproject-supabase-db:5432/db
 
 # From host machine: use localhost
-DATABASE_URL=postgresql://user:pass@localhost:63006/db
+DATABASE_URL=postgresql://user:pass@localhost:63010/db
 ```
 
 ### Issue: .env Changes Not Taking Effect
