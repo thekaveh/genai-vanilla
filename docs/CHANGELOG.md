@@ -21,6 +21,15 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 
 ## [Unreleased]
 
+### Known follow-ups (deferred from the 2026-05-27 repo-wide audit pass)
+
+The cleanup PR documented at the top of this section deliberately defers four classes of work — each large enough to deserve its own plan rather than a drive-by fix:
+
+- **Backend test coverage.** `services/backend/app/app/` has ~3,700 LOC of production Python across `main.py` (33 FastAPI endpoints), `memory_service.py`, `research_service.py`, `comfyui_client.py`, `n8n_client.py`, `memory_store.py`, `research_client.py`. Only the `ray_routes` / `ray_client` surfaces have tests. Smoke-level TestClient suites for the memory / research / comfyui / workflow endpoint families are tracked for a follow-up.
+- **Bootstrapper utility test gaps.** `bootstrapper/utils/{localhost_validator,key_generator,llm_catalog,cloud_models,supabase_keys,docker_manager}.py` and `bootstrapper/services/source_validator.py` have zero unit tests. The drift gates + integration tests cover them transitively, but no isolated unit coverage exists. Adding targeted tests is tracked separately.
+- **Architecture-diagram skill rewrite.** The current `docs/diagrams/architecture.{dot,svg}` is Graphviz-rendered with the Tokyo-Night-mapped category palette. The user's `architecture-diagram` skill (cyan/emerald/violet/amber/rose/orange/slate palette, JetBrains Mono, layered topological flow, standalone HTML) is the target shape; full rewrite is deferred to a dedicated spec. Per-service architecture SVGs (`services/<x>/architecture.svg`) are already auto-regenerated and stay in scope of the drift gate.
+- **Bootstrapper god-class refactors.** `bootstrapper/start.py::GenAIStackStarter` (~1,000 LOC, 25+ responsibilities), the 17 near-identical `_generate_<svc>_config` methods in `bootstrapper/services/service_config.py`, and the 11 `generate_<svc>_service` methods in `bootstrapper/utils/kong_config_generator.py` are flagged for table-driven consolidation in a separate refactor plan. The current code paths are all tested and correct; these are maintenance-debt items, not bugs.
+
 ### Added — Ray distributed-compute cluster
 
 - New `services/ray/` family with head + worker containers, dashboard at `ray.localhost`, RAY_SOURCE source-variant pattern.
