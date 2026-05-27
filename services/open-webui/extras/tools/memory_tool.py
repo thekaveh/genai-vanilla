@@ -27,7 +27,7 @@ class Tools:
     def __init__(self):
         self.valves = self.Valves()
 
-    def remember(self, conversation: str, __user__: dict = {}) -> str:
+    def remember(self, conversation: str, __user__: dict | None = None) -> str:
         """
         Extract and store memories from a conversation. Use this when the user
         asks you to remember something or when important facts are shared.
@@ -35,6 +35,7 @@ class Tools:
         :param conversation: The conversation text to extract memories from
         :return: Extracted memory facts
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
             return str("Memory tool is currently disabled.")
 
@@ -82,7 +83,7 @@ class Tools:
         except Exception as e:
             return str(f"Error extracting memories: {str(e)}")
 
-    def recall(self, query: str, __user__: dict = {}) -> str:
+    def recall(self, query: str, __user__: dict | None = None) -> str:
         """
         Recall relevant memories for a given topic or question. Use this when
         the user asks what you remember about something.
@@ -90,6 +91,7 @@ class Tools:
         :param query: The topic or question to recall memories about
         :return: Relevant memory facts
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
             return str("Memory tool is currently disabled.")
 
@@ -142,7 +144,7 @@ class Tools:
         except Exception as e:
             return str(f"Error recalling memories: {str(e)}")
 
-    def forget(self, memory_id: str, __user__: dict = {}) -> str:
+    def forget(self, memory_id: str, __user__: dict | None = None) -> str:
         """
         Delete a specific memory by its ID. Use this when the user wants
         to remove a stored memory.
@@ -150,6 +152,7 @@ class Tools:
         :param memory_id: The UUID of the memory to delete
         :return: Confirmation message
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
             return str("Memory tool is currently disabled.")
 
@@ -177,13 +180,14 @@ class Tools:
         except Exception as e:
             return str(f"Error deleting memory: {str(e)}")
 
-    def list_memories(self, __user__: dict = {}) -> str:
+    def list_memories(self, __user__: dict | None = None) -> str:
         """
         List all stored memories for the current user. Use this when the user
         wants to see everything that has been remembered about them.
 
         :return: List of all active memory facts
         """
+        __user__ = __user__ or {}
         if not self.valves.enable_tool:
             return str("Memory tool is currently disabled.")
 
