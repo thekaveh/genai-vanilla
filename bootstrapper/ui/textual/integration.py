@@ -231,6 +231,49 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     from wizard.ray_steps import build_ray_followup_steps
     from .widgets.prompt_panel import SecondaryNumberInput
 
+    # Per-service localhost-port wiring. Each entry maps a service's
+    # source-step display name + the option value(s) eligible for the
+    # inline-port widget → the matching env var name + the well-known
+    # default. PromptOption.secondary_number is attached for any option
+    # whose (service, value) appears here. Generic by construction —
+    # the widget doesn't know about ports; this table is the only
+    # place that does. Adding a new localhost-capable service is one
+    # row here + a manifest entry per Task 7.
+    LOCALHOST_PORT_WIRING: dict[tuple[str, str], tuple[str, int]] = {
+        ("ComfyUI",            "localhost"):             ("COMFYUI_LOCALHOST_PORT", 8000),
+        ("Document Processor", "docling-localhost"):     ("DOCLING_LOCALHOST_PORT", 63021),
+        ("Hermes Agent",       "localhost"):             ("HERMES_LOCALHOST_PORT", 63028),
+        ("OpenClaw",           "localhost"):             ("OPENCLAW_LOCALHOST_PORT", 63024),
+        ("LLM Engine",         "ollama-localhost"):      ("OLLAMA_LOCALHOST_PORT", 11434),
+        ("Neo4j Graph DB",     "localhost"):             ("NEO4J_LOCALHOST_BOLT_PORT", 7687),
+        ("Weaviate",           "localhost"):             ("WEAVIATE_LOCALHOST_PORT", 8080),
+        ("STT Provider",       "parakeet-localhost"):    ("PARAKEET_LOCALHOST_PORT", 63022),
+        ("STT Provider",       "whisper-cpp-localhost"): ("WHISPER_CPP_LOCALHOST_PORT", 63025),
+        ("TTS Provider",       "chatterbox-localhost"):  ("CHATTERBOX_LOCALHOST_PORT", 63027),
+    }
+
+    def _localhost_port_config(display: str, opt_value: str) -> "SecondaryNumberInput | None":
+        """Build the per-option SecondaryNumberInput for a localhost row,
+        or None if this (service, option) isn't in the wiring table."""
+        wiring = LOCALHOST_PORT_WIRING.get((display, opt_value))
+        if wiring is None:
+            return None
+        env_var, default_port = wiring
+        raw = (env_vars.get(env_var) or str(default_port)).strip()
+        try:
+            current = int(raw) if raw else int(default_port)
+        except ValueError:
+            current = int(default_port)
+        current = max(1024, min(65535, current))
+        return SecondaryNumberInput(
+            env_var=env_var,
+            description=f"Host port for {display.lower()} in localhost mode (1024-65535).",
+            default_value=current,
+            number_min=1024,
+            number_max=65535,
+            unit_suffix="port",
+        )
+
     for i, svc in enumerate(services_info):
         # Per-option secondary_number: attach the inline integer input to
         # the specific option rows where it makes sense.
@@ -261,13 +304,14 @@ def _build_steps_and_rows(config_parser, hosts_manager):
                 label=opt,
                 hint=_option_hint(opt),
                 badges=_badges_for_option(opt, recommended=(opt == svc.current_value)),
-                # Attach Ray's worker-count config to the container-cpu
-                # and container-gpu options (the eligible source variants).
                 secondary_number=(
+                    # Ray's container variants → worker-count.
                     ray_secondary
                     if ray_secondary is not None
                        and opt in ("ray-container-cpu", "ray-container-gpu")
-                    else None
+                    # Otherwise: per-localhost-row port widget (None if
+                    # this option isn't a localhost variant in the wiring).
+                    else _localhost_port_config(svc.display_name, opt)
                 ),
             )
             for opt in svc.options
