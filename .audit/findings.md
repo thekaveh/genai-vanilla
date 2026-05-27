@@ -108,3 +108,70 @@ Subagent reports the 3 skipped tests (`test_live_catalog_sync.py:144,150`) are l
 - **F-051** [iter-1 / py / Minor] `services/backend/app/app/n8n_client.py:13` instantiated as module-level singleton; `main.py:130` (`n8n_client = N8nClient()`) never `.aclose()`'d. Inconsistent with `research_client`/`memory_service` per-request patterns. Fix: FastAPI lifespan handler to aclose on shutdown, OR drop singleton. Status: PENDING.
 - **F-052** [iter-1 / gitignore / Minor] `.gitignore:7` `build/` (a Python-build-artifact glob) accidentally matches `services/jupyterhub/build/` (which is a tracked, intentional directory). Tracked files keep working but `git add` on them prints an ignore warning and exits non-zero, breaking `git add … && git commit …` chains. Fix: tighten pattern (e.g. `/build/` for repo-root only) or add `!services/jupyterhub/build` exception. Status: PENDING.
 
+
+## Iteration 1 — Fix-pass Summary
+
+**Commits this iteration:** 17 (after baseline)
+
+### Fixed (commit references — listed in worktree order)
+
+| Finding | Severity | Commit | Notes |
+|---|---|---|---|
+| F-042 | CRITICAL | `5c6267f` | JSONB validation in research_service — fixed via the same json.loads-when-str pattern memory_service already used |
+| F-002 | Important | `14655d5` | Stale Studio port in jupyterhub welcome README |
+| F-003 | Important | `14655d5` | `set -e` + curl_exit_code unreachable in pull.sh + install-nodes.sh |
+| F-044 | Important | `b7a18c6` | execute_workflow collision rename to execute_n8n_workflow / execute_comfyui_workflow |
+| F-050 | Important | `b7a18c6` | UUID validation on the 4 research endpoints |
+| F-045 (backend) | Minor | `b7a18c6` | Unused imports in 3 backend files |
+| F-046 | Minor | `b7a18c6` | asyncio.get_event_loop deprecation → time.monotonic |
+| F-049 | Minor | `b7a18c6` | import json hoist |
+| F-043 | Important | `dc027fc` | Ray async wrapping via asyncio.to_thread |
+| F-007 | Important | `faa7f2e` | TTS/STT README port literals |
+| F-008 | Important | `faa7f2e` | TTS/STT README port literals |
+| F-016 | Important | `1d0778e` | README §9 docs hub expansion |
+| F-017 | Important | `1d0778e` | docs/README.md missing Ray entry |
+| F-018 | Important | `1d0778e` | README:117 Ray as "always-on" |
+| F-013 | Important | `6ad665b` + `85c4d36` | OpenWebUI / Open-WebUI normalization (10 files, 18 sites) |
+| F-015 | Minor | `6ad665b` + `85c4d36` | Same |
+| F-014 | Important | `d3c6f88` | litellm-init path drift in 5 files (sentinels left intact) |
+| F-004 | Minor | `5b95a51` | find precedence in comfyui download_models.sh |
+| F-005 | Minor | `5b95a51` | cd error check in start.sh + stop.sh |
+| F-006 | Minor | `5b95a51` | while read -r in db-init-runner.sh |
+| F-009 | Minor | `e32cc9d` | hermes config.yaml.tmpl docs/services/hermes.md ref |
+| F-021 | Minor | `e32cc9d` | troubleshooting llama2 → qwen3 |
+| F-022 | Minor | `e32cc9d` | submodule-usage `version: '3.8'` |
+| F-023 | Minor | `e32cc9d` | submodule-usage stale directory tree |
+| F-024 | Minor | `e32cc9d` | ports-and-routes §3.1 → §4.1 |
+| F-045 (bootstrapper) | Minor | `821b01b` | 8 unused imports in bootstrapper/ |
+| F-028 | Important | `821b01b` | test_check_mode_exits_2_on_drift now seeds stale fixture |
+| F-029 | Minor | `821b01b` | test_help_works → test_help_flag_prints_usage_and_exits_zero |
+| F-030 | Minor | `821b01b` | tautological `or` in test_diagram_renderer |
+| F-031 | Minor | `821b01b` | Unused pytest/re imports in test files |
+| F-033 | Important | `4a0fdb6` | parakeet GPU requirements pin minima + <3.0 NeMo cap |
+| F-034 | Important | `4a0fdb6` | dropped dead pydantic-ai pin |
+| F-019 | Important | `4a0fdb6` | dropped duplicate 9-step CONTRIBUTING list, pointed at canonical 5-command block |
+| F-001 | Medium | `1e4ab04` | check-compose-source-deps.py falls back to .env.example + exits 2 on docker compose config failure |
+| F-052 | Minor | `1e4ab04` | .gitignore `!services/*/build/` negation |
+| F-012 | Important | `6a5a0de` | CHANGELOG "engine READMEs removed" → "reduced to pointer stubs" |
+| F-035 | Minor | `856ea79` | ollama/neo4j data_flow.calls — drop init-time edges |
+| F-036 | Minor | `856ea79` | open-webui data_flow.calls — add 6 missing runtime edges |
+
+### Deferred (logged for follow-up, not changing in this PR)
+
+| Finding | Reason |
+|---|---|
+| F-010 | Minor README clarity in hermes — non-bug, low value |
+| F-011 | Minor README density in openclaw — non-bug |
+| F-020 | CONTRIBUTING-services.md hierarchical numbering is a project-wide style decision, not a single-doc fix |
+| F-025 | Historical spec, marked Implemented — leave as-is per CHANGELOG-history convention |
+| F-026 | Same |
+| F-027 | Keep-a-Changelog anchor footers — cosmetic, requires release-tag policy decision |
+| F-032 | Backend test fixture refactor — touches the backend test surface, larger than this PR's scope |
+| F-037 | docling localhost has both pyproject + requirements.txt — design question (uv-managed vs pip-installable), not pure drift |
+| F-038 | docling-gpu vs docling-localhost docling version mismatch (2.95.0 vs 2.93.0) — needs upstream compat check before alignment |
+| F-039 | DOCLING_LOCALHOST_PORT / PARAKEET_LOCALHOST_PORT collisions with REDIS/WEAVIATE — pre-launch warning already surfaces this, real fix would change the manifest defaults + cascade into 4+ files (integration.py + test_localhost_port_override + .env.example regen). Tracked separately. |
+| F-040 | HOST_GATEWAY_IP empty after `cp .env.example .env` in CI — latent only; Compose v2 currently tolerates the empty extra_hosts value |
+| F-041 | CLAUDE.md backend path — CLAUDE.md is gitignored (commit 1f92f53), local-only |
+| F-047 | topology.py base_port=63000 duplicate of DEFAULT_BASE_PORT — needs careful module-dependency analysis to refactor cleanly |
+| F-048 | Missing loggers in 4 backend files — moderate scope, low impact (failures still surface to HTTP response body) |
+| F-051 | n8n_client module-level singleton with no aclose — needs FastAPI lifespan handler; defer with the broader Hermes/Ray/backend lifecycle review |
