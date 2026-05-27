@@ -175,7 +175,60 @@ auto-rewrites old `.env` values on the next start:
 The legacy `XTTS_ENDPOINT` env var is also stripped from `.env` — the
 unified replacement is `TTS_ENDPOINT`.
 
-## 8. Troubleshooting
+## 8. References
+
+- [Speaches](https://github.com/speaches-ai/speaches)
+- [Kokoro-82M model card](https://huggingface.co/hexgrad/Kokoro-82M)
+- [Piper voices](https://github.com/OHF-Voice/piper1-gpl)
+- [Chatterbox upstream](https://github.com/resemble-ai/chatterbox)
+- [chatterbox-tts-api server](https://github.com/travisvn/chatterbox-tts-api)
+- [OpenAI Audio API spec](https://platform.openai.com/docs/guides/text-to-speech)
+
+## 9. Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/tts-provider/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen tts-provider` after manifest changes.
+
+### 9.1 Current — Upstream (this service calls)
+
+_No upstream calls._
+
+### 9.2 Current — Downstream (services that call this)
+
+| Service | Category |
+|---|---|
+| kong | infra |
+| hermes | agents |
+| n8n | agents |
+
+### 9.3 Architecture diagram
+
+![tts-provider architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### 9.4 Future — Missing pair integrations
+
+- **tts-provider ↔ minio** — *Why:* Chatterbox's `/voices` library lives on ephemeral container FS today, so a rebuild wipes user-registered voices; MinIO already hosts artifact buckets. *Mechanism:* fuse/rclone-mount a `tts-voices` bucket at `/app/voices`, or a sidecar that mirrors chatterbox `GET/POST /voices` to `s3://tts-voices/`. *Effort:* medium. *Confidence:* high.
+- **tts-provider ↔ redis** — *Why:* repeated UI/notification phrases (welcome lines, n8n alerts, hermes acks) burn CPU on Kokoro/Piper and hit Chatterbox's >2s cold weights load. *Mechanism:* small FastAPI shim in front of `TTS_ENDPOINT` keyed on `(model, voice, text-hash, knobs)` against `redis://redis:6379` before forwarding to `/v1/audio/speech`. *Effort:* medium. *Confidence:* medium.
+- **tts-provider ↔ doc-processor** — *Why:* turns ingested PDFs/HTML into audiobook WAVs — a natural "read this document" feature for backend / Open WebUI that closes the doc-processor → narration loop. *Mechanism:* backend chunks doc-processor's markdown output, POSTs each chunk to `${TTS_ENDPOINT}/v1/audio/speech`, concatenates segments, writes to MinIO. *Effort:* medium. *Confidence:* high.
+- **tts-provider ↔ supabase** — *Why:* voice metadata (owner, language, source clip, registered-by user) belongs in a relational table, not chatterbox's in-memory `/voices` registry — lets Open WebUI users see their own voices and admins audit usage. *Mechanism:* backend writes a `tts_voices` row in Supabase on every chatterbox `POST /voices`; a startup reconciler re-POSTs registered voices from MinIO+Supabase back into chatterbox. *Effort:* medium. *Confidence:* medium.
+- **tts-provider ↔ openclaw** — *Why:* voice-message replies to Telegram/Discord/etc. dramatically lift presence over text-only bots, and pair naturally with stt-provider on the inbound side. *Mechanism:* openclaw calls `${TTS_ENDPOINT}/v1/audio/speech` per outgoing message and uploads the returned WAV via its platform adapters (ffmpeg transcode hop for Opus/OGG). *Effort:* small. *Confidence:* medium.
+
+### 9.5 Future — Candidate new services
+
+- **Unmute (Kyutai)** ([details](../../docs/research/candidates/unmute.md)) — *Headline:* WebSocket OpenAI-Realtime-compatible voice loop that wraps any text LLM behind streaming STT + TTS. *Wires into:* open-webui, backend, hermes, litellm, parakeet, chatterbox, speaches.
+
+### 9.6 Future — Unused features in this service
+
+- **Speaches Realtime API / speech-to-speech** — *Why pursue:* upstream advertises a Realtime API and async speech-to-speech, but the stack only consumes `/v1/audio/speech` and `/v1/audio/transcriptions`; wiring it would enable low-latency voice agents in Open WebUI + hermes. *Effort:* large.
+- **Chatterbox streaming endpoints (`/v1/audio/speech/stream`, SSE)** — *Why pursue:* cuts perceived latency to ~1–2s versus waiting for the full WAV, and Open WebUI's audio player supports streamed chunks. *Effort:* small.
+- **Chatterbox `/v1/audio/speech/upload` + `/voices` POST in Open WebUI** — *Why pursue:* end-users could clone their own voice from the chat UI; today only raw API callers can. *Effort:* medium.
+- **Chatterbox paralinguistic tags (`[laugh]`, `[cough]`)** — *Why pursue:* richer narration for doc-processor audiobooks and hermes responses, available on the Turbo model upstream. *Effort:* small.
+- **Speaches dynamic model load/unload** — *Why pursue:* stack pins `SPEACHES_TTS_MODEL` at boot, but upstream auto-loads requested models then unloads on idle — lets users pick Kokoro vs Piper per request without restart. *Effort:* small.
+- **Chatterbox `exaggeration` / `cfg_weight` / `temperature` knobs** — *Why pursue:* emotion and pace controls (defaults 0.5 / 0.5 / 0.8) are exposed only via raw API; Open WebUI doesn't surface them. *Effort:* small.
+- **Chatterbox `/status`, `/memory`, `/config` introspection** — *Why pursue:* feeds the backend health dashboard (and future Grafana), surfacing VRAM pressure before OOM. *Effort:* small.
+
+## 10. Troubleshooting
 
 **Speaches container stays unhealthy** — check `docker logs
 <project>-speaches`. First start downloads models; allow up to 2 minutes.
@@ -190,56 +243,3 @@ your `TTS_PROVIDER_SOURCE` is `disabled`.
 **Wrong voice playing** — the bootstrapper writes a default voice per
 engine. Override in Open WebUI admin → Audio, or set
 `OPEN_WEB_UI_TTS_VOICE` in `.env` directly.
-
-## 9. References
-
-- [Speaches](https://github.com/speaches-ai/speaches)
-- [Kokoro-82M model card](https://huggingface.co/hexgrad/Kokoro-82M)
-- [Piper voices](https://github.com/OHF-Voice/piper1-gpl)
-- [Chatterbox upstream](https://github.com/resemble-ai/chatterbox)
-- [chatterbox-tts-api server](https://github.com/travisvn/chatterbox-tts-api)
-- [OpenAI Audio API spec](https://platform.openai.com/docs/guides/text-to-speech)
-
-## 10. Dependencies & Integrations
-
-> Auto-generated section — the **Current** subsections are derived from `services/tts-provider/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen tts-provider` after manifest changes.
-
-### 10.1 Current — Upstream (this service calls)
-
-_No upstream calls._
-
-### 10.2 Current — Downstream (services that call this)
-
-| Service | Category |
-|---|---|
-| kong | infra |
-| hermes | agents |
-| n8n | agents |
-
-### 10.3 Architecture diagram
-
-![tts-provider architecture](./architecture.svg)
-
-[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
-
-### 10.4 Future — Missing pair integrations
-
-- **tts-provider ↔ minio** — *Why:* Chatterbox's `/voices` library lives on ephemeral container FS today, so a rebuild wipes user-registered voices; MinIO already hosts artifact buckets. *Mechanism:* fuse/rclone-mount a `tts-voices` bucket at `/app/voices`, or a sidecar that mirrors chatterbox `GET/POST /voices` to `s3://tts-voices/`. *Effort:* medium. *Confidence:* high.
-- **tts-provider ↔ redis** — *Why:* repeated UI/notification phrases (welcome lines, n8n alerts, hermes acks) burn CPU on Kokoro/Piper and hit Chatterbox's >2s cold weights load. *Mechanism:* small FastAPI shim in front of `TTS_ENDPOINT` keyed on `(model, voice, text-hash, knobs)` against `redis://redis:6379` before forwarding to `/v1/audio/speech`. *Effort:* medium. *Confidence:* medium.
-- **tts-provider ↔ doc-processor** — *Why:* turns ingested PDFs/HTML into audiobook WAVs — a natural "read this document" feature for backend / Open WebUI that closes the doc-processor → narration loop. *Mechanism:* backend chunks doc-processor's markdown output, POSTs each chunk to `${TTS_ENDPOINT}/v1/audio/speech`, concatenates segments, writes to MinIO. *Effort:* medium. *Confidence:* high.
-- **tts-provider ↔ supabase** — *Why:* voice metadata (owner, language, source clip, registered-by user) belongs in a relational table, not chatterbox's in-memory `/voices` registry — lets Open WebUI users see their own voices and admins audit usage. *Mechanism:* backend writes a `tts_voices` row in Supabase on every chatterbox `POST /voices`; a startup reconciler re-POSTs registered voices from MinIO+Supabase back into chatterbox. *Effort:* medium. *Confidence:* medium.
-- **tts-provider ↔ openclaw** — *Why:* voice-message replies to Telegram/Discord/etc. dramatically lift presence over text-only bots, and pair naturally with stt-provider on the inbound side. *Mechanism:* openclaw calls `${TTS_ENDPOINT}/v1/audio/speech` per outgoing message and uploads the returned WAV via its platform adapters (ffmpeg transcode hop for Opus/OGG). *Effort:* small. *Confidence:* medium.
-
-### 10.5 Future — Candidate new services
-
-- **Unmute (Kyutai)** ([details](../../docs/research/candidates/unmute.md)) — *Headline:* WebSocket OpenAI-Realtime-compatible voice loop that wraps any text LLM behind streaming STT + TTS. *Wires into:* open-webui, backend, hermes, litellm, parakeet, chatterbox, speaches.
-
-### 10.6 Future — Unused features in this service
-
-- **Speaches Realtime API / speech-to-speech** — *Why pursue:* upstream advertises a Realtime API and async speech-to-speech, but the stack only consumes `/v1/audio/speech` and `/v1/audio/transcriptions`; wiring it would enable low-latency voice agents in Open WebUI + hermes. *Effort:* large.
-- **Chatterbox streaming endpoints (`/v1/audio/speech/stream`, SSE)** — *Why pursue:* cuts perceived latency to ~1–2s versus waiting for the full WAV, and Open WebUI's audio player supports streamed chunks. *Effort:* small.
-- **Chatterbox `/v1/audio/speech/upload` + `/voices` POST in Open WebUI** — *Why pursue:* end-users could clone their own voice from the chat UI; today only raw API callers can. *Effort:* medium.
-- **Chatterbox paralinguistic tags (`[laugh]`, `[cough]`)** — *Why pursue:* richer narration for doc-processor audiobooks and hermes responses, available on the Turbo model upstream. *Effort:* small.
-- **Speaches dynamic model load/unload** — *Why pursue:* stack pins `SPEACHES_TTS_MODEL` at boot, but upstream auto-loads requested models then unloads on idle — lets users pick Kokoro vs Piper per request without restart. *Effort:* small.
-- **Chatterbox `exaggeration` / `cfg_weight` / `temperature` knobs** — *Why pursue:* emotion and pace controls (defaults 0.5 / 0.5 / 0.8) are exposed only via raw API; Open WebUI doesn't surface them. *Effort:* small.
-- **Chatterbox `/status`, `/memory`, `/config` introspection** — *Why pursue:* feeds the backend health dashboard (and future Grafana), surfacing VRAM pressure before OOM. *Effort:* small.
