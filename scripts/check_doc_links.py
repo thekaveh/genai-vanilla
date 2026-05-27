@@ -55,9 +55,16 @@ def _collect_md_files(roots: list[Path]) -> list[Path]:
 
 
 def _default_roots() -> list[Path]:
-    """Repo-default scan set."""
+    """Repo-default scan set.
+
+    Covers every authoritative docs location:
+      * main README.md (entry point)
+      * docs/ (CHANGELOG, ROADMAP, CONTRIBUTING-services, deployment/, quick-start/, research/)
+      * services/ (per-service READMEs — primary doc location since the
+        2026-05-22 retirement of docs/services/)
+    """
     roots = []
-    for candidate in (REPO_ROOT / "README.md", REPO_ROOT / "CHANGELOG.md", REPO_ROOT / "docs"):
+    for candidate in (REPO_ROOT / "README.md", REPO_ROOT / "docs", REPO_ROOT / "services"):
         if candidate.exists():
             roots.append(candidate)
     return roots
