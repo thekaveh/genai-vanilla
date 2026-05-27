@@ -139,7 +139,7 @@ LiteLLM ships two Ollama integrations and **they are not interchangeable**:
 | `ollama_chat/<model>` | `/api/chat` | Chat completions (`/v1/chat/completions`) | Real OpenAI-shaped: multi-turn history, tool calls, vision payloads, and the Ollama-native `think` parameter all flow through. |
 | `ollama/<model>` | `/api/generate` | Embeddings (`/v1/embeddings`) | Single-prompt completion. Tool calls do **not** work; multi-turn history is flattened to a single prompt; the `think` parameter is silently dropped. Required for embedding routes because `ollama_chat/` rejects `/v1/embeddings` with `Unmapped LLM provider for this endpoint`. |
 
-`litellm-init/scripts/init.py::render_model_list` picks per-row using a
+`services/litellm/init/scripts/init.py::render_model_list` picks per-row using a
 name heuristic: any model whose name contains `embed` (case-insensitive)
 gets `ollama/` for the `/v1/embeddings` path; everything else gets
 `ollama_chat/` + `think: false` so chat completions return populated

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-litellm-init/init.py — provision the LiteLLM Postgres database and
-render ``volumes/litellm/config.yaml`` from the active rows in
-``public.llms``.
+services/litellm/init/scripts/init.py — provision the LiteLLM Postgres
+database and render ``volumes/litellm/config.yaml`` from the active rows
+in ``public.llms``.
 
 Replaces the previous alpine + ensure-litellm-db.sh approach. The
 existing shell script only handled DB creation; this Python script

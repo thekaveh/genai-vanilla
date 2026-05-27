@@ -148,7 +148,7 @@ def _fetch_ollama_tags(upstream_url: str, timeout: float = 3.0) -> list[str]:
 # When the wizard's live picker (cloud /v1/models, ollama.com/library)
 # returns a model name not present in the curated catalog, we INSERT it
 # with these generic capability defaults so LiteLLM can still route to
-# it via litellm-init/init.py:render_model_list (which dispatches purely
+# it via services/litellm/init/scripts/init.py:render_model_list (which dispatches purely
 # on the ``provider`` column). Co-located with sync-catalog.py rather
 # than cloud_providers.py because cloud_providers.py is intentionally
 # zero-knowledge about catalog/DB capability shape.
@@ -345,7 +345,7 @@ def insert_live_only(conn, provider: str, requested: list[str]) -> tuple[list[st
 
     For each name in ``requested`` not already in public.llms for this
     provider, INSERT a row with generic capability defaults from
-    LIVE_DEFAULTS so litellm-init/init.py can render a routable entry.
+    LIVE_DEFAULTS so services/litellm/init/scripts/init.py can render a routable entry.
 
     Returns ``(matched_in_catalog, inserted_live)`` so callers can log
     the actual outcome instead of overstating with len(user_models).

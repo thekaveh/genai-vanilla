@@ -71,7 +71,7 @@ class MemoryService:
           2. ``LITELLM_DEFAULT_MODEL`` env var.
           3. Highest-priority active content row in ``public.llms``.
              Per-provider mapping mirrors
-             ``litellm-init/scripts/init.py:render_model_list`` so the
+             ``services/litellm/init/scripts/init.py:render_model_list`` so the
              returned ID matches what LiteLLM actually exposes.
           4. Raise ``RuntimeError``.
 
