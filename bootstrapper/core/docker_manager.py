@@ -5,6 +5,7 @@ Python implementation of Docker functions from start.sh and stop.sh.
 """
 
 import os
+import re
 import signal
 import subprocess
 from typing import Callable, List, Optional
@@ -477,7 +478,6 @@ class DockerManager:
             
             if result.returncode == 0 and result.stdout.strip():
                 # Extract port number from output like "0.0.0.0:63000"
-                import re
                 match = re.search(r':(\d+)$', result.stdout.strip())
                 if match:
                     return match.group(1)
