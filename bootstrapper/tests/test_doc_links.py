@@ -6,8 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VALIDATOR = REPO_ROOT / "scripts" / "check_doc_links.py"
 

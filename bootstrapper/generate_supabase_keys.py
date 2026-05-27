@@ -7,7 +7,6 @@ Cross-platform utility for generating Supabase JWT secrets and tokens.
 """
 
 import sys
-import os
 from pathlib import Path
 import click
 

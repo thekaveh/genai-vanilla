@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -81,7 +80,7 @@ def test_no_required_sublabel():
     from docs.diagram_renderer import render_svg
     g = build_doc_graph("hermes", SERVICES_DIR)
     svg = render_svg(g)
-    assert "required" not in svg.lower() or svg.lower().count("required") == 0
+    assert "required" not in svg.lower()
 
 
 def test_empty_lane_placeholder():

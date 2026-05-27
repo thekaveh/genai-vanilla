@@ -54,7 +54,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widget import Widget
-from textual.widgets import Input, Static
+from textual.widgets import Static
 
 from .. import palette as P
 
