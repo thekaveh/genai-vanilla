@@ -128,3 +128,6 @@ ascii_drape_water_out/
 # itself but a custom downstream loader can be configured to read its
 # children). Local-only by default; not tracked in the upstream repo.
 services/_user/
+
+# Audit working tree (overnight audit logs)
+.audit/

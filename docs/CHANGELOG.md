@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-05-27 overnight audit (second pass — follow-up to PR #11)
+
+A second convergence audit ran the night PR #11 merged. 12 verification
+iterations dispatched ~14 parallel domain audits and surfaced ~80
+genuine findings on top of the ~280 from PR #11. The fix pass landed
+30 commits in this PR; the remaining 16 findings are explicitly deferred
+in this `[Unreleased]` block.
+
+Highlights of what landed:
+
+- **Correctness:** asyncpg JSONB strings now decoded in
+  `research_service.get_research_result` / `get_research_logs` (used
+  to 500 on real data — fixed via the same `json.loads-if-str`
+  pattern memory_service already had). The two duplicate
+  `execute_workflow` FastAPI handlers in `backend/app/main.py` were
+  shadowing each other at module scope; renamed to `execute_n8n_workflow`
+  / `execute_comfyui_workflow`. Sync Ray-SDK calls in the async
+  `/api/ray/*` handlers were blocking the event loop; wrapped via
+  `asyncio.to_thread`. UUID validation added to the four
+  `/research/{session_id}/*` endpoints. Init-script `set -e` was
+  silently aborting on the first failed `curl` in `ollama-pull` and
+  `n8n-init` (the explicit "continue on failure" branches were
+  unreachable); wrapped each curl with `|| curl_exit_code=$?`.
+
+- **Data-flow.calls schema alignment:** `services/ollama/service.yml`
+  and `services/neo4j/service.yml` carried init-time bootstrap edges
+  (supabase + litellm) in `data_flow.calls`, contradicting the
+  schema's "runtime in the request path; init-time excluded"
+  description. Dropped them. `services/open-webui/service.yml` was
+  understating its surface area; added `comfyui`, `stt-provider`,
+  `tts-provider`, `doc-processor`, `local-deep-researcher`, `weaviate`
+  to match what `runtime_deps.optional` already listed.
+
+- **Stale port literals + fallbacks:** TTS/STT aggregator READMEs and
+  the deeper provider/* sub-READMEs cited 63022/63023/63026/63027
+  defaults; the post-port-layout-v1 values are 63042/63044/63046/63045.
+  Compose-fragment `${X_PORT:-NNNNN}` fallbacks had drifted in
+  speaches, parakeet, parakeet/mlx api_server, chatterbox, hermes, and
+  openclaw. The JupyterHub welcome README hardcoded `localhost:63009`
+  for Supabase Studio (now 63016).
+
+- **Documentation hub:** README.md §9 was rebuilt as a four-tier index
+  (First-time users / Operators / Contributors / Release history) so
+  SECURITY.md, CONTRIBUTING-services.md, the deployment/* + quick-start/*
+  guides, and the research integration matrix are discoverable from the
+  main README. `docs/README.md` gained the missing Ray service entry.
+  README §2.1 stopped framing Ray as "always-on" (it defaults to
+  `RAY_SOURCE=disabled`).
+
+- **Naming normalization:** 20+ sites across 10 files normalized from
+  `OpenWebUI` / `Open-WebUI` to canonical `Open WebUI` (HTTP `User-Agent`
+  values left as-is). 5 `litellm-init/init.py` file-path comments
+  updated to the post-modularization path; the `_LITELLM_INIT_SENTINEL`
+  string was left intact for upgrade-detection compatibility.
+
+- **Audit-script + CI hardening:** `scripts/check-compose-source-deps.py`
+  now falls back to `.env.example` when `.env` is absent and exits 2
+  with stderr surface when `docker compose config` fails (previously
+  silently produced wrong-answer output). `scripts/check_doc_links.py`
+  now scans `services/<name>/README.md` by default (the primary doc
+  location since the 2026-05-22 retirement of `docs/services/`).
+  `.github/workflows/services-lint.yml` `pull_request.paths:` now
+  includes root-level README.md / SECURITY.md / start.sh / stop.sh /
+  .gitignore.
+
+- **CHANGELOG hygiene:** Reordered so `[Unreleased]` sits above
+  `[3.0.0]` per Keep-a-Changelog convention. Corrected the
+  "engine READMEs removed" claim (they exist as pointer stubs);
+  the god-class-refactor figures (LOC + method counts) were stale.
+  Pointed retired remediation reports' history-only location explicitly
+  via `git show <SHA>:docs/security/<file>` commands in SECURITY.md.
+
 ### Known follow-ups (deferred from the 2026-05-27 repo-wide audit pass)
 
 The cleanup PR documented at the top of this section deliberately defers four classes of work — each large enough to deserve its own plan rather than a drive-by fix:
