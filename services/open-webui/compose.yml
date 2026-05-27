@@ -50,12 +50,15 @@ services:
       AUDIO_STT_OPENAI_API_BASE_URL: ${OPEN_WEB_UI_STT_API_URL:-}
       AUDIO_STT_OPENAI_API_KEY: "sk-unused"
       AUDIO_STT_MODEL: "whisper-1"
-      # WebSocket Redis Integration
-      ENABLE_WEBSOCKET_SUPPORT: "true"
+      # WebSocket Redis Integration (knobs are surfaced in .env.example so
+      # users can disable websocket support, retarget the Redis DB index,
+      # or shorten the model-list TTL during Hermes development without
+      # editing compose.yml).
+      ENABLE_WEBSOCKET_SUPPORT: ${OPEN_WEB_UI_WEBSOCKET_SUPPORT:-true}
       WEBSOCKET_MANAGER: "redis"
-      WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/2"
+      WEBSOCKET_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/${OPEN_WEB_UI_REDIS_DB:-2}"
       REDIS_KEY_PREFIX: "openwebui"
-      MODEL_LIST_CACHE_TTL: "300"
+      MODEL_LIST_CACHE_TTL: ${OPEN_WEB_UI_MODEL_CACHE_TTL:-300}
     volumes:
       - open-web-ui-data:/app/backend/data
       - ./extras/tools:/app/backend/data/tools
