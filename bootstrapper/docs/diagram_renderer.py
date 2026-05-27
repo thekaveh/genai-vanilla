@@ -1,6 +1,7 @@
 """DepGraph → HTML+SVG renderer — clustered-by-category layout.
 
-Visual design (see spec docs/superpowers/specs/2026-05-22-diagram-refresh-design.md):
+Visual design (see git log around 2026-05-22 for the design doc; the
+``docs/superpowers/`` tree was retired afterwards):
 - 3-lane layout: upstream | focus | downstream.
 - Each non-focus lane groups services into category clusters.
 - One edge per cluster (not per pill).

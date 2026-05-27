@@ -1,8 +1,9 @@
 # Cross-service integration research
 
 This directory holds the **Phase B research artifacts** for the cross-service
-deps + diagrams project. The umbrella spec is at
-`docs/superpowers/specs/2026-05-16-cross-service-deps-and-diagrams-design.md`.
+deps + diagrams project. The umbrella spec lived under the now-retired
+`docs/superpowers/` tree — see the git log around 2026-05-16 for the
+original design doc.
 
 ## Layout
 
