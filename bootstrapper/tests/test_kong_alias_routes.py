@@ -224,7 +224,11 @@ import pytest
 @pytest.mark.parametrize("env_var,svc_source_var,svc_source_value,expected_port", [
     ("COMFYUI_LOCALHOST_PORT",      "COMFYUI_SOURCE",            "localhost",              "9999"),
     ("DOCLING_LOCALHOST_PORT",      "DOC_PROCESSOR_SOURCE",      "docling-localhost",      "9999"),
-    ("HERMES_LOCALHOST_PORT",       "HERMES_SOURCE",             "localhost",              "9999"),
+    # Hermes Kong route fronts the DASHBOARD (browser UI), not the API.
+    # HERMES_LOCALHOST_PORT drives the API (consumed by runtime_sc's
+    # HERMES_ENDPOINT); HERMES_LOCALHOST_DASHBOARD_PORT is the separate
+    # host port the Kong route targets — same split as Neo4j HTTP/Bolt.
+    ("HERMES_LOCALHOST_DASHBOARD_PORT", "HERMES_SOURCE",          "localhost",              "9999"),
     ("OPENCLAW_LOCALHOST_PORT",     "OPENCLAW_SOURCE",           "localhost",              "9999"),
     ("PARAKEET_LOCALHOST_PORT",     "STT_PROVIDER_SOURCE",       "parakeet-localhost",     "9999"),
     ("WHISPER_CPP_LOCALHOST_PORT",  "STT_PROVIDER_SOURCE",       "whisper-cpp-localhost",  "9999"),

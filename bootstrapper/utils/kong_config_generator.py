@@ -709,8 +709,14 @@ class KongConfigGenerator:
         }
 
         if source == 'localhost':
-            localhost_url = self._localhost_url('HERMES_LOCALHOST_PORT', '63028')
-            probe_port = urlparse(localhost_url).port or 63028
+            # The browser-facing dashboard runs on a SEPARATE host port from
+            # the API (which goes through HERMES_LOCALHOST_PORT consumed by
+            # runtime_sc's HERMES_ENDPOINT). Kong's hermes.localhost alias
+            # must target the dashboard; otherwise the user lands on the
+            # OpenAI-compatible API JSON instead of the UI. Mirror of the
+            # NEO4J_LOCALHOST_HTTP_PORT / NEO4J_LOCALHOST_BOLT_PORT split.
+            localhost_url = self._localhost_url('HERMES_LOCALHOST_DASHBOARD_PORT', '63029')
+            probe_port = urlparse(localhost_url).port or 63029
             self.check_localhost_service('localhost', probe_port, 'Hermes Dashboard')
             service['url'] = localhost_url
         else:  # container

@@ -72,7 +72,10 @@ env:
     default: 10000
   - name: HERMES_LOCALHOST_PORT
     default: "63028"
-    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63028."
+    description: "Host port for the Hermes API in the localhost source variant. Consumed by HERMES_ENDPOINT (in-container clients call this). Mirror of HERMES_API_PORT but for host-side Hermes processes."
+  - name: HERMES_LOCALHOST_DASHBOARD_PORT
+    default: "63029"
+    description: "Host port for the Hermes web dashboard in the localhost source variant. The Kong route fronting hermes.localhost targets this. Mirror of HERMES_DASHBOARD_PORT but for host-side Hermes processes. The wizard's inline textbox edits HERMES_LOCALHOST_PORT (the API); override this via .env hand-edit if your host dashboard runs on a non-default port."
   - name: HERMES_INIT_SOURCE
     default: container
     description: "Auto-managed by hermes. Container/disabled."
