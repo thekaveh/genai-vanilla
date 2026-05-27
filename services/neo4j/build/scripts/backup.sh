@@ -1,10 +1,15 @@
 #!/bin/bash
+set -euo pipefail
 
 # This script creates a backup of Neo4j database
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+# /snapshot is the bind-mount target declared in services/neo4j/compose.yml
+# (./build/snapshot:/snapshot). Earlier revisions derived the path from
+# $SCRIPT_DIR, which resolved to /usr/local/snapshot (an unmounted
+# directory inside the container) and silently lost every backup on
+# container restart. Hardcoding the mount target is the simplest guard.
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="${SCRIPT_DIR}/../snapshot"
+BACKUP_DIR=/snapshot
 BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.dump"
 
 # Ensure backup directory exists

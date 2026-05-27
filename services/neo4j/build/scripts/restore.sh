@@ -2,8 +2,10 @@
 
 # This script restores a Neo4j database from the latest backup file
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-SNAPSHOT_DIR="${SCRIPT_DIR}/../snapshot"
+# /snapshot is the bind-mount target from services/neo4j/compose.yml; the
+# previous ${SCRIPT_DIR}/../snapshot expression resolved to
+# /usr/local/snapshot inside the container and never saw the host volume.
+SNAPSHOT_DIR=/snapshot
 
 # Ensure snapshot directory exists
 mkdir -p "${SNAPSHOT_DIR}"
