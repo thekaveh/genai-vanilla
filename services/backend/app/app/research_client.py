@@ -1,6 +1,8 @@
 import httpx
 import os
 import asyncio
+import json
+import time
 from typing import Dict, Any, List, Optional, AsyncGenerator
 from pydantic import BaseModel
 from enum import Enum
@@ -226,7 +228,6 @@ class ResearchClient:
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
                             try:
-                                import json
                                 data = json.loads(line[6:])  # Remove "data: " prefix
                                 yield data
                             except json.JSONDecodeError:
@@ -256,19 +257,19 @@ class ResearchClient:
         max_wait_time: int = 300
     ) -> ResearchResponse:
         """Wait for a research session to complete with polling"""
-        start_time = asyncio.get_event_loop().time()
-        
+        start_time = time.monotonic()
+
         while True:
             status_response = await self.get_research_status(session_id)
-            
+
             if status_response.status in [
-                ResearchStatus.COMPLETED, 
-                ResearchStatus.FAILED, 
+                ResearchStatus.COMPLETED,
+                ResearchStatus.FAILED,
                 ResearchStatus.CANCELLED
             ]:
                 return status_response
-            
-            elapsed_time = asyncio.get_event_loop().time() - start_time
+
+            elapsed_time = time.monotonic() - start_time
             if elapsed_time >= max_wait_time:
                 return ResearchResponse(
                     session_id=session_id,

@@ -9,7 +9,7 @@ Uses Weaviate for vector search with automatic pgvector fallback.
 import os
 import json
 import logging
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from uuid import UUID, uuid4
 
 import asyncpg
