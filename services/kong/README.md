@@ -58,7 +58,7 @@ Plain `python3 scripts/check-kong-routes.py` works too if `PyYAML` is on your sy
 - `stt.localhost` → STT engine (`STT_PROVIDER_SOURCE != disabled`; container resolves to `parakeet-gpu` or `speaches`, localhost to `host.docker.internal` on the per-engine port)
 - `tts.localhost` → TTS engine (`TTS_PROVIDER_SOURCE != disabled`; container resolves to `speaches:8000` or `chatterbox:4123`, localhost to `host.docker.internal` on the per-engine port)
 
-Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports can override via `<SVC>_LOCALHOST_URL` env vars where the service's compose already reads them (docling, parakeet, whisper-cpp, chatterbox). Neo4j, Weaviate, and Ollama hardcode the default port — Kong matches the compose `runtime_sc` block so both consumers stay in sync.
+Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports override via `<SVC>_LOCALHOST_PORT` env vars; both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) and the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) read the same PORT var and derive the URL as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT}`, keeping both paths in sync.
 
 ## 4. SOURCE-Based Configuration
 
@@ -66,7 +66,8 @@ Each `*-localhost` source still gets a Kong route — Kong proxies through `host
 ```python
 # Generated based on COMFYUI_SOURCE
 if source == 'localhost':
-    service['url'] = COMFYUI_LOCALHOST_URL or 'http://host.docker.internal:8000/'
+    port = os.environ.get('COMFYUI_LOCALHOST_PORT', '8000')
+    service['url'] = f'http://host.docker.internal:{port}/'
 elif source == 'external':
     service['url'] = external_url
 elif source in ['container-cpu', 'container-gpu']:

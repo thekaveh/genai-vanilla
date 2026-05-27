@@ -102,7 +102,7 @@ curl -X POST http://localhost:63040/v1/document/convert \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOCLING_LOCALHOST_URL` | Local service URL | `http://host.docker.internal:63021` |
+| `DOCLING_LOCALHOST_PORT` | Local service port. URL is derived as `http://host.docker.internal:${DOCLING_LOCALHOST_PORT}` at compose-render time. | `63021` |
 
 ## 5. API Reference
 

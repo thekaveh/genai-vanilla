@@ -36,7 +36,7 @@ COMFYUI_AUTO_UPDATE=false                   # GPU variant flips this to true ups
 Localhost / external overrides:
 
 ```bash
-COMFYUI_LOCALHOST_URL=http://host.docker.internal:8000
+COMFYUI_LOCALHOST_PORT=8000                 # URL is derived as http://host.docker.internal:8000 at compose-render time
 COMFYUI_EXTERNAL_URL=                       # required when COMFYUI_SOURCE=external
 COMFYUI_LOCAL_MODELS_PATH=~/Documents/ComfyUI/models   # bind-mounted when SOURCE=localhost
 ```

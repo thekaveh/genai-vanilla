@@ -92,7 +92,8 @@ Or edit `.env`:
 ```bash
 OPENCLAW_SOURCE=localhost
 # Optional: if your local OpenClaw runs on its native/default 18789 instead:
-# OPENCLAW_LOCALHOST_URL=http://host.docker.internal:18789
+# OPENCLAW_LOCALHOST_PORT=18789
+# (URL is derived as http://host.docker.internal:18789 at compose-render time.)
 ```
 
 ### 3.3 Disable OpenClaw
@@ -136,7 +137,7 @@ These bypass LiteLLM and let OpenClaw call providers directly — useful when yo
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENCLAW_LOCALHOST_URL` | Local service URL. Default matches the stack port offset; set to `http://host.docker.internal:18789` if your local OpenClaw runs on its native/default port. | `http://host.docker.internal:63024` |
+| `OPENCLAW_LOCALHOST_PORT` | Local service port. Default matches the stack port offset; set to `18789` if your local OpenClaw runs on its native/default port. URL is derived as `http://host.docker.internal:${OPENCLAW_LOCALHOST_PORT}` at compose-render time. | `63024` |
 
 ## 5. LLM Configuration
 
