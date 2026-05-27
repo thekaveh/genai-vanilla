@@ -81,10 +81,10 @@ chmod +x start.sh stop.sh
 **LiteLLM not responding / consumers can't reach LLMs:**
 ```bash
 # Liveness check (no auth required)
-curl http://localhost:63012/health/liveliness
+curl http://localhost:63030/health/liveliness
 
 # List registered models (auth required)
-curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63012/v1/models
+curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63030/v1/models
 
 # Inspect LiteLLM logs
 docker logs genai-litellm -f
@@ -104,7 +104,7 @@ ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
-Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http://localhost:63012/v1`) or via `docker exec` for direct `/api/*` calls.
+Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http://localhost:63030/v1`) or via `docker exec` for direct `/api/*` calls.
 
 **Out of memory during model loading:**
 ```bash

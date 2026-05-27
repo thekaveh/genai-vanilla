@@ -42,7 +42,7 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 - GPU acceleration (4.3x speedup for tables)
 
 **Unified LLM gateway (LiteLLM)**
-- Always-on OpenAI-compatible front door for every LLM provider. Pinned image: `ghcr.io/berriai/litellm:v1.83.14-stable.patch.2`. Listens on port 63012.
+- Always-on OpenAI-compatible front door for every LLM provider. Pinned image: `ghcr.io/berriai/litellm:v1.83.14-stable.patch.2`. Listens on port 63030.
 - Wizard model: locked LiteLLM tile + selectable LLM Engine (single-select Ollama upstream: `ollama-container-cpu/gpu`, `ollama-localhost`, `ollama-external`, `none`) + three multi-enable Cloud tiles (OpenAI, Anthropic, OpenRouter).
 - Bootstrapper auto-generates `LITELLM_MASTER_KEY` on first start and refuses to start when no upstream is configured (engine=none + all cloud disabled).
 - Persistence: dedicated `litellm` database on the existing Supabase Postgres (Prisma migrations run automatically). Redis used for response cache + rate-limit state.
@@ -60,7 +60,7 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 **MinIO object storage (artifact tier)**
 - S3-compatible artifact-tier storage server (Go, AGPL-v3). Pinned to `minio/minio:RELEASE.2025-09-07T16-13-09Z` (most recent stable tag on Docker Hub; the GitHub-only service-account-CVE release `RELEASE.2025-10-15T17-29-55Z` is not yet available as a Docker image — bump the pin when a fixed image lands upstream).
 - Five pre-provisioned buckets — `comfyui`, `backend`, `n8n`, `jupyter`, `docling` — each with a scoped service-account credential surfaced as `MINIO_<NAME>_ACCESS_KEY` / `MINIO_<NAME>_SECRET_KEY` in `.env`.
-- Admin console at `http://localhost:63031`; S3 API at `http://localhost:63030` (host) / `http://minio:9000` (internal).
+- Admin console at `http://localhost:63018`; S3 API at `http://localhost:63017` (host) / `http://minio:9000` (internal).
 - Complements Supabase Storage rather than replacing it. Per-consumer wiring (ComfyUI, Backend, n8n, JupyterHub, Doc Processor) ships in dedicated follow-up PRs — credentials and bucket names are in `.env` from day one for opt-in by env-only change.
 
 **Ray distributed-compute cluster**

@@ -603,7 +603,7 @@ Understanding which services depend on others:
 ```bash
 # Check if service is running locally
 curl http://localhost:11434/api/tags  # Ollama (LiteLLM upstream when LLM_PROVIDER_SOURCE=ollama-localhost)
-curl http://localhost:63012/health/liveliness  # LiteLLM gateway (always-on)
+curl http://localhost:63030/health/liveliness  # LiteLLM gateway (always-on)
 curl http://localhost:8000/           # ComfyUI default localhost URL
 curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_URL to 8188
 
