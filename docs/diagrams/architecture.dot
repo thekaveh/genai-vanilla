@@ -99,7 +99,6 @@ digraph stack {
   "supabase" -> "ray";
   "redis" -> "ray";
   "supabase" -> "redis";
-  "supabase" -> "searxng";
   "redis" -> "searxng";
   "parakeet" -> "speaches";
   "tts-provider" -> "speaches";
