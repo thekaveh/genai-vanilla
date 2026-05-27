@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 2026-05-27 overnight audit (second pass — follow-up to PR #11)
 
-A second convergence audit ran the night PR #11 merged. 12 verification
+A second convergence audit ran the night PR #11 merged. 14 verification
 iterations dispatched ~14 parallel domain audits and surfaced ~80
 genuine findings on top of the ~280 from PR #11. The fix pass landed
-30 commits in this PR; the remaining 16 findings are explicitly deferred
-in this `[Unreleased]` block.
+in this PR; the residual ~16 follow-up findings (smaller-scope
+ergonomic / refactor / wizard-info items that risked behaviour
+changes outside this PR's scope) are recorded in the Known
+follow-ups block beneath this entry.
 
 Highlights of what landed:
 
