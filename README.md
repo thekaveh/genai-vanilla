@@ -114,7 +114,8 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **Cross-platform support**: Python-based bootstrapping works on all OS
 - **Flexible deployment**: mix containerized, localhost, and external services
 - **GPU support**: container variants with NVIDIA GPU access for inference services
-- **Core services**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (always-on, fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway, Ray (distributed compute)
+- **Always-on core**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
+- **Opt-in**: Ray (distributed compute) and the LLM/Media/Agents tiers are activated via SOURCE flags or the interactive wizard
 
 ### 2.2 Key features
 
@@ -489,13 +490,30 @@ For longer-form troubleshooting guides, see [docs/quick-start/troubleshooting.md
 
 ## 9. Documentation
 
-- [Documentation index](docs/README.md)
+The [documentation index](docs/README.md) is the top-level navigation hub.
+Key entry points by audience:
+
+### 9.1 First-time users
+- [Interactive setup wizard](docs/quick-start/interactive-setup-wizard.md) — step-by-step guided configuration on first `./start.sh`
 - [Quick Start guides](docs/quick-start/) — installation and first-run
-- [Service documentation](services/) — individual service guides
-- [Ports and Routes](docs/deployment/ports-and-routes.md) — canonical ports, direct URLs, and Kong routes
-- [Deployment guides](docs/deployment/) — deployment options, ports, routes, and configuration
-- [ROADMAP.md](docs/ROADMAP.md) — future development plans
-- [CHANGELOG.md](docs/CHANGELOG.md) — release history
+- [Troubleshooting](docs/quick-start/troubleshooting.md) — common issues and known-benign warnings
+- [Expected startup warnings](docs/deployment/expected-startup-warnings.md) — log lines that look scary but aren't
+
+### 9.2 Operators
+- [SOURCE configuration](docs/deployment/source-configuration.md) — every service's container / localhost / external / disabled / api modes (and GPU variants)
+- [Ports and routes](docs/deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
+- [Using as a submodule](docs/deployment/submodule-usage.md) — embedding the stack inside another project
+- [Service documentation](services/) — per-service READMEs (each owns its manifest, compose fragment, and architecture diagram)
+
+### 9.3 Contributors
+- [CONTRIBUTING-services.md](docs/CONTRIBUTING-services.md) — adding a new service to the stack (manifest schema, compose fragment, docs regen)
+- [SECURITY.md](SECURITY.md) — threat model, supported versions, responsible-disclosure address
+- [Cross-service integration matrix](docs/research/integration-matrix.md) — Phase B research index linking every service to its candidate integrations
+- [Research rows](docs/research/rows/) and [candidates](docs/research/candidates/) — per-service / per-candidate integration design notes
+
+### 9.4 Release history
+- [ROADMAP.md](docs/ROADMAP.md) — future development plans and tier-status of every service
+- [CHANGELOG.md](docs/CHANGELOG.md) — release history and the `[Unreleased]` known-follow-ups block
 
 ## 10. Contributing
 
