@@ -9,7 +9,7 @@ aggregator rather than as a standalone service, because the user-facing role is
 full user-facing description, source-variant table, configuration reference,
 and integration notes.
 
-## Engine quick reference
+## 1. Engine quick reference
 
 - **Image (GPU):** `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime` (used as
   `BASE_IMAGE` in the GPU provider Dockerfile)
@@ -24,32 +24,32 @@ The manifest (`service.yml`) and compose fragment (`compose.yml`) in this folder
 are the bootstrapper's source of truth for those values; treat this README as a
 pointer, not a duplicate of the aggregator doc.
 
-## 5. Dependencies & Integrations
+## 2. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/docling/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen docling` after manifest changes.
 
-### 5.1 Current — Upstream (this service calls)
+### 2.1 Current — Upstream (this service calls)
 
 _No upstream calls._
 
-### 5.2 Current — Downstream (services that call this)
+### 2.2 Current — Downstream (services that call this)
 
 _No downstream consumers._
 
-### 5.3 Architecture diagram
+### 2.3 Architecture diagram
 
 ![docling architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 5.4 Future — Missing pair integrations
+### 2.4 Future — Missing pair integrations
 
 _No high-confidence opportunities identified._
 
-### 5.5 Future — Candidate new services
+### 2.5 Future — Candidate new services
 
 _No high-confidence opportunities identified._
 
-### 5.6 Future — Unused features in this service
+### 2.6 Future — Unused features in this service
 
 _No high-confidence opportunities identified._
