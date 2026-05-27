@@ -15,18 +15,9 @@ from uuid import UUID, uuid4
 import asyncpg
 import httpx
 
-from memory_store import MemoryStore
+from memory_store import MemoryStore, _to_uuid
 
 logger = logging.getLogger("memory_service")
-
-
-def _to_uuid(value: Union[str, UUID, None]) -> Optional[UUID]:
-    """Convert a string or UUID to a UUID object, or return None."""
-    if value is None:
-        return None
-    if isinstance(value, UUID):
-        return value
-    return UUID(value)
 
 
 class MemoryService:
@@ -177,7 +168,7 @@ class MemoryService:
         namespace: str = "default",
         conversation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Extract facts from conversation messages using Ollama LLM."""
+        """Extract facts from conversation messages using the LiteLLM gateway."""
         self._check_enabled()
         await self._ensure_initialized()
 
@@ -205,7 +196,7 @@ class MemoryService:
                 for msg in messages
             )
 
-            # Use Ollama to extract facts
+            # Use the LiteLLM gateway to extract facts
             model = await self._get_extraction_model()
             extraction_prompt = f"""Analyze the following conversation and extract key facts about the user.
 For each fact, provide:

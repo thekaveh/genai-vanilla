@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from storage3 import SyncStorageClient as StorageClient
 from typing import Optional, cast, Dict, Any, List
+from contextlib import asynccontextmanager
 import os
 import httpx
+import asyncpg
 
 from n8n_client import N8nClient
 from research_service import ResearchService
@@ -33,6 +35,24 @@ def _validate_uuid_param(value: str, name: str = "parameter"):
 
 # Get project name from environment
 PROJECT_NAME = os.getenv("PROJECT_NAME", "GenAI Vanilla Stack")
+
+
+@asynccontextmanager
+async def _db_conn():
+    """Yield an asyncpg connection to DATABASE_URL.
+
+    Raises HTTPException(500) when DATABASE_URL is unset, matching
+    the duplicated pattern previously inlined into each endpoint.
+    """
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise HTTPException(status_code=500, detail="DATABASE_URL not configured")
+    conn = await asyncpg.connect(database_url)
+    try:
+        yield conn
+    finally:
+        await conn.close()
+
 
 app = FastAPI(
     title=f"{PROJECT_NAME} Backend",
@@ -111,9 +131,6 @@ n8n_client = N8nClient()
 
 # Initialize research service
 research_service = ResearchService()
-
-# Initialize ComfyUI client
-comfyui_client = ComfyUIClient()
 
 # Initialize LangMem memory service
 memory_service = MemoryService()
@@ -692,48 +709,37 @@ async def get_generated_image(filename: str, subfolder: str = "", folder_type: s
 async def get_comfyui_db_models(active_only: bool = True, essential_only: bool = False):
     """Get ComfyUI models from database"""
     try:
-        import asyncpg
-        
-        # Get database connection string
-        database_url = os.getenv("DATABASE_URL")
-        if not database_url:
-            raise HTTPException(status_code=500, detail="Database URL not configured")
-        
-        # Connect to database
-        conn = await asyncpg.connect(database_url)
-        
-        try:
+        async with _db_conn() as conn:
             # Build query based on filters
             query = "SELECT * FROM public.comfyui_models WHERE 1=1"
             params = []
-            
+
             if active_only:
                 query += " AND active = $1"
                 params.append(True)
-                
+
             if essential_only:
                 param_num = len(params) + 1
                 query += f" AND essential = ${param_num}"
                 params.append(True)
-            
+
             query += " ORDER BY type, name"
-            
+
             # Execute query
             rows = await conn.fetch(query, *params)
-            
+
             # Convert to list of dicts
             models = []
             for row in rows:
                 models.append(dict(row))
-            
+
             return {
                 "success": True,
                 "models": models
             }
-            
-        finally:
-            await conn.close()
-            
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -757,25 +763,15 @@ class ComfyUIModelRequest(BaseModel):
 async def add_comfyui_model(request: ComfyUIModelRequest):
     """Add a new ComfyUI model to database"""
     try:
-        import asyncpg
-        
-        # Get database connection string
-        database_url = os.getenv("DATABASE_URL")
-        if not database_url:
-            raise HTTPException(status_code=500, detail="Database URL not configured")
-        
-        # Connect to database
-        conn = await asyncpg.connect(database_url)
-        
-        try:
+        async with _db_conn() as conn:
             # Insert model
             query = """
-                INSERT INTO public.comfyui_models 
+                INSERT INTO public.comfyui_models
                 (name, type, filename, download_url, file_size_gb, description, active, essential)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING id
             """
-            
+
             model_id = await conn.fetchval(
                 query,
                 request.name,
@@ -787,16 +783,15 @@ async def add_comfyui_model(request: ComfyUIModelRequest):
                 request.active,
                 request.essential
             )
-            
+
             return {
                 "success": True,
                 "model_id": str(model_id),
                 "message": "Model added successfully"
             }
-            
-        finally:
-            await conn.close()
-            
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -808,27 +803,17 @@ async def add_comfyui_model(request: ComfyUIModelRequest):
 async def update_comfyui_model(model_id: str, request: ComfyUIModelRequest):
     """Update a ComfyUI model in database"""
     try:
-        import asyncpg
-        
-        # Get database connection string
-        database_url = os.getenv("DATABASE_URL")
-        if not database_url:
-            raise HTTPException(status_code=500, detail="Database URL not configured")
-        
-        # Connect to database
-        conn = await asyncpg.connect(database_url)
-        
-        try:
+        async with _db_conn() as conn:
             # Update model
             query = """
-                UPDATE public.comfyui_models 
-                SET name = $1, type = $2, filename = $3, download_url = $4, 
+                UPDATE public.comfyui_models
+                SET name = $1, type = $2, filename = $3, download_url = $4,
                     file_size_gb = $5, description = $6, active = $7, essential = $8,
                     updated_at = NOW()
                 WHERE id = $9
                 RETURNING id
             """
-            
+
             updated_id = await conn.fetchval(
                 query,
                 request.name,
@@ -841,19 +826,16 @@ async def update_comfyui_model(model_id: str, request: ComfyUIModelRequest):
                 request.essential,
                 model_id
             )
-            
+
             if not updated_id:
                 raise HTTPException(status_code=404, detail="Model not found")
-            
+
             return {
                 "success": True,
                 "model_id": str(updated_id),
                 "message": "Model updated successfully"
             }
-            
-        finally:
-            await conn.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -867,32 +849,19 @@ async def update_comfyui_model(model_id: str, request: ComfyUIModelRequest):
 async def delete_comfyui_model(model_id: str):
     """Delete a ComfyUI model from database"""
     try:
-        import asyncpg
-        
-        # Get database connection string
-        database_url = os.getenv("DATABASE_URL")
-        if not database_url:
-            raise HTTPException(status_code=500, detail="Database URL not configured")
-        
-        # Connect to database
-        conn = await asyncpg.connect(database_url)
-        
-        try:
+        async with _db_conn() as conn:
             # Delete model
             query = "DELETE FROM public.comfyui_models WHERE id = $1 RETURNING id"
             deleted_id = await conn.fetchval(query, model_id)
-            
+
             if not deleted_id:
                 raise HTTPException(status_code=404, detail="Model not found")
-            
+
             return {
                 "success": True,
                 "message": "Model deleted successfully"
             }
-            
-        finally:
-            await conn.close()
-            
+
     except HTTPException:
         raise
     except Exception as e:

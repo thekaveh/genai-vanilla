@@ -6,6 +6,13 @@ from pydantic import BaseModel
 from enum import Enum
 
 
+class ResearchError(Exception):
+    """Raised when a research workflow fails — wraps upstream errors
+    from local-deep-researcher into a single catchable type so callers
+    don't need ``except Exception``."""
+    pass
+
+
 class ResearchStatus(str, Enum):
     """Research status enumeration"""
     PENDING = "pending"
@@ -170,9 +177,9 @@ class ResearchClient:
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
                     return None
-                raise Exception(f"HTTP {e.response.status_code}: {e.response.text}")
+                raise ResearchError(f"HTTP {e.response.status_code}: {e.response.text}")
             except Exception as e:
-                raise Exception(f"Failed to get result: {str(e)}")
+                raise ResearchError(f"Failed to get result: {str(e)}")
 
     async def cancel_research(self, session_id: str) -> ResearchResponse:
         """Cancel a running research session"""
@@ -240,7 +247,7 @@ class ResearchClient:
                 response.raise_for_status()
                 return response.json()
             except Exception as e:
-                raise Exception(f"Failed to list active sessions: {str(e)}")
+                raise ResearchError(f"Failed to list active sessions: {str(e)}")
 
     async def wait_for_completion(
         self, 
