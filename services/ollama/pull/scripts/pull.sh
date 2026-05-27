@@ -36,9 +36,11 @@ else
       echo "ollama-pull: Pulling $model_clean model from $OLLAMA_HOST_URL..."
       # Construct JSON payload
       json_payload="{\"name\":\"$model_clean\"}"
-      # Execute curl command
-      curl_output=$(curl -s -X POST "$OLLAMA_HOST_URL/api/pull" -d "$json_payload" 2>&1)
-      curl_exit_code=$?
+      # Execute curl command. `set -e` above would abort on the first failed
+      # pull before the manual error-handling below runs, so we explicitly
+      # tolerate non-zero exits here and rely on the if-check on $? instead.
+      curl_exit_code=0
+      curl_output=$(curl -s -X POST "$OLLAMA_HOST_URL/api/pull" -d "$json_payload" 2>&1) || curl_exit_code=$?
       echo "ollama-pull: Curl exit code: $curl_exit_code"
       echo "ollama-pull: Curl output: $curl_output"
       # Check if curl succeeded (exit code 0)
