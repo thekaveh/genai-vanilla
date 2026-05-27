@@ -594,7 +594,7 @@ pins via `HERMES_IMAGE=nousresearch/hermes-agent:sha-...`) plus
 `hermes-init` companion. Registered in the LiteLLM model catalog as
 `hermes-agent`, so every consumer (Open-WebUI, n8n, backend, jupyterhub,
 openclaw) sees it in the model dropdown automatically. Dashboard exposed
-at `http://hermes.localhost:63002`.
+at `http://hermes.localhost:63000`.
 
 Consumes (when enabled, via the LiteLLM gateway and `hermes-init`'s
 config.yaml rendering):

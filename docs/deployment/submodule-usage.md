@@ -231,13 +231,13 @@ docker-compose up -d
 
 ### Pattern 2: Kong Gateway as Single Entry Point
 
-Use Kong (port 63002) to access all infrastructure services from your application:
+Use Kong (port 63000) to access all infrastructure services from your application:
 
 ```python
 # Python example
 import requests
 
-KONG_BASE = "http://localhost:63002"  # default BASE_PORT + 2
+KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 2
 
 # Access Supabase through Kong
 supabase_url = f"{KONG_BASE}/supabase"
@@ -249,7 +249,7 @@ n8n_url = f"{KONG_BASE}/n8n"
 
 ```javascript
 // JavaScript example
-const KONG_BASE = "http://localhost:63002"  # default BASE_PORT + 2;
+const KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 2;
 
 // Access services through Kong
 const supabaseUrl = `${KONG_BASE}/supabase`;
@@ -309,7 +309,7 @@ echo "Starting application services..."
 docker-compose up -d
 
 echo "All services started!"
-echo "Infrastructure: http://localhost:63002"
+echo "Infrastructure: http://localhost:63000"
 echo "Application: http://localhost:8080"
 ```
 
@@ -442,7 +442,7 @@ git rebase origin/main
 **Solution 2**: Stop conflicting services
 ```bash
 # Find what's using the port
-lsof -i :63002
+lsof -i :63000
 
 # Stop the conflicting service
 ```
