@@ -48,6 +48,44 @@ from services.service_config import ServiceConfig
 from services.dependency_manager import DependencyManager
 from utils.source_override_manager import SourceOverrideManager
 
+
+def _detect_port_collisions(rows) -> list[str]:
+    """Return human-readable warning strings, one per colliding host port.
+
+    A *collision* is two or more rows whose port value (the ":<num>"
+    suffix or just the bare number) is equal AND nonempty. Disabled
+    rows (port = "-" / "" / None) don't participate.
+
+    `rows` is an iterable of ``(name, port_val)`` tuples — the same
+    shape the pre-launch summary builder already accumulates as it
+    iterates services. Kept as a module-level free function so it can
+    be unit-tested without instantiating ``GenAIStackStarter``.
+
+    The warnings are purely informational — launch still proceeds.
+    Compose-up would otherwise fail with an opaque "address already in
+    use" error from Docker, so this gives the user a chance to ack and
+    continue or step back and pick another port.
+    """
+    by_port: dict[str, list[str]] = {}
+    for name, port_val in rows:
+        port = (port_val or "").lstrip(":").strip()
+        if not port or port == "-":
+            continue
+        # Only digits count as a host port. Skip anything that doesn't
+        # look like a numeric port (e.g. an external URL).
+        if not port.isdigit():
+            continue
+        by_port.setdefault(port, []).append(name or "<unknown>")
+    warnings: list[str] = []
+    for port, names in by_port.items():
+        if len(names) >= 2:
+            warnings.append(
+                f"⚠  port {port} used by {' + '.join(names)} — "
+                f"compose-up may fail to bind."
+            )
+    return warnings
+
+
 class GenAIStackStarter:
     """Main class for starting the GenAI Stack."""
     
@@ -1170,6 +1208,10 @@ class GenAIStackStarter:
         services.sort(key=_sort_key)
 
         from ui.textual.palette import style_for_source_choice as _style_for_source
+        # Collected `(name, port_val)` for post-loop collision detection.
+        # Disabled / portless rows still flow through here as ("-",); the
+        # detector filters them out.
+        collision_rows: list[tuple[str, str]] = []
         for name, source_var, port_var, scale_var in services:
             source = service_sources.get(source_var, env_vars.get(source_var, 'container'))
             scale = env_vars.get(scale_var, '0') if scale_var else '1'
@@ -1208,6 +1250,7 @@ class GenAIStackStarter:
                 alias_text,
                 Text(status_text, style=status_style),
             )
+            collision_rows.append((name, port_val))
 
         # Cloud APIs panel — renders below the services table. Cloud
         # providers don't run as containers (scale: 0) so they don't
@@ -1244,6 +1287,19 @@ class GenAIStackStarter:
             padding=(0, 1),
             expand=True,
         )
+
+        # Port-collision warnings — informational only (warn-don't-block).
+        # When two rows resolve to the same host port (e.g. the user
+        # picked ollama-localhost on Kong's port), surface that here so
+        # the user can step back and adjust before Docker barfs with an
+        # opaque "address already in use" error.
+        warning_lines = _detect_port_collisions(collision_rows)
+        if warning_lines:
+            warning_texts = [
+                Text.from_markup(f"[yellow]{msg}[/yellow]")
+                for msg in warning_lines
+            ]
+            return Group(table, cloud_panel, *warning_texts)
         return Group(table, cloud_panel)
 
     @staticmethod
