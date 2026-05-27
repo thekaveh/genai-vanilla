@@ -182,10 +182,10 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **Cloud upstreams** (`CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE`) — independent `enabled`/`disabled` toggles; each requires the matching API key
 
 **Other services that support localhost:**
-- **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI via `COMFYUI_LOCALHOST_URL` (default `http://host.docker.internal:8000`; override if your installation uses another port such as 8188)
+- **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI; the bootstrapper resolves `host.docker.internal:${COMFYUI_LOCALHOST_PORT}` (default `8000`; override to `8188` or whatever port your host install uses)
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
-- **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes via `HERMES_LOCALHOST_URL` (default `http://host.docker.internal:63060`); useful when Hermes should drive your real shell, browser, or microphone
+- **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes; the bootstrapper resolves `host.docker.internal:${HERMES_LOCALHOST_PORT}` (default `63028`); useful when Hermes should drive your real shell, browser, or microphone
 
 **Container-only services:**
 - **n8n** (`N8N_SOURCE=container|disabled`) — workflow automation
@@ -246,7 +246,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Neo4j Browser** | http://localhost:63020 | http://graph.localhost:63000 | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
-| **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants on `*_LOCALHOST_URL`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
+| **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants resolved via `*_LOCALHOST_PORT`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
 | **Docling Processor** | http://localhost:63040 | http://docling.localhost:63000 | Document processing | None |
 | **OpenClaw Agent** | http://localhost:63063 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
 | **Hermes Agent** | http://localhost:63060 (API), http://localhost:63061 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
