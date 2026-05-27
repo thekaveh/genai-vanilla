@@ -61,7 +61,7 @@ DOC_PROCESSOR_SOURCE=disabled
 ## 3. Test the API
 
 ```bash
-curl -X POST http://localhost:63021/v1/document/convert \
+curl -X POST http://localhost:63040/v1/document/convert \
   -F "file=@document.pdf" \
   -F "output_format=markdown" \
   -F "use_ocr=auto" \
@@ -75,7 +75,7 @@ curl -X POST http://localhost:63021/v1/document/convert \
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DOC_PROCESSOR_SOURCE` | Service source (docling-container-gpu, docling-localhost, disabled) | `disabled` |
-| `DOC_PROCESSOR_PORT` | External port (auto-calculated: base_port + 21) | `63021` |
+| `DOC_PROCESSOR_PORT` | External port (container mode) | `63040` |
 | `DOCLING_OUTPUT_FORMAT` | Output format (markdown, html, json, doctags) | `markdown` |
 | `DOCLING_USE_OCR` | OCR mode (auto, always, never) | `auto` |
 | `DOCLING_TABLE_MODE` | Table extraction (accurate, fast) | `accurate` |
@@ -113,7 +113,7 @@ Convert documents to structured format.
 **Request:**
 
 ```bash
-curl -X POST http://localhost:63021/v1/document/convert \
+curl -X POST http://localhost:63040/v1/document/convert \
   -F "file=@document.pdf" \
   -F "output_format=markdown" \
   -F "use_ocr=auto" \
@@ -169,7 +169,7 @@ Health check endpoint.
 **Request:**
 
 ```bash
-curl http://localhost:63021/health
+curl http://localhost:63040/health
 ```
 
 **Response:**
@@ -189,7 +189,7 @@ List available models and configurations.
 **Request:**
 
 ```bash
-curl http://localhost:63021/v1/models
+curl http://localhost:63040/v1/models
 ```
 
 **Response:**
@@ -314,7 +314,7 @@ The backend service automatically exposes doc processor endpoints if available.
 ### 10.1 Enable Chunking
 
 ```bash
-curl -X POST http://localhost:63021/v1/document/convert \
+curl -X POST http://localhost:63040/v1/document/convert \
   -F "file=@document.pdf" \
   -F "enable_chunking=true" \
   -F "chunk_size=512" \
@@ -338,7 +338,7 @@ import json
 # 1. Convert document with chunking
 with open("document.pdf", "rb") as f:
     response = requests.post(
-        "http://localhost:63021/v1/document/convert",
+        "http://localhost:63040/v1/document/convert",
         files={"file": f},
         data={"enable_chunking": True, "chunk_size": 512}
     )

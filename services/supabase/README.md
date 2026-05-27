@@ -39,10 +39,11 @@ The database initialization follows a two-stage process managed by Docker Compos
   - Ensuring extensions like `vector` and `postgis` are enabled (`01-extensions.sql`)
   - Ensuring schemas like `auth` and `storage` exist (`02-schemas.sql`)
   - Creating necessary custom types for Supabase Auth (`03-auth-types.sql`)
-  - Creating custom public tables like `users` and `llms` (`04-public-tables.sql`)
-  - Granting appropriate permissions to standard roles (`05-permissions.sql`)
-  - Creating custom functions like `public.health` (`06-functions.sql`)
-  - Inserting seed data like default LLMs (`07-seed-data.sql`)
+  - Setting up storage schema and tables (`04-storage.sql`)
+  - Creating custom public tables like `users` and `llms` (`05-public-tables.sql`)
+  - Granting appropriate permissions to standard roles (`06-permissions.sql`)
+  - Creating custom functions like `public.health` (`07-functions.sql`)
+  - Inserting seed data like default LLMs (`08-seed-data.sql`)
 
 All custom SQL scripts use `IF NOT EXISTS` logic to allow safe re-runs.
 
@@ -94,18 +95,18 @@ The stack uses Supabase Auth (GoTrue) for user authentication and management wit
 ### 4.1 PostgreSQL Database
 
 **Access**: Direct connection via standard PostgreSQL client
-**Port**: `${SUPABASE_DB_PORT}` (default: 63005)
+**Port**: `${SUPABASE_DB_PORT}` (default: 63010)
 **Extensions**: pgvector, PostGIS, uuid-ossp, pgcrypto
 
 ### 4.2 Auth Service (GoTrue)
 
-**Access**: `http://localhost:${SUPABASE_AUTH_PORT}` (default: 63006)
+**Access**: `http://localhost:${SUPABASE_AUTH_PORT}` (default: 63013)
 **Purpose**: User registration, login, password recovery, email confirmation
 **Features**: JWT authentication, user management, password policies
 
 ### 4.3 Storage Service
 
-**Access**: `http://localhost:${SUPABASE_STORAGE_PORT}` (default: 63008)
+**Access**: `http://localhost:${SUPABASE_STORAGE_PORT}` (default: 63012)
 **Features**:
 - Secure file storage and management
 - Access control via database policies
@@ -114,7 +115,7 @@ The stack uses Supabase Auth (GoTrue) for user authentication and management wit
 
 ### 4.4 API Service (PostgREST)
 
-**Access**: `http://localhost:${SUPABASE_API_PORT}` (default: 63007)
+**Access**: `http://localhost:${SUPABASE_API_PORT}` (default: 63014)
 **Purpose**: Auto-generated REST API for database operations
 **Features**:
 - Automatic API generation from database schema
@@ -124,7 +125,7 @@ The stack uses Supabase Auth (GoTrue) for user authentication and management wit
 
 ### 4.5 Realtime Service
 
-**Access**: WebSocket at `http://localhost:${SUPABASE_REALTIME_PORT}` (default: 63010)
+**Access**: WebSocket at `http://localhost:${SUPABASE_REALTIME_PORT}` (default: 63015)
 **Purpose**: Live database change notifications
 **Features**:
 - Real-time database change notifications
@@ -134,7 +135,7 @@ The stack uses Supabase Auth (GoTrue) for user authentication and management wit
 
 ### 4.6 Studio Dashboard
 
-**Access**: `http://localhost:${SUPABASE_STUDIO_PORT}` (default: 63009)
+**Access**: `http://localhost:${SUPABASE_STUDIO_PORT}` (default: 63016)
 **Purpose**: Web-based database management interface
 **Credentials**: admin@example.com / changeme123 (configurable)
 **Features**:
@@ -153,7 +154,7 @@ Key environment variables for Supabase configuration:
 POSTGRES_DB=postgres
 SUPABASE_DB_USER=supabase_admin
 SUPABASE_DB_PASSWORD=your_password
-SUPABASE_DB_PORT=63005
+SUPABASE_DB_PORT=63010
 
 # Authentication
 SUPABASE_JWT_SECRET=your_jwt_secret
@@ -161,11 +162,11 @@ SUPABASE_ANON_KEY=generated_anon_key
 SUPABASE_SERVICE_KEY=generated_service_key
 
 # Service Ports
-SUPABASE_AUTH_PORT=63006
-SUPABASE_API_PORT=63007
-SUPABASE_STORAGE_PORT=63008
-SUPABASE_STUDIO_PORT=63009
-SUPABASE_REALTIME_PORT=63010
+SUPABASE_AUTH_PORT=63013
+SUPABASE_API_PORT=63014
+SUPABASE_STORAGE_PORT=63012
+SUPABASE_STUDIO_PORT=63016
+SUPABASE_REALTIME_PORT=63015
 
 # Dashboard Credentials
 DASHBOARD_USERNAME=admin@example.com

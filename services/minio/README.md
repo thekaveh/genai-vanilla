@@ -7,8 +7,8 @@ S3-compatible object storage for the artifact tier of the stack. Complements Sup
 | Surface | URL | Notes |
 |---|---|---|
 | Admin console (Kong alias) | `http://minio.localhost:${KONG_HTTP_PORT}` | **Use this from your browser.** Requires `./start.sh --setup-hosts` so `minio.localhost` resolves to `127.0.0.1`. Login `minioadmin` / `${MINIO_ROOT_PASSWORD}`. |
-| Admin console (direct port) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `63031`) | Equivalent; no hosts setup required. |
-| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `63030`) | NOT aliased through Kong — S3 clients use full URLs with explicit ports anyway, and Kong proxying introduces unhelpful preserve-host complications for the S3 signature workflow. |
+| Admin console (direct port) | `http://localhost:${MINIO_CONSOLE_PORT}` (default `63018`) | Equivalent; no hosts setup required. |
+| S3 API (host) | `http://localhost:${MINIO_PORT}` (default `63017`) | NOT aliased through Kong — S3 clients use full URLs with explicit ports anyway, and Kong proxying introduces unhelpful preserve-host complications for the S3 signature workflow. |
 | S3 API (internal) | `http://minio:9000` | What sibling containers (backend, n8n, ComfyUI, JupyterHub, docling consumers) call via the per-bucket service-account credentials. |
 | Admin console (internal) | `http://minio:9001` | What Kong proxies for the alias. |
 

@@ -12,7 +12,7 @@ Image: `ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7` (CPU default) or the latest
 
 | Path | URL | Notes |
 |---|---|---|
-| Direct | `http://localhost:${COMFYUI_PORT}` (default `63018`) | Web UI + REST API. |
+| Direct | `http://localhost:${COMFYUI_PORT}` (default `63041`) | Web UI + REST API. |
 | Kong | `http://comfyui.localhost:${KONG_HTTP_PORT}` | Browser-friendly; needs `./start.sh --setup-hosts`. |
 | Internal | `${COMFYUI_ENDPOINT}` | Resolved per `COMFYUI_SOURCE`: `http://comfyui:18188` for container, `http://host.docker.internal:8000` for localhost, custom URL for external. |
 | WebSocket | `ws://comfyui:18188/ws` | Streams progress events; one connection per caller today. |
@@ -23,7 +23,7 @@ Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.
 
 ```bash
 COMFYUI_SOURCE=container-cpu                # container-cpu | container-gpu | localhost | external | disabled
-COMFYUI_PORT=63018                          # computed by topology.py
+COMFYUI_PORT=63041                          # computed by topology.py
 COMFYUI_BASE_URL=http://comfyui:18188       # in-container default
 COMFYUI_ARGS=--listen                       # bootstrapper injects --cpu or --force-fp16 per source
 COMFYUI_PLATFORM=linux/amd64

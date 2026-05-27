@@ -1,6 +1,6 @@
 # JupyterHub - Data Science IDE
 
-**Port:** 63048
+**Port:** 63081
 **Category:** Application Tier
 **Dependencies:** PostgreSQL, Redis, LiteLLM (gateway to Ollama / cloud LLMs), Weaviate, Neo4j
 
@@ -18,7 +18,7 @@ JupyterHub provides an interactive Jupyter Lab environment pre-configured with a
 # Start the stack (JupyterHub enabled by default)
 ./start.sh
 
-# Access at: http://localhost:63048
+# Access at: http://localhost:63081
 ```
 
 ### 2.2 Disable JupyterHub
@@ -48,7 +48,7 @@ JUPYTERHUB_SOURCE=container     # Options: container, disabled
 # Using python-3.11 tag for stable builds and Docker cache optimization
 # Note: :latest tag causes rebuilds every time (5-10 min). Use specific version for caching.
 JUPYTERHUB_IMAGE=jupyter/datascience-notebook:python-3.11
-JUPYTERHUB_PORT=63048
+JUPYTERHUB_PORT=63081
 JUPYTERHUB_TOKEN=               # Optional: authentication token
 ```
 
@@ -65,12 +65,13 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | Notebook | Description |
 |----------|-------------|
 | `00_environment_check.ipynb` | Verify all service connections |
-| `01_ollama_basics.ipynb` | LLM inference via the LiteLLM gateway (Ollama upstream) |
+| `01_litellm_basics.ipynb` | LLM inference via the LiteLLM gateway (Ollama upstream) |
 | `02_langchain_rag.ipynb` | RAG pipeline with Weaviate |
 | `03_neo4j_graphs.ipynb` | Knowledge graph queries |
 | `04_supabase_data.ipynb` | Database and storage operations |
 | `05_comfyui_images.ipynb` | AI image generation |
 | `06_n8n_workflows.ipynb` | Workflow automation |
+| `07_ray_cluster.ipynb` | Distributed compute on the Ray cluster |
 
 ## 6. Service Integration Examples
 

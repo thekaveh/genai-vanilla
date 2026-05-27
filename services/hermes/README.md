@@ -1,6 +1,6 @@
 # Hermes Agent
 
-**Port:** 63028 (API), 63029 (dashboard)
+**Port:** 63060 (API), 63061 (dashboard)
 **SOURCE variable:** `HERMES_SOURCE`
 **SOURCE options:** container, localhost, disabled
 
@@ -34,9 +34,9 @@ Key facts:
 
 | Path | URL | Notes |
 |---|---|---|
-| OpenAI-compatible API (direct) | `http://localhost:63028` | Bearer token: `${HERMES_API_KEY}`. Same surface as OpenAI's `/v1/chat/completions`. |
-| Dashboard (direct) | `http://localhost:63029` | Web admin UI for skills, sessions, model config. |
-| Dashboard (Kong) | `http://hermes.localhost:63002` | Requires `./start.sh --setup-hosts`. |
+| OpenAI-compatible API (direct) | `http://localhost:63060` | Bearer token: `${HERMES_API_KEY}`. Same surface as OpenAI's `/v1/chat/completions`. |
+| Dashboard (direct) | `http://localhost:63061` | Web admin UI for skills, sessions, model config. |
+| Dashboard (Kong) | `http://hermes.localhost:63000` | Requires `./start.sh --setup-hosts`. |
 | Internal DNS (other containers) | `http://hermes:8642` | Reachable from LiteLLM, n8n, backend, jupyterhub, openclaw. |
 
 See the canonical port table at [Ports and Routes](../../docs/deployment/ports-and-routes.md).
@@ -79,8 +79,8 @@ degradation; no failure.
 ```bash
 HERMES_SOURCE=container             # container | localhost | disabled
 HERMES_IMAGE=nousresearch/hermes-agent:0.13.0
-HERMES_API_PORT=63028
-HERMES_DASHBOARD_PORT=63029
+HERMES_API_PORT=63060
+HERMES_DASHBOARD_PORT=63061
 HERMES_DASHBOARD_ENABLED=true
 HERMES_DASHBOARD_TUI=1              # 1 = embed Chat tab (PTY+WS); 0 = read-only dashboard
 HERMES_DEFAULT_MODEL=               # blank = hermes-init auto-picks from LiteLLM's model_list
@@ -201,11 +201,11 @@ docker compose logs hermes-init   # one-shot config rendering
 
 # Verify the OpenAI-compatible API is up
 HERMES_KEY=$(grep ^HERMES_API_KEY .env | cut -d= -f2)
-curl -fsS http://localhost:63028/v1/models \
+curl -fsS http://localhost:63060/v1/models \
   -H "Authorization: Bearer ${HERMES_KEY}" | jq .
 
 # Verify hermes-agent appears in LiteLLM's model_list
-curl -fsS http://localhost:63012/v1/models \
+curl -fsS http://localhost:63030/v1/models \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" | jq '.data[].id' | grep hermes
 
 # Inspect the rendered config Hermes is using

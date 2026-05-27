@@ -152,7 +152,7 @@ cat volumes/api/kong-dynamic.yml
 docker logs genai-kong-api-gateway -f
 
 # Test Kong health
-curl http://localhost:63002/health
+curl http://localhost:63000/health
 ```
 
 ### 10.2 Verify Routes
@@ -161,13 +161,13 @@ curl http://localhost:63002/health
 docker exec genai-kong-api-gateway kong config -c /kong.yml dump
 
 # Test specific routes
-curl -H "Host: comfyui.localhost" http://localhost:63002/
-curl -H "Host: n8n.localhost" http://localhost:63002/
-curl -H "Host: jupyter.localhost" http://localhost:63002/
-curl -H "Host: openclaw.localhost" http://localhost:63002/
-curl -H "Host: hermes.localhost" http://localhost:63002/
-curl -H "Host: litellm.localhost" http://localhost:63002/ui/
-curl -H "Host: minio.localhost" http://localhost:63002/
+curl -H "Host: comfyui.localhost" http://localhost:63000/
+curl -H "Host: n8n.localhost" http://localhost:63000/
+curl -H "Host: jupyter.localhost" http://localhost:63000/
+curl -H "Host: openclaw.localhost" http://localhost:63000/
+curl -H "Host: hermes.localhost" http://localhost:63000/
+curl -H "Host: litellm.localhost" http://localhost:63000/ui/
+curl -H "Host: minio.localhost" http://localhost:63000/
 ```
 
 ## 11. Troubleshooting

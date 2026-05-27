@@ -7,7 +7,7 @@ When [Hermes Agent](../hermes/README.md) is enabled, `services/litellm/init/scri
 ## 1. Image and ports
 
 - Image: `ghcr.io/berriai/litellm:v1.83.14-stable.patch.2` (override via `LITELLM_IMAGE`). Pinned to a `vX.Y.Z-stable` tag; LiteLLM's prod docs explicitly warn against `main-latest` / `main-stable`.
-- Internal port: `4000`. Host port: `LITELLM_PORT` (default `63012` — slot `BASE_PORT + 12`).
+- Internal port: `4000`. Host port: `LITELLM_PORT` (default `63030`). See `.env.example` for the current default.
 - Internal port `4000` is also used by `supabase-realtime`; not a collision (different container hostnames).
 
 ## 2. Architecture
@@ -162,7 +162,7 @@ Consumers that explicitly want the thinking trace can override
 per-request:
 
 ```bash
-curl -s -X POST http://localhost:63012/v1/chat/completions \
+curl -s -X POST http://localhost:63030/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -d '{"model":"qwen3.6:latest","messages":[...],"think":true}'
 ```
@@ -172,8 +172,8 @@ curl -s -X POST http://localhost:63012/v1/chat/completions \
 
 ## 8. Health
 
-- `GET http://localhost:63012/health/liveliness` — fast liveness check (no auth).
-- `GET http://localhost:63012/v1/models` (with `Authorization: Bearer $LITELLM_MASTER_KEY`) — lists every model registered in `model_list`.
+- `GET http://localhost:63030/health/liveliness` — fast liveness check (no auth).
+- `GET http://localhost:63030/v1/models` (with `Authorization: Bearer $LITELLM_MASTER_KEY`) — lists every model registered in `model_list`.
 
 ### 8.1 Expected startup noise (cosmetic, self-resolves in milliseconds)
 
@@ -234,16 +234,16 @@ new errors keep appearing after startup, it's a real bug — escalate.
 
 ```bash
 # Liveness
-curl -s http://localhost:63012/health/liveliness
+curl -s http://localhost:63030/health/liveliness
 
 # Chat completion (Ollama upstream)
 curl -s -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  -X POST http://localhost:63012/v1/chat/completions \
+  -X POST http://localhost:63030/v1/chat/completions \
   -d '{"model":"ollama/qwen3.6:latest","messages":[{"role":"user","content":"hi"}]}'
 
 # Embeddings (Ollama upstream — Weaviate uses this path)
 curl -s -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  -X POST http://localhost:63012/v1/embeddings \
+  -X POST http://localhost:63030/v1/embeddings \
   -d '{"model":"ollama/nomic-embed-text","input":"hi"}'
 
 # Cache and spend audit

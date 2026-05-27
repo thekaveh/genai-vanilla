@@ -1,6 +1,6 @@
 # Weaviate
 
-**Port:** 63019 / 63020
+**Port:** 63022 / 63023
 **SOURCE variable:** `WEAVIATE_SOURCE`
 **SOURCE options:** container, localhost, disabled
 
@@ -12,7 +12,7 @@ Vector database used for semantic search, RAG, embeddings, n8n workflows, Backen
 
 | Path | URL | Notes |
 |---|---|---|
-| Direct | http://localhost:63019 | Works when the service is enabled in container mode and the port is exposed. |
+| Direct | http://localhost:63022 | Works when the service is enabled in container mode and the port is exposed. |
 | Kong | — | Requires `./start.sh --setup-hosts`; only available for services with Kong routes. |
 
 See the canonical port table at [Ports and Routes](../../docs/deployment/ports-and-routes.md).
