@@ -2,7 +2,7 @@
 
 A flexible, modular GenAI project boilerplate with customizable services.
 
-[![Architecture Diagram](./docs/diagrams/architecture.svg)](./docs/diagrams/architecture.svg)
+[![GenAI Vanilla Stack — topologically-ordered architecture diagram](./docs/diagrams/architecture.svg)](./docs/diagrams/architecture.svg)
 
 *Topologically-ordered architecture: external clients enter via Kong, the gateway routes to Apps and Agents, which call the LLM Core (LiteLLM → Ollama + cloud) and the Media + Data tiers. Hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram); the per-service diagrams under `services/<name>/architecture.svg` share the same design system but are auto-regenerated from each manifest's `data_flow.calls`.*
 
