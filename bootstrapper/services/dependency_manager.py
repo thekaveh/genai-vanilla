@@ -14,7 +14,26 @@ from core.config_parser import ConfigParser
 
 class DependencyManager:
     """Manages service dependencies based on YAML configuration."""
-    
+
+    # Single source of truth for service → scale-env-var mapping.
+    # Consumed by both ``get_service_scale`` (read path) and
+    # ``auto_resolve_dependency_violations`` (write path) — having two
+    # local copies of this dict caused the auto-resolve path to silently
+    # skip hermes / openclaw-gateway when their `requires:` deps were
+    # violated.
+    _SCALE_VAR_MAPPING: Dict[str, str] = {
+        'n8n': 'N8N_SCALE',
+        'n8n-worker': 'N8N_SCALE',  # n8n-worker uses same scale as n8n
+        'weaviate': 'WEAVIATE_SCALE',
+        'minio': 'MINIO_SCALE',
+        'neo4j-graph-db': 'NEO4J_SCALE',
+        'searxng': 'SEARXNG_SCALE',
+        'backend': 'BACKEND_SCALE',
+        'jupyterhub': 'JUPYTERHUB_SCALE',
+        'openclaw-gateway': 'OPENCLAW_SCALE',
+        'hermes': 'HERMES_SCALE',
+    }
+
     def __init__(self, config_parser: Optional[ConfigParser] = None):
         """
         Initialize dependency manager.
@@ -63,22 +82,8 @@ class DependencyManager:
             int: Scale value (0 = disabled, 1+ = enabled)
         """
         env_vars = self.config_parser.parse_env_file()
-        
-        # Map service names to their scale environment variables
-        scale_var_mapping = {
-            'n8n': 'N8N_SCALE',
-            'n8n-worker': 'N8N_SCALE',  # n8n-worker uses same scale as n8n
-            'weaviate': 'WEAVIATE_SCALE',
-            'minio': 'MINIO_SCALE',
-            'neo4j-graph-db': 'NEO4J_SCALE',
-            'searxng': 'SEARXNG_SCALE',
-            'backend': 'BACKEND_SCALE',
-            'jupyterhub': 'JUPYTERHUB_SCALE',
-            'openclaw-gateway': 'OPENCLAW_SCALE',
-            'hermes': 'HERMES_SCALE',
-        }
-        
-        scale_var = scale_var_mapping.get(service_name)
+
+        scale_var = self._SCALE_VAR_MAPPING.get(service_name)
         if not scale_var:
             # If no explicit scale var, check if service is disabled via SOURCE
             source_vars = self.config_parser.parse_service_sources()
@@ -208,17 +213,10 @@ class DependencyManager:
                     print(f"❌ Failed to disable {service_name}: {e}")
             
             else:
-                # Handle other services with single scale variable
-                scale_var_mapping = {
-                    'backend': 'BACKEND_SCALE',
-                    'weaviate': 'WEAVIATE_SCALE',
-                    'minio': 'MINIO_SCALE',
-                    'neo4j-graph-db': 'NEO4J_SCALE',
-                    'searxng': 'SEARXNG_SCALE',
-                    'jupyterhub': 'JUPYTERHUB_SCALE',
-                }
-                
-                scale_var = scale_var_mapping.get(service_name)
+                # Single source of truth (class-level _SCALE_VAR_MAPPING)
+                # ensures n8n / hermes / openclaw-gateway resolve here the
+                # same way they do in get_service_scale.
+                scale_var = self._SCALE_VAR_MAPPING.get(service_name)
                 if scale_var:
                     env_file_path = self.config_parser.env_file_path
                     try:
