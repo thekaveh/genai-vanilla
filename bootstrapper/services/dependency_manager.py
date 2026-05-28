@@ -34,6 +34,29 @@ class DependencyManager:
         'hermes': 'HERMES_SCALE',
     }
 
+    # Fallback mapping consulted when a service has no direct *_SCALE env
+    # var — used to derive scale from its *_SOURCE setting instead.
+    # Engine-level services that select via an aggregator's variant
+    # (parakeet / speaches / chatterbox / docling — selected via the
+    # STT_PROVIDER_SOURCE / TTS_PROVIDER_SOURCE / DOC_PROCESSOR_SOURCE
+    # variant string, not a direct *_SOURCE env var) intentionally have
+    # no entry here; their availability is decided by the aggregator,
+    # not by this lookup.
+    _SOURCE_VAR_MAPPING: Dict[str, str] = {
+        'weaviate': 'WEAVIATE_SOURCE',
+        'minio': 'MINIO_SOURCE',
+        'n8n': 'N8N_SOURCE',
+        'neo4j-graph-db': 'NEO4J_GRAPH_DB_SOURCE',
+        'searxng': 'SEARXNG_SOURCE',
+        'backend': 'BACKEND_SOURCE',
+        'jupyterhub': 'JUPYTERHUB_SOURCE',
+        'openclaw-gateway': 'OPENCLAW_SOURCE',
+        'hermes': 'HERMES_SOURCE',
+        'comfyui': 'COMFYUI_SOURCE',
+        'local-deep-researcher': 'LOCAL_DEEP_RESEARCHER_SOURCE',
+        'open-web-ui': 'OPEN_WEB_UI_SOURCE',
+    }
+
     def __init__(self, config_parser: Optional[ConfigParser] = None):
         """
         Initialize dependency manager.
@@ -87,21 +110,7 @@ class DependencyManager:
         if not scale_var:
             # If no explicit scale var, check if service is disabled via SOURCE
             source_vars = self.config_parser.parse_service_sources()
-            
-            # Map service names to SOURCE variables
-            source_var_mapping = {
-                'weaviate': 'WEAVIATE_SOURCE',
-                'minio': 'MINIO_SOURCE',
-                'n8n': 'N8N_SOURCE',
-                'neo4j-graph-db': 'NEO4J_GRAPH_DB_SOURCE',
-                'searxng': 'SEARXNG_SOURCE',
-                'backend': 'BACKEND_SOURCE',
-                'jupyterhub': 'JUPYTERHUB_SOURCE',
-                'openclaw-gateway': 'OPENCLAW_SOURCE',
-                'hermes': 'HERMES_SOURCE',
-            }
-            
-            source_var = source_var_mapping.get(service_name)
+            source_var = self._SOURCE_VAR_MAPPING.get(service_name)
             if source_var and source_vars.get(source_var) == 'disabled':
                 return 0
             return 1  # Assume enabled if no explicit scale or source
