@@ -202,15 +202,16 @@ Python ≥ 3.10 is required (see `bootstrapper/pyproject.toml`). The wizard auto
 
 ## Brand Customization
 
-The metadata on the pinned info-box's border (brand name, tagline, version, author, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the GenAI Vanilla project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
+The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the GenAI Vanilla project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
 
 ```
-BRAND_NAME=GenAI Vanilla
-BRAND_TAGLINE=AI Development Suite
-BRAND_VERSION=
+BRAND_NAME=GenAI Vanilla Stack
+BRAND_TAGLINE=An opinionated, modular, source-configurable AI stack.
+BRAND_VERSION=0.1.0
 BRAND_AUTHOR=Kaveh Razavi
+BRAND_AUTHOR_EMAIL=kaveh.razavi@gmail.com
 BRAND_LICENSE=Apache License 2.0
-BRAND_REPO_URL=github.com/thekaveh/genai-vanilla
+BRAND_REPO_URL=https://github.com/thekaveh/genai-vanilla
 ```
 
 Empty values fall back to the canonical defaults (encoded in `bootstrapper/ui/state.py::AppState`). See `.env.example` for the latest documented block.

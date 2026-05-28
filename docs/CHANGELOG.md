@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-05-28 third-pass audit (follow-up to PR #12 / #13)
+
+A third convergence audit ran the night PR #13 merged. 11 verification
+iterations dispatched 3 parallel-domain audit subagents on iter-1 +
+single-agent narrow probes on subsequent iters, surfacing ~25 new
+findings on top of the ~280 from PR #11 and ~80 from PR #12. The fix
+pass landed in this PR; the residual deferrals are unchanged from the
+PR #12 Known-follow-ups block beneath this entry.
+
+Highlights:
+
+- **Correctness:** `dependency_manager` now exposes both
+  `_SCALE_VAR_MAPPING` and `_SOURCE_VAR_MAPPING` as class-level
+  constants (read + write paths read from the same source — a latent
+  hermes / openclaw-gateway auto-resolve gap is closed); env-file
+  rewriters in `source_override_manager.py` + `service_config.py`
+  switched to a `lambda _m, r=replacement: r` form so `re.sub` no
+  longer interprets `\1` / `\g<name>` in the replacement (silent
+  corruption if an env value ever contained a literal backslash);
+  `update_memory`'s embedding-update branch stopped opening a
+  redundant second asyncpg connection.
+
+- **Brand customization parity:** `services/globals/service.yml` now
+  declares `BRAND_AUTHOR_EMAIL` (was consumed at the call site but
+  missing from the manifest) and corrects `BRAND_LICENSE` from `MIT`
+  to `Apache License 2.0`. `bootstrapper/ui/state.py::AppState` aligned
+  4 stale brand-field fallbacks (`brand_name` / `tagline` / `version`
+  / `repo_url`) with the manifest defaults so a user blanking a
+  `BRAND_*` value hits the same string the manifest ships. A new
+  drift-gate test (`test_appstate_brand_defaults_match_globals_manifest`)
+  catches future drift between the two layers at CI time.
+
+- **Dead deps + dead code:** dropped `dspy>=2.4.6` + `dspy-ai>=2.4.6`
+  + `aioredis>=2.0.1` from `services/backend/app/app/requirements.txt`
+  (none imported anywhere); cleared 5 unused imports across
+  `main.py` / `research_service.py` / `deps_section_writer.py` /
+  `regen.py` / `research_subagent_prompt.py`; updated one stale
+  code-reference comment in `generate_readme_topology.py` (pointed
+  at the retired `generate_architecture_diagram.py`).
+
+- **Documentation hygiene:** main `README.md` + `docs/diagrams/architecture.html`
+  alt text harmonized so both surfaces describe the SVG identically;
+  `docs/CHANGELOG.md` `[Unreleased]` Known-follow-ups preamble bumped
+  from "four classes" to "three classes" (architecture-diagram skill
+  rewrite closed by PR #13); 8 stale `docs/scripts/check-…` references
+  in descriptive bullets flipped to `scripts/check-…`; `docs/README.md`
+  gained Contributors / Architecture-diagrams / Cross-service-research
+  sub-sections so the docs hub mirrors the project-root README §9 hub;
+  `docs/quick-start/interactive-setup-wizard.md` BRAND example block
+  synced to match `.env.example` (was missing `BRAND_AUTHOR_EMAIL` and
+  diverging from the canonical defaults on 4 other lines);
+  `services/tts-provider/provider/localhost/README.md` override
+  example port `63041` (collided with COMFYUI_PORT) replaced with
+  `9000`.
+
+- **Audit-script hygiene:** `scripts/check-compose-source-deps.py` +
+  `scripts/check-docs-drift.py` gained `Exit codes:` paragraphs in
+  their module docstrings, matching the convention already established
+  in the other three scripts. `.gitignore` `.audit/` rule deduplicated
+  (the three audit-pass PRs each appended their own copy).
+
 ### Architecture diagrams — skill-driven rewrite
 
 The top-level architecture diagram (`docs/diagrams/architecture.svg`) is now
