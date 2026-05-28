@@ -35,8 +35,10 @@ env:
     default: "0.1.0"
   - name: BRAND_AUTHOR
     default: "Kaveh Razavi"
+  - name: BRAND_AUTHOR_EMAIL
+    default: "kaveh.razavi@gmail.com"
   - name: BRAND_LICENSE
-    default: MIT
+    default: "Apache License 2.0"
   - name: BRAND_REPO_URL
     default: "https://github.com/thekaveh/genai-vanilla"
 
