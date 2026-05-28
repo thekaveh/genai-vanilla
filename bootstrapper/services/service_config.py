@@ -834,10 +834,15 @@ class ServiceConfig:
                 # Use regex to find and replace the variable assignment
                 pattern = rf'^{re.escape(var_name)}=.*$'
                 replacement = f'{var_name}={var_value}'
-                
+
                 if re.search(pattern, updated_content, re.MULTILINE):
-                    # Variable exists, replace it
-                    updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
+                    # Variable exists, replace it. Lambda bypasses re.sub's
+                    # backslash interpretation in the replacement string
+                    # (matches the source_override_manager.py pattern —
+                    # env values may contain literal backslashes).
+                    updated_content = re.sub(
+                        pattern, lambda _m, r=replacement: r, updated_content, flags=re.MULTILINE
+                    )
                 else:
                     # Variable doesn't exist, append it
                     updated_content += f'\n{replacement}'

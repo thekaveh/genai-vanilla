@@ -45,3 +45,51 @@ def test_resolve_port_for_container_source_uses_port_var():
     env = {"COMFYUI_PORT": "63010"}
     result = resolve_port("ComfyUI", source="container-cpu", port_var="COMFYUI_PORT", env=env)
     assert result == ":63010"
+
+
+def test_appstate_brand_defaults_match_globals_manifest():
+    """The in-code ``AppState`` brand-field defaults MUST mirror the
+    ``BRAND_*`` env-var defaults declared in
+    ``services/globals/service.yml``.
+
+    Drift between the two layers (caught twice in the 2026-05-28
+    audit: a missing BRAND_AUTHOR_EMAIL on the manifest side, and 4
+    stale strings on the AppState side) silently shows different
+    brand metadata depending on whether the user blanked out the
+    env value or removed it entirely. Both layers consume the same
+    source of truth, so they must stay aligned.
+    """
+    from pathlib import Path
+
+    import yaml
+
+    from ui.state import AppState
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    globals_manifest = repo_root / "services" / "globals" / "service.yml"
+    manifest_brand = {
+        e["name"]: e.get("default", "")
+        for e in yaml.safe_load(globals_manifest.read_text())["env"]
+        if e["name"].startswith("BRAND_")
+    }
+
+    state = AppState()
+    mapping = {
+        "BRAND_NAME": state.brand_name,
+        "BRAND_TAGLINE": state.tagline,
+        "BRAND_VERSION": state.version,
+        "BRAND_AUTHOR": state.creator,
+        "BRAND_AUTHOR_EMAIL": state.creator_email,
+        "BRAND_LICENSE": state.license,
+        "BRAND_REPO_URL": state.repo_url,
+    }
+
+    assert set(mapping) == set(manifest_brand), (
+        f"BRAND_* key set drift — manifest has {sorted(manifest_brand)}, "
+        f"AppState mirrors {sorted(mapping)}"
+    )
+    for key, app_value in mapping.items():
+        assert manifest_brand[key] == app_value, (
+            f"{key}: manifest default {manifest_brand[key]!r} != "
+            f"AppState default {app_value!r}"
+        )

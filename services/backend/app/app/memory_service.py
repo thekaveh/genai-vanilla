@@ -789,22 +789,21 @@ Extract the facts as JSON:"""
                     new_weaviate_id = await self.store.update_embedding(
                         fact_id=memory_id,
                         content=updates["content"],
-                        user_id=str(row["user_id"]),
+                        user_id=str(updated["user_id"]),
                         namespace=updated["namespace"],
                         fact_type=updated["fact_type"],
                         confidence=updated["confidence"],
-                        weaviate_id=row["weaviate_id"],
+                        weaviate_id=updated["weaviate_id"],
                     )
-                    if new_weaviate_id and new_weaviate_id != row["weaviate_id"]:
-                        conn2 = await asyncpg.connect(self.database_url)
-                        try:
-                            await conn2.execute(
-                                "UPDATE public.memory_facts SET weaviate_id = $1 WHERE id = $2",
-                                new_weaviate_id,
-                                memory_uuid,
-                            )
-                        finally:
-                            await conn2.close()
+                    if new_weaviate_id and new_weaviate_id != updated["weaviate_id"]:
+                        # Reuse the outer `conn` — opening a second
+                        # asyncpg connection here burns a slot for one
+                        # extra UPDATE that the same connection can run.
+                        await conn.execute(
+                            "UPDATE public.memory_facts SET weaviate_id = $1 WHERE id = $2",
+                            new_weaviate_id,
+                            memory_uuid,
+                        )
                 except Exception as e:
                     logger.warning(f"Failed to update embedding: {e}")
 

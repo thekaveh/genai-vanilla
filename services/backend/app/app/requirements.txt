@@ -31,8 +31,6 @@ langchain-groq>=0.1.5
 groq>=0.4.0
 langgraph>=0.0.15
 transformers>=4.39.3
-dspy>=2.4.6
-dspy-ai>=2.4.6
 
 # Memory (LangMem-inspired persistent memory)
 pgvector>=0.3.0
@@ -45,7 +43,6 @@ langchain-neo4j>=0.1.0
 # Redis
 redis>=5.0.1
 hiredis>=2.2.3
-aioredis>=2.0.1
 
 # Testing
 pytest>=8.0.0

@@ -59,7 +59,11 @@ if [ ! -f /app/.env ]; then
     exit 1
 fi
 
-LITELLM_URL=$(grep '^LITELLM_BASE_URL=' /app/.env | cut -d'=' -f2-)
+# set -e at the top of this script would otherwise abort here when
+# grep finds no LITELLM_BASE_URL= line (exit code 1), making the
+# explicit empty-handler below unreachable. Append || LITELLM_URL=""
+# so the intended ERROR message can actually fire.
+LITELLM_URL=$(grep '^LITELLM_BASE_URL=' /app/.env | cut -d'=' -f2-) || LITELLM_URL=""
 if [ -z "$LITELLM_URL" ]; then
     echo "Local Deep Researcher: ERROR - LITELLM_BASE_URL not found in configuration"
     exit 1

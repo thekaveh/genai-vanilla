@@ -23,7 +23,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "bootstrapper"))
 
-from services.manifests import load_manifests  # noqa: E402
 from services.topology import get_topology     # noqa: E402
 
 from .deps_resolver import build_doc_graph, doc_folder_to_manifests  # noqa: E402

@@ -86,7 +86,7 @@ case "${COMFYUI_MODEL_SET:-minimal}" in
     ;;
 esac
 
-psql_output=$(PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -t -c "$sql_query")
+psql_output=$(PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -t -c "$sql_query") || psql_output=""
 
 if [ -z "$psql_output" ]; then
   echo "comfyui-init: No ComfyUI models found for model set '${COMFYUI_MODEL_SET:-minimal}'."

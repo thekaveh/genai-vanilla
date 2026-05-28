@@ -8,6 +8,13 @@ Default scope excludes:
     false positives; user-facing bootstrapper docs are surfaced via the
     main README.md hub instead
   * local virtualenvs + generated dependency directories
+
+Zero-arg checker. Invoke as ``python scripts/check-docs-drift.py``.
+
+Exit codes:
+    0  — every probe (links / architecture_refs / source_matrix /
+         required_files / placeholder_urls) reports PASS
+    1  — at least one probe reported FAIL with details on stderr
 """
 from pathlib import Path
 import re

@@ -118,10 +118,17 @@ class SourceOverrideManager:
             for var_name, var_value in overrides.items():
                 pattern = rf'^{re.escape(var_name)}=.*$'
                 replacement = f'{var_name}={var_value}'
-                
+
                 if re.search(pattern, updated_content, re.MULTILINE):
-                    # Variable exists, replace it
-                    updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
+                    # Variable exists, replace it. Use a lambda so re.sub
+                    # does NOT interpret backslash sequences in the
+                    # replacement (\1, \g<name>) — env values that contain
+                    # literal backslashes (rare but legal in JWT secrets,
+                    # base64-encoded keys, etc.) would otherwise corrupt
+                    # silently.
+                    updated_content = re.sub(
+                        pattern, lambda _m, r=replacement: r, updated_content, flags=re.MULTILINE
+                    )
                 else:
                     # Variable doesn't exist, append it (shouldn't happen with SOURCE vars)
                     print(f"⚠️  {var_name} not found in .env, appending...")

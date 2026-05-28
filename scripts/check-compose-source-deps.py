@@ -5,6 +5,14 @@ Compose `depends_on` is only safe for services that must always be started as
 containers. SOURCE-replaceable services can be `localhost`, `external`, or
 `disabled`, so consumers should reference them through endpoint environment
 variables and runtime readiness/feature checks instead of static `depends_on`.
+
+Zero-arg checker. Invoke as ``python scripts/check-compose-source-deps.py``.
+
+Exit codes:
+    0  — all PASS
+    1  — at least one FAIL line printed
+    2  — internal failure (PyYAML missing, or docker compose config
+         errored with stderr surfaced)
 """
 from __future__ import annotations
 
