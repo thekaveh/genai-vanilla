@@ -521,7 +521,7 @@ Contributions welcome. Open a PR or an issue to propose changes.
 
 ## 11. License
 
-[MIT License](LICENSE)
+[Apache License 2.0](LICENSE)
 
 ## 12. Support
 
