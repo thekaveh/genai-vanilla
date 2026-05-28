@@ -45,15 +45,18 @@ class AppState:
     (and through it, by the wizard / starter). Renderables only read.
     """
     # Brand metadata — overridable via .env (BRAND_NAME, BRAND_TAGLINE, …)
-    # in `state_builder.build_app_state`. Defaults below are the canonical
-    # GenAI Vanilla values.
-    brand_name: str = "GenAI Vanilla"
-    tagline: str = "Gen-AI Development Suite"
-    version: str = ""
+    # in `state_builder.build_app_state`. Defaults below MUST mirror the
+    # ``BRAND_*`` env-var defaults declared in
+    # ``services/globals/service.yml`` so a user who blanks out a value in
+    # `.env` sees the same canonical strings the manifest-shipped default
+    # would have produced. Both layers consume the same source of truth.
+    brand_name: str = "GenAI Vanilla Stack"
+    tagline: str = "An opinionated, modular, source-configurable AI stack."
+    version: str = "0.1.0"
     creator: str = "Kaveh Razavi"
     creator_email: str = "kaveh.razavi@gmail.com"
     license: str = "Apache License 2.0"
-    repo_url: str = "github.com/thekaveh/genai-vanilla"
+    repo_url: str = "https://github.com/thekaveh/genai-vanilla"
 
     # Services grid — ordered as the user should see them.
     services: List[ServiceEntry] = field(default_factory=list)
