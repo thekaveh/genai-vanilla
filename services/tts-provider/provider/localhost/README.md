@@ -72,7 +72,7 @@ Optional: change the host port in `.env` if you used a different one (URL
 is derived inline as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63027}`):
 
 ```bash
-CHATTERBOX_LOCALHOST_PORT=63041
+CHATTERBOX_LOCALHOST_PORT=9000
 ```
 
 ## Verify
@@ -139,9 +139,9 @@ Reinstall PyTorch with MPS support: `pip install --upgrade --force-reinstall tor
 **Port already in use** — pick a different port:
 
 ```bash
-chatterbox-tts-api --host 0.0.0.0 --port 63041
+chatterbox-tts-api --host 0.0.0.0 --port 9000
 # then in .env:
-CHATTERBOX_LOCALHOST_PORT=63041
+CHATTERBOX_LOCALHOST_PORT=9000
 ```
 
 **First request times out** — the model downloads on first call (~2 GB).

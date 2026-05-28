@@ -38,6 +38,19 @@ Documentation index for the GenAI Vanilla Stack.
 - [Using as a Submodule](deployment/submodule-usage.md) — embedding the stack inside another project
 - [Expected Startup Warnings](deployment/expected-startup-warnings.md) — known-benign log lines on `./start.sh`
 
+### Contributors
+- [Adding a service runbook](CONTRIBUTING-services.md) — six-decision walkthrough + the regen + lint chain
+- [Security policy](../SECURITY.md) — threat tiers, supported versions, responsible-disclosure address
+
+### Architecture diagrams
+- [Diagrams README](diagrams/README.md) — top-level diagram update workflow + the per-service auto-generation chain
+- The top-level diagram itself lives at [diagrams/architecture.svg](diagrams/architecture.svg) (embedded in the project README) and [diagrams/architecture.html](diagrams/architecture.html) (standalone view)
+
+### Cross-service research (Phase B corpus)
+- [Integration matrix](research/integration-matrix.md) — auto-generated index linking every service to its candidate integrations
+- [Per-service rows](research/rows/) — missing-pair integrations, candidate new services, per-service feature gaps
+- [Candidate one-pagers](research/candidates/) — design notes per candidate service
+
 ## Related documentation
 
 - [Main README](../README.md) — project overview and quick start
