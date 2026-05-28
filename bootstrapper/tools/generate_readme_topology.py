@@ -15,7 +15,7 @@ def generate_block(services_root: Path) -> str:
 
     # Bucket rows by category once (O(n)), then iterate the categories in
     # display order. Avoids the prior O(n×m) nested loop and mirrors the
-    # by-category pattern used in generate_architecture_diagram.py.
+    # by-category pattern shared with the architecture-diagram skill.
     by_category: dict[str, list] = {c: [] for c in CATEGORY_ORDER}
     for r in topology.rows:
         if r.category in by_category:

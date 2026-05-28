@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .deps_resolver import DepEdge, DepGraph
+from .deps_resolver import DepGraph
 
 
 def render_section(graph: DepGraph, position: int = 5) -> str:

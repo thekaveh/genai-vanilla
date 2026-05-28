@@ -24,7 +24,7 @@ import re
 import sys
 from pathlib import Path
 
-from .deps_resolver import build_doc_graph, doc_folder_to_manifests
+from .deps_resolver import build_doc_graph
 from .deps_section_writer import render_section
 from .diagram_renderer import render_html, render_svg
 

@@ -1,7 +1,7 @@
 import asyncio
 import asyncpg
 import os
-from typing import Dict, Any, List, Optional, AsyncGenerator
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import json
 from uuid import UUID, uuid4
