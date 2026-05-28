@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 2026-05-28 third-pass audit (follow-up to PR #12 / #13)
 
-A third convergence audit ran the night PR #13 merged. 11 verification
+A third convergence audit ran the night PR #13 merged. 16 verification
 iterations dispatched 3 parallel-domain audit subagents on iter-1 +
-single-agent narrow probes on subsequent iters, surfacing ~25 new
+single-agent narrow probes on subsequent iters, surfacing ~32 new
 findings on top of the ~280 from PR #11 and ~80 from PR #12. The fix
 pass landed in this PR; the residual deferrals are unchanged from the
 PR #12 Known-follow-ups block beneath this entry.
@@ -27,7 +27,12 @@ Highlights:
   longer interprets `\1` / `\g<name>` in the replacement (silent
   corruption if an env value ever contained a literal backslash);
   `update_memory`'s embedding-update branch stopped opening a
-  redundant second asyncpg connection.
+  redundant second asyncpg connection. Four more init scripts had the
+  PR #12-class `set -e` + `var=\$(psql/grep …)` anti-pattern
+  (`init-weaviate.sh` × 2 sites, `ollama-pull/pull.sh`,
+  `comfyui-init/download_models.sh`,
+  `local-deep-researcher/docker-entrypoint.sh`) — fallback branches
+  unreachable; each gets the canonical `|| var=""` suffix.
 
 - **Brand customization parity:** `services/globals/service.yml` now
   declares `BRAND_AUTHOR_EMAIL` (was consumed at the call site but
