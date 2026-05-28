@@ -77,7 +77,6 @@ def run(
 
     gen_issues: list[str] = []
     gen_issues.extend(_check_readme_topology_block_is_current(project_root))
-    gen_issues.extend(_check_architecture_dot_is_current(project_root))
     if gen_issues:
         for msg in gen_issues:
             _err(msg)
@@ -107,30 +106,6 @@ def _check_readme_topology_block_is_current(project_root: Path) -> list[str]:
     actual = text[start:end].rstrip()
     if expected != actual:
         return ["README.md TOPOLOGY block is stale — run `uv run python -m tools.generate_readme_topology`"]
-    return []
-
-
-def _check_architecture_dot_is_current(project_root: Path) -> list[str]:
-    """Ensure architecture.dot matches what the generator would produce."""
-    dot_file = project_root / "docs" / "diagrams" / "architecture.dot"
-    services_dir = project_root / "services"
-    if not services_dir.is_dir() or not any(services_dir.rglob("service.yml")):
-        # Synthetic test tree with no manifests — nothing to validate against.
-        return []
-    if not dot_file.exists():
-        return ["docs/diagrams/architecture.dot missing from real repo"]
-    from tools.generate_architecture_diagram import generate
-    import tempfile
-    with tempfile.NamedTemporaryFile("r+", suffix=".dot", delete=False) as f:
-        tmp_path = Path(f.name)
-    try:
-        generate(project_root / "services", tmp_path)
-        expected = tmp_path.read_text()
-    finally:
-        tmp_path.unlink(missing_ok=True)
-    actual = dot_file.read_text()
-    if expected != actual:
-        return ["architecture.dot is stale — run `uv run python -m tools.generate_architecture_diagram`"]
     return []
 
 

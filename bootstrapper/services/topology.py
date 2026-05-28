@@ -48,27 +48,35 @@ CATEGORY_LABELS: dict[str, str] = {
 
 # Canonical category color tokens. The Textual palette re-exports these
 # as ``CAT_*`` named tokens (kept for ``style=P.CAT_INFRA`` syntax) and
-# the architecture-diagram generator imports the dict directly.
-# Tokyo Night-aligned palette. The TUI's `BG`, `TEXT`, and `ACCENT`
-# tokens already come from the Tokyo Night family (#12131e background,
-# #c0caf5 foreground, #7dcfff cyan accent), so the category markers
-# share that vocabulary instead of importing a foreign palette.
+# the architecture-diagram renderer imports the dict directly.
 #
-# Each adjacent pair in CATEGORY_ORDER lands on a hue ≥80° away from
-# its neighbor — the prior cool-cluster (slate/sky/periwinkle/sage)
-# was the original "everything looks the same" complaint.
+# Aligned with the user's ``architecture-diagram`` skill (see
+# ``~/.claude/skills/architecture-diagram/SKILL.md``):
+#   - cyan / emerald / violet / amber / rose / orange
+#   - JetBrains Mono on slate-950 background, 1.5px stroke + semi-transparent fill
+#
+# Six hues spaced ≥80° apart on the hue wheel — every adjacent pair in
+# CATEGORY_ORDER reads as a distinct tone on the dark background.
 CATEGORY_COLORS: dict[str, str] = {
-    # Anti-sequential interleave on the hue wheel — six hues placed at
-    # 0° / 180° / 60° / 240° / 120° / 300° so every adjacent pair in
-    # CATEGORY_ORDER lands ≥ 120° apart. Previously Data (#e0af68 yellow)
-    # and Media (#ff9e64 orange) sat 30° apart and read as the same
-    # warm tone on the dark Tokyo Night background.
-    "infra":  "#f7768e",  # Tokyo Night red       (0°)
-    "data":   "#7dcfff",  # Tokyo Night cyan      (180°)
-    "llm":    "#e0af68",  # Tokyo Night yellow    (60°)
-    "media":  "#7aa2f7",  # Tokyo Night blue      (240°)
-    "agents": "#9ece6a",  # Tokyo Night green     (120°)
-    "apps":   "#bb9af7",  # Tokyo Night purple    (300°)
+    "infra":  "#fb7185",  # rose-400   — Kong / gateway / control plane
+    "data":   "#a78bfa",  # violet-400 — Supabase / Weaviate / Neo4j / Redis / MinIO
+    "llm":    "#fbbf24",  # amber-400  — LiteLLM / Ollama / cloud providers
+    "media":  "#fb923c",  # orange-400 — STT / TTS / docs / images / search
+    "agents": "#34d399",  # emerald-400 — Hermes / OpenClaw / n8n
+    "apps":   "#22d3ee",  # cyan-400   — Open WebUI / JupyterHub / Backend / LDR
+}
+
+
+# Matching semi-transparent fills for the architecture-diagram skill's
+# rounded-rect convention (``rgba(<base>, 0.3-0.4)``). Same key set as
+# CATEGORY_COLORS — both dicts MUST stay aligned.
+CATEGORY_FILLS: dict[str, str] = {
+    "infra":  "rgba(136, 19, 55, 0.4)",   # rose-900 base
+    "data":   "rgba(76, 29, 149, 0.4)",   # violet-900 base
+    "llm":    "rgba(120, 53, 15, 0.3)",   # amber-900 base
+    "media":  "rgba(251, 146, 60, 0.3)",  # orange-400 light fill
+    "agents": "rgba(6, 78, 59, 0.4)",     # emerald-900 base
+    "apps":   "rgba(8, 51, 68, 0.4)",     # cyan-950 base
 }
 
 

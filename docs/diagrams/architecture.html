@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GenAI Vanilla Stack — Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --bg-card: #0f172a;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --cyan: #22d3ee;
+      --emerald: #34d399;
+      --violet: #a78bfa;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --orange: #fb923c;
+      --slate: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 32px 24px 56px;
+    }
+    header.page-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .pulse {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6); }
+      70%  { box-shadow: 0 0 0 14px rgba(34, 211, 238, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin-left: auto;
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+    .diagram-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 8px;
+      overflow: hidden;
+    }
+    .diagram-card svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+    @media (max-width: 900px) {
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 18px 20px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .card-dot.cyan    { background: var(--cyan); }
+    .card-dot.emerald { background: var(--emerald); }
+    .card-dot.violet  { background: var(--violet); }
+    .card-dot.amber   { background: var(--amber); }
+    .card-dot.rose    { background: var(--rose); }
+    .card-dot.orange  { background: var(--orange); }
+    .card-dot.slate   { background: var(--slate); }
+    .card h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+    .card ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      color: var(--text-dim);
+      font-size: 11px;
+      line-height: 1.7;
+    }
+    .card ul li::before {
+      content: "▸ ";
+      color: var(--text-dim);
+      margin-right: 4px;
+    }
+    footer.page-footer {
+      margin-top: 32px;
+      color: #475569;
+      font-size: 10px;
+      text-align: center;
+    }
+    code {
+      background: rgba(30, 41, 59, 0.6);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="page-header">
+      <span class="pulse"></span>
+      <h1>GenAI Vanilla Stack — Architecture</h1>
+      <span class="subtitle">Topologically-ordered · SOURCE-configurable · Kong-fronted · LiteLLM-routed</span>
+    </header>
+
+    <div class="diagram-card">
+      <!-- Inline SVG (kept in sync with docs/diagrams/architecture.svg) -->
+      <object data="architecture.svg" type="image/svg+xml" style="width:100%;display:block;">
+        <img src="architecture.svg" alt="GenAI Vanilla Stack architecture diagram"/>
+      </object>
+    </div>
+
+    <div class="summary-grid">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>The single entry point</h3>
+        </div>
+        <ul>
+          <li>Kong gateway fronts every browser-facing service</li>
+          <li><code>*.localhost</code> aliases routed to <code>http://&lt;svc&gt;:&lt;internal-port&gt;</code></li>
+          <li>Basic-auth + ACLs on admin surfaces</li>
+          <li>Dynamic routes regenerated from <code>service.yml</code> on every <code>./start.sh</code></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>LLM Core — one API, every provider</h3>
+        </div>
+        <ul>
+          <li>LiteLLM exposes one OpenAI-compatible <code>/v1</code> surface</li>
+          <li>Routes by model name to Ollama (local) or cloud providers</li>
+          <li><code>public.llms</code> in Supabase is the model catalog source of truth</li>
+          <li>Every consumer hits the same <code>LITELLM_BASE_URL</code> + <code>LITELLM_API_KEY</code></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Data tier — choose your shape</h3>
+        </div>
+        <ul>
+          <li>Supabase: relational, auth, storage, realtime, studio</li>
+          <li>Weaviate for vectors / semantic search · pgvector fallback</li>
+          <li>Neo4j for knowledge graphs (Bolt + dashboard)</li>
+          <li>Redis for cache, sessions, websockets · MinIO for S3 blobs</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      Source diagram: <code>docs/diagrams/architecture.svg</code> · Hand-authored via the <code>architecture-diagram</code> skill · Edges show runtime / request-path calls only.
+    </footer>
+  </div>
+</body>
+</html>

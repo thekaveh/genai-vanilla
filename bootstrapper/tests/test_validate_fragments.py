@@ -27,20 +27,21 @@ def test_no_services_dir_exits_clean(tmp_path: Path, capsys):
 
 
 def _scaffold_generated_artifacts(project: Path) -> None:
-    """Create README.md and architecture.dot from generators so real-repo
-    guards in validate_fragments pass for test trees that have service.yml files.
+    """Create README.md from generators so real-repo guards in
+    validate_fragments pass for test trees that have service.yml files.
+
+    The top-level architecture diagram is no longer generated — it lives
+    at ``docs/diagrams/architecture.svg`` as a hand-authored artifact
+    produced via the architecture-diagram skill, with the per-service
+    diagrams emitted by ``bootstrapper.docs.regen`` covering the
+    auto-generated surface.
     """
     from tools.generate_readme_topology import generate_block
-    from tools.generate_architecture_diagram import generate
 
     services_dir = project / "services"
     block = generate_block(services_dir)
     readme_text = f"# Test\n\n{block}\n"
     (project / "README.md").write_text(readme_text)
-
-    dot_dir = project / "docs" / "diagrams"
-    dot_dir.mkdir(parents=True, exist_ok=True)
-    generate(services_dir, dot_dir / "architecture.dot")
 
 
 def test_valid_manifest_exits_clean(

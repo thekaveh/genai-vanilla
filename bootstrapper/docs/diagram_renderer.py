@@ -23,7 +23,7 @@ from string import Template
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "bootstrapper"))
 
-from services.topology import CATEGORY_COLORS  # noqa: E402
+from services.topology import CATEGORY_COLORS, CATEGORY_FILLS  # noqa: E402
 
 from .deps_resolver import DepEdge, DepGraph  # noqa: E402
 
@@ -59,8 +59,16 @@ def render_svg(graph: DepGraph) -> str:
     total_height = LANE_TOP_Y + body_height + LEGEND_H + 20
 
     parts: list[str] = []
-    parts.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {total_height}">')
+    # Match the architecture-diagram skill's design system: JetBrains Mono on
+    # the root SVG, slate-950 background painted BEFORE the grid pattern so
+    # the dark canvas reads consistently when the SVG is embedded inline
+    # without the surrounding HTML wrapper.
+    parts.append(
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {total_height}" '
+        f'font-family="\'JetBrains Mono\', \'Fira Code\', Menlo, Consolas, monospace">'
+    )
     parts.append(_defs(graph))
+    parts.append(f'<rect width="{WIDTH}" height="{total_height}" fill="#020617"/>')
     parts.append(f'<rect width="{WIDTH}" height="{total_height}" fill="url(#grid)"/>')
 
     # Lane headers
@@ -162,11 +170,16 @@ def _defs(graph: DepGraph) -> str:
 
 def _focus_box(x: int, y: int, w: int, h: int, graph: DepGraph) -> str:
     color = CATEGORY_COLORS.get(graph.category, "#94a3b8")
+    fill = CATEGORY_FILLS.get(graph.category, "rgba(30, 41, 59, 0.5)")
     cx = x + w // 2
+    # Two-rect pattern (per the architecture-diagram skill): opaque
+    # slate-900 backdrop, then the category-themed semi-transparent fill on
+    # top so any arrow drawn behind the box is fully masked.
     return (
         f'<g class="focus" filter="url(#focus-glow)">'
+        f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="#0f172a"/>'
         f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" '
-        f'        fill="#0f172a" stroke="{color}" stroke-width="1.5"/>'
+        f'        fill="{fill}" stroke="{color}" stroke-width="1.5"/>'
         f'  <text x="{cx}" y="{y + 28}" fill="white" font-size="15" font-weight="700" '
         f'        text-anchor="middle">{html_mod.escape(graph.focus.upper())}</text>'
         f'  <text x="{cx}" y="{y + 48}" fill="#94a3b8" font-size="10" '
@@ -191,6 +204,7 @@ def _render_lane(x: int, y: int, w: int, clusters: "OrderedDict[str, list[DepEdg
     for cat, pills in clusters.items():
         ch = _cluster_height(pills)
         color = CATEGORY_COLORS.get(cat, "#94a3b8")
+        fill = CATEGORY_FILLS.get(cat, "rgba(30, 41, 59, 0.5)")
         parts.append(cluster_tmpl.substitute(
             x=x, y=cy, w=w, h=ch,
             stroke=color,
@@ -207,17 +221,22 @@ def _render_lane(x: int, y: int, w: int, clusters: "OrderedDict[str, list[DepEdg
             col = i % 2
             px = x + 8 + col * (pill_w + 4)
             py = pill_top + row * (PILL_H + PILL_GAP)
-            parts.append(_pill(px, py, pill_w, PILL_H, p.other, color))
+            parts.append(_pill(px, py, pill_w, PILL_H, p.other, color, fill))
         cy += ch + CLUSTER_GAP
 
     parts.append('</g>')
     return "\n".join(parts)
 
 
-def _pill(x: int, y: int, w: int, h: int, label: str, stroke: str) -> str:
+def _pill(x: int, y: int, w: int, h: int, label: str, stroke: str, fill: str) -> str:
+    """Category-themed pill: opaque slate-900 backdrop + semi-transparent
+    fill matching the cluster's category, per the architecture-diagram
+    skill's component-box pattern.
+    """
     return (
-        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" '
-        f'fill="rgba(15,23,42,0.7)" stroke="{stroke}" stroke-width="1"/>'
+        f'<g><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" fill="#0f172a"/>'
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="4" '
+        f'fill="{fill}" stroke="{stroke}" stroke-width="1"/>'
         f'<text x="{x + w // 2}" y="{y + h // 2 + 4}" fill="white" font-size="10" '
         f'text-anchor="middle">{html_mod.escape(label)}</text></g>'
     )
@@ -269,14 +288,10 @@ def _edges(graph: DepGraph, up_clusters: "OrderedDict[str, list[DepEdge]]",
 
 
 def _legend(cx: int, y: int) -> str:
-    items = [
-        ("#f7768e", "infra"),
-        ("#7dcfff", "data"),
-        ("#e0af68", "llm"),
-        ("#7aa2f7", "media"),
-        ("#9ece6a", "agents"),
-        ("#bb9af7", "apps"),
-    ]
+    # Legend draws from CATEGORY_COLORS so it stays in sync with the
+    # cluster strokes + the rest of the stack's category palette.
+    items = [(CATEGORY_COLORS[c], c) for c in
+             ("infra", "data", "llm", "media", "agents", "apps")]
     item_w = 80
     total_w = item_w * len(items)
     start_x = cx - total_w // 2

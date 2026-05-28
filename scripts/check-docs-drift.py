@@ -100,8 +100,8 @@ def check_source_matrix():
 def check_required_files():
     required = [
         'docs/deployment/ports-and-routes.md',
-        'docs/diagrams/architecture.dot',
         'docs/diagrams/architecture.svg',
+        'docs/diagrams/architecture.html',
         'docs/diagrams/README.md',
     ]
     return [f'missing required docs artifact {path}' for path in required if not (ROOT / path).exists()]
