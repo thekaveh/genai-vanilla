@@ -41,33 +41,6 @@ class ServiceInfo:
     env_var_name: str
 
 
-def get_option_hint(option_name: str) -> str:
-    """
-    Derive a contextual hint from a SOURCE option name.
-
-    Pattern-based — not hardcoded per service. If a new option name follows
-    existing patterns, it gets the right hint automatically. Consumed by
-    the Textual wizard via ``ui/textual/integration.py``.
-    """
-    if 'container-gpu' in option_name or option_name.endswith('-gpu'):
-        return "requires NVIDIA GPU"
-    if 'container-cpu' in option_name or option_name.endswith('-cpu'):
-        return "CPU only, works everywhere"
-    if 'localhost' in option_name:
-        return "uses local installation"
-    if 'external' in option_name:
-        return "remote instance"
-    if option_name == 'enabled':
-        return "active in LiteLLM model_list"
-    if option_name == 'disabled':
-        return "service will not run"
-    if option_name == 'none':
-        return "no local engine — cloud only"
-    if option_name == 'container':
-        return "Docker container"
-    return ""
-
-
 class ServiceDiscovery:
     """Discovers user-configurable services from per-service manifests
     (services/<name>/service.yml, assembled into the runtime config dict
