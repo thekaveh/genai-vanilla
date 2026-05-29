@@ -521,6 +521,12 @@ class KongConfigGenerator:
                 {
                     'name': 'comfyui-api-all',
                     'strip_path': False,
+                    # ComfyUI's web UI emits absolute URLs derived from
+                    # the request Host header. Without preserve_host,
+                    # Kong forwards Host=comfyui-gpu:18188 and the
+                    # browser cannot resolve that internal Docker name.
+                    # Same pattern as n8n / LiteLLM / MinIO / Ray.
+                    'preserve_host': True,
                     'hosts': ['comfyui.localhost']
                 }
             ],
@@ -597,6 +603,11 @@ class KongConfigGenerator:
                 {
                     'name': 'searxng-api-all',
                     'strip_path': False,
+                    # SearXNG's web UI builds redirect / preference URLs
+                    # from the Host header. Without preserve_host, Kong
+                    # forwards Host=searxng:8080 which the browser then
+                    # cannot resolve. Same pattern as n8n / LiteLLM.
+                    'preserve_host': True,
                     'hosts': ['search.localhost']
                 }
             ],
@@ -637,6 +648,12 @@ class KongConfigGenerator:
                 {
                     'name': 'jupyterhub-api-all',
                     'strip_path': False,
+                    # JupyterHub emits login / spawn redirects derived
+                    # from the Host header. Without preserve_host, Kong
+                    # forwards Host=jupyterhub:8888 and the browser then
+                    # cannot resolve that internal Docker hostname.
+                    # Same pattern as n8n / LiteLLM / Ray.
+                    'preserve_host': True,
                     'hosts': ['jupyter.localhost']
                 }
             ],
@@ -702,6 +719,13 @@ class KongConfigGenerator:
                 {
                     'name': 'hermes-dashboard-all',
                     'strip_path': False,
+                    # Hermes dashboard is an SPA that constructs API /
+                    # asset URLs from the request Host header. Without
+                    # preserve_host, Kong forwards Host=hermes:9119 and
+                    # the browser cannot resolve it. The MinIO route's
+                    # comment already cites Hermes as an exemplar of
+                    # this pattern — restore conformance here.
+                    'preserve_host': True,
                     'hosts': ['hermes.localhost']
                 }
             ],
@@ -858,6 +882,12 @@ class KongConfigGenerator:
                 {
                     'name': 'openwebui-api-all',
                     'strip_path': False,
+                    # Open WebUI is an SPA that derives WebSocket and
+                    # asset URLs from the Host header. Without
+                    # preserve_host, Kong forwards Host=open-web-ui:8080
+                    # which the browser cannot resolve. Same pattern as
+                    # n8n / LiteLLM / Ray.
+                    'preserve_host': True,
                     'hosts': ['chat.localhost']
                 }
             ],

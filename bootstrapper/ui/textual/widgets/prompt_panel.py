@@ -397,11 +397,6 @@ class PromptPanel(Container):
         color: #7dcfff;
         text-style: bold;
     }
-    PromptPanel #search-hint {
-        height: 1;
-        color: #565f89;
-        padding: 0;
-    }
     """
 
     def __init__(self, *, id: str | None = None) -> None:
