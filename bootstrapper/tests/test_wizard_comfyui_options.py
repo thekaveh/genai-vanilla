@@ -114,3 +114,21 @@ def test_cpu_only_badge_when_no_gpu():
     o = next(o for o in options if o.value == "gpu-only")
     rendered = (o.hint or "") + " " + " ".join(getattr(o, "badges", ()) or [])
     assert "GPU" in rendered or "gpu" in rendered.lower()
+
+
+def test_sidecar_name_colliding_with_catalog_dedups_sidecar_wins():
+    """When catalog and sidecar both have an entry named X, only ONE row
+    surfaces, and it's the sidecar's (source='custom'). This avoids the
+    confusing UX of two rows with the same name but different family
+    badges. The dedupe is keyed on `name`; insertion order in by_name
+    puts sidecar last so sidecar wins.
+    """
+    catalog = [_entry("collide", source="curated", family="Curated")]
+    sidecar = [_entry("collide", source="custom", family="MyCustom")]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=sidecar, pulled_names=set(),
+        default_selected=set(),
+    )
+    matches = [o for o in options if o.value == "collide"]
+    assert len(matches) == 1, "duplicate name should dedupe to 1 row"
+    assert matches[0].group == "Custom"  # sidecar's group wins

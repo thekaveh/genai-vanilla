@@ -156,8 +156,10 @@ def _merged_comfyui_options(
         gpu_mem_gb: from _detect_gpu_memory_gb() — None = CPU-only / unknown
         warn: optional callback for warnings; if None, prints to stderr
     """
-    all_entries = list(catalog) + list(sidecar)
-    by_name: dict[str, ComfyUILibraryEntry] = {e.name: e for e in all_entries}
+    # Sidecar last so sidecar wins on name collision via dict insertion-order semantics.
+    by_name: dict[str, ComfyUILibraryEntry] = {
+        e.name: e for e in list(catalog) + list(sidecar)
+    }
 
     # Warn on unresolved defaults — same pattern as integration.py for Ollama.
     for n in default_selected:
@@ -170,7 +172,7 @@ def _merged_comfyui_options(
                 print(f"⚠️  {msg}", file=sys.stderr)
 
     options: list[_ComfyUIOption] = []
-    for entry in all_entries:
+    for entry in by_name.values():
         is_pulled = (
             entry.name in pulled_names
             or _filename_of(entry.url) in pulled_names
@@ -195,7 +197,7 @@ def _merged_comfyui_options(
             checked=(entry.name in default_selected),
         ))
 
-    pop_by_name = {e.name: e.popularity for e in all_entries}
+    pop_by_name = {name: e.popularity for name, e in by_name.items()}
     options.sort(key=lambda o: (-pop_by_name.get(o.value, 0), o.value))
     return options
 
