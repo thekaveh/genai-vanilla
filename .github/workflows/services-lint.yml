@@ -88,30 +88,6 @@ jobs:
         working-directory: bootstrapper
         run: uv run pytest tests/test_fragment_equivalence.py -q
 
-      # TEMPORARY (PR #17): dump CI's rendered yaml as an artifact so the
-      # baseline can be refreshed without local docker-compose version
-      # skew polluting it. Revert this block + the upload step after the
-      # baseline is committed.
-      - name: Capture rendered config for baseline refresh
-        if: always()
-        working-directory: bootstrapper
-        run: |
-          uv run python -c "
-          import sys, yaml
-          sys.path.insert(0, 'tests')
-          from test_fragment_equivalence import _render, COMPOSE
-          rendered = _render(COMPOSE)
-          yaml.safe_dump(rendered, open('/tmp/ci-rendered.yml', 'w'),
-                         sort_keys=True, default_flow_style=False)
-          "
-      - name: Upload rendered yaml
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-rendered-yaml
-          path: /tmp/ci-rendered.yml
-          retention-days: 1
-
       - name: Source-permutation matrix (every SOURCE value × compose config)
         working-directory: bootstrapper
         run: uv run pytest tests/test_source_permutations.py -q
