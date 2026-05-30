@@ -572,7 +572,7 @@ def _selections_to_args(
     if comfyui_models_v:
         out_names = sorted(comfyui_models_v) if isinstance(comfyui_models_v, set) else \
             sorted({n.strip() for n in str(comfyui_models_v).split(",") if n.strip()})
-        comfyui_user_models["comfyui_user_models"] = ",".join(out_names)
+        comfyui_user_models["COMFYUI_USER_MODELS"] = ",".join(out_names)
 
     # Ray external-address cascade — still a text cascade because the
     # value is a URL, not an integer (out of v1 scope for the inline
