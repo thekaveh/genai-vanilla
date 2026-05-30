@@ -74,6 +74,8 @@ logs/
 
 # Docker volumes
 data/
+# Bundled source-data package for the bootstrapper — not a Docker volume
+!bootstrapper/utils/data/
 
 # Auto-generated runtime artifacts under volumes/ — never hand-edit; the
 # bootstrapper / init containers rewrite these on every ./start.sh.

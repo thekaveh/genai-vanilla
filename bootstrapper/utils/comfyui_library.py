@@ -5,7 +5,9 @@ side. Wizard build-time entrypoint is `list_catalog()` (added later).
 """
 from __future__ import annotations
 
+import json as _json
 from dataclasses import dataclass
+from pathlib import Path as _Path
 
 
 # ── Category enum ──────────────────────────────────────────────────────
@@ -229,3 +231,148 @@ def _parse_civitai_response(
             pulled=False,
         ))
     return out
+
+
+# ── Curated allowlist ──────────────────────────────────────────────────
+# Hand-picked entries for categories where HF tag search is noisy.
+# Add to this list with PRs. Sizes / popularity approximate; accuracy
+# improves over time via community contributions.
+
+_CURATED_ENTRIES: tuple[dict, ...] = (
+    # ── VAE ────────────────────────────────────────────────────────────
+    {
+        "name": "vae-ft-mse-840000-ema-pruned",
+        "family": "SD1.5", "category": "vae", "size_gb": 0.32,
+        "url": "https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors",
+        "min_vram_gb": None, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 80,
+    },
+    {
+        "name": "sdxl-vae",
+        "family": "SDXL", "category": "vae", "size_gb": 0.32,
+        "url": "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors",
+        "min_vram_gb": None, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 85,
+    },
+    # ── ipadapter ──────────────────────────────────────────────────────
+    {
+        "name": "ip-adapter-plus_sdxl_vit-h",
+        "family": "SDXL", "category": "ipadapter", "size_gb": 0.85,
+        "url": "https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors",
+        "min_vram_gb": 6.0, "cpu_supported": False,
+        "requires_custom_node": ("ComfyUI_IPAdapter_plus",), "popularity": 70,
+    },
+    {
+        "name": "ip-adapter-faceid-plusv2_sdxl",
+        "family": "SDXL", "category": "ipadapter", "size_gb": 0.50,
+        "url": "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin",
+        "min_vram_gb": 6.0, "cpu_supported": False,
+        "requires_custom_node": ("ComfyUI_IPAdapter_plus",), "popularity": 65,
+    },
+    # ── instantid ──────────────────────────────────────────────────────
+    {
+        "name": "instantid-ip-adapter",
+        "family": "InstantID", "category": "instantid", "size_gb": 1.20,
+        "url": "https://huggingface.co/InstantX/InstantID/resolve/main/ip-adapter.bin",
+        "min_vram_gb": 8.0, "cpu_supported": False,
+        "requires_custom_node": ("ComfyUI_InstantID",), "popularity": 60,
+    },
+    # ── upscaler ───────────────────────────────────────────────────────
+    {
+        "name": "real-esrgan-x4plus",
+        "family": "Real-ESRGAN", "category": "upscaler", "size_gb": 0.07,
+        "url": "https://huggingface.co/lllyasviel/Annotators/resolve/main/RealESRGAN_x4plus.pth",
+        "min_vram_gb": None, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 90,
+    },
+    {
+        "name": "4x-ultrasharp",
+        "family": "4x-UltraSharp", "category": "upscaler", "size_gb": 0.07,
+        "url": "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth",
+        "min_vram_gb": None, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 88,
+    },
+    # ── embedding ──────────────────────────────────────────────────────
+    {
+        "name": "easynegative",
+        "family": "EasyNegative", "category": "embedding", "size_gb": 0.0,
+        "url": "https://huggingface.co/embed/EasyNegative/resolve/main/EasyNegative.safetensors",
+        "min_vram_gb": None, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 85,
+    },
+    # ── clip ───────────────────────────────────────────────────────────
+    {
+        "name": "clip-vit-large-patch14",
+        "family": "CLIP", "category": "clip", "size_gb": 0.60,
+        "url": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin",
+        "min_vram_gb": 2.0, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 75,
+    },
+    # ── motion_lora ────────────────────────────────────────────────────
+    # Real motion LoRA (zoom-in camera move, ~28 MB); the full motion module
+    # v3_sd15_mm.ckpt belongs in animatediff_models/ and is covered by the
+    # fallback entry animatediff-mm-sd15-v3 (category: animatediff).
+    {
+        "name": "animatediff-camera-zoomin-lora",
+        "family": "AnimateDiff", "category": "motion_lora", "size_gb": 0.028,
+        "url": "https://huggingface.co/guoyww/animatediff-motion-lora-zoom-in/resolve/main/diffusion_pytorch_model.safetensors",
+        "min_vram_gb": 6.0, "cpu_supported": False,
+        "requires_custom_node": ("ComfyUI-AnimateDiff-Evolved",), "popularity": 65,
+    },
+    # ── audio_model ────────────────────────────────────────────────────
+    {
+        "name": "audioldm-text-to-audio",
+        "family": "AudioLDM", "category": "audio_model", "size_gb": 1.50,
+        "url": "https://huggingface.co/cvssp/audioldm/resolve/main/pytorch_model.bin",
+        "min_vram_gb": 6.0, "cpu_supported": False,
+        # Audio nodes are an open ecosystem with no canonical wrapper today;
+        # surface the model but leave node selection to the user (warn-only).
+        "requires_custom_node": (), "popularity": 50,
+    },
+)
+
+
+def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
+    """Translate a curated/fallback dict to a ComfyUILibraryEntry.
+
+    Coerces `requires_custom_node` to tuple so callers can pass either
+    JSON-list (fallback) or native tuple (curated). Falls back to
+    CATEGORY_TARGET_DIR for `target_dir` when absent. Sets `source` and
+    `pulled=False` (pulled is computed at wizard time, not stored).
+    """
+    cat = d["category"]
+    return ComfyUILibraryEntry(
+        name=d["name"],
+        family=d.get("family", d["name"]),
+        category=cat,
+        size_gb=d["size_gb"],
+        url=d["url"],
+        sha256=d.get("sha256"),
+        target_dir=d.get("target_dir", CATEGORY_TARGET_DIR[cat]),
+        min_vram_gb=d.get("min_vram_gb"),
+        cpu_supported=d.get("cpu_supported", True),
+        requires_custom_node=tuple(d.get("requires_custom_node") or ()),
+        popularity=d.get("popularity", 0),
+        source=source,
+        pulled=False,
+    )
+
+
+def list_curated() -> list[ComfyUILibraryEntry]:
+    """Return curated entries."""
+    return [_dict_to_entry(d, "curated") for d in _CURATED_ENTRIES]
+
+
+# ── Bundled fallback snapshot ──────────────────────────────────────────
+
+_FALLBACK_FILE = _Path(__file__).parent / "data" / "comfyui_catalog_fallback.json"
+
+
+def list_fallback() -> list[ComfyUILibraryEntry]:
+    """Load the bundled fallback snapshot. Used only when both APIs are
+    unreachable AND no cached catalog exists.
+    """
+    if not _FALLBACK_FILE.is_file():
+        return []
+    raw = _json.loads(_FALLBACK_FILE.read_text())
+    return [_dict_to_entry(d, "fallback") for d in raw.get("entries", [])]
