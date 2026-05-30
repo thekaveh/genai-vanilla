@@ -16,7 +16,7 @@ if [ -z "$COMFYUI_MODELS_PATH" ]; then
 fi
 
 echo "comfyui-init: Installing required tools..."
-apk add --no-cache curl postgresql-client wget bc
+apk add --no-cache curl postgresql-client wget bc jq yq coreutils
 
 # Determine if we're working with local ComfyUI
 if [ "$IS_LOCAL_COMFYUI" = "true" ]; then
