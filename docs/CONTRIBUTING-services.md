@@ -597,7 +597,7 @@ Each service folder can hold additional subdirectories beyond `service.yml` and 
 | `app/` | Source code for an app the manifest builds (the manifest's primary container is **this** code) | `services/backend/app/` (FastAPI source) |
 | `build/` | Dockerfile + build inputs when the manifest builds a container from scratch | `services/jupyterhub/build/`, `services/neo4j/build/`, `services/local-deep-researcher/build/` |
 | `init/` | Scripts + templates bind-mounted into a `<service>-init` sidecar container that prepares state before the main container starts | `services/n8n/init/`, `services/hermes/init/`, `services/comfyui/init/`, `services/minio/init/`, `services/weaviate/init/` |
-| `catalog-init/` | Same as `init/` but for a *second* init sidecar that runs in a different tier (used by litellm only) | `services/litellm/catalog-init/` |
+| `catalog-init/` | Same as `init/` but for a *second* init sidecar that UPSERTs a service-owned catalog table in Postgres before the main init runs (`*-catalog-init` containers gate the downstream `*-init` / `*-pull` containers via `depends_on: service_completed_successfully`) | `services/litellm/catalog-init/` (writes `public.llms`), `services/comfyui/catalog-init/` (writes `public.comfyui_models`) |
 | `pull/` | Same as `init/` but the sidecar is named `<service>-pull` (only ollama) | `services/ollama/pull/` |
 | `config/` | Read-only configuration files bind-mounted into the main container at runtime | `services/searxng/config/` (settings.yml) |
 | `db/` | Database snapshots + SQL migration scripts | `services/supabase/db/` (snapshot/ + scripts/) |

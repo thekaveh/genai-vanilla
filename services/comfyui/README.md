@@ -2,7 +2,7 @@
 
 Node-based image generation workflow engine. ComfyUI runs as a single container with a web UI on its own port, exposing an HTTP API (`/prompt`, `/history/{id}`, `/view`) and a WebSocket (`/ws`) that streams `executing`/`executed`/`progress` events while a workflow runs. The stack treats ComfyUI as a media-tier engine: backend, n8n, Hermes, and Open WebUI all consume it indirectly through Kong (browser) or directly via the internal Docker DNS name.
 
-Four source variants cover the common deployment shapes: containerized CPU and GPU (built from `ai-dock/comfyui` images), a localhost mode that routes consumers to a host-running ComfyUI, and an external URL mode for shared/remote instances. Disabled mode removes it from compose entirely. A short-lived `comfyui-init` container stages model checkpoints into the `comfyui-models` volume based on `COMFYUI_MODEL_SET` (`minimal | sd15 | sdxl | full`).
+Four source variants cover the common deployment shapes: containerized CPU and GPU (built from `ai-dock/comfyui` images), a localhost mode that routes consumers to a host-running ComfyUI, and an external URL mode for shared/remote instances. Disabled mode removes it from compose entirely. A short-lived `comfyui-init` container stages model checkpoints into the `comfyui-models` volume based on `COMFYUI_USER_MODELS` (selected via the wizard's "ComfyUI · models" step).
 
 ## 1. Overview
 
@@ -27,7 +27,7 @@ COMFYUI_PORT=63041                          # computed by topology.py
 COMFYUI_BASE_URL=http://comfyui:18188       # in-container default
 COMFYUI_ARGS=--listen                       # bootstrapper injects --cpu or --force-fp16 per source
 COMFYUI_PLATFORM=linux/amd64
-COMFYUI_MODEL_SET=minimal                   # minimal | sd15 | sdxl | full
+COMFYUI_USER_MODELS=                         # comma-separated catalog names; set by the wizard
 COMFYUI_UPLOAD_TO_SUPABASE=true
 COMFYUI_STORAGE_BUCKET=comfyui-images
 COMFYUI_AUTO_UPDATE=false                   # GPU variant flips this to true upstream
@@ -53,7 +53,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 **Request flow.** Backend or n8n POSTs a workflow JSON to `${COMFYUI_ENDPOINT}/prompt` and receives a `prompt_id`. To track progress, the caller either polls `GET /history/{prompt_id}` or opens a `/ws` websocket and filters by `prompt_id`. Outputs land under `output/` inside the container; the `/view` endpoint serves them by filename.
 
-**Init flow** (`comfyui-init`): plain alpine + inline `apk add curl && wget …`. The init script reads `COMFYUI_MODEL_SET` and downloads the corresponding checkpoint, VAE, and LoRA bundle into the `comfyui-models` volume. Failure mode is non-fatal — ComfyUI starts even if downloads incomplete, you just get model-not-found errors at workflow time.
+**Init flow** (`comfyui-init`): plain alpine + `apk add wget postgresql-client ca-certificates`. The init script queries `SELECT … FROM public.comfyui_models WHERE active = true` via psql and downloads each active model into the `comfyui-models` volume via wget (with optional SHA256 verification), in parallel to `ollama-pull`'s shape. `comfyui-catalog-init` runs first: it UPSERTs the curated catalog + `services/comfyui/custom-models.yaml` sidecar into `public.comfyui_models` and flips `active = true` for names in `COMFYUI_USER_MODELS`. Failure mode is non-fatal — ComfyUI starts even if downloads are incomplete, you just get model-not-found errors at workflow time.
 
 **Hard dependencies** (`depends_on.required`): `supabase`, `litellm`, `ollama`. The Supabase dep covers the Storage upload path; LiteLLM and Ollama are inherited from `runtime_adaptive` (ComfyUI custom nodes that call LLMs route through LiteLLM).
 
@@ -102,7 +102,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 - **ComfyUI-Manager + `cm-cli` for custom-node provisioning** — *Why pursue:* the stack mounts a `comfyui-custom-nodes` volume but `init/scripts/download_models.sh` only stages checkpoints; adding `cm-cli install <pkg>` would make custom-node sets reproducible. *Effort:* small.
 - **Workflow-API mode + `/prompt` ingestion from non-UI clients** — *Why pursue:* backend and Hermes have no documented call pattern; a worked example of POSTing a workflow JSON to `/prompt` and tracking it via `/history/{prompt_id}` would unlock programmatic image-gen from agents. *Effort:* small.
-- **Video model support (Mochi / LTX-Video)** — *Why pursue:* ComfyUI upstream supports video diffusion but `COMFYUI_MODEL_SET` has no `video` tier, so GPU users hand-edit the init script. *Effort:* medium.
+- **Video model support (Mochi / LTX-Video)** — *Why pursue:* ComfyUI upstream supports video diffusion; the picker catalog includes a `video` category filter but the initial curated list is thin. Expanding the catalog with production-ready video checkpoints (Mochi, LTX-Video, Wan) would give GPU users first-class video generation. *Effort:* medium.
 - **Authentication on the ComfyUI endpoint** — *Why pursue:* `server.py` ships no auth and Kong fronts ComfyUI on `comfyui.localhost`. A Kong basic-auth or JWT plugin would prevent any LAN peer from queueing GPU jobs. *Effort:* small.
 
 ## 6. Troubleshooting
@@ -127,15 +127,37 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 ## 7. Operations
 
-**Switch model sets.** Edit `COMFYUI_MODEL_SET` in `.env` (`minimal | sd15 | sdxl | full`) and re-run `./start.sh`. `comfyui-init` re-runs and downloads anything missing into the `comfyui-models` volume; existing checkpoints are not deleted.
+**Choosing models.** Run `./start.sh` (or the wizard standalone) and navigate to the "ComfyUI · models" step. Use filter chips (`f` key) to browse by category (Image / Image-edit / Video / Audio / 3D), `/` or `Tab` to search by name, `Space` to toggle rows, and `Enter` to confirm. Selected names are persisted as `COMFYUI_USER_MODELS` in `.env`. On the next `./start.sh`, `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` and `comfyui-init` downloads them.
 
-**Add a custom model manually.** Drop `.safetensors` files into the `comfyui-models` volume directly:
+CLI alternative:
+```bash
+./start.sh --comfyui-models=sdxl-base-1.0,sdxl-vae,flux1-dev-Q4_K_S
+```
+Unknown names log a warning during catalog-init but don't block startup.
+
+**Required custom_nodes.** Some models (Flux GGUF, AnimateDiff, IP-Adapter, InstantID, etc.) need specific ComfyUI custom_nodes installed before they will load. The wizard surfaces a `⚠ <node-name>` badge on those rows. Install each required node manually:
 
 ```bash
-docker cp ./my-model.safetensors <project>-comfyui:/opt/ComfyUI/models/checkpoints/
+docker exec -it <project>-comfyui sh -c \
+  "cd /opt/ComfyUI/custom_nodes && git clone https://github.com/<node-repo>"
 ```
 
-Restart ComfyUI to pick it up. The downside: this lives outside the init script, so a cold-start wipes it.
+Restart ComfyUI after cloning a new node.
+
+**Adding models not in the catalog.** Edit `services/comfyui/custom-models.yaml`. The wizard surfaces additions on the next run with a `[Custom]` family badge; `comfyui-catalog-init` ingests them into the DB so the pull script downloads them. Schema is documented in the file's header comment.
+
+**Removing models.** Unchecking a model in the wizard sets `active = false` on the next start. The underlying file is NOT deleted from the volume (same behavior as Ollama). To reclaim disk:
+
+```bash
+# Nuke the entire volume:
+./stop.sh --cold
+
+# Selective delete:
+docker run --rm -v <project>-comfyui-models:/m alpine \
+  rm /m/checkpoints/<file>
+```
+
+**Backend REST view.** `GET /comfyui/db/models?active_only=true` on the backend service returns the active catalog rows for Open WebUI + n8n consumers.
 
 **Queue a workflow programmatically.**
 

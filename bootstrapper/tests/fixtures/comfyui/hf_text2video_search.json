@@ -1,0 +1,32 @@
+[
+  {
+    "id": "tencent/HunyuanVideo",
+    "downloads": 95000,
+    "tags": ["text-to-video", "safetensors"],
+    "pipeline_tag": "text-to-video",
+    "siblings": [
+      {"rfilename": "hunyuan_video_720_cfgdistill_fp8_e4m3fn.safetensors", "size": 9126805504},
+      {"rfilename": "README.md"}
+    ]
+  },
+  {
+    "id": "THUDM/CogVideoX-5b",
+    "downloads": 78000,
+    "tags": ["text-to-video", "diffusers"],
+    "pipeline_tag": "text-to-video",
+    "siblings": [
+      {"rfilename": "CogVideoX-5b.safetensors", "size": 10737418240},
+      {"rfilename": "model_index.json"}
+    ]
+  },
+  {
+    "id": "Lightricks/LTX-Video",
+    "downloads": 61000,
+    "tags": ["text-to-video", "safetensors"],
+    "pipeline_tag": "text-to-video",
+    "siblings": [
+      {"rfilename": "ltx-video-2b-v0.9.safetensors", "size": 8589934592},
+      {"rfilename": "README.md"}
+    ]
+  }
+]

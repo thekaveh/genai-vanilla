@@ -161,6 +161,8 @@ def _render_manifest(m: Manifest, port_defaults: dict[str, int]) -> str:
     for entry in m.env:
         if entry.name == source_var:
             continue  # already emitted at the top of this block
+        if entry.bootstrapper_only:
+            continue  # consumed only by the host-side bootstrapper; not compose-interpolated
         lines.append(_render_env_entry(entry, port_defaults))
 
     lines.append("")  # blank line between services

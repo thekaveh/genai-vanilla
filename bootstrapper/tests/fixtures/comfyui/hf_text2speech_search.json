@@ -1,0 +1,33 @@
+[
+  {
+    "id": "coqui/XTTS-v2",
+    "downloads": 142000,
+    "tags": ["text-to-speech", "safetensors"],
+    "pipeline_tag": "text-to-speech",
+    "siblings": [
+      {"rfilename": "model.safetensors", "size": 1879048192},
+      {"rfilename": "config.json"},
+      {"rfilename": "README.md"}
+    ]
+  },
+  {
+    "id": "suno/bark",
+    "downloads": 98000,
+    "tags": ["text-to-speech"],
+    "pipeline_tag": "text-to-speech",
+    "siblings": [
+      {"rfilename": "pytorch_model.bin", "size": 3623878656},
+      {"rfilename": "config.json"}
+    ]
+  },
+  {
+    "id": "myshell-ai/OpenVoice",
+    "downloads": 55000,
+    "tags": ["text-to-speech", "safetensors"],
+    "pipeline_tag": "text-to-speech",
+    "siblings": [
+      {"rfilename": "converter.safetensors", "size": 419430400},
+      {"rfilename": "README.md"}
+    ]
+  }
+]

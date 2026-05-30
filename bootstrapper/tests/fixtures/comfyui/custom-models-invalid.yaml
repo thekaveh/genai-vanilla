@@ -1,0 +1,11 @@
+models:
+  - name: valid-entry
+    category: lora
+    url: https://huggingface.co/Org/m/resolve/main/m.safetensors
+  - category: lora                  # missing name
+    url: https://e.com/x.safetensors
+  - name: missing-url               # missing url
+    category: checkpoint
+  - name: unknown-category
+    category: not-a-real-category
+    url: https://e.com/y.safetensors

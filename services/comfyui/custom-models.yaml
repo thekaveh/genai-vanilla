@@ -1,0 +1,31 @@
+# Sidecar for user-authored ComfyUI models not in the curated catalog.
+# Edited by hand; the wizard reads it but never writes back.
+# Mounted into comfyui-init at /custom-models.yaml.
+#
+# Schema:
+#   models:
+#     - name: <stable-id>           # required; unique across catalog + sidecar
+#       category: <category-enum>   # required; one of: checkpoint, vae, lora,
+#                                   #   controlnet, ipadapter, instantid, upscaler,
+#                                   #   embedding, clip, animatediff, motion_lora,
+#                                   #   video_model, voice_model, audio_model, mesh_model
+#       url: <direct-download-url>  # required; HF resolve URL or signed civitai URL
+#       family: <string>            # optional; display family (e.g. "SDXL", "Flux"); defaults to name
+#       size_gb: <float>            # optional; surfaced in wizard, used for disk warning
+#       sha256: <hex>               # optional; verified by init script when present
+#       cpu_supported: <bool>       # optional; defaults true; false adds "requires GPU" badge
+#       min_vram_gb: <float>        # optional; adds "requires N GB VRAM" badge when host has less
+#       requires_custom_node:       # optional; list of node-repo names (warn-only badges)
+#         - <repo-name>
+#       notes: <string>             # optional; one-line note shown in wizard subtitle
+#
+# Worked example (commented; only the empty `models: []` ships active):
+# models:
+#   - name: my-flux-lora-portrait
+#     category: lora
+#     url: https://huggingface.co/MyOrg/my-flux-lora/resolve/main/portrait.safetensors
+#     size_gb: 0.15
+#     sha256: a1b2c3...
+#     notes: "Internal portrait LoRA for the marketing comp pipeline"
+
+models: []

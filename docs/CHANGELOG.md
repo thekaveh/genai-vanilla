@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ComfyUI model picker
+
+Added a new wizard step ("ComfyUI · models") that lets users pick
+from a curated catalog of popular models across Image, Image-edit,
+Video, Audio, and 3D categories, sourced live from Hugging Face +
+civitai with a bundled fallback for offline. The wizard UI mirrors
+the Ollama picker: filter chips (`f`), name search (`/` or `Tab`),
+space-to-toggle, enter-to-confirm, and green `[pulled]` badges for
+models already on disk. Selection persists as `COMFYUI_USER_MODELS`
+(comma-separated catalog names) in `.env`; CLI flag
+`--comfyui-models` accepts the same CSV. A
+`--comfyui-custom-models-file` flag (default
+`services/comfyui/custom-models.yaml`) allows sidecar YAML additions
+that surface with a `[Custom]` family badge and are ingested into the
+DB on the next start.
+
+The init pipeline was rewritten to mirror the Ollama pattern. A new
+`comfyui-catalog-init` container UPSERTs the curated allowlist +
+sidecar YAML into `public.comfyui_models` on every `docker compose up`
+and flips `active = true` for names in `COMFYUI_USER_MODELS` /
+`custom-models.yaml`. `comfyui-init` now queries
+`SELECT … FROM public.comfyui_models WHERE active = true` via psql and
+downloads each active model via wget (with optional SHA256
+verification), replacing the previous `COMFYUI_MODEL_SET`-based
+bucket-selector + wget-by-set logic. The `public.comfyui_models` schema
+was extended additively (`family`, `target_dir`, `sha256`,
+`min_vram_gb`, `cpu_supported`, `requires_custom_node`, `popularity`,
+`source` — all `ADD COLUMN IF NOT EXISTS`); backend
+`/comfyui/db/models` routes continue to work. (The `notes` field on
+sidecar entries is a wizard-side display field, surfaced in the wizard
+subtitle from `custom-models.yaml`; not persisted to the DB.) Migration script at
+`services/supabase/db/scripts/12-extend-comfyui-models.sql`.
+
+`COMFYUI_MODEL_SET` is retired. The bootstrapper's migration v3
+auto-translates existing values on first run (`minimal`/`sd15` →
+SD 1.5 + VAE; `sdxl` → SDXL base + VAE; `full` → all four), takes a
+`.env.backup.<timestamp>` before any rewrite, and bumps
+`BOOTSTRAPPER_PORT_LAYOUT_VERSION` to 3. The four hardcoded ComfyUI
+model rows previously in `services/supabase/db/scripts/08-seed-data.sql`
+are removed; those models now arrive via `comfyui-catalog-init`'s
+curated allowlist.
+
+**Wizard selection persistence.** `wizard_screen.py`'s "Apply user
+model selections" step now unpacks `comfyui_user_models` from
+`stack_options` alongside `cloud_user_models` / `ollama_user_models` —
+before this fix the dict-merge silently dropped wizard-driven ComfyUI
+selections on confirm. A new seam-parity test
+(`test_wizard_screen_consumes_comfyui_user_models`) guards against
+this regression class.
+
+**Known follow-ups:**
+
+- *Fragment-equivalence baseline regen.* Local Docker Compose v5.x
+  produces different YAML emission conventions than CI's v2.x; baseline
+  regen deferred to the PR's first CI run (extract CI's rendered yaml
+  from the failing test log, commit, re-push).
+- *Custom-node auto-install.* Required nodes are surfaced as `⚠ <node>`
+  warning badges only; users install manually. A future ticket will
+  integrate ComfyUI-Manager's `cm-cli` for one-click install.
+- *Disk pre-flight hard block.* The status header turns yellow/red on
+  projected fill but does not block confirm. A future ticket will gate
+  the wizard on `df` checks.
+- *Ollama vs ComfyUI pipeline convergence.* Both pickers now share
+  the same `public.{llms,comfyui_models}` + `*-catalog-init` +
+  DB-backed pull architecture. Custom-model surface differs (Ollama:
+  CSV in `.env`; ComfyUI: sidecar YAML) because ComfyUI lacks an
+  upstream registry that resolves models by name.
+
 ### 2026-05-28 third-pass audit (follow-up to PR #12 / #13)
 
 A third convergence audit ran the night PR #13 merged. 16 verification

@@ -22,6 +22,12 @@ from textual.binding import Binding
 
 _THEME_PATH = Path(__file__).parent / "theme.css"
 
+# Wizard step title for ComfyUI model multiselect — canonical source of
+# truth lives in wizard/comfyui_steps.py; imported here to keep the drain
+# loop (selections.get(COMFYUI_MODELS_TITLE)) aligned with what the step
+# registers without duplicating the string literal.
+from wizard.comfyui_steps import COMFYUI_MODELS_TITLE
+
 
 # Module-level sink for wizard-time diagnostic warnings (cloud /v1/models
 # fetch failures, etc.). The WizardScreen populates this with a thin
@@ -227,6 +233,9 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # Ray follow-up steps (worker count + external address) live in
     # wizard/ray_steps.py; spliced in right after the Ray source step.
     from wizard.ray_steps import build_ray_followup_steps
+    # ComfyUI model multiselect lives in wizard/comfyui_steps.py;
+    # spliced in right after the ComfyUI source step.
+    from wizard.comfyui_steps import build_comfyui_steps
     from .widgets.prompt_panel import SecondaryNumberInput
 
     # Per-service localhost-port wiring. Each entry maps a service's
@@ -345,6 +354,12 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             steps.extend(build_ray_followup_steps(env_vars, {
                 "RAY_SOURCE": svc.current_value or "disabled",
             }))
+        # Splice ComfyUI model multiselect RIGHT AFTER the ComfyUI source
+        # step. The step's skip_if_prev guard fires when COMFYUI_SOURCE is
+        # not container-cpu / container-gpu (localhost, external, disabled),
+        # so only container users see the model picker.
+        if svc.display_name == "ComfyUI":
+            steps.extend(build_comfyui_steps(env_vars, _wizard_warn))
 
     steps.append(PromptStep(
         title="Cold start  ·  rebuild", step_index=len(services_info) + 2,
@@ -548,6 +563,17 @@ def _selections_to_args(
         else:
             ollama_user_models["OLLAMA_CUSTOM_MODELS"] = custom
 
+    # ComfyUI model multiselect — parallel to the Ollama models block
+    # above. The wizard step (declared in T15) writes a set under
+    # COMFYUI_MODELS_TITLE; we convert it to a sorted CSV here so
+    # apply_user_model_selections can persist it as COMFYUI_USER_MODELS.
+    comfyui_user_models: dict = {}
+    comfyui_models_v = selections.get(COMFYUI_MODELS_TITLE, set())
+    if comfyui_models_v:
+        out_names = sorted(comfyui_models_v) if isinstance(comfyui_models_v, set) else \
+            sorted({n.strip() for n in str(comfyui_models_v).split(",") if n.strip()})
+        comfyui_user_models["comfyui_user_models"] = ",".join(out_names)
+
     # Ray external-address cascade — still a text cascade because the
     # value is a URL, not an integer (out of v1 scope for the inline
     # secondary widget). Worker count comes through the
@@ -584,6 +610,7 @@ def _selections_to_args(
         "cloud_api_keys": cloud_api_keys,
         "cloud_user_models": cloud_user_models,
         "ollama_user_models": ollama_user_models,
+        "comfyui_user_models": comfyui_user_models,
     }
 
 

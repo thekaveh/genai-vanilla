@@ -106,6 +106,8 @@ def test_every_non_auto_managed_manifest_var_is_in_env_example():
         for entry in m.env:
             if entry.auto_managed:
                 continue
+            if entry.bootstrapper_only:
+                continue
             if entry.name not in keys:
                 missing.append(f"{m.name}.env.{entry.name}")
         for img in m.images:
