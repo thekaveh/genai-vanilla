@@ -74,6 +74,7 @@ class ComfyUILibraryEntry:
     source: str  # "huggingface" | "civitai" | "curated" | "fallback" | "custom"
     pulled: bool
     cloud_only: bool = False
+    notes: str | None = None  # Optional one-line subtitle for wizard rendering (T15).
 
 
 # ── HF + civitai response parsers ──────────────────────────────────────
@@ -340,19 +341,22 @@ _CURATED_ENTRIES: tuple[dict, ...] = (
 
 
 def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
-    """Translate a curated/fallback/cache dict to a ComfyUILibraryEntry.
+    """Translate a dict (curated, fallback, cache, or sidecar/custom) to a
+    ComfyUILibraryEntry.
 
     Coerces `requires_custom_node` to tuple so callers can pass either
-    JSON-list (fallback/cache) or native tuple (curated). Falls back to
-    CATEGORY_TARGET_DIR for `target_dir` when absent. Sets `source` and
-    `pulled=False` (pulled is computed at wizard time, not stored).
+    JSON-list (fallback/cache/custom) or native tuple (curated).
+    Defaults missing `size_gb` to 0.0 (sidecar makes this optional;
+    curated/fallback always supply it). Falls back to CATEGORY_TARGET_DIR
+    for `target_dir` when absent. Sets `source` and `pulled=False`
+    (pulled is computed at wizard time, never from input).
     """
     cat = d["category"]
     return ComfyUILibraryEntry(
         name=d["name"],
         family=d.get("family", d["name"]),
         category=cat,
-        size_gb=d["size_gb"],
+        size_gb=d.get("size_gb") or 0.0,
         url=d["url"],
         sha256=d.get("sha256"),
         target_dir=d.get("target_dir", CATEGORY_TARGET_DIR[cat]),
@@ -363,6 +367,7 @@ def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
         source=source,
         pulled=False,
         cloud_only=bool(d.get("cloud_only", False)),
+        notes=d.get("notes"),
     )
 
 
@@ -495,6 +500,7 @@ def _entry_to_dict(e: ComfyUILibraryEntry) -> dict:
         "requires_custom_node": list(e.requires_custom_node),
         "popularity": e.popularity, "source": e.source, "pulled": e.pulled,
         "cloud_only": e.cloud_only,
+        "notes": e.notes,
     }
 
 
@@ -623,8 +629,6 @@ def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
             print(f"⚠️  custom-models entry '{name}' has unknown category "
                   f"'{category}'; skipping.", file=_sys.stderr)
             continue
-        # size_gb is optional in the sidecar schema; _dict_to_entry requires it.
-        d = {**d, "size_gb": d.get("size_gb") or 0.0}
         try:
             out.append(_dict_to_entry(d, source="custom"))
         except (KeyError, ValueError) as exc:

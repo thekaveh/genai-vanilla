@@ -44,7 +44,7 @@ def test_invalid_entries_skipped_with_warning(capsys):
     captured = capsys.readouterr()
     assert len(entries) == 1
     assert entries[0].name == "valid-entry"
-    assert "skipping" in (captured.err + captured.out).lower()
+    assert "skipping" in captured.err.lower()
 
 
 def test_unknown_category_skipped(tmp_path):
@@ -72,6 +72,17 @@ def test_url_must_be_http_or_https(tmp_path, capsys):
     assert entries == []
     captured = capsys.readouterr()
     assert "ftp-entry" in (captured.err + captured.out)
+
+
+def test_non_dict_entry_skipped(tmp_path, capsys):
+    """A model entry that's a bare string or null is skipped."""
+    raw = "models:\n  - not-a-dict\n  - null\n"
+    tmp = tmp_path / "non_dict.yaml"
+    tmp.write_text(raw)
+    entries = load_custom_models(str(tmp))
+    assert entries == []
+    captured = capsys.readouterr()
+    assert "not a mapping" in captured.err.lower()
 
 
 def test_entry_overrides_via_kwargs(tmp_path):

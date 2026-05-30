@@ -10,9 +10,12 @@
 #                                   #   embedding, clip, animatediff, motion_lora,
 #                                   #   video_model, voice_model, audio_model, mesh_model
 #       url: <direct-download-url>  # required; HF resolve URL or signed civitai URL
+#       family: <string>            # optional; display family (e.g. "SDXL", "Flux"); defaults to name
 #       size_gb: <float>            # optional; surfaced in wizard, used for disk warning
 #       sha256: <hex>               # optional; verified by init script when present
-#       requires_custom_node:       # optional; list of node-repo names
+#       cpu_supported: <bool>       # optional; defaults true; false adds "requires GPU" badge
+#       min_vram_gb: <float>        # optional; adds "requires N GB VRAM" badge when host has less
+#       requires_custom_node:       # optional; list of node-repo names (warn-only badges)
 #         - <repo-name>
 #       notes: <string>             # optional; one-line note shown in wizard subtitle
 #
