@@ -47,6 +47,14 @@ model rows previously in `services/supabase/db/scripts/08-seed-data.sql`
 are removed; those models now arrive via `comfyui-catalog-init`'s
 curated allowlist.
 
+**Wizard selection persistence.** `wizard_screen.py`'s "Apply user
+model selections" step now unpacks `comfyui_user_models` from
+`stack_options` alongside `cloud_user_models` / `ollama_user_models` —
+before this fix the dict-merge silently dropped wizard-driven ComfyUI
+selections on confirm. A new seam-parity test
+(`test_wizard_screen_consumes_comfyui_user_models`) guards against
+this regression class.
+
 **Known follow-ups:**
 
 - *Fragment-equivalence baseline regen.* Local Docker Compose v5.x

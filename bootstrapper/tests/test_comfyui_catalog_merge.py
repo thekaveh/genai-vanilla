@@ -53,6 +53,23 @@ def test_partial_failure_civitai_down(capsys):
     assert "civitai" in (captured.err + captured.out).lower()
 
 
+def test_partial_failure_huggingface_down(capsys):
+    """HuggingFace 503 → civitai entries still surface + curated still in."""
+    with patch("utils.comfyui_library.list_huggingface_models",
+               side_effect=ConnectionError("hf 503")), \
+         patch("utils.comfyui_library.list_civitai_loras") as mock_civ:
+        mock_civ.return_value = [_fake_entry("civ-only", "civitai")]
+        entries = assemble_wizard_catalog()
+
+    sources = {e.source for e in entries}
+    assert "civitai" in sources
+    assert "curated" in sources  # curated always in
+    # No fallback when at least one scraper succeeded.
+    assert "fallback" not in sources
+    captured = capsys.readouterr()
+    assert "huggingface" in (captured.err + captured.out).lower()
+
+
 def test_full_failure_loads_fallback():
     """Both scrapers down → fall back to the bundled JSON snapshot."""
     with patch("utils.comfyui_library.list_huggingface_models",
