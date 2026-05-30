@@ -1,14 +1,22 @@
-"""ComfyUI model catalog — scraper, cache, and types.
+"""ComfyUI model catalog — scrapers, parsers, and types.
 
-Mirrors `bootstrapper/utils/ollama_library.py`'s role for the ComfyUI
-side. Wizard build-time entrypoint is `list_catalog()` (added later).
+Mirrors `bootstrapper/utils/llm_catalog.py`'s role for the ComfyUI side:
+a pure-functional, side-effect-free catalog module imported BOTH by the
+wizard (host-side, build time) AND by the comfyui-catalog-init container
+(via the /catalog bind mount) to seed ``public.comfyui_models``.
+
+There is no host-side file cache — the wizard runs once per invocation
+and assembles the catalog live, then comfyui-catalog-init re-assembles
+it at container start and UPSERTs into Postgres. The DB row is the
+single source of truth for downstream consumers (comfyui-init,
+the backend's /comfyui/db/models routes, the Open WebUI tool,
+the n8n workflow).
 """
 from __future__ import annotations
 
 import json as _json
 import sys as _sys
 from dataclasses import dataclass
-from datetime import datetime as _datetime, timezone as _timezone
 from pathlib import Path as _Path
 
 import requests as _requests
@@ -460,73 +468,14 @@ def list_civitai_loras() -> list[ComfyUILibraryEntry]:
     return out
 
 
-# ── Cache ──────────────────────────────────────────────────────────────
-
-CACHE_TTL_SECONDS = 24 * 3600
-_CACHE_DIR = _Path(__file__).parent.parent / ".cache"
-_CACHE_FILE_NAME = "comfyui_catalog.json"
-
-
-def _cache_path() -> _Path:
-    return _CACHE_DIR / _CACHE_FILE_NAME
-
-
-def _read_cache() -> dict | None:
-    p = _cache_path()
-    if not p.is_file():
-        return None
-    try:
-        return _json.loads(p.read_text())
-    except _json.JSONDecodeError:
-        return None
-
-
-def _cache_is_fresh(cache: dict) -> bool:
-    try:
-        fetched = _datetime.strptime(cache["fetched_at"], "%Y-%m-%dT%H:%M:%SZ")
-        fetched = fetched.replace(tzinfo=_timezone.utc)
-    except (KeyError, ValueError):
-        return False
-    age = (_datetime.now(_timezone.utc) - fetched).total_seconds()
-    return age < cache.get("ttl_seconds", CACHE_TTL_SECONDS)
-
-
-def _entry_to_dict(e: ComfyUILibraryEntry) -> dict:
-    return {
-        "name": e.name, "family": e.family, "category": e.category,
-        "size_gb": e.size_gb, "url": e.url, "sha256": e.sha256,
-        "target_dir": e.target_dir, "min_vram_gb": e.min_vram_gb,
-        "cpu_supported": e.cpu_supported,
-        "requires_custom_node": list(e.requires_custom_node),
-        "popularity": e.popularity, "source": e.source, "pulled": e.pulled,
-        "cloud_only": e.cloud_only,
-        "notes": e.notes,
-    }
-
-
-def _write_cache(
-    entries: list[ComfyUILibraryEntry],
-    hf_status: str,
-    civitai_status: str,
-) -> None:
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "schema_version": 1,
-        "fetched_at": _datetime.now(_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "ttl_seconds": CACHE_TTL_SECONDS,
-        "huggingface_status": hf_status,
-        "civitai_status": civitai_status,
-        "entries": [_entry_to_dict(e) for e in entries],
-    }
-    _cache_path().write_text(_json.dumps(payload, indent=2))
-
+# ── Merge ──────────────────────────────────────────────────────────────
 
 def _dedupe_by_name(
     entries: list[ComfyUILibraryEntry],
 ) -> list[ComfyUILibraryEntry]:
     """Last-wins dedupe by name. Caller controls precedence via input order.
 
-    Established precedence for list_catalog (lowest → highest):
+    Established precedence for assemble_wizard_catalog (lowest → highest):
         huggingface → civitai → fallback (if used) → curated
     So pass curated LAST when merging; the last write to the dict wins.
     """
@@ -536,48 +485,51 @@ def _dedupe_by_name(
     return list(seen.values())
 
 
-def list_catalog(force_refresh: bool = False) -> list[ComfyUILibraryEntry]:
-    """Merged catalog: HF + civitai + curated (+ fallback if total failure).
+def assemble_wizard_catalog(
+    force_refresh: bool = False,
+) -> list[ComfyUILibraryEntry]:
+    """Live-assembled, merged catalog: HF + civitai + curated
+    (+ fallback if both scrapers are down).
 
-    Caches result; respects 24h TTL unless force_refresh=True.
+    Called once per wizard invocation AND once per comfyui-catalog-init
+    container run. NO caching — there is no host-side file cache (the
+    DB row is the persistence layer; this function is the producer).
+    The ``force_refresh`` parameter is accepted for API parity with
+    upstream ``list_*`` helpers but is currently a no-op.
 
     Dedupe precedence (last wins): huggingface → civitai → fallback → curated.
+    Partial failure (one scraper down) → uses whatever returned + curated.
+    Total failure (both down) → loads the bundled fallback snapshot.
     """
-    if not force_refresh:
-        cache = _read_cache()
-        if cache and _cache_is_fresh(cache):
-            return [_dict_to_entry(d, d.get("source", "cached"))
-                    for d in cache["entries"]]
+    del force_refresh  # accepted for API parity; no cache to bypass
 
     hf_entries: list[ComfyUILibraryEntry] = []
     civ_entries: list[ComfyUILibraryEntry] = []
-    hf_status = "ok"
-    civ_status = "ok"
+    hf_ok = True
+    civ_ok = True
 
     try:
         hf_entries = list_huggingface_models()
     except (_requests.RequestException, ConnectionError) as exc:
         print(f"WARNING: HuggingFace catalog fetch failed: {exc}",
               file=_sys.stderr)
-        hf_status = "error"
+        hf_ok = False
     try:
         civ_entries = list_civitai_loras()
     except (_requests.RequestException, ConnectionError) as exc:
         print(f"WARNING: civitai catalog fetch failed: {exc}", file=_sys.stderr)
-        civ_status = "error"
+        civ_ok = False
 
     curated = list_curated()
     # Order matters — last wins.
-    if hf_status == "error" and civ_status == "error":
-        # Both APIs down — supplement with fallback before curated.
+    if not hf_ok and not civ_ok:
+        # Both APIs down — supplement with bundled fallback before curated.
         print("WARNING: All catalog sources unreachable; using bundled fallback.",
               file=_sys.stderr)
-        merged = _dedupe_by_name(hf_entries + civ_entries + list_fallback() + curated)
-    else:
-        merged = _dedupe_by_name(hf_entries + civ_entries + curated)
-
-    _write_cache(merged, hf_status, civ_status)
-    return merged
+        return _dedupe_by_name(
+            hf_entries + civ_entries + list_fallback() + curated
+        )
+    return _dedupe_by_name(hf_entries + civ_entries + curated)
 
 
 # ── Sidecar YAML loader ────────────────────────────────────────────────

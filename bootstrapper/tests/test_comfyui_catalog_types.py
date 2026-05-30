@@ -1,7 +1,8 @@
 """Tests for ComfyUILibraryEntry dataclass + category enum.
 
-Pins the schema that snapshot_writer, wizard, and sidecar loader all
-consume. Changes here ripple to all three.
+Pins the schema that the wizard, sidecar loader, and the
+comfyui-catalog-init container all consume. Changes here ripple to
+each of them.
 """
 from __future__ import annotations
 
