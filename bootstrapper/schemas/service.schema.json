@@ -165,6 +165,11 @@
             "type": "boolean",
             "default": false,
             "description": "If true, treated as sensitive (.env.example default is empty; never logged in plain text)."
+          },
+          "bootstrapper_only": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, this var is consumed only by the host-side bootstrapper; .env.example generator skips it."
           }
         }
       }

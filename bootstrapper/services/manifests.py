@@ -40,6 +40,7 @@ class EnvVarDecl:
     description: str = ""
     auto_managed: bool = False
     secret: bool = False
+    bootstrapper_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -293,6 +294,7 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
             description=e.get("description", ""),
             auto_managed=bool(e.get("auto_managed", False)),
             secret=bool(e.get("secret", False)),
+            bootstrapper_only=bool(e.get("bootstrapper_only", False)),
         )
         for e in raw.get("env", [])
     ]
