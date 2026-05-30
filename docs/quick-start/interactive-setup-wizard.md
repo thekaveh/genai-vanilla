@@ -185,8 +185,8 @@ same CSV. CLI flag `--comfyui-custom-models-file PATH` overrides
 the default sidecar YAML location.
 
 When the upstream HF / civitai scrape fails (rare), the wizard
-falls back to the bundled allowlist in
-`bootstrapper/utils/comfyui_library.py::FALLBACK_CATALOG`. The
+falls back to the bundled allowlist via
+`bootstrapper/utils/comfyui_library.py::list_fallback()`. The
 fallback path emits a session-log warning but the wizard remains
 usable.
 
