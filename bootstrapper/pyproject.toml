@@ -5,12 +5,10 @@ description = "GenAI Vanilla Stack bootstrapper - cross-platform startup and man
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",           # YAML parsing (replaces yq)
-    "python-dotenv>=1.2.2",  # .env file handling — floor bumped to clear CVE-2026-28684 (set_key symlink-follow)
     "rich>=13.0.0",          # Terminal colors, tables, formatting
     "click>=8.1.0",          # CLI argument parsing
-    "docker>=7.0.0",         # Docker SDK for compose operations
     "requests>=2.32.0",      # HF + civitai catalog HTTP scraping
-    "urllib3>=2.7.0",        # Explicit floor (transitive via docker, requests) — clears CVE-2026-44431/44432
+    "urllib3>=2.7.0",        # Explicit floor (transitive via requests) — clears CVE-2026-44431/44432
     "textual>=0.85",         # TUI framework — owns the wizard, launch, and streaming-logs flows
     "jsonschema>=4.0.0",     # Validates services/<name>/service.yml against bootstrapper/schemas/*
 ]
