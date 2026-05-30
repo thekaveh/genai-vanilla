@@ -115,9 +115,14 @@ ollama pull qwen3:1.7b  # Smaller model
 
 ### ComfyUI Issues
 
-**Models downloading slowly:**
+**Models downloading slowly or missing:**
 ```bash
-# Check ComfyUI init progress
+# Catalog-init UPSERTs the curated catalog + flips active=true for the
+# names in COMFYUI_USER_MODELS. If models you picked never show up, check
+# this log first — typo'd names get warned here.
+docker logs genai-comfyui-catalog-init
+
+# Check ComfyUI init progress (downloads each active row via psql + wget)
 docker logs genai-comfyui-init -f
 
 # Check ComfyUI service status
