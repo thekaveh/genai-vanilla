@@ -710,11 +710,16 @@ class ServiceConfig:
             env_vars['OLLAMA_PULL_SCALE'] = '0'
             
         # COMFYUI_INIT_SCALE: 1 unless ComfyUI is disabled (init handles both local and container)
+        # COMFYUI_CATALOG_INIT_SCALE: follows COMFYUI_INIT_SCALE — the
+        # catalog-init container UPSERTs public.comfyui_models, which is
+        # what comfyui-init reads, so they share the disabled gate.
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
         if comfyui_source == 'disabled':
             env_vars['COMFYUI_INIT_SCALE'] = '0'
+            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '0'
         else:
             env_vars['COMFYUI_INIT_SCALE'] = '1'
+            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
 
         # OPENCLAW_INIT_SCALE: follows OPENCLAW_SCALE (1 when container, 0 otherwise)
         openclaw_source = self.service_sources.get('OPENCLAW_SOURCE', 'disabled')
