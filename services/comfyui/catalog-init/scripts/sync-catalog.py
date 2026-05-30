@@ -286,11 +286,37 @@ def apply_user_models_selection(
             )
             return
 
+        # Discover which user-requested names actually exist in the
+        # catalog. ComfyUI can't auto-insert a row from just a name
+        # (the catalog needs URL + target_dir + filename — none derivable
+        # from a name alone), so unknown names are skipped with a loud
+        # stderr warning so users notice typos.
         cur.execute(
-            "UPDATE public.comfyui_models SET active = true, updated_at = now() "
-            "WHERE name = ANY(%s);",
+            "SELECT name FROM public.comfyui_models WHERE name = ANY(%s);",
             (user_models,),
         )
+        present = {r[0] for r in cur.fetchall()}
+        # Include any sidecar customs as 'present' (they were just
+        # upserted in upsert_custom_sidecar; the SELECT above sees them).
+        # Any user-requested name not present is a typo / no-longer-in-catalog
+        # name — warn but don't fail.
+        missing = sorted(set(user_models) - present)
+        if missing:
+            print(
+                "⚠️  COMFYUI_USER_MODELS entries not in catalog or sidecar; "
+                f"skipping: {', '.join(missing)}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+        # Activate the matched-known subset.
+        matched = sorted(set(user_models) & present)
+        if matched:
+            cur.execute(
+                "UPDATE public.comfyui_models SET active = true, updated_at = now() "
+                "WHERE name = ANY(%s);",
+                (matched,),
+            )
         # Deactivate everything else — but never deactivate the sidecar
         # customs (the sidecar IS the user's explicit pick for custom
         # models; falling out of the CSV is not the same as being
