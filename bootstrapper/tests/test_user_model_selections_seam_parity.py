@@ -18,6 +18,7 @@ When this test fails, either:
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -61,17 +62,27 @@ def test_user_model_selections_includes_comfyui_custom_models_file():
 
 
 def test_integration_emits_comfyui_user_models():
-    """integration.py._selections_to_args must emit a 'comfyui_user_models' key."""
+    """integration.py._selections_to_args must return a dict whose outer
+    wrapper key set includes ``comfyui_user_models`` — wizard_screen.py
+    later does ``stack_options.get("comfyui_user_models", {})`` to unpack
+    it back into the env-write call (see [[project-cli-source-flag-three-seams]]
+    seam #4). Look for the key on a Dict literal node, not a Subscript —
+    the wrapper-key lives on the returned dict at integration.py:606-614,
+    NOT on a subscript expression.
+    """
     tree = ast.parse(INTEGRATION_PY.read_text())
-    keys: set[str] = set()
+    dict_literal_keys: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
-            v = node.slice.value
-            if isinstance(v, str):
-                keys.add(v)
-    assert "comfyui_user_models" in keys, (
-        "integration.py._selections_to_args must emit a 'comfyui_user_models' key. "
-        "A commented-out reference would not satisfy this (AST-checked)."
+        if not isinstance(node, ast.Dict):
+            continue
+        for k in node.keys:
+            if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                dict_literal_keys.add(k.value)
+    assert "comfyui_user_models" in dict_literal_keys, (
+        "integration.py._selections_to_args must return a dict with key "
+        "'comfyui_user_models'. Without it, wizard_screen's "
+        "stack_options.get('comfyui_user_models') returns empty and ComfyUI "
+        "wizard selections silently never reach apply_user_model_selections."
     )
 
 
@@ -100,3 +111,47 @@ def test_wizard_screen_consumes_comfyui_user_models():
             f"in the 'Apply user model selections' lambda. Commented-out or string "
             f"literals in other contexts won't satisfy this (AST-checked)."
         )
+
+
+def test_integration_inner_keys_use_uppercase_env_var_names():
+    """integration.py builds *_user_models / cloud_api_keys dicts whose KEYS are
+    unpacked directly into apply_user_model_selections (env var names). A
+    lowercase key like ``comfyui_user_models["comfyui_user_models"]`` would
+    create a literal ``comfyui_user_models=`` line in .env instead of the
+    intended ``COMFYUI_USER_MODELS=`` — silently breaking wizard persistence
+    while CLI persistence (which constructs the dict separately in start.py)
+    still works. The bug shipped in PR #17 and was caught in the sixth-
+    convergence post-merge audit.
+
+    Rule: every string-literal subscript assignment to an env-bearing dict
+    must use UPPER_SNAKE_CASE. Variable subscripts (`dict[var]`) are skipped
+    — those carry runtime env-var names from cloud_providers config.
+    """
+    ENV_BEARING_DICTS = {
+        "ollama_user_models",
+        "comfyui_user_models",
+        "cloud_user_models",
+        "cloud_api_keys",
+    }
+    UPPER_SNAKE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+    tree = ast.parse(INTEGRATION_PY.read_text())
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Subscript):
+            continue
+        if not isinstance(node.value, ast.Name):
+            continue
+        if node.value.id not in ENV_BEARING_DICTS:
+            continue
+        slot = node.slice
+        if not (isinstance(slot, ast.Constant) and isinstance(slot.value, str)):
+            continue
+        if not UPPER_SNAKE.match(slot.value):
+            violations.append(
+                f"{node.value.id}[{slot.value!r}] at integration.py:{node.lineno} — "
+                f"key must be UPPER_SNAKE_CASE env-var name"
+            )
+    assert not violations, (
+        "Lowercase keys in env-bearing dicts silently break .env persistence:\n"
+        + "\n".join(violations)
+    )
