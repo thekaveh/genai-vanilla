@@ -1502,8 +1502,19 @@ class GenAIStackStarter:
 @click.option('--ollama-custom-models', type=str, default=None,
               help='Comma-separated extra Ollama model names to pull (not in catalog). '
                    'Persists as OLLAMA_CUSTOM_MODELS; ollama-pull fetches them at startup.')
-@click.option('--comfyui-source', 
-              type=click.Choice(['container-cpu', 'container-gpu', 'localhost', 
+@click.option('--comfyui-models',
+              help='Comma-separated catalog model names to pull for ComfyUI '
+                   '(e.g. "sdxl-base-1.0,sdxl-vae,flux1-dev-Q4_K_S"). '
+                   'Overrides wizard selection and existing COMFYUI_USER_MODELS '
+                   'in .env. Pass "" to clear. Unknown names skip with warning '
+                   '(comfyui-catalog-init logs them).')
+@click.option('--comfyui-custom-models-file',
+              type=click.Path(exists=False, dir_okay=False),
+              help='Path to a sidecar custom-models.yaml. Default: '
+                   'services/comfyui/custom-models.yaml. Override to point at '
+                   'a file outside the repo (e.g. /etc/genai/my-models.yaml).')
+@click.option('--comfyui-source',
+              type=click.Choice(['container-cpu', 'container-gpu', 'localhost',
                                 'external', 'disabled'], case_sensitive=False),
               help='Override COMFYUI_SOURCE')
 @click.option('--weaviate-source',
@@ -1583,6 +1594,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
          openai_models, anthropic_models, openrouter_models,
          ollama_models, ollama_custom_models,
+         comfyui_models, comfyui_custom_models_file,
          comfyui_source, weaviate_source, minio_source, n8n_source, searxng_source,
          jupyterhub_source, open_web_ui_source, local_deep_researcher_source,
          stt_provider_source, tts_provider_source,
@@ -1628,6 +1640,10 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             user_model_selections['OLLAMA_USER_MODELS'] = ollama_models
         if ollama_custom_models is not None:
             user_model_selections['OLLAMA_CUSTOM_MODELS'] = ollama_custom_models
+        if comfyui_models is not None:
+            user_model_selections['COMFYUI_USER_MODELS'] = comfyui_models
+        if comfyui_custom_models_file is not None:
+            user_model_selections['COMFYUI_CUSTOM_MODELS_FILE'] = comfyui_custom_models_file
 
         # Warn on cloud --*-models flags passed WITHOUT enabling the
         # provider. llm-catalog-init deactivates every row of a disabled
@@ -1659,6 +1675,22 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     f"persisted list won't take effect. Pass --{_provider}-api-key, "
                     f"--cloud-{_provider}-source=enabled, or set {_source_var}=enabled "
                     f"in .env.",
+                    file=sys.stderr,
+                )
+
+        # Warn if user passed --comfyui-models but COMFYUI_SOURCE isn't container.
+        if comfyui_models is not None:
+            _comfyui_source = (
+                comfyui_source
+                or _existing_env.get('COMFYUI_SOURCE', 'disabled')
+                or ''
+            ).strip().lower()
+            if not _comfyui_source.startswith('container-'):
+                print(
+                    f"⚠️  --comfyui-models was set but COMFYUI_SOURCE={_comfyui_source} — "
+                    f"the comfyui-catalog-init container won't run, so the selection "
+                    f"won't take effect. Pass --comfyui-source=container-cpu (or -gpu) "
+                    f"first.",
                     file=sys.stderr,
                 )
 

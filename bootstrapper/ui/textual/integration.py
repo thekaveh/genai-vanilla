@@ -22,6 +22,11 @@ from textual.binding import Binding
 
 _THEME_PATH = Path(__file__).parent / "theme.css"
 
+# Wizard step title for ComfyUI model multiselect (T15 will declare a
+# matching constant in comfyui_steps.py; integration.py declares it here
+# so the plumbing is self-contained until that step module exists).
+COMFYUI_MODELS_TITLE = "ComfyUI  ·  models"
+
 
 # Module-level sink for wizard-time diagnostic warnings (cloud /v1/models
 # fetch failures, etc.). The WizardScreen populates this with a thin
@@ -548,6 +553,17 @@ def _selections_to_args(
         else:
             ollama_user_models["OLLAMA_CUSTOM_MODELS"] = custom
 
+    # ComfyUI model multiselect — parallel to the Ollama models block
+    # above. The wizard step (declared in T15) writes a set under
+    # COMFYUI_MODELS_TITLE; we convert it to a sorted CSV here so
+    # apply_user_model_selections can persist it as COMFYUI_USER_MODELS.
+    comfyui_user_models: dict = {}
+    comfyui_models_v = selections.get(COMFYUI_MODELS_TITLE, set())
+    if comfyui_models_v:
+        out_names = sorted(comfyui_models_v) if isinstance(comfyui_models_v, set) else \
+            sorted({n.strip() for n in str(comfyui_models_v).split(",") if n.strip()})
+        comfyui_user_models["comfyui_user_models"] = ",".join(out_names)
+
     # Ray external-address cascade — still a text cascade because the
     # value is a URL, not an integer (out of v1 scope for the inline
     # secondary widget). Worker count comes through the
@@ -584,6 +600,7 @@ def _selections_to_args(
         "cloud_api_keys": cloud_api_keys,
         "cloud_user_models": cloud_user_models,
         "ollama_user_models": ollama_user_models,
+        "comfyui_user_models": comfyui_user_models,
     }
 
 
