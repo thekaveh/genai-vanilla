@@ -2,7 +2,7 @@
 
 The GenAI Vanilla Stack includes an interactive Textual TUI wizard that guides you through configuring all services step by step. It launches automatically when you run `./start.sh` with no arguments.
 
-## Quick Start
+## 1. Quick Start
 
 ```bash
 ./start.sh
@@ -10,7 +10,7 @@ The GenAI Vanilla Stack includes an interactive Textual TUI wizard that guides y
 
 That's it. The wizard handles everything from there.
 
-## Step Order
+## 2. Step Order
 
 The wizard's question order isn't fixed — service-source steps are sorted by each service's resolved port (so the wizard's order matches the stack-overview panel beside it), with the LLM cluster spliced in immediately after the LLM Engine step. The shape is roughly:
 
@@ -32,7 +32,7 @@ last   Confirm — Launch the stack with this configuration?
 
 Steps gated by `skip_if_prev` predicates simply vanish from the flow when their precondition isn't met (e.g. each cloud key/model pair only renders when its `CLOUD_*_SOURCE` is `enabled` after the prior secret step; Ollama variant steps only render when `LLM_PROVIDER_SOURCE` is an `ollama-*` value).
 
-## Prompt Kinds
+## 3. Prompt Kinds
 
 Each wizard step renders one of five prompt widgets, picked based on the question type:
 
@@ -46,15 +46,15 @@ Each wizard step renders one of five prompt widgets, picked based on the questio
 
 Throughout: `Up/Down` to move, `Enter` to confirm, `Space` to toggle multiselect rows, `Esc` returns to the previous step, `Ctrl+C` (or `Ctrl+Q`) quits.
 
-## LLM Cluster Steps in Detail
+## 4. LLM Cluster Steps in Detail
 
-### LLM Engine (single-select)
+### 4.1. LLM Engine (single-select)
 
 `LLM_PROVIDER_SOURCE` choice — `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, or `none` (cloud-only). LiteLLM is locked / always-on and is **not** a separate prompt — it's the mandatory front door for every LLM consumer.
 
 The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud provider is `disabled` — that combination would leave LiteLLM with nothing to route to.
 
-### Ollama  ·  models (multiselect)
+### 4.2. Ollama  ·  models (multiselect)
 
 A single unified multi-select shown for every `ollama-*` source. The option list is **source-aware**:
 
@@ -108,11 +108,11 @@ The default-active baseline is already activated in `public.llms` from `08-seed-
 - **First visit** (`OLLAMA_USER_MODELS` empty): the wizard pre-checks the default-active baseline (`default_active_names("ollama")` → `qwen3.6:latest`, `qwen3-embedding:0.6b`, `nomic-embed-text`). The user sees the baseline already ticked.
 - **Subsequent visit** (`OLLAMA_USER_MODELS` set): the saved selection is restored, intersected with the visible options. Names no longer in the merged list are dropped silently.
 
-### Ollama  ·  additional models to pull (text)
+### 4.3. Ollama  ·  additional models to pull (text)
 
 Shown only for `ollama-container-*` sources. Free-text comma-separated list, e.g. `mistral:7b,phi4:latest`. Used when an entry isn't surfaced by the library scrape but you still want it pulled at startup. Persists as `OLLAMA_CUSTOM_MODELS`.
 
-### Cloud key + model pairs (secret + multiselect)
+### 4.4. Cloud key + model pairs (secret + multiselect)
 
 Each enabled cloud provider gets two consecutive steps:
 
@@ -126,11 +126,71 @@ Each enabled cloud provider gets two consecutive steps:
 
 If the live fetch fails (network outage, key rejected, 5xx), the wizard falls back to the curated catalog so you can still proceed; the failure reason appears in the launch log (see [Troubleshooting](troubleshooting.md)).
 
-### Splash + cache + back-invalidation
+### 4.5. Splash + cache + back-invalidation
 
 Live fetches run in a background worker so the wizard stays responsive (Esc still works). While the request is in flight, the multiselect renders a single `⏳ Fetching <provider> models…` row (the **fetch splash**). Once data arrives, the splash is replaced with the real options. The fetched list is cached for the lifetime of the wizard process and re-used if you navigate forward and back. Pressing **Esc** to return to a prior step **invalidates** the cache for any provider step at or after the new position AND bumps a generation counter so any in-flight worker that has since become stale silently drops its result instead of polluting the now-empty cache. Re-entry triggers a fresh fetch with the (possibly updated) key.
 
-## Stack Options
+## 5. ComfyUI Model Picker
+
+`ComfyUI  ·  models` — a multiselect step parallel to the Ollama
+models step, shown for every non-`disabled` `COMFYUI_SOURCE`
+(`container-cpu` / `container-gpu` / `localhost` / `external`).
+The wizard's catalog is sourced from `bootstrapper/utils/comfyui_library.py`,
+which merges a curated allowlist (covering popular Image,
+Image-edit, Video, Audio, and 3D models) with the optional
+`services/comfyui/custom-models.yaml` sidecar.
+
+Each row carries:
+
+- **Family chip** — `[image]` / `[image-edit]` / `[video]` /
+  `[audio]` / `[3d]` / `[Custom]` for sidecar-YAML entries.
+- **Status badges** — `[pulled]` (model file already on disk under
+  `services/comfyui/data/<target_dir>/`, only meaningful for
+  container modes), `[library]` (catalog-only — not yet downloaded).
+- **Capability hints** — `[gpu]` if `min_vram_gb > 0`, `⚠ <node>`
+  if the model requires a ComfyUI-Manager custom node (the warning
+  badge is informational only; node installation is a manual step
+  pending the [custom-node auto-install follow-up](../CHANGELOG.md)).
+
+**Filter chips** below the search box: `Filter  [ALL]  image  image-edit  video  audio  3d`.
+Press **`f`** to cycle the chips from the keyboard (or click). The
+chip filter and the search box stack — a row must match both the
+active chip AND the search substring to render.
+
+**Search box** above the chips, behaving identically to the
+Ollama picker's search: **`Tab`** or **`/`** to focus, type to
+narrow, **`Tab`** / **`Enter`** / **`Esc`** to return focus to the
+option list.
+
+**Source-aware behaviour** — the picker fires for all non-`disabled`
+ComfyUI sources, but the downstream init pipeline branches:
+
+- **`container-cpu` / `container-gpu`** — `comfyui-init` wgets every
+  `active = true` row from `public.comfyui_models` into the
+  container's models volume on startup. Selections persist to
+  `COMFYUI_USER_MODELS` and arrive after `comfyui-catalog-init`
+  has flipped the corresponding rows active.
+- **`localhost` / `external`** — `comfyui-init` is scaled to 0
+  (the wget container would write into a path the host ComfyUI
+  doesn't read), but `comfyui-catalog-init` still scales to 1 so
+  `public.comfyui_models` gets the active set populated for the
+  backend `/comfyui/db/models` endpoint that Open WebUI and n8n
+  consume. You populate your host ComfyUI install's
+  `models/<target_dir>/` directory yourself, same as
+  `ollama pull <name>` for an Ollama localhost upstream.
+
+Selection persists as `COMFYUI_USER_MODELS` (comma-separated
+catalog names) in `.env`. CLI flag `--comfyui-models` accepts the
+same CSV. CLI flag `--comfyui-custom-models-file PATH` overrides
+the default sidecar YAML location.
+
+When the upstream HF / civitai scrape fails (rare), the wizard
+falls back to the bundled allowlist in
+`bootstrapper/utils/comfyui_library.py::FALLBACK_CATALOG`. The
+fallback path emits a session-log warning but the wizard remains
+usable.
+
+## 6. Stack Options
 
 After service configuration, the wizard prompts for:
 
@@ -138,7 +198,7 @@ After service configuration, the wizard prompts for:
 - **Cold start** option to remove volumes and rebuild from scratch.
 - **Hosts file configuration** to enable friendly URLs like `chat.localhost` and `n8n.localhost`.
 
-## Pre-Launch Summary
+## 7. Pre-Launch Summary
 
 Before launching, a configuration summary inside the same anchored info-box shows:
 
@@ -149,7 +209,7 @@ Before launching, a configuration summary inside the same anchored info-box show
 
 You confirm to launch (the **Launch the stack with this configuration?** step is the wizard's final question), or cancel to exit without changes.
 
-## Streaming Logs
+## 8. Streaming Logs
 
 After confirmation, the wizard transitions in-place from prompts to the launch phase:
 
@@ -159,7 +219,7 @@ After confirmation, the wizard transitions in-place from prompts to the launch p
 - The full launch-phase output is also tee'd to `/tmp/genai-vanilla-launch-<timestamp>.log` for post-mortem inspection. See [Troubleshooting](troubleshooting.md#launch-log).
 - Press `Ctrl+Q` to detach cleanly from the wizard UI. `Ctrl+C` sends SIGINT — fine after services are up (already-detached compose containers keep running) but during the launch pipeline it may interrupt a compose step mid-flight, leaving the stack in a partial state. Either way, services that have finished starting keep running; resume log streaming with `docker compose logs -f <service>`.
 
-## Navigation
+## 9. Navigation
 
 | Key | Action |
 |-----|--------|
@@ -169,11 +229,11 @@ After confirmation, the wizard transitions in-place from prompts to the launch p
 | `Esc` | Return to the previous step (and from the first step, exit) |
 | `Ctrl+Q` | Quit the wizard |
 
-## Progress Tracking
+## 10. Progress Tracking
 
 A progress bar at the top of each screen shows how far you are through the configuration process. It starts at 0% and reaches 100% after all steps (services + stack options) are completed.
 
-## When to Use the Wizard vs CLI Flags
+## 11. When to Use the Wizard vs CLI Flags
 
 | Scenario | Approach |
 |----------|----------|
@@ -183,7 +243,7 @@ A progress bar at the top of each screen shows how far you are through the confi
 | CI/CD or scripted deployments | CLI flags or `.env` file |
 | Repeating a previous configuration | CLI flags (copy from wizard's command preview) |
 
-## Relationship to .env and CLI Flags
+## 12. Relationship to .env and CLI Flags
 
 The wizard reads your current `.env` values as defaults and produces the same `--*-source` overrides that CLI flags would. After confirmation, these overrides are applied to `.env` and the stack launches normally.
 
@@ -191,7 +251,7 @@ The wizard reads your current `.env` values as defaults and produces the same `-
 - **CLI flags always skip the wizard** and apply directly
 - **Any flag** (including `--cold`, `--base-port`, etc.) skips the wizard
 
-## Requirements
+## 13. Requirements
 
 The TUI uses two Python libraries — both included in `bootstrapper/pyproject.toml`:
 
@@ -200,7 +260,7 @@ The TUI uses two Python libraries — both included in `bootstrapper/pyproject.t
 
 Python ≥ 3.10 is required (see `bootstrapper/pyproject.toml`). The wizard automatically falls back to the linear stdout flow when `stdin` isn't a TTY, when the terminal is too small to host the Textual app, or when the user passes `--no-tui`. In that mode `./start.sh` prints a pre-launch summary table and streams docker compose output directly.
 
-## Brand Customization
+## 14. Brand Customization
 
 The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the GenAI Vanilla project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
 
@@ -216,7 +276,7 @@ BRAND_REPO_URL=https://github.com/thekaveh/genai-vanilla
 
 Empty values fall back to the canonical defaults (encoded in `bootstrapper/ui/state.py::AppState`). See `.env.example` for the latest documented block.
 
-## Configurable Services
+## 15. Configurable Services
 
 The wizard automatically discovers all configurable services from each `services/<name>/service.yml` manifest. Currently these include:
 
@@ -237,7 +297,7 @@ The wizard automatically discovers all configurable services from each `services
 | SearxNG | container, disabled |
 | JupyterHub | container, disabled |
 
-### Cloud LLM providers (not auto-discovered)
+### 15.1. Cloud LLM providers (not auto-discovered)
 
 OpenAI, Anthropic, and OpenRouter are **not** regular services — they don't run as containers (`scale: 0` in the `services/cloud-providers/service.yml` virtual manifest). Instead, the wizard injects them via `bootstrapper/wizard/llm_steps.py:build_cloud_steps` as bespoke (secret + multiselect) pairs spliced after the LLM Engine step:
 
@@ -251,11 +311,11 @@ Source toggles are persisted as `CLOUD_OPENAI_SOURCE` / `CLOUD_ANTHROPIC_SOURCE`
 
 New services added under `services/<name>/` with a `service.yml` manifest (and included in `docker-compose.yml`'s `include:` list) are automatically picked up by the wizard.
 
-## Dependency Validation
+## 16. Dependency Validation
 
 The wizard validates service dependencies in real time. For example, if you enable n8n but disable Weaviate (which n8n requires), the wizard warns you and offers to either enable the dependency or disable the dependent service. The same machinery enforces the "LiteLLM must have an upstream" rule (LLM Engine != `none`, or at least one cloud provider is `enabled`).
 
-## Hosts File Setup
+## 17. Hosts File Setup
 
 The hosts file configuration step enables friendly URLs routed through Kong API Gateway:
 
