@@ -13,6 +13,7 @@ comfyui-catalog-init populates public.comfyui_models.
 """
 from __future__ import annotations
 
+import functools
 import shutil
 import subprocess
 import sys
@@ -55,6 +56,7 @@ class _ComfyUIOption:
     checked: bool   # True → pre-selected in the wizard's default_values
 
 
+@functools.lru_cache(maxsize=1)
 def _detect_gpu_memory_gb() -> float | None:
     """Best-effort GPU memory detection via nvidia-smi.
 
@@ -142,6 +144,7 @@ def _merged_comfyui_options(
     pulled_names: set[str],
     default_selected: set[str],
     gpu_mem_gb: float | None = None,
+    warn: Callable[[str], None] | None = None,
 ) -> list[_ComfyUIOption]:
     """Build the wizard's option list.
 
@@ -151,6 +154,7 @@ def _merged_comfyui_options(
         pulled_names: from _scan_pulled() — filenames present on disk
         default_selected: parsed from COMFYUI_USER_MODELS env
         gpu_mem_gb: from _detect_gpu_memory_gb() — None = CPU-only / unknown
+        warn: optional callback for warnings; if None, prints to stderr
     """
     all_entries = list(catalog) + list(sidecar)
     by_name: dict[str, ComfyUILibraryEntry] = {e.name: e for e in all_entries}
@@ -158,11 +162,12 @@ def _merged_comfyui_options(
     # Warn on unresolved defaults — same pattern as integration.py for Ollama.
     for n in default_selected:
         if n not in by_name:
-            print(
-                f"⚠️  COMFYUI_USER_MODELS entry {n!r} not found in catalog "
-                f"or sidecar; ignoring.",
-                file=sys.stderr,
-            )
+            msg = (f"COMFYUI_USER_MODELS entry {n!r} not found in catalog "
+                   f"or sidecar; ignoring.")
+            if warn is not None:
+                warn(msg)
+            else:
+                print(f"⚠️  {msg}", file=sys.stderr)
 
     options: list[_ComfyUIOption] = []
     for entry in all_entries:
@@ -271,6 +276,7 @@ def build_comfyui_steps(
             pulled_names=pulled,
             default_selected=existing_names,
             gpu_mem_gb=gpu_mem,
+            warn=_warn,
         )
         return [_to_prompt_option(o) for o in raw]
 
