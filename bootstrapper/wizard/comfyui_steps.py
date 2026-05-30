@@ -185,9 +185,13 @@ def _merged_comfyui_options(
         # Hint = space-joined badge text (rendered on the row's second line).
         # Also used by tests via o.hint to surface badges.
         hint = " ".join(badges)
-        # For filter chip matching, include the display group as a badge
-        # so the panel's "tag not in opt.badges" filter works.
-        full_badges = [group] + badges
+        # For filter chip matching, prepend the display group as a badge.
+        # MUST be lowercase: the chip widget lowercases active tags
+        # (multiselect_filter_chips.py:132) and prompt_panel.py compares
+        # the lowercased tag against opt.badges. A Title-Case badge would
+        # never match and the filter would exclude every row — see
+        # test_group_badge_is_lowercase_for_filter_chip_matching.
+        full_badges = [group.lower()] + badges
         options.append(_ComfyUIOption(
             value=entry.name,
             label=entry.name,

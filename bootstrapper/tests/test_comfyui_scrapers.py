@@ -102,3 +102,47 @@ def test_parse_hf_unknown_category_raises():
 def test_parse_civitai_unknown_category_raises():
     with pytest.raises(ValueError):
         _parse_civitai_response({"items": []}, category="not-a-category")
+
+
+# ─── Live-API request shape ───────────────────────────────────────────
+# HF's /api/models endpoint returns lightweight model cards WITHOUT a
+# ``siblings[]`` array unless the request asks for full metadata via
+# ``full=true``. Without siblings, ``_pick_primary_file`` returns None
+# for every entry and the entire HF tier of the catalog silently
+# collapses to zero entries — which is exactly what was happening in
+# production until the post-PR-#20 wizard screenshot exposed it.
+# This test pins the request shape so the regression class can't recur.
+
+def test_list_huggingface_models_requests_full_metadata(monkeypatch):
+    """list_huggingface_models() must pass ``full=true`` (or boolean True)
+    on every HF API call. Without it, the response carries no siblings
+    array and ``_pick_primary_file`` drops every entry — silently."""
+    from utils import comfyui_library
+
+    captured_params: list[dict] = []
+
+    class _FakeResp:
+        def __init__(self) -> None:
+            self._json: list = []
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> list:
+            return self._json
+
+    def _fake_get(_url, params=None, timeout=None):  # noqa: ARG001
+        captured_params.append(dict(params or {}))
+        return _FakeResp()
+
+    monkeypatch.setattr(comfyui_library._requests, "get", _fake_get)
+    comfyui_library.list_huggingface_models()
+
+    assert captured_params, "list_huggingface_models made zero HTTP calls"
+    for params in captured_params:
+        full = params.get("full")
+        assert full in (True, "true", "True"), (
+            f"HF request missing `full=true`: {params!r}. "
+            f"Without it the siblings[] array is empty and _pick_primary_file "
+            f"drops every entry."
+        )

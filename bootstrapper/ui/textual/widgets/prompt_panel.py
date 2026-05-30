@@ -972,7 +972,14 @@ class PromptPanel(Container):
         tag = (self._filter_tag or FILTER_ALL_KEY).strip().lower()
         query = (self._search_query or "").strip().lower()
         for i, opt in enumerate(self._step.options):
-            if tag != FILTER_ALL_KEY and tag not in opt.badges:
+            # Case-insensitive badge match: the chip widget already
+            # lowercases ``tag`` (above), but ``opt.badges`` may carry
+            # Title-Case display strings emitted by upstream picker code
+            # (e.g. ComfyUI's "Image" / "Image-edit" / "3D" groups).
+            # Defense-in-depth so a future picker emitting mixed-case
+            # badges doesn't silently filter every row out — see
+            # test_filter_chip_match_is_case_insensitive.
+            if tag != FILTER_ALL_KEY and tag not in {b.lower() for b in opt.badges}:
                 continue
             # Substring filter against the model name (case-insensitive).
             # Empty query matches everything. Matched against
