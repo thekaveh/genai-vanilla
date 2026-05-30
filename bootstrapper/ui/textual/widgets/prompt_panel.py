@@ -156,6 +156,19 @@ def _row_is_checked(row_value: str, checked: set[str]) -> bool:
     return any(v.startswith(prefix) for v in checked)
 
 
+def _row_is_checked_comfyui(opt_sizes: tuple[str, ...], checked: set[str]) -> bool:
+    """ComfyUI variant-tree parent-checked aggregate.
+
+    Each tag in ``opt_sizes`` is a full catalog name (e.g.
+    ``microsoft--TRELLIS-image-large``). The parent is considered
+    checked if ANY of its variants is in the selection set. The
+    Ollama ``_row_is_checked`` prefix-match doesn't fit because
+    ComfyUI parents use a synthetic family-root value (e.g.
+    ``TRELLIS``) that isn't a substring of the leaf values.
+    """
+    return any(v in checked for v in opt_sizes)
+
+
 def _row_variants(row_value: str, checked: set[str]) -> frozenset[str]:
     """Tags currently selected for ``row_value`` in ``checked``.
 
@@ -252,6 +265,14 @@ class PromptOption:
     # the label and the badges. When None (the default), the row renders
     # via the plain OptionRow. See SecondaryNumberInput for semantics.
     secondary_number: "SecondaryNumberInput | None" = None
+    # ComfyUI variant-tree extension: when present, each tag in
+    # ``sizes`` MUST appear here as a (display_label, leaf_badges)
+    # tuple. The panel uses these for leaf rendering instead of the
+    # Ollama parent:tag format, treats the tag as the full selection
+    # identity (not prefixed with parent.value), and suppresses the
+    # synthetic ``_LATEST_TAG`` row at the head of every expansion.
+    # Empty dict ⇒ Ollama-style tree (default).
+    leaf_details: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -657,9 +678,18 @@ class PromptPanel(Container):
             # doesn't have a default-active model pulled) is silently
             # dropped so it doesn't leak into the saved CSV.
             visible_row_names = {opt.value for opt in step.options}
+            # Pre-build a set of ComfyUI leaf names so defaults like
+            # ``microsoft--TRELLIS-image-large`` (a leaf inside the
+            # synthetic ``TRELLIS`` family parent) still pre-check.
+            comfyui_leaf_names: set[str] = set()
+            for opt in step.options:
+                if opt.leaf_details:
+                    comfyui_leaf_names.update(opt.sizes)
 
             def _maps_to_visible_row(v: str) -> bool:
                 if v in visible_row_names:
+                    return True
+                if v in comfyui_leaf_names:
                     return True
                 if ":" in v:
                     return v.split(":", 1)[0] in visible_row_names
@@ -1032,8 +1062,17 @@ class PromptPanel(Container):
                     # pulled variants not in that set (so the host's
                     # real inventory is always represented even before
                     # the detail-page worker lands).
+                    #
+                    # For ComfyUI parents (leaf_details present) skip
+                    # the synthetic _LATEST_TAG row — there's no
+                    # "model-maker default" concept; every variant tag
+                    # in ``opt.sizes`` is already a full catalog name.
                     seen = set()
-                    for v in (_LATEST_TAG, *opt.sizes):
+                    iter_tags = (
+                        opt.sizes if opt.leaf_details
+                        else (_LATEST_TAG, *opt.sizes)
+                    )
+                    for v in iter_tags:
                         seen.add(v)
                         out.append(_VisibleRow(
                             kind="leaf", abs_idx=i,
@@ -1069,6 +1108,14 @@ class PromptPanel(Container):
         only signal.
         """
         tag = vrow.variant or ""
+        # ComfyUI variant-tree: leaf_details supplies a pre-computed
+        # (label, badges) tuple per tag. Bypass Ollama's parent:tag
+        # format + detail-cache machinery entirely.
+        if opt.leaf_details and tag in opt.leaf_details:
+            label, leaf_badges = opt.leaf_details[tag]
+            # Empty size_label — badges (including size) are already
+            # in leaf_badges; the size column on line 2 stays blank.
+            return label, "", list(leaf_badges)
         full_name = f"{vrow.parent_value}:{tag}"
         detail_entry = None
         cached = self._variant_cache.get(vrow.parent_value)
@@ -1209,11 +1256,24 @@ class PromptPanel(Container):
             is_focus = entry["is_focus"]
             vrow = entry["vrow"]
             if kind == "parent":
-                row_checked = _row_is_checked(opt.value, self._checked_values)
-                row_variants = (
-                    _row_variants(opt.value, self._checked_values)
-                    if row_checked else frozenset()
-                )
+                if opt.leaf_details:
+                    # ComfyUI: aggregate over the full variant names
+                    # in opt.sizes (parent value is a synthetic family
+                    # root that doesn't appear in _checked_values).
+                    row_checked = _row_is_checked_comfyui(
+                        opt.sizes, self._checked_values,
+                    )
+                    row_variants = (
+                        frozenset(v for v in opt.sizes
+                                  if v in self._checked_values)
+                        if row_checked else frozenset()
+                    )
+                else:
+                    row_checked = _row_is_checked(opt.value, self._checked_values)
+                    row_variants = (
+                        _row_variants(opt.value, self._checked_values)
+                        if row_checked else frozenset()
+                    )
                 # Expand-indicator state: parents are expandable when
                 # ollama.com lists multiple sizes OR when the host has
                 # pulled any variant (custom builds appear as a leaf
@@ -1260,7 +1320,15 @@ class PromptPanel(Container):
                 full_name = entry["full_name"]
                 size_label = entry["size_label"]
                 leaf_badges = entry["leaf_badges"]
-                leaf_value = vrow.identity()
+                # ComfyUI leaves use the variant tag directly as the
+                # selection identity (the variant IS a full catalog
+                # name like ``microsoft--TRELLIS-image-large``);
+                # Ollama leaves use the parent:tag identity.
+                opt_for_leaf = self._step.options[vrow.abs_idx]
+                if opt_for_leaf.leaf_details:
+                    leaf_value = vrow.variant or ""
+                else:
+                    leaf_value = vrow.identity()
                 leaf_checked = (
                     leaf_value in self._checked_values
                     or (vrow.variant == _LATEST_TAG
@@ -1604,7 +1672,18 @@ class PromptPanel(Container):
 
         # Branch on row kind.
         if vrow is not None and vrow.kind == "leaf":
-            self._toggle_leaf(vrow.parent_value, vrow.variant or "")
+            # ComfyUI leaf: variant IS the full selection identity, so
+            # skip the Ollama parent:tag composition. Toggle the
+            # variant directly in _checked_values.
+            opt_for_leaf = self._step.options[vrow.abs_idx]
+            if opt_for_leaf.leaf_details:
+                variant = vrow.variant or ""
+                if variant in self._checked_values:
+                    self._checked_values.discard(variant)
+                else:
+                    self._checked_values.add(variant)
+            else:
+                self._toggle_leaf(vrow.parent_value, vrow.variant or "")
             # Re-render: parent's aggregate checkbox + line-2 colour
             # may have changed too, so refresh the whole visible list.
             self._mount_visible_rows(restore_identity=vrow.identity())
@@ -1624,13 +1703,14 @@ class PromptPanel(Container):
                 self._expanded.discard(opt.value)
             else:
                 self._expanded.add(opt.value)
-                # Trigger an async fetch of the detail page so we can
-                # surface real variants (incl. non-param ones like
-                # ``27b-coding-mxfp8``) with their real sizes and
-                # per-variant capabilities. While the fetch is in
-                # flight ``_rebuild_visible`` shows a single
-                # ``__loading__`` splash leaf under the parent.
-                self._ensure_variants_loaded(opt.value)
+                if not opt.leaf_details:
+                    # Ollama: trigger an async fetch of the detail page
+                    # so we can surface real variants (incl. non-param
+                    # ones like ``27b-coding-mxfp8``) with their real
+                    # sizes and per-variant capabilities. ComfyUI
+                    # parents already carry full per-leaf data in
+                    # ``leaf_details`` — no network fetch needed.
+                    self._ensure_variants_loaded(opt.value)
             self._mount_visible_rows(restore_identity=opt.value)
             return
 

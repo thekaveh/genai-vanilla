@@ -138,6 +138,55 @@ def _family_from_id(model_id: str) -> str:
     return name.replace("_", "-").title()
 
 
+def _family_root(entry_name: str, source: str) -> str:
+    """Extract the family root for grouping the wizard's option list.
+
+    Only HF entries participate in family grouping — civitai numeric
+    IDs (``civitai-264290``), hand-picked curated entries, and
+    user-supplied sidecar entries always stay flat (the family-root
+    return is the empty string, which the wizard treats as "no
+    family", keeping the entry as a singleton row).
+
+    For HF entries (name shape ``owner--repo``) the root is the
+    leading run of letters of the repo portion:
+
+    | name                              | root        |
+    | --------------------------------- | ----------- |
+    | microsoft--TRELLIS-image-large    | TRELLIS     |
+    | microsoft--TRELLIS.2-4B           | TRELLIS     |
+    | gqk--TRELLIS-image-large-fork     | TRELLIS     |
+    | tencent--Hunyuan3D-2              | Hunyuan     |
+    | yyfz233--Pi3                      | Pi          |
+    | yyfz233--Pi3X                     | Pi          |
+    | stabilityai--stable-diffusion-xl  | stable      |
+
+    Trade-off: ``stable`` over-groups SDXL / SD 1.5 / Stable-Cascade /
+    Stable-Video; the wizard accepts this in exchange for catching
+    the much more common case (TRELLIS, Hunyuan, Pi, etc.) without
+    a per-model curated map.
+    """
+    if source != "huggingface":
+        return ""
+    if "--" not in entry_name:
+        return ""
+    _, repo = entry_name.split("--", 1)
+
+    # Leading-letters extraction with a camel-case stop. A
+    # capital-then-lowercase prefix (``Hunyuan``, ``Tripo``, ``Pi``)
+    # terminates at the NEXT capital so that ``HunyuanImage`` groups
+    # with ``Hunyuan3D`` under the same ``Hunyuan`` root instead of
+    # falling into its own ``HunyuanImage`` family. Pure all-caps
+    # tokens (``TRELLIS``, ``VGGT``) and pure-lowercase prefixes
+    # (``stable``) are unaffected — both run until the first
+    # non-letter character.
+    import re as _re
+    camel = _re.match(r"^([A-Z][a-z]+)", repo)
+    if camel:
+        return camel.group(1)
+    leading = _re.match(r"^([A-Za-z]+)", repo)
+    return leading.group(1) if leading else ""
+
+
 def _custom_nodes_from_tags(tags: list[str]) -> tuple[str, ...]:
     nodes: list[str] = []
     for t in tags:
