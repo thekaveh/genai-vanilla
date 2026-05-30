@@ -66,3 +66,24 @@ def test_integration_emits_comfyui_user_models():
     assert "comfyui_user_models" in raw, (
         "integration.py._selections_to_args must emit a 'comfyui_user_models' key."
     )
+
+
+def test_wizard_screen_consumes_comfyui_user_models():
+    """The wizard's 'Apply user model selections' lambda must unpack
+    comfyui_user_models from stack_options, parallel to how it unpacks
+    cloud_user_models and ollama_user_models.
+
+    Without this, wizard-driven ComfyUI selections silently drop on
+    confirm — the P1 bug fixed alongside this test.
+    """
+    WIZARD_SCREEN = REPO_ROOT / "bootstrapper" / "ui" / "textual" / "screens" / "wizard_screen.py"
+    raw = WIZARD_SCREEN.read_text()
+    # The dict-merge pattern: each model-selection bucket appears as
+    # **((self._stack_options or {}).get("<key>", {}) or {})
+    for key in ("cloud_user_models", "ollama_user_models", "comfyui_user_models"):
+        marker = f'"{key}"'
+        assert marker in raw, (
+            f"wizard_screen.py must unpack {marker} from stack_options "
+            f"in the 'Apply user model selections' lambda. Without it, "
+            f"wizard selections for that bucket silently drop."
+        )

@@ -1316,6 +1316,7 @@ class WizardScreen(Screen):
              lambda: starter.apply_user_model_selections({
                  **((self._stack_options or {}).get("cloud_user_models", {}) or {}),
                  **((self._stack_options or {}).get("ollama_user_models", {}) or {}),
+                 **((self._stack_options or {}).get("comfyui_user_models", {}) or {}),
              })),
             ("Validate source configurations",
              starter.validate_source_configurations),
