@@ -40,6 +40,13 @@ class EnvVarDecl:
     description: str = ""
     auto_managed: bool = False
     secret: bool = False
+    # Scaffold field (no live consumer as of 2026-05-30). Original use case
+    # was COMFYUI_CATALOG_CACHE_DIR (PR #17 T9), which was deleted in the
+    # same PR's architectural pivot before the flag could be retired with
+    # it. Kept as documented infrastructure for future bootstrapper-side
+    # env vars that must not appear in .env.example — the assembler filter
+    # in env_assembler.py and the synthetic-manifest tests at
+    # test_env_example_bootstrapper_only.py keep the contract honest.
     bootstrapper_only: bool = False
 
 
