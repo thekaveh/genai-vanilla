@@ -48,13 +48,13 @@ Throughout: `Up/Down` to move, `Enter` to confirm, `Space` to toggle multiselect
 
 ## 4. LLM Cluster Steps in Detail
 
-### 4.1. LLM Engine (single-select)
+### 4.1 LLM Engine (single-select)
 
 `LLM_PROVIDER_SOURCE` choice — `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, or `none` (cloud-only). LiteLLM is locked / always-on and is **not** a separate prompt — it's the mandatory front door for every LLM consumer.
 
 The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud provider is `disabled` — that combination would leave LiteLLM with nothing to route to.
 
-### 4.2. Ollama  ·  models (multiselect)
+### 4.2 Ollama  ·  models (multiselect)
 
 A single unified multi-select shown for every `ollama-*` source. The option list is **source-aware**:
 
@@ -108,11 +108,11 @@ The default-active baseline is already activated in `public.llms` from `08-seed-
 - **First visit** (`OLLAMA_USER_MODELS` empty): the wizard pre-checks the default-active baseline (`default_active_names("ollama")` → `qwen3.6:latest`, `qwen3-embedding:0.6b`, `nomic-embed-text`). The user sees the baseline already ticked.
 - **Subsequent visit** (`OLLAMA_USER_MODELS` set): the saved selection is restored, intersected with the visible options. Names no longer in the merged list are dropped silently.
 
-### 4.3. Ollama  ·  additional models to pull (text)
+### 4.3 Ollama  ·  additional models to pull (text)
 
 Shown only for `ollama-container-*` sources. Free-text comma-separated list, e.g. `mistral:7b,phi4:latest`. Used when an entry isn't surfaced by the library scrape but you still want it pulled at startup. Persists as `OLLAMA_CUSTOM_MODELS`.
 
-### 4.4. Cloud key + model pairs (secret + multiselect)
+### 4.4 Cloud key + model pairs (secret + multiselect)
 
 Each enabled cloud provider gets two consecutive steps:
 
@@ -126,7 +126,7 @@ Each enabled cloud provider gets two consecutive steps:
 
 If the live fetch fails (network outage, key rejected, 5xx), the wizard falls back to the curated catalog so you can still proceed; the failure reason appears in the launch log (see [Troubleshooting](troubleshooting.md)).
 
-### 4.5. Splash + cache + back-invalidation
+### 4.5 Splash + cache + back-invalidation
 
 Live fetches run in a background worker so the wizard stays responsive (Esc still works). While the request is in flight, the multiselect renders a single `⏳ Fetching <provider> models…` row (the **fetch splash**). Once data arrives, the splash is replaced with the real options. The fetched list is cached for the lifetime of the wizard process and re-used if you navigate forward and back. Pressing **Esc** to return to a prior step **invalidates** the cache for any provider step at or after the new position AND bumps a generation counter so any in-flight worker that has since become stale silently drops its result instead of polluting the now-empty cache. Re-entry triggers a fresh fetch with the (possibly updated) key.
 
@@ -297,7 +297,7 @@ The wizard automatically discovers all configurable services from each `services
 | SearxNG | container, disabled |
 | JupyterHub | container, disabled |
 
-### 15.1. Cloud LLM providers (not auto-discovered)
+### 15.1 Cloud LLM providers (not auto-discovered)
 
 OpenAI, Anthropic, and OpenRouter are **not** regular services — they don't run as containers (`scale: 0` in the `services/cloud-providers/service.yml` virtual manifest). Instead, the wizard injects them via `bootstrapper/wizard/llm_steps.py:build_cloud_steps` as bespoke (secret + multiselect) pairs spliced after the LLM Engine step:
 

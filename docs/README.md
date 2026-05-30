@@ -4,11 +4,11 @@ Documentation index for the GenAI Vanilla Stack.
 
 ## 1. Documentation structure
 
-### 1.1. Quick Start guides
+### 1.1 Quick Start guides
 - [Interactive Setup Wizard](quick-start/interactive-setup-wizard.md) — step-by-step guided configuration
 - [Troubleshooting](quick-start/troubleshooting.md) — common issues and solutions
 
-### 1.2. Service documentation
+### 1.2 Service documentation
 - [Backend API](../services/backend/README.md) — always-on adaptive FastAPI service
 - [Open WebUI](../services/open-webui/README.md) — main chat UI
 - [LiteLLM Gateway](../services/litellm/README.md) — always-on OpenAI-compatible front door for every LLM provider
@@ -32,21 +32,21 @@ Documentation index for the GenAI Vanilla Stack.
 - [Hermes Agent](../services/hermes/README.md) — programmable AI agent runtime (Nous Research)
 - [Ray](../services/ray/README.md) — distributed compute substrate (head + workers, opt-in via `RAY_SOURCE`)
 
-### 1.3. Deployment guides
+### 1.3 Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants
 - [Ports and Routes](deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
 - [Using as a Submodule](deployment/submodule-usage.md) — embedding the stack inside another project
 - [Expected Startup Warnings](deployment/expected-startup-warnings.md) — known-benign log lines on `./start.sh`
 
-### 1.4. Contributors
+### 1.4 Contributors
 - [Adding a service runbook](CONTRIBUTING-services.md) — six-decision walkthrough + the regen + lint chain
 - [Security policy](../SECURITY.md) — threat tiers, supported versions, responsible-disclosure address
 
-### 1.5. Architecture diagrams
+### 1.5 Architecture diagrams
 - [Diagrams README](diagrams/README.md) — top-level diagram update workflow + the per-service auto-generation chain
 - The top-level diagram itself lives at [diagrams/architecture.svg](diagrams/architecture.svg) (embedded in the project README) and [diagrams/architecture.html](diagrams/architecture.html) (standalone view)
 
-### 1.6. Cross-service research (Phase B corpus)
+### 1.6 Cross-service research (Phase B corpus)
 - [Integration matrix](research/integration-matrix.md) — auto-generated index linking every service to its candidate integrations
 - [Per-service rows](research/rows/) — missing-pair integrations, candidate new services, per-service feature gaps
 - [Candidate one-pagers](research/candidates/) — design notes per candidate service
