@@ -6,8 +6,12 @@ side. Wizard build-time entrypoint is `list_catalog()` (added later).
 from __future__ import annotations
 
 import json as _json
+import sys as _sys
 from dataclasses import dataclass
+from datetime import datetime as _datetime, timezone as _timezone
 from pathlib import Path as _Path
+
+import requests as _requests
 
 
 # ── Category enum ──────────────────────────────────────────────────────
@@ -199,6 +203,8 @@ def _parse_civitai_response(
         if not isinstance(item, dict):
             continue
         versions = item.get("modelVersions") or []
+        if not isinstance(versions, list):
+            continue
         if not versions:
             continue
         primary_version = versions[0]
@@ -333,10 +339,10 @@ _CURATED_ENTRIES: tuple[dict, ...] = (
 
 
 def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
-    """Translate a curated/fallback dict to a ComfyUILibraryEntry.
+    """Translate a curated/fallback/cache dict to a ComfyUILibraryEntry.
 
     Coerces `requires_custom_node` to tuple so callers can pass either
-    JSON-list (fallback) or native tuple (curated). Falls back to
+    JSON-list (fallback/cache) or native tuple (curated). Falls back to
     CATEGORY_TARGET_DIR for `target_dir` when absent. Sets `source` and
     `pulled=False` (pulled is computed at wizard time, not stored).
     """
@@ -355,6 +361,7 @@ def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
         popularity=d.get("popularity", 0),
         source=source,
         pulled=False,
+        cloud_only=bool(d.get("cloud_only", False)),
     )
 
 
@@ -376,3 +383,191 @@ def list_fallback() -> list[ComfyUILibraryEntry]:
         return []
     raw = _json.loads(_FALLBACK_FILE.read_text())
     return [_dict_to_entry(d, "fallback") for d in raw.get("entries", [])]
+
+
+# ── HTTP scraping + cache ──────────────────────────────────────────────
+
+_HF_API_BASE = "https://huggingface.co/api/models"
+_CIVITAI_API_BASE = "https://civitai.com/api/v1/models"
+_HTTP_TIMEOUT_S = 15
+
+# Per-category HF filter sets. Each entry → one API call; results merged.
+# Maintain this dict to evolve catalog coverage.
+_HF_FILTERS: dict[str, list[dict]] = {
+    "checkpoint": [
+        {"pipeline_tag": "text-to-image", "library": "diffusers",
+         "sort": "downloads", "limit": 30},
+    ],
+    "lora": [
+        {"filter": "lora", "pipeline_tag": "text-to-image",
+         "sort": "downloads", "limit": 20},
+    ],
+    # HF expects `library:` for ControlNet (not `filter:`); per HF API semantics.
+    "controlnet": [
+        {"library": "controlnet", "sort": "downloads", "limit": 20},
+    ],
+    "video_model": [
+        {"pipeline_tag": "text-to-video", "sort": "downloads", "limit": 15},
+    ],
+    "voice_model": [
+        {"pipeline_tag": "text-to-speech", "sort": "downloads", "limit": 15},
+    ],
+    "mesh_model": [
+        {"filter": "image-to-3d", "sort": "downloads", "limit": 15},
+        {"filter": "text-to-3d", "sort": "downloads", "limit": 10},
+    ],
+    "animatediff": [
+        {"filter": "animatediff", "sort": "downloads", "limit": 10},
+    ],
+}
+
+
+def list_huggingface_models() -> list[ComfyUILibraryEntry]:
+    """Hit the HF API per _HF_FILTERS; parse + merge.
+
+    Raises requests.RequestException / ConnectionError on transport failure.
+    """
+    out: list[ComfyUILibraryEntry] = []
+    for category, filters in _HF_FILTERS.items():
+        for params in filters:
+            resp = _requests.get(_HF_API_BASE, params=params, timeout=_HTTP_TIMEOUT_S)
+            resp.raise_for_status()
+            out.extend(_parse_hf_response(resp.json(), category=category))
+    return out
+
+
+def list_civitai_loras() -> list[ComfyUILibraryEntry]:
+    """Anonymous civitai API for LoRAs.
+
+    We don't fetch checkpoints from civitai — too noisy; HF is the source
+    of truth for those.
+    """
+    out: list[ComfyUILibraryEntry] = []
+    for category, ctype in (("lora", "LORA"),):
+        resp = _requests.get(
+            _CIVITAI_API_BASE,
+            params={"sort": "Most Downloaded", "types": ctype, "limit": 20},
+            timeout=_HTTP_TIMEOUT_S,
+        )
+        resp.raise_for_status()
+        out.extend(_parse_civitai_response(resp.json(), category=category))
+    return out
+
+
+# ── Cache ──────────────────────────────────────────────────────────────
+
+CACHE_TTL_SECONDS = 24 * 3600
+_CACHE_DIR = _Path(__file__).parent.parent / ".cache"
+_CACHE_FILE_NAME = "comfyui_catalog.json"
+
+
+def _cache_path() -> _Path:
+    return _CACHE_DIR / _CACHE_FILE_NAME
+
+
+def _read_cache() -> dict | None:
+    p = _cache_path()
+    if not p.is_file():
+        return None
+    try:
+        return _json.loads(p.read_text())
+    except _json.JSONDecodeError:
+        return None
+
+
+def _cache_is_fresh(cache: dict) -> bool:
+    try:
+        fetched = _datetime.strptime(cache["fetched_at"], "%Y-%m-%dT%H:%M:%SZ")
+        fetched = fetched.replace(tzinfo=_timezone.utc)
+    except (KeyError, ValueError):
+        return False
+    age = (_datetime.now(_timezone.utc) - fetched).total_seconds()
+    return age < cache.get("ttl_seconds", CACHE_TTL_SECONDS)
+
+
+def _entry_to_dict(e: ComfyUILibraryEntry) -> dict:
+    return {
+        "name": e.name, "family": e.family, "category": e.category,
+        "size_gb": e.size_gb, "url": e.url, "sha256": e.sha256,
+        "target_dir": e.target_dir, "min_vram_gb": e.min_vram_gb,
+        "cpu_supported": e.cpu_supported,
+        "requires_custom_node": list(e.requires_custom_node),
+        "popularity": e.popularity, "source": e.source, "pulled": e.pulled,
+        "cloud_only": e.cloud_only,
+    }
+
+
+def _write_cache(
+    entries: list[ComfyUILibraryEntry],
+    hf_status: str,
+    civitai_status: str,
+) -> None:
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "fetched_at": _datetime.now(_timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ttl_seconds": CACHE_TTL_SECONDS,
+        "huggingface_status": hf_status,
+        "civitai_status": civitai_status,
+        "entries": [_entry_to_dict(e) for e in entries],
+    }
+    _cache_path().write_text(_json.dumps(payload, indent=2))
+
+
+def _dedupe_by_name(
+    entries: list[ComfyUILibraryEntry],
+) -> list[ComfyUILibraryEntry]:
+    """Last-wins dedupe by name. Caller controls precedence via input order.
+
+    Established precedence for list_catalog (lowest → highest):
+        huggingface → civitai → fallback (if used) → curated
+    So pass curated LAST when merging; the last write to the dict wins.
+    """
+    seen: dict[str, ComfyUILibraryEntry] = {}
+    for e in entries:
+        seen[e.name] = e
+    return list(seen.values())
+
+
+def list_catalog(force_refresh: bool = False) -> list[ComfyUILibraryEntry]:
+    """Merged catalog: HF + civitai + curated (+ fallback if total failure).
+
+    Caches result; respects 24h TTL unless force_refresh=True.
+
+    Dedupe precedence (last wins): huggingface → civitai → fallback → curated.
+    """
+    if not force_refresh:
+        cache = _read_cache()
+        if cache and _cache_is_fresh(cache):
+            return [_dict_to_entry(d, d.get("source", "cached"))
+                    for d in cache["entries"]]
+
+    hf_entries: list[ComfyUILibraryEntry] = []
+    civ_entries: list[ComfyUILibraryEntry] = []
+    hf_status = "ok"
+    civ_status = "ok"
+
+    try:
+        hf_entries = list_huggingface_models()
+    except (_requests.RequestException, ConnectionError) as exc:
+        print(f"WARNING: HuggingFace catalog fetch failed: {exc}",
+              file=_sys.stderr)
+        hf_status = "error"
+    try:
+        civ_entries = list_civitai_loras()
+    except (_requests.RequestException, ConnectionError) as exc:
+        print(f"WARNING: civitai catalog fetch failed: {exc}", file=_sys.stderr)
+        civ_status = "error"
+
+    curated = list_curated()
+    # Order matters — last wins.
+    if hf_status == "error" and civ_status == "error":
+        # Both APIs down — supplement with fallback before curated.
+        print("WARNING: All catalog sources unreachable; using bundled fallback.",
+              file=_sys.stderr)
+        merged = _dedupe_by_name(hf_entries + civ_entries + list_fallback() + curated)
+    else:
+        merged = _dedupe_by_name(hf_entries + civ_entries + curated)
+
+    _write_cache(merged, hf_status, civ_status)
+    return merged

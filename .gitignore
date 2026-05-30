@@ -133,3 +133,6 @@ services/_user/
 
 # Audit working tree (overnight audit logs)
 .audit/
+
+# ComfyUI picker — local catalog cache (TTL-bounded; safe to delete)
+bootstrapper/.cache/
