@@ -133,9 +133,3 @@ services/_user/
 
 # Audit working tree (overnight audit logs)
 .audit/
-
-# ComfyUI picker — local catalog cache (TTL-bounded; safe to delete)
-bootstrapper/.cache/
-
-# ComfyUI picker — snapshot emitted by bootstrapper for the init container
-volumes/api/comfyui-catalog-snapshot.json

@@ -76,11 +76,7 @@ env:
     description: "Comma-separated catalog model names the user picked in the wizard (or via --comfyui-models). Read by services/comfyui/init/scripts/download_models.sh."
   - name: COMFYUI_CUSTOM_MODELS_FILE
     default: "/custom-models.yaml"
-    description: "Path inside comfyui-init to the sidecar custom-models.yaml. Default points at the bind-mounted services/comfyui/custom-models.yaml."
-  - name: COMFYUI_CATALOG_CACHE_DIR
-    default: "bootstrapper/.cache"
-    bootstrapper_only: true
-    description: "Host-side cache directory for the wizard's HF/civitai catalog snapshot. 24h TTL. Bootstrapper-only — not consumed by any compose service."
+    description: "Path inside comfyui-catalog-init to the sidecar custom-models.yaml. Default points at the bind-mounted services/comfyui/custom-models.yaml."
   - name: COMFYUI_INIT_SCALE
     auto_managed: true
   - name: COMFYUI_CATALOG_INIT_SCALE

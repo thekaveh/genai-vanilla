@@ -1,8 +1,8 @@
 """COMFYUI_MODEL_SET → COMFYUI_USER_MODELS .env schema migration (v2 → v3).
 
 Translates the old ``COMFYUI_MODEL_SET=minimal|sd15|sdxl|full`` enum to
-``COMFYUI_USER_MODELS`` (a CSV of catalog names) and adds the two new
-sidecar/cache vars introduced in the model-picker feature.
+``COMFYUI_USER_MODELS`` (a CSV of catalog names) and adds the sidecar
+var introduced in the model-picker feature.
 
 This module is the FROZEN snapshot of the v2→v3 migration at 2026-05-29.
 Do NOT edit when the schema changes again — author a sibling migration_v4.py.
@@ -144,7 +144,7 @@ def apply(env_path: Path) -> None:
     * Reads COMFYUI_MODEL_SET and translates it to COMFYUI_USER_MODELS.
     * Unions with any existing COMFYUI_USER_MODELS value.
     * Removes the old COMFYUI_MODEL_SET line (plus preceding comment block).
-    * Appends COMFYUI_CUSTOM_MODELS_FILE and COMFYUI_CATALOG_CACHE_DIR if absent.
+    * Appends COMFYUI_CUSTOM_MODELS_FILE if absent.
     * Backs up .env to .env.backup.<YYYYMMDDTHHMMSS> before any write.
     * Does nothing if sentinel is already >= 3.
     """
@@ -183,7 +183,6 @@ def apply(env_path: Path) -> None:
     # Insert / update new vars.
     new_text = _replace_or_append(new_text, "COMFYUI_USER_MODELS", final_user_models)
     new_text = _replace_or_append(new_text, "COMFYUI_CUSTOM_MODELS_FILE", "/custom-models.yaml")
-    new_text = _replace_or_append(new_text, "COMFYUI_CATALOG_CACHE_DIR", "bootstrapper/.cache")
 
     # Atomic write via tmp + rename.
     tmp = env_path.with_suffix(env_path.suffix + ".tmp")

@@ -79,7 +79,9 @@ def test_migrates_sdxl(tmp_path):
     assert "# choose minimal" not in text   # preceding comment block is stripped
     assert "COMFYUI_USER_MODELS=sdxl-base-1.0,sdxl-vae" in text
     assert "COMFYUI_CUSTOM_MODELS_FILE=/custom-models.yaml" in text
-    assert "COMFYUI_CATALOG_CACHE_DIR=bootstrapper/.cache" in text
+    # COMFYUI_CATALOG_CACHE_DIR was retired in the DB-backed pivot — the
+    # migration must not (re-)inject it.
+    assert "COMFYUI_CATALOG_CACHE_DIR" not in text
 
 
 def test_creates_backup(tmp_path):
