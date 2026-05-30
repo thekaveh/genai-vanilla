@@ -88,6 +88,35 @@ _BADGE_STYLES = {
     # so they're visually distinct from the recent-popular surface.
     # Muted (TEXT_FAINT) so it reads as "deprioritised" not "warning".
     "legacy":    P.TEXT_FAINT,
+    # ── ComfyUI display-group badges (lowercased to match the chip
+    #    widget's normalisation). Each group gets a distinct hue so
+    #    the row's leading badge reads as the category at a glance.
+    "image":       P.ACCENT,      # cyan
+    "image-edit":  P.TAG_INFRA,   # purple
+    "video":       P.WARN,        # amber
+    # "audio" already mapped above (P.ERR_SOFT) for the Ollama
+    # capability tag; ComfyUI's group of the same name reuses it
+    # intentionally — pink reads as the same family across pickers.
+    "3d":          P.OK,          # green
+    "custom":      P.RESOURCE,    # orange — sidecar entries stand out
+    # ── ComfyUI category badges (per-model). Muted compared to the
+    #    group above so the group dominates visually; categories add
+    #    secondary information without competing.
+    "checkpoint":   P.OK,
+    "lora":         P.ACCENT,
+    "vae":          P.TAG_DATA,
+    "controlnet":   P.TAG_INFRA,
+    "ipadapter":    P.TAG_INFRA,
+    "instantid":    P.TAG_INFRA,
+    "upscaler":     P.RESOURCE,
+    # "embedding" already mapped above (Ollama capability tag).
+    "clip":         P.TAG_DATA,
+    "animatediff":  P.WARN,
+    "motion_lora":  P.WARN,
+    "video_model":  P.WARN,
+    "voice_model":  P.ERR_SOFT,
+    "audio_model":  P.ERR_SOFT,
+    "mesh_model":   P.OK,
 }
 
 
@@ -253,12 +282,21 @@ def _render_status_badges(badges: list[str]) -> Text:
     any future or unrecognised tag — anything not in the canonical
     capability column set. Each is prefixed with ``"  "`` so it reads
     visually grouped with the preceding capability columns.
+
+    Warning badges (any text starting with the ⚠ glyph — emitted by
+    the ComfyUI picker for missing custom-node + GPU/VRAM mismatches)
+    get P.WARN regardless of the rest of the string, so the user
+    doesn't have to register a hardware-mismatch badge in
+    _BADGE_STYLES with full match text.
     """
     out = Text()
     for b in badges:
         if b in _CAPABILITY_TAGS:
             continue
-        color = _BADGE_STYLES.get(b, P.TEXT_FAINT)
+        if b.startswith("⚠"):
+            color = P.WARN
+        else:
+            color = _BADGE_STYLES.get(b, P.TEXT_FAINT)
         out.append("  ")
         out.append(f"[{b}]", style=color)
     return out
