@@ -50,7 +50,7 @@ def test_partial_failure_civitai_down(capsys):
     # No fallback when at least one scraper succeeded.
     assert "fallback" not in sources
     captured = capsys.readouterr()
-    assert "civitai" in (captured.err + captured.out).lower()
+    assert "civitai" in captured.err.lower()
 
 
 def test_partial_failure_huggingface_down(capsys):
@@ -67,7 +67,7 @@ def test_partial_failure_huggingface_down(capsys):
     # No fallback when at least one scraper succeeded.
     assert "fallback" not in sources
     captured = capsys.readouterr()
-    assert "huggingface" in (captured.err + captured.out).lower()
+    assert "huggingface" in captured.err.lower()
 
 
 def test_full_failure_loads_fallback():

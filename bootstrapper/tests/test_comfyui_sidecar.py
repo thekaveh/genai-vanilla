@@ -71,7 +71,7 @@ def test_url_must_be_http_or_https(tmp_path, capsys):
     entries = load_custom_models(str(tmp))
     assert entries == []
     captured = capsys.readouterr()
-    assert "ftp-entry" in (captured.err + captured.out)
+    assert "ftp-entry" in captured.err
 
 
 def test_non_dict_entry_skipped(tmp_path, capsys):
