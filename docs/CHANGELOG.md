@@ -59,21 +59,19 @@ this regression class.
 
 **Known follow-ups:**
 
-- *Fragment-equivalence baseline regen.* Local Docker Compose v5.x
-  produces different YAML emission conventions than CI's v2.x; baseline
-  regen deferred to the PR's first CI run (extract CI's rendered yaml
-  from the failing test log, commit, re-push).
 - *Custom-node auto-install.* Required nodes are surfaced as `⚠ <node>`
   warning badges only; users install manually. A future ticket will
   integrate ComfyUI-Manager's `cm-cli` for one-click install.
 - *Disk pre-flight hard block.* The status header turns yellow/red on
   projected fill but does not block confirm. A future ticket will gate
   the wizard on `df` checks.
-- *Ollama vs ComfyUI pipeline convergence.* Both pickers now share
-  the same `public.{llms,comfyui_models}` + `*-catalog-init` +
-  DB-backed pull architecture. Custom-model surface differs (Ollama:
-  CSV in `.env`; ComfyUI: sidecar YAML) because ComfyUI lacks an
-  upstream registry that resolves models by name.
+
+**Architecture note (not a follow-up — this PR is what closed it):** Both
+pickers now share the same `public.{llms,comfyui_models}` +
+`*-catalog-init` + DB-backed pull architecture. Custom-model surface
+differs (Ollama: CSV in `.env`; ComfyUI: sidecar YAML) because ComfyUI
+lacks an upstream registry that resolves models by name. The earlier
+"pipeline divergence" concern is resolved.
 
 ### 2026-05-28 third-pass audit (follow-up to PR #12 / #13)
 
