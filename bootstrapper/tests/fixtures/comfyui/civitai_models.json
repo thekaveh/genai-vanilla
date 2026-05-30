@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "id": 12345,
+      "name": "Realistic Vision LoRA",
+      "modelVersions": [
+        {
+          "files": [
+            {
+              "primary": true,
+              "downloadUrl": "https://civitai.com/api/download/models/67890",
+              "sizeKB": 153600,
+              "hashes": {"SHA256": "abc123def456abc123def456abc123def456abc123def456abc123def456abc1"}
+            }
+          ]
+        }
+      ],
+      "stats": {"downloadCount": 50000}
+    },
+    {
+      "id": 23456,
+      "name": "Detail Tweaker XL",
+      "modelVersions": [
+        {
+          "files": [
+            {
+              "primary": true,
+              "downloadUrl": "https://civitai.com/api/download/models/78901",
+              "sizeKB": 307200,
+              "hashes": {"SHA256": "def456abc123def456abc123def456abc123def456abc123def456abc123def4"}
+            }
+          ]
+        }
+      ],
+      "stats": {"downloadCount": 38000}
+    },
+    {
+      "id": 34567,
+      "name": "Add More Details",
+      "modelVersions": [
+        {
+          "files": [
+            {
+              "primary": true,
+              "downloadUrl": "https://civitai.com/api/download/models/89012",
+              "sizeKB": 76800,
+              "hashes": {"SHA256": "789012abc789012abc789012abc789012abc789012abc789012abc789012abc7"}
+            }
+          ]
+        }
+      ],
+      "stats": {"downloadCount": 25000}
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+[
+  {
+    "id": "stabilityai/TripoSG",
+    "downloads": 32000,
+    "tags": ["image-to-3d", "safetensors"],
+    "pipeline_tag": "image-to-3d",
+    "siblings": [
+      {"rfilename": "triposg.safetensors", "size": 3758096384},
+      {"rfilename": "README.md"}
+    ]
+  },
+  {
+    "id": "sudo-ai/zero123plus",
+    "downloads": 27000,
+    "tags": ["text-to-3d", "diffusers"],
+    "pipeline_tag": "image-to-3d",
+    "siblings": [
+      {"rfilename": "zero123plus_v11.safetensors", "size": 2684354560},
+      {"rfilename": "config.json"}
+    ]
+  },
+  {
+    "id": "openai/shap-e",
+    "downloads": 21000,
+    "tags": ["text-to-3d"],
+    "pipeline_tag": "text-to-3d",
+    "siblings": [
+      {"rfilename": "transmitter.pt", "size": 2097152000},
+      {"rfilename": "model.pt", "size": 1073741824},
+      {"rfilename": "README.md"}
+    ]
+  }
+]

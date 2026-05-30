@@ -1,0 +1,53 @@
+[
+  {
+    "id": "stabilityai/stable-diffusion-xl-base-1.0",
+    "downloads": 1234567,
+    "tags": ["text-to-image", "diffusers", "safetensors"],
+    "pipeline_tag": "text-to-image",
+    "siblings": [
+      {"rfilename": "sd_xl_base_1.0.safetensors", "size": 7456198912},
+      {"rfilename": "model_index.json"},
+      {"rfilename": "README.md"}
+    ]
+  },
+  {
+    "id": "runwayml/stable-diffusion-v1-5",
+    "downloads": 987654,
+    "tags": ["text-to-image", "stable-diffusion"],
+    "pipeline_tag": "text-to-image",
+    "siblings": [
+      {"rfilename": "v1-5-pruned-emaonly.safetensors", "size": 4265318144},
+      {"rfilename": "README.md"}
+    ]
+  },
+  {
+    "id": "stabilityai/stable-diffusion-2-1",
+    "downloads": 654321,
+    "tags": ["text-to-image", "diffusers"],
+    "pipeline_tag": "text-to-image",
+    "siblings": [
+      {"rfilename": "v2-1_768-ema-pruned.safetensors", "size": 5214190080},
+      {"rfilename": "model_index.json"}
+    ]
+  },
+  {
+    "id": "fluently/Fluently-XL-Final",
+    "downloads": 412000,
+    "tags": ["text-to-image", "safetensors"],
+    "pipeline_tag": "text-to-image",
+    "siblings": [
+      {"rfilename": "FluentlyXL-Final.safetensors", "size": 7230000000},
+      {"rfilename": "README.md"}
+    ]
+  },
+  {
+    "id": "stabilityai/stable-diffusion-xl-refiner-1.0",
+    "downloads": 380000,
+    "tags": ["text-to-image", "diffusers", "safetensors"],
+    "pipeline_tag": "text-to-image",
+    "siblings": [
+      {"rfilename": "sd_xl_refiner_1.0.safetensors", "size": 6085920768},
+      {"rfilename": "model_index.json"}
+    ]
+  }
+]
