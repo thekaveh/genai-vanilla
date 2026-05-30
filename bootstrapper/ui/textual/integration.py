@@ -22,10 +22,11 @@ from textual.binding import Binding
 
 _THEME_PATH = Path(__file__).parent / "theme.css"
 
-# Wizard step title for ComfyUI model multiselect (T15 will declare a
-# matching constant in comfyui_steps.py; integration.py declares it here
-# so the plumbing is self-contained until that step module exists).
-COMFYUI_MODELS_TITLE = "ComfyUI  ·  models"
+# Wizard step title for ComfyUI model multiselect — canonical source of
+# truth lives in wizard/comfyui_steps.py; imported here to keep the drain
+# loop (selections.get(COMFYUI_MODELS_TITLE)) aligned with what the step
+# registers without duplicating the string literal.
+from wizard.comfyui_steps import COMFYUI_MODELS_TITLE
 
 
 # Module-level sink for wizard-time diagnostic warnings (cloud /v1/models
@@ -232,6 +233,9 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # Ray follow-up steps (worker count + external address) live in
     # wizard/ray_steps.py; spliced in right after the Ray source step.
     from wizard.ray_steps import build_ray_followup_steps
+    # ComfyUI model multiselect lives in wizard/comfyui_steps.py;
+    # spliced in right after the ComfyUI source step.
+    from wizard.comfyui_steps import build_comfyui_steps
     from .widgets.prompt_panel import SecondaryNumberInput
 
     # Per-service localhost-port wiring. Each entry maps a service's
@@ -350,6 +354,12 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             steps.extend(build_ray_followup_steps(env_vars, {
                 "RAY_SOURCE": svc.current_value or "disabled",
             }))
+        # Splice ComfyUI model multiselect RIGHT AFTER the ComfyUI source
+        # step. The step's skip_if_prev guard fires when COMFYUI_SOURCE is
+        # not container-cpu / container-gpu (localhost, external, disabled),
+        # so only container users see the model picker.
+        if svc.display_name == "ComfyUI":
+            steps.extend(build_comfyui_steps(env_vars, _wizard_warn))
 
     steps.append(PromptStep(
         title="Cold start  ·  rebuild", step_index=len(services_info) + 2,
