@@ -127,9 +127,12 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 ## 7. Operations
 
-**Choosing models.** Run `./start.sh` (or the wizard standalone) and navigate to the "ComfyUI · models" step. Use filter chips (`f` key) to browse by category (Image / Image-edit / Video / Audio / 3D), `/` or `Tab` to search by name, `Space` to toggle rows, and `Enter` to confirm. Selected names are persisted as `COMFYUI_USER_MODELS` in `.env`. On the next `./start.sh`, `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` and `comfyui-init` downloads them.
+**Choosing models.** Run `./start.sh` (or the wizard standalone) and navigate to the "ComfyUI · models" step. The step shows for every non-`disabled` source (container-cpu / container-gpu / localhost / external) — same shape as the Ollama picker. Use filter chips (`f` key) to browse by category (Image / Image-edit / Video / Audio / 3D), `/` or `Tab` to search by name, `Space` to toggle rows, and `Enter` to confirm. Selected names are persisted as `COMFYUI_USER_MODELS` in `.env`. On the next `./start.sh`:
 
-CLI alternative:
+- **`container-cpu` / `container-gpu`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` AND `comfyui-init` downloads them into the `comfyui-models` volume.
+- **`localhost` / `external`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` so the backend `/comfyui/db/models` endpoint surfaces them to Open WebUI + n8n. `comfyui-init` does NOT run (scale=0) — you populate your host ComfyUI install's models directory yourself, same way you'd run `ollama pull <name>` on the host for Ollama localhost.
+
+CLI alternative (works for all non-disabled sources):
 ```bash
 ./start.sh --comfyui-models=sdxl-base-1.0,sdxl-vae,flux1-dev-Q4_K_S
 ```

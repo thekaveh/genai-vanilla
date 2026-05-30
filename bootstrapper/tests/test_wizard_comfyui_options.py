@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from wizard.comfyui_steps import _merged_comfyui_options
+from wizard.comfyui_steps import _merged_comfyui_options, build_comfyui_steps
 from utils.comfyui_library import ComfyUILibraryEntry
 
 
@@ -132,3 +132,43 @@ def test_sidecar_name_colliding_with_catalog_dedups_sidecar_wins():
     matches = [o for o in options if o.value == "collide"]
     assert len(matches) == 1, "duplicate name should dedupe to 1 row"
     assert matches[0].group == "Custom"  # sidecar's group wins
+
+
+# ── skip-predicate behavior ───────────────────────────────────────────
+# Mirrors Ollama's picker: the model step shows for ALL non-disabled
+# sources (container-cpu / container-gpu / localhost / external) and
+# only skips when COMFYUI_SOURCE=disabled. Earlier versions wrongly
+# skipped for localhost / external. See PR following #18.
+
+def _picker_step(env_vars: dict):
+    """Build the ComfyUI picker step and return it for skip-predicate inspection."""
+    steps = build_comfyui_steps(env_vars=env_vars, warn=lambda _msg: None)
+    assert len(steps) == 1, "build_comfyui_steps should return exactly one step"
+    return steps[0]
+
+
+@pytest.mark.parametrize("source,expected_skip", [
+    ("container-cpu", False),
+    ("container-gpu", False),
+    ("localhost",     False),  # NEW behavior — picker shows for localhost
+    ("external",      False),  # NEW behavior — picker shows for external
+    ("disabled",      True),   # only `disabled` skips
+    ("",              True),   # treat empty as disabled (safe default)
+])
+def test_skip_predicate_mirrors_ollama_for_all_sources(source, expected_skip):
+    """The wizard step skips ONLY for COMFYUI_SOURCE=disabled (or empty).
+    For container/localhost/external sources the picker shows — same
+    shape as Ollama's `_merged_ollama_options` showing for any source
+    that starts with `ollama-`.
+    """
+    step = _picker_step(env_vars={"COMFYUI_SOURCE": source})
+    assert step.skip_if_prev is not None, "step must declare a skip_if_prev predicate"
+    # The predicate looks at the prior step's selection dict. Simulate
+    # both lookup paths: by env-var key AND by step-title fallback.
+    sel_by_env = {"COMFYUI_SOURCE": source}
+    sel_by_title = {"ComfyUI  ·  source": source}
+    sel_empty = {}
+    for sel in (sel_by_env, sel_by_title, sel_empty):
+        assert step.skip_if_prev(sel) is expected_skip, (
+            f"skip_if_prev({sel!r}) returned wrong value for source={source!r}"
+        )
