@@ -34,8 +34,10 @@ verification), replacing the previous `COMFYUI_MODEL_SET`-based
 bucket-selector + wget-by-set logic. The `public.comfyui_models` schema
 was extended additively (`family`, `target_dir`, `sha256`,
 `min_vram_gb`, `cpu_supported`, `requires_custom_node`, `popularity`,
-`source`, `notes` — all `ADD COLUMN IF NOT EXISTS`); backend
-`/comfyui/db/models` routes continue to work. Migration script at
+`source` — all `ADD COLUMN IF NOT EXISTS`); backend
+`/comfyui/db/models` routes continue to work. (The `notes` field on
+sidecar entries is a wizard-side display field, surfaced in the wizard
+subtitle from `custom-models.yaml`; not persisted to the DB.) Migration script at
 `services/supabase/db/scripts/12-extend-comfyui-models.sql`.
 
 `COMFYUI_MODEL_SET` is retired. The bootstrapper's migration v3
