@@ -42,6 +42,10 @@ services:
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
+      comfyui-catalog-init:
+        # comfyui-catalog-init owns public.comfyui_models; this init's
+        # psql SELECT depends on its UPSERT having completed.
+        condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
     extra_hosts:
@@ -55,18 +59,9 @@ services:
       COMFYUI_MODELS_PATH: /models
       COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       IS_LOCAL_COMFYUI: ${IS_LOCAL_COMFYUI:-false}
-      COMFYUI_USER_MODELS: ${COMFYUI_USER_MODELS:-}
-      COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml
-      COMFYUI_CATALOG_SNAPSHOT: /catalog-snapshot.json
     volumes:
       - ./init/scripts:/scripts
       - comfyui-models:/models
-      - ./custom-models.yaml:/custom-models.yaml:ro
-      # Bind-mount the bootstrapper-emitted snapshot. The bootstrapper
-      # (start.py) writes this BEFORE invoking docker compose up; cold-start
-      # without ./start.sh will fail this mount. Run ./start.sh, not raw
-      # docker compose up.
-      - ../../volumes/api/comfyui-catalog-snapshot.json:/catalog-snapshot.json:ro
     entrypoint: ["/scripts/download_models.sh"]
     deploy:
       replicas: ${COMFYUI_INIT_SCALE:-1}
