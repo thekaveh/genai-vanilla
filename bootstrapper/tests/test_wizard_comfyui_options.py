@@ -172,3 +172,41 @@ def test_skip_predicate_mirrors_ollama_for_all_sources(source, expected_skip):
         assert step.skip_if_prev(sel) is expected_skip, (
             f"skip_if_prev({sel!r}) returned wrong value for source={source!r}"
         )
+
+
+# ─── Filter-chip badge case ──────────────────────────────────────────
+# The filter-chip widget lowercases active-tag values
+# (multiselect_filter_chips.py:132 → ``t.strip().lower()``) before
+# comparing them against ``opt.badges`` for visibility filtering
+# (prompt_panel.py:975 → ``if tag not in opt.badges``). The group-name
+# badge added by _merged_comfyui_options must therefore be lowercase,
+# or every non-ALL chip filters every row out — the symptom seen in
+# the post-PR-#20 wizard screenshot. Mirrors Ollama's lowercase badge
+# convention ("embedding", "thinking", "vision" — never "Embedding").
+
+def test_group_badge_is_lowercase_for_filter_chip_matching():
+    catalog = [
+        _entry("img-x",   category="lora"),         # → Image group
+        _entry("ctrl-y",  category="controlnet"),   # → Image-edit group
+        _entry("vid-z",   category="video_model"),  # → Video group
+        _entry("voice-a", category="voice_model"),  # → Audio group
+        _entry("mesh-b",  category="mesh_model"),   # → 3D group
+    ]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[], pulled_names=set(),
+        default_selected=set(),
+    )
+    badges_by_value = {o.value: list(o.badges) for o in options}
+    expected_lower = {
+        "img-x":   "image",
+        "ctrl-y":  "image-edit",
+        "vid-z":   "video",
+        "voice-a": "audio",
+        "mesh-b":  "3d",
+    }
+    for value, expected in expected_lower.items():
+        assert badges_by_value[value][0] == expected, (
+            f"{value}: first badge must be lowercase {expected!r} for filter-chip "
+            f"matching; got {badges_by_value[value][0]!r}. "
+            f"Mismatch → filter chip excludes every row."
+        )

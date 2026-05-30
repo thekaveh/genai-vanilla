@@ -439,12 +439,18 @@ _HF_FILTERS: dict[str, list[dict]] = {
 def list_huggingface_models() -> list[ComfyUILibraryEntry]:
     """Hit the HF API per _HF_FILTERS; parse + merge.
 
+    Always passes ``full=true`` so each model card carries its
+    ``siblings[]`` array — without it, HF's /api/models returns the
+    lightweight listing shape and ``_pick_primary_file`` silently
+    drops every entry. See test_list_huggingface_models_requests_full_metadata.
+
     Raises requests.RequestException / ConnectionError on transport failure.
     """
     out: list[ComfyUILibraryEntry] = []
     for category, filters in _HF_FILTERS.items():
         for params in filters:
-            resp = _requests.get(_HF_API_BASE, params=params, timeout=_HTTP_TIMEOUT_S)
+            full_params = {**params, "full": "true"}
+            resp = _requests.get(_HF_API_BASE, params=full_params, timeout=_HTTP_TIMEOUT_S)
             resp.raise_for_status()
             out.extend(_parse_hf_response(resp.json(), category=category))
     return out
