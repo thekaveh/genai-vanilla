@@ -24,6 +24,11 @@ from services.migrations.migration_v2 import (
     needs_migration as _needs_v2,
     stamp_version as _stamp_v2,
 )
+from services.migrations.migration_v3 import (
+    apply as _apply_v3,
+    needs_migration as _needs_v3,
+    stamp_version as _stamp_v3,
+)
 
 
 def _format_today() -> str:
@@ -720,7 +725,8 @@ class GenAIStackStarter:
         return True
 
     def run_port_migration(self, no_port_migrate: bool) -> None:
-        """Chained .env migrations: v0 → v1 (port-layout), v1 → v2 (URL→PORT).
+        """Chained .env migrations: v0 → v1 (port-layout), v1 → v2 (URL→PORT),
+        v2 → v3 (COMFYUI_MODEL_SET → COMFYUI_USER_MODELS schema).
 
         Idempotent. Each step is gated by its own ``_needs_*`` predicate
         so re-running is safe and stamping is independent. Reads
@@ -735,6 +741,11 @@ class GenAIStackStarter:
         ``<SVC>_LOCALHOST_PORT`` lines, commenting the old URLs for
         audit. Drives both compose runtime and Kong routes off the new
         PORT schema.
+
+        v3: translates the old ``COMFYUI_MODEL_SET`` enum to the new
+        ``COMFYUI_USER_MODELS`` CSV + sidecar/cache vars introduced in
+        the model-picker feature. Removes the old enum var and any
+        preceding comment block.
 
         When ``no_port_migrate`` is True we skip BOTH rewrites AND skip
         the sentinel stamps so the next run re-prompts — matches the
@@ -807,6 +818,27 @@ class GenAIStackStarter:
                     "Old <SVC>_LOCALHOST_URL lines are commented out for "
                     "audit; new <SVC>_LOCALHOST_PORT lines drive both "
                     "compose runtime and Kong routes.",
+                    "success",
+                )
+
+        # v2 → v3: COMFYUI_MODEL_SET → COMFYUI_USER_MODELS schema rewrite.
+        # Runs after v2 so the sentinel transitions cleanly: … → 2 → 3.
+        if _needs_v3(env_path):
+            if no_port_migrate:
+                self.banner.console.print(
+                    "[dim]Skipping model-set schema migration "
+                    "(--no-port-migrate); will re-prompt next run.[/dim]"
+                )
+            else:
+                self.banner.show_status_message(
+                    "Migrating .env to COMFYUI_USER_MODELS schema (v3) ...",
+                    "info",
+                )
+                _apply_v3(env_path)
+                _stamp_v3(env_path)
+                self.banner.show_status_message(
+                    "Model-set migration complete (v3). "
+                    "COMFYUI_MODEL_SET translated to COMFYUI_USER_MODELS.",
                     "success",
                 )
 

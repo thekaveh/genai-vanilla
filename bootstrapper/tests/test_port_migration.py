@@ -268,9 +268,9 @@ def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
 
     starter.run_port_migration(no_port_migrate=False)
     text = custom_env.read_text()
-    # Chained v1 + v2 migrations leave the sentinel at the v2 terminal
+    # Chained v1 + v2 + v3 migrations leave the sentinel at the v3 terminal
     # value — the test cares about path resolution (custom env honored)
     # rather than version semantics.
-    assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=2" in text
+    assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=3" in text
     # Real repo .env was not touched (verified via path inequality).
     assert starter.config_parser.env_file_path == custom_env
