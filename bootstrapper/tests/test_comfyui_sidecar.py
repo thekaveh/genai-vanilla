@@ -1,0 +1,100 @@
+"""Tests for the sidecar YAML loader."""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from utils.comfyui_library import load_custom_models, ComfyUILibraryEntry
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "comfyui"
+STUB_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "services" / "comfyui" / "custom-models.yaml"
+)
+
+
+def test_empty_models_list_returns_empty():
+    """The shipped stub has `models: []` — must load without error."""
+    entries = load_custom_models(str(STUB_PATH))
+    assert entries == []
+
+
+def test_valid_entry_parses():
+    entries = load_custom_models(str(FIXTURE_DIR / "custom-models-valid.yaml"))
+    assert len(entries) >= 1
+    e = next(e for e in entries if e.name == "my-flux-lora-portrait")
+    assert e.category == "lora"
+    assert e.target_dir == "loras"
+    assert e.source == "custom"
+    assert "ComfyUI-GGUF" in e.requires_custom_node
+
+
+def test_missing_file_returns_empty():
+    entries = load_custom_models("/nonexistent/path.yaml")
+    assert entries == []
+
+
+def test_invalid_entries_skipped_with_warning(capsys):
+    """File has 4 entries: 1 valid + 3 invalid (missing name, missing url,
+    unknown category). Loader emits warnings, returns only the valid one.
+    """
+    entries = load_custom_models(str(FIXTURE_DIR / "custom-models-invalid.yaml"))
+    captured = capsys.readouterr()
+    assert len(entries) == 1
+    assert entries[0].name == "valid-entry"
+    assert "skipping" in (captured.err + captured.out).lower()
+
+
+def test_unknown_category_skipped(tmp_path):
+    """Category 'not-a-category' must skip with a warning."""
+    raw = "models:\n  - name: x\n    category: not-a-category\n    url: https://e.com/x\n"
+    tmp = tmp_path / "u.yaml"
+    tmp.write_text(raw)
+    entries = load_custom_models(str(tmp))
+    assert entries == []
+
+
+def test_invalid_yaml_returns_empty(tmp_path):
+    tmp = tmp_path / "bad.yaml"
+    tmp.write_text("models: [unclosed")
+    entries = load_custom_models(str(tmp))
+    assert entries == []
+
+
+def test_url_must_be_http_or_https(tmp_path, capsys):
+    """A non-http URL is skipped with a warning."""
+    raw = "models:\n  - name: ftp-entry\n    category: lora\n    url: ftp://e.com/x.safetensors\n"
+    tmp = tmp_path / "ftp.yaml"
+    tmp.write_text(raw)
+    entries = load_custom_models(str(tmp))
+    assert entries == []
+    captured = capsys.readouterr()
+    assert "ftp-entry" in (captured.err + captured.out)
+
+
+def test_entry_overrides_via_kwargs(tmp_path):
+    """Optional fields propagate when present."""
+    raw = (
+        "models:\n"
+        "  - name: x\n"
+        "    family: TestFam\n"
+        "    category: lora\n"
+        "    url: https://e.com/x.safetensors\n"
+        "    size_gb: 2.5\n"
+        "    sha256: deadbeef\n"
+        "    cpu_supported: false\n"
+        "    requires_custom_node:\n"
+        "      - SomeNode\n"
+    )
+    tmp = tmp_path / "f.yaml"
+    tmp.write_text(raw)
+    entries = load_custom_models(str(tmp))
+    assert len(entries) == 1
+    e = entries[0]
+    assert e.family == "TestFam"
+    assert e.size_gb == 2.5
+    assert e.sha256 == "deadbeef"
+    assert e.cpu_supported is False
+    assert e.requires_custom_node == ("SomeNode",)

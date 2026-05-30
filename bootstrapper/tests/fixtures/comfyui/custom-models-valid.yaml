@@ -1,0 +1,9 @@
+models:
+  - name: my-flux-lora-portrait
+    category: lora
+    url: https://huggingface.co/MyOrg/my-flux-lora/resolve/main/portrait.safetensors
+    size_gb: 0.15
+    sha256: a1b2c3d4
+    requires_custom_node:
+      - ComfyUI-GGUF
+    notes: "Internal portrait LoRA"

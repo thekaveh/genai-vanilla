@@ -12,6 +12,7 @@ from datetime import datetime as _datetime, timezone as _timezone
 from pathlib import Path as _Path
 
 import requests as _requests
+import yaml as _yaml
 
 
 # ── Category enum ──────────────────────────────────────────────────────
@@ -571,3 +572,63 @@ def list_catalog(force_refresh: bool = False) -> list[ComfyUILibraryEntry]:
 
     _write_cache(merged, hf_status, civ_status)
     return merged
+
+
+# ── Sidecar YAML loader ────────────────────────────────────────────────
+
+def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
+    """Parse a sidecar YAML file into entries.
+
+    Invalid entries skipped with stderr warnings; never raises for
+    malformed YAML (returns empty list). Required: name, category, url.
+    Optional: family, size_gb, sha256, requires_custom_node, cpu_supported,
+    min_vram_gb, notes.
+
+    The loader uses `_dict_to_entry` so future schema changes only need
+    a single edit point (same path as curated/fallback).
+    """
+    p = _Path(path)
+    if not p.is_file():
+        return []
+    try:
+        raw = _yaml.safe_load(p.read_text()) or {}
+    except _yaml.YAMLError as exc:
+        print(f"⚠️  custom-models YAML parse failed at {path}: {exc}",
+              file=_sys.stderr)
+        return []
+
+    raw_models = raw.get("models") or []
+    out: list[ComfyUILibraryEntry] = []
+    for idx, d in enumerate(raw_models):
+        if not isinstance(d, dict):
+            print(f"⚠️  custom-models[{idx}] is not a mapping; skipping.",
+                  file=_sys.stderr)
+            continue
+        name = d.get("name")
+        category = d.get("category")
+        url = d.get("url")
+        if not name:
+            print(f"⚠️  custom-models[{idx}] missing 'name'; skipping.",
+                  file=_sys.stderr)
+            continue
+        if not url:
+            print(f"⚠️  custom-models entry '{name}' missing 'url'; skipping.",
+                  file=_sys.stderr)
+            continue
+        if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+            print(f"⚠️  custom-models entry '{name}' has non-http(s) url; skipping.",
+                  file=_sys.stderr)
+            continue
+        if category not in VALID_CATEGORIES:
+            print(f"⚠️  custom-models entry '{name}' has unknown category "
+                  f"'{category}'; skipping.", file=_sys.stderr)
+            continue
+        # size_gb is optional in the sidecar schema; _dict_to_entry requires it.
+        d = {**d, "size_gb": d.get("size_gb") or 0.0}
+        try:
+            out.append(_dict_to_entry(d, source="custom"))
+        except (KeyError, ValueError) as exc:
+            print(f"⚠️  custom-models entry '{name}' construction failed: {exc}",
+                  file=_sys.stderr)
+            continue
+    return out
