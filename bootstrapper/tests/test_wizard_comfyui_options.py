@@ -210,3 +210,121 @@ def test_group_badge_is_lowercase_for_filter_chip_matching():
             f"matching; got {badges_by_value[value][0]!r}. "
             f"Mismatch → filter chip excludes every row."
         )
+
+
+# ─── Family grouping (HF entries) ──────────────────────────────────
+# Two or more HF entries sharing a leading-letters family root
+# (TRELLIS, Pi, Hunyuan, …) collapse into one expandable parent row.
+# civitai numeric IDs and curated entries always stay flat. A family
+# of one stays flat. Each variant inside the parent's leaf_details
+# carries its own size + badges so the panel renders the leaf rows
+# with real per-variant data.
+
+def _hf(name: str, **over) -> ComfyUILibraryEntry:
+    return _entry(name, source="huggingface", **over)
+
+
+def test_hf_entries_sharing_family_root_collapse_to_one_parent():
+    catalog = [
+        _hf("microsoft--TRELLIS-image-large", category="mesh_model"),
+        _hf("microsoft--TRELLIS.2-4B",        category="mesh_model"),
+        _hf("gqk--TRELLIS-image-large-fork",  category="mesh_model"),
+    ]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[], pulled_names=set(),
+        default_selected=set(),
+    )
+    # One parent row covering all three TRELLIS variants.
+    parents = [o for o in options if o.value.startswith("family:")]
+    flats = [o for o in options if not o.value.startswith("family:")]
+    assert len(parents) == 1, f"expected 1 family parent, got {len(parents)}"
+    parent = parents[0]
+    assert parent.value == "family:TRELLIS"
+    assert set(parent.sizes) == {
+        "microsoft--TRELLIS-image-large",
+        "microsoft--TRELLIS.2-4B",
+        "gqk--TRELLIS-image-large-fork",
+    }
+    # Each variant has its own leaf_details entry with badges.
+    for name in parent.sizes:
+        assert name in parent.leaf_details
+        label, badges = parent.leaf_details[name]
+        assert label == name
+        assert badges, f"variant {name} should carry badges (group / category / size / …)"
+    # No flat TRELLIS rows duplicating the parent.
+    assert not any("TRELLIS" in f.value for f in flats)
+
+
+def test_single_family_member_stays_flat():
+    catalog = [_hf("solo--MyModel-1B", category="checkpoint")]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[], pulled_names=set(),
+        default_selected=set(),
+    )
+    # Singleton "family of 1" must stay as a flat row, not a parent.
+    assert all(not o.value.startswith("family:") for o in options)
+    assert any(o.value == "solo--MyModel-1B" for o in options)
+
+
+def test_civitai_entries_never_group():
+    catalog = [
+        _entry("civitai-100", source="civitai", category="lora"),
+        _entry("civitai-200", source="civitai", category="lora"),
+        _entry("civitai-300", source="civitai", category="lora"),
+    ]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[], pulled_names=set(),
+        default_selected=set(),
+    )
+    # civitai entries are independent IDs — never collapse.
+    assert all(not o.value.startswith("family:") for o in options)
+    assert len([o for o in options if o.value.startswith("civitai-")]) == 3
+
+
+def test_curated_entries_never_group():
+    catalog = [
+        _entry("vae-ft-mse-840000",   source="curated", category="vae"),
+        _entry("vae-some-other-thing", source="curated", category="vae"),
+    ]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[], pulled_names=set(),
+        default_selected=set(),
+    )
+    # Curated entries are hand-picked — leave them flat for clarity.
+    assert all(not o.value.startswith("family:") for o in options)
+
+
+def test_family_parent_pre_checked_when_any_variant_in_default_selected():
+    catalog = [
+        _hf("microsoft--TRELLIS-image-large", category="mesh_model"),
+        _hf("microsoft--TRELLIS.2-4B",        category="mesh_model"),
+    ]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[],
+        pulled_names=set(),
+        default_selected={"microsoft--TRELLIS.2-4B"},
+    )
+    parent = next(o for o in options if o.value == "family:TRELLIS")
+    assert parent.checked is True, (
+        "family parent should aggregate-check when any variant is in defaults"
+    )
+
+
+def test_family_parent_first_badge_is_lowercase_group_for_filter_match():
+    catalog = [
+        _hf("yyfz233--Pi3",  category="mesh_model"),
+        _hf("yyfz233--Pi3X", category="mesh_model"),
+    ]
+    options = _merged_comfyui_options(
+        catalog=catalog, sidecar=[], pulled_names=set(),
+        default_selected=set(),
+    )
+    parent = next(o for o in options if o.value == "family:Pi")
+    # The lowercased group must remain the first badge so the filter
+    # chips work on the parent row (same invariant as flat rows).
+    assert parent.badges[0] == "3d", parent.badges
+    # And the family root + variant count belong in the LABEL, not
+    # duplicated as a badge — the panel renders the label as the
+    # row's primary text and any badge would be visual noise.
+    assert "Pi" in parent.label
+    assert "2 variants" in parent.label

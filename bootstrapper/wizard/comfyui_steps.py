@@ -24,6 +24,7 @@ from typing import Callable, Dict, List
 from utils.comfyui_library import (
     ComfyUILibraryEntry,
     CATEGORY_DISPLAY_GROUPS,
+    _family_root,
 )
 from ui.textual.widgets.prompt_panel import (
     PromptOption,
@@ -47,6 +48,11 @@ class _ComfyUIOption:
     seed filter chips and default_values. The tests access these via
     getattr so the real PromptOption (which lacks group/checked) remains
     unmodified.
+
+    For family-parent rows (HF entries sharing a leading-letters root
+    like ``TRELLIS``), ``sizes`` and ``leaf_details`` carry the per-
+    variant data the panel's variant-tree expansion uses. Flat rows
+    (singletons / civitai / curated / sidecar) leave them empty.
     """
     value: str
     label: str
@@ -54,6 +60,12 @@ class _ComfyUIOption:
     badges: list[str]
     group: str      # display group for the filter chip system
     checked: bool   # True → pre-selected in the wizard's default_values
+    sizes: tuple[str, ...] = ()        # variant tags for family parents (full catalog names)
+    leaf_details: dict = None          # variant tag → (display_label, leaf_badges)
+
+    def __post_init__(self) -> None:
+        if self.leaf_details is None:
+            self.leaf_details = {}
 
 
 @functools.lru_cache(maxsize=1)
@@ -138,6 +150,87 @@ def _badges_for_entry(
     return out
 
 
+def _flat_option(
+    entry: ComfyUILibraryEntry,
+    *,
+    pulled_names: set[str],
+    default_selected: set[str],
+    gpu_mem_gb: float | None,
+) -> _ComfyUIOption:
+    """Build a single flat (non-family) option row for one entry."""
+    is_pulled = (
+        entry.name in pulled_names
+        or _filename_of(entry.url) in pulled_names
+    )
+    group = (
+        "Custom" if entry.source == "custom"
+        else _display_group_for(entry.category)
+    )
+    badges = _badges_for_entry(entry, is_pulled, gpu_mem_gb)
+    hint = " ".join(badges)
+    full_badges = [group.lower()] + badges
+    return _ComfyUIOption(
+        value=entry.name, label=entry.name, hint=hint, badges=full_badges,
+        group=group, checked=(entry.name in default_selected),
+    )
+
+
+def _family_parent_option(
+    family_root: str,
+    members: list[ComfyUILibraryEntry],
+    *,
+    pulled_names: set[str],
+    default_selected: set[str],
+    gpu_mem_gb: float | None,
+) -> _ComfyUIOption:
+    """Build a single expandable parent row for ``len(members) >= 2``.
+
+    The parent's value is a synthetic ``family:<root>`` token (no
+    catalog entry would ever have a colon in its name, so this is
+    collision-free). leaf_details carries per-member display data so
+    the panel can render leaves with full repo names + their own
+    badges + their own sizes.
+    """
+    # Aggregate group from members (they should all share one — same
+    # family ⇒ same group typically; if mixed, take the most popular).
+    member_groups = [_display_group_for(m.category) for m in members]
+    group = max(set(member_groups), key=member_groups.count)
+    # Aggregate popularity = max of members' (so the parent sorts to
+    # the right neighborhood, alongside its most-popular variant).
+    pop = max(m.popularity for m in members)
+
+    # Parent badges = just the group (for filter-chip matching). The
+    # family root + variant count are in the label, so no need to
+    # repeat them here. Per-leaf badges live in leaf_details and the
+    # panel renders them on each leaf row when expanded.
+    parent_badges = [group.lower()]
+    parent_label = f"{family_root}  ·  {len(members)} variants"
+
+    # Build leaf_details: variant_tag (= full repo name) → (label, badges)
+    leaf_details: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for m in sorted(members, key=lambda x: (-x.popularity, x.name)):
+        is_pulled = (
+            m.name in pulled_names or _filename_of(m.url) in pulled_names
+        )
+        leaf_badges = tuple(_badges_for_entry(m, is_pulled, gpu_mem_gb))
+        leaf_details[m.name] = (m.name, leaf_badges)
+
+    # The synthetic parent value MUST collide with no real catalog
+    # entry name. A colon is safe — HF names use ``--`` not ``:``,
+    # civitai uses ``civitai-NNN`` (no colon), curated/sidecar names
+    # are kebab-case (no colon).
+    return _ComfyUIOption(
+        value=f"family:{family_root}",
+        label=parent_label,
+        hint=" ".join(parent_badges),
+        badges=parent_badges,
+        group=group,
+        checked=any(m.name in default_selected for m in members),
+        sizes=tuple(leaf_details.keys()),
+        leaf_details=leaf_details,
+    )
+
+
 def _merged_comfyui_options(
     catalog: list[ComfyUILibraryEntry],
     sidecar: list[ComfyUILibraryEntry],
@@ -146,7 +239,13 @@ def _merged_comfyui_options(
     gpu_mem_gb: float | None = None,
     warn: Callable[[str], None] | None = None,
 ) -> list[_ComfyUIOption]:
-    """Build the wizard's option list.
+    """Build the wizard's option list, grouping HF entries that share
+    a leading-letters family root into expandable parent rows.
+
+    civitai numeric IDs, hand-picked curated entries, and user-
+    supplied sidecar entries always stay flat — only HF entries
+    participate in family grouping. See ``_family_root`` for the
+    heuristic.
 
     Args:
         catalog: from assemble_wizard_catalog()
@@ -171,38 +270,46 @@ def _merged_comfyui_options(
             else:
                 print(f"⚠️  {msg}", file=sys.stderr)
 
-    options: list[_ComfyUIOption] = []
+    # Group HF entries by family root; everyone else is a singleton.
+    families: dict[str, list[ComfyUILibraryEntry]] = {}
+    singletons: list[ComfyUILibraryEntry] = []
     for entry in by_name.values():
-        is_pulled = (
-            entry.name in pulled_names
-            or _filename_of(entry.url) in pulled_names
-        )
-        group = (
-            "Custom" if entry.source == "custom"
-            else _display_group_for(entry.category)
-        )
-        badges = _badges_for_entry(entry, is_pulled, gpu_mem_gb)
-        # Hint = space-joined badge text (rendered on the row's second line).
-        # Also used by tests via o.hint to surface badges.
-        hint = " ".join(badges)
-        # For filter chip matching, prepend the display group as a badge.
-        # MUST be lowercase: the chip widget lowercases active tags
-        # (multiselect_filter_chips.py:132) and prompt_panel.py compares
-        # the lowercased tag against opt.badges. A Title-Case badge would
-        # never match and the filter would exclude every row — see
-        # test_group_badge_is_lowercase_for_filter_chip_matching.
-        full_badges = [group.lower()] + badges
-        options.append(_ComfyUIOption(
-            value=entry.name,
-            label=entry.name,
-            hint=hint,
-            badges=full_badges,
-            group=group,
-            checked=(entry.name in default_selected),
+        root = _family_root(entry.name, entry.source)
+        if root:
+            families.setdefault(root, []).append(entry)
+        else:
+            singletons.append(entry)
+    # Promote singleton-families back to flat (a family of one isn't
+    # a family).
+    flat_singleton_families = [
+        r for r, members in families.items() if len(members) < 2
+    ]
+    for root in flat_singleton_families:
+        singletons.extend(families.pop(root))
+
+    options: list[_ComfyUIOption] = []
+    for entry in singletons:
+        options.append(_flat_option(
+            entry, pulled_names=pulled_names,
+            default_selected=default_selected, gpu_mem_gb=gpu_mem_gb,
+        ))
+    for root, members in families.items():
+        options.append(_family_parent_option(
+            root, members, pulled_names=pulled_names,
+            default_selected=default_selected, gpu_mem_gb=gpu_mem_gb,
         ))
 
-    pop_by_name = {name: e.popularity for name, e in by_name.items()}
-    options.sort(key=lambda o: (-pop_by_name.get(o.value, 0), o.value))
+    # Sort by popularity. For parents, popularity = max member popularity
+    # (assigned in _family_parent_option); for flats, the entry's own.
+    pop_by_value: dict[str, int] = {}
+    for o in options:
+        if o.sizes:
+            pop_by_value[o.value] = max(
+                by_name[m].popularity for m in o.sizes
+            )
+        else:
+            pop_by_value[o.value] = by_name[o.value].popularity
+    options.sort(key=lambda o: (-pop_by_value.get(o.value, 0), o.value))
     return options
 
 
@@ -210,12 +317,16 @@ def _to_prompt_option(opt: _ComfyUIOption) -> PromptOption:
     """Convert an internal _ComfyUIOption to a real PromptOption for the
     wizard's PromptStep. The group is already embedded in opt.badges;
     checked is handled via default_values on the step, not per-option.
+    Family parents pass through ``sizes`` and ``leaf_details`` so the
+    panel's variant-tree code can expand the row in place.
     """
     return PromptOption(
         value=opt.value,
         label=opt.label,
         hint=opt.hint,
         badges=opt.badges,
+        sizes=opt.sizes,
+        leaf_details=opt.leaf_details,
     )
 
 

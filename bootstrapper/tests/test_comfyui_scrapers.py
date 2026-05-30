@@ -113,13 +113,95 @@ def test_parse_civitai_unknown_category_raises():
 # production until the post-PR-#20 wizard screenshot exposed it.
 # This test pins the request shape so the regression class can't recur.
 
-def test_list_huggingface_models_requests_full_metadata(monkeypatch):
-    """list_huggingface_models() must pass ``full=true`` (or boolean True)
-    on every HF API call. Without it, the response carries no siblings
-    array and ``_pick_primary_file`` drops every entry — silently."""
+def test_enrich_siblings_with_sizes_populates_size_via_per_repo_blobs(monkeypatch):
+    """HF's list endpoint never returns sibling sizes (even with full=true).
+    _enrich_siblings_with_sizes must fan out per-repo blobs=true fetches
+    and copy real sizes into each item's siblings[] so _pick_primary_file
+    can pick the largest file and _parse_hf_response can record size_gb."""
     from utils import comfyui_library
 
-    captured_params: list[dict] = []
+    items = [
+        {"id": "fake/repoA",
+         "siblings": [
+             {"rfilename": "model.safetensors"},
+             {"rfilename": "README.md"},
+         ]},
+        {"id": "fake/repoB",
+         "siblings": [{"rfilename": "weights.bin"}]},
+    ]
+    per_repo = {
+        "fake/repoA": [
+            {"rfilename": "model.safetensors", "size": 5_368_709_120},  # 5 GB
+            {"rfilename": "README.md", "size": 1024},
+        ],
+        "fake/repoB": [
+            {"rfilename": "weights.bin", "size": 1_073_741_824},  # 1 GB
+        ],
+    }
+
+    class _Resp:
+        def __init__(self, j): self._j = j
+        def raise_for_status(self): return None
+        def json(self): return self._j
+
+    def _fake_get(url, params=None, timeout=None):  # noqa: ARG001
+        for repo_id, sibs in per_repo.items():
+            if url.endswith(f"/api/models/{repo_id}"):
+                return _Resp({"siblings": sibs})
+        return _Resp([])
+
+    monkeypatch.setattr(comfyui_library._requests, "get", _fake_get)
+    comfyui_library._enrich_siblings_with_sizes(items)
+
+    repoA = next(i for i in items if i["id"] == "fake/repoA")
+    repoB = next(i for i in items if i["id"] == "fake/repoB")
+    assert repoA["siblings"][0]["size"] == 5_368_709_120
+    assert repoB["siblings"][0]["size"] == 1_073_741_824
+
+
+def test_enrich_siblings_silent_on_per_repo_failure(monkeypatch):
+    """One slow / 5xx repo must not block the catalog. The failing
+    item's siblings keep their original sizeless shape; downstream
+    _parse_hf_response records size_gb=0.0 for those entries."""
+    from utils import comfyui_library
+    import requests as _real_requests
+
+    items = [
+        {"id": "fake/ok",
+         "siblings": [{"rfilename": "good.safetensors"}]},
+        {"id": "fake/broken",
+         "siblings": [{"rfilename": "x.safetensors"}]},
+    ]
+
+    class _Resp:
+        def __init__(self, j, raise_exc=False):
+            self._j, self._raise = j, raise_exc
+        def raise_for_status(self):
+            if self._raise:
+                raise _real_requests.HTTPError("simulated 500")
+        def json(self): return self._j
+
+    def _fake_get(url, params=None, timeout=None):  # noqa: ARG001
+        if url.endswith("/api/models/fake/ok"):
+            return _Resp({"siblings": [{"rfilename": "good.safetensors", "size": 999}]})
+        return _Resp({}, raise_exc=True)
+
+    monkeypatch.setattr(comfyui_library._requests, "get", _fake_get)
+    comfyui_library._enrich_siblings_with_sizes(items)
+
+    ok = next(i for i in items if i["id"] == "fake/ok")
+    broken = next(i for i in items if i["id"] == "fake/broken")
+    assert ok["siblings"][0].get("size") == 999
+    assert "size" not in broken["siblings"][0]
+
+
+def test_list_huggingface_models_requests_full_metadata(monkeypatch):
+    """list_huggingface_models() must pass ``full=true`` on every HF
+    LIST call. Per-repo size-enrichment calls hit different URLs
+    (``/api/models/{id}``) and are checked separately."""
+    from utils import comfyui_library
+
+    captured: list[tuple[str, dict]] = []  # (url, params)
 
     class _FakeResp:
         def __init__(self) -> None:
@@ -131,18 +213,22 @@ def test_list_huggingface_models_requests_full_metadata(monkeypatch):
         def json(self) -> list:
             return self._json
 
-    def _fake_get(_url, params=None, timeout=None):  # noqa: ARG001
-        captured_params.append(dict(params or {}))
+    def _fake_get(url, params=None, timeout=None):  # noqa: ARG001
+        captured.append((url, dict(params or {})))
         return _FakeResp()
 
     monkeypatch.setattr(comfyui_library._requests, "get", _fake_get)
     comfyui_library.list_huggingface_models()
 
-    assert captured_params, "list_huggingface_models made zero HTTP calls"
-    for params in captured_params:
+    # The list endpoint is exactly ``_HF_API_BASE``; per-repo enrichment
+    # calls hit ``_HF_API_BASE/{owner}/{repo}``. Only the list calls must
+    # carry full=true.
+    list_calls = [(u, p) for u, p in captured if u == comfyui_library._HF_API_BASE]
+    assert list_calls, "list_huggingface_models made zero list-endpoint calls"
+    for url, params in list_calls:
         full = params.get("full")
         assert full in (True, "true", "True"), (
-            f"HF request missing `full=true`: {params!r}. "
+            f"HF list request missing `full=true`: url={url!r} params={params!r}. "
             f"Without it the siblings[] array is empty and _pick_primary_file "
             f"drops every entry."
         )

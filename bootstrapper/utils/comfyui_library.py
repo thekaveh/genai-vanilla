@@ -138,6 +138,55 @@ def _family_from_id(model_id: str) -> str:
     return name.replace("_", "-").title()
 
 
+def _family_root(entry_name: str, source: str) -> str:
+    """Extract the family root for grouping the wizard's option list.
+
+    Only HF entries participate in family grouping — civitai numeric
+    IDs (``civitai-264290``), hand-picked curated entries, and
+    user-supplied sidecar entries always stay flat (the family-root
+    return is the empty string, which the wizard treats as "no
+    family", keeping the entry as a singleton row).
+
+    For HF entries (name shape ``owner--repo``) the root is the
+    leading run of letters of the repo portion:
+
+    | name                              | root        |
+    | --------------------------------- | ----------- |
+    | microsoft--TRELLIS-image-large    | TRELLIS     |
+    | microsoft--TRELLIS.2-4B           | TRELLIS     |
+    | gqk--TRELLIS-image-large-fork     | TRELLIS     |
+    | tencent--Hunyuan3D-2              | Hunyuan     |
+    | yyfz233--Pi3                      | Pi          |
+    | yyfz233--Pi3X                     | Pi          |
+    | stabilityai--stable-diffusion-xl  | stable      |
+
+    Trade-off: ``stable`` over-groups SDXL / SD 1.5 / Stable-Cascade /
+    Stable-Video; the wizard accepts this in exchange for catching
+    the much more common case (TRELLIS, Hunyuan, Pi, etc.) without
+    a per-model curated map.
+    """
+    if source != "huggingface":
+        return ""
+    if "--" not in entry_name:
+        return ""
+    _, repo = entry_name.split("--", 1)
+
+    # Leading-letters extraction with a camel-case stop. A
+    # capital-then-lowercase prefix (``Hunyuan``, ``Tripo``, ``Pi``)
+    # terminates at the NEXT capital so that ``HunyuanImage`` groups
+    # with ``Hunyuan3D`` under the same ``Hunyuan`` root instead of
+    # falling into its own ``HunyuanImage`` family. Pure all-caps
+    # tokens (``TRELLIS``, ``VGGT``) and pure-lowercase prefixes
+    # (``stable``) are unaffected — both run until the first
+    # non-letter character.
+    import re as _re
+    camel = _re.match(r"^([A-Z][a-z]+)", repo)
+    if camel:
+        return camel.group(1)
+    leading = _re.match(r"^([A-Za-z]+)", repo)
+    return leading.group(1) if leading else ""
+
+
 def _custom_nodes_from_tags(tags: list[str]) -> tuple[str, ...]:
     nodes: list[str] = []
     for t in tags:
@@ -436,15 +485,82 @@ _HF_FILTERS: dict[str, list[dict]] = {
 }
 
 
+_HF_SIZE_FETCH_MAX_WORKERS = 10
+
+
+def _enrich_siblings_with_sizes(items: list[dict]) -> None:
+    """In-place: enrich each item's siblings[] with real file sizes.
+
+    HF's list endpoint never returns sibling sizes — only filenames —
+    even with ``full=true``. To get actual file sizes we have to call
+    ``/api/models/{repo}?blobs=true`` for each repo individually.
+    These per-repo calls fan out across a ThreadPoolExecutor so the
+    wall-clock cost stays in the ~2-3s range (vs ~30s sequential)
+    for the ~130 entries the catalog typically scrapes.
+
+    Per-repo failures are silent — the corresponding entry keeps its
+    sizeless siblings and ``_pick_primary_file`` falls back to picking
+    by filename, ``_parse_hf_response`` records size_gb=0.0 (rendered
+    as a `[?GB]` placeholder downstream). One slow / 5xx repo does
+    not block the rest of the catalog.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _fetch_one(item: dict) -> tuple[dict, dict[str, int]]:
+        model_id = item.get("id") or item.get("modelId")
+        if not model_id:
+            return item, {}
+        try:
+            resp = _requests.get(
+                f"{_HF_API_BASE}/{model_id}",
+                params={"blobs": "true"},
+                timeout=_HTTP_TIMEOUT_S,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except (_requests.RequestException, ConnectionError):
+            return item, {}
+        sib_with_size: dict[str, int] = {}
+        for s in data.get("siblings") or []:
+            if not isinstance(s, dict):
+                continue
+            name = s.get("rfilename")
+            size = s.get("size")
+            if isinstance(name, str) and isinstance(size, int):
+                sib_with_size[name] = size
+        return item, sib_with_size
+
+    if not items:
+        return
+    with ThreadPoolExecutor(max_workers=_HF_SIZE_FETCH_MAX_WORKERS) as ex:
+        for item, size_map in ex.map(_fetch_one, items):
+            if not size_map:
+                continue
+            for s in item.get("siblings") or []:
+                if not isinstance(s, dict):
+                    continue
+                name = s.get("rfilename")
+                if isinstance(name, str) and name in size_map:
+                    s["size"] = size_map[name]
+
+
 def list_huggingface_models() -> list[ComfyUILibraryEntry]:
     """Hit the HF API per _HF_FILTERS; parse + merge.
 
-    Always passes ``full=true`` so each model card carries its
-    ``siblings[]`` array — without it, HF's /api/models returns the
-    lightweight listing shape and ``_pick_primary_file`` silently
-    drops every entry. See test_list_huggingface_models_requests_full_metadata.
+    Two-phase scrape:
+      1. List endpoint with ``full=true`` returns repo metadata +
+         siblings[].rfilename (no sizes — HF API limitation).
+      2. _enrich_siblings_with_sizes fans out per-repo
+         ``/api/models/{id}?blobs=true`` calls across a thread pool
+         to populate siblings[].size in place.
 
-    Raises requests.RequestException / ConnectionError on transport failure.
+    Then ``_pick_primary_file`` (size-aware) selects the largest
+    model file and ``_parse_hf_response`` records the real size_gb.
+    Without step 2 every catalog entry would show 0.00GB.
+
+    Raises requests.RequestException / ConnectionError on transport
+    failure during step 1 (the list call). Step-2 failures are
+    silent per-repo — see ``_enrich_siblings_with_sizes``.
     """
     out: list[ComfyUILibraryEntry] = []
     for category, filters in _HF_FILTERS.items():
@@ -452,7 +568,10 @@ def list_huggingface_models() -> list[ComfyUILibraryEntry]:
             full_params = {**params, "full": "true"}
             resp = _requests.get(_HF_API_BASE, params=full_params, timeout=_HTTP_TIMEOUT_S)
             resp.raise_for_status()
-            out.extend(_parse_hf_response(resp.json(), category=category))
+            items = resp.json()
+            if isinstance(items, list):
+                _enrich_siblings_with_sizes(items)
+                out.extend(_parse_hf_response(items, category=category))
     return out
 
 
