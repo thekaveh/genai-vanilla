@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ComfyUI model picker — localhost/external coverage (follow-up to PR #17)
+
+The "ComfyUI · models" wizard step previously only fired for
+`container-cpu` / `container-gpu`, contradicting the Ollama-mirror
+design that was the goal of PR #17. The fix lets the step show for
+every non-`disabled` source (container-cpu / container-gpu / localhost
+/ external) — exactly matching how Ollama's picker shows for any
+`ollama-*` source. For `localhost` / `external`, `comfyui-init`
+(the wget container) now scales to 0 so the picker's selection is
+DB-only — the user populates their host ComfyUI install's models
+directory themselves, same as `ollama pull <name>` for Ollama
+localhost. `comfyui-catalog-init` still scales to 1 for all
+non-disabled sources so `public.comfyui_models` (the table the
+backend `/comfyui/db/models` endpoint reads, consumed by Open WebUI +
+n8n) gets the active set populated regardless of where ComfyUI is
+actually running. Six parametrized regression tests pin the new
+predicate.
+
 ### ComfyUI model picker
 
 Added a new wizard step ("ComfyUI · models") that lets users pick

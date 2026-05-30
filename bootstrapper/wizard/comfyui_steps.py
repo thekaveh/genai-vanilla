@@ -285,8 +285,22 @@ def build_comfyui_steps(
     # Pre-checked values seed from env (parallel to ollama_default_values).
     comfyui_default_values = sorted(existing_names) if existing_names else []
 
-    def _skip_unless_container(sel: dict) -> bool:
-        """Skip this step when ComfyUI is NOT running as a container."""
+    def _skip_when_disabled(sel: dict) -> bool:
+        """Skip this step only when ComfyUI is disabled.
+
+        Mirrors the Ollama picker, which shows for container-cpu /
+        container-gpu / localhost / external — all non-disabled
+        variants. For localhost / external the picker still writes
+        COMFYUI_USER_MODELS to .env so comfyui-catalog-init can mark
+        the chosen rows active in public.comfyui_models (consumed by
+        the backend /comfyui/db/models endpoint that Open WebUI + n8n
+        call). For those sources comfyui-init (the wget container)
+        scales to 0 per service_config.py — same shape as ollama-pull
+        being scale=0 for non-container ollama sources. The user
+        populates their host ComfyUI install's models dir themselves,
+        same as running `ollama pull <name>` on the host for Ollama
+        localhost.
+        """
         src = sel.get("COMFYUI_SOURCE", "") or (
             env_vars.get("COMFYUI_SOURCE", "") or ""
         )
@@ -294,7 +308,11 @@ def build_comfyui_steps(
             # Fall back: check the step title's selection key
             comfyui_title = "ComfyUI  ·  source"
             src = sel.get(comfyui_title, "") or ""
-        return src not in ("container-cpu", "container-gpu")
+        # Empty source = treat as disabled (defensive: should not occur
+        # in practice since the source step always writes a value, but
+        # preserves the pre-fix behavior where the picker skipped on
+        # any unrecognized / missing value).
+        return not src or src == "disabled"
 
     return [
         PromptStep(
@@ -313,7 +331,7 @@ def build_comfyui_steps(
             default_values=comfyui_default_values,
             service_name="",
             kind="multiselect",
-            skip_if_prev=_skip_unless_container,
+            skip_if_prev=_skip_when_disabled,
             options_provider=_comfyui_options_provider,
             filter_tags=_FILTER_TAGS,
         ),
