@@ -88,18 +88,6 @@
       "popularity": 82
     },
     {
-      "name": "add-detail-xl-lora",
-      "family": "Add-Detail",
-      "category": "lora",
-      "size_gb": 0.28,
-      "url": "https://huggingface.co/Lykon/dreamshaper-xl-v2-turbo/resolve/main/DreamShaperXL_Turbo_dpmpp_sde.safetensors",
-      "target_dir": "loras",
-      "min_vram_gb": 4.0,
-      "cpu_supported": true,
-      "requires_custom_node": [],
-      "popularity": 78
-    },
-    {
       "name": "real-esrgan-x4plus",
       "family": "Real-ESRGAN",
       "category": "upscaler",
@@ -220,11 +208,11 @@
       "popularity": 75
     },
     {
-      "name": "animatediff-zoom-in",
+      "name": "animatediff-camera-zoomin-lora",
       "family": "AnimateDiff",
       "category": "motion_lora",
-      "size_gb": 0.09,
-      "url": "https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomIn.ckpt",
+      "size_gb": 0.03,
+      "url": "https://huggingface.co/guoyww/animatediff-motion-lora-zoom-in/resolve/main/diffusion_pytorch_model.safetensors",
       "target_dir": "animatediff_motion_lora",
       "min_vram_gb": 6.0,
       "cpu_supported": false,
