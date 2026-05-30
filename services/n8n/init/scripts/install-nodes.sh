@@ -91,8 +91,11 @@ while IFS= read -r node_name; do
   echo "n8n-init: Installing node: $node_clean"
 
   # Try to install the node via n8n REST API
-  # First, check if the node is already installed
-  installed_check=$(curl -s -X GET "$N8N_API_URL/rest/community-packages" \
+  # First, check if the node is already installed. --fail makes curl exit
+  # non-zero on HTTP 4xx/5xx so the `|| echo "[]"` fallback fires (matching
+  # the readiness curls at lines 24 and 43); without it, an error-page body
+  # would be fed to jq and silently fail to parse the same way.
+  installed_check=$(curl -s --fail -X GET "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" 2>/dev/null || echo "[]")
 
   # Check if node is already installed
@@ -104,9 +107,13 @@ while IFS= read -r node_name; do
 
   # Install the node. `set -e` above would abort on the first failed install
   # before the manual error-handling below runs, so we explicitly tolerate
-  # non-zero exits here and rely on the if-check on $? instead.
+  # non-zero exits here and rely on the if-check on $? instead. --fail
+  # promotes HTTP 4xx/5xx to a non-zero curl exit; without it, n8n
+  # responses lacking a .error field (e.g. `{"message": "Internal error"}`
+  # on HTTP 500) are silently treated as success because the jq -e '.error'
+  # check below only matches when that exact key exists.
   curl_exit_code=0
-  install_response=$(curl -s -X POST "$N8N_API_URL/rest/community-packages" \
+  install_response=$(curl -s --fail -X POST "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" \
     -d "{\"name\": \"$node_clean\"}" \
     2>&1) || curl_exit_code=$?
