@@ -841,7 +841,7 @@ class ServiceConfig:
                 self.config_parser.create_env_backup()
             
             # Read current .env content
-            with open(env_file_path, 'r') as f:
+            with open(env_file_path, 'r', encoding="utf-8") as f:
                 content = f.read()
             
             updated_content = content
@@ -865,7 +865,7 @@ class ServiceConfig:
                     updated_content += f'\n{replacement}'
             
             # Write updated content back
-            with open(env_file_path, 'w') as f:
+            with open(env_file_path, 'w', encoding="utf-8") as f:
                 f.write(updated_content)
                 
             return True

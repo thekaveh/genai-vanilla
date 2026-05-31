@@ -152,7 +152,7 @@ class PortManager:
                 self.config_parser.create_env_backup()
 
             # Read current .env file
-            with open(env_file_path, 'r') as f:
+            with open(env_file_path, 'r', encoding="utf-8") as f:
                 content = f.read()
 
             # Calculate new port assignments
@@ -168,7 +168,7 @@ class PortManager:
                 updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
 
             # Write updated content back to .env file
-            with open(env_file_path, 'w') as f:
+            with open(env_file_path, 'w', encoding="utf-8") as f:
                 f.write(updated_content)
 
             return True

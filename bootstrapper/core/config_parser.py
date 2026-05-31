@@ -113,7 +113,7 @@ class ConfigParser:
         if not self.env_file_path.exists():
             return env_vars
             
-        with open(self.env_file_path, 'r') as f:
+        with open(self.env_file_path, 'r', encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith('#'):
@@ -147,7 +147,7 @@ class ConfigParser:
             
         # Parse SOURCE variables from .env file using the same regex as start.sh
         if self.env_file_path.exists():
-            with open(self.env_file_path, 'r') as f:
+            with open(self.env_file_path, 'r', encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     # Use the same regex pattern as start.sh: ^([A-Z0-9_]+_SOURCE)=([^#]*)

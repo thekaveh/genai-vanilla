@@ -426,7 +426,7 @@ class GenAIStackStarter:
             appended = "\n" + appended
 
         try:
-            with open(env_file_path, "a") as f:
+            with open(env_file_path, "a", encoding="utf-8") as f:
                 f.write(appended)
         except OSError as e:
             self.banner.show_status_message(

@@ -131,7 +131,7 @@ class SupabaseKeyGenerator:
         try:
             # Read current content
             if env_file_path.exists():
-                with open(env_file_path, 'r') as f:
+                with open(env_file_path, 'r', encoding="utf-8") as f:
                     content = f.read()
             else:
                 content = ""
@@ -160,7 +160,7 @@ class SupabaseKeyGenerator:
                     updated_content += f'{replacement}\n'
             
             # Write updated content
-            with open(env_file_path, 'w') as f:
+            with open(env_file_path, 'w', encoding="utf-8") as f:
                 f.write(updated_content)
                 
             return True

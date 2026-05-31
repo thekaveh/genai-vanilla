@@ -81,7 +81,7 @@ class KeyGenerator:
             return None
             
         try:
-            with open(self.env_file_path, 'r') as f:
+            with open(self.env_file_path, 'r', encoding="utf-8") as f:
                 content = f.read()
             
             # Look for line like "KEY_NAME=value"
@@ -123,7 +123,7 @@ class KeyGenerator:
                 shutil.copy2(self.env_file_path, backup_path)
 
             # Read current content
-            with open(self.env_file_path, 'r') as f:
+            with open(self.env_file_path, 'r', encoding="utf-8") as f:
                 content = f.read()
             
             # Check if key already exists
@@ -140,7 +140,7 @@ class KeyGenerator:
                 updated_content += f'{key_name}={key_value}\n'
             
             # Write updated content back
-            with open(self.env_file_path, 'w') as f:
+            with open(self.env_file_path, 'w', encoding="utf-8") as f:
                 f.write(updated_content)
             
             return True
