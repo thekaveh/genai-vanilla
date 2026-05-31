@@ -109,7 +109,8 @@ class DockerManager:
         try:
             cmd = self.detect_docker_compose_command().split() + ["version", "--short"]
             result = subprocess.run(
-                cmd, capture_output=True, text=True, check=False, timeout=10
+                cmd, capture_output=True, text=True, check=False, timeout=10,
+                encoding="utf-8", errors="replace",
             )
             if result.returncode != 0:
                 return False, f"docker compose version failed: {result.stderr.strip()}"
@@ -443,7 +444,9 @@ class DockerManager:
                 cwd=str(self.root_dir),
                 capture_output=True,
                 text=True,
-                check=False
+                check=False,
+                encoding="utf-8",
+                errors="replace",
             )
 
             return result.returncode == 0 and bool(result.stdout.strip())
@@ -648,6 +651,8 @@ class DockerManager:
                 text=True,
                 timeout=3,
                 check=False,
+                encoding="utf-8",
+                errors="replace",
             )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return {}
