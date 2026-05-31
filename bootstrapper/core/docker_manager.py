@@ -287,6 +287,8 @@ class DockerManager:
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             assert proc.stdout is not None
             for line in proc.stdout:
@@ -583,6 +585,8 @@ class DockerManager:
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
             )
         except Exception as e:
