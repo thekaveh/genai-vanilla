@@ -86,7 +86,8 @@ def detect_container_runtime() -> str:
     try:
         result = subprocess.run(
             ['docker', 'version'],
-            capture_output=True, text=True, check=False
+            capture_output=True, text=True, check=False,
+            encoding="utf-8", errors="replace",
         )
         output = (result.stdout + result.stderr).lower()
         if 'podman' in output:
@@ -119,7 +120,8 @@ def resolve_host_gateway_ip() -> str:
         result = subprocess.run(
             ['docker', 'network', 'inspect', 'bridge',
              '--format', '{{range .IPAM.Config}}{{.Gateway}}{{end}}'],
-            capture_output=True, text=True, check=False
+            capture_output=True, text=True, check=False,
+            encoding="utf-8", errors="replace",
         )
         gateway = result.stdout.strip()
         if gateway:
@@ -132,7 +134,8 @@ def resolve_host_gateway_ip() -> str:
         result = subprocess.run(
             ['docker', 'run', '--rm', 'alpine',
              'sh', '-c', "ip route | awk '/default/{print $3}'"],
-            capture_output=True, text=True, check=False
+            capture_output=True, text=True, check=False,
+            encoding="utf-8", errors="replace",
         )
         gateway = result.stdout.strip()
         if gateway:
@@ -177,7 +180,9 @@ def run_command(command: list, capture_output: bool = True) -> subprocess.Comple
             command,
             capture_output=capture_output,
             text=True,
-            check=False
+            check=False,
+            encoding="utf-8",
+            errors="replace",
         )
     except FileNotFoundError:
         # Command not found

@@ -478,7 +478,9 @@ class DockerManager:
                 cwd=str(self.root_dir),
                 capture_output=True,
                 text=True,
-                check=False
+                check=False,
+                encoding="utf-8",
+                errors="replace",
             )
             
             if result.returncode == 0 and result.stdout.strip():
