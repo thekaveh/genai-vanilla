@@ -77,7 +77,7 @@ class HostsManager:
         missing = []
         
         try:
-            with open(self.hosts_file_path, 'r') as f:
+            with open(self.hosts_file_path, 'r', encoding="utf-8") as f:
                 hosts_content = f.read()
                 
             for host in self.get_genai_hosts():
@@ -103,7 +103,7 @@ class HostsManager:
             bool: True if successful
         """
         try:
-            with open(hosts_file_path, 'r') as f:
+            with open(hosts_file_path, 'r', encoding="utf-8") as f:
                 lines = f.readlines()
             
             # Filter out GenAI-related lines
@@ -124,7 +124,7 @@ class HostsManager:
                     filtered_lines.append(line)
             
             # Write back the filtered content
-            with open(hosts_file_path, 'w') as f:
+            with open(hosts_file_path, 'w', encoding="utf-8") as f:
                 f.writelines(filtered_lines)
                 
             return True
@@ -154,7 +154,7 @@ class HostsManager:
             self.remove_hosts_entries_silent(hosts_file_path)
             
             # Add new entries
-            with open(hosts_file_path, 'a') as f:
+            with open(hosts_file_path, 'a', encoding="utf-8") as f:
                 f.write("\n")
                 f.write("# GenAI Stack subdomains (added by start.py)\n")
                 for host in self.get_genai_hosts():
