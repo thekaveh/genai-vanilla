@@ -136,21 +136,26 @@ Live fetches run in a background worker so the wizard stays responsive (Esc stil
 models step, shown for every non-`disabled` `COMFYUI_SOURCE`
 (`container-cpu` / `container-gpu` / `localhost` / `external`).
 The wizard's catalog is sourced from `bootstrapper/utils/comfyui_library.py`,
-which merges a curated allowlist (covering popular Image,
-Image-edit, Video, Audio, and 3D models) with the optional
-`services/comfyui/custom-models.yaml` sidecar.
+which merges a live Hugging Face scrape (per-category filters
+covering Image, Image-edit, Video, Audio, and 3D models) +
+anonymous civitai LoRAs + a curated allowlist + the optional
+`services/comfyui/custom-models.yaml` sidecar. The typical assembled
+catalog is ~150 entries.
 
 Each row carries:
 
-- **Family chip** — `[image]` / `[image-edit]` / `[video]` /
+- **Category chip** — `[image]` / `[image-edit]` / `[video]` /
   `[audio]` / `[3d]` / `[Custom]` for sidecar-YAML entries.
+  This is the display-group chip used by the filter row above;
+  the actual family-grouping mechanism is the **variant tree**
+  described below.
 - **Status badges** — `[pulled]` (model file already on disk under
   `services/comfyui/data/<target_dir>/`, only meaningful for
   container modes), `[library]` (catalog-only — not yet downloaded).
 - **Capability hints** — `[gpu]` if `min_vram_gb > 0`, `⚠ <node>`
   if the model requires a ComfyUI-Manager custom node (the warning
   badge is informational only; node installation is a manual step
-  pending the [custom-node auto-install follow-up](../CHANGELOG.md)).
+  pending a future custom-node auto-install ticket).
 
 **Filter chips** below the search box: `Filter  [ALL]  image  image-edit  video  audio  3d`.
 Press **`f`** to cycle the chips from the keyboard (or click). The
@@ -161,6 +166,31 @@ active chip AND the search substring to render.
 Ollama picker's search: **`Tab`** or **`/`** to focus, type to
 narrow, **`Tab`** / **`Enter`** / **`Esc`** to return focus to the
 option list.
+
+**Variant picker (in-place tree)** — Hugging Face entries sharing a
+leading-letters family root collapse into one expandable parent row
+mirroring Ollama's `qwen3 · 8b / 14b / 32b` UX. A row like
+`▶ TRELLIS  ·  6 variants` represents all `microsoft--TRELLIS-*`
+plus `gqk--TRELLIS-*` repositories. Press **`Space`** on the parent
+to expand the tree in place; variants appear as indented leaves
+with `└─` connectors directly below, each toggleable independently
+via **`Space`** on the leaf. Press **`Space`** on the parent again
+to collapse. The parent's checkbox is an aggregate — green when any
+leaf is checked. Selections persist as full repository names in
+`COMFYUI_USER_MODELS`; the synthetic family-root token (e.g.
+`family:TRELLIS`) never leaves the wizard. Families of one HF
+entry stay flat, as do civitai numeric IDs, the curated allowlist,
+and sidecar entries.
+
+**Catalog load latency** — Hugging Face's list endpoint returns
+each model card without sibling file sizes, so the wizard fires
+one per-repo `/api/models/{id}?blobs=true` follow-up call to
+populate real `size_gb` values. These calls fan out across a
+ThreadPoolExecutor of 10 workers (HF rate-limits at higher
+concurrency); total cost is **~10–15 s** of extra wizard load on
+first open for the ~130-entry HF tier. Per-repo failures are
+silent; the affected row keeps `0.00 GB` and the rest of the
+catalog still loads.
 
 **Source-aware behaviour** — the picker fires for all non-`disabled`
 ComfyUI sources, but the downstream init pipeline branches:
@@ -188,7 +218,9 @@ When the upstream HF / civitai scrape fails (rare), the wizard
 falls back to the bundled allowlist via
 `bootstrapper/utils/comfyui_library.py::list_fallback()`. The
 fallback path emits a session-log warning but the wizard remains
-usable.
+usable. Note: the fallback only triggers when BOTH scrapers raise
+network exceptions; an HF response of `200 OK` with zero parseable
+entries is not treated as a fallback trigger.
 
 ## 6. Stack Options
 
