@@ -444,7 +444,7 @@ def list_fallback() -> list[ComfyUILibraryEntry]:
     """
     if not _FALLBACK_FILE.is_file():
         return []
-    raw = _json.loads(_FALLBACK_FILE.read_text())
+    raw = _json.loads(_FALLBACK_FILE.read_text(encoding="utf-8"))
     return [_dict_to_entry(d, "fallback") for d in raw.get("entries", [])]
 
 
@@ -674,7 +674,7 @@ def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
     if not p.is_file():
         return []
     try:
-        raw = _yaml.safe_load(p.read_text()) or {}
+        raw = _yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     except _yaml.YAMLError as exc:
         print(f"⚠️  custom-models YAML parse failed at {path}: {exc}",
               file=_sys.stderr)

@@ -275,7 +275,7 @@ def _check_fragment_containers(
             continue
 
         try:
-            fragment = yaml.safe_load(fragment_path.read_text()) or {}
+            fragment = yaml.safe_load(fragment_path.read_text(encoding="utf-8")) or {}
         except yaml.YAMLError as e:
             issues.append(
                 ValidationIssue(

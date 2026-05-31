@@ -62,7 +62,7 @@ def run(
     if check_env_example:
         target = env_example_path or (project_root / ".env.example")
         expected = assemble_env_example(manifests)
-        actual = target.read_text() if target.is_file() else ""
+        actual = target.read_text(encoding="utf-8") if target.is_file() else ""
         if expected != actual:
             _err(f".env.example drift detected ({target})")
             diff = difflib.unified_diff(
@@ -97,7 +97,7 @@ def _check_readme_topology_block_is_current(project_root: Path) -> list[str]:
         return ["README.md missing from real repo"]
     from tools.generate_readme_topology import generate_block
     expected = generate_block(project_root / "services").rstrip()
-    text = readme.read_text()
+    text = readme.read_text(encoding="utf-8")
     start = text.find("<!-- TOPOLOGY:BEGIN -->")
     end = text.find("<!-- TOPOLOGY:END -->")
     if start == -1 or end == -1:

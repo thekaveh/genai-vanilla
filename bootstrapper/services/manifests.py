@@ -179,7 +179,7 @@ _validator_singleton: Draft202012Validator | None = None
 def _get_validator() -> Draft202012Validator:
     global _validator_singleton
     if _validator_singleton is None:
-        schema = json.loads(_SCHEMA_PATH.read_text())
+        schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
         _validator_singleton = Draft202012Validator(schema)
     return _validator_singleton
 
@@ -244,7 +244,7 @@ def _load_one(service_dir: Path) -> Manifest:
         )
 
     try:
-        raw = yaml.safe_load(manifest_path.read_text())
+        raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     except yaml.YAMLError as e:
         raise _PerManifestError(
             f"services/{service_dir.name}/service.yml: invalid YAML — {e}"

@@ -223,5 +223,5 @@ if __name__ == "__main__":
 
     manifests = load_manifests(services_dir)
     output = assemble_env_example(manifests)
-    env_example_path.write_text(output)
+    env_example_path.write_text(output, encoding="utf-8")
     print(f"Wrote {env_example_path} ({output.count(chr(10))} lines)", file=sys.stderr)

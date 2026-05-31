@@ -102,9 +102,9 @@ def apply(
     backup_path = env_path.with_name(
         f"{env_path.name}.backup.{datetime.now().strftime('%Y%m%dT%H%M%S')}"
     )
-    backup_path.write_text(env_path.read_text())
+    backup_path.write_text(env_path.read_text(encoding="utf-8"), encoding="utf-8")
 
-    lines = env_path.read_text().splitlines(keepends=True)
+    lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True)
     rewritten: dict[str, tuple[str, str]] = {}
     preserved: list[str] = []
     out: list[str] = []
@@ -146,7 +146,7 @@ def apply(
                 preserved.append(key)
         out.append(line)
 
-    env_path.write_text("".join(out))
+    env_path.write_text("".join(out), encoding="utf-8")
     return MigrationResult(rewritten, preserved, backup_path)
 
 
@@ -160,7 +160,7 @@ def needs_migration(env_path: Path) -> bool:
     """
     if not env_path.is_file():
         return False  # fresh install — defaults already correct
-    for line in env_path.read_text().splitlines():
+    for line in env_path.read_text(encoding="utf-8").splitlines():
         m = _SENTINEL_RE.match(line)
         if m:
             try:
@@ -179,7 +179,7 @@ def stamp_version(env_path: Path, version: int = 1) -> None:
     """
     if not env_path.is_file():
         return
-    lines = env_path.read_text().splitlines(keepends=True)
+    lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True)
     found = False
     for i, line in enumerate(lines):
         if _SENTINEL_RE.match(line):
@@ -190,4 +190,4 @@ def stamp_version(env_path: Path, version: int = 1) -> None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         lines.append(f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n")
-    env_path.write_text("".join(lines))
+    env_path.write_text("".join(lines), encoding="utf-8")

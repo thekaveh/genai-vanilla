@@ -54,7 +54,7 @@ def needs_migration(env_path: Path) -> bool:
     """True iff .env's BOOTSTRAPPER_PORT_LAYOUT_VERSION < 2 (or absent)."""
     if not env_path.is_file():
         return False  # fresh install — defaults already include PORT vars
-    for line in env_path.read_text().splitlines():
+    for line in env_path.read_text(encoding="utf-8").splitlines():
         m = _SENTINEL_RE.match(line)
         if m:
             try:
@@ -77,7 +77,7 @@ def apply(env_path: Path) -> None:
     if not env_path.is_file():
         return
 
-    lines = env_path.read_text().splitlines(keepends=True)
+    lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True)
     existing_keys: set[str] = set()
     for line in lines:
         if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
@@ -138,14 +138,14 @@ def apply(env_path: Path) -> None:
             out[-1] += "\n"
         out.extend(appended)
 
-    env_path.write_text("".join(out))
+    env_path.write_text("".join(out), encoding="utf-8")
 
 
 def stamp_version(env_path: Path, version: int = 2) -> None:
     """Append or update BOOTSTRAPPER_PORT_LAYOUT_VERSION in .env to 2."""
     if not env_path.is_file():
         return
-    lines = env_path.read_text().splitlines(keepends=True)
+    lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True)
     found = False
     for i, line in enumerate(lines):
         if _SENTINEL_RE.match(line):
@@ -156,4 +156,4 @@ def stamp_version(env_path: Path, version: int = 2) -> None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         lines.append(f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n")
-    env_path.write_text("".join(lines))
+    env_path.write_text("".join(lines), encoding="utf-8")

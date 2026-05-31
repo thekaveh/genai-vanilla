@@ -101,7 +101,7 @@ def render_svg(graph: DepGraph) -> str:
 
 
 def render_html(graph: DepGraph) -> str:
-    tmpl = Template((TEMPLATE_DIR / "architecture.html.tmpl").read_text())
+    tmpl = Template((TEMPLATE_DIR / "architecture.html.tmpl").read_text(encoding="utf-8"))
     svg = render_svg(graph)
     cat_color = CATEGORY_COLORS.get(graph.category, "#94a3b8")
     n_calls = len(graph.upstream)
@@ -200,7 +200,7 @@ def _render_lane(x: int, y: int, w: int, clusters: "OrderedDict[str, list[DepEdg
 
     parts: list[str] = ['<g>']
     cy = y
-    cluster_tmpl = Template((TEMPLATE_DIR / "cluster.tmpl").read_text())
+    cluster_tmpl = Template((TEMPLATE_DIR / "cluster.tmpl").read_text(encoding="utf-8"))
     for cat, pills in clusters.items():
         ch = _cluster_height(pills)
         color = CATEGORY_COLORS.get(cat, "#94a3b8")

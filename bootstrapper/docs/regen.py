@@ -143,7 +143,7 @@ def _process(name: str, out_root: Path, dry_run: bool, section_only: bool, check
     graph = build_doc_graph(name, SERVICES_DIR)
     target_dir = out_root / name
     readme_path = target_dir / "README.md"
-    existing_readme = readme_path.read_text() if readme_path.exists() else ""
+    existing_readme = readme_path.read_text(encoding="utf-8") if readme_path.exists() else ""
 
     section = _render_section_with_future(graph, existing_readme)
     new_readme = _upsert_section(existing_readme, section)
@@ -155,7 +155,7 @@ def _process(name: str, out_root: Path, dry_run: bool, section_only: bool, check
 
     drift = 0
     for path, content in artifacts:
-        existing = path.read_text() if path.exists() else ""
+        existing = path.read_text(encoding="utf-8") if path.exists() else ""
         if existing != content:
             if check:
                 drift += 1
@@ -164,7 +164,7 @@ def _process(name: str, out_root: Path, dry_run: bool, section_only: bool, check
                 print(f"would write {path}")
             else:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(content)
+                path.write_text(content, encoding="utf-8")
     return drift
 
 
