@@ -92,7 +92,7 @@ def initialize_config():
             }
 
             os.makedirs("/app/config", exist_ok=True)
-            with open("/app/config/runtime_config.json", "w") as f:
+            with open("/app/config/runtime_config.json", "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
 
             # Create .env file for Local Deep Researcher
@@ -108,7 +108,7 @@ FETCH_FULL_PAGE={config["fetch_full_page"]}
 DATABASE_URL={database_url}
 """
 
-            with open("/app/.env", "w") as f:
+            with open("/app/.env", "w", encoding="utf-8") as f:
                 f.write(env_content)
 
             print("Configuration initialized successfully")
@@ -131,7 +131,7 @@ DATABASE_URL={database_url}
             }
 
             os.makedirs("/app/config", exist_ok=True)
-            with open("/app/config/runtime_config.json", "w") as f:
+            with open("/app/config/runtime_config.json", "w", encoding="utf-8") as f:
                 json.dump(fallback_config, f, indent=2)
 
             env_content = f"""LLM_PROVIDER=openai
@@ -146,7 +146,7 @@ FETCH_FULL_PAGE=false
 DATABASE_URL={database_url}
 """
 
-            with open("/app/.env", "w") as f:
+            with open("/app/.env", "w", encoding="utf-8") as f:
                 f.write(env_content)
 
     except Exception as e:
