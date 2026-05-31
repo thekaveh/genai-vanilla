@@ -43,14 +43,14 @@ def generate_block(services_root: Path) -> str:
 
 def update_readme(readme_path: Path, services_root: Path) -> None:
     block = generate_block(services_root)
-    text = readme_path.read_text()
+    text = readme_path.read_text(encoding="utf-8")
     start = text.find("<!-- TOPOLOGY:BEGIN -->")
     end = text.find("<!-- TOPOLOGY:END -->")
     if start == -1 or end == -1:
         raise RuntimeError("README.md is missing the TOPOLOGY markers")
     end += len("<!-- TOPOLOGY:END -->")
     new_text = text[:start] + block.rstrip() + text[end:]
-    readme_path.write_text(new_text)
+    readme_path.write_text(new_text, encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -42,7 +42,10 @@ def _comfyui_parent():
         value="family:TRELLIS",
         label="TRELLIS  ·  3 variants",
         hint="",
-        badges=["3d", "[family: TRELLIS] (3 variants)"],
+        # Production emits only the lowercase group badge for family
+        # parents — the variant count lives in the label, not a badge.
+        # Keep this fixture faithful to comfyui_steps.py:_family_parent_option.
+        badges=["3d"],
         sizes=(
             "microsoft--TRELLIS-image-large",
             "microsoft--TRELLIS.2-4B",

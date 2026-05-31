@@ -17,7 +17,7 @@ import functools
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, List
 
@@ -60,12 +60,8 @@ class _ComfyUIOption:
     badges: list[str]
     group: str      # display group for the filter chip system
     checked: bool   # True → pre-selected in the wizard's default_values
-    sizes: tuple[str, ...] = ()        # variant tags for family parents (full catalog names)
-    leaf_details: dict = None          # variant tag → (display_label, leaf_badges)
-
-    def __post_init__(self) -> None:
-        if self.leaf_details is None:
-            self.leaf_details = {}
+    sizes: tuple[str, ...] = ()                          # variant tags for family parents (full catalog names)
+    leaf_details: dict = field(default_factory=dict)     # variant tag → (display_label, leaf_badges)
 
 
 @functools.lru_cache(maxsize=1)

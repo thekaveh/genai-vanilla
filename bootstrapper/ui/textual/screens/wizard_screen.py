@@ -1002,7 +1002,7 @@ class WizardScreen(Screen):
         path = Path(f"/tmp/genai-vanilla-launch-{ts}.log")
         try:
             self._launch_log_path = path
-            self._launch_log_fh = open(path, "w", buffering=1)  # line-buffered
+            self._launch_log_fh = open(path, "w", buffering=1, encoding="utf-8")  # line-buffered
             self._launch_log_fh.write(f"# genai-vanilla session log — started {ts}\n")
             self._launch_log_fh.flush()
             if announce_in_pane and self._log_pane is not None:
@@ -1290,7 +1290,7 @@ class WizardScreen(Screen):
                     full_cmd,
                     cwd=str(starter.docker_manager.root_dir),
                     stdin=_sp.DEVNULL, stdout=_sp.PIPE, stderr=_sp.STDOUT,
-                    text=True, bufsize=1,
+                    text=True, bufsize=1, encoding="utf-8", errors="replace",
                 )
                 assert proc.stdout is not None
                 for line in proc.stdout:

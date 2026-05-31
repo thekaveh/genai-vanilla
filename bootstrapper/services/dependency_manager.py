@@ -202,7 +202,7 @@ class DependencyManager:
                 
                 env_file_path = self.config_parser.env_file_path
                 try:
-                    with open(env_file_path, 'r') as f:
+                    with open(env_file_path, 'r', encoding="utf-8") as f:
                         content = f.read()
                     
                     updated_content = content
@@ -213,7 +213,7 @@ class DependencyManager:
                         replacement = f'{scale_var}=0'
                         updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
                     
-                    with open(env_file_path, 'w') as f:
+                    with open(env_file_path, 'w', encoding="utf-8") as f:
                         f.write(updated_content)
                     
                     disabled_services.append(service_name)
@@ -229,7 +229,7 @@ class DependencyManager:
                 if scale_var:
                     env_file_path = self.config_parser.env_file_path
                     try:
-                        with open(env_file_path, 'r') as f:
+                        with open(env_file_path, 'r', encoding="utf-8") as f:
                             content = f.read()
                         
                         # Update scale to 0
@@ -237,7 +237,7 @@ class DependencyManager:
                         replacement = f'{scale_var}=0'
                         updated_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
                         
-                        with open(env_file_path, 'w') as f:
+                        with open(env_file_path, 'w', encoding="utf-8") as f:
                             f.write(updated_content)
                         
                         disabled_services.append(service_name)

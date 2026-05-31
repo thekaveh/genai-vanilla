@@ -31,7 +31,7 @@ def write_manifest(services_root: Path):
         folder = services_root / (folder_name or name)
         folder.mkdir(parents=True, exist_ok=True)
         manifest_path = folder / "service.yml"
-        manifest_path.write_text(yaml.safe_dump(data, sort_keys=False))
+        manifest_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
         return manifest_path
 
     return _write

@@ -393,7 +393,7 @@ class SourceValidator:
         if not env_file.exists():
             return
         try:
-            with open(env_file, 'r') as f:
+            with open(env_file, 'r', encoding="utf-8") as f:
                 lines = f.readlines()
             keep = []
             stripped_any = False
@@ -407,7 +407,7 @@ class SourceValidator:
                     continue
                 keep.append(line)
             if stripped_any:
-                with open(env_file, 'w') as f:
+                with open(env_file, 'w', encoding="utf-8") as f:
                     f.writelines(keep)
         except Exception:  # noqa: BLE001
             pass  # silent — not critical

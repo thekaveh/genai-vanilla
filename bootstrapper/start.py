@@ -330,8 +330,8 @@ class GenAIStackStarter:
             return True  # Nothing to backfill against.
 
         try:
-            example_text = env_example_path.read_text()
-            env_text = env_file_path.read_text()
+            example_text = env_example_path.read_text(encoding="utf-8")
+            env_text = env_file_path.read_text(encoding="utf-8")
         except OSError as e:
             self.banner.show_status_message(
                 f"Could not read env files for backfill: {e}", "warning",
@@ -389,8 +389,8 @@ class GenAIStackStarter:
                         new_lines.append(f"{key}={blank_fills[key]}{eol}")
                         continue
                 new_lines.append(line)
-            env_file_path.write_text("".join(new_lines))
-            env_text = env_file_path.read_text()
+            env_file_path.write_text("".join(new_lines), encoding="utf-8")
+            env_text = env_file_path.read_text(encoding="utf-8")
             self.banner.show_status_message(
                 f"Filled {len(blank_fills)} blank value(s) from .env.example: "
                 f"{', '.join(sorted(blank_fills)[:4])}"
@@ -426,7 +426,7 @@ class GenAIStackStarter:
             appended = "\n" + appended
 
         try:
-            with open(env_file_path, "a") as f:
+            with open(env_file_path, "a", encoding="utf-8") as f:
                 f.write(appended)
         except OSError as e:
             self.banner.show_status_message(

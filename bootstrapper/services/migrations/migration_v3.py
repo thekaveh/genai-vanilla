@@ -128,7 +128,7 @@ def needs_migration(env_path: Path) -> bool:
     """True iff .env's BOOTSTRAPPER_PORT_LAYOUT_VERSION < 3 (or absent)."""
     if not env_path.is_file():
         return False  # fresh install — schema already current
-    for line in env_path.read_text().splitlines():
+    for line in env_path.read_text(encoding="utf-8").splitlines():
         m = _SENTINEL_RE.match(line)
         if m:
             try:
@@ -151,7 +151,7 @@ def apply(env_path: Path) -> None:
     if not env_path.is_file():
         return
 
-    text = env_path.read_text()
+    text = env_path.read_text(encoding="utf-8")
     parsed = _parse_env(text)
 
     try:
@@ -165,7 +165,7 @@ def apply(env_path: Path) -> None:
     # Backup.
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup = env_path.with_name(f"{env_path.name}.backup.{ts}")
-    backup.write_text(text)
+    backup.write_text(text, encoding="utf-8")
 
     # Translate COMFYUI_MODEL_SET → catalog CSV.
     old_value = parsed.get(_OLD_VAR, "")
@@ -186,7 +186,7 @@ def apply(env_path: Path) -> None:
 
     # Atomic write via tmp + rename.
     tmp = env_path.with_suffix(env_path.suffix + ".tmp")
-    tmp.write_text(new_text)
+    tmp.write_text(new_text, encoding="utf-8")
     tmp.replace(env_path)
 
     print(
@@ -200,7 +200,7 @@ def stamp_version(env_path: Path, version: int = 3) -> None:
     """Append or update BOOTSTRAPPER_PORT_LAYOUT_VERSION in .env to 3."""
     if not env_path.is_file():
         return
-    lines = env_path.read_text().splitlines(keepends=True)
+    lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True)
     found = False
     for i, line in enumerate(lines):
         if _SENTINEL_RE.match(line):
@@ -211,4 +211,4 @@ def stamp_version(env_path: Path, version: int = 3) -> None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         lines.append(f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n")
-    env_path.write_text("".join(lines))
+    env_path.write_text("".join(lines), encoding="utf-8")

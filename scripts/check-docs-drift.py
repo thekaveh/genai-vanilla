@@ -67,7 +67,7 @@ def _strip_fenced_code_blocks(text: str) -> str:
 def check_links():
     broken = []
     for p in markdown_files():
-        raw = p.read_text(errors='ignore')
+        raw = p.read_text(encoding="utf-8", errors='ignore')
         text = _strip_fenced_code_blocks(raw)
         for match in LINK_RE.finditer(text):
             url = match.group(1).split()[0].strip('<>')
@@ -86,7 +86,7 @@ def check_stale_architecture_refs():
     stale_terms = ['architecture.mermaid', 'generate_diagram.sh', '@mermaid-js/mermaid-cli', 'regenerate with Mermaid', '```mermaid']
     hits = []
     for p in markdown_files():
-        text = p.read_text(errors='ignore')
+        text = p.read_text(encoding="utf-8", errors='ignore')
         for line_no, line in enumerate(text.splitlines(), 1):
             for term in stale_terms:
                 if term in line:
@@ -95,8 +95,8 @@ def check_stale_architecture_refs():
 
 
 def check_source_matrix():
-    env = (ROOT / '.env.example').read_text(errors='ignore')
-    guide = (ROOT / 'docs/deployment/source-configuration.md').read_text(errors='ignore')
+    env = (ROOT / '.env.example').read_text(encoding="utf-8", errors='ignore')
+    guide = (ROOT / 'docs/deployment/source-configuration.md').read_text(encoding="utf-8", errors='ignore')
     missing = []
     for var in sorted(set(re.findall(r'^([A-Z0-9_]+_SOURCE)=', env, re.M))):
         if var not in guide:
@@ -117,7 +117,7 @@ def check_required_files():
 def check_placeholder_urls():
     hits = []
     for p in markdown_files():
-        text = p.read_text(errors='ignore')
+        text = p.read_text(encoding="utf-8", errors='ignore')
         for line_no, line in enumerate(text.splitlines(), 1):
             if 'github.com/your-repo' in line:
                 hits.append(f'{p.relative_to(ROOT)}:{line_no}: placeholder GitHub URL')

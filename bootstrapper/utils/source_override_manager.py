@@ -109,7 +109,7 @@ class SourceOverrideManager:
         
         try:
             # Read current .env content
-            with open(env_file_path, 'r') as f:
+            with open(env_file_path, 'r', encoding="utf-8") as f:
                 content = f.read()
             
             updated_content = content
@@ -135,7 +135,7 @@ class SourceOverrideManager:
                     updated_content += f'\n{replacement}'
             
             # Write updated content back to file
-            with open(env_file_path, 'w') as f:
+            with open(env_file_path, 'w', encoding="utf-8") as f:
                 f.write(updated_content)
             
             return True

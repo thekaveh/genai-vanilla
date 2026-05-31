@@ -100,7 +100,8 @@ def load_compose() -> dict:
         args.extend(["--env-file", str(env_fallback)])
     args.extend(["-f", str(COMPOSE_FILE), "config"])
     try:
-        result = subprocess.run(args, capture_output=True, text=True, check=False)
+        result = subprocess.run(args, capture_output=True, text=True, check=False,
+                                encoding="utf-8", errors="replace")
     except FileNotFoundError:
         # docker not on PATH — fall through to the raw parse so the script
         # is still importable / linter-runnable on machines without docker.

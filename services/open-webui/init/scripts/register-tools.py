@@ -186,7 +186,7 @@ def register_tools(token):
         # Open WebUI requires alphanumeric + underscores only
         tool_id = re.sub(r"[^a-zA-Z0-9_]", "_", os.path.splitext(filename)[0])
 
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
 
         metadata = parse_tool_metadata(content)
