@@ -50,7 +50,7 @@ The bootstrapper's `_generate_prometheus_config()` hook writes all five scale va
 | `grafana` | `grafana:3000` | Grafana self-metrics |
 | `node` | `node-exporter:9100` | Host CPU/mem/disk/net |
 | `cadvisor` | `cadvisor:8080` | Per-container resources |
-| `kong` | `kong:8100` | Kong Status API + Prometheus plugin |
+| `kong` | `kong-api-gateway:8100` | Kong Status API + Prometheus plugin. (The Compose service name is `kong-api-gateway`; `kong` alone does not resolve on the backend-network.) |
 | `litellm` | `litellm:4000` | Per-model tokens / cost / latency / errors (requires `callbacks: [prometheus]` in LiteLLM config) |
 | `weaviate` | `weaviate:2112` | Requires `PROMETHEUS_MONITORING_ENABLED=true` on Weaviate |
 | `n8n` | `n8n:5678` | Requires `N8N_METRICS=true` |
