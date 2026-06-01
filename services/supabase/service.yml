@@ -18,6 +18,7 @@ containers:
   - supabase-api
   - supabase-realtime
   - supabase-studio
+  - postgres-exporter
 
 images:
   - var: SUPABASE_DB_IMAGE
@@ -44,6 +45,10 @@ images:
   - var: SUPABASE_STUDIO_IMAGE
     default: "supabase/studio:latest"
     container: supabase-studio
+  - var: POSTGRES_EXPORTER_IMAGE
+    default: "prometheuscommunity/postgres-exporter:v0.16.0"
+    container: postgres-exporter
+    notes: "Prometheus exporter sidecar. Scales 1↔0 with PROMETHEUS_SOURCE (gated by _generate_prometheus_config)."
 
 env:
   # DB
@@ -69,6 +74,13 @@ env:
   - name: SUPABASE_DB_INIT_SOURCE
     default: container
     description: "Auto-managed by supabase-db. Container/disabled."
+  # Postgres-exporter sidecar (observability)
+  - name: POSTGRES_EXPORTER_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for postgres-exporter (in-container 9187). Sidecar gated by PROMETHEUS_SOURCE."
+  - name: POSTGRES_EXPORTER_SCALE
+    auto_managed: true
+    description: "Set by _generate_prometheus_config() to 1 when PROMETHEUS_SOURCE=container, 0 otherwise."
   # Meta
   - name: SUPABASE_META_SOURCE
     default: container
@@ -254,6 +266,14 @@ runtime_sc:
     disabled:
       scale: 0
       environment: {}
+      deploy: {}
+      extra_hosts: []
+  postgres-exporter:
+    container:
+      scale: 0   # placeholder — _generate_prometheus_config overwrites
+      environment:
+        DATA_SOURCE_NAME: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}?sslmode=disable"
+        PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
       deploy: {}
       extra_hosts: []
 

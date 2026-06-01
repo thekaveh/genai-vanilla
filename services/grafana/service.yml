@@ -1,0 +1,79 @@
+# services/grafana/service.yml — Grafana observability dashboards + unified alerting
+name: grafana
+label: "Grafana (observability UI + alerting)"
+category: infra
+docs: services/grafana/README.md
+
+containers:
+  - grafana
+
+images:
+  - var: GRAFANA_IMAGE
+    default: "grafana/grafana:11.3.0"
+    container: grafana
+
+sources:
+  var: GRAFANA_SOURCE
+  default: disabled
+  options:
+    - id: container
+      label: "Container"
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: GRAFANA_SOURCE
+    default: disabled
+  - name: GRAFANA_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for Grafana's HTTP server (in-container 3000)."
+  - name: GRAFANA_ADMIN_USERNAME
+    default: "admin"
+    description: "Grafana admin login. Override in .env if needed."
+  - name: GRAFANA_ADMIN_PASSWORD
+    default: ""
+    description: "Auto-generated on first bootstrap by generate_grafana_admin_password() (mirrors LiteLLM UI_PASSWORD pattern). Persisted to .env; users can rotate by editing .env and restarting."
+  - name: GRAFANA_ENDPOINT
+    auto_managed: true
+  - name: GRAFANA_SCALE
+    auto_managed: true
+
+depends_on:
+  required:
+    - prometheus
+    - supabase
+  optional: []
+
+exports: []
+
+rows:
+  - display_name: "Grafana"
+    source_var: GRAFANA_SOURCE
+    port_var: GRAFANA_PORT
+    scale_var: GRAFANA_SCALE
+    alias: grafana.localhost
+    description: "Observability dashboards + unified alerting UI on top of Prometheus."
+
+runtime_sc:
+  grafana:
+    container:
+      scale: 1
+      environment:
+        GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USERNAME}
+        GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+        GF_SERVER_ROOT_URL: http://grafana.localhost
+        GF_USERS_ALLOW_SIGN_UP: "false"
+        GF_AUTH_ANONYMOUS_ENABLED: "false"
+        GRAFANA_ENDPOINT: http://grafana:3000
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        GRAFANA_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls:
+    - prometheus

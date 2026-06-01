@@ -203,6 +203,7 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 | Service | Category |
 |---|---|
 | kong | infra |
+| prometheus | infra |
 
 ### 13.3 Architecture diagram
 

@@ -70,6 +70,16 @@ REQUIRED_DEPENDS_ON = {
     ("hermes", "litellm"),
     ("weaviate-init", "litellm"),
     ("weaviate", "litellm"),
+    # Observability sidecars — exporters embedded in the data tier's families.
+    # Each hard-depends on its target service so the sidecar doesn't start
+    # before the database is healthy. Both are scaled 0 when PROMETHEUS_SOURCE
+    # is disabled, so the depends_on doesn't gate compose unnecessarily.
+    ("postgres-exporter", "supabase-db"),
+    ("redis-exporter", "redis"),
+    # Grafana depends on Prometheus for its provisioned datasource. Both
+    # scale together with their respective SOURCE values; the edge is only
+    # active when both are running.
+    ("grafana", "prometheus"),
 }
 
 

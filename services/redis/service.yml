@@ -14,12 +14,17 @@ docs: services/redis/README.md
 
 containers:
   - redis
+  - redis-exporter
 
 images:
   - var: REDIS_IMAGE
     default: "redis:7.2-alpine"
     container: redis
     notes: "Bumping the redis version: change this default and rerun ./start.sh."
+  - var: REDIS_EXPORTER_IMAGE
+    default: "oliver006/redis_exporter:v1.62.0"
+    container: redis-exporter
+    notes: "Prometheus exporter sidecar. Scales 1↔0 with PROMETHEUS_SOURCE (gated by _generate_prometheus_config)."
 
 env:
   - name: REDIS_SOURCE
@@ -47,6 +52,12 @@ env:
       different DB index build their own URL (open-webui uses /2,
       local-deep-researcher uses /3). REDIS_PASSWORD is substituted at
       compose-interpolation time.
+  - name: REDIS_EXPORTER_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for redis-exporter (in-container 9121). Sidecar gated by PROMETHEUS_SOURCE."
+  - name: REDIS_EXPORTER_SCALE
+    auto_managed: true
+    description: "Set by _generate_prometheus_config() to 1 when PROMETHEUS_SOURCE=container, 0 otherwise."
 
 # Manifest-level depends_on is intentionally empty: redis's compose-level
 # depends_on (supabase-db-init, condition: service_completed_successfully)
@@ -86,6 +97,14 @@ runtime_sc:
     container:
       scale: 1
       environment: {}
+      deploy: {}
+      extra_hosts: []
+  redis-exporter:
+    container:
+      scale: 0   # placeholder — _generate_prometheus_config overwrites
+      environment:
+        REDIS_ADDR: "redis://redis:6379"
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
       deploy: {}
       extra_hosts: []
 

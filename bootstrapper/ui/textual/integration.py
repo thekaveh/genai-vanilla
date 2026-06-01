@@ -82,6 +82,9 @@ _TAG_BY_KEY = {
     "weaviate": "DATA", "minio": "DATA", "neo4j": "DATA", "neo4j_graph_db": "DATA",
     "neo4j-graph-db": "DATA",
     "n8n": "TOOL", "searxng": "TOOL", "openclaw": "TOOL", "hermes": "TOOL", "jupyterhub": "TOOL",
+    "prometheus": "INFRA", "node-exporter": "INFRA", "cadvisor": "INFRA",
+    "grafana": "INFRA",
+    "postgres-exporter": "DATA", "redis-exporter": "DATA",
 }
 
 

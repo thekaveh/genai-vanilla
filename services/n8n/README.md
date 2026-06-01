@@ -102,6 +102,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 | Service | Category |
 |---|---|
 | kong | infra |
+| prometheus | infra |
 | openclaw | agents |
 | backend | apps |
 

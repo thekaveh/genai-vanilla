@@ -119,6 +119,7 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
+| prometheus | infra |
 | jupyterhub | apps |
 
 ### 10.3 Architecture diagram

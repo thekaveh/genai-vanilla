@@ -1577,6 +1577,16 @@ class GenAIStackStarter:
               help='Override RAY_WORKER_COUNT — number of ray-worker replicas '
                    'when --ray-source is ray-container-cpu or ray-container-gpu. '
                    '0 = head-only single-node mode. Defaults to 2 in .env.example.')
+@click.option('--prometheus-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override PROMETHEUS_SOURCE — observability scraping stack '
+                   '(prometheus + node-exporter + cAdvisor + postgres/redis exporters).')
+@click.option('--prometheus-retention-days', type=int, default=None,
+              help='Override PROMETHEUS_RETENTION_DAYS — TSDB retention in days '
+                   '(default 7).')
+@click.option('--grafana-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override GRAFANA_SOURCE — observability dashboards + alerting UI.')
 @click.option('--no-tui', is_flag=True,
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
@@ -1597,6 +1607,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          neo4j_graph_db_source,
          multi2vec_clip_source,
          ray_source, ray_worker_count,
+         prometheus_source, prometheus_retention_days, grafana_source,
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
@@ -1711,11 +1722,16 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'neo4j_graph_db_source': neo4j_graph_db_source,
             'multi2vec_clip_source': multi2vec_clip_source,
             'ray_source': ray_source,
+            'prometheus_source': prometheus_source,
+            'grafana_source': grafana_source,
         }
         # Ray non-SOURCE settings (worker count) get plumbed via
         # update_env_file the same way the cloud-API keys do.
         if ray_worker_count is not None:
             user_model_selections['RAY_WORKER_COUNT'] = str(ray_worker_count)
+        # Prometheus retention days — same pattern.
+        if prometheus_retention_days is not None:
+            user_model_selections['PROMETHEUS_RETENTION_DAYS'] = str(prometheus_retention_days)
 
         # Detect legacy `external` source values left in .env from versions
         # before PR #(observability bundle). These options have been removed
