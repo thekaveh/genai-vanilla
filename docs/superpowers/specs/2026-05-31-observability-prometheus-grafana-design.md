@@ -105,19 +105,32 @@ Recorded here so future readers can see the path, not just the destination:
 | Offset | Port | Service | Manifest |
 |---:|---:|---|---|
 | 0 | 63000 | Kong proxy | kong |
-| 1 | 63001 | Ray dashboard | ray |
-| 2 | 63002 | Ray GCS | ray |
-| 3 | 63003 | Ray client | ray |
-| 4 | 63004 | Prometheus | prometheus |
-| 5 | 63005 | node-exporter | prometheus |
-| 6 | 63006 | cAdvisor | prometheus |
-| 7 | 63007 | Grafana | grafana |
-| 8 | — | free | — |
+| 1 | 63001 | Kong HTTPS | kong |
+| 2 | 63002 | Ray dashboard | ray |
+| 3 | 63003 | Ray GCS | ray |
+| 4 | 63004 | Ray client | ray |
+| 5 | 63005 | Prometheus | prometheus |
+| 6 | 63006 | node-exporter | prometheus |
+| 7 | 63007 | cAdvisor | prometheus |
+| 8 | 63008 | Grafana | grafana |
 | 9 | — | free | — |
 
-Topological-order driven by `depends_on.required` lists:
-- `prometheus.depends_on.required: [supabase]` — same display-order pin as Ray
-- `grafana.depends_on.required: [prometheus, supabase]` — prometheus is a genuine boot dep (datasource provisioning reads `PROMETHEUS_ENDPOINT`); supabase pins ordering
+> *Drafting note (updated post-implementation):* the original spec table miscounted
+> Kong as a single-port service. Kong is actually two ports (proxy + HTTPS), so
+> every slot shifts by one. The shipped layout matches the table above.
+
+Topological-order driven by `depends_on.required` lists. Two non-obvious patches were
+required to keep Kong at `63000` and Ray's dashboard at `63002`:
+- `prometheus.depends_on.required: [supabase, redis, kong, ray]` — slot-ordering pins.
+  Without `kong`/`ray` here, Prometheus becomes "ready" right after `supabase`
+  (its only real boot dep) and grabs slot 0 ahead of Kong, which still has to
+  wait on `redis`. The four entries match Kong's and Ray's own slot-pin pattern
+  (where `redis` ties them at the same topological depth and alphabetical break
+  decides — `k < p < r` here).
+- `grafana.depends_on.required: [prometheus, supabase]` — prometheus is a
+  genuine boot dep (datasource provisioning reads `PROMETHEUS_ENDPOINT`);
+  supabase pins ordering. Transitively after Kong and Ray via the prometheus
+  edge.
 
 The `data` block (size 20, currently 12/20 used) absorbs the two new sidecar exporters at the next free offsets — `postgres-exporter` (~63022) and `redis-exporter` (~63023). Exact slot numbers are auto-resolved at every regen and should not be hardcoded.
 
