@@ -16,7 +16,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 
 | SOURCE variable | Default | Options | Category | Notes |
 |---|---|---|---|---|
-| `LLM_PROVIDER_SOURCE` | `ollama-container-cpu` | `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, `none` | User-facing | Local Ollama upstream behind LiteLLM. Use `none` for cloud-only operation. |
+| `LLM_PROVIDER_SOURCE` | `ollama-container-cpu` | `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `none` | User-facing | Local Ollama upstream behind LiteLLM. Use `none` for cloud-only operation. |
 | `CLOUD_OPENAI_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles OpenAI as a LiteLLM upstream. Requires `OPENAI_API_KEY`. |
 | `CLOUD_ANTHROPIC_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles Anthropic as a LiteLLM upstream. Requires `ANTHROPIC_API_KEY`. |
 | `CLOUD_OPENROUTER_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles OpenRouter as a LiteLLM upstream. Requires `OPENROUTER_API_KEY`. |
@@ -147,16 +147,6 @@ ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
-##### `ollama-external`
-```bash
-LLM_PROVIDER_SOURCE=ollama-external
-LLM_PROVIDER_EXTERNAL_URL=https://your-ollama-api.example
-```
-- **Use case**: Remote Ollama instance
-- **Pros**: Shared resources, cloud deployment
-- **Cons**: Network dependency, latency
-- **Requirements**: External Ollama API endpoint
-
 ##### `none`
 ```bash
 LLM_PROVIDER_SOURCE=none
@@ -239,16 +229,6 @@ python main.py --port 8000
 # COMFYUI_LOCALHOST_PORT=8188
 # (URL is derived as http://host.docker.internal:8188 at compose-render time.)
 ```
-
-#### `external`
-```bash
-COMFYUI_SOURCE=external
-COMFYUI_EXTERNAL_URL=https://your-comfyui-api.example
-```
-- **Use case**: Remote ComfyUI instance
-- **Pros**: Shared GPU resources
-- **Cons**: Network dependency
-- **Requirements**: External ComfyUI API
 
 #### `disabled`
 ```bash
@@ -446,16 +426,6 @@ RAY_WORKER_COUNT=2
 - **Pros**: NVIDIA-runtime workers, same API surface as CPU mode
 - **Cons**: Requires NVIDIA Container Toolkit on host. Image is ~5.9 GB
 - **Requirements**: NVIDIA GPU + Container Toolkit installed on host
-
-#### `ray-external`
-```bash
-RAY_SOURCE=ray-external
-RAY_EXTERNAL_ADDRESS=ray://my-cluster.anyscale.com:10001
-```
-- **Use case**: Point at a managed Anyscale cluster or self-hosted external Ray cluster
-- **Pros**: Zero local compute cost; offload heavy work to dedicated infrastructure
-- **Cons**: Requires the external cluster to exist; `ray.init()` from JupyterHub picks up `RAY_ADDRESS` automatically. Override `RAY_DASHBOARD_URL` if the dashboard isn't at `:8265` on the same host
-- **Requirements**: Reachable Ray cluster URL + matching Ray client version
 
 ## Configuration Patterns
 

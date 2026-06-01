@@ -163,16 +163,6 @@ def test_localhost_port_env_override_is_honored():
     assert by_host_with_url["tts.localhost"] == "http://host.docker.internal:6666/"
 
 
-def test_external_source_skips_kong_route():
-    """``*-external`` sources target a remote URL outside our network —
-    we don't add a Kong route for those (LiteLLM forwards via its own
-    config). Disabled handled separately below.
-    """
-    config = _generate("LLM_PROVIDER_SOURCE=ollama-external\n")
-    by_host = _hosts_to_service(config)
-    assert "ollama.localhost" not in by_host
-
-
 def test_disabled_source_skips_kong_route():
     """Disabled service: no Kong route."""
     config = _generate(

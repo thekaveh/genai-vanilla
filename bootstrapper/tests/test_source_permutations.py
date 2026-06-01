@@ -46,13 +46,12 @@ _PERMUTATIONS = [
             "ollama-container-cpu",
             "ollama-container-gpu",
             "ollama-localhost",
-            "ollama-external",
             "none",
         ],
     ),
     ("WEAVIATE_SOURCE", ["container", "localhost", "disabled"]),
     ("NEO4J_GRAPH_DB_SOURCE", ["container", "localhost", "disabled"]),
-    ("COMFYUI_SOURCE", ["container-cpu", "container-gpu", "localhost", "external", "disabled"]),
+    ("COMFYUI_SOURCE", ["container-cpu", "container-gpu", "localhost", "disabled"]),
     (
         "STT_PROVIDER_SOURCE",
         [

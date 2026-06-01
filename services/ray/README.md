@@ -6,7 +6,7 @@ Distributed-compute substrate for the stack. Ray runs as a head + worker cluster
 
 Ray (`rayproject/ray:2.55.1`, Apache 2.0) is a generic parallel-compute framework. This stack ships it as a 2-container family (head + workers) wired so every tier can dispatch parallel work without rolling its own asyncio.gather glue. Use Ray when you have N independent units of work to fan out across CPUs (and eventually GPUs on multi-host Linux).
 
-Active when `RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}`. The `ray-external` source lets you point at a managed Anyscale or self-hosted external Ray cluster instead.
+Active when `RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}`. Authenticated remote Ray endpoints (Anyscale, self-hosted clusters) are deferred to the stack-wide authenticated-remote design.
 
 ## 2. Access
 
@@ -21,13 +21,12 @@ Active when `RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}`. The `ray-ex
 
 | Env var | Default | When | Description |
 |---|---|---|---|
-| `RAY_SOURCE` | `disabled` | always | One of `ray-container-cpu`, `ray-container-gpu`, `ray-external`, `disabled`. |
+| `RAY_SOURCE` | `disabled` | always | One of `ray-container-cpu`, `ray-container-gpu`, `disabled`. |
 | `RAY_WORKER_COUNT` | `2` | when source ∈ {cpu, gpu} | Number of `ray-worker` containers. Use `0` for head-only single-node mode. No hard upper bound — bounded by host RAM and CPUs. |
-| `RAY_EXTERNAL_ADDRESS` | `""` | required when `RAY_SOURCE=ray-external` | `ray://…:10001` URL of the external cluster. |
 | `RAY_DASHBOARD_PORT`, `RAY_GCS_PORT`, `RAY_CLIENT_PORT` | auto-assigned | always | Topology-allocated in the infra block. |
 | `RAY_IMAGE`, `RAY_GPU_IMAGE`, `RAY_HEAD_SCALE`, `RAY_WORKER_SCALE`, `RAY_ADDRESS` | auto-managed | always | Resolved by `_generate_ray_config()` from RAY_SOURCE + RAY_WORKER_COUNT. Don't edit by hand. |
 
-**Wizard behavior:** when the user selects `ray-container-cpu` or `ray-container-gpu`, the wizard then prompts for `RAY_WORKER_COUNT` (integer, default 2). When the user selects `ray-external`, the wizard prompts for `RAY_EXTERNAL_ADDRESS`.
+**Wizard behavior:** when the user selects `ray-container-cpu` or `ray-container-gpu`, the wizard then prompts for `RAY_WORKER_COUNT` (integer, default 2) inline on the source step via the `SecondaryNumberInput` widget.
 
 ## 4. Architecture & wiring
 
@@ -85,4 +84,3 @@ _No high-confidence opportunities identified._
 - **Workers stuck "starting"** — they `depends_on: ray-head: service_healthy`. The head's `start_period: 60s` allows up to 60s before health checks count. If still stuck after 2 minutes, check the head's healthcheck output: `docker exec ${PROJECT_NAME}-ray-head curl -v http://localhost:8265/api/version`.
 - **`ray.init("ray://localhost:PORT")` from host fails with version mismatch** — your host's `ray` Python package version must match the cluster's image version. Pin `ray>=2.55.1,<2.56` in your host venv to match the image's `rayproject/ray:2.55.1`.
 - **Dashboard unreachable through Kong** — Kong's `ray.localhost` route requires `--setup-hosts` to have run AND basic-auth credentials match `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` in `.env`. The direct port works without these.
-- **`RAY_SOURCE=ray-external` ignored** — make sure `RAY_EXTERNAL_ADDRESS` is also set. The `requires: [RAY_EXTERNAL_ADDRESS]` source-option check will warn at wizard time but won't crash if the env var is set to an empty string.

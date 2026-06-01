@@ -52,7 +52,7 @@ Plain `python3 scripts/check-kong-routes.py` works too if `PyYAML` is on your sy
 - `studio.localhost` → Supabase Studio dashboard (and bare `localhost` falls through to the same upstream)
 - `graph.localhost` → Neo4j Browser (`NEO4J_GRAPH_DB_SOURCE != disabled`)
 - `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
-- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE ∈ {ollama-container-*, ollama-localhost}`; `ollama-external` does NOT get a Kong route — LiteLLM forwards via `LLM_PROVIDER_EXTERNAL_URL`)
+- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE ∈ {ollama-container-*, ollama-localhost}`)
 - `docling.localhost` → Docling document processor (`DOC_PROCESSOR_SOURCE != disabled`)
 - `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
 - `stt.localhost` → STT engine (`STT_PROVIDER_SOURCE != disabled`; container resolves to `parakeet-gpu` or `speaches`, localhost to `host.docker.internal` on the per-engine port)
@@ -68,8 +68,6 @@ Each `*-localhost` source still gets a Kong route — Kong proxies through `host
 if source == 'localhost':
     port = os.environ.get('COMFYUI_LOCALHOST_PORT', '8000')
     service['url'] = f'http://host.docker.internal:{port}/'
-elif source == 'external':
-    service['url'] = external_url
 elif source in ['container-cpu', 'container-gpu']:
     service['url'] = 'http://comfyui:18188/'
 # No route created if source == 'disabled'

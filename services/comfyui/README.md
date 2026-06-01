@@ -2,7 +2,7 @@
 
 Node-based image generation workflow engine. ComfyUI runs as a single container with a web UI on its own port, exposing an HTTP API (`/prompt`, `/history/{id}`, `/view`) and a WebSocket (`/ws`) that streams `executing`/`executed`/`progress` events while a workflow runs. The stack treats ComfyUI as a media-tier engine: backend, n8n, Hermes, and Open WebUI all consume it indirectly through Kong (browser) or directly via the internal Docker DNS name.
 
-Four source variants cover the common deployment shapes: containerized CPU and GPU (built from `ai-dock/comfyui` images), a localhost mode that routes consumers to a host-running ComfyUI, and an external URL mode for shared/remote instances. Disabled mode removes it from compose entirely. A short-lived `comfyui-init` container stages model checkpoints into the `comfyui-models` volume based on `COMFYUI_USER_MODELS` (selected via the wizard's "ComfyUI · models" step).
+Three source variants cover the common deployment shapes: containerized CPU and GPU (built from `ai-dock/comfyui` images) and a localhost mode that routes consumers to a host-running ComfyUI. Disabled mode removes it from compose entirely. A short-lived `comfyui-init` container stages model checkpoints into the `comfyui-models` volume based on `COMFYUI_USER_MODELS` (selected via the wizard's "ComfyUI · models" step).
 
 ## 1. Overview
 
@@ -14,7 +14,7 @@ Image: `ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7` (CPU default) or the latest
 |---|---|---|
 | Direct | `http://localhost:${COMFYUI_PORT}` (default `63041`) | Web UI + REST API. |
 | Kong | `http://comfyui.localhost:${KONG_HTTP_PORT}` | Browser-friendly; needs `./start.sh --setup-hosts`. |
-| Internal | `${COMFYUI_ENDPOINT}` | Resolved per `COMFYUI_SOURCE`: `http://comfyui:18188` for container, `http://host.docker.internal:8000` for localhost, custom URL for external. |
+| Internal | `${COMFYUI_ENDPOINT}` | Resolved per `COMFYUI_SOURCE`: `http://comfyui:18188` for container, `http://host.docker.internal:${COMFYUI_LOCALHOST_PORT}` for localhost. |
 | WebSocket | `ws://comfyui:18188/ws` | Streams progress events; one connection per caller today. |
 
 Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.md).
@@ -22,7 +22,7 @@ Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.
 ## 3. Configuration
 
 ```bash
-COMFYUI_SOURCE=container-cpu                # container-cpu | container-gpu | localhost | external | disabled
+COMFYUI_SOURCE=container-cpu                # container-cpu | container-gpu | localhost | disabled
 COMFYUI_PORT=63041                          # computed by topology.py
 COMFYUI_BASE_URL=http://comfyui:18188       # in-container default
 COMFYUI_ARGS=--listen                       # bootstrapper injects --cpu or --force-fp16 per source
@@ -33,11 +33,10 @@ COMFYUI_STORAGE_BUCKET=comfyui-images
 COMFYUI_AUTO_UPDATE=false                   # GPU variant flips this to true upstream
 ```
 
-Localhost / external overrides:
+Localhost overrides:
 
 ```bash
 COMFYUI_LOCALHOST_PORT=8000                 # URL is derived as http://host.docker.internal:8000 at compose-render time
-COMFYUI_EXTERNAL_URL=                       # required when COMFYUI_SOURCE=external
 COMFYUI_LOCAL_MODELS_PATH=~/Documents/ComfyUI/models   # bind-mounted when SOURCE=localhost
 ```
 
@@ -127,10 +126,10 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 ## 7. Operations
 
-**Choosing models.** Run `./start.sh` (or the wizard standalone) and navigate to the "ComfyUI · models" step. The step shows for every non-`disabled` source (container-cpu / container-gpu / localhost / external) — same shape as the Ollama picker. Use filter chips (`f` key) to browse by category (Image / Image-edit / Video / Audio / 3D), `/` or `Tab` to search by name, `Space` to toggle rows, and `Enter` to confirm. Selected names are persisted as `COMFYUI_USER_MODELS` in `.env`. On the next `./start.sh`:
+**Choosing models.** Run `./start.sh` (or the wizard standalone) and navigate to the "ComfyUI · models" step. The step shows for every non-`disabled` source (container-cpu / container-gpu / localhost) — same shape as the Ollama picker. Use filter chips (`f` key) to browse by category (Image / Image-edit / Video / Audio / 3D), `/` or `Tab` to search by name, `Space` to toggle rows, and `Enter` to confirm. Selected names are persisted as `COMFYUI_USER_MODELS` in `.env`. On the next `./start.sh`:
 
 - **`container-cpu` / `container-gpu`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` AND `comfyui-init` downloads them into the `comfyui-models` volume.
-- **`localhost` / `external`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` so the backend `/comfyui/db/models` endpoint surfaces them to Open WebUI + n8n. `comfyui-init` does NOT run (scale=0) — you populate your host ComfyUI install's models directory yourself, same way you'd run `ollama pull <name>` on the host for Ollama localhost.
+- **`localhost`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` so the backend `/comfyui/db/models` endpoint surfaces them to Open WebUI + n8n. `comfyui-init` does NOT run (scale=0) — you populate your host ComfyUI install's models directory yourself, same way you'd run `ollama pull <name>` on the host for Ollama localhost.
 
 CLI alternative (works for all non-disabled sources):
 ```bash

@@ -232,9 +232,7 @@ class KongConfigGenerator:
                     if src and src.startswith("ollama-container")
                     else None
                 ),
-                # ollama-localhost only. ollama-external lands elsewhere
-                # (LiteLLM forwards via LLM_PROVIDER_EXTERNAL_URL) so we
-                # skip it here.
+                # ollama-localhost only.
                 lambda src: (
                     self._localhost_url("OLLAMA_LOCALHOST_PORT", "11434")
                     if src == "ollama-localhost" else None
@@ -543,15 +541,6 @@ class KongConfigGenerator:
             probe_port = parsed.port or 8000
             self.check_localhost_service('localhost', probe_port, 'ComfyUI')
             service['url'] = localhost_url
-        elif source == 'external':
-            external_url = self.get_env_value('COMFYUI_EXTERNAL_URL')
-            if not external_url:
-                print("❌ COMFYUI_SOURCE is set to 'external' but COMFYUI_EXTERNAL_URL is not provided")
-                return None
-            if not external_url.startswith(('http://', 'https://')):
-                print("❌ COMFYUI_EXTERNAL_URL must be a valid URL starting with http:// or https://")
-                return None
-            service['url'] = external_url
         elif source in ['container-cpu', 'container-gpu']:
             service['url'] = 'http://comfyui:18188/'
         else:
@@ -802,9 +791,9 @@ class KongConfigGenerator:
         authentication.
 
         Gated on ``RAY_SOURCE`` ∈ {``ray-container-cpu``,
-        ``ray-container-gpu``}. When ``RAY_SOURCE=disabled`` or
-        ``ray-external``, no ``ray-head`` container exists and the
-        route would immediately 502 — so we skip it.
+        ``ray-container-gpu``}. When ``RAY_SOURCE=disabled``, no
+        ``ray-head`` container exists and the route would immediately
+        502 — so we skip it.
         """
         source = self.get_env_value('RAY_SOURCE')
 

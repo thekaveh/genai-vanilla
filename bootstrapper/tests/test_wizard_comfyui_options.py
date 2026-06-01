@@ -136,9 +136,9 @@ def test_sidecar_name_colliding_with_catalog_dedups_sidecar_wins():
 
 # ── skip-predicate behavior ───────────────────────────────────────────
 # Mirrors Ollama's picker: the model step shows for ALL non-disabled
-# sources (container-cpu / container-gpu / localhost / external) and
-# only skips when COMFYUI_SOURCE=disabled. Earlier versions wrongly
-# skipped for localhost / external. See PR following #18.
+# sources (container-cpu / container-gpu / localhost) and only skips
+# when COMFYUI_SOURCE=disabled. Earlier versions wrongly skipped for
+# localhost. See PR following #18.
 
 def _picker_step(env_vars: dict):
     """Build the ComfyUI picker step and return it for skip-predicate inspection."""
@@ -150,16 +150,15 @@ def _picker_step(env_vars: dict):
 @pytest.mark.parametrize("source,expected_skip", [
     ("container-cpu", False),
     ("container-gpu", False),
-    ("localhost",     False),  # NEW behavior — picker shows for localhost
-    ("external",      False),  # NEW behavior — picker shows for external
+    ("localhost",     False),  # picker shows for localhost
     ("disabled",      True),   # only `disabled` skips
     ("",              True),   # treat empty as disabled (safe default)
 ])
 def test_skip_predicate_mirrors_ollama_for_all_sources(source, expected_skip):
     """The wizard step skips ONLY for COMFYUI_SOURCE=disabled (or empty).
-    For container/localhost/external sources the picker shows — same
-    shape as Ollama's `_merged_ollama_options` showing for any source
-    that starts with `ollama-`.
+    For container/localhost sources the picker shows — same shape as
+    Ollama's `_merged_ollama_options` showing for any source that starts
+    with `ollama-`.
     """
     step = _picker_step(env_vars={"COMFYUI_SOURCE": source})
     assert step.skip_if_prev is not None, "step must declare a skip_if_prev predicate"

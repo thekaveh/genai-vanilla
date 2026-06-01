@@ -126,7 +126,7 @@
               "requires": {
                 "type": "array",
                 "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
-                "description": "Env vars that MUST be non-empty when this source is selected (e.g. LLM_PROVIDER_EXTERNAL_URL for ollama-external)."
+                "description": "Env vars that MUST be non-empty when this source is selected."
               }
             }
           }

@@ -24,7 +24,6 @@ Consumers ──► litellm:4000 ──► Local engine (Ollama) and/or Cloud pr
 - **Local engine** is a single-select choice (`LLM_PROVIDER_SOURCE`):
   - `ollama-container-cpu` / `ollama-container-gpu` — Docker Ollama upstream
   - `ollama-localhost` — Ollama running on the host machine
-  - `ollama-external` — remote Ollama at `LLM_PROVIDER_EXTERNAL_URL`
   - `none` — no local engine (cloud only)
 - **Cloud providers** are independent toggles (each `enabled` / `disabled`):
   - `CLOUD_OPENAI_SOURCE` (requires `OPENAI_API_KEY`)
@@ -76,8 +75,8 @@ The wizard's multiselect choices persist as comma-separated lists in `.env` so t
 
 | Env var | Set by | Notes |
 |---|---|---|
-| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware — container shows the library scrape only; localhost/external shows a merged view where rows are badged `[pulled]` if already on the upstream and `[library]` if catalog-only). | `llm-catalog-init` activates the matching rows in `public.llms` (every source). `ollama-pull` then pulls the active set from `public.llms` for container sources — note the indirection: `ollama-pull` reads the DB, not this env var directly. |
-| `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | `llm-catalog-init` UPSERTs each entry as a row in `public.llms` with `active=true` for **every** Ollama source. For container sources, `ollama-pull` then fetches them. For `ollama-localhost` / `ollama-external`, the row exists for LiteLLM routing but you must `ollama pull <name>` on your host yourself. |
+| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware — container shows the library scrape only; localhost shows a merged view where rows are badged `[pulled]` if already on the upstream and `[library]` if catalog-only). | `llm-catalog-init` activates the matching rows in `public.llms` (every source). `ollama-pull` then pulls the active set from `public.llms` for container sources — note the indirection: `ollama-pull` reads the DB, not this env var directly. |
+| `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | `llm-catalog-init` UPSERTs each entry as a row in `public.llms` with `active=true` for **every** Ollama source. For container sources, `ollama-pull` then fetches them. For `ollama-localhost`, the row exists for LiteLLM routing but you must `ollama pull <name>` on your host yourself. |
 | `OPENAI_USER_MODELS` | OpenAI multiselect (after live `/v1/models` fetch). | `llm-catalog-init` activates matching rows; live-only names not in the curated catalog get INSERTed with generic capability defaults. |
 | `ANTHROPIC_USER_MODELS` | Anthropic multiselect (after live `/v1/models` fetch). | Same INSERT-on-missing handling as OpenAI. |
 | `OPENROUTER_USER_MODELS` | OpenRouter multiselect (after live `/api/v1/models` fetch). | Same INSERT-on-missing handling. |

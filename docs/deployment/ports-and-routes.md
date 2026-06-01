@@ -30,7 +30,7 @@ Active aliases (every `*-localhost` source also routes through `host.docker.inte
 - `litellm.localhost` → LiteLLM gateway + admin dashboard (always-on; same alias exposes `/ui/`, `/v1/*`, `/spend/*`)
 - `minio.localhost` → MinIO admin console (`MINIO_SOURCE != disabled`; S3 API is NOT aliased — clients use the direct port)
 - `n8n.localhost` → n8n (`N8N_SOURCE != disabled`)
-- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE` is `ollama-container-*` or `ollama-localhost`; `ollama-external` is forwarded by LiteLLM, no Kong route)
+- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE` is `ollama-container-*` or `ollama-localhost`)
 - `openclaw.localhost` → OpenClaw gateway (`OPENCLAW_SOURCE != disabled`)
 - `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
 - `search.localhost` → SearxNG (`SEARXNG_SOURCE != disabled`)

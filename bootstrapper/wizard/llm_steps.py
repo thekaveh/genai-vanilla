@@ -267,9 +267,8 @@ def build_ollama_steps(
           * ``ollama-container-*``: nothing is pulled yet (the in-stack
             container isn't running at wizard time), so just return the
             library scrape (with curated catalog as fallback).
-          * ``ollama-localhost`` / ``ollama-external``: query the
-            upstream's ``/api/tags`` AND scrape ollama.com/library, then
-            merge:
+          * ``ollama-localhost``: query the upstream's ``/api/tags`` AND
+            scrape ollama.com/library, then merge:
               - already-pulled rows (from /api/tags) appear first with a
                 ``pulled`` badge
               - library entries also present in /api/tags get the

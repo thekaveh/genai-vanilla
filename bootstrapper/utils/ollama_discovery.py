@@ -3,9 +3,9 @@ Ollama upstream discovery — query ``/api/tags`` for the list of
 locally-pulled models.
 
 Used by the wizard step builder when ``LLM_PROVIDER_SOURCE`` resolves
-to ``ollama-localhost`` or ``ollama-external``: instead of guessing
-from the curated catalog, we ask the live upstream what's actually
-available so the user picks from real options.
+to ``ollama-localhost``: instead of guessing from the curated catalog,
+we ask the live upstream what's actually available so the user picks
+from real options.
 
 For ``ollama-container-cpu`` / ``ollama-container-gpu``, the container
 isn't running yet at wizard time — the caller falls back to the
