@@ -37,6 +37,12 @@ def base_settings() -> Dict[str, Any]:
                 "password": "os.environ/REDIS_PASSWORD",
             },
             "drop_params": True,
+            # Prometheus metrics — emits per-model request/token/cost/latency
+            # series on /metrics (same port as the proxy, 4000). Scraped by
+            # the observability bundle's Prometheus when PROMETHEUS_SOURCE=container.
+            # When disabled, the callback still loads but its emissions just sit
+            # idle — no consumer hits /metrics. Harmless overhead.
+            "callbacks": ["prometheus"],
         },
         "router_settings": {
             "redis_host": "os.environ/REDIS_HOST",

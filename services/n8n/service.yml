@@ -93,6 +93,10 @@ runtime_sc:
         STT_ENDPOINT: ${STT_ENDPOINT}
         TTS_ENDPOINT: ${TTS_ENDPOINT}
         DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+        N8N_METRICS: 'true'
+        N8N_METRICS_PREFIX: 'n8n_'
+        N8N_METRICS_INCLUDE_DEFAULT_METRICS: 'true'
+        N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: 'true'
       deploy: {}
       extra_hosts: []
     disabled:

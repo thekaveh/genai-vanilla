@@ -141,6 +141,12 @@ services:
       # services/litellm/init/scripts/init.py when HERMES_SOURCE != disabled) references
       # ``os.environ/HERMES_API_KEY`` for its bearer token.
       HERMES_API_KEY: ${HERMES_API_KEY:-}
+      # Prometheus multi-worker dir — LiteLLM emits metrics from each
+      # uvicorn worker; the aggregator needs a shared tmpfs to merge
+      # per-worker counters before /metrics returns the union. Upstream
+      # docs require this env when num_workers > 1, which our launch
+      # command uses (4 workers).
+      PROMETHEUS_MULTIPROC_DIR: /tmp/litellm_metrics
       # NOTE: LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED /
       # LITELLM_OPENROUTER_ENABLED are NOT passed here — they're
       # consumed only by ``llm-catalog-init`` to gate which provider
@@ -148,6 +154,8 @@ services:
       # config comes entirely from /app/config.yaml.
     volumes:
       - ../../volumes/litellm/config.yaml:/app/config.yaml:ro
+    tmpfs:
+      - /tmp/litellm_metrics:rw,size=64m
     # NOTE: 4 uvicorn workers race their own per-worker
     # `_create_database_views()` bootstrap at first boot; expect a
     # one-shot burst of ~11 `relation "<...>" does not exist at character

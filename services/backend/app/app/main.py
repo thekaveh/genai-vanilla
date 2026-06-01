@@ -60,6 +60,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Prometheus metrics — emits standard HTTP server metrics
+# (http_request_duration_seconds, http_requests_total by route/method/status).
+# Scraped by the observability bundle's Prometheus at backend:8000/metrics.
+# Always on; the endpoint sits unscraped when PROMETHEUS_SOURCE=disabled.
+from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,

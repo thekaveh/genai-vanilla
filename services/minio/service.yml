@@ -140,6 +140,7 @@ runtime_sc:
         MINIO_ENDPOINT: http://minio:9000
         MINIO_PUBLIC_ENDPOINT: http://localhost:${MINIO_PORT}
         MINIO_PUBLIC_CONSOLE_ENDPOINT: http://localhost:${MINIO_CONSOLE_PORT}
+        MINIO_PROMETHEUS_AUTH_TYPE: 'public'
       deploy: {}
       extra_hosts: []
     disabled:
