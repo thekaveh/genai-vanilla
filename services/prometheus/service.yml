@@ -56,12 +56,25 @@ env:
     auto_managed: true
 
 depends_on:
-  # Display-ordering pin: Prometheus is standalone at runtime — it scrapes
-  # other services but doesn't depend on any for boot. The `supabase` entry
-  # matches the Ray pattern, anchoring Prom's position in the infra block's
-  # topological order so port slots remain stable across regens.
+  # Slot-ordering pins. Prometheus is standalone at runtime — it scrapes
+  # other services but doesn't depend on any for boot. The four entries
+  # here are NOT runtime calls; they exist to pin Prometheus AFTER the
+  # other infra-tier services in the slot allocator's topological order
+  # so the established port commitments survive observability's
+  # addition:
+  #   - supabase + redis: same baseline as kong + ray, makes Prometheus
+  #     simultaneously "ready" with them.
+  #   - kong + ray: bumps Prometheus to wait until those two have
+  #     received their slots. Without these pins, alphabetical
+  #     tie-break (k < p < r) is moot because Prom would become ready
+  #     BEFORE Kong (Prom needed only supabase), grabbing slot 0 and
+  #     pushing Kong from its documented `63000` slot. Same protection
+  #     Ray uses against alphabetical ordering on `r-a` < `redis`.
   required:
     - supabase
+    - redis
+    - kong
+    - ray
   optional: []
 
 exports:

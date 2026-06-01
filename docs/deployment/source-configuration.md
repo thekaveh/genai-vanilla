@@ -429,6 +429,53 @@ RAY_WORKER_COUNT=2
 - **Cons**: Requires NVIDIA Container Toolkit on host. Image is ~5.9 GB
 - **Requirements**: NVIDIA GPU + Container Toolkit installed on host
 
+### PROMETHEUS_SOURCE
+
+Prometheus is the stack's metrics scraper + TSDB, bundled with `node-exporter` (host metrics) and `cAdvisor` (container metrics) as one co-lifecycled family. The bootstrapper's `_generate_prometheus_config()` hook also scales the `postgres-exporter` (in `services/supabase/`) and `redis-exporter` (in `services/redis/`) sidecars from this same source. See [Prometheus service README](../../services/prometheus/README.md) for scrape targets and configuration details.
+
+#### `disabled` (Default)
+```bash
+PROMETHEUS_SOURCE=disabled
+```
+- **Use case**: Cold-start fast, no observability overhead
+- **Pros**: Zero footprint
+- **Cons**: No metrics — Grafana shows "datasource unreachable" if also `container`
+- **Requirements**: None
+
+#### `container`
+```bash
+PROMETHEUS_SOURCE=container
+PROMETHEUS_RETENTION_DAYS=7   # 1..365 — wizard prompts inline on the source step
+```
+- **Use case**: Stack-wide observability — scrapes Kong, LiteLLM, Weaviate, n8n, JupyterHub, MinIO, Backend, Hermes, plus the postgres/redis sidecars and cAdvisor/node-exporter
+- **Pros**: 14 pre-configured scrape jobs, recording-rules folder ready to extend, Kong-aliased UI at `prometheus.localhost`
+- **Cons**: cAdvisor polls every container every 5s and node-exporter polls `/proc` continuously — non-trivial overhead on a laptop
+- **Requirements**: ~500 MB image disk + retention-day-dependent disk for the TSDB volume
+
+### GRAFANA_SOURCE
+
+Grafana is the user-facing dashboards + unified alerting UI on top of Prometheus. The Prometheus datasource is pre-provisioned (URL interpolated from `${PROMETHEUS_ENDPOINT}` at boot) plus 7 starter dashboards (stack overview, LiteLLM, Kong, Postgres+Redis, containers+host, n8n, app-tier). See [Grafana service README](../../services/grafana/README.md) for the dashboard catalog and admin-password lifecycle.
+
+#### `disabled` (Default)
+```bash
+GRAFANA_SOURCE=disabled
+```
+- **Use case**: Cold-start fast; no UI overhead. Useful even when Prometheus is `container` if you only want raw metrics via Prom's own UI
+- **Pros**: Zero footprint
+- **Cons**: No dashboards
+- **Requirements**: None
+
+#### `container`
+```bash
+GRAFANA_SOURCE=container
+GRAFANA_ADMIN_USERNAME=admin    # override only if you want a different login
+GRAFANA_ADMIN_PASSWORD=...       # auto-generated on first bootstrap; persisted to .env
+```
+- **Use case**: User-facing observability — 7 dashboards in the "GenAI Vanilla" folder, unified alerting enabled (no rules pre-provisioned), Kong-aliased UI at `grafana.localhost`
+- **Pros**: Admin login + datasource provisioning happen automatically; sign-up disabled; anonymous-read off by default
+- **Cons**: When `PROMETHEUS_SOURCE=disabled`, every panel shows "datasource unreachable" — pair with `--prometheus-source container` for a working setup
+- **Requirements**: ~300 MB image disk + small named volume for SQLite
+
 ## Configuration Patterns
 
 ### Development Setup

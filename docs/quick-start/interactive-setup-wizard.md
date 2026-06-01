@@ -222,6 +222,23 @@ usable. Note: the fallback only triggers when BOTH scrapers raise
 network exceptions; an HF response of `200 OK` with zero parseable
 entries is not treated as a fallback trigger.
 
+## 5a. Inline secondary numeric inputs
+
+Two service rows mount an inline numeric input alongside the source prompt
+via the `SecondaryNumberInput` widget (see `ui.textual.widgets.prompt_panel`).
+Selections persist as a sibling env var:
+
+| Row | Env var | Default | Range | Visible when |
+|---|---|---|---|---|
+| Ray | `RAY_WORKER_COUNT` | `2` | 0..(no upper cap) | `ray-container-cpu`, `ray-container-gpu` |
+| Prometheus | `PROMETHEUS_RETENTION_DAYS` | `7` | 1..365 | `container` |
+
+The input renders directly on the source step — no follow-up cascade — so
+the user picks both a source and a numeric refinement in one keystroke
+sequence. Adding a new inline input requires only a `secondary_number` block
+on the relevant `rows[]` entry in `service.yml` (the schema field is
+documented in `docs/CONTRIBUTING-services.md`).
+
 ## 6. Stack Options
 
 After service configuration, the wizard prompts for:
@@ -328,6 +345,9 @@ The wizard automatically discovers all configurable services from each `services
 | n8n | container, disabled |
 | SearxNG | container, disabled |
 | JupyterHub | container, disabled |
+| Ray | ray-container-cpu, ray-container-gpu, disabled (with inline `RAY_WORKER_COUNT` input on container variants) |
+| Prometheus | container, disabled (with inline `PROMETHEUS_RETENTION_DAYS` input on `container`, default 7, range 1..365) |
+| Grafana | container, disabled |
 
 ### 15.1 Cloud LLM providers (not auto-discovered)
 
