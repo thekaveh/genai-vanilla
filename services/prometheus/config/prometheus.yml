@@ -31,8 +31,11 @@ scrape_configs:
 
   - job_name: kong
     # Kong Prometheus plugin exposes metrics on the Status API (8100).
+    # The compose service is named `kong-api-gateway` (the container has
+    # ${PROJECT_NAME}-kong-api-gateway as its container_name, but DNS
+    # inside the backend-network uses the compose service id).
     static_configs:
-      - targets: ['kong:8100']
+      - targets: ['kong-api-gateway:8100']
 
   - job_name: litellm
     static_configs:
