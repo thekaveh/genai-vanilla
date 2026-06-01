@@ -26,18 +26,12 @@ sources:
       label: "Container (GPU, NVIDIA)"
     - id: ollama-localhost
       label: "Host (existing Ollama on this machine)"
-    - id: ollama-external
-      label: "External (custom URL)"
-      requires: [LLM_PROVIDER_EXTERNAL_URL]
     - id: none
       label: "Disabled (cloud-only)"
 
 env:
   - name: LLM_PROVIDER_SOURCE
     default: ollama-container-cpu
-  - name: LLM_PROVIDER_EXTERNAL_URL
-    default: ""
-    description: "Required when LLM_PROVIDER_SOURCE=ollama-external."
   - name: OLLAMA_USER_MODELS
     default: ""
     description: "Comma-separated Ollama model names the wizard activated."
@@ -46,7 +40,7 @@ env:
     description: "Free-text extra Ollama models pulled in container-* sources."
   - name: OLLAMA_AUTO_IMPORT_LOCAL_MODELS
     default: true
-    description: "When LLM_PROVIDER_SOURCE=ollama-localhost or ollama-external, llm-catalog-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
+    description: "When LLM_PROVIDER_SOURCE=ollama-localhost, llm-catalog-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
   - name: OLLAMA_DEPLOY_RESOURCES
     default: "~"
     description: "Reserved for future GPU deploy block. Currently '~' (null)."
@@ -126,12 +120,6 @@ runtime_sc:
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway
-    ollama-external:
-      scale: 0
-      environment:
-        OLLAMA_ENDPOINT: ${LLM_PROVIDER_EXTERNAL_URL}
-      deploy: {}
-      extra_hosts: []
     none:
       scale: 0
       environment:

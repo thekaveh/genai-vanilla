@@ -28,9 +28,6 @@ sources:
       label: "Container (GPU, NVIDIA)"
     - id: localhost
       label: "Host (existing ComfyUI on this machine)"
-    - id: external
-      label: "External (custom URL)"
-      requires: [COMFYUI_EXTERNAL_URL]
     - id: disabled
       label: "Disabled"
 
@@ -44,8 +41,6 @@ env:
   - name: COMFYUI_LOCALHOST_PORT
     default: "8000"
     description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:8000."
-  - name: COMFYUI_EXTERNAL_URL
-    default: ""
   - name: COMFYUI_BASE_URL
     default: "http://comfyui:18188"
     description: "In-container default. Runtime value is COMFYUI_ENDPOINT computed by hook."
@@ -173,12 +168,6 @@ runtime_sc:
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway
-    external:
-      scale: 0
-      environment:
-        COMFYUI_ENDPOINT: http://external.comfyui.provider.com
-      deploy: {}
-      extra_hosts: []
     disabled:
       scale: 0
       environment:

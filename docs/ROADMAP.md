@@ -43,7 +43,7 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 
 **Unified LLM gateway (LiteLLM)**
 - Always-on OpenAI-compatible front door for every LLM provider. Pinned image: `ghcr.io/berriai/litellm:v1.83.14-stable.patch.2`. Listens on port 63030.
-- Wizard model: locked LiteLLM tile + selectable LLM Engine (single-select Ollama upstream: `ollama-container-cpu/gpu`, `ollama-localhost`, `ollama-external`, `none`) + three multi-enable Cloud tiles (OpenAI, Anthropic, OpenRouter).
+- Wizard model: locked LiteLLM tile + selectable LLM Engine (single-select Ollama upstream: `ollama-container-cpu/gpu`, `ollama-localhost`, `none`) + three multi-enable Cloud tiles (OpenAI, Anthropic, OpenRouter).
 - Bootstrapper auto-generates `LITELLM_MASTER_KEY` on first start and refuses to start when no upstream is configured (engine=none + all cloud disabled).
 - Persistence: dedicated `litellm` database on the existing Supabase Postgres (Prisma migrations run automatically). Redis used for response cache + rate-limit state.
 - Consumers (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw Gateway, Weaviate) all read `LITELLM_BASE_URL` + `LITELLM_API_KEY`. Documented backup option: Portkey AI Gateway.
@@ -65,7 +65,7 @@ The stack now orchestrates 30+ services across AI inference, workflow automation
 
 **Ray distributed-compute cluster**
 - Apache-2.0; the de-facto 2026 OSS distributed-compute framework. Generic substrate for "run N independent units of work in parallel across many CPUs and/or GPUs."
-- `services/ray/` ships head + worker containers under `RAY_SOURCE` with variants `ray-container-cpu`, `ray-container-gpu`, `ray-external`, and `disabled`. (No `ray-localhost` variant — connecting to a host-run Ray cluster is left to the `external` source.)
+- `services/ray/` ships head + worker containers under `RAY_SOURCE` with variants `ray-container-cpu`, `ray-container-gpu`, and `disabled`. (Authenticated remote Ray endpoints are deferred to the stack-wide authenticated-remote design.)
 - Wizard wires `RAY_WORKER_COUNT` inline on the source step via the `SecondaryNumberInput` widget (the same pattern later generalised for the localhost-port override).
 - Backend exposes `/api/ray/{submit,status,stop,cluster-status}` REST endpoints gated on `RAY_ADDRESS` — returns 503 when Ray is disabled.
 - JupyterHub picks up `ray[client]` in its build image and ships a seeded `07_ray_cluster.ipynb` notebook.

@@ -50,7 +50,7 @@ Throughout: `Up/Down` to move, `Enter` to confirm, `Space` to toggle multiselect
 
 ### 4.1 LLM Engine (single-select)
 
-`LLM_PROVIDER_SOURCE` choice — `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, or `none` (cloud-only). LiteLLM is locked / always-on and is **not** a separate prompt — it's the mandatory front door for every LLM consumer.
+`LLM_PROVIDER_SOURCE` choice — `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, or `none` (cloud-only). LiteLLM is locked / always-on and is **not** a separate prompt — it's the mandatory front door for every LLM consumer.
 
 The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud provider is `disabled` — that combination would leave LiteLLM with nothing to route to.
 
@@ -59,7 +59,7 @@ The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud pr
 A single unified multi-select shown for every `ollama-*` source. The option list is **source-aware**:
 
 - **`ollama-container-*`** — only the live scrape of `https://ollama.com/library` (~230 entries). Nothing is pulled yet (the in-stack container isn't running at wizard time), so the library is the primary discovery surface. The `ollama-pull` init container fetches checked entries at startup.
-- **`ollama-localhost`** / **`ollama-external`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — checking registers a `public.llms` row but you must `ollama pull <name>` on the host yourself).
+- **`ollama-localhost`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — checking registers a `public.llms` row but you must `ollama pull <name>` on the host yourself).
 
 Each row is 2 cells tall and surfaces:
 
@@ -200,7 +200,7 @@ ComfyUI sources, but the downstream init pipeline branches:
   container's models volume on startup. Selections persist to
   `COMFYUI_USER_MODELS` and arrive after `comfyui-catalog-init`
   has flipped the corresponding rows active.
-- **`localhost` / `external`** — `comfyui-init` is scaled to 0
+- **`localhost`** — `comfyui-init` is scaled to 0
   (the wget container would write into a path the host ComfyUI
   doesn't read), but `comfyui-catalog-init` still scales to 1 so
   `public.comfyui_models` gets the active set populated for the
@@ -315,8 +315,8 @@ The wizard automatically discovers all configurable services from each `services
 | Service | Options |
 |---------|---------|
 | LiteLLM Gateway | locked / always-on (no choice; mandatory front door for every LLM consumer) |
-| LLM Engine (Ollama upstream) | ollama-container-cpu, ollama-container-gpu, ollama-localhost, ollama-external, none |
-| ComfyUI | container-cpu, container-gpu, localhost, external, disabled |
+| LLM Engine (Ollama upstream) | ollama-container-cpu, ollama-container-gpu, ollama-localhost, none |
+| ComfyUI | container-cpu, container-gpu, localhost, disabled |
 | Weaviate | container, localhost, disabled |
 | Multi2Vec CLIP | container-cpu, container-gpu, disabled |
 | Neo4j Graph DB | container, localhost, disabled |

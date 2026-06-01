@@ -60,29 +60,16 @@ def test_container_gpu_returns_gpu_image_and_resolved_scales():
     assert out["RAY_ADDRESS"] == "ray://ray-head:10001"
 
 
-def test_external_uses_external_address_and_zero_scales():
+def test_unknown_source_value_disables_everything():
+    """Defensive: a SOURCE value not in the known list should degrade
+    gracefully (scale=0, no address) rather than crash."""
     sc = _service_config_instance()
     out = sc._generate_ray_config(
-        source_value="ray-external",
-        shared_env={"RAY_EXTERNAL_ADDRESS": "ray://my-cluster.anyscale.com:10001",
-                    "RAY_WORKER_COUNT": "5"},
+        source_value="some-unknown-future-source",
+        shared_env={"RAY_WORKER_COUNT": "2"},
     )
     assert out["RAY_HEAD_SCALE"] == "0"
     assert out["RAY_WORKER_SCALE"] == "0"
-    assert out["RAY_ADDRESS"] == "ray://my-cluster.anyscale.com:10001"
-
-
-def test_external_with_empty_address_falls_back_safely():
-    """If user sets RAY_SOURCE=ray-external but forgets RAY_EXTERNAL_ADDRESS,
-    we don't crash — emit an empty RAY_ADDRESS so consumers know Ray is
-    unavailable. The source-validator should have caught this upstream
-    via the `requires: [RAY_EXTERNAL_ADDRESS]` block, but the hook must
-    still degrade gracefully."""
-    sc = _service_config_instance()
-    out = sc._generate_ray_config(
-        source_value="ray-external",
-        shared_env={"RAY_EXTERNAL_ADDRESS": "", "RAY_WORKER_COUNT": "0"},
-    )
     assert out["RAY_ADDRESS"] == ""
 
 

@@ -8,9 +8,9 @@ sorted catalog that the user can pre-select for ``ollama-pull`` to
 fetch at startup, instead of our hardcoded curated subset in
 ``llm_catalog.py:OLLAMA_DEFAULT_CATALOG``.
 
-For ``ollama-localhost``/``ollama-external``, ``ollama_discovery.py``
-already queries the live ``/api/tags`` endpoint of the user's running
-upstream — that path stays unchanged.
+For ``ollama-localhost``, ``ollama_discovery.py`` already queries the
+live ``/api/tags`` endpoint of the user's running upstream — that path
+stays unchanged.
 
 Why scrape?
   Ollama's registry (``registry.ollama.ai/v2/_catalog``) returns 404,

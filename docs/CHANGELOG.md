@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed (breaking) — `external` source variants stack-wide
+
+Source variants `external` (ComfyUI), `ollama-external` (Ollama), and
+`ray-external` (Ray) and their associated env vars `COMFYUI_EXTERNAL_URL`,
+`LLM_PROVIDER_EXTERNAL_URL`, and `RAY_EXTERNAL_ADDRESS` are removed pending
+a stack-wide authenticated-remote design. Each `external` variant today is
+just a URL with no associated authentication design (API keys, bearer
+tokens, mTLS); shipping more `external` slots in new manifests would
+compound that gap. A future spec will reintroduce authenticated remote
+endpoints across the stack with a coherent auth model.
+
+**User-side migration.** Users with `RAY_SOURCE=ray-external`,
+`COMFYUI_SOURCE=external`, or `LLM_PROVIDER_SOURCE=ollama-external` in
+their `.env` must switch to `container` (or `disabled`, or `none` for
+the LLM provider). On bootstrap, `start.py` now detects these legacy
+values, prints a pointer to this entry, and exits with status 2 — no
+silent fallback to a different source.
+
+**Plumbing impact.** Removed: `--ray-external-address` CLI flag,
+`COMFYUI_EXTERNAL_URL`/`LLM_PROVIDER_EXTERNAL_URL`/`RAY_EXTERNAL_ADDRESS`
+env vars, the `ray-external` branch in `_generate_ray_config`,
+`external`-related code paths in `kong_config_generator.generate_comfyui_service`,
+the `RAY_EXTERNAL_ADDRESS_TITLE` wizard step, and the `external`-flavored
+test fixtures in `tests/conftest.py`. `services/litellm/catalog-init`'s
+host-side auto-import path now applies only to `ollama-localhost`.
+
 ### ComfyUI model picker — localhost/external coverage (follow-up to PR #17)
 
 The "ComfyUI · models" wizard step previously only fired for

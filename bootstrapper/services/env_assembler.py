@@ -14,15 +14,12 @@ Output shape (per service):
     # ──────────────────────────────────────────────────────────────────────
     # llm: Ollama (services/ollama/service.yml)
     # ──────────────────────────────────────────────────────────────────────
-    # Source: ollama-container-cpu | ollama-container-gpu | ollama-localhost | ...
+    # Source: ollama-container-cpu | ollama-container-gpu | ollama-localhost | none
     LLM_PROVIDER_SOURCE=ollama-container-cpu
 
     # Image references
     LLM_PROVIDER_IMAGE=ollama/ollama:latest
     OLLAMA_PULL_IMAGE=alpine:latest
-
-    # External Ollama-compatible endpoint.
-    LLM_PROVIDER_EXTERNAL_URL=
 
     # auto-managed (computed from LLM_PROVIDER_SOURCE)
     OLLAMA_SCALE=

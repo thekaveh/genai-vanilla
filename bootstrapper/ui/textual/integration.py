@@ -471,7 +471,6 @@ def _selections_to_args(
         cloud_models_title,
         cloud_secret_title,
     )
-    from wizard.ray_steps import RAY_EXTERNAL_ADDRESS_TITLE
     env_vars = env_vars or {}
 
     source_args: dict = {}
@@ -573,14 +572,6 @@ def _selections_to_args(
         out_names = sorted(comfyui_models_v) if isinstance(comfyui_models_v, set) else \
             sorted({n.strip() for n in str(comfyui_models_v).split(",") if n.strip()})
         comfyui_user_models["COMFYUI_USER_MODELS"] = ",".join(out_names)
-
-    # Ray external-address cascade — still a text cascade because the
-    # value is a URL, not an integer (out of v1 scope for the inline
-    # secondary widget). Worker count comes through the
-    # ``__secondary__:RAY_WORKER_COUNT`` path below.
-    ray_external_address = selections.get(RAY_EXTERNAL_ADDRESS_TITLE)
-    if ray_external_address is not None:
-        ollama_user_models["RAY_EXTERNAL_ADDRESS"] = ray_external_address.strip()
 
     # Inline secondary integer inputs — any prompt step that mounted a
     # ``SecondaryNumberInput`` writes its value under a synthetic key

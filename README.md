@@ -183,7 +183,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 
 **LLM access (always through LiteLLM):**
 - **LiteLLM gateway** — always-on; every consumer reads `LITELLM_BASE_URL` + `LITELLM_API_KEY`
-- **Ollama upstream** (`LLM_PROVIDER_SOURCE=ollama-container-cpu|ollama-container-gpu|ollama-localhost|ollama-external|none`) — what LiteLLM forwards to for local inference
+- **Ollama upstream** (`LLM_PROVIDER_SOURCE=ollama-container-cpu|ollama-container-gpu|ollama-localhost|none`) — what LiteLLM forwards to for local inference
 - **Cloud upstreams** (`CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, `CLOUD_OPENROUTER_SOURCE`) — independent `enabled`/`disabled` toggles; each requires the matching API key
 
 **Other services that support localhost:**
@@ -256,7 +256,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **OpenClaw Agent** | http://localhost:63063 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
 | **Hermes Agent** | http://localhost:63060 (API), http://localhost:63061 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
 | **MinIO Console** | http://localhost:63018 | http://minio.localhost:63000 | S3-compatible object storage admin UI (gated on `MINIO_SOURCE != disabled`). S3 API at `:63017` is NOT aliased — S3 clients use the direct port. | `minioadmin` / `MINIO_ROOT_PASSWORD` |
-| **Ray Dashboard** | http://localhost:63002 | http://ray.localhost:63000 | Distributed-compute substrate (cluster head + workers). Disabled by default; opt-in via `--ray-source ray-container-cpu` / `ray-container-gpu` / `ray-external`. | None |
+| **Ray Dashboard** | http://localhost:63002 | http://ray.localhost:63000 | Distributed-compute substrate (cluster head + workers). Disabled by default; opt-in via `--ray-source ray-container-cpu` / `ray-container-gpu`. | None |
 
 ### 4.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -276,7 +276,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 - **Hermes Agent** — programmable AI agent runtime (Nous Research) with skills, memory, voice, and tool use; routes reasoning through LiteLLM and appears as the `hermes-agent` model to every consumer
 - **Deep Researcher** — research assistant
 - **LangMem** — persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
-- **Ray** — distributed-compute substrate (head + workers) for parallelizing Python workloads (data prep, fine-tuning, batch inference). Disabled by default; enable via `--ray-source ray-container-cpu` (or `ray-container-gpu` / `ray-external`). Consumed by Backend / JupyterHub via `RAY_ADDRESS`.
+- **Ray** — distributed-compute substrate (head + workers) for parallelizing Python workloads (data prep, fine-tuning, batch inference). Disabled by default; enable via `--ray-source ray-container-cpu` (or `ray-container-gpu`). Consumed by Backend / JupyterHub via `RAY_ADDRESS`.
 
 ## 5. Usage Guide
 

@@ -25,9 +25,6 @@ sources:
       label: "Container (CPU)"
     - id: ray-container-gpu
       label: "Container (GPU, NVIDIA)"
-    - id: ray-external
-      label: "External (Anyscale or custom cluster URL)"
-      requires: [RAY_EXTERNAL_ADDRESS]
     - id: disabled
       label: "Disabled"
 
@@ -46,9 +43,6 @@ env:
   - name: RAY_WORKER_COUNT
     default: 2
     description: "Number of ray-worker replicas. The wizard prompts for this with default 2. Valid values: 0 (head-only mode) and up. No hard upper bound — bounded by host resources."
-  - name: RAY_EXTERNAL_ADDRESS
-    default: ""
-    description: "Required when RAY_SOURCE=ray-external. Format: `ray://hostname:10001` (Anyscale or custom Ray cluster URL)."
   - name: RAY_HEAD_SCALE
     auto_managed: true
   - name: RAY_WORKER_SCALE
@@ -56,7 +50,7 @@ env:
     description: "Resolved by the bootstrapper from RAY_WORKER_COUNT when source is ray-container-{cpu,gpu}; 0 otherwise."
   - name: RAY_ADDRESS
     auto_managed: true
-    description: "Resolved per source: `ray://ray-head:10001` for container sources, `${RAY_EXTERNAL_ADDRESS}` for external, empty for disabled. Consumed by Backend / JupyterHub via runtime_adaptive."
+    description: "Resolved per source: `ray://ray-head:10001` for container sources, empty for disabled. Consumed by Backend / JupyterHub via runtime_adaptive."
 
 depends_on:
   # Display-ordering pin: Ray is genuinely standalone at runtime (ships its
@@ -108,11 +102,6 @@ runtime_sc:
                 count: 1
                 capabilities: [gpu]
       extra_hosts: []
-    ray-external:
-      scale: 0
-      environment: {}
-      deploy: {}
-      extra_hosts: []
     disabled:
       scale: 0
       environment: {}
@@ -135,11 +124,6 @@ runtime_sc:
               - driver: nvidia
                 count: 1
                 capabilities: [gpu]
-      extra_hosts: []
-    ray-external:
-      scale: 0
-      environment: {}
-      deploy: {}
       extra_hosts: []
     disabled:
       scale: 0
