@@ -12,7 +12,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Backend API](../services/backend/README.md) — always-on adaptive FastAPI service
 - [Open WebUI](../services/open-webui/README.md) — main chat UI
 - [LiteLLM Gateway](../services/litellm/README.md) — always-on OpenAI-compatible front door for every LLM provider
-- [Ollama (LiteLLM upstream)](../services/ollama/README.md) — local LLM engine modes (container CPU/GPU, localhost, external, none)
+- [Ollama (LiteLLM upstream)](../services/ollama/README.md) — local LLM engine modes (container CPU/GPU, localhost, none)
 - [ComfyUI](../services/comfyui/README.md) — image generation workflows
 - [Weaviate](../services/weaviate/README.md) — vector database
 - [MinIO](../services/minio/README.md) — S3-compatible artifact-tier object storage
@@ -31,6 +31,8 @@ Documentation index for the GenAI Vanilla Stack.
 - [OpenClaw (AI Agent)](../services/openclaw/README.md) — AI agent for messaging platforms
 - [Hermes Agent](../services/hermes/README.md) — programmable AI agent runtime (Nous Research)
 - [Ray](../services/ray/README.md) — distributed compute substrate (head + workers, opt-in via `RAY_SOURCE`)
+- [Prometheus](../services/prometheus/README.md) — observability scraper + TSDB with bundled node-exporter and cAdvisor (opt-in via `PROMETHEUS_SOURCE`)
+- [Grafana](../services/grafana/README.md) — observability dashboards + unified alerting on top of Prometheus (opt-in via `GRAFANA_SOURCE`)
 
 ### 1.3 Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants

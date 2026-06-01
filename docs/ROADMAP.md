@@ -98,11 +98,14 @@ _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 - Safety nets: `bootstrapper/services/manifest_validator.py` (cross-manifest checks), `tools/validate_fragments.py` CLI lint with `--check-env-example`, and `tests/test_fragment_equivalence.py` (golden `rendered_config_baseline.yml` diff — byte-equivalence proven across the 36-container stack).
 - Locality: every service's source code, init scripts, build context, and config files live under `services/<name>/<subdir>/`. Repo top-level is just `bootstrapper/`, `docs/`, `services/`, plus standard files.
 
-**Monitoring stack (Prometheus + Grafana)**
-- Service metrics: request rates, latency percentiles, container health
-- Service performance dashboards
-- Resource usage visualization
-- Alerting for service issues
+**Monitoring stack (Prometheus + Grafana)** — *Shipped 2026-05-31 (observability bundle).*
+- ✅ Prometheus scraper + TSDB with bundled node-exporter (host metrics) and cAdvisor (container metrics), bundled as `services/prometheus/`.
+- ✅ Grafana with 7 pre-provisioned dashboards (stack overview, LiteLLM, Kong, Postgres+Redis, Containers+Host, n8n, app-tier) — `services/grafana/`.
+- ✅ 14 scrape targets — Kong, LiteLLM, Weaviate, n8n, JupyterHub, MinIO, Backend, Hermes, Prom+Grafana self, node-exporter, cAdvisor, plus postgres-exporter and redis-exporter sidecars in the Supabase and Redis families.
+- ✅ Unified Grafana alerting enabled (no separate Alertmanager); contact points / rules to be added by users.
+- ⏳ Future: Loki (logs) + Tempo (traces) + OpenTelemetry collector for the full observability triangle.
+
+**Enhanced security features**
 
 **Enhanced security features**
 - Service-to-service authentication
