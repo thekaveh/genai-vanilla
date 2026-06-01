@@ -89,9 +89,26 @@ class KongConfigGenerator:
             '_format_version': '2.1',
             '_transform': True,
             'consumers': self.get_consumers(),
-            'services': self.get_all_services()
+            'services': self.get_all_services(),
+            # Global Prometheus plugin — exposes /metrics on Kong's Status
+            # API (port 8100). Prometheus's observability bundle scrapes it
+            # at `kong:8100/metrics`. The plugin is harmless when Prom isn't
+            # running; the endpoint just sits unscraped. See the
+            # observability bundle spec for the broader scrape topology.
+            'plugins': [
+                {
+                    'name': 'prometheus',
+                    'config': {
+                        'status_code_metrics': True,
+                        'latency_metrics': True,
+                        'bandwidth_metrics': True,
+                        'upstream_health_metrics': True,
+                        'per_consumer': False,
+                    },
+                },
+            ],
         }
-        
+
         return config
     
     def get_consumers(self) -> List[Dict[str, Any]]:

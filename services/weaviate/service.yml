@@ -124,6 +124,7 @@ runtime_sc:
         OPENAI_APIKEY: ${LITELLM_MASTER_KEY:-}
         CLIP_INFERENCE_API: http://multi2vec-clip:8080
         WEAVIATE_URL: http://weaviate:8080
+        PROMETHEUS_MONITORING_ENABLED: 'true'
       deploy: {}
       extra_hosts: []
     localhost:

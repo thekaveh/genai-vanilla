@@ -553,14 +553,17 @@ services:
       KONG_NGINX_PROXY_PROXY_CACHE: 'off'
       KONG_NGINX_PROXY_TCP_NODELAY: 'on'
       KONG_NGINX_PROXY_TCP_NOPUSH: 'on'
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,rate-limiting,pre-function
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,rate-limiting,pre-function,prometheus
       KONG_PROXY_READ_TIMEOUT: '300'
       KONG_PROXY_SEND_TIMEOUT: '300'
       KONG_REDIS_HOST: redis
       KONG_REDIS_PASSWORD: redis_password
       KONG_REDIS_PORT: '6379'
+      KONG_STATUS_LISTEN: 0.0.0.0:8100
       SUPABASE_ANON_KEY: ''
       SUPABASE_SERVICE_KEY: ''
+    expose:
+    - '8100'
     extra_hosts:
     - host.docker.internal=
     image: kong:3.9.0
@@ -609,6 +612,7 @@ services:
       LITELLM_MASTER_KEY: ''
       OPENAI_API_KEY: ''
       OPENROUTER_API_KEY: ''
+      PROMETHEUS_MULTIPROC_DIR: /tmp/litellm_metrics
       REDIS_HOST: redis
       REDIS_PASSWORD: redis_password
       REDIS_PORT: '6379'
@@ -638,6 +642,8 @@ services:
       published: '63030'
       protocol: tcp
     restart: unless-stopped
+    tmpfs:
+    - /tmp/litellm_metrics:rw,size=64m
     volumes:
     - type: bind
       source: '{REPO_ROOT}/volumes/litellm/config.yaml'
@@ -1888,6 +1894,8 @@ services:
       QUERY_DEFAULTS_LIMIT: '25'
       RAFT_BOOTSTRAP_EXPECT: '1'
       RAFT_JOIN: weaviate
+    expose:
+    - '2112'
     extra_hosts:
     - host.docker.internal=
     healthcheck:
