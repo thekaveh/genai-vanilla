@@ -85,6 +85,17 @@ _PERMUTATIONS = [
     ("CLOUD_OPENAI_SOURCE", ["enabled", "disabled"]),
     ("CLOUD_ANTHROPIC_SOURCE", ["enabled", "disabled"]),
     ("CLOUD_OPENROUTER_SOURCE", ["enabled", "disabled"]),
+    # Ray was always Ray-disabled-by-default, but every SOURCE value must
+    # still produce a clean `docker compose config`.
+    ("RAY_SOURCE", ["ray-container-cpu", "ray-container-gpu", "disabled"]),
+    # Observability bundle (added 2026-05-31). The matrix must exercise
+    # both source values for each because PROMETHEUS_SOURCE is the gate
+    # for FIVE cross-manifest scales (prometheus / node-exporter /
+    # cadvisor / postgres-exporter / redis-exporter) and a wrong setting
+    # would silently scale half the bundle to zero with no explicit
+    # failure during compose rendering.
+    ("PROMETHEUS_SOURCE", ["container", "disabled"]),
+    ("GRAFANA_SOURCE", ["container", "disabled"]),
 ]
 
 
