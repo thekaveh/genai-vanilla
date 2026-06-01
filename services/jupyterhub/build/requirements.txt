@@ -59,3 +59,13 @@ kaleido>=0.2.1
 
 # Distributed compute
 ray[client]>=2.55.1,<2.56
+
+# ml-lab runtime support — see https://github.com/thekaveh/ml-lab
+# Covers all 28 nnx-using Tier-A/B/C notebooks; the 29th (mnist-numpy from-scratch)
+# additionally needs the ml-lab repo on disk for its sibling .py modules.
+git+https://github.com/thekaveh/NNx.git@main  # nnx core toolkit — imported by 28 of 29 ml-lab notebooks
+python-louvain  # `community` module — community_detection-karate notebook
+nltk  # SentimentIntensityAnalyzer — sentiment_classification-vader notebook (vader_lexicon downloaded in Dockerfile)
+spacy  # tokenizer + lemmatizer — text_classification-agnews + sentiment_classification-vader (en_core_web_sm downloaded in Dockerfile)
+torchao>=0.17  # transitive via nnx.quantize_int8 + nnx.qat_train_step_factory — quantization-mnist notebook
+prettytable  # nnx Utils.print_table renderer — used by 14 of 29 notebooks
