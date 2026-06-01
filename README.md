@@ -206,10 +206,10 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 | Category | Service | Default port | Alias |
 |---|---|---:|---|
-| Infrastructure | Prometheus | 63000 | prometheus.localhost |
-| Infrastructure | Grafana | 63003 | grafana.localhost |
-| Infrastructure | Kong API Gateway | 63004 | — |
-| Infrastructure | Ray | 63006 | ray.localhost |
+| Infrastructure | Kong API Gateway | 63000 | — |
+| Infrastructure | Ray | 63002 | ray.localhost |
+| Infrastructure | Prometheus | 63005 | prometheus.localhost |
+| Infrastructure | Grafana | 63008 | grafana.localhost |
 | Data | Supabase DB | 63010 | — |
 | Data | Supabase Meta | 63012 | — |
 | Data | Supabase Storage | 63013 | — |

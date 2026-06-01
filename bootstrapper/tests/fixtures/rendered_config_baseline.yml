@@ -95,7 +95,7 @@ services:
     ports:
     - mode: ingress
       target: 8080
-      published: '63002'
+      published: '63007'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -302,7 +302,7 @@ services:
     ports:
     - mode: ingress
       target: 3000
-      published: '63003'
+      published: '63008'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -572,11 +572,11 @@ services:
     ports:
     - mode: ingress
       target: 8000
-      published: '63004'
+      published: '63000'
       protocol: tcp
     - mode: ingress
       target: 8443
-      published: '63005'
+      published: '63001'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -907,11 +907,11 @@ services:
       GENERIC_TIMEZONE: UTC
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
-      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63004
+      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63000
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
       N8N_COMMUNITY_PACKAGES_ENABLED: 'true'
-      N8N_EDITOR_BASE_URL: http://n8n.localhost:63004
+      N8N_EDITOR_BASE_URL: http://n8n.localhost:63000
       N8N_ENCRYPTION_KEY: your-random-encryption-key
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
       N8N_HOST: n8n.localhost
@@ -930,9 +930,9 @@ services:
       QUEUE_HEALTH_CHECK_ACTIVE: 'true'
       STT_ENDPOINT: ''
       TTS_ENDPOINT: ''
-      VUE_APP_URL_BASE_API: http://n8n.localhost:63004/
+      VUE_APP_URL_BASE_API: http://n8n.localhost:63000/
       WEAVIATE_URL: http://weaviate:8080
-      WEBHOOK_URL: http://n8n.localhost:63004/
+      WEBHOOK_URL: http://n8n.localhost:63000/
     healthcheck:
       test:
       - CMD
@@ -1090,7 +1090,7 @@ services:
     ports:
     - mode: ingress
       target: 9100
-      published: '63001'
+      published: '63006'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1420,7 +1420,7 @@ services:
     ports:
     - mode: ingress
       target: 9090
-      published: '63000'
+      published: '63005'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1462,15 +1462,15 @@ services:
     ports:
     - mode: ingress
       target: 8265
-      published: '63006'
+      published: '63002'
       protocol: tcp
     - mode: ingress
       target: 6379
-      published: '63007'
+      published: '63003'
       protocol: tcp
     - mode: ingress
       target: 10001
-      published: '63008'
+      published: '63004'
       protocol: tcp
     restart: unless-stopped
     shm_size: '4294967296'
@@ -1840,7 +1840,7 @@ services:
       POSTGRES_PASSWORD: password
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_ANON_KEY: ''
-      SUPABASE_PUBLIC_URL: http://localhost:63004
+      SUPABASE_PUBLIC_URL: http://localhost:63000
       SUPABASE_SERVICE_KEY: ''
       SUPABASE_URL: http://kong-api-gateway:8000
     healthcheck:

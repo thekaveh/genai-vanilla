@@ -696,6 +696,26 @@ depends_on:                             # logical deps (compose-level lives in c
 exports:                                # documents the cross-service env-var contract
   - name: MYSERVICE_ENDPOINT
     consumers: [backend, n8n]
+
+rows:
+  - display_name: "My Service"
+    source_var: MYSERVICE_SOURCE
+    port_var: MYSERVICE_PORT
+    scale_var: MYSERVICE_SCALE
+    alias: myservice.localhost
+    description: "Short description shown in the wizard subtitle."
+    # OPTIONAL — inline numeric input mounted on the source prompt. Used by
+    # Ray (worker count) and Prometheus (TSDB retention days). The wizard
+    # renders a SecondaryNumberInput widget next to the source picker so
+    # the user picks source AND numeric refinement in one keystroke
+    # sequence — no follow-up cascade step.
+    secondary_number:
+      env_var: MYSERVICE_KNOB
+      label: "Knob value"
+      default: "10"
+      visible_when_source: ["container"]   # hide for `disabled`
+      min: 1
+      max: 100
 ```
 
 ## Validator rules (what the lint catches)
