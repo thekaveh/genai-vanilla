@@ -51,6 +51,8 @@ Database-index convention (consumer-built URLs):
 
 **Eviction policy.** Currently unset — Redis runs with the default `noeviction`. For the AOF-only durable use cases (n8n queue, sessions) this is fine; for cache-style consumers (embedding cache, doc-processor cache) it is wrong. See Future — Unused features below.
 
+**Observability sidecar (`redis-exporter`).** The Redis family also ships a `redis-exporter` container (`oliver006/redis_exporter:v1.62.0`) on host port `${REDIS_EXPORTER_PORT}` and in-container `9121`. It scales **1↔0 with `PROMETHEUS_SOURCE`** — the bootstrapper's `_generate_prometheus_config()` hook writes `REDIS_EXPORTER_SCALE` from this single switch, so the sidecar is dormant when Prometheus is off and self-starts when Prom is enabled. Prometheus scrapes it at `redis-exporter:9121/metrics`; the `Postgres + Redis` Grafana dashboard renders memory usage, ops/sec, and hit ratio.
+
 ## 5. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/redis/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen redis` after manifest changes.
