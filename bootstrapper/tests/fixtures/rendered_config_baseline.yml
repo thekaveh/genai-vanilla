@@ -795,6 +795,7 @@ services:
       replicas: 1
     environment:
       MINIO_BROWSER_REDIRECT_URL: ''
+      MINIO_PROMETHEUS_AUTH_TYPE: public
       MINIO_REGION: us-east-1
       MINIO_ROOT_PASSWORD: ''
       MINIO_ROOT_USER: minioadmin
@@ -915,6 +916,10 @@ services:
       N8N_ENCRYPTION_KEY: your-random-encryption-key
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
       N8N_HOST: n8n.localhost
+      N8N_METRICS: 'true'
+      N8N_METRICS_INCLUDE_DEFAULT_METRICS: 'true'
+      N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: 'true'
+      N8N_METRICS_PREFIX: n8n_
       N8N_PORT: '5678'
       N8N_PROTOCOL: http
       N8N_PROXY_HOPS: '1'
@@ -1891,6 +1896,7 @@ services:
       ENABLE_MODULES: text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama
       OPENAI_APIKEY: ''
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      PROMETHEUS_MONITORING_ENABLED: 'true'
       QUERY_DEFAULTS_LIMIT: '25'
       RAFT_BOOTSTRAP_EXPECT: '1'
       RAFT_JOIN: weaviate

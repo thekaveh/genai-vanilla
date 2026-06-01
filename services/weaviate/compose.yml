@@ -65,6 +65,10 @@ services:
       # key Weaviate sends to LiteLLM for authentication.
       OPENAI_APIKEY: ${LITELLM_MASTER_KEY:-}
       CLIP_INFERENCE_API: ${CLIP_INFERENCE_API-http://multi2vec-clip:8080}
+      # Prometheus metrics — surfaces /metrics on port 2112 (exposed
+      # below, internal-only). Scraped by the observability bundle's
+      # Prometheus when PROMETHEUS_SOURCE=container.
+      PROMETHEUS_MONITORING_ENABLED: 'true'
     entrypoint: ["/scripts/configure-weaviate.sh", "/bin/weaviate", "--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
     ports:
       - "${WEAVIATE_PORT}:8080"
