@@ -92,7 +92,7 @@ class KongConfigGenerator:
             'services': self.get_all_services(),
             # Global Prometheus plugin — exposes /metrics on Kong's Status
             # API (port 8100). Prometheus's observability bundle scrapes it
-            # at `kong:8100/metrics`. The plugin is harmless when Prom isn't
+            # at `kong-api-gateway:8100/metrics`. The plugin is harmless when Prom isn't
             # running; the endpoint just sits unscraped. See the
             # observability bundle spec for the broader scrape topology.
             'plugins': [
