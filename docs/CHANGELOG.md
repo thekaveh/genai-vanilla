@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — observability bundle (Prometheus + Grafana)
+
+New paired bundle in the `infra` band giving full-stack metrics observability
+out of the box. Both services default to `disabled` — opt in with
+`--prometheus-source container --grafana-source container` or the wizard.
+
+**New services:**
+- **`services/prometheus/`** — metrics scraper + TSDB with bundled `node-exporter`
+  (host metrics) and `cAdvisor` (container metrics) as co-lifecycled containers.
+  Default retention: 7 days, user-configurable at wizard time via the new inline
+  `secondary_number` row schema. Static scrape config covers 14 targets across
+  the stack.
+- **`services/grafana/`** — observability UI + unified alerting. Pre-provisions
+  the Prometheus datasource and 7 starter dashboards: Stack Overview, LiteLLM
+  (per-model tokens / spend / latency), Kong (per-route req rate / latency /
+  bandwidth), Postgres + Redis, Containers + Host, n8n (workflow executions),
+  and App tier (Weaviate + MinIO + JupyterHub). Admin password
+  (`GRAFANA_ADMIN_PASSWORD`) auto-generated on first run via
+  `generate_grafana_admin_password()` — same posture as LiteLLM's master key.
+
+**Sidecar exporters** (embedded in existing manifest families, scale 1↔0 with
+`PROMETHEUS_SOURCE`):
+- `postgres-exporter` (in `services/supabase/`) — reads `pg_stat_*` views,
+  auto-discovers every Supabase database.
+- `redis-exporter` (in `services/redis/`) — Redis memory, ops/sec, hit ratio.
+
+**Cross-stack `/metrics` enablement** (always on; sit unscraped when
+`PROMETHEUS_SOURCE=disabled`):
+- **Kong** — global Prometheus plugin via `kong_config_generator`, Status API
+  on `:8100` (internal-only), `KONG_STATUS_LISTEN=0.0.0.0:8100`.
+- **LiteLLM** — `'prometheus'` added to `litellm_settings.callbacks` (shared
+  via `bootstrapper/utils/litellm_settings.py` so both the host stub and the
+  init-script render). `PROMETHEUS_MULTIPROC_DIR=/tmp/litellm_metrics` + tmpfs
+  required for the multi-worker (4 uvicorn) layout.
+- **Weaviate** — `PROMETHEUS_MONITORING_ENABLED=true`; metrics on port 2112
+  (internal-only `expose`).
+- **n8n** — `N8N_METRICS=true` + prefix / workflow-id labels.
+- **MinIO** — `MINIO_PROMETHEUS_AUTH_TYPE=public` (no JWT needed).
+- **Backend** — `prometheus-fastapi-instrumentator>=7.0.0` middleware; emits
+  standard `http_request_duration_seconds` / `http_requests_total` series.
+- **JupyterHub** — built-in `/hub/metrics`, no config change needed.
+
+**Deliberate exclusions:** Ollama (LiteLLM gateway already emits per-call
+request/token/cost — direct scraping would duplicate); Neo4j Community
+(metrics are Enterprise-only); ComfyUI, SearXNG, OpenClaw (no native
+`/metrics` today). cAdvisor covers container-level resources for all of these.
+Hermes is a third-party container without FastAPI source we control — its
+scrape job sits as DOWN.
+
+**Bootstrapper plumbing:**
+- `PROMETHEUS_SOURCE` / `GRAFANA_SOURCE` CLI flags + `source_mapping` entries.
+- `--prometheus-retention-days` CLI flag (default 7; wizard prompts via the
+  new `secondary_number` row-schema field).
+- `_generate_prometheus_config()` — cross-manifest scale arithmetic hook that
+  writes `PROMETHEUS_SCALE`, `NODE_EXPORTER_SCALE`, `CADVISOR_SCALE`,
+  `POSTGRES_EXPORTER_SCALE`, and `REDIS_EXPORTER_SCALE` from a single SOURCE
+  value (matches the `_generate_stt_provider_config` pattern).
+- `_generate_grafana_config()` — scale + endpoint resolution.
+- `generate_prometheus_service()` / `generate_grafana_service()` in the Kong
+  route generator. Both routes use `preserve_host: True` (Grafana is an SPA
+  that builds redirects from the Host header).
+- TUI `_TAG_BY_KEY` entries for `prometheus`, `node-exporter`, `cadvisor`,
+  `grafana`, `postgres-exporter`, `redis-exporter`.
+- `services.schema.json` extended with optional `secondary_number` on rows.
+
+**Audit + tests:**
+- `check-compose-source-deps.py::REQUIRED_DEPENDS_ON` adds
+  `(postgres-exporter, supabase-db)`, `(redis-exporter, redis)`,
+  `(grafana, prometheus)`.
+- `test_wizard_app_discovery::EXPECTED_DISCOVERED` adds `Prometheus` and
+  `Grafana`; the `source_mapping` flag assertion adds the matching CLI keys.
+- `test_deps_resolver::test_kong_fronted_services_in_upstream` updated —
+  Kong's downstream is now `{prometheus}` because Prom scrapes Kong's Status
+  API.
+- `rendered_config_baseline.yml` regenerated for the new compose shape
+  (~825 lines `.env.example`; +275 lines baseline).
+- Per-service docs (READMEs + architecture diagrams) regenerated via
+  `bootstrapper.docs.regen --all`.
+
 ### Removed (breaking) — `external` source variants stack-wide
 
 Source variants `external` (ComfyUI), `ollama-external` (Ollama), and

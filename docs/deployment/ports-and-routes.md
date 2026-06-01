@@ -18,7 +18,7 @@ Run once to add them to `/etc/hosts`:
 ./start.sh --setup-hosts
 ```
 
-Active aliases (every `*-localhost` source also routes through `host.docker.internal`; `*-external` sources do not — LiteLLM forwards those itself):
+Active aliases (every `*-localhost` source also routes through `host.docker.internal`):
 
 - `api.localhost` → Backend API (always-on adaptive)
 - `chat.localhost` → Open WebUI (`OPEN_WEB_UI_SOURCE != disabled`)
@@ -38,6 +38,8 @@ Active aliases (every `*-localhost` source also routes through `host.docker.inte
 - `studio.localhost` → Supabase Studio dashboard
 - `tts.localhost` → TTS engine — container resolves to `speaches:8000` or `chatterbox:4123`; localhost routes via `host.docker.internal`
 - `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
+- `prometheus.localhost` → Prometheus UI + API (`PROMETHEUS_SOURCE != disabled`; no auth — Kong-gated, internal-only scrape paths)
+- `grafana.localhost` → Grafana dashboards + alerting UI (`GRAFANA_SOURCE != disabled`; admin login via `GRAFANA_ADMIN_USERNAME` / auto-generated `GRAFANA_ADMIN_PASSWORD`)
 
 The Kong gateway listens on `KONG_HTTP_PORT` (default `63000` under topology v1, i.e. `BASE_PORT + 0`). All aliases above resolve to `http://<alias>:${KONG_HTTP_PORT}`.
 
