@@ -280,6 +280,7 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | Service | Category |
 |---|---|
 | kong | infra |
+| prometheus | infra |
 | weaviate | data |
 | comfyui | media |
 | hermes ↔ | agents |

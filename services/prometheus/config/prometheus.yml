@@ -1,0 +1,74 @@
+# Static scrape config for the GenAI Vanilla stack. Targets that resolve
+# to services currently `disabled` simply report UP=0 — cleaner than
+# templating this file based on enabled services (which would need an
+# init container at boot).
+
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  external_labels:
+    stack: genai-vanilla
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  - job_name: grafana
+    static_configs:
+      - targets: ['grafana:3000']
+
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: kong
+    # Kong Prometheus plugin exposes metrics on the Status API (8100).
+    static_configs:
+      - targets: ['kong:8100']
+
+  - job_name: litellm
+    static_configs:
+      - targets: ['litellm:4000']
+
+  - job_name: weaviate
+    # Weaviate metrics live on a separate port from the API (2112 vs 8080).
+    static_configs:
+      - targets: ['weaviate:2112']
+
+  - job_name: n8n
+    static_configs:
+      - targets: ['n8n:5678']
+
+  - job_name: jupyterhub
+    metrics_path: /hub/metrics
+    static_configs:
+      - targets: ['jupyterhub:8000']
+
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: ['minio:9000']
+
+  - job_name: backend
+    static_configs:
+      - targets: ['backend:8000']
+
+  - job_name: hermes
+    static_configs:
+      - targets: ['hermes:8000']
+
+  - job_name: postgres-exporter
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: redis-exporter
+    static_configs:
+      - targets: ['redis-exporter:9121']

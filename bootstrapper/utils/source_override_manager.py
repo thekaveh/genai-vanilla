@@ -52,6 +52,8 @@ class SourceOverrideManager:
             # a CLI flag (--ray-source); ray_head_source exists purely as
             # a discovery shim.
             'ray_head_source': 'RAY_SOURCE',
+            'prometheus_source': 'PROMETHEUS_SOURCE',
+            'grafana_source': 'GRAFANA_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

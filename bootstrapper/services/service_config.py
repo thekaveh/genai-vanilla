@@ -128,6 +128,23 @@ class ServiceConfig:
         )
         env_vars.update(ray_config)
 
+        # Generate observability bundle (Prometheus family + cross-manifest
+        # sidecar exporter scales for postgres-exporter and redis-exporter).
+        prometheus_source = self.service_sources.get("PROMETHEUS_SOURCE", "disabled")
+        prom_config = self._generate_prometheus_config(
+            source_value=prometheus_source,
+            shared_env=env_vars,
+        )
+        env_vars.update(prom_config)
+
+        # Generate Grafana configuration
+        grafana_source = self.service_sources.get("GRAFANA_SOURCE", "disabled")
+        grafana_config = self._generate_grafana_config(
+            source_value=grafana_source,
+            shared_env=env_vars,
+        )
+        env_vars.update(grafana_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -620,6 +637,53 @@ class ServiceConfig:
             "RAY_HEAD_SCALE": "0",
             "RAY_WORKER_SCALE": "0",
             "RAY_ADDRESS": "",
+        }
+
+    def _generate_prometheus_config(self, source_value: str, shared_env: dict) -> dict:
+        """Resolve scales for the prometheus family + cross-manifest exporter sidecars.
+
+        PROMETHEUS_SCALE / NODE_EXPORTER_SCALE / CADVISOR_SCALE follow PROMETHEUS_SOURCE
+        directly. POSTGRES_EXPORTER_SCALE and REDIS_EXPORTER_SCALE are written here too
+        because the sidecars live in other manifests (supabase, redis) but are useless
+        when nothing scrapes them. This is the canonical cross-manifest scale
+        arithmetic pattern — see _generate_stt_provider_config.
+
+        Args:
+            source_value: Current PROMETHEUS_SOURCE (`container` | `disabled`).
+            shared_env: Env vars accumulated by earlier generators + manifest defaults.
+
+        Returns:
+            Dict of resolved env-var assignments.
+        """
+        on = "1" if source_value == "container" else "0"
+        endpoint = "http://prometheus:9090" if source_value == "container" else ""
+        return {
+            "PROMETHEUS_SCALE": on,
+            "NODE_EXPORTER_SCALE": on,
+            "CADVISOR_SCALE": on,
+            "POSTGRES_EXPORTER_SCALE": on,
+            "REDIS_EXPORTER_SCALE": on,
+            "PROMETHEUS_ENDPOINT": endpoint,
+        }
+
+    def _generate_grafana_config(self, source_value: str, shared_env: dict) -> dict:
+        """Resolve Grafana's auto-managed scale + endpoint from GRAFANA_SOURCE.
+
+        Args:
+            source_value: Current GRAFANA_SOURCE (`container` | `disabled`).
+            shared_env: Env vars accumulated by earlier generators.
+
+        Returns:
+            Dict of resolved env-var assignments.
+        """
+        if source_value == "container":
+            return {
+                "GRAFANA_SCALE": "1",
+                "GRAFANA_ENDPOINT": "http://grafana:3000",
+            }
+        return {
+            "GRAFANA_SCALE": "0",
+            "GRAFANA_ENDPOINT": "",
         }
 
     def _generate_openclaw_config(self) -> Dict[str, str]:

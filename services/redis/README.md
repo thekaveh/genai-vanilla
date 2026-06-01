@@ -63,6 +63,7 @@ _No upstream calls._
 
 | Service | Category |
 |---|---|
+| prometheus | infra |
 | litellm | llm |
 
 ### 5.3 Architecture diagram

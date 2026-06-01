@@ -217,7 +217,9 @@ For more information on Kong's role in the overall architecture, see the system 
 
 ### 13.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| prometheus | infra |
 
 ### 13.3 Architecture diagram
 

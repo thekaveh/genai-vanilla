@@ -1,0 +1,3 @@
+# Placeholder for stack-wide Prometheus recording rules.
+# Add `groups:` here when the dashboards need pre-aggregated time series.
+groups: []

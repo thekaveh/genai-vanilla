@@ -105,6 +105,7 @@ When any optional service is `disabled`, the corresponding backend feature degra
 | Service | Category |
 |---|---|
 | kong | infra |
+| prometheus | infra |
 
 ### 5.3 Architecture diagram
 

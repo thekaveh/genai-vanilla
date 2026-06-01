@@ -176,6 +176,14 @@ class KongConfigGenerator:
         if ray_service:
             services.append(ray_service)
 
+        prometheus_service = self.generate_prometheus_service()
+        if prometheus_service:
+            services.append(prometheus_service)
+
+        grafana_service = self.generate_grafana_service()
+        if grafana_service:
+            services.append(grafana_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -815,6 +823,67 @@ class KongConfigGenerator:
                 {'name': 'cors'},
                 {'name': 'basic-auth'},
                 {'name': 'acl', 'config': {'allow': ['dashboard_user']}},
+            ],
+        }
+
+    def generate_prometheus_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for Prometheus UI / API.
+
+        Internal-network-only scrape paths mean Prom's data isn't sensitive when
+        fronted by Kong on `prometheus.localhost`. No auth — pair with Grafana
+        for the user-facing dashboard surface.
+
+        Gated on `PROMETHEUS_SOURCE=container`. When disabled, no `prometheus`
+        container exists and the route would 502 — so we skip it.
+        """
+        source = self.get_env_value('PROMETHEUS_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'prometheus',
+            'url': 'http://prometheus:9090/',
+            'routes': [
+                {
+                    'name': 'prometheus-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['prometheus.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+            ],
+        }
+
+    def generate_grafana_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for Grafana UI.
+
+        `preserve_host: True` is critical — Grafana is an SPA that builds
+        redirect URLs from the Host header. Without `preserve_host`, Kong
+        rewrites Host to `grafana:3000` and the browser can't resolve it.
+
+        Admin auth is handled by Grafana itself (GF_SECURITY_ADMIN_*), not by
+        Kong, so we don't add basic-auth here.
+
+        Gated on `GRAFANA_SOURCE=container`. When disabled, no `grafana`
+        container exists and the route would 502 — so we skip it.
+        """
+        source = self.get_env_value('GRAFANA_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'grafana',
+            'url': 'http://grafana:3000/',
+            'routes': [
+                {
+                    'name': 'grafana-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['grafana.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
             ],
         }
 

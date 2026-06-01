@@ -1,15 +1,11 @@
 name: genai
-networks:
-  backend-network:
-    driver: bridge
-    name: genai-network
 services:
   backend:
     build:
-      args:
-        BASE_IMAGE: python:3.12
       context: '{REPO_ROOT}/services/backend/app'
       dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: python:3.12
     container_name: genai-backend
     depends_on:
       kong-api-gateway:
@@ -72,23 +68,62 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63080'
       target: 8000
+      published: '63080'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/backend/app/app'
       target: /app
-      type: bind
-    - source: backend-data
+      bind: {}
+    - type: volume
+      source: backend-data
       target: /app/data
-      type: volume
       volume: {}
-    - source: weaviate-shared-config
+    - type: volume
+      source: weaviate-shared-config
       target: /shared
-      type: volume
       volume: {}
+  cadvisor:
+    container_name: genai-cadvisor
+    deploy:
+      replicas: 0
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 8080
+      published: '63002'
+      protocol: tcp
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: /
+      target: /rootfs
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /var/run
+      target: /var/run
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /sys
+      target: /sys
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /var/lib/docker/
+      target: /var/lib/docker
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /dev/disk/
+      target: /dev/disk
+      read_only: true
+      bind: {}
   comfyui:
     container_name: genai-comfyui
     depends_on:
@@ -116,15 +151,15 @@ services:
       SUPABASE_URL: http://kong-api-gateway:8000/comfyui
       WEB_ENABLE_AUTH: 'false'
     healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 2m0s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:18188/system_stats
       timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 2m0s
     image: ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7
     labels:
       com.genai.category: ai
@@ -135,31 +170,31 @@ services:
     platform: linux/amd64
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63041'
       target: 18188
+      published: '63041'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: comfyui-models
+    - type: volume
+      source: comfyui-models
       target: /opt/ComfyUI/models
-      type: volume
       volume: {}
-    - source: comfyui-output
+    - type: volume
+      source: comfyui-output
       target: /opt/ComfyUI/output
-      type: volume
       volume: {}
-    - source: comfyui-input
+    - type: volume
+      source: comfyui-input
       target: /opt/ComfyUI/input
-      type: volume
       volume: {}
-    - source: comfyui-custom-nodes
+    - type: volume
+      source: comfyui-custom-nodes
       target: /opt/ComfyUI/custom_nodes
-      type: volume
       volume: {}
-    - bind: {}
+    - type: bind
       source: '{HOME}/Documents/ComfyUI/models'
       target: /host_models
-      type: bind
+      bind: {}
   comfyui-catalog-init:
     build:
       context: '{REPO_ROOT}/services/comfyui/catalog-init'
@@ -183,21 +218,21 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/comfyui/catalog-init/scripts'
       target: /scripts
-      type: bind
-    - bind: {}
       read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/comfyui/custom-models.yaml'
       target: /custom-models.yaml
-      type: bind
-    - bind: {}
       read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
-      type: bind
+      read_only: true
+      bind: {}
   comfyui-init:
     container_name: genai-comfyui-init
     depends_on:
@@ -230,14 +265,61 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/comfyui/init/scripts'
       target: /scripts
-      type: bind
-    - source: comfyui-models
+      bind: {}
+    - type: volume
+      source: comfyui-models
       target: /models
-      type: volume
       volume: {}
+  grafana:
+    container_name: genai-grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SERVER_ROOT_URL: http://grafana.localhost
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      PROMETHEUS_ENDPOINT: http://prometheus:9090
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -q -O- http://localhost:3000/api/health | grep -q ok
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: grafana/grafana:11.3.0
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 3000
+      published: '63003'
+      protocol: tcp
+    restart: unless-stopped
+    volumes:
+    - type: volume
+      source: grafana-data
+      target: /var/lib/grafana
+      volume: {}
+    - type: bind
+      source: '{REPO_ROOT}/services/grafana/services/grafana/config/grafana.ini'
+      target: /etc/grafana/grafana.ini
+      read_only: true
+      bind: {}
+    - type: bind
+      source: '{REPO_ROOT}/services/grafana/services/grafana/config/provisioning'
+      target: /etc/grafana/provisioning
+      read_only: true
+      bind: {}
   hermes:
     command:
     - gateway
@@ -274,14 +356,14 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 1m0s
       test:
       - CMD-SHELL
       - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY"
         http://127.0.0.1:8642/v1/models >/dev/null'
       timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
     image: nousresearch/hermes-agent:latest
     labels:
       com.genai.agent: hermes
@@ -291,18 +373,18 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63060'
       target: 8642
-    - mode: ingress
+      published: '63060'
       protocol: tcp
-      published: '63061'
+    - mode: ingress
       target: 9119
+      published: '63061'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: hermes-data
+    - type: volume
+      source: hermes-data
       target: /opt/data
-      type: volume
       volume: {}
   hermes-init:
     container_name: genai-hermes-init
@@ -335,26 +417,26 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - source: hermes-data
+    - type: volume
+      source: hermes-data
       target: /opt/data
-      type: volume
       volume: {}
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/hermes/init/scripts'
       target: /scripts
-      type: bind
-    - bind: {}
       read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/hermes/init/templates'
       target: /templates
-      type: bind
+      read_only: true
+      bind: {}
   jupyterhub:
     build:
-      args:
-        BASE_IMAGE: jupyter/datascience-notebook:python-3.11
       context: '{REPO_ROOT}/services/jupyterhub/build'
       dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: jupyter/datascience-notebook:python-3.11
     container_name: genai-jupyterhub
     depends_on:
       litellm:
@@ -395,15 +477,15 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:8888/api
       timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
     labels:
       com.genai.category: application
       com.genai.service: jupyterhub
@@ -412,24 +494,24 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63081'
       target: 8888
+      published: '63081'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: jupyterhub-data
+    - type: volume
+      source: jupyterhub-data
       target: /home/jovyan/work
-      type: volume
       volume: {}
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/jupyterhub/build/notebooks'
       target: /home/jovyan/notebooks
-      type: bind
-    - read_only: true
+      read_only: true
+      bind: {}
+    - type: volume
       source: weaviate-shared-config
       target: /shared
-      type: volume
+      read_only: true
       volume: {}
   kong-api-gateway:
     container_name: genai-kong-api-gateway
@@ -465,9 +547,9 @@ services:
       KONG_NGINX_HTTP_UPSTREAM_KEEPALIVE_TIMEOUT: 60s
       KONG_NGINX_PROXY_CHUNKED_TRANSFER_ENCODING: 'on'
       KONG_NGINX_PROXY_KEEPALIVE_TIMEOUT: '300'
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERING: 'off'
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_CACHE: 'off'
       KONG_NGINX_PROXY_TCP_NODELAY: 'on'
       KONG_NGINX_PROXY_TCP_NOPUSH: 'on'
@@ -486,21 +568,21 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63000'
       target: 8000
-    - mode: ingress
+      published: '63004'
       protocol: tcp
-      published: '63001'
+    - mode: ingress
       target: 8443
+      published: '63005'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - bind:
-        selinux: z
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/volumes/api/kong-dynamic.yml'
       target: /home/kong/kong.yml
-      type: bind
+      read_only: true
+      bind:
+        selinux: z
   litellm:
     command:
     - --config
@@ -537,9 +619,6 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
-      interval: 10s
-      retries: 12
-      start_period: 30s
       test:
       - CMD
       - python
@@ -547,21 +626,24 @@ services:
       - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',
         timeout=3).status == 200 else 1)
       timeout: 5s
+      interval: 10s
+      retries: 12
+      start_period: 30s
     image: ghcr.io/berriai/litellm:v1.83.14-stable.patch.2
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63030'
       target: 4000
+      published: '63030'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/volumes/litellm/config.yaml'
       target: /app/config.yaml
-      type: bind
+      read_only: true
+      bind: {}
   litellm-init:
     build:
       context: '{REPO_ROOT}/services/litellm/init'
@@ -591,20 +673,20 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/litellm/init/scripts'
       target: /scripts
-      type: bind
-    - bind: {}
+      read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/volumes/litellm'
       target: /litellm-config
-      type: bind
-    - bind: {}
-      read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
-      type: bind
+      read_only: true
+      bind: {}
   llm-catalog-init:
     build:
       context: '{REPO_ROOT}/services/litellm/catalog-init'
@@ -640,22 +722,22 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/litellm/catalog-init/scripts'
       target: /scripts
-      type: bind
-    - bind: {}
       read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
-      type: bind
+      read_only: true
+      bind: {}
   local-deep-researcher:
     build:
-      args:
-        BASE_IMAGE: python:3.11-slim
       context: '{REPO_ROOT}/services/local-deep-researcher/build'
       dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: python:3.11-slim
     container_name: genai-local-deep-researcher
     depends_on:
       litellm:
@@ -683,18 +765,18 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63083'
       target: 2024
+      published: '63083'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: local-deep-researcher-data
+    - type: volume
+      source: local-deep-researcher-data
       target: /app/data
-      type: volume
       volume: {}
-    - source: local-deep-researcher-repo
+    - type: volume
+      source: local-deep-researcher-repo
       target: /app/repo
-      type: volume
       volume: {}
   minio:
     command:
@@ -711,32 +793,32 @@ services:
       MINIO_ROOT_PASSWORD: ''
       MINIO_ROOT_USER: minioadmin
     healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:9000/minio/health/live
       timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63017'
       target: 9000
-    - mode: ingress
-      protocol: tcp
       published: '63018'
+      protocol: tcp
+    - mode: ingress
       target: 9001
+      published: '63019'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: minio-data
+    - type: volume
+      source: minio-data
       target: /data
-      type: volume
       volume: {}
   minio-init:
     container_name: genai-minio-init
@@ -772,11 +854,11 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/minio/init/scripts'
       target: /scripts
-      type: bind
+      read_only: true
+      bind: {}
   multi2vec-clip:
     container_name: genai-multi2vec-clip
     depends_on:
@@ -819,11 +901,11 @@ services:
       GENERIC_TIMEZONE: UTC
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
-      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63000
+      N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63004
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
       N8N_COMMUNITY_PACKAGES_ENABLED: 'true'
-      N8N_EDITOR_BASE_URL: http://n8n.localhost:63000
+      N8N_EDITOR_BASE_URL: http://n8n.localhost:63004
       N8N_ENCRYPTION_KEY: your-random-encryption-key
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
       N8N_HOST: n8n.localhost
@@ -842,32 +924,32 @@ services:
       QUEUE_HEALTH_CHECK_ACTIVE: 'true'
       STT_ENDPOINT: ''
       TTS_ENDPOINT: ''
-      VUE_APP_URL_BASE_API: http://n8n.localhost:63000/
+      VUE_APP_URL_BASE_API: http://n8n.localhost:63004/
       WEAVIATE_URL: http://weaviate:8080
-      WEBHOOK_URL: http://n8n.localhost:63000/
+      WEBHOOK_URL: http://n8n.localhost:63004/
     healthcheck:
-      interval: 15s
-      retries: 10
-      start_period: 1m30s
       test:
       - CMD
       - wget
       - -qO-
       - http://127.0.0.1:5678/healthz
       timeout: 5s
+      interval: 15s
+      retries: 10
+      start_period: 1m30s
     image: n8nio/n8n:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63062'
       target: 5678
+      published: '63062'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: n8n-data
+    - type: volume
+      source: n8n-data
       target: /home/node/.n8n
-      type: volume
       volume: {}
   n8n-init:
     container_name: genai-n8n-init
@@ -891,17 +973,17 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/n8n/init/scripts'
       target: /scripts
-      type: bind
-    - bind: {}
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/n8n/init/config'
       target: /config
-      type: bind
-    - source: n8n-data
+      bind: {}
+    - type: volume
+      source: n8n-data
       target: /n8n-data
-      type: volume
       volume: {}
   n8n-worker:
     command:
@@ -944,16 +1026,16 @@ services:
       backend-network: null
     restart: unless-stopped
     volumes:
-    - source: n8n-data
+    - type: volume
+      source: n8n-data
       target: /home/node/.n8n
-      type: volume
       volume: {}
   neo4j-graph-db:
     build:
-      args:
-        BASE_IMAGE: neo4j:5.19.0
       context: '{REPO_ROOT}/services/neo4j/build'
       dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: neo4j:5.19.0
     container_name: genai-neo4j-graph-db
     deploy:
       replicas: 1
@@ -967,27 +1049,60 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63019'
       target: 7687
-    - mode: ingress
-      protocol: tcp
       published: '63020'
+      protocol: tcp
+    - mode: ingress
       target: 7474
+      published: '63021'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/neo4j/build/scripts'
       target: /scripts
-      type: bind
-    - bind: {}
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/neo4j/build/snapshot'
       target: /snapshot
-      type: bind
-    - source: graph-db-data
+      bind: {}
+    - type: volume
+      source: graph-db-data
       target: /data
-      type: volume
       volume: {}
+  node-exporter:
+    command:
+    - --path.procfs=/host/proc
+    - --path.sysfs=/host/sys
+    - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    container_name: genai-node-exporter
+    deploy:
+      replicas: 0
+    image: prom/node-exporter:v1.8.2
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 9100
+      published: '63001'
+      protocol: tcp
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: /proc
+      target: /host/proc
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /sys
+      target: /host/sys
+      read_only: true
+      bind: {}
+    - type: bind
+      source: /
+      target: /rootfs
+      read_only: true
+      bind: {}
   ollama:
     container_name: genai-ollama
     deploy:
@@ -999,9 +1114,9 @@ services:
       backend-network: null
     restart: unless-stopped
     volumes:
-    - source: llm-provider-data
+    - type: volume
+      source: llm-provider-data
       target: /root/.ollama
-      type: volume
       volume: {}
   ollama-pull:
     container_name: genai-ollama-pull
@@ -1033,11 +1148,11 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/ollama/pull/scripts'
       target: /scripts
-      type: bind
+      read_only: true
+      bind: {}
   open-web-ui:
     container_name: genai-open-web-ui
     depends_on:
@@ -1093,29 +1208,29 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63082'
       target: 8080
+      published: '63082'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: open-web-ui-data
+    - type: volume
+      source: open-web-ui-data
       target: /app/backend/data
-      type: volume
       volume: {}
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/open-webui/extras/tools'
       target: /app/backend/data/tools
-      type: bind
-    - bind: {}
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/open-webui/extras/functions'
       target: /app/backend/data/functions
-      type: bind
+      bind: {}
   open-webui-init:
     build:
-      args:
-        BASE_IMAGE: python:3.11-slim
       context: '{REPO_ROOT}/services/open-webui/init'
       dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: python:3.11-slim
     container_name: genai-open-webui-init
     depends_on:
       open-web-ui:
@@ -1139,16 +1254,16 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
-      read_only: true
+    - type: bind
       source: '{REPO_ROOT}/services/open-webui/extras/tools'
       target: /tools
-      type: bind
-    - bind: {}
       read_only: true
+      bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/open-webui/extras/functions'
       target: /functions
-      type: bind
+      read_only: true
+      bind: {}
   openclaw-gateway:
     command:
     - node
@@ -1180,15 +1295,15 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 20s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:18789/healthz
       timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 20s
     image: ghcr.io/openclaw/openclaw:latest
     labels:
       com.genai.agent: openclaw
@@ -1198,22 +1313,22 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63063'
       target: 18789
-    - mode: ingress
+      published: '63063'
       protocol: tcp
-      published: '63064'
+    - mode: ingress
       target: 18790
+      published: '63064'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: openclaw-config
+    - type: volume
+      source: openclaw-config
       target: /home/node/.openclaw
-      type: volume
       volume: {}
-    - source: openclaw-workspace
+    - type: volume
+      source: openclaw-workspace
       target: /home/node/.openclaw/workspace
-      type: volume
       volume: {}
   openclaw-init:
     container_name: genai-openclaw-init
@@ -1232,13 +1347,90 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - source: openclaw-config
+    - type: volume
+      source: openclaw-config
       target: /home/node/.openclaw
-      type: volume
       volume: {}
-    - source: openclaw-workspace
+    - type: volume
+      source: openclaw-workspace
       target: /home/node/.openclaw/workspace
-      type: volume
+      volume: {}
+  postgres-exporter:
+    container_name: genai-postgres-exporter
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      DATA_SOURCE_NAME: postgresql://supabase_admin:password@supabase-db:5432/postgres?sslmode=disable
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: 'true'
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://localhost:9187/metrics
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 9187
+      published: '63011'
+      protocol: tcp
+    restart: unless-stopped
+  prometheus:
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --storage.tsdb.retention.time=7d
+    - --web.console.libraries=/usr/share/prometheus/console_libraries
+    - --web.console.templates=/usr/share/prometheus/consoles
+    - --web.enable-lifecycle
+    container_name: genai-prometheus
+    deploy:
+      replicas: 0
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://localhost:9090/-/healthy
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: prom/prometheus:v2.55.1
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 9090
+      published: '63000'
+      protocol: tcp
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: '{REPO_ROOT}/services/prometheus/services/prometheus/config/prometheus.yml'
+      target: /etc/prometheus/prometheus.yml
+      read_only: true
+      bind: {}
+    - type: bind
+      source: '{REPO_ROOT}/services/prometheus/services/prometheus/config/rules'
+      target: /etc/prometheus/rules
+      read_only: true
+      bind: {}
+    - type: volume
+      source: prometheus-data
+      target: /prometheus
       volume: {}
   ray-head:
     command:
@@ -1249,31 +1441,31 @@ services:
     container_name: genai-ray-head
     deploy:
       replicas: 0
+    hostname: ray-head
     healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 1m0s
       test:
       - CMD-SHELL
       - wget -q --spider http://localhost:8265/api/version || exit 1
       timeout: 10s
-    hostname: ray-head
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
     image: rayproject/ray:2.55.1
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63002'
       target: 8265
-    - mode: ingress
+      published: '63006'
       protocol: tcp
-      published: '63003'
+    - mode: ingress
       target: 6379
-    - mode: ingress
+      published: '63007'
       protocol: tcp
-      published: '63004'
+    - mode: ingress
       target: 10001
+      published: '63008'
+      protocol: tcp
     restart: unless-stopped
     shm_size: '4294967296'
   ray-worker:
@@ -1303,9 +1495,6 @@ services:
     - redis_password
     container_name: genai-redis
     healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
       test:
       - CMD
       - redis-cli
@@ -1313,20 +1502,54 @@ services:
       - redis_password
       - ping
       timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
     image: redis:7.2-alpine
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63021'
       target: 6379
+      published: '63022'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: redis-data
+    - type: volume
+      source: redis-data
       target: /data
-      type: volume
       volume: {}
+  redis-exporter:
+    container_name: genai-redis-exporter
+    depends_on:
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: redis_password
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://localhost:9121/metrics
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
+    image: oliver006/redis_exporter:v1.62.0
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 9121
+      published: '63023'
+      protocol: tcp
+    restart: unless-stopped
   searxng:
     container_name: genai-searxng
     depends_on:
@@ -1340,9 +1563,6 @@ services:
       SEARXNG_BASE_URL: http://localhost:63043
       SEARXNG_SECRET: ''
     healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
       test:
       - CMD
       - wget
@@ -1351,23 +1571,26 @@ services:
       - '--header=X-Forwarded-For: 127.0.0.1'
       - http://localhost:8080/healthz
       timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
     image: searxng/searxng:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63043'
       target: 8080
+      published: '63043'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/searxng/config'
       target: /etc/searxng
-      type: bind
-    - source: searxng-data
+      bind: {}
+    - type: volume
+      source: searxng-data
       target: /var/cache/searxng
-      type: volume
       volume: {}
   supabase-api:
     container_name: genai-supabase-api
@@ -1386,9 +1609,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63014'
       target: 3000
+      published: '63015'
+      protocol: tcp
     restart: unless-stopped
   supabase-auth:
     container_name: genai-supabase-auth
@@ -1423,9 +1646,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63013'
       target: 9999
+      published: '63014'
+      protocol: tcp
     restart: unless-stopped
   supabase-db:
     container_name: genai-supabase-db
@@ -1435,30 +1658,30 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: supabase_admin
     healthcheck:
-      interval: 10s
-      retries: 5
       test:
       - CMD-SHELL
       - pg_isready -U supabase_admin -d postgres
       timeout: 5s
+      interval: 10s
+      retries: 5
     image: supabase/postgres:17.4.1.016
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63010'
       target: 5432
+      published: '63010'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: supabase-db-data
+    - type: volume
+      source: supabase-db-data
       target: /var/lib/postgresql/data
-      type: volume
       volume: {}
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/supabase/db/snapshot'
       target: /snapshot
-      type: bind
+      bind: {}
   supabase-db-init:
     container_name: genai-supabase-db-init
     depends_on:
@@ -1477,10 +1700,10 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/supabase/db/scripts'
       target: /scripts
-      type: bind
+      bind: {}
   supabase-meta:
     container_name: genai-supabase-meta
     depends_on:
@@ -1499,9 +1722,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63011'
       target: 8080
+      published: '63012'
+      protocol: tcp
     restart: unless-stopped
   supabase-realtime:
     container_name: genai-supabase-realtime
@@ -1540,9 +1763,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63015'
       target: 4000
+      published: '63016'
+      protocol: tcp
     restart: unless-stopped
   supabase-storage:
     container_name: genai-supabase-storage
@@ -1570,14 +1793,14 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63012'
       target: 5000
+      published: '63013'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: supabase-storage-data
+    - type: volume
+      source: supabase-storage-data
       target: /var/lib/storage
-      type: volume
       volume: {}
   supabase-studio:
     container_name: genai-supabase-studio
@@ -1611,25 +1834,25 @@ services:
       POSTGRES_PASSWORD: password
       STUDIO_PG_META_URL: http://supabase-meta:8080
       SUPABASE_ANON_KEY: ''
-      SUPABASE_PUBLIC_URL: http://localhost:63000
+      SUPABASE_PUBLIC_URL: http://localhost:63004
       SUPABASE_SERVICE_KEY: ''
       SUPABASE_URL: http://kong-api-gateway:8000
     healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 30s
       test:
       - CMD-SHELL
       - node -e 'require("net").createConnection({port:3000,host:"localhost"},()=>process.exit(0)).on("error",()=>process.exit(1))'
       timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 30s
     image: supabase/studio:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63016'
       target: 3000
+      published: '63017'
+      protocol: tcp
     restart: unless-stopped
   weaviate:
     container_name: genai-weaviate
@@ -1668,8 +1891,6 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
-      interval: 10s
-      retries: 5
       test:
       - CMD
       - wget
@@ -1677,32 +1898,34 @@ services:
       - -q
       - http://localhost:8080/v1/.well-known/ready
       timeout: 5s
+      interval: 10s
+      retries: 5
     image: cr.weaviate.io/semitechnologies/weaviate:1.27.5
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      protocol: tcp
-      published: '63022'
       target: 8080
-    - mode: ingress
+      published: '63024'
       protocol: tcp
-      published: '63023'
+    - mode: ingress
       target: 50051
+      published: '63025'
+      protocol: tcp
     restart: unless-stopped
     volumes:
-    - source: weaviate-data
+    - type: volume
+      source: weaviate-data
       target: /var/lib/weaviate
-      type: volume
       volume: {}
-    - source: weaviate-shared-config
+    - type: volume
+      source: weaviate-shared-config
       target: /shared
-      type: volume
       volume: {}
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/weaviate/init/scripts'
       target: /scripts
-      type: bind
+      bind: {}
   weaviate-init:
     container_name: genai-weaviate-init
     depends_on:
@@ -1731,78 +1954,88 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - bind: {}
+    - type: bind
       source: '{REPO_ROOT}/services/weaviate/init/scripts'
       target: /scripts
-      type: bind
-    - source: weaviate-shared-config
+      bind: {}
+    - type: volume
+      source: weaviate-shared-config
       target: /shared
-      type: volume
       volume: {}
+networks:
+  backend-network:
+    name: genai-network
+    driver: bridge
 volumes:
   backend-data:
-    driver: local
     name: genai-backend-data
+    driver: local
   comfyui-custom-nodes:
-    driver: local
     name: genai-comfyui-custom-nodes
+    driver: local
   comfyui-input:
-    driver: local
     name: genai-comfyui-input
+    driver: local
   comfyui-models:
-    driver: local
     name: genai-comfyui-models
+    driver: local
   comfyui-output:
-    driver: local
     name: genai-comfyui-output
+    driver: local
+  grafana-data:
+    name: genai-grafana-data
+    driver: local
   graph-db-data:
-    driver: local
     name: genai-graph-db-data
+    driver: local
   hermes-data:
-    driver: local
     name: genai-hermes-data
+    driver: local
   jupyterhub-data:
-    driver: local
     name: genai-jupyterhub-data
+    driver: local
   llm-provider-data:
-    driver: local
     name: genai-llm-provider-data
+    driver: local
   local-deep-researcher-data:
-    driver: local
     name: genai-local-deep-researcher-data
+    driver: local
   local-deep-researcher-repo:
-    driver: local
     name: genai-local-deep-researcher-repo
+    driver: local
   minio-data:
-    driver: local
     name: genai-minio-data
+    driver: local
   n8n-data:
-    driver: local
     name: genai-n8n-data
+    driver: local
   open-web-ui-data:
-    driver: local
     name: genai-open-web-ui-data
+    driver: local
   openclaw-config:
-    driver: local
     name: genai-openclaw-config
+    driver: local
   openclaw-workspace:
-    driver: local
     name: genai-openclaw-workspace
+    driver: local
+  prometheus-data:
+    name: genai-prometheus-data
+    driver: local
   redis-data:
-    driver: local
     name: genai-redis-data
+    driver: local
   searxng-data:
-    driver: local
     name: genai-searxng-data
+    driver: local
   supabase-db-data:
-    driver: local
     name: genai-supabase-db-data
+    driver: local
   supabase-storage-data:
-    driver: local
     name: genai-supabase-storage-data
+    driver: local
   weaviate-data:
-    driver: local
     name: genai-weaviate-data
-  weaviate-shared-config:
     driver: local
+  weaviate-shared-config:
     name: genai-weaviate-shared-config
+    driver: local
