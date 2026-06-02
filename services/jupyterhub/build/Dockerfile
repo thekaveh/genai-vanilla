@@ -26,6 +26,13 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir torch==2.4.1  # keep in sync with requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+# ml-lab NLP-task assets: spaCy language model + NLTK VADER lexicon. These are
+# bundled separately from their respective pip packages (spacy / nltk) and are
+# required by ml-lab's text_classification-agnews + sentiment_classification-vader
+# Tier-A notebooks. ~14 MB total.
+RUN python -m spacy download en_core_web_sm \
+ && python -c "import nltk; nltk.download('vader_lexicon', quiet=True)"
+
 # Copy startup script
 COPY scripts/startup.sh /usr/local/bin/startup.sh
 
