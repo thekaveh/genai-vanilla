@@ -22,6 +22,15 @@ services:
       JUPYTER_ENABLE_LAB: "yes"
       GRANT_SUDO: "yes"
       JUPYTER_TOKEN: ${JUPYTERHUB_TOKEN}
+      # VS Code remote-Jupyter connectivity. The Jupyter Server defaults
+      # restrict origin and remote access to localhost-only on the
+      # container's loopback; VS Code's webview origin and your host-side
+      # browser both look "remote" to the container, so without these the
+      # initial connect succeeds (token auth) but the websocket upgrade for
+      # cell execution gets dropped. Same value is also written to
+      # JUPYTER_ALLOW_ORIGIN for forward-compat with image versions that
+      # honor that env name; the CLI flags below are the authoritative knob.
+      JUPYTER_ALLOW_ORIGIN: ${JUPYTER_ALLOW_ORIGIN:-*}
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/3
       LITELLM_BASE_URL: http://litellm:4000
@@ -45,6 +54,17 @@ services:
       N8N_BASE_URL: http://n8n:5678
       SEARXNG_URL: http://searxng:8080
       BACKEND_API_URL: http://backend:8000
+    # Override the upstream image's default start command to add the three
+    # ServerApp flags VS Code (and any other remote Jupyter client) needs.
+    # `start-notebook.sh` is the script the upstream image ships; appending
+    # flags here lets the image's own argv-forwarding propagate them to
+    # `jupyter lab` underneath. Token auth still gates every request, so
+    # allow_origin='*' is safe as long as JUPYTERHUB_TOKEN stays secret.
+    command:
+      - start-notebook.sh
+      - --ServerApp.allow_origin=*
+      - --ServerApp.allow_remote_access=True
+      - --ServerApp.disable_check_xsrf=False
     ports:
       - "${JUPYTERHUB_PORT}:8888"
     volumes:

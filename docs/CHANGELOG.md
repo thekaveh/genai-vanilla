@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Scala kernels in JupyterHub + VS Code remote-Jupyter wiring
+
+The JupyterHub container now ships three kernels and is configured for
+remote-kernel access from VS Code on the developer's host machine.
+
+**Scala kernels (Almond):**
+- Two new kernels installed at image build time via Coursier — `scala213`
+  (Scala 2.13.16) and `scala3` (Scala 3.4.3), both running on Almond
+  0.14.5 over OpenJDK 17. Pick from JupyterLab's launcher or VS Code's
+  kernel-picker. Toolchain footprint ≈ 600 MB; drop the relevant
+  Dockerfile blocks if you don't need Scala.
+- Pinned via `ALMOND_VERSION` / `ALMOND_SCALA_2_VERSION` /
+  `ALMOND_SCALA_3_VERSION` Dockerfile build args so future bumps are
+  explicit and rebuild predictably.
+
+**VS Code remote-Jupyter:**
+- `services/jupyterhub/compose.yml` adds three `--ServerApp.*` flags to
+  the container command — `allow_origin=*`, `allow_remote_access=True`,
+  `disable_check_xsrf=False`. Token auth still gates every request; the
+  origin allowlist can be tightened via the new `JUPYTER_ALLOW_ORIGIN`
+  env var.
+- Full operator walkthrough lives at
+  `services/jupyterhub/README.md` § 10 (Connecting from VS Code). The
+  flow: install Microsoft's Jupyter extension, copy `JUPYTERHUB_TOKEN`
+  from `.env`, paste `http://localhost:63081/?token=<TOKEN>` into the
+  "Existing Jupyter Server" prompt. VS Code then offers the new
+  kernels via its kernel-picker.
+
+### Changed — JupyterHub `requirements.txt`
+
+- **Removed `nnx-pytorch`** from the ml-lab support block. The 28-of-29
+  ml-lab notebooks that `import nnx` will not run until the package is
+  restored. Supporting libraries (`python-louvain`, `nltk`, `spacy`,
+  `torchao`, `prettytable`) stay so non-nnx notebooks keep working.
+
 ### Added — observability bundle (Prometheus + Grafana)
 
 New paired bundle in the `infra` band giving full-stack metrics observability

@@ -437,6 +437,11 @@ services:
       dockerfile: Dockerfile
       args:
         BASE_IMAGE: jupyter/datascience-notebook:python-3.11
+    command:
+    - start-notebook.sh
+    - --ServerApp.allow_origin=*
+    - --ServerApp.allow_remote_access=True
+    - --ServerApp.disable_check_xsrf=False
     container_name: genai-jupyterhub
     depends_on:
       litellm:
@@ -458,6 +463,7 @@ services:
       GRANT_SUDO: 'yes'
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
+      JUPYTER_ALLOW_ORIGIN: '*'
       JUPYTER_ENABLE_LAB: 'yes'
       JUPYTER_TOKEN: ''
       LITELLM_API_KEY: ''
