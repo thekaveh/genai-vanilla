@@ -1,0 +1,70 @@
+# services/prometheus/compose.yml — Prometheus + node-exporter + cAdvisor
+services:
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v2.55.1}
+    container_name: ${PROJECT_NAME}-prometheus
+    restart: unless-stopped
+    deploy:
+      replicas: ${PROMETHEUS_SCALE:-0}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_DAYS:-7}d
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-lifecycle
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    volumes:
+      - ./services/prometheus/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/prometheus/config/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
+  node-exporter:
+    image: ${NODE_EXPORTER_IMAGE:-prom/node-exporter:v1.8.2}
+    container_name: ${PROJECT_NAME}-node-exporter
+    restart: unless-stopped
+    deploy:
+      replicas: ${NODE_EXPORTER_SCALE:-0}
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    ports:
+      - "${NODE_EXPORTER_PORT}:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - backend-network
+
+  cadvisor:
+    image: ${CADVISOR_IMAGE:-gcr.io/cadvisor/cadvisor:v0.49.1}
+    container_name: ${PROJECT_NAME}-cadvisor
+    restart: unless-stopped
+    deploy:
+      replicas: ${CADVISOR_SCALE:-0}
+    ports:
+      - "${CADVISOR_PORT}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - backend-network
+
+volumes:
+  prometheus-data:
+    name: ${PROJECT_NAME}-prometheus-data
+    driver: local

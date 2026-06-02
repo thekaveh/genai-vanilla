@@ -37,7 +37,7 @@ def test_submit_returns_503_when_ray_disabled(monkeypatch):
     # Provide stub values for env vars main.py validates at import time.
     import os as _os
     for _var, _default in (
-        ("KONG_URL", "http://kong:8000"),
+        ("KONG_URL", "http://kong-api-gateway:8000"),
         ("SUPABASE_SERVICE_KEY", "dummy-key"),
         ("DATABASE_URL", "postgresql://x:x@localhost/x"),
     ):

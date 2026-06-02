@@ -126,7 +126,7 @@
               "requires": {
                 "type": "array",
                 "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
-                "description": "Env vars that MUST be non-empty when this source is selected (e.g. LLM_PROVIDER_EXTERNAL_URL for ollama-external)."
+                "description": "Env vars that MUST be non-empty when this source is selected."
               }
             }
           }
@@ -311,6 +311,40 @@
             "type": "string",
             "pattern": "^[A-Z][A-Z0-9_]*$",
             "description": "Env var holding the user-overridable host port for the localhost source variant. Empty for services without an overridable localhost port."
+          },
+          "secondary_number": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["env_var", "label", "default"],
+            "description": "Inline secondary numeric input on the row's source prompt. Used by Ray (worker count) and Prometheus (retention days). The Textual wizard mounts a SecondaryNumberInput widget; the value persists to .env on confirm.",
+            "properties": {
+              "env_var": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$",
+                "description": "The env var to persist the numeric value to."
+              },
+              "label": {
+                "type": "string",
+                "description": "Short label shown next to the input (e.g. 'Worker count', 'Retention (days)')."
+              },
+              "default": {
+                "type": "string",
+                "description": "Default value as a string (the wizard converts to int)."
+              },
+              "visible_when_source": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Source values that show the input; empty/omitted means always visible."
+              },
+              "min": {
+                "type": "integer",
+                "description": "Optional minimum allowed value (inclusive)."
+              },
+              "max": {
+                "type": "integer",
+                "description": "Optional maximum allowed value (inclusive)."
+              }
+            }
           }
         }
       }

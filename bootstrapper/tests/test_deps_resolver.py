@@ -76,12 +76,14 @@ def test_kong_fronted_services_in_upstream():
     """Kong's data_flow.calls lists services it fronts. Applying the
     universal convention 'focus.data_flow.calls = upstream lane' consistently,
     these services appear in Kong's UPSTREAM lane (Kong calls/routes to them).
-    Kong's downstream lane will be empty (no in-network service calls Kong)."""
+    Kong's downstream is `prometheus` only — Prometheus scrapes Kong's
+    Status API for the gateway metrics dashboard."""
     from docs.deps_resolver import build_graph
     g = build_graph("kong", SERVICES_DIR)
     assert len(g.upstream) > 10
-    # Downstream is empty in the strict data-flow sense
-    assert g.downstream == ()
+    # Downstream: Prometheus only (scrapes Kong's Status API).
+    downstream_others = {e.other for e in g.downstream}
+    assert downstream_others == {"prometheus"}
 
 
 def test_aggregate_doc_folder_unions_underlying_manifests():

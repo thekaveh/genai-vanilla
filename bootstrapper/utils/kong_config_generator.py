@@ -89,9 +89,26 @@ class KongConfigGenerator:
             '_format_version': '2.1',
             '_transform': True,
             'consumers': self.get_consumers(),
-            'services': self.get_all_services()
+            'services': self.get_all_services(),
+            # Global Prometheus plugin — exposes /metrics on Kong's Status
+            # API (port 8100). Prometheus's observability bundle scrapes it
+            # at `kong-api-gateway:8100/metrics`. The plugin is harmless when Prom isn't
+            # running; the endpoint just sits unscraped. See the
+            # observability bundle spec for the broader scrape topology.
+            'plugins': [
+                {
+                    'name': 'prometheus',
+                    'config': {
+                        'status_code_metrics': True,
+                        'latency_metrics': True,
+                        'bandwidth_metrics': True,
+                        'upstream_health_metrics': True,
+                        'per_consumer': False,
+                    },
+                },
+            ],
         }
-        
+
         return config
     
     def get_consumers(self) -> List[Dict[str, Any]]:
@@ -176,6 +193,14 @@ class KongConfigGenerator:
         if ray_service:
             services.append(ray_service)
 
+        prometheus_service = self.generate_prometheus_service()
+        if prometheus_service:
+            services.append(prometheus_service)
+
+        grafana_service = self.generate_grafana_service()
+        if grafana_service:
+            services.append(grafana_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -232,9 +257,7 @@ class KongConfigGenerator:
                     if src and src.startswith("ollama-container")
                     else None
                 ),
-                # ollama-localhost only. ollama-external lands elsewhere
-                # (LiteLLM forwards via LLM_PROVIDER_EXTERNAL_URL) so we
-                # skip it here.
+                # ollama-localhost only.
                 lambda src: (
                     self._localhost_url("OLLAMA_LOCALHOST_PORT", "11434")
                     if src == "ollama-localhost" else None
@@ -543,15 +566,6 @@ class KongConfigGenerator:
             probe_port = parsed.port or 8000
             self.check_localhost_service('localhost', probe_port, 'ComfyUI')
             service['url'] = localhost_url
-        elif source == 'external':
-            external_url = self.get_env_value('COMFYUI_EXTERNAL_URL')
-            if not external_url:
-                print("❌ COMFYUI_SOURCE is set to 'external' but COMFYUI_EXTERNAL_URL is not provided")
-                return None
-            if not external_url.startswith(('http://', 'https://')):
-                print("❌ COMFYUI_EXTERNAL_URL must be a valid URL starting with http:// or https://")
-                return None
-            service['url'] = external_url
         elif source in ['container-cpu', 'container-gpu']:
             service['url'] = 'http://comfyui:18188/'
         else:
@@ -802,9 +816,9 @@ class KongConfigGenerator:
         authentication.
 
         Gated on ``RAY_SOURCE`` ∈ {``ray-container-cpu``,
-        ``ray-container-gpu``}. When ``RAY_SOURCE=disabled`` or
-        ``ray-external``, no ``ray-head`` container exists and the
-        route would immediately 502 — so we skip it.
+        ``ray-container-gpu``}. When ``RAY_SOURCE=disabled``, no
+        ``ray-head`` container exists and the route would immediately
+        502 — so we skip it.
         """
         source = self.get_env_value('RAY_SOURCE')
 
@@ -826,6 +840,67 @@ class KongConfigGenerator:
                 {'name': 'cors'},
                 {'name': 'basic-auth'},
                 {'name': 'acl', 'config': {'allow': ['dashboard_user']}},
+            ],
+        }
+
+    def generate_prometheus_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for Prometheus UI / API.
+
+        Internal-network-only scrape paths mean Prom's data isn't sensitive when
+        fronted by Kong on `prometheus.localhost`. No auth — pair with Grafana
+        for the user-facing dashboard surface.
+
+        Gated on `PROMETHEUS_SOURCE=container`. When disabled, no `prometheus`
+        container exists and the route would 502 — so we skip it.
+        """
+        source = self.get_env_value('PROMETHEUS_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'prometheus',
+            'url': 'http://prometheus:9090/',
+            'routes': [
+                {
+                    'name': 'prometheus-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['prometheus.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+            ],
+        }
+
+    def generate_grafana_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for Grafana UI.
+
+        `preserve_host: True` is critical — Grafana is an SPA that builds
+        redirect URLs from the Host header. Without `preserve_host`, Kong
+        rewrites Host to `grafana:3000` and the browser can't resolve it.
+
+        Admin auth is handled by Grafana itself (GF_SECURITY_ADMIN_*), not by
+        Kong, so we don't add basic-auth here.
+
+        Gated on `GRAFANA_SOURCE=container`. When disabled, no `grafana`
+        container exists and the route would 502 — so we skip it.
+        """
+        source = self.get_env_value('GRAFANA_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'grafana',
+            'url': 'http://grafana:3000/',
+            'routes': [
+                {
+                    'name': 'grafana-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['grafana.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
             ],
         }
 

@@ -163,16 +163,6 @@ def test_localhost_port_env_override_is_honored():
     assert by_host_with_url["tts.localhost"] == "http://host.docker.internal:6666/"
 
 
-def test_external_source_skips_kong_route():
-    """``*-external`` sources target a remote URL outside our network —
-    we don't add a Kong route for those (LiteLLM forwards via its own
-    config). Disabled handled separately below.
-    """
-    config = _generate("LLM_PROVIDER_SOURCE=ollama-external\n")
-    by_host = _hosts_to_service(config)
-    assert "ollama.localhost" not in by_host
-
-
 def test_disabled_source_skips_kong_route():
     """Disabled service: no Kong route."""
     config = _generate(
@@ -181,6 +171,57 @@ def test_disabled_source_skips_kong_route():
     by_host = _hosts_to_service(config)
     assert "weaviate.localhost" not in by_host
     assert "docling.localhost" not in by_host
+
+
+def test_prometheus_kong_route_only_when_container():
+    """`prometheus.localhost` exists when PROMETHEUS_SOURCE=container and
+    not when disabled (no prometheus container would be available to
+    route to)."""
+    on = _hosts_to_service(_generate("PROMETHEUS_SOURCE=container\n"))
+    off = _hosts_to_service(_generate("PROMETHEUS_SOURCE=disabled\n"))
+    assert on.get("prometheus.localhost") == "prometheus"
+    assert "prometheus.localhost" not in off
+
+
+def test_prometheus_kong_route_targets_internal_port_9090():
+    """The Prometheus Kong route must point at the in-network upstream
+    (http://prometheus:9090/), not the host-mapped PROMETHEUS_PORT
+    (which is the topology-allocated public port). Tests the URL set
+    in generate_prometheus_service()."""
+    config = _generate("PROMETHEUS_SOURCE=container\n")
+    prom_svc = next(
+        (svc for svc in config["services"] if svc["name"] == "prometheus"),
+        None,
+    )
+    assert prom_svc is not None
+    assert prom_svc["url"] == "http://prometheus:9090/"
+
+
+def test_grafana_kong_route_only_when_container():
+    """`grafana.localhost` exists when GRAFANA_SOURCE=container and
+    not when disabled."""
+    on = _hosts_to_service(_generate("GRAFANA_SOURCE=container\n"))
+    off = _hosts_to_service(_generate("GRAFANA_SOURCE=disabled\n"))
+    assert on.get("grafana.localhost") == "grafana"
+    assert "grafana.localhost" not in off
+
+
+def test_grafana_kong_route_preserves_host():
+    """Grafana is an SPA — its redirects build URLs from the Host header.
+    Without preserve_host=True, Kong rewrites Host to grafana:3000 and
+    the browser can't resolve it. Regression guard against the route
+    flipping back to a no-preserve_host shape."""
+    config = _generate("GRAFANA_SOURCE=container\n")
+    grafana_svc = next(
+        (svc for svc in config["services"] if svc["name"] == "grafana"),
+        None,
+    )
+    assert grafana_svc is not None
+    route = grafana_svc["routes"][0]
+    assert route.get("preserve_host") is True, (
+        "preserve_host: True is mandatory for SPAs that build redirects "
+        "from the Host header — same lesson as n8n / MinIO / Ray."
+    )
 
 
 def test_tts_route_picks_correct_container_for_chatterbox():

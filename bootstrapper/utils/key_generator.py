@@ -238,6 +238,24 @@ class KeyGenerator:
         new_key = self.generate_webui_secret_key()
         return self.update_env_key('OPEN_WEB_UI_SECRET_KEY', new_key)
 
+    def generate_grafana_admin_password(self) -> str:
+        """Grafana admin password — 32-char URL-safe random. Mirrors the
+        LiteLLM master-key strength. Persisted to .env on first run; rotating
+        is a deliberate operator action.
+        """
+        return secrets.token_urlsafe(24)
+
+    def generate_and_update_grafana_admin_password(self, force: bool = False) -> bool:
+        """Generate GRAFANA_ADMIN_PASSWORD when absent. Idempotent: hand-edits
+        stick. Rotating mid-run signs everyone out of Grafana, so we never
+        force-overwrite a real value.
+        """
+        current_value = self.get_current_env_value('GRAFANA_ADMIN_PASSWORD')
+        if not force and current_value:
+            return True
+        new_value = self.generate_grafana_admin_password()
+        return self.update_env_key('GRAFANA_ADMIN_PASSWORD', new_value)
+
     def generate_and_update_minio_root_password(self, force: bool = False) -> bool:
         """Generate MINIO_ROOT_PASSWORD when absent. Hand-edits stick unless force=True."""
         current_value = self.get_current_env_value('MINIO_ROOT_PASSWORD')
@@ -306,6 +324,11 @@ class KeyGenerator:
         # MinIO root password — never force-regenerate (would lock out console + break
         # provisioning). Only generate when absent.
         results['MINIO_ROOT_PASSWORD'] = self.generate_and_update_minio_root_password(force=False)
+
+        # Grafana admin password — same posture as LITELLM_MASTER_KEY. Only
+        # generate when absent; force-overwriting would sign out every
+        # logged-in operator session.
+        results['GRAFANA_ADMIN_PASSWORD'] = self.generate_and_update_grafana_admin_password(force=False)
 
         # MinIO per-consumer service-account credentials — only generate when absent.
         # Rotating these means re-running minio-init, which is a deliberate operator action.

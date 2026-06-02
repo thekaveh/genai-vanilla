@@ -1,0 +1,147 @@
+# services/prometheus/service.yml — Prometheus metrics scraper + TSDB
+# with bundled node-exporter (host metrics) and cAdvisor (container metrics)
+name: prometheus
+label: "Prometheus (metrics scraper + TSDB)"
+category: infra
+docs: services/prometheus/README.md
+
+containers:
+  - prometheus
+  - node-exporter
+  - cadvisor
+
+images:
+  - var: PROMETHEUS_IMAGE
+    default: "prom/prometheus:v2.55.1"
+    container: prometheus
+  - var: NODE_EXPORTER_IMAGE
+    default: "prom/node-exporter:v1.8.2"
+    container: node-exporter
+  - var: CADVISOR_IMAGE
+    default: "gcr.io/cadvisor/cadvisor:v0.49.1"
+    container: cadvisor
+
+sources:
+  var: PROMETHEUS_SOURCE
+  default: disabled
+  options:
+    - id: container
+      label: "Container (Prom + node-exporter + cAdvisor)"
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: PROMETHEUS_SOURCE
+    default: disabled
+  - name: PROMETHEUS_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for Prometheus's HTTP UI + API (in-container 9090)."
+  - name: NODE_EXPORTER_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for node-exporter (in-container 9100). Host-level metrics: CPU, memory, disk, network."
+  - name: CADVISOR_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for cAdvisor (in-container 8080). Per-container metrics: CPU, memory, IO."
+  - name: PROMETHEUS_RETENTION_DAYS
+    default: "7"
+    description: "TSDB retention in days. User-configurable at wizard time via the inline secondary numeric input. Default 7."
+  - name: PROMETHEUS_ENDPOINT
+    auto_managed: true
+    description: "Resolved per PROMETHEUS_SOURCE — `http://prometheus:9090` for container, empty for disabled. Consumed by Grafana's datasource provisioning."
+  - name: PROMETHEUS_SCALE
+    auto_managed: true
+  - name: NODE_EXPORTER_SCALE
+    auto_managed: true
+  - name: CADVISOR_SCALE
+    auto_managed: true
+
+depends_on:
+  # Slot-ordering pins. Prometheus is standalone at runtime — it scrapes
+  # other services but doesn't depend on any for boot. The four entries
+  # here are NOT runtime calls; they exist to pin Prometheus AFTER the
+  # other infra-tier services in the slot allocator's topological order
+  # so the established port commitments survive observability's
+  # addition:
+  #   - supabase + redis: same baseline as kong + ray, makes Prometheus
+  #     simultaneously "ready" with them.
+  #   - kong + ray: bumps Prometheus to wait until those two have
+  #     received their slots. Without these pins, alphabetical
+  #     tie-break (k < p < r) is moot because Prom would become ready
+  #     BEFORE Kong (Prom needed only supabase), grabbing slot 0 and
+  #     pushing Kong from its documented `63000` slot. Same protection
+  #     Ray uses against alphabetical ordering on `r-a` < `redis`.
+  required:
+    - supabase
+    - redis
+    - kong
+    - ray
+  optional: []
+
+exports:
+  - name: PROMETHEUS_ENDPOINT
+    consumers: [grafana]
+
+rows:
+  - display_name: "Prometheus"
+    source_var: PROMETHEUS_SOURCE
+    port_var: PROMETHEUS_PORT
+    scale_var: PROMETHEUS_SCALE
+    alias: prometheus.localhost
+    description: "Metrics scraper + TSDB with bundled node-exporter and cAdvisor."
+    secondary_number:
+      env_var: PROMETHEUS_RETENTION_DAYS
+      label: "Retention (days)"
+      default: "7"
+      visible_when_source: ["container"]
+      min: 1
+      max: 365
+
+runtime_sc:
+  prometheus:
+    container:
+      scale: 1
+      environment:
+        PROMETHEUS_ENDPOINT: http://prometheus:9090
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment:
+        PROMETHEUS_ENDPOINT: ''
+      deploy: {}
+      extra_hosts: []
+  node-exporter:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  cadvisor:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls:
+    - kong
+    - litellm
+    - hermes
+    - backend
+    - n8n
+    - jupyterhub
+    - weaviate
+    - minio
+    - supabase
+    - redis

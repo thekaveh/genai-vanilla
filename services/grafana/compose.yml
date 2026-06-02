@@ -1,0 +1,37 @@
+# services/grafana/compose.yml — Grafana observability UI
+services:
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:11.3.0}
+    container_name: ${PROJECT_NAME}-grafana
+    restart: unless-stopped
+    deploy:
+      replicas: ${GRAFANA_SCALE:-0}
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USERNAME:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: http://grafana.localhost
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      PROMETHEUS_ENDPOINT: ${PROMETHEUS_ENDPOINT:-http://prometheus:9090}
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./services/grafana/config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./services/grafana/config/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/api/health | grep -q ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
+volumes:
+  grafana-data:
+    name: ${PROJECT_NAME}-grafana-data
+    driver: local

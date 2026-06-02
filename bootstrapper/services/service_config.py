@@ -128,6 +128,23 @@ class ServiceConfig:
         )
         env_vars.update(ray_config)
 
+        # Generate observability bundle (Prometheus family + cross-manifest
+        # sidecar exporter scales for postgres-exporter and redis-exporter).
+        prometheus_source = self.service_sources.get("PROMETHEUS_SOURCE", "disabled")
+        prom_config = self._generate_prometheus_config(
+            source_value=prometheus_source,
+            shared_env=env_vars,
+        )
+        env_vars.update(prom_config)
+
+        # Generate Grafana configuration
+        grafana_source = self.service_sources.get("GRAFANA_SOURCE", "disabled")
+        grafana_config = self._generate_grafana_config(
+            source_value=grafana_source,
+            shared_env=env_vars,
+        )
+        env_vars.update(grafana_config)
+
         # Generate other service configurations
         other_configs = self._generate_other_services_config()
         env_vars.update(other_configs)
@@ -575,14 +592,14 @@ class ServiceConfig:
           - RAY_HEAD_SCALE — 1 when container source, 0 otherwise
           - RAY_WORKER_SCALE — RAY_WORKER_COUNT when container source, 0 otherwise
           - RAY_ADDRESS — `ray://ray-head:10001` for container sources,
-            `${RAY_EXTERNAL_ADDRESS}` value for ray-external, empty otherwise
+            empty otherwise
 
         Args:
             source_value: Current RAY_SOURCE value (one of `ray-container-cpu`,
-                `ray-container-gpu`, `ray-external`, `disabled`).
+                `ray-container-gpu`, `disabled`).
             shared_env: Env vars accumulated by earlier generators + manifest
                 defaults. We read `RAY_WORKER_COUNT`, `RAY_IMAGE`,
-                `RAY_GPU_IMAGE`, `RAY_EXTERNAL_ADDRESS` from here.
+                `RAY_GPU_IMAGE` from here.
 
         Returns:
             Dict of resolved env-var assignments. The caller merges this into
@@ -590,7 +607,6 @@ class ServiceConfig:
         """
         cpu_image = shared_env.get("RAY_IMAGE", "rayproject/ray:2.55.1") or "rayproject/ray:2.55.1"
         gpu_image = shared_env.get("RAY_GPU_IMAGE", "rayproject/ray:2.55.1-gpu") or "rayproject/ray:2.55.1-gpu"
-        external_addr = (shared_env.get("RAY_EXTERNAL_ADDRESS", "") or "").strip()
 
         # Parse RAY_WORKER_COUNT with safe fallback to the manifest default (2).
         raw_count = shared_env.get("RAY_WORKER_COUNT", "2")
@@ -615,19 +631,59 @@ class ServiceConfig:
                 "RAY_WORKER_SCALE": str(worker_count),
                 "RAY_ADDRESS": "ray://ray-head:10001",
             }
-        if source_value == "ray-external":
-            return {
-                "RAY_IMAGE": cpu_image,  # irrelevant (scale=0) but must be set
-                "RAY_HEAD_SCALE": "0",
-                "RAY_WORKER_SCALE": "0",
-                "RAY_ADDRESS": external_addr,
-            }
         # disabled (or any unknown source value): everything off, no address
         return {
             "RAY_IMAGE": cpu_image,
             "RAY_HEAD_SCALE": "0",
             "RAY_WORKER_SCALE": "0",
             "RAY_ADDRESS": "",
+        }
+
+    def _generate_prometheus_config(self, source_value: str, shared_env: dict) -> dict:
+        """Resolve scales for the prometheus family + cross-manifest exporter sidecars.
+
+        PROMETHEUS_SCALE / NODE_EXPORTER_SCALE / CADVISOR_SCALE follow PROMETHEUS_SOURCE
+        directly. POSTGRES_EXPORTER_SCALE and REDIS_EXPORTER_SCALE are written here too
+        because the sidecars live in other manifests (supabase, redis) but are useless
+        when nothing scrapes them. This is the canonical cross-manifest scale
+        arithmetic pattern — see _generate_stt_provider_config.
+
+        Args:
+            source_value: Current PROMETHEUS_SOURCE (`container` | `disabled`).
+            shared_env: Env vars accumulated by earlier generators + manifest defaults.
+
+        Returns:
+            Dict of resolved env-var assignments.
+        """
+        on = "1" if source_value == "container" else "0"
+        endpoint = "http://prometheus:9090" if source_value == "container" else ""
+        return {
+            "PROMETHEUS_SCALE": on,
+            "NODE_EXPORTER_SCALE": on,
+            "CADVISOR_SCALE": on,
+            "POSTGRES_EXPORTER_SCALE": on,
+            "REDIS_EXPORTER_SCALE": on,
+            "PROMETHEUS_ENDPOINT": endpoint,
+        }
+
+    def _generate_grafana_config(self, source_value: str, shared_env: dict) -> dict:
+        """Resolve Grafana's auto-managed scale + endpoint from GRAFANA_SOURCE.
+
+        Args:
+            source_value: Current GRAFANA_SOURCE (`container` | `disabled`).
+            shared_env: Env vars accumulated by earlier generators.
+
+        Returns:
+            Dict of resolved env-var assignments.
+        """
+        if source_value == "container":
+            return {
+                "GRAFANA_SCALE": "1",
+                "GRAFANA_ENDPOINT": "http://grafana:3000",
+            }
+        return {
+            "GRAFANA_SCALE": "0",
+            "GRAFANA_ENDPOINT": "",
         }
 
     def _generate_openclaw_config(self) -> Dict[str, str]:
@@ -698,11 +754,11 @@ class ServiceConfig:
             env_vars['WEAVIATE_INIT_SCALE'] = str(weaviate_config.get('scale', 1))
         
         # OLLAMA_PULL_SCALE: 1 only for in-stack ollama-container-* sources.
-        # Host-side Ollama (ollama-localhost / ollama-external) is not
-        # pull-controllable from the stack — sending /api/pull at the
-        # user's host Ollama would surprise them and is what
-        # llm-catalog-init's apply_ollama_selection refuses to register
-        # custom rows for. Source=none has no upstream at all.
+        # Host-side Ollama (ollama-localhost) is not pull-controllable
+        # from the stack — sending /api/pull at the user's host Ollama
+        # would surprise them and is what llm-catalog-init's
+        # apply_ollama_selection refuses to register custom rows for.
+        # Source=none has no upstream at all.
         llm_source = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
         if llm_source.startswith('ollama-container-'):
             env_vars['OLLAMA_PULL_SCALE'] = '1'
@@ -716,11 +772,11 @@ class ServiceConfig:
         # in-stack or host-side.
         #
         # COMFYUI_INIT_SCALE: 1 only for container sources. For localhost
-        # / external the named-volume `comfyui-models` isn't mounted into
-        # the user's host ComfyUI install, so running the wget-based init
-        # would write into a volume nothing reads. The user pulls models
-        # into their host install themselves — exact mirror of how
-        # OLLAMA_PULL_SCALE behaves for ollama-localhost / ollama-external.
+        # the named-volume `comfyui-models` isn't mounted into the user's
+        # host ComfyUI install, so running the wget-based init would write
+        # into a volume nothing reads. The user pulls models into their
+        # host install themselves — exact mirror of how OLLAMA_PULL_SCALE
+        # behaves for ollama-localhost.
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
         if comfyui_source == 'disabled':
             env_vars['COMFYUI_INIT_SCALE'] = '0'
@@ -729,7 +785,7 @@ class ServiceConfig:
             env_vars['COMFYUI_INIT_SCALE'] = '1'
             env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
         else:
-            # localhost / external — DB populated, but no wget-into-volume.
+            # localhost — DB populated, but no wget-into-volume.
             env_vars['COMFYUI_INIT_SCALE'] = '0'
             env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
 

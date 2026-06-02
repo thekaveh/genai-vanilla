@@ -51,7 +51,7 @@ def test_load_full_manifest(services_root, write_manifest, full_manifest_dict):
     assert m.sources.default == "ollama-container-cpu"
     assert len(m.sources.options) == 2
     assert m.sources.options[0].id == "ollama-container-cpu"
-    assert m.sources.options[1].requires == ["LLM_PROVIDER_EXTERNAL_URL"]
+    assert m.sources.options[1].requires == ["OLLAMA_LOCALHOST_PORT"]
     # runtime_sc replaces the old sources.options[].effects (operational data)
     assert "llm_provider" in m.runtime_sc
     assert m.runtime_sc["llm_provider"]["ollama-container-cpu"]["environment"]["OLLAMA_ENDPOINT"] == "http://ollama:11434"

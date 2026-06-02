@@ -54,6 +54,9 @@ EXPECTED_DISCOVERED = frozenset({
     # Ray (added 2026-05-24) — distributed-compute substrate. Wizard
     # discovery requires `ray_source` in SourceOverrideManager.source_mapping.
     "Ray",
+    # Observability bundle (added 2026-05-31).
+    "Prometheus",
+    "Grafana",
 })
 
 
@@ -167,6 +170,8 @@ def test_source_mapping_includes_app_service_flags() -> None:
         "jupyterhub_source",
         "local_deep_researcher_source",
         "ray_source",
+        "prometheus_source",
+        "grafana_source",
     ):
         assert cli_key in mgr.source_mapping, (
             f"{cli_key} missing from SourceOverrideManager.source_mapping — "

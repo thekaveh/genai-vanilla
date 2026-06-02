@@ -2,9 +2,9 @@
 
 **Internal port:** 11434 (no host port mapping for `ollama-container-*` — Ollama is reached over the compose network only)
 **SOURCE variable:** `LLM_PROVIDER_SOURCE`
-**SOURCE options:** `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `ollama-external`, `none`
+**SOURCE options:** `ollama-container-cpu`, `ollama-container-gpu`, `ollama-localhost`, `none`
 
-For `ollama-localhost` and `ollama-external`, Ollama must already be listening at the URL set by `LLM_PROVIDER_EXTERNAL_URL` (default `http://host.docker.internal:11434`) — the stack never spins up an Ollama container in those modes, so the upstream is your responsibility.
+For `ollama-localhost`, Ollama must already be listening on the host at the port set by `OLLAMA_LOCALHOST_PORT` (default `11434`) — the stack never spins up an Ollama container in that mode, so the upstream is your responsibility.
 
 ## 1. Overview
 
@@ -14,7 +14,6 @@ Ollama is the local LLM engine that runs behind the always-on **LiteLLM gateway*
 
 - `ollama-container-cpu` / `ollama-container-gpu` — Ollama running inside the stack as a Docker container
 - `ollama-localhost` — Ollama running natively on the host machine
-- `ollama-external` — remote Ollama instance at `LLM_PROVIDER_EXTERNAL_URL`
 - `none` — no local engine; the stack runs cloud-only via LiteLLM's enabled cloud providers
 
 ## 2. Access
@@ -32,8 +31,8 @@ Configure the Ollama upstream through `.env`, the interactive wizard, or CLI fla
 
 ```bash
 LLM_PROVIDER_SOURCE=<option>
-# Optional, only when LLM_PROVIDER_SOURCE=ollama-external:
-LLM_PROVIDER_EXTERNAL_URL=https://your-ollama-api.example
+# Optional, only when LLM_PROVIDER_SOURCE=ollama-localhost:
+OLLAMA_LOCALHOST_PORT=11434
 ```
 
 LiteLLM resolves the upstream URL from `LITELLM_OLLAMA_UPSTREAM` (set automatically by the bootstrapper based on `LLM_PROVIDER_SOURCE`). Consumers should never reference `LITELLM_OLLAMA_UPSTREAM` directly.
@@ -54,7 +53,7 @@ If `LLM_PROVIDER_SOURCE=none`, the stack still starts as long as at least one of
 The interactive wizard surfaces **one** Ollama model multi-select (and a free-text "additional to pull" step for container sources). The option list is source-aware so the user never sees two near-duplicate pages:
 
 - **`ollama-container-*`** — the multi-select shows the live `https://ollama.com/library` scrape (~230 entries; exact count depends on the upstream catalog at fetch time). Nothing is pulled yet — the in-stack container is launched after wizard exit — so the library is the only meaningful discovery surface. The `ollama-pull` init container fetches checked entries on first start.
-- **`ollama-localhost`** / **`ollama-external`** — the multi-select **merges** `/api/tags` (already-pulled on your upstream) with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — registering requires `ollama pull <name>` on the host before requests succeed).
+- **`ollama-localhost`** — the multi-select **merges** `/api/tags` (already-pulled on your upstream) with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — registering requires `ollama pull <name>` on the host before requests succeed).
 
 Every row is 2 cells tall, enriched with metadata scraped from each model card on `ollama.com/library`:
 
@@ -84,9 +83,9 @@ Failure modes degrade gracefully:
 
 The default-active baseline is already activated in `public.llms` from `08-seed-data.sql`, so the multi-select is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour: on first visit (`OLLAMA_USER_MODELS` empty), the wizard pre-checks the default-active baseline so the user sees it already ticked. On subsequent visits, the saved `OLLAMA_USER_MODELS` selection is restored, intersected with the visible options.
 
-The third step — **Ollama  ·  additional models to pull** — is a free-text comma-separated list. Shown only for `ollama-container-*` sources; persists as `OLLAMA_CUSTOM_MODELS`. `llm-catalog-init` registers each entry as a row in `public.llms` (with `active=true`) for **every** Ollama source; `ollama-pull` then fetches the active set for `ollama-container-*` only. For `ollama-localhost` / `ollama-external`, you must `ollama pull <name>` on your host yourself.
+The third step — **Ollama  ·  additional models to pull** — is a free-text comma-separated list. Shown only for `ollama-container-*` sources; persists as `OLLAMA_CUSTOM_MODELS`. `llm-catalog-init` registers each entry as a row in `public.llms` (with `active=true`) for **every** Ollama source; `ollama-pull` then fetches the active set for `ollama-container-*` only. For `ollama-localhost`, you must `ollama pull <name>` on your host yourself.
 
-For `ollama-container-*` sources, `ollama-pull` reads the active set from `public.llms` and pulls each one (`OLLAMA_USER_MODELS` ∪ `OLLAMA_CUSTOM_MODELS` flowing through `llm-catalog-init`'s UPSERT and live-only INSERT path). For `ollama-localhost` / `ollama-external`, the wizard only registers entries in `public.llms` — you still need to `ollama pull <name>` on your host before requests will succeed.
+For `ollama-container-*` sources, `ollama-pull` reads the active set from `public.llms` and pulls each one (`OLLAMA_USER_MODELS` ∪ `OLLAMA_CUSTOM_MODELS` flowing through `llm-catalog-init`'s UPSERT and live-only INSERT path). For `ollama-localhost`, the wizard only registers entries in `public.llms` — you still need to `ollama pull <name>` on your host before requests will succeed.
 
 | Variable | Set by | Consumed by |
 |---|---|---|

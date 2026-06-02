@@ -82,7 +82,7 @@ def test_emits_source_var_with_options_comment(
     assert "LLM_PROVIDER_SOURCE=ollama-container-cpu" in out
     # Comment lists every option id so users editing .env see their choices.
     assert "ollama-container-cpu" in out
-    assert "ollama-external" in out
+    assert "ollama-localhost" in out
 
 
 def test_per_manifest_banner_includes_label_and_path(

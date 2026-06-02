@@ -65,7 +65,6 @@ sources_consulted:
 ## 3. Per-service feature gaps
 
 - **backup-s3 module** — Why pursue: zero current backup story; MinIO is already in-stack. Effort: small.
-- **Prometheus metrics** (`PROMETHEUS_MONITORING_ENABLED=true`, port 2112) — Why pursue: no observability on Weaviate today; metrics would feed any future Prometheus/Grafana sidecar. Effort: small.
 - **Named vectors** (`vectorConfig` array) — Why pursue: lets one collection carry both a text2vec-openai vector and a multi2vec-clip vector for hybrid text+image search instead of two collections. Effort: medium.
 - **Reranker modules** (`reranker-transformers` or `reranker-cohere`) — Why pursue: cheap quality lift on RAG queries; the transformers variant runs in-cluster with no extra API costs. Effort: medium.
 - **Multi-tenancy** (per-collection tenant shards) — Why pursue: backend/n8n/Hermes could share one Weaviate cluster with per-user isolation instead of single-tenant anonymous access. Effort: medium.

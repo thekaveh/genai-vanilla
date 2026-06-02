@@ -1,0 +1,11 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: ${PROMETHEUS_ENDPOINT}
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 30s

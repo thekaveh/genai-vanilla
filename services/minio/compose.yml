@@ -12,6 +12,11 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_REGION: ${MINIO_REGION}
       MINIO_BROWSER_REDIRECT_URL: ${MINIO_PUBLIC_CONSOLE_ENDPOINT}
+      # Prometheus metrics — `public` disables the JWT-bearer auth on
+      # /minio/v2/metrics/cluster so the observability bundle's Prometheus
+      # can scrape without managing a token. Scraped on the S3 API port
+      # (9000) — see services/prometheus/config/prometheus.yml.
+      MINIO_PROMETHEUS_AUTH_TYPE: 'public'
     ports:
       - "${MINIO_PORT}:9000"
       - "${MINIO_CONSOLE_PORT}:9001"

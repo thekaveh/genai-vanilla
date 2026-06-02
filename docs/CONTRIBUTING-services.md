@@ -69,7 +69,7 @@ Before you touch any manifest, spend 15–30 minutes with the candidate service'
 | License | LICENSE file in upstream repo | Compatibility check. Apache 2.0, MIT, BSD-3 are fine; AGPL / SSPL / source-available licenses require explicit maintainer review before adoption. |
 | Runtime dependencies (DB? cache? object store? files?) | Upstream "Configuration" / "Deployment" docs | Decision 5 — `depends_on.required` entries AND whether existing stack services can satisfy them (no need to add a fresh Postgres if Supabase Postgres works). |
 | Healthcheck endpoint | Upstream `Dockerfile` `HEALTHCHECK` or operational docs | For the compose fragment's `healthcheck:` block |
-| Managed cloud version available? | Upstream project website | Decide if `external` source variant is worth offering |
+| Managed cloud version available? | Upstream project website | Currently moot — `external` source variants are paused stack-wide (see Decision 3). Note the answer for the future auth design. |
 | Common host-install footprint (do users already run this themselves?) | Project ecosystem knowledge / Reddit / HN | Decide if `localhost` source variant is worth offering |
 | Configuration style (env vars, mounted YAML, both) | Upstream "Configuration" docs | Drives `runtime_sc.<key>.environment` vs. `volumes:` mounts in compose |
 | GPU passthrough required? | Upstream "Hardware requirements" / README | If yes → split `container-gpu` from `container-cpu`, set `runtime: nvidia` in compose |
@@ -100,7 +100,7 @@ Once you understand the candidate, scan our existing 25-manifest stack to identi
 | License | Apache 2.0 ✓ | LICENSE file in repo |
 | Runtime deps | Self-contained — writes its own storage to a mounted volume. No external DB or cache. | Qdrant "Storage" docs |
 | Healthcheck | `GET /healthz` returns 200 when ready. | Qdrant operational docs |
-| Managed cloud? | Yes — Qdrant Cloud. Worth offering `external`. | cloud.qdrant.io |
+| Managed cloud? | Yes — Qdrant Cloud. Worth offering `external` once the stack-wide auth design lands. | cloud.qdrant.io |
 | Host install common? | Less common than Postgres/Weaviate for typical users; offer `localhost` for flexibility but expect rare use. | Ecosystem knowledge |
 | Config style | Env vars (`QDRANT__SERVICE__GRPC_PORT`, …) + optional `config.yaml` volume mount. | Qdrant "Configuration" docs |
 | GPU passthrough? | No. | — |
@@ -167,7 +167,7 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 | `container` | Run as a Docker container alongside the stack | Always, for container-flavor services |
 | `container-cpu` / `container-gpu` | Split when the container has CPU/GPU variants | When you publish a GPU variant of the image |
 | `localhost` | Connect to a user-managed instance on the host | When users typically already have this software installed locally (e.g. Ollama, ComfyUI) |
-| `external` | Connect to a remote URL | When users may point at a managed cloud version |
+| `external` | Connect to a remote URL | **Currently disabled stack-wide** pending an authenticated-remote design (API keys, bearer tokens, mTLS). Do NOT add new `external` source variants until the auth design ships — see `docs/CHANGELOG.md` → [Unreleased] → Removed (breaking). |
 | `api` | Use a hosted cloud API (no container) | LLM gateways only |
 | `disabled` | Excluded from compose entirely | Always — every optional service must support this |
 | `<engine>-*` | Engine-specific sub-variants | For aggregator services that pick from multiple engines (STT/TTS) |
@@ -175,14 +175,13 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 **Implications of your choices:**
 
 - **Locked vs. user-choice.** A service with only one source variant is "locked" — the wizard skips its prompt entirely. The `_is_locked` helper in `bootstrapper/services/topology.py` enforces this. Services like Backend, Kong, LiteLLM are locked because they're always-on.
-- **`requires:` per option.** Use `requires: [<ENV_VAR>]` on a source option to declare prerequisite env vars (e.g. `external` typically requires `<SVC>_EXTERNAL_URL`).
+- **`requires:` per option.** Use `requires: [<ENV_VAR>]` on a source option to declare prerequisite env vars (e.g. `localhost` typically requires `<SVC>_LOCALHOST_PORT`).
 - **`<SVC>_LOCALHOST_PORT` as the single source of truth.** If you offer `localhost`, declare a `<SVC>_LOCALHOST_PORT` env var (integer string, defaulting to the upstream's standard host port). The URL is then derived at compose-render time and Kong-config-generation time as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}`. Both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) AND the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) MUST read the same PORT var so the two paths agree on where the localhost upstream lives. The wizard surfaces an inline integer textbox on the `localhost` row so users can override it without editing `.env`. See PR #10 + the localhost-port-override CHANGELOG entry under [Unreleased] for the design rationale; the symmetry rule is captured in [Common gotchas](#common-gotchas--anti-patterns) below.
 - **`runtime_sc` slice per source.** Every source variant declared in `sources.options` should have a matching `runtime_sc.<key>.<source>` slice with `scale`, `environment`, `deploy`, `extra_hosts`. The manifest validator does NOT currently check coverage — a missing slice silently scales that source to 0 — so add a slice for every option you declare.
 
-> **Worked example — Qdrant:** Most users won't already run Qdrant locally, so `container` is the primary path. But we offer all four anyway for flexibility:
+> **Worked example — Qdrant:** Most users won't already run Qdrant locally, so `container` is the primary path. We offer three variants — `external` is deliberately omitted per the stack-wide moratorium noted above:
 > - `container` — default, scale=1
 > - `localhost` — `QDRANT_LOCALHOST_PORT` defaults to `"6333"` (Qdrant's standard host port); the URL is derived at compose-render time as `http://host.docker.internal:6333`
-> - `external` — `requires: [QDRANT_EXTERNAL_URL]`
 > - `disabled` — scale=0
 
 ## Decision 4 — Port allocation
@@ -343,11 +342,11 @@ sources:                                      # ← Decision 3
       label: "Container"
     - id: localhost
       label: "Host (existing Qdrant)"
-    - id: external
-      label: "External (custom URL)"
-      requires: [QDRANT_EXTERNAL_URL]
     - id: disabled
       label: "Disabled"
+    # NOTE: `external` is deliberately omitted per the stack-wide moratorium
+    # on `external` source variants — see Decision 3 above and the
+    # `Removed (breaking)` section of docs/CHANGELOG.md.
 
 env:
   - name: QDRANT_SOURCE
@@ -357,9 +356,6 @@ env:
   - name: QDRANT_LOCALHOST_PORT
     default: "6333"
     description: "Host port for the qdrant-localhost source variant. URL is derived at compose-render time as http://host.docker.internal:6333. Same var consumed by Kong's qdrant.localhost route."
-  - name: QDRANT_EXTERNAL_URL
-    default: ""
-    description: "Required when QDRANT_SOURCE=external."
   - name: QDRANT_ENDPOINT
     auto_managed: true
   - name: QDRANT_SCALE
@@ -396,12 +392,6 @@ runtime_sc:                                   # ← Decision 6 (declarative, no 
         QDRANT_ENDPOINT: http://host.docker.internal:${QDRANT_LOCALHOST_PORT:-6333}
       deploy: {}
       extra_hosts: [host.docker.internal:host-gateway]
-    external:
-      scale: 0
-      environment:
-        QDRANT_ENDPOINT: ${QDRANT_EXTERNAL_URL}
-      deploy: {}
-      extra_hosts: []
     disabled:
       scale: 0
       environment:
@@ -696,6 +686,26 @@ depends_on:                             # logical deps (compose-level lives in c
 exports:                                # documents the cross-service env-var contract
   - name: MYSERVICE_ENDPOINT
     consumers: [backend, n8n]
+
+rows:
+  - display_name: "My Service"
+    source_var: MYSERVICE_SOURCE
+    port_var: MYSERVICE_PORT
+    scale_var: MYSERVICE_SCALE
+    alias: myservice.localhost
+    description: "Short description shown in the wizard subtitle."
+    # OPTIONAL — inline numeric input mounted on the source prompt. Used by
+    # Ray (worker count) and Prometheus (TSDB retention days). The wizard
+    # renders a SecondaryNumberInput widget next to the source picker so
+    # the user picks source AND numeric refinement in one keystroke
+    # sequence — no follow-up cascade step.
+    secondary_number:
+      env_var: MYSERVICE_KNOB
+      label: "Knob value"
+      default: "10"
+      visible_when_source: ["container"]   # hide for `disabled`
+      min: 1
+      max: 100
 ```
 
 ## Validator rules (what the lint catches)

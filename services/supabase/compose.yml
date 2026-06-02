@@ -231,6 +231,29 @@ services:
     networks:
       - backend-network
 
+  postgres-exporter:
+    image: ${POSTGRES_EXPORTER_IMAGE:-prometheuscommunity/postgres-exporter:v0.16.0}
+    container_name: ${PROJECT_NAME}-postgres-exporter
+    restart: unless-stopped
+    deploy:
+      replicas: ${POSTGRES_EXPORTER_SCALE:-0}
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    ports:
+      - "${POSTGRES_EXPORTER_PORT}:9187"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
 volumes:
   supabase-db-data:
     name: ${PROJECT_NAME}-supabase-db-data

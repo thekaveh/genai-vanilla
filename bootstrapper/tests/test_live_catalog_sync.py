@@ -84,13 +84,11 @@ def _http_get_json(url: str, *, headers=None, timeout: float = 3.0):
 def _ollama_upstream_url() -> str:
     """Return the URL the wizard / catalog-init would query for
     /api/tags. Localhost mode is hardcoded to 11434 in the wizard;
-    external mode reads ``LITELLM_OLLAMA_UPSTREAM``."""
+    container and `none` sources return empty (no host-side upstream
+    to probe)."""
     src = _read_env_var("LLM_PROVIDER_SOURCE")
     if "localhost" in src:
         return "http://localhost:11434"
-    if "external" in src:
-        upstream = _read_env_var("LITELLM_OLLAMA_UPSTREAM")
-        return upstream or ""
     return ""
 
 

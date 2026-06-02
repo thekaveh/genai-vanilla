@@ -478,11 +478,10 @@ def apply_ollama_selection(conn, llm_source: str, user_models: list[str], custom
     Source none/disabled → deactivate everything Ollama.
     Otherwise:
       - Auto-import (``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true``, the
-        default for ``ollama-localhost``/``ollama-external``): query
-        the upstream's ``/api/tags``, union the result with
-        ``user_models``, and treat the union as the activation set.
-        This makes ``ollama pull <name>`` on the host (or external
-        upstream) propagate to LiteLLM on the next ``./start.sh`` with
+        default for ``ollama-localhost``): query the upstream's
+        ``/api/tags``, union the result with ``user_models``, and treat
+        the union as the activation set. This makes ``ollama pull <name>``
+        on the host propagate to LiteLLM on the next ``./start.sh`` with
         no wizard re-run needed. Set ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=false``
         to keep strict wizard-only control (useful when private
         fine-tunes on the host should NOT be exposed across the stack).
@@ -495,11 +494,11 @@ def apply_ollama_selection(conn, llm_source: str, user_models: list[str], custom
         fetch them on the next docker compose up. Auto-import is a
         no-op here (no host-side upstream to query — the container
         Ollama is populated by ollama-pull, not /api/tags).
-      * ``ollama-localhost`` / ``ollama-external``: registered + active
-        with a loud warning. ollama-pull does NOT run for these
-        sources (per service_config.OLLAMA_PULL_SCALE rules), so the
-        operator is responsible for ``ollama pull <name>`` on the
-        host. The row exists so LiteLLM can route to it once pulled.
+      * ``ollama-localhost``: registered + active with a loud warning.
+        ollama-pull does NOT run for this source (per
+        service_config.OLLAMA_PULL_SCALE rules), so the operator is
+        responsible for ``ollama pull <name>`` on the host. The row
+        exists so LiteLLM can route to it once pulled.
 
     Stale-actives warning: when the user switches LLM_PROVIDER_SOURCE
     (e.g. container → localhost) without supplying OLLAMA_USER_MODELS,
@@ -508,7 +507,7 @@ def apply_ollama_selection(conn, llm_source: str, user_models: list[str], custom
     at request time.
     """
     is_container = llm_source.startswith("ollama-container-")
-    is_host_side = llm_source.startswith("ollama-localhost") or llm_source.startswith("ollama-external")
+    is_host_side = llm_source.startswith("ollama-localhost")
 
     # Auto-import: union host /api/tags into user_models for host-side
     # sources, gated by OLLAMA_AUTO_IMPORT_LOCAL_MODELS. Container

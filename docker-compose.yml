@@ -27,6 +27,10 @@ include:
   # Compute substrate (infra)
   - services/ray/compose.yml
 
+  # Observability (infra)
+  - services/prometheus/compose.yml
+  - services/grafana/compose.yml
+
   # LLM tier (cloud-providers + tts-provider are virtual; no compose fragment)
   - services/litellm/compose.yml
   - services/ollama/compose.yml

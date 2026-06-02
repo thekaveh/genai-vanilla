@@ -88,9 +88,9 @@ def full_manifest_dict():
                         "label": "Container (CPU)",
                     },
                     {
-                        "id": "ollama-external",
-                        "label": "External",
-                        "requires": ["LLM_PROVIDER_EXTERNAL_URL"],
+                        "id": "ollama-localhost",
+                        "label": "Host (existing Ollama)",
+                        "requires": ["OLLAMA_LOCALHOST_PORT"],
                     },
                 ],
             },
@@ -107,20 +107,20 @@ def full_manifest_dict():
                         "deploy": {},
                         "extra_hosts": [],
                     },
-                    "ollama-external": {
+                    "ollama-localhost": {
                         "scale": 0,
                         "environment": {
                             "OLLAMA_SCALE": 0,
-                            "OLLAMA_ENDPOINT": "${LLM_PROVIDER_EXTERNAL_URL}",
+                            "OLLAMA_ENDPOINT": "http://host.docker.internal:${OLLAMA_LOCALHOST_PORT:-11434}",
                         },
                         "deploy": {},
-                        "extra_hosts": [],
+                        "extra_hosts": ["host.docker.internal:host-gateway"],
                     },
                 },
             },
             "env": [
                 {"name": "LLM_PROVIDER_SOURCE", "default": "ollama-container-cpu"},
-                {"name": "LLM_PROVIDER_EXTERNAL_URL", "default": "", "description": "External URL."},
+                {"name": "OLLAMA_LOCALHOST_PORT", "default": "11434", "description": "Host Ollama port."},
                 {"name": "OLLAMA_SCALE", "auto_managed": True, "description": "Computed."},
                 {"name": "OLLAMA_ENDPOINT", "auto_managed": True},
             ],

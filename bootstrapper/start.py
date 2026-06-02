@@ -454,7 +454,7 @@ class GenAIStackStarter:
         comes from the most recent ``# ============`` banner block.
         Context comments are the contiguous comment lines immediately
         preceding the variable (an inline description like
-        ``# Optional, only when LLM_PROVIDER_SOURCE=ollama-external:``),
+        ``# Required when COMFYUI_SOURCE=localhost:``),
         capped to the previous variable or section banner so the
         backfill doesn't drag unrelated commentary along.
         """
@@ -1468,7 +1468,7 @@ class GenAIStackStarter:
 @click.option('--skip-hosts', is_flag=True, help='Skip hosts file checks and setup')
 @click.option('--llm-provider-source',
               type=click.Choice(['ollama-container-cpu', 'ollama-container-gpu', 'ollama-localhost',
-                                'ollama-external', 'none'], case_sensitive=False),
+                                'none'], case_sensitive=False),
               help='Override LLM_PROVIDER_SOURCE (Ollama upstream for the LiteLLM gateway). '
                    'Use "none" for cloud-only operation.')
 @click.option('--cloud-openai-source',
@@ -1515,7 +1515,7 @@ class GenAIStackStarter:
                    'a file outside the repo (e.g. /etc/genai/my-models.yaml).')
 @click.option('--comfyui-source',
               type=click.Choice(['container-cpu', 'container-gpu', 'localhost',
-                                'external', 'disabled'], case_sensitive=False),
+                                'disabled'], case_sensitive=False),
               help='Override COMFYUI_SOURCE')
 @click.option('--weaviate-source',
               type=click.Choice(['container', 'localhost', 'disabled'], case_sensitive=False),
@@ -1571,17 +1571,22 @@ class GenAIStackStarter:
               help='Override MULTI2VEC_CLIP_SOURCE')
 @click.option('--ray-source',
               type=click.Choice(['ray-container-cpu', 'ray-container-gpu',
-                                'ray-external', 'disabled'], case_sensitive=False),
-              help='Override RAY_SOURCE (Ray distributed-compute cluster). '
-                   'Use "ray-external" with --ray-external-address pointing at an '
-                   'Anyscale or self-hosted Ray cluster URL.')
+                                'disabled'], case_sensitive=False),
+              help='Override RAY_SOURCE (Ray distributed-compute cluster).')
 @click.option('--ray-worker-count', type=int, default=None,
               help='Override RAY_WORKER_COUNT — number of ray-worker replicas '
                    'when --ray-source is ray-container-cpu or ray-container-gpu. '
                    '0 = head-only single-node mode. Defaults to 2 in .env.example.')
-@click.option('--ray-external-address', type=str, default=None,
-              help='Override RAY_EXTERNAL_ADDRESS — required when --ray-source=ray-external. '
-                   'Format: ray://hostname:10001.')
+@click.option('--prometheus-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override PROMETHEUS_SOURCE — observability scraping stack '
+                   '(prometheus + node-exporter + cAdvisor + postgres/redis exporters).')
+@click.option('--prometheus-retention-days', type=int, default=None,
+              help='Override PROMETHEUS_RETENTION_DAYS — TSDB retention in days '
+                   '(default 7).')
+@click.option('--grafana-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override GRAFANA_SOURCE — observability dashboards + alerting UI.')
 @click.option('--no-tui', is_flag=True,
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
@@ -1601,7 +1606,8 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          doc_processor_source, openclaw_source, hermes_source,
          neo4j_graph_db_source,
          multi2vec_clip_source,
-         ray_source, ray_worker_count, ray_external_address,
+         ray_source, ray_worker_count,
+         prometheus_source, prometheus_retention_days, grafana_source,
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
@@ -1716,13 +1722,44 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'neo4j_graph_db_source': neo4j_graph_db_source,
             'multi2vec_clip_source': multi2vec_clip_source,
             'ray_source': ray_source,
+            'prometheus_source': prometheus_source,
+            'grafana_source': grafana_source,
         }
-        # Ray non-SOURCE settings (worker count + external address) get
-        # plumbed via update_env_file the same way the cloud-API keys do.
+        # Ray non-SOURCE settings (worker count) get plumbed via
+        # update_env_file the same way the cloud-API keys do.
         if ray_worker_count is not None:
             user_model_selections['RAY_WORKER_COUNT'] = str(ray_worker_count)
-        if ray_external_address is not None:
-            user_model_selections['RAY_EXTERNAL_ADDRESS'] = ray_external_address
+        # Prometheus retention days — same pattern.
+        if prometheus_retention_days is not None:
+            user_model_selections['PROMETHEUS_RETENTION_DAYS'] = str(prometheus_retention_days)
+
+        # Detect legacy `external` source values left in .env from versions
+        # before PR #(observability bundle). These options have been removed
+        # pending a stack-wide authenticated-remote design; users must
+        # switch to `container` or `disabled` (or `none` for LLM_PROVIDER_SOURCE).
+        try:
+            _legacy_env = starter.config_parser.parse_env_file()
+        except Exception:  # noqa: BLE001
+            _legacy_env = {}
+        _LEGACY_EXTERNAL = {
+            'COMFYUI_SOURCE':       'external',
+            'LLM_PROVIDER_SOURCE':  'ollama-external',
+            'RAY_SOURCE':           'ray-external',
+        }
+        _found = [(k, v) for k, v in _LEGACY_EXTERNAL.items()
+                  if (_legacy_env.get(k, '') or '').strip() == v]
+        if _found:
+            print(
+                "\n❌ Legacy `external` source values found in .env:\n"
+                + "\n".join(f"     {k}={v}" for k, v in _found)
+                + "\n\n   The `external` / `ollama-external` / `ray-external` source "
+                  "variants were removed pending a stack-wide authenticated-remote "
+                  "design.\n   See docs/CHANGELOG.md → [Unreleased] → Removed for "
+                  "migration. Switch each to `container` (or `disabled` / `none`)\n"
+                  "   and re-run.\n",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
         # Step 0: Early sudo check for CLI --setup-hosts flag
         if setup_hosts:

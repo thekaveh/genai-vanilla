@@ -145,6 +145,14 @@ The stack uses Supabase Auth (GoTrue) for user authentication and management wit
 - Storage file browser
 - Real-time monitoring
 
+### 4.7 `postgres-exporter` (observability sidecar)
+
+**Image**: `prometheuscommunity/postgres-exporter:v0.16.0`
+**Access**: `http://localhost:${POSTGRES_EXPORTER_PORT}/metrics` (in-container `9187`)
+**Purpose**: Prometheus exporter exposing `pg_stat_*` views as a `/metrics` endpoint for the observability bundle.
+**Configuration**: connects to `supabase-db:5432` using `${SUPABASE_DB_USER}`/`${SUPABASE_DB_PASSWORD}` with `PG_EXPORTER_AUTO_DISCOVER_DATABASES=true` so every database on the cluster is scraped (including the `litellm` database).
+**Lifecycle**: scales **1↔0 with `PROMETHEUS_SOURCE`** — the bootstrapper's `_generate_prometheus_config()` hook writes `POSTGRES_EXPORTER_SCALE` from this single switch, so the sidecar is dormant when Prometheus is off. The `Postgres + Redis` Grafana dashboard renders connections, query rate, and table sizes from its output.
+
 ## 5. Environment Variables
 
 Key environment variables for Supabase configuration:
@@ -222,6 +230,7 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
+| prometheus | infra |
 | litellm | llm |
 | n8n | agents |
 | backend | apps |

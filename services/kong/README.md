@@ -17,7 +17,7 @@ Unlike traditional static configuration files, the GenAI Vanilla Stack uses dyna
 
 The configuration is generated at startup by `bootstrapper/utils/kong_config_generator.py`.
 
-`volumes/api/kong-dynamic.yml` is **a generated runtime artifact, not a checked-in file**. It is `.gitignore`d, regenerated on every `./start.sh`, and reflects the resolved SOURCE state (containers, localhost, external) at that moment. Direct `docker compose up` from a clean checkout will fail because the bind mount target won't exist — always launch through `./start.sh`, which writes the file before invoking compose.
+`volumes/api/kong-dynamic.yml` is **a generated runtime artifact, not a checked-in file**. It is `.gitignore`d, regenerated on every `./start.sh`, and reflects the resolved SOURCE state (container / localhost / disabled) at that moment. Direct `docker compose up` from a clean checkout will fail because the bind mount target won't exist — always launch through `./start.sh`, which writes the file before invoking compose.
 
 Validate the default-route **generator contract** (no `./start.sh` needed; the checker materialises a tmp dir with a copy of `.env.example`, runs `kong_config_generator` against it, and verifies the output. Your local `volumes/api/kong-dynamic.yml` is *not* read — its contents depend on your current `.env`, which makes it useless as a regression check):
 
@@ -52,7 +52,7 @@ Plain `python3 scripts/check-kong-routes.py` works too if `PyYAML` is on your sy
 - `studio.localhost` → Supabase Studio dashboard (and bare `localhost` falls through to the same upstream)
 - `graph.localhost` → Neo4j Browser (`NEO4J_GRAPH_DB_SOURCE != disabled`)
 - `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
-- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE ∈ {ollama-container-*, ollama-localhost}`; `ollama-external` does NOT get a Kong route — LiteLLM forwards via `LLM_PROVIDER_EXTERNAL_URL`)
+- `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE ∈ {ollama-container-*, ollama-localhost}`)
 - `docling.localhost` → Docling document processor (`DOC_PROCESSOR_SOURCE != disabled`)
 - `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
 - `stt.localhost` → STT engine (`STT_PROVIDER_SOURCE != disabled`; container resolves to `parakeet-gpu` or `speaches`, localhost to `host.docker.internal` on the per-engine port)
@@ -68,8 +68,6 @@ Each `*-localhost` source still gets a Kong route — Kong proxies through `host
 if source == 'localhost':
     port = os.environ.get('COMFYUI_LOCALHOST_PORT', '8000')
     service['url'] = f'http://host.docker.internal:{port}/'
-elif source == 'external':
-    service['url'] = external_url
 elif source in ['container-cpu', 'container-gpu']:
     service['url'] = 'http://comfyui:18188/'
 # No route created if source == 'disabled'
@@ -219,7 +217,9 @@ For more information on Kong's role in the overall architecture, see the system 
 
 ### 13.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| prometheus | infra |
 
 ### 13.3 Architecture diagram
 

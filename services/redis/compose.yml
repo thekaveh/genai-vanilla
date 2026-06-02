@@ -38,6 +38,29 @@ services:
     networks:
       - backend-network
 
+  redis-exporter:
+    image: ${REDIS_EXPORTER_IMAGE:-oliver006/redis_exporter:v1.62.0}
+    container_name: ${PROJECT_NAME}-redis-exporter
+    restart: unless-stopped
+    deploy:
+      replicas: ${REDIS_EXPORTER_SCALE:-0}
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "${REDIS_EXPORTER_PORT}:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9121/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-network
+
 volumes:
   redis-data:
     name: ${PROJECT_NAME}-redis-data

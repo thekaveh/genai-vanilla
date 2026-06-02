@@ -81,7 +81,7 @@ def fastapi_client(monkeypatch, ray_enabled_env, mock_job_submission_client):
     # Provide stub values for env vars main.py requires at import time.
     # Only set if not already present so a real .env still wins.
     for _var, _default in (
-        ("KONG_URL", "http://kong:8000"),
+        ("KONG_URL", "http://kong-api-gateway:8000"),
         ("SUPABASE_SERVICE_KEY", "dummy-key"),
         ("DATABASE_URL", "postgresql://x:x@localhost/x"),
     ):

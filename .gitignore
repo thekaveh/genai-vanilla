@@ -133,3 +133,7 @@ services/_user/
 
 # Audit working tree (overnight audit logs)
 .audit/
+
+# Personal planning docs that should never auto-track via `git add -A`.
+# Located at the user's local-only docs/plans/ workspace.
+/docs/plans/rebrand-atlas.md
