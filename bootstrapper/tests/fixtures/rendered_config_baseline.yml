@@ -566,6 +566,14 @@ services:
     - '8100'
     extra_hosts:
     - host.docker.internal=
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - kong health
+      timeout: 10s
+      interval: 30s
+      retries: 3
+      start_period: 30s
     image: kong:3.9.0
     networks:
       backend-network: null

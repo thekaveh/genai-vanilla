@@ -85,5 +85,18 @@ services:
       # fills HOST_GATEWAY_IP with "host-gateway" or the bridge IP for
       # rootless setups).
       - "host.docker.internal:${HOST_GATEWAY_IP}"
+    healthcheck:
+      # `kong health` is the official Kong-OSS built-in CLI command — exits
+      # 0 when the local Kong instance has bound its proxy port and is
+      # serving traffic; nonzero otherwise. Cheap and doesn't depend on
+      # extra tools (curl/wget) being in the image. Downstream services
+      # currently use `service_started` for Kong; with this healthcheck
+      # in place they can opt into `service_healthy` for tighter ordering
+      # if a future cold-start race ever appears.
+      test: ["CMD-SHELL", "kong health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - backend-network
