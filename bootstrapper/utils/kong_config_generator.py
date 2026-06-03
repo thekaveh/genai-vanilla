@@ -687,7 +687,14 @@ class KongConfigGenerator:
                 {
                     'name': 'openclaw-api-all',
                     'strip_path': False,
-                    'hosts': ['openclaw.localhost']
+                    'hosts': ['openclaw.localhost'],
+                    # OpenClaw ships a browser-facing admin dashboard SPA.
+                    # Without preserve_host, Kong forwards the upstream
+                    # service's host (openclaw-gateway:18789) and the SPA's
+                    # asset URLs / redirects bake that internal hostname,
+                    # which is unreachable from the operator's browser.
+                    # See reference_kong_preserve_host memory.
+                    'preserve_host': True,
                 }
             ],
             'plugins': [{'name': 'cors'}]
