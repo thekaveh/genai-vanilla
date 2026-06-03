@@ -167,13 +167,14 @@ out of the box. Both services default to `disabled` — opt in with
 - **`services/prometheus/`** — metrics scraper + TSDB with bundled `node-exporter`
   (host metrics) and `cAdvisor` (container metrics) as co-lifecycled containers.
   Default retention: 7 days, user-configurable at wizard time via the new inline
-  `secondary_number` row schema. Static scrape config covers 14 targets across
-  the stack.
+  `secondary_number` row schema. Static scrape config shipped with 14 targets
+  initially; later trimmed to 12 (see the JupyterHub + Hermes Fixed entry above).
 - **`services/grafana/`** — observability UI + unified alerting. Pre-provisions
   the Prometheus datasource and 7 starter dashboards: Stack Overview, LiteLLM
   (per-model tokens / spend / latency), Kong (per-route req rate / latency /
   bandwidth), Postgres + Redis, Containers + Host, n8n (workflow executions),
-  and App tier (Weaviate + MinIO + JupyterHub). Admin password
+  and App tier (Weaviate + MinIO; JupyterHub panels dropped in a follow-up
+  alongside the unreachable scrape jobs). Admin password
   (`GRAFANA_ADMIN_PASSWORD`) auto-generated on first run via
   `generate_grafana_admin_password()` — same posture as LiteLLM's master key.
 
@@ -197,14 +198,18 @@ out of the box. Both services default to `disabled` — opt in with
 - **MinIO** — `MINIO_PROMETHEUS_AUTH_TYPE=public` (no JWT needed).
 - **Backend** — `prometheus-fastapi-instrumentator>=7.0.0` middleware; emits
   standard `http_request_duration_seconds` / `http_requests_total` series.
-- **JupyterHub** — built-in `/hub/metrics`, no config change needed.
+- **JupyterHub** — originally shipped expecting built-in `/hub/metrics`, but the
+  image is single-user `jupyter/datascience-notebook` (not multi-user JupyterHub)
+  and has no built-in metrics surface; the scrape job was dropped in the
+  follow-up Fixed entry above. Returns when the multi-user spec ships.
 
 **Deliberate exclusions:** Ollama (LiteLLM gateway already emits per-call
 request/token/cost — direct scraping would duplicate); Neo4j Community
 (metrics are Enterprise-only); ComfyUI, SearXNG, OpenClaw (no native
 `/metrics` today). cAdvisor covers container-level resources for all of these.
-Hermes is a third-party container without FastAPI source we control — its
-scrape job sits as DOWN.
+Hermes is a third-party container without a `/metrics` endpoint; its scrape
+job was dropped in the follow-up Fixed entry above and returns when upstream
+instrumentation lands.
 
 **Bootstrapper plumbing:**
 - `PROMETHEUS_SOURCE` / `GRAFANA_SOURCE` CLI flags + `source_mapping` entries.
