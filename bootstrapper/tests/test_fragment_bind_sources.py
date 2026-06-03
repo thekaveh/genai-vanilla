@@ -1,42 +1,53 @@
-"""Static guard against the `services/<X>/services/<X>/` doubled-path
-regression that broke the observability bundle in PR #29.
+"""Static guards against fragment bind-mount path bug classes:
 
-Compose v2's `include:` directive resolves relative paths in an included
-fragment relative to the **fragment's own directory**, not the parent
-compose file. A fragment at `services/<X>/compose.yml` that writes a
-source like `./services/<X>/config/foo.yml` — expecting repo-root
-resolution — silently produces:
+1. `services/<X>/services/<Y>/` doubled paths — Compose v2's `include:`
+   resolves relative paths in an included fragment from the fragment's
+   own directory, so a fragment at `services/<X>/compose.yml` that
+   writes `./services/<X>/foo` (or `./services/<Y>/foo` from a typo /
+   copy-paste between sibling fragments) silently produces a doubled
+   path. PR #29 shipped exactly this for prometheus + grafana.
 
-    services/<X>/services/<X>/config/foo.yml
+2. Bind sources that escape `REPO_ROOT` — a `../../../etc/...` source
+   would silently bind-mount an arbitrary host path into a container,
+   a security-relevant class of regression no current test catches.
 
-On first launch Docker auto-creates the missing source as a *directory*,
-and the SECOND launch fails with `not a directory` because the mount
-target expects a file. PR #29 shipped exactly this bug for both
-`services/prometheus/compose.yml` and `services/grafana/compose.yml`,
-and `test_fragment_equivalence.py` happily passed it because the
+Compose v2's `include:` directive resolves relative paths from the
+fragment's own directory, not the parent compose file. PR #29's bug:
+a fragment at `services/<X>/compose.yml` writing `./services/<X>/config/foo`
+resolved to `services/<X>/services/<X>/config/foo`; Docker auto-created
+the missing source as a *directory* on first launch, and the SECOND
+launch failed with `not a directory` because the mount target expected
+a file. `test_fragment_equivalence.py` couldn't catch it because the
 committed baseline contained the same doubled paths.
 
-This test catches the regression class by direct structural pattern
-match: a source whose resolved path contains `services/<X>/services/<X>/`
-is fundamentally never correct. The check runs without Docker (lives in
-the existing unit-test CI job) and is independent of any baseline, so a
-buggy fragment cannot pass by accidentally matching a buggy fixture.
+The structural pattern `services/[^/]+/services/[^/]+/` is fundamentally
+never correct, regardless of whether the inner and outer service names
+match (a copy-paste between sibling fragments would not be a self-double
+but would be just as broken).
+
+The checks here are static (no Docker daemon) so they live in the
+regular unit-test CI job and stay independent of any baseline — a buggy
+fragment cannot pass by accidentally matching a buggy fixture.
 
 Why not check that every resolved path *exists* on disk? Several
 fragments legitimately mount runtime-generated paths that aren't on disk
 in a fresh checkout (litellm's `volumes/litellm/config.yaml`, neo4j's
 `build/snapshot`, supabase's `db/snapshot`, kong's
 `volumes/api/kong-dynamic.yml`). An existence check produces false
-positives for those without catching anything the structural check
-misses for the PR #29 class.
+positives for those without catching anything the structural checks
+miss for either bug class above.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 import yaml
+
+
+_DOUBLED_SERVICES_PATTERN = re.compile(r"/services/[^/]+/services/[^/]+/")
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -86,28 +97,63 @@ def _iter_bind_sources(fragment_path: Path):
 )
 def test_fragment_bind_sources_dont_self_double(fragment: Path) -> None:
     """No bind-mount source in `fragment` resolves to a path that contains
-    `services/<X>/services/<X>/`, where `<X>` is the fragment's own
-    directory name. See module docstring for the failure mode.
+    a `services/<X>/services/<Y>/` segment. `<X>` and `<Y>` may be the
+    same (the PR #29 self-double class) or different (a copy-paste
+    between sibling fragments). Either form is fundamentally never
+    correct under Compose v2's `include:` semantics — see module docstring.
     """
-    svc_dir_name = fragment.parent.name
-    self_doubling_marker = f"services/{svc_dir_name}/services/{svc_dir_name}/"
-
     offenders: list[str] = []
     for svc_name, raw, resolved in _iter_bind_sources(fragment):
-        if self_doubling_marker in str(resolved):
+        if _DOUBLED_SERVICES_PATTERN.search(str(resolved)):
             offenders.append(f"  - {svc_name}: '{raw}' → {resolved}")
 
     if offenders:
         rel = fragment.relative_to(REPO_ROOT)
+        svc_dir_name = fragment.parent.name
         joined = "\n".join(offenders)
         pytest.fail(
             f"{rel}: bind-mount source(s) produce a doubled "
-            f"`services/{svc_dir_name}/services/{svc_dir_name}/` path.\n"
+            f"`services/<X>/services/<Y>/` path.\n"
             f"Compose v2 resolves relative paths in included fragments "
             f"from the fragment's own directory "
             f"({fragment.parent.relative_to(REPO_ROOT)}/), NOT the repo "
-            f"root. Strip the leading `services/{svc_dir_name}/` from "
-            f"each offending source:\n{joined}"
+            f"root. Strip the leading `services/<X>/` from each "
+            f"offending source (typically `services/{svc_dir_name}/` if "
+            f"this was a self-reference, or the sibling service name if "
+            f"this was a copy-paste between fragments):\n{joined}"
+        )
+
+
+@pytest.mark.parametrize(
+    "fragment", _iter_fragment_files(), ids=lambda p: p.parent.name
+)
+def test_fragment_bind_sources_stay_inside_repo_root(fragment: Path) -> None:
+    """Every relative bind-mount source resolves to a path inside
+    `REPO_ROOT`. A source like `../../../etc/passwd` would resolve outside
+    the tree and silently bind-mount an arbitrary host file into the
+    container — a security-relevant class no other test guards against.
+
+    Legitimate `../../<repo-root-sibling>` patterns (kong, litellm,
+    comfyui's `../../volumes/...` and `../../bootstrapper/utils`) stay
+    inside `REPO_ROOT` and pass this check.
+    """
+    escapees: list[str] = []
+    for svc_name, raw, resolved in _iter_bind_sources(fragment):
+        if not resolved.is_relative_to(REPO_ROOT):
+            escapees.append(f"  - {svc_name}: '{raw}' → {resolved}")
+
+    if escapees:
+        rel = fragment.relative_to(REPO_ROOT)
+        joined = "\n".join(escapees)
+        pytest.fail(
+            f"{rel}: bind-mount source(s) escape the repo root "
+            f"({REPO_ROOT}).\n"
+            f"Compose v2 resolves relative paths in included fragments "
+            f"from the fragment's own directory; a source that climbs "
+            f"out of the repo tree would silently bind-mount an "
+            f"arbitrary host path into the container. Either rewrite "
+            f"the path to stay inside the repo or use an explicit "
+            f"absolute path with a deliberate audit comment:\n{joined}"
         )
 
 
