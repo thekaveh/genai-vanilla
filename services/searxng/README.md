@@ -134,7 +134,7 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 **Rotate the secret.** Delete `SEARXNG_SECRET` from `.env` and re-run `./start.sh` — the bootstrapper regenerates it and rewrites `settings.yml`. Existing user-saved preferences (cookies signed by the old secret) are invalidated.
 
-**Public-instance mode.** Setting `SEARXNG_PUBLIC_INSTANCE=true` turns on additional anti-abuse defaults (engine throttling, captcha hints) intended for instances that face the open internet. Leave off for stack-internal use.
+**Public-instance mode.** SearXNG's upstream `public_instance: true` setting turns on additional anti-abuse defaults (engine throttling, captcha hints) intended for instances that face the open internet. Edit `config/settings.yml` directly to enable it (see §3 Note about why the matching env var is not wired today). Leave off for stack-internal use.
 
 ## 8. Performance notes
 
@@ -149,7 +149,7 @@ SearXNG aggregates upstream engines in parallel; aggregate latency tracks the sl
 - **No request logging.** SearXNG's design is to forget queries the moment a response goes out. The stack doesn't override that — there are no access logs to scrape and no per-user query history.
 - **Engine selection sets your exposure.** Default-on engines include Google, Bing, Brave (commercial trackers as upstreams). The privacy story is "SearXNG hides *you* from them" via no-referrer + IP-from-server, not "no commercial engine sees your query." If that matters, prune the engines list to privacy-aligned upstreams (DuckDuckGo, Mojeek, Brave's privacy-flag mode).
 - **No outbound proxy by default.** SearXNG calls each engine directly from its container. To route engine calls through Tor or another proxy, set `outgoing.proxies:` in `settings.yml`.
-- **Public-instance hardening.** If you must expose SearXNG to the internet (`SEARXNG_PUBLIC_INSTANCE=true` + Kong route opened), also enable `limiter: true` with Redis backing (currently off) — otherwise the instance becomes an open relay for engine abuse.
+- **Public-instance hardening.** If you must expose SearXNG to the internet, edit `config/settings.yml` directly: set `server.public_instance: true` AND `server.limiter: true` (with Redis backing, currently off) AND open the Kong route. Without the limiter, the instance becomes an open relay for engine abuse. See §3 for why the env-var path isn't wired today.
 
 ## 10. Further reading
 
