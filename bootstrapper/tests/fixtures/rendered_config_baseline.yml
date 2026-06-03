@@ -311,12 +311,12 @@ services:
       target: /var/lib/grafana
       volume: {}
     - type: bind
-      source: '{REPO_ROOT}/services/grafana/services/grafana/config/grafana.ini'
+      source: '{REPO_ROOT}/services/grafana/config/grafana.ini'
       target: /etc/grafana/grafana.ini
       read_only: true
       bind: {}
     - type: bind
-      source: '{REPO_ROOT}/services/grafana/services/grafana/config/provisioning'
+      source: '{REPO_ROOT}/services/grafana/config/provisioning'
       target: /etc/grafana/provisioning
       read_only: true
       bind: {}
@@ -1444,12 +1444,12 @@ services:
     restart: unless-stopped
     volumes:
     - type: bind
-      source: '{REPO_ROOT}/services/prometheus/services/prometheus/config/prometheus.yml'
+      source: '{REPO_ROOT}/services/prometheus/config/prometheus.yml'
       target: /etc/prometheus/prometheus.yml
       read_only: true
       bind: {}
     - type: bind
-      source: '{REPO_ROOT}/services/prometheus/services/prometheus/config/rules'
+      source: '{REPO_ROOT}/services/prometheus/config/rules'
       target: /etc/prometheus/rules
       read_only: true
       bind: {}
