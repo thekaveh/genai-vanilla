@@ -4,9 +4,16 @@ Grafana runs as a single container in the stack's `infra` band. It pre-provision
 
 ## 1. Overview
 
-Image: `grafana/grafana:11.3.0` (AGPL — operational-use safe). The bootstrapper auto-generates `GRAFANA_ADMIN_PASSWORD` on first run via `generate_grafana_admin_password()` (mirrors LiteLLM's master-key pattern). Anonymous access is **off**; admin login is required.
+Image: `grafana/grafana:11.4.3` (AGPL — operational-use safe). The bootstrapper auto-generates `GRAFANA_ADMIN_PASSWORD` on first run via `generate_grafana_admin_password()` (mirrors LiteLLM's master-key pattern). Anonymous access is **off**; admin login is required.
 
-Unified alerting is enabled. No alert rules or contact points ship pre-provisioned — users add their own under `provisioning/alerting/`.
+Unified alerting is enabled. No alert rules or contact points ship pre-provisioned — users add their own under `provisioning/alerting/` (which contains a no-op `placeholder.yml` stub to satisfy Grafana's `.yaml`-suffix scanner; replace it with real alert configuration when wiring up).
+
+`config/provisioning/` ships four subdirectories — Grafana scans all of them at startup and errors loudly on any that are absent:
+
+- `datasources/` — Prometheus datasource (UID `Prometheus`)
+- `dashboards/` — the 7 shipped JSON dashboards + `dashboards.yml` provider
+- `alerting/` — alert rules / contact points (currently just the placeholder)
+- `plugins/` — app-plugin provisioning (currently empty, kept via `.gitkeep`)
 
 ## 2. Access
 
@@ -44,7 +51,7 @@ The provisioned datasource reads `${PROMETHEUS_ENDPOINT}` — when Prometheus is
 | `postgres-redis.json` | Postgres + Redis | Connections, query rate, table sizes, memory, ops/sec, hit ratio |
 | `containers-and-host.json` | Containers + Host | cAdvisor per-container CPU/mem/IO, node-exporter host load/disk |
 | `n8n.json` | n8n | Workflow executions, status, active count |
-| `app-tier.json` | App tier (Weaviate + MinIO + JupyterHub) | Vector queries, S3 traffic, bucket sizes, active users, spawn latency |
+| `app-tier.json` | App tier (Weaviate + MinIO) | Vector queries, S3 traffic, bucket sizes |
 
 All dashboards reference the `Prometheus` datasource by name (UID = `Prometheus` per `provisioning/datasources/prometheus.yml`).
 
