@@ -77,10 +77,8 @@ Ollama is **deliberately not scraped** — LiteLLM is its gateway and emits per-
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
-| hermes | agents |
 | n8n | agents |
 | backend | apps |
-| jupyterhub | apps |
 
 ### 5.2 Current — Downstream (services that call this)
 
