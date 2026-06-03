@@ -88,24 +88,35 @@ class LocalhostValidator:
                 },
             },
         },
+        # NOTE: these three localhost-source services follow the same
+        # asymmetric-override pattern documented in
+        # feedback_localhost_url_override_symmetry.md. The probe MUST use
+        # the user-overridable `<X>_LOCALHOST_PORT` (which the wizard
+        # writes), NOT the container's host-bound port var
+        # (DOC_PROCESSOR_PORT / OPENCLAW_GATEWAY_PORT / HERMES_API_PORT).
+        # Reading the wrong var here makes the validator probe the
+        # wrong port -- either false "not running" warnings or false
+        # positives against an unrelated process. service_config.py was
+        # fixed for the same class in commit 1682801; this completes the
+        # symmetry on the validator side.
         'DOC_PROCESSOR_SOURCE': {
             'source_values': ['docling-localhost'],
             'check_type': 'http',
-            'port_env_var': 'DOC_PROCESSOR_PORT',
+            'port_env_var': 'DOCLING_LOCALHOST_PORT',
             'service_name': 'Docling Document Processor',
             'default_port': 63021
         },
         'OPENCLAW_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
-            'port_env_var': 'OPENCLAW_GATEWAY_PORT',
+            'port_env_var': 'OPENCLAW_LOCALHOST_PORT',
             'service_name': 'OpenClaw Gateway',
             'default_port': 63024
         },
         'HERMES_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
-            'port_env_var': 'HERMES_API_PORT',
+            'port_env_var': 'HERMES_LOCALHOST_PORT',
             'service_name': 'Hermes Agent',
             'default_port': 63028
         }

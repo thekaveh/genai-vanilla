@@ -40,6 +40,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ENV_EXAMPLE = REPO_ROOT / ".env.example"
 SERVICE_CONFIG = REPO_ROOT / "bootstrapper" / "services" / "service_config.py"
+LOCALHOST_VALIDATOR = REPO_ROOT / "bootstrapper" / "utils" / "localhost_validator.py"
 SERVICES_ROOT = REPO_ROOT / "services"
 
 
@@ -48,20 +49,27 @@ _LOCALHOST_PORT_PATTERN = re.compile(r"^([A-Z][A-Z0-9_]*_LOCALHOST_PORT)=", re.M
 
 def _consumer_source_text() -> str:
     """All the places a `<X>_LOCALHOST_PORT` var can legitimately be read
-    to build an in-container endpoint:
+    to build an in-container endpoint or probe URL:
 
     - `bootstrapper/services/service_config.py` — where Python code
-      assembles `<X>_ENDPOINT` for consumers (used when the localhost
-      source has `scale: 0` and there's no container env block to
-      interpolate into).
+      assembles `<X>_ENDPOINT` for downstream consumers (used when the
+      localhost source has `scale: 0` and there's no container env block
+      to interpolate into).
+    - `bootstrapper/utils/localhost_validator.py` — where the wizard's
+      pre-flight check probes the user's host-side process via
+      `http://localhost:<port>/...`. Must use the LOCALHOST_PORT var or
+      it probes the wrong port (Pass 3 caught this).
     - `services/<X>/service.yml` runtime_sc — where Compose-level
       `${...}` interpolation injects the var into the producer
       container's runtime env block.
 
-    Either path is correct. The asymmetric-override bug only fires when
-    NEITHER path references the localhost port var.
+    Any of these paths is a valid consumer. The asymmetric-override bug
+    only fires when NONE of them references the localhost port var.
     """
-    parts = [SERVICE_CONFIG.read_text(encoding="utf-8")]
+    parts = [
+        SERVICE_CONFIG.read_text(encoding="utf-8"),
+        LOCALHOST_VALIDATOR.read_text(encoding="utf-8"),
+    ]
     for sy in sorted(SERVICES_ROOT.glob("*/service.yml")):
         parts.append(sy.read_text(encoding="utf-8"))
     return "\n\n".join(parts)
