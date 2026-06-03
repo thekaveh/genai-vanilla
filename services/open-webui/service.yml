@@ -103,9 +103,13 @@ runtime_sc:
         OPENAI_API_BASE_URLS: http://litellm:4000/v1
         OPENAI_API_KEYS: ${LITELLM_MASTER_KEY}
         COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
-        STT_ENDPOINT: ${STT_ENDPOINT}
-        TTS_ENDPOINT: ${TTS_ENDPOINT}
-        DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+        # STT_ENDPOINT / TTS_ENDPOINT / DOCLING_ENDPOINT are owned by the
+        # provider manifests (stt_provider, tts_provider, doc_processor) —
+        # service_config.py reads them from THOSE runtime_sc dicts, not
+        # this one. Open-WebUI itself plumbs them into AUDIO_*_OPENAI_API_*
+        # variables in the compose env block (which is the actual injection
+        # point — see project_runtime_sc_vs_compose_env_dual_write.md).
+        # Listing them here is dead data on both axes.
       deploy: {}
       extra_hosts: []
     disabled:
