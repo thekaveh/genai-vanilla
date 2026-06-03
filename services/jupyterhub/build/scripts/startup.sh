@@ -130,5 +130,17 @@ echo "📂 Your work directory: /home/jovyan/work"
 echo "📓 Sample notebooks: /home/jovyan/work/examples"
 echo ""
 
-# Execute the original entrypoint with arguments
+# Forward every CMD token to the next stage of the launch chain — typically
+# `start-notebook.sh <flags...>` per the compose `command:` block. The flags
+# (e.g. --ServerApp.allow_origin=*) ride through unchanged: start-notebook.sh
+# passes its own "$@" to `jupyter lab`, where each --ServerApp.<name>=<value>
+# sets a Traitlet on the Jupyter Server.
+#
+# Why `exec` (not just `"$@"`)? `exec` replaces this shell process with the
+# next stage so signals (SIGTERM on `docker stop`) reach `jupyter lab`
+# directly. Without `exec`, the shell would still own PID 1 and would have
+# to forward signals manually.
+#
+# See services/jupyterhub/README.md §10.3.1 for the full ENTRYPOINT → CMD
+# → start-notebook.sh → jupyter lab chain.
 exec "$@"

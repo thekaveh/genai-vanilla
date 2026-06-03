@@ -194,17 +194,50 @@ VS Code's Jupyter extension can use this container as the **remote kernel** for 
 
 ### 10.3 What's pre-configured on the stack side
 
-Three Jupyter Server flags ship in `services/jupyterhub/compose.yml` so VS Code's webview can complete the WebSocket upgrade for cell execution:
+#### 10.3.1 The container's startup chain
 
-| Flag | Value | Why |
+The container launches via a 4-step chain that ultimately invokes `jupyter lab` with the right flags. Knowing this chain matters because the compose-level `command:` override sits at exactly one of the steps, and editing it incorrectly silently breaks user-id setup or argv forwarding.
+
+```
+docker run
+  → ENTRYPOINT (Dockerfile):     /usr/local/bin/startup.sh
+  → CMD (compose `command:`):    start-notebook.sh \
+                                   --ServerApp.allow_origin=* \
+                                   --ServerApp.allow_remote_access=True \
+                                   --ServerApp.disable_check_xsrf=False
+```
+
+Docker then `exec`s `ENTRYPOINT + CMD` as a single argv:
+
+```
+/usr/local/bin/startup.sh start-notebook.sh --ServerApp.allow_origin=* \
+    --ServerApp.allow_remote_access=True --ServerApp.disable_check_xsrf=False
+```
+
+The four pieces of the chain:
+
+| Step | Lives in | Role |
 |---|---|---|
-| `--ServerApp.allow_origin` | `*` | VS Code's webview origin doesn't match `localhost`; the default rejects the upgrade. Token auth still gates every request. |
-| `--ServerApp.allow_remote_access` | `True` | The VS Code → container connection is "remote" from the server's POV (different network namespace). |
-| `--ServerApp.disable_check_xsrf` | `False` | XSRF stays on — VS Code's POSTs carry the correct headers. Listed explicitly so a future tweak is visible. |
+| 1. `ENTRYPOINT` → `/usr/local/bin/startup.sh` | `services/jupyterhub/build/Dockerfile` line 73 | Our wrapper. Prints the env summary, materialises `/home/jovyan/work/.env` from the resolved environment, prints the welcome banner, then ends with `exec "$@"` — which **forwards every CMD token unchanged** to the next stage. |
+| 2. `CMD` → `start-notebook.sh ...` | `services/jupyterhub/compose.yml` `command:` block | This **replaces** the Dockerfile's `CMD ["start-notebook.sh"]` with our explicit list (the script name + three flags). Compose's `command:` always replaces the Dockerfile's CMD, never extends it — so the script name **must stay as element 0** of the list. Lose it and `startup.sh` ends up `exec`ing whatever flag is first, fails to find an executable, and the container restart-loops with `exec: --ServerApp.allow_origin=*: not found`. |
+| 3. `start-notebook.sh` | upstream `jupyter/docker-stacks` image | The official Jupyter docker-stacks boot script. Switches UIDs/GIDs based on `NB_UID`/`NB_GID`/`GRANT_SUDO`, sources hooks under `/usr/local/bin/before-notebook.d/`, then `exec`s `jupyter lab` with **all of its own `$@` forwarded through**. Contract documented at [jupyter/docker-stacks](https://github.com/jupyter/docker-stacks/blob/main/images/docker-stacks-foundation/start.sh). |
+| 4. `jupyter lab --ServerApp.allow_origin=* ...` | runtime | Jupyter Server (the underlying app) parses each `--ServerApp.<name>=<value>` as a Traitlet config set on the `ServerApp` class — equivalent to writing the same value in `jupyter_server_config.py`. |
 
-`JUPYTER_ALLOW_ORIGIN=*` is also exported in the container environment for forward-compatibility with image versions that honor the env-var form.
+Net effect: the three flags reach `jupyter lab` exactly as if they were in a config file, without us needing to mount one.
 
-> **Tightening the origin allowlist:** `allow_origin='*'` is acceptable here because **the token is the auth gate** — without `JUPYTERHUB_TOKEN`, no request reaches the kernel. If you want a tighter list (e.g., only `vscode-webview://*` plus your dev origin), set `JUPYTER_ALLOW_ORIGIN` to a comma-separated allowlist in `.env` and update the compose `command:` block in lockstep.
+#### 10.3.2 What each flag actually changes
+
+| Flag | Mechanism it disables / opens | Why VS Code needs it |
+|---|---|---|
+| `--ServerApp.allow_origin=*` | Two things at once: (a) the `Access-Control-Allow-Origin` response header for CORS preflights, and (b) the WebSocket-upgrade `Origin` header check. By default, Jupyter Server rejects any non-empty origin that doesn't match the bound interface. | VS Code's webview frame sends `Origin: vscode-webview://...` on the kernel-WebSocket handshake. HTTP requests succeed (token auth handles those) but the upgrade is rejected with `403 Forbidden` and cell-execute hangs. `*` accepts any origin; **the token gate still applies on every request.** |
+| `--ServerApp.allow_remote_access=True` | The "is the source IP local?" pre-check that runs *before* token auth. By default, Jupyter only accepts connections whose source IP matches the bound interface (loopback). | When VS Code on your host talks to the container, the request crosses Docker's network namespace — from the container's POV the source IP is the Docker bridge, not loopback. Without this flag, Jupyter returns `403 Forbidden — Disallowed origin` and the token check never runs. |
+| `--ServerApp.disable_check_xsrf=False` | Cross-Site Request Forgery protection on POST/PUT/DELETE. `False` is **already** Jupyter's default. | Listed explicitly NOT to change behaviour but as a visible knob for a future "POST returns 403" debug session. VS Code's Jupyter extension sends the XSRF token in headers, so XSRF stays on safely. |
+
+`JUPYTER_ALLOW_ORIGIN=*` is also exported in the container environment for forward-compatibility with image versions that honor the env-var form. The CLI flags above are the authoritative knob; the env var is belt-and-braces.
+
+> **Tightening the origin allowlist:** `allow_origin='*'` is acceptable here because **the token is the auth gate** — without `JUPYTERHUB_TOKEN`, no request reaches the kernel. If you want a tighter list (e.g., only `vscode-webview://*` plus your dev origin), set `JUPYTER_ALLOW_ORIGIN` to a comma-separated allowlist in `.env` and update the compose `command:` block's `--ServerApp.allow_origin=` value in lockstep.
+
+> **Why not a config file?** A `jupyter_server_config.py` would work equivalently, but it requires either baking it into the image (rebuild on every config tweak) or bind-mounting it (one more volume to track). CLI flags on `command:` are the lowest-friction knob: edit one line in compose, restart, done.
 
 ### 10.4 Notebook layout: where files live
 
