@@ -40,8 +40,18 @@ env:
 
 depends_on:
   required:
+    # `prometheus` is the data dependency. `supabase` keeps Grafana ordered
+    # after the database family. `kong` + `ray` are infra-band slot pins:
+    # they force Grafana to sort *after* both in the topo order so the
+    # alphabetical tie-break in the slot allocator never displaces Kong
+    # from `KONG_HTTP_PORT=63000` or Ray from `RAY_DASHBOARD_PORT=63002`
+    # (see project_infra_slot_pin_kong_ray.md). Today Grafana inherits
+    # the pin transitively via prometheus; spelling it out here removes
+    # the single point of failure.
     - prometheus
     - supabase
+    - kong
+    - ray
   optional: []
 
 exports: []
