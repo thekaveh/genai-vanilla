@@ -47,7 +47,7 @@ import pytest
 import yaml
 
 
-_DOUBLED_SERVICES_PATTERN = re.compile(r"/services/[^/]+/services/[^/]+/")
+_DOUBLED_SERVICES_PATTERN = re.compile(r"(?:^|/)services/[^/]+/services/[^/]+/")
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
