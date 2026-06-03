@@ -207,7 +207,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **JupyterHub** (`JUPYTERHUB_SOURCE=container|disabled`) — data science IDE
 
 **Observability bundle (opt-in, disabled by default):**
-- **Prometheus** (`PROMETHEUS_SOURCE=container|disabled`) — metrics scraper + TSDB bundled with `node-exporter` and `cAdvisor`. When enabled, 14 scrape jobs cover Kong, LiteLLM, Weaviate, n8n, JupyterHub, MinIO, Backend, Hermes, Postgres (via `postgres-exporter` sidecar in the Supabase family), and Redis (via `redis-exporter` sidecar in the Redis family). Retention is user-configurable via `--prometheus-retention-days` (default 7).
+- **Prometheus** (`PROMETHEUS_SOURCE=container|disabled`) — metrics scraper + TSDB bundled with `node-exporter` and `cAdvisor`. When enabled, 12 scrape jobs cover Kong, LiteLLM, Weaviate, n8n, MinIO, Backend, Postgres (via `postgres-exporter` sidecar in the Supabase family), and Redis (via `redis-exporter` sidecar in the Redis family), plus four self / infrastructure targets (prometheus, grafana, node-exporter, cAdvisor). JupyterHub and Hermes are deferred — see `services/prometheus/README.md` §4. Retention is user-configurable via `--prometheus-retention-days` (default 7).
 - **Grafana** (`GRAFANA_SOURCE=container|disabled`) — dashboards + unified alerting UI on top of Prometheus. Pre-provisions the Prometheus datasource and 7 starter dashboards (stack overview, LiteLLM, Kong, Postgres+Redis, Containers+Host, n8n, app-tier). Admin login is auto-generated on first bootstrap (`GRAFANA_ADMIN_USERNAME` / `GRAFANA_ADMIN_PASSWORD` in `.env`).
 
 <!-- TOPOLOGY:BEGIN -->

@@ -42,7 +42,7 @@ The bootstrapper's `_generate_prometheus_config()` hook writes all five scale va
 
 ## 4. Scrape targets
 
-14 targets ship in `config/prometheus.yml`:
+12 targets ship in `config/prometheus.yml`:
 
 | Job | Target | Notes |
 |---|---|---|
@@ -54,14 +54,14 @@ The bootstrapper's `_generate_prometheus_config()` hook writes all five scale va
 | `litellm` | `litellm:4000` | Per-model tokens / cost / latency / errors (requires `callbacks: [prometheus]` in LiteLLM config) |
 | `weaviate` | `weaviate:2112` | Requires `PROMETHEUS_MONITORING_ENABLED=true` on Weaviate |
 | `n8n` | `n8n:5678` | Requires `N8N_METRICS=true` |
-| `jupyterhub` | `jupyterhub:8000/hub/metrics` | Built-in |
 | `minio` | `minio:9000/minio/v2/metrics/cluster` | Requires `MINIO_PROMETHEUS_AUTH_TYPE=public` |
 | `backend` | `backend:8000/metrics` | `prometheus-fastapi-instrumentator` middleware |
-| `hermes` | `hermes:8000/metrics` | `prometheus-fastapi-instrumentator` middleware |
 | `postgres-exporter` | `postgres-exporter:9187` | Sidecar embedded in Supabase family; scales 1↔0 with `PROMETHEUS_SOURCE` |
 | `redis-exporter` | `redis-exporter:9121` | Sidecar embedded in Redis family; scales 1↔0 with `PROMETHEUS_SOURCE` |
 
 Ollama is **deliberately not scraped** — LiteLLM is its gateway and emits per-call request/token/cost metrics, so scraping Ollama directly would duplicate that data. Container-level resource usage is covered by cAdvisor.
+
+**Deferred targets:** JupyterHub (the image is single-user `jupyter/datascience-notebook`, not real JupyterHub — no built-in `/metrics`) and Hermes (third-party `nousresearch/hermes-agent` image with no `/metrics` endpoint) used to ship as scrape jobs with placeholder ports. Both are now omitted from `config/prometheus.yml` until upstream instrumentation lands (Hermes) or the multi-user JupyterHub migration ships.
 
 ## 5. Dependencies & Integrations
 

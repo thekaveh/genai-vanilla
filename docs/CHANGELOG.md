@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
+
+`config/prometheus.yml` shipped scrape jobs targeting `jupyterhub:8000`
+and `hermes:8000`. Both were broken:
+
+- **JupyterHub** — the container EXPOSEs `8888`, not `8000`. Even with
+  the right port, the image we ship is single-user `jupyter/datascience-notebook`
+  (not real multi-user JupyterHub), which has no built-in `/metrics`
+  endpoint. The historical `/hub/metrics` path only works on real
+  multi-user JupyterHub.
+- **Hermes** — listens on `8642` (API) / `9119` (dashboard), not 8000.
+  Also a third-party `nousresearch/hermes-agent` image with no `/metrics`
+  endpoint; instrumenting it would require forking upstream.
+
+Removed both scrape jobs from `config/prometheus.yml` with inline
+comments documenting why they're deferred. Removed the three JupyterHub
+panels (active users, running servers, spawn-duration p95) from the
+`app-tier` Grafana dashboard since they could never have data; retitled
+the dashboard to "App tier (Weaviate + MinIO)" and dropped the
+`jupyterhub` tag. Updated `services/prometheus/README.md` §4 (14 → 12
+targets, with a Deferred note) and the top-level README §3.4 narrative.
+
+JupyterHub metrics return when the multi-user spec ships; Hermes
+metrics return when upstream instrumentation lands.
+
+### Fixed — Wrong access ports in top-level README
+
+Five URLs in `README.md`'s Quick Start access block and §4.1 Service
+Overview table quoted the wrong host port — readers would 404 or hit a
+sibling service. `.env.example` is the canonical source for all five:
+
+- Supabase Studio: `localhost:63016` → `localhost:63017`
+  (63016 is `SUPABASE_REALTIME_PORT`)
+- MinIO Console: `localhost:63018` → `localhost:63019`
+  (63018 is `MINIO_PORT`, the S3 API)
+- Neo4j Browser: `localhost:63020` → `localhost:63021`
+  (63020 is `GRAPH_DB_PORT`, the bolt protocol port)
+- MinIO Console narrative also referenced the S3 API as `:63017`;
+  corrected to `:63018`.
+
+Each wrong value appeared in BOTH the Quick Start block and the §4.1
+table; this commit aligns both with `.env.example`'s pins.
+
 ### Fixed — Observability follow-ups: cAdvisor socket, Grafana provisioning + 11.4 bump
 
 Four startup-noise / functional cleanups against the observability bundle
