@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Observability follow-ups: cAdvisor socket, Grafana provisioning + 11.4 bump
+
+Four startup-noise / functional cleanups against the observability bundle
+(PR #29), surfaced once the bind-mount fix from PR #31 let the stack
+actually launch:
+
+- **cAdvisor lost Docker-socket access on Docker Desktop.** The compose
+  fragment mounted `/var/run:/var/run:ro` (whole directory). On Docker
+  Desktop, `/var/run/docker.sock` on the host is a *symlink* to
+  `/Users/<you>/.docker/run/docker.sock`; the symlink survives the bind
+  but its target isn't reachable inside the container, so cAdvisor
+  logged `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`
+  and silently dropped all per-container metrics. Replaced the whole-
+  directory mount with the canonical
+  `/var/run/docker.sock:/var/run/docker.sock:ro` — Docker Desktop's
+  daemon resolves the symlink at mount time, and the same form is
+  portable to Linux Docker where the path is the real socket.
+
+- **Grafana `provisioning/plugins/` directory was missing.** Grafana
+  scans all four standard provisioning subdirs (`datasources/`,
+  `dashboards/`, `alerting/`, `plugins/`) at startup and errors loudly
+  on any that are absent. Added an empty `plugins/.gitkeep` so the dir
+  exists in git.
+
+- **Grafana `provisioning/alerting/.gitkeep` produced a warn every
+  startup.** Grafana enumerates files with `.yaml` / `.yml` / `.json`
+  suffixes in each provisioning dir and warns about anything else.
+  Replaced `.gitkeep` with `placeholder.yml` containing the minimal
+  `apiVersion: 1` stub so the dir stays non-empty without tripping the
+  scanner. Real alert provisioning can later replace the placeholder.
+
+- **Grafana bumped 11.3.0 → 11.4.3.** 11.3.x has a known bug where
+  `autoMigrateXYChartPanel` (a feature flag Grafana itself enables by
+  default) collides with the bundled `xychart` core panel — logs every
+  startup as `Could not register plugin pluginId=xychart error="plugin
+  xychart is already registered"`. Upstream fixed it in
+  [grafana/grafana#93540](https://github.com/grafana/grafana/pull/93540),
+  shipping in 11.4. Bump the default in `services/grafana/service.yml`
+  (and the rendered `.env.example`) to the latest 11.4 patch.
+
 ### Fixed — Prometheus + Grafana bind-mount paths produced doubled sources
 
 `services/prometheus/compose.yml` and `services/grafana/compose.yml` (both

@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: GRAFANA_IMAGE
-    default: "grafana/grafana:11.3.0"
+    default: "grafana/grafana:11.4.3"
     container: grafana
 
 sources:

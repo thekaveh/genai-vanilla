@@ -105,8 +105,8 @@ services:
       read_only: true
       bind: {}
     - type: bind
-      source: /var/run
-      target: /var/run
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
       read_only: true
       bind: {}
     - type: bind
@@ -296,7 +296,7 @@ services:
       interval: 30s
       retries: 3
       start_period: 30s
-    image: grafana/grafana:11.3.0
+    image: grafana/grafana:11.4.3
     networks:
       backend-network: null
     ports:
