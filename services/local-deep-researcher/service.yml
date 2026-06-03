@@ -65,9 +65,14 @@ runtime_sc:
       environment:
         LITELLM_BASE_URL: http://litellm:4000
         LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
-        STT_ENDPOINT: ${STT_ENDPOINT}
-        TTS_ENDPOINT: ${TTS_ENDPOINT}
-        DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+        # STT_ENDPOINT / TTS_ENDPOINT / DOCLING_ENDPOINT are owned by the
+        # provider manifests (stt_provider, tts_provider, doc_processor) —
+        # service_config.py reads them from THOSE runtime_sc dicts, not
+        # this one. The local-deep-researcher container itself doesn't
+        # consume STT/TTS at present (LangGraph research agent path is
+        # text-only). If wiring lands later it must go into the compose
+        # env block to actually reach the container — see
+        # project_runtime_sc_vs_compose_env_dual_write.md.
       deploy: {}
       extra_hosts: []
     disabled:
