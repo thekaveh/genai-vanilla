@@ -214,7 +214,7 @@ class LocalhostValidator:
             #
             # 1. ``port_env_var`` names a PORT env var (e.g.
             #    ``WHISPER_CPP_LOCALHOST_PORT=63025`` or
-            #    ``DOC_PROCESSOR_PORT=63021``). The probe URL is
+            #    ``DOCLING_LOCALHOST_PORT=63021``). The probe URL is
             #    ``http://localhost:<port><health_path|/health>``. STT/TTS
             #    use per-source ``LOCALHOST_PORT`` vars because each
             #    localhost variant has its own port; the same var that
