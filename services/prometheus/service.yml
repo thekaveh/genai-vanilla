@@ -134,13 +134,16 @@ runtime_sc:
       extra_hosts: []
 
 data_flow:
+  # Mirrors the active scrape job set in config/prometheus.yml. `hermes`
+  # and `jupyterhub` are deferred (no /metrics surface — see prometheus
+  # README §4 "Deferred targets") and intentionally omitted here so the
+  # auto-generated §5.1 Upstream table reflects what is actually scraped.
+  # Re-add when upstream instrumentation lands.
   calls:
     - kong
     - litellm
-    - hermes
     - backend
     - n8n
-    - jupyterhub
     - weaviate
     - minio
     - supabase

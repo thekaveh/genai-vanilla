@@ -215,7 +215,6 @@ their env exposes `HERMES_ENDPOINT`):
 | Service | Category |
 |---|---|
 | kong | infra |
-| prometheus | infra |
 | litellm ↔ | llm |
 | n8n | agents |
 | openclaw | agents |
