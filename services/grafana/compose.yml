@@ -1,7 +1,7 @@
 # services/grafana/compose.yml — Grafana observability UI
 services:
   grafana:
-    image: ${GRAFANA_IMAGE:-grafana/grafana:11.3.0}
+    image: ${GRAFANA_IMAGE:-grafana/grafana:11.4.3}
     container_name: ${PROJECT_NAME}-grafana
     restart: unless-stopped
     deploy:

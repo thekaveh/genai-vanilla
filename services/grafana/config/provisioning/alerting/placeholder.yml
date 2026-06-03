@@ -1,0 +1,6 @@
+# Placeholder so Grafana's provisioner sees a valid file in this directory
+# and stops warning about the previous `.gitkeep` (Grafana scans the
+# alerting/ folder for .yaml/.yml/.json files and emits a warn on every
+# other suffix). Replace with real alert-rule / contact-point provisioning
+# when we wire that up.
+apiVersion: 1

@@ -1,3 +1,0 @@
-# Reserved for future alert rule / contact point provisioning.
-# Grafana's unified alerting is enabled (see grafana.ini) but no rules or
-# contact points are shipped — users add their own.
