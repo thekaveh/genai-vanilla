@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Prometheus + Grafana bind-mount paths produced doubled sources
+
+`services/prometheus/compose.yml` and `services/grafana/compose.yml` (both
+added by the PR #29 observability bundle) declared their config bind-mount
+sources as `./services/<svc>/config/...` — written as if Compose would
+resolve them from the repo root. Compose v2's `include:` directive
+resolves relative paths in an included fragment from the **fragment's own
+directory**, so the actual resolved path was
+`services/<svc>/services/<svc>/config/...` (the path doubled). On the
+first launch Docker auto-created the missing source as a directory; the
+second launch then failed with `not a directory` because the mount
+target expects a file.
+
+Rewrote the four affected volume entries (two in each fragment) to
+`./config/...`, removed the stray `services/prometheus/services/` tree
+that Docker had auto-created, and regenerated the byte-equivalence
+baseline in `bootstrapper/tests/fixtures/rendered_config_baseline.yml`.
+
+**Prevention:** added `bootstrapper/tests/test_fragment_bind_sources.py`
+— a static check that walks every `services/*/compose.yml`, resolves
+each relative bind-mount source against the fragment's directory, and
+fails if the resolved path contains the literal doubled marker
+`services/<X>/services/<X>/` (where `<X>` is the fragment's own folder
+name). This is the exact PR #29 regression class and the structural
+pattern can never be correct, so the check has zero false-positive
+surface against fragments that legitimately mount runtime-generated
+paths (litellm config, neo4j/supabase snapshot dirs, kong dynamic
+config). Runs in the existing "Manifest lint + unit tests" CI job with
+no Docker daemon. Verified to fail on the buggy form during development
+(prometheus fragment temporarily reverted) and emits an actionable
+error naming the fragment, offending raw source, and resolved path.
+
 ### Added — Scala kernels in JupyterHub + VS Code remote-Jupyter wiring
 
 The JupyterHub container now ships three kernels and is configured for

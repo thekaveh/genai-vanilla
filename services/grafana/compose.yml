@@ -17,8 +17,8 @@ services:
       - "${GRAFANA_PORT}:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./services/grafana/config/grafana.ini:/etc/grafana/grafana.ini:ro
-      - ./services/grafana/config/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./config/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       prometheus:
         condition: service_healthy
