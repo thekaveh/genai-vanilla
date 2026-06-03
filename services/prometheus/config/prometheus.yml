@@ -50,10 +50,16 @@ scrape_configs:
     static_configs:
       - targets: ['n8n:5678']
 
-  - job_name: jupyterhub
-    metrics_path: /hub/metrics
-    static_configs:
-      - targets: ['jupyterhub:8000']
+  # JupyterHub (the folder/service name is historical; the image we ship is
+  # actually single-user `jupyter/datascience-notebook`, not real JupyterHub).
+  # Single-user Jupyter Server has no built-in /metrics surface; adding one
+  # would require the `jupyter-server-prometheus` extension, which we don't
+  # install. Deferred until the multi-user JupyterHub spec lands.
+  #
+  # Hermes is intentionally omitted for the same reason — it's the third-party
+  # `nousresearch/hermes-agent` image which ships no /metrics endpoint. Its
+  # API listens on 8642 / dashboard on 9119; instrumenting it would require
+  # forking the upstream image.
 
   - job_name: minio
     metrics_path: /minio/v2/metrics/cluster
@@ -63,10 +69,6 @@ scrape_configs:
   - job_name: backend
     static_configs:
       - targets: ['backend:8000']
-
-  - job_name: hermes
-    static_configs:
-      - targets: ['hermes:8000']
 
   - job_name: postgres-exporter
     static_configs:
