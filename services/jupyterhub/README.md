@@ -176,11 +176,15 @@ VS Code's Jupyter extension can use this container as the **remote kernel** for 
    ```bash
    ./start.sh
    ```
-3. **Grab the token** from `.env`:
+3. **Grab the token.** `JUPYTERHUB_TOKEN` in `.env` is optional — `service.yml` defaults it to empty, in which case Jupyter Server auto-generates one and prints it to the container's stdout on every restart. Pick whichever applies:
    ```bash
+   # If you set JUPYTERHUB_TOKEN in .env manually:
    grep '^JUPYTERHUB_TOKEN=' .env
+
+   # Otherwise (default), grep the auto-generated value out of the logs:
+   docker logs genai-jupyterhub 2>&1 | grep -oE 'token=[a-f0-9]+' | tail -1
    ```
-   (The bootstrapper writes `JUPYTERHUB_TOKEN` on first run. Treat it like a password.)
+   Treat the token like a password. It changes every restart unless you pin it in `.env`.
 
 ### 10.2 Connect
 
@@ -218,7 +222,7 @@ The four pieces of the chain:
 
 | Step | Lives in | Role |
 |---|---|---|
-| 1. `ENTRYPOINT` → `/usr/local/bin/startup.sh` | `services/jupyterhub/build/Dockerfile` line 73 | Our wrapper. Prints the env summary, materialises `/home/jovyan/work/.env` from the resolved environment, prints the welcome banner, then ends with `exec "$@"` — which **forwards every CMD token unchanged** to the next stage. |
+| 1. `ENTRYPOINT` → `/usr/local/bin/startup.sh` | `services/jupyterhub/build/Dockerfile` (`ENTRYPOINT` directive near the end) | Our wrapper. Prints the env summary, materialises `/home/jovyan/work/.env` from the resolved environment, prints the welcome banner, then ends with `exec "$@"` — which **forwards every CMD token unchanged** to the next stage. |
 | 2. `CMD` → `start-notebook.sh ...` | `services/jupyterhub/compose.yml` `command:` block | This **replaces** the Dockerfile's `CMD ["start-notebook.sh"]` with our explicit list (the script name + three flags). Compose's `command:` always replaces the Dockerfile's CMD, never extends it — so the script name **must stay as element 0** of the list. Lose it and `startup.sh` ends up `exec`ing whatever flag is first, fails to find an executable, and the container restart-loops with `exec: --ServerApp.allow_origin=*: not found`. |
 | 3. `start-notebook.sh` | upstream `jupyter/docker-stacks` image | The official Jupyter docker-stacks boot script. Switches UIDs/GIDs based on `NB_UID`/`NB_GID`/`GRANT_SUDO`, sources hooks under `/usr/local/bin/before-notebook.d/`, then `exec`s `jupyter lab` with **all of its own `$@` forwarded through**. Contract documented at [jupyter/docker-stacks](https://github.com/jupyter/docker-stacks/blob/main/images/docker-stacks-foundation/start.sh). |
 | 4. `jupyter lab --ServerApp.allow_origin=* ...` | runtime | Jupyter Server (the underlying app) parses each `--ServerApp.<name>=<value>` as a Traitlet config set on the `ServerApp` class — equivalent to writing the same value in `jupyter_server_config.py`. |
