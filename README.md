@@ -260,7 +260,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | admin@example.com |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
-| **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE | Token (optional) |
+| **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs genai-jupyterhub`) |
 | **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | neo4j / password |
 | **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
@@ -270,6 +270,8 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Hermes Agent** | http://localhost:63060 (API), http://localhost:63061 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
 | **MinIO Console** | http://localhost:63019 | http://minio.localhost:63000 | S3-compatible object storage admin UI (gated on `MINIO_SOURCE != disabled`). S3 API at `:63018` is NOT aliased — S3 clients use the direct port. | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 | **Ray Dashboard** | http://localhost:63002 | http://ray.localhost:63000 | Distributed-compute substrate (cluster head + workers). Disabled by default; opt-in via `--ray-source ray-container-cpu` / `ray-container-gpu`. | None |
+| **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 12 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
+| **Grafana** | http://localhost:63008 | http://grafana.localhost:63000 | Observability dashboards + unified alerting on top of Prometheus. Disabled by default; opt-in via `--grafana-source container`. 7 starter dashboards ship pre-provisioned. | `admin` / auto-generated `GRAFANA_ADMIN_PASSWORD` (first-run) |
 
 ### 4.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
