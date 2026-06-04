@@ -218,6 +218,7 @@ _No upstream calls._
 ### 9.5 Future — Candidate new services
 
 - **Unmute (Kyutai)** ([details](../../docs/research/candidates/unmute.md)) — *Headline:* WebSocket OpenAI-Realtime-compatible voice loop that wraps any text LLM behind streaming STT + TTS. *Wires into:* open-webui, backend, hermes, litellm, parakeet, chatterbox, speaches.
+- **OmniVoice (k2-fsa)** ([details](../../docs/research/candidates/omnivoice.md)) — *Headline:* 0.6 B diffusion-LM TTS (Apache-2.0) with **600+ language coverage** — the only meaningfully novel capability over the current Speaches/Chatterbox lineup. *Status:* assessed 2026-06-03, **skipped pending upstream readiness** (SaaS has no public API; OSS is CLI/Python with no FastAPI wrapper or Docker image). Re-evaluate Q4 2026 or when a community wrapper / Speaches adapter lands.
 
 ### 9.6 Future — Unused features in this service
 

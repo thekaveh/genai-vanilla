@@ -74,6 +74,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | `05_comfyui_images.ipynb` | AI image generation |
 | `06_n8n_workflows.ipynb` | Workflow automation |
 | `07_ray_cluster.ipynb` | Distributed compute on the Ray cluster |
+| `08_scala_basics.ipynb` | Scala 3 syntax, `import $ivy` dependency loading, calling LiteLLM from Scala, Scala-3 enums + extension methods. Opens on the `scala3` kernel. |
 
 ## 6. Service Integration Examples
 
@@ -256,6 +257,24 @@ Net effect: the three flags reach `jupyter lab` exactly as if they were in a con
 - **Kernel starts but cells hang.** WebSocket upgrade failure — confirm the three `--ServerApp.*` flags are present in `docker inspect genai-jupyterhub --format='{{json .Config.Cmd}}'`. If the compose file was edited but the container wasn't rebuilt, run `./stop.sh && ./start.sh`.
 - **CORS error in VS Code's developer console.** `JUPYTER_ALLOW_ORIGIN` was tightened past what VS Code uses. Set it to `*` temporarily; the Jupyter token is still required for any kernel operation.
 - **"Address already in use" on 63081.** `./start.sh --base-port 64000` to relocate the whole stack.
+- **Scala 2.13 / Scala 3 missing from the kernel picker.** The running image predates the Almond layer in `services/jupyterhub/build/Dockerfile`. Rebuild with `docker compose up jupyterhub --build --no-deps -d` (no full-stack restart needed). Confirm via `docker exec genai-jupyterhub jupyter kernelspec list` — both `scala213` and `scala3` should appear alongside `python3`. See §11 for full kernel-install details.
+- **Server connects but no kernels listed.** Look at the URL VS Code stored — it must include `/?token=<value>`. If you pasted the URL without the token, VS Code thinks it's connected but every kernel request 403s. `Jupyter: Specify Jupyter Server for Connections` → re-enter the URL with the token suffix.
+- **Cell output appears in the wrong notebook.** VS Code occasionally caches a stale kernel binding when you switch between two notebooks on the same server. Right-click the notebook tab → `Restart Kernel` resets the binding.
+
+### 10.6 Verification screenshots
+
+Reference screenshots for each step of the connect flow live under `services/jupyterhub/docs/screenshots/`:
+
+- `01-vscode-select-existing-server.png` — VS Code's `Select Another Kernel` → `Existing Jupyter Server` dialog
+- `02-vscode-enter-server-url.png` — the URL-entry prompt with the token suffix highlighted
+- `03-vscode-server-name-prompt.png` — the friendly-name prompt (`genai-vanilla` is a good default)
+- `04-vscode-kernel-picker.png` — the kernel-selection list showing `Python 3 (ipykernel)`, `Scala 2.13`, `Scala 3`
+
+If you're following the docs to set up VS Code for the first time and one of these screenshots no longer matches your VS Code version, open an issue — the Jupyter extension's dialog text changes occasionally. _Screenshots are stored as PNGs in the repo so they survive offline reads of this README; capture them on your own machine if the directory is empty after a fresh clone (see §10.7)._
+
+### 10.7 Capturing the screenshots yourself
+
+If `docs/screenshots/` is empty (early-stage repo state), reproduce the four PNGs above by walking §10.1–§10.2 in your VS Code session and `Cmd+Shift+5` (macOS) / `Win+Shift+S` (Windows) at each dialog. Save under the same filenames so the references above resolve.
 
 ## 11. Multi-kernel runtime (Python + Scala)
 
@@ -271,6 +290,29 @@ This container ships **three kernels**:
 
 - **In JupyterLab:** open the launcher (`+` button) and click the Scala tile.
 - **In VS Code:** kernel-picker → "Scala 2.13" or "Scala 3".
+
+**To verify the kernels are actually installed in the running container:**
+
+```bash
+docker exec genai-jupyterhub jupyter kernelspec list
+```
+
+You should see `scala213` and `scala3` alongside `python3` (and `ir`, `julia-1.9` from the upstream image). If only `ir` / `julia-1.9` / `python3` appear, the container was built before the Scala layer was added — rebuild with the args at the top of the Dockerfile baked in:
+
+```bash
+docker compose up jupyterhub --build --no-deps -d
+```
+
+`--no-deps` skips restarting the entire stack; only the jupyterhub container is replaced. The image gains ~600 MB of toolchain on this build, mostly cached after the first run.
+
+**Smoke-test a Scala cell** without opening JupyterLab — useful in CI / cold-start verification:
+
+```bash
+docker exec genai-jupyterhub bash -lc \
+  "echo 'val x = (1 to 5).map(_ * 2).sum; println(s\"sum=\$x\")' | jupyter run --kernel=scala3 /dev/stdin"
+```
+
+The expected last line is `sum=30`. The first run for each Scala kernel resolves Almond's classpath and can take 30-60 s; subsequent runs are sub-second.
 
 **To pin different Scala / Almond versions** edit `services/jupyterhub/build/Dockerfile` and bump the `ALMOND_VERSION` / `ALMOND_SCALA_2_VERSION` / `ALMOND_SCALA_3_VERSION` build args at the top, then rebuild:
 
