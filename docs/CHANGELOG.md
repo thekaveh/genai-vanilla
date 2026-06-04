@@ -124,6 +124,47 @@ because rotating any of them mid-run breaks something.
   `depends_on.optional` was scrubbed of the dead-promise `prometheus`
   entry to avoid auto-generated diagrams showing an edge that doesn't
   exist.
+### Added — Scala sample notebook + VS Code remote-Jupyter verification flow
+
+Three follow-ups to the original Scala-kernels + VS Code wiring (PR #30):
+
+- **`services/jupyterhub/build/notebooks/08_scala_basics.ipynb`** — a new
+  Scala 3 sample notebook (10 cells) showing basic syntax, `import $ivy`
+  dependency loading via Almond, a `java.net.http.HttpClient` call into
+  the LiteLLM gateway, and Scala-3-only features (enums + extension
+  methods). Demonstrates that the kernels actually work end-to-end and
+  gives users a template to crib from.
+- **JupyterHub README §11 verification steps** — added a `jupyter
+  kernelspec list` smoke-test, an explicit rebuild recipe
+  (`docker compose up jupyterhub --build --no-deps -d`) for users whose
+  running container predates the Almond layer, and a one-liner
+  `jupyter run --kernel=scala3` smoke-test that confirms the kernel is
+  actually reachable without opening JupyterLab.
+- **JupyterHub README §10.5 / §10.6 troubleshooting + screenshots
+  scaffolding** — added three new troubleshooting entries (Scala
+  kernels missing from picker → rebuild; no kernels listed → token
+  suffix missing; output in wrong notebook → restart kernel),
+  a new §10.6 listing four reference screenshots
+  (`services/jupyterhub/docs/screenshots/{01..04}-vscode-*.png`), and a
+  §10.7 with capture instructions for first-time setup. Screenshots
+  directory ships with a `README.md` explaining the layout but no PNGs
+  yet — users capture them on their own machines per §10.7.
+
+### Assessed — OmniVoice TTS engine (skipped pending upstream readiness)
+
+`docs/research/candidates/omnivoice.md` (new) records a feasibility
+assessment of [omnivoice.app](https://omnivoice.app) +
+[k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice) as a potential
+fifth TTS engine alongside Speaches's Kokoro+Piper and Chatterbox. The
+hosted SaaS has no public developer API; the OSS reference
+implementation is CLI/Python only with no FastAPI wrapper or published
+Docker image and would make this repo the upstream wrapper maintainer
+against a fast-moving 0.1.x library. The only genuine differentiator
+over Chatterbox is OmniVoice's **600+ language coverage** (vs Kokoro 8,
+Piper 30+, Chatterbox 23). Recorded as deferred under
+`services/tts-provider/README.md` §9.5 with three concrete re-evaluate
+triggers (SaaS API published / community wrapper appears / Speaches
+adds OmniVoice as a backend).
 
 ### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
 
