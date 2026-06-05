@@ -1,7 +1,16 @@
 # services/zeppelin/compose.yml — Spark-first notebook UI
 services:
   zeppelin:
-    image: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.0}
+    # Locally-built image — apache/zeppelin:0.12.0 ships the Spark
+    # interpreter but lacks hadoop-aws + AWS SDK v2 bundle. The driver
+    # runs in-container in client deploy-mode; `s3a://` access throws
+    # ClassNotFoundException without these jars. Pass 45 caught this
+    # as a sibling shipping bug to Pass 44 (spark image).
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.0}
+    image: ${PROJECT_NAME}-zeppelin:local
     container_name: ${PROJECT_NAME}-zeppelin
     restart: unless-stopped
     deploy:
