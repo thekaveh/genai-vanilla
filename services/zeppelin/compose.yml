@@ -1,0 +1,43 @@
+# services/zeppelin/compose.yml — Spark-first notebook UI
+services:
+  zeppelin:
+    image: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.0}
+    container_name: ${PROJECT_NAME}-zeppelin
+    restart: unless-stopped
+    deploy:
+      replicas: ${ZEPPELIN_SCALE:-0}
+    ports:
+      - "${ZEPPELIN_PORT}:8080"
+    environment:
+      ZEPPELIN_PORT: "8080"
+      ZEPPELIN_LOG_DIR: /logs
+      ZEPPELIN_NOTEBOOK_DIR: /notebook
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_CONNECT_URL: sc://spark-master:15002
+      SPARK_SUBMIT_OPTIONS: >-
+        --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000
+        --conf spark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}
+        --conf spark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
+        --conf spark.hadoop.fs.s3a.path.style.access=true
+      ZEPPELIN_JDBC_POSTGRES_URL: jdbc:postgresql://supabase-db:5432/${SUPABASE_DB_NAME}
+      ZEPPELIN_JDBC_POSTGRES_USER: ${SUPABASE_DB_USER}
+      ZEPPELIN_JDBC_POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
+    volumes:
+      - ./notebooks:/notebook
+      - zeppelin-logs:/logs
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - backend-network
+
+volumes:
+  zeppelin-logs:
+    name: ${PROJECT_NAME}-zeppelin-logs
+    driver: local
