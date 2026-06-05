@@ -92,6 +92,14 @@ services:
     # publishing the port; not in scope for the in-stack-only baseline.
     command:
       - /opt/spark/sbin/start-connect-server.sh
+      # `--wait` is the first arg → start-connect-server.sh shifts it and
+      # sets SPARK_NO_DAEMONIZE=1, which makes spark-daemon.sh's submit
+      # branch run in the foreground instead of `nohup ... &`. Without
+      # this, the script exits immediately → Docker exits the container
+      # → `restart: unless-stopped` puts it into a perpetual restart loop
+      # → the gRPC listener on 15002 never serves. (Pass 2 introduced the
+      # sidecar; Pass 37 caught that it never actually stays up.)
+      - --wait
       - --master
       - spark://spark-master:7077
       - --conf

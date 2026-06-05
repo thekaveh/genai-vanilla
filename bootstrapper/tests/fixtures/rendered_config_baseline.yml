@@ -1839,6 +1839,7 @@ services:
   spark-connect:
     command:
     - /opt/spark/sbin/start-connect-server.sh
+    - --wait
     - --master
     - spark://spark-master:7077
     - --conf

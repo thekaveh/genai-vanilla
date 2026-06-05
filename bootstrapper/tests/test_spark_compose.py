@@ -101,6 +101,38 @@ def test_spark_connect_emits_event_log_to_history_bucket():
     )
 
 
+def test_spark_connect_runs_in_foreground_via_wait_flag():
+    """spark-connect must invoke start-connect-server.sh with `--wait`
+    (or SPARK_NO_DAEMONIZE=1 in env) so the underlying spark-daemon.sh
+    submit branch runs in the foreground.
+
+    Without this, the script delegates to `nohup ... &` and exits
+    immediately — Docker treats command-rc=0 as success, the container
+    stops, `restart: unless-stopped` puts it in a perpetual restart
+    loop, and sc://spark-connect:15002 NEVER serves. Pass 37 caught
+    this; before the fix, Airflow's spark_smoke + Zeppelin's
+    `spark.remote` config would fail with connection refused on every
+    cold start.
+
+    Verified against upstream apache/spark v4.1.2:
+    - sbin/start-connect-server.sh: shifts --wait and sets
+      SPARK_NO_DAEMONIZE=1
+    - sbin/spark-daemon.sh::execute_command: runs `nohup ... &` unless
+      SPARK_NO_DAEMONIZE is set, in which case foregrounds with `"$@"`
+    """
+    doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    cmd = doc["services"]["spark-connect"]["command"]
+    env = doc["services"]["spark-connect"].get("environment", {})
+    has_wait = "--wait" in cmd
+    has_no_daemonize = env.get("SPARK_NO_DAEMONIZE") in ("1", "true", "TRUE")
+    assert has_wait or has_no_daemonize, (
+        "spark-connect must run in foreground via --wait or "
+        "SPARK_NO_DAEMONIZE=1. Without one, start-connect-server.sh "
+        "exits immediately and the container restart-loops; the "
+        "gRPC listener never serves."
+    )
+
+
 def test_spark_connect_depends_on_spark_init():
     """spark-connect must wait for spark-init (which creates the
     spark-history MinIO bucket) before starting — Spark 4.x's
