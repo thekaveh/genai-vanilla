@@ -28,6 +28,7 @@ on:
       - "start.sh"
       - "stop.sh"
       - ".github/workflows/services-lint.yml"
+      - ".github/dependabot.yml"
   push:
     branches: [main]
 
