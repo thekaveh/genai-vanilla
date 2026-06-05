@@ -54,13 +54,14 @@ echo "==> airflow-init: creating admin user (idempotent)"
 # `airflow users create` returns rc=0 on success AND on the documented
 # idempotent already-exists case in 3.x; we still grep stdout to suppress
 # the "already exists" message when the user is unchanged.
-# `--flag=VALUE` form (not `--flag VALUE` with space) is REQUIRED for
-# any value that may legitimately start with `-`. `secrets.token_urlsafe`
-# emits the URL-safe Base64 alphabet `[A-Za-z0-9_-]`, so ~3% of generated
-# passwords start with a leading dash. argparse then interprets the value
-# as another flag → `argument -p/--password: expected one argument`. The
-# `=` form binds the value to the flag in a single token regardless.
-# Applies below to every `--conn-password=` too.
+# The `equals` form of every flag below (not the space-separated form)
+# is REQUIRED for any value that may legitimately start with `-`.
+# `secrets.token_urlsafe` emits the URL-safe Base64 alphabet
+# `[A-Za-z0-9_-]`, so ~3% of generated passwords start with a leading
+# dash. argparse then interprets the value as another flag and rejects:
+# `argument -p: expected one argument`. The equals form binds the value
+# to the flag in a single token regardless. Same applies to every
+# conn-password flag in the add_conn calls below.
 if create_output=$(airflow users create \
   --username=admin \
   --firstname=Admin \
