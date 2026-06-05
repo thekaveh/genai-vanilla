@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added — Apache Airflow + Apache Spark cluster + Apache Zeppelin (compute tier)
+### Added — Apache Airflow + Apache Spark cluster + Apache Zeppelin (data / apps / agents bands)
 
 Three new services added in a single coordinated landing as the stack's
 compute / orchestration tier. Spec at
@@ -33,7 +33,9 @@ plan at
   S3A + JDBC.
 
 - **Apache Airflow** (`AIRFLOW_SOURCE=disabled|container`) — Apache
-  Airflow 3.2.2 (LocalExecutor) with the AI/ML SDK enabled. Bundled
+  Airflow 3.2.2 (LocalExecutor) with the LLM provider bundle
+  (`apache-airflow-providers-openai` + `apache-airflow-providers-langchain`)
+  pre-wired to LiteLLM. Bundled
   providers: apache-spark, amazon (MinIO via custom endpoint),
   postgres, redis, weaviate, neo4j, openai, langchain. Metadata DB
   lives in a new `airflow` database on Supabase Postgres (created
