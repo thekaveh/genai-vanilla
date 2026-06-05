@@ -50,7 +50,6 @@ Use it as a template for your own notebooks.
 
 | Service | Category |
 |---|---|
-| kong | infra |
 | minio | data |
 | spark | data |
 | supabase | data |

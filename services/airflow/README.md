@@ -77,7 +77,6 @@ This pattern — agent runtime → orchestrated workflow — pairs Hermes's reac
 
 | Service | Category |
 |---|---|
-| kong | infra |
 | minio | data |
 | neo4j | data |
 | redis | data |
