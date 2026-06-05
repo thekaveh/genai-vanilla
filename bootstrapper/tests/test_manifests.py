@@ -392,3 +392,18 @@ def test_row_carries_localhost_port_var_through_topology(tmp_path):
         f"localhost_port_var did not survive manifest -> Row round-trip; "
         f"got {row.localhost_port_var!r}"
     )
+
+
+def test_spark_manifest_loads():
+    from services.manifests import load_manifests
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    manifests = load_manifests(repo_root / "services")
+    spark = next((m for m in manifests if m.name == "spark"), None)
+    assert spark is not None, "spark manifest not found"
+    assert spark.category == "data"
+    assert "spark-master" in {c for c in spark.containers}
+    assert "spark-worker" in {c for c in spark.containers}
+    assert "spark-history" in {c for c in spark.containers}
+    assert "minio" in spark.depends_on.required
+    assert spark.sources.default == "disabled"
