@@ -29,7 +29,7 @@ AIRFLOW_SECRET_KEY=                  # auto-generated (AIRFLOW__API__SECRET_KEY 
 AIRFLOW_ADMIN_PASSWORD=              # auto-generated (admin login)
 ```
 
-Auto-managed (resolved by the bootstrapper from `AIRFLOW_SOURCE`; do not hand-edit): `AIRFLOW_WEBSERVER_SCALE`, `AIRFLOW_SCHEDULER_SCALE`, `AIRFLOW_INIT_SCALE`.
+Auto-managed (resolved by the bootstrapper from `AIRFLOW_SOURCE`; do not hand-edit): `AIRFLOW_WEBSERVER_SCALE`, `AIRFLOW_SCHEDULER_SCALE`, `AIRFLOW_DAG_PROCESSOR_SCALE`, `AIRFLOW_INIT_SCALE`.
 
 ## 4. Seeded Connections
 
