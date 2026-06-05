@@ -311,24 +311,63 @@ class KeyGenerator:
         return secrets.token_urlsafe(24)
 
     def generate_and_update_airflow_fernet_key(self, force: bool = False) -> bool:
+        """Generate and update AIRFLOW_FERNET_KEY in .env file.
+
+        Args:
+            force: Generate new key even if one already exists. Rotating
+                this key invalidates every encrypted Connection / Variable
+                payload Airflow already wrote — usually you want force=False.
+        Returns:
+            True if the value is now present in .env (whether unchanged or
+            newly written).
+        """
         current = self.get_current_env_value('AIRFLOW_FERNET_KEY')
         if not force and current:
             return True
         return self.update_env_key('AIRFLOW_FERNET_KEY', self.generate_airflow_fernet_key())
 
     def generate_and_update_airflow_secret_key(self, force: bool = False) -> bool:
+        """Generate and update AIRFLOW_SECRET_KEY in .env file.
+
+        Args:
+            force: Generate new key even if one already exists. Rotating
+                invalidates active Web UI sessions and inter-process signed
+                payloads — usually you want force=False.
+        Returns:
+            True if the value is now present in .env.
+        """
         current = self.get_current_env_value('AIRFLOW_SECRET_KEY')
         if not force and current:
             return True
         return self.update_env_key('AIRFLOW_SECRET_KEY', self.generate_airflow_secret_key())
 
     def generate_and_update_airflow_admin_password(self, force: bool = False) -> bool:
+        """Generate and update AIRFLOW_ADMIN_PASSWORD in .env file.
+
+        Args:
+            force: Generate new password even if one already exists.
+                Rotating means the existing admin user's stored hash no
+                longer matches; airflow-init re-syncs the user on next
+                ./start.sh so this is recoverable, but unexpected for
+                users mid-session.
+        Returns:
+            True if the value is now present in .env.
+        """
         current = self.get_current_env_value('AIRFLOW_ADMIN_PASSWORD')
         if not force and current:
             return True
         return self.update_env_key('AIRFLOW_ADMIN_PASSWORD', self.generate_airflow_admin_password())
 
     def generate_and_update_airflow_db_password(self, force: bool = False) -> bool:
+        """Generate and update AIRFLOW_DB_PASSWORD in .env file.
+
+        Args:
+            force: Generate new password even if one already exists.
+                Rotating requires re-running airflow-init to update the
+                Postgres role's password — `./start.sh` handles this.
+        Returns:
+            True if the value is now present in .env.
+        """
         current = self.get_current_env_value('AIRFLOW_DB_PASSWORD')
         if not force and current:
             return True

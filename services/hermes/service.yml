@@ -195,8 +195,12 @@ data_flow:
     - tts-provider
     - comfyui
     - searxng
-    # Hermes → Airflow: documented in services/hermes/README.md §8 —
-    # Hermes triggers DAG runs via the Airflow REST API
-    # (agent runtime → orchestrated workflow pattern).
+    # Hermes → Airflow: DOCUMENTED integration pattern, not pre-wired
+    # runtime call. The third-party nousresearch/hermes-agent image
+    # has no built-in Airflow client; services/hermes/README.md §8 +
+    # services/airflow/README.md §6 show the curl pattern users wire
+    # from inside Hermes Skills / dashboard widgets. Kept in
+    # data_flow.calls so auto-generated diagrams surface the supported
+    # pattern; remove the entry if a future PR retracts the docs.
     - airflow
 
