@@ -419,3 +419,16 @@ def test_zeppelin_manifest_loads():
     assert z.category == "apps"
     assert "spark" in z.depends_on.required, "Zeppelin must hard-require Spark per D3"
     assert z.sources.default == "disabled"
+
+
+def test_airflow_manifest_loads():
+    from services.manifests import load_manifests
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    manifests = load_manifests(repo_root / "services")
+    a = next((m for m in manifests if m.name == "airflow"), None)
+    assert a is not None
+    assert a.category == "agents"
+    assert "supabase" in a.depends_on.required
+    assert "spark" in a.depends_on.optional   # gated connection seeding
+    assert "litellm" in a.depends_on.optional  # gated connection seeding
