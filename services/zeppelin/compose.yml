@@ -13,7 +13,11 @@ services:
       ZEPPELIN_LOG_DIR: /logs
       ZEPPELIN_NOTEBOOK_DIR: /notebook
       SPARK_MASTER: spark://spark-master:7077
-      SPARK_CONNECT_URL: sc://spark-connect:15002
+      # NOTE: Zeppelin's Spark interpreter does NOT read SPARK_CONNECT_URL
+      # — `SparkInterpreterLauncher` only honors SPARK_MASTER. Users who
+      # want to drive Connect from Zeppelin set `spark.remote` in the
+      # interpreter UI (Interpreter → spark → properties). Drop this var
+      # rather than ship a misleading "configured" env.
       SPARK_SUBMIT_OPTIONS: >-
         --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000
         --conf spark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}

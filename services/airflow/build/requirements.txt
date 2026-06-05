@@ -9,8 +9,15 @@ apache-airflow-providers-redis>=4.2.1
 apache-airflow-providers-common-sql>=1.18.0
 apache-airflow-providers-weaviate>=3.2.0
 apache-airflow-providers-neo4j>=4.1.0
-apache-airflow-providers-openai>=2.0.0
-apache-airflow-providers-langchain>=1.1.0
+# Latest stable on PyPI is 1.7.x; v2.0.0 doesn't exist (the earlier
+# >=2.0.0 pin was unsatisfiable — pip install failed; image wouldn't build).
+apache-airflow-providers-openai>=1.7.0
+# NOTE: apache-airflow-providers-langchain is NOT a published Apache
+# package (PyPI 404). The commented LangChainOperator example in the
+# sample DAG uses langchain-openai + langchain-core directly — those
+# transitive deps come with apache-airflow-providers-openai's optional
+# extras or via the user's own `pip install langchain-openai`. Don't
+# pin a nonexistent package.
 # Airflow 3.x split out Flask-AppBuilder as a provider. Required by the
 # `airflow.providers.fab.auth_manager.api.auth.backend.basic_auth` backend
 # we use in AIRFLOW__FAB__AUTH_BACKENDS (renamed from [api] in 3.x). Also
@@ -19,7 +26,8 @@ apache-airflow-providers-langchain>=1.1.0
 apache-airflow-providers-fab>=2.0.0
 psycopg2-binary>=2.9.10
 # Required by the sample DAG's Spark Connect smoke step (`from pyspark.sql
-# import SparkSession`). apache-airflow-providers-apache-spark does not
-# transitively pull pyspark, and apache/airflow:3.2.2 doesn't ship it.
-# Pinned to the matching Spark image version (apache/spark:4.1.2).
-pyspark==4.1.2
+# import SparkSession; .builder.remote(...)`). The [connect] extra pulls
+# grpcio + grpcio-status + googleapis-common-protos + zstandard — the
+# bare `pyspark` wheel doesn't include them and the Connect client errors
+# with ModuleNotFoundError: No module named 'grpc' at first call.
+pyspark[connect]==4.1.2

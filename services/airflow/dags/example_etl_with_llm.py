@@ -1,16 +1,19 @@
 """Example DAG demonstrating Spark + MinIO + LiteLLM integrations.
 
-Runs daily. Three operators that exercise each seeded Airflow Connection:
+Runs daily. Three PythonOperator steps exercising each seeded Airflow
+Connection:
 
-1. ``PythonOperator`` calls the Spark cluster via Spark Connect (the modern
+1. ``spark_smoke`` calls the Spark cluster via Spark Connect (the modern
    gRPC client; no JAR submission needed for a smoke test). Confirms
    ``spark_default`` Connection + the in-stack Spark master are healthy.
-2. ``OpenAIOperator`` summarises a piece of text via LiteLLM. Confirms the
-   ``litellm_default`` Connection works. The openai provider is the
-   straightforward driver; for richer chains use ``LangChainOperator`` from
-   ``apache-airflow-providers-langchain`` (bundled in build/requirements.txt)
-   — see the commented block at the bottom of this file.
-3. ``S3Hook`` lists buckets via ``minio_default``.
+2. ``summarize_via_litellm`` calls LiteLLM's chat-completions endpoint
+   through OpenAIHook (which routes via ``litellm_default``). The openai
+   provider exports only ``OpenAIEmbeddingOperator`` and
+   ``OpenAITriggerBatchOperator``; there is no ``OpenAIOperator``, so we
+   use the Hook directly. For richer chains see the commented LangChain
+   block at the bottom of this file.
+3. ``list_minio_buckets`` calls ``S3Hook.list_buckets()`` against
+   ``minio_default``.
 
 This DAG is intentionally tiny — replace with your own DAGs.
 
@@ -32,7 +35,7 @@ from __future__ import annotations
 
 from airflow import DAG
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.openai.operators.openai import OpenAIOperator
+from airflow.providers.openai.hooks.openai import OpenAIHook
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator  # noqa: F401  # available for user DAGs
 # Airflow 3.x canonical path for core operators (was airflow.operators.python in 2.x).
 from airflow.providers.standard.operators.python import PythonOperator
@@ -68,6 +71,25 @@ def spark_smoke(**_ctx):
     spark.stop()
 
 
+def summarize_via_litellm(**_ctx):
+    """Call LiteLLM's chat-completions endpoint via OpenAIHook.
+
+    OpenAIHook builds the OpenAI SDK client with base_url=conn.host. We
+    seeded litellm_default with conn.host=http://litellm:4000/v1 (the
+    /v1 lives in conn.host because OpenAIHook ignores the `api_base`
+    extra; see init-airflow.sh).
+    """
+    hook = OpenAIHook(conn_id="litellm_default")
+    client = hook.get_conn()
+    response = client.chat.completions.create(
+        # Default Ollama model that ships in the stack's LiteLLM catalog
+        # (see bootstrapper/utils/llm_catalog.py + services/litellm/README.md).
+        model="ollama/qwen3.6:latest",
+        messages=[{"role": "user", "content": "Reply with the single word 'ok'."}],
+    )
+    print(f"litellm reply: {response.choices[0].message.content}")
+
+
 def list_minio(**_ctx):
     s3 = S3Hook(aws_conn_id="minio_default")
     buckets = s3.get_conn().list_buckets()["Buckets"]
@@ -92,13 +114,9 @@ with DAG(
         python_callable=spark_smoke,
     )
 
-    llm_step = OpenAIOperator(
+    llm_step = PythonOperator(
         task_id="summarize_via_litellm",
-        conn_id="litellm_default",
-        # Default Ollama model that ships in the stack's LiteLLM catalog
-        # (see bootstrapper/utils/llm_catalog.py + services/litellm/README.md).
-        model="ollama/qwen3.6:latest",
-        messages=[{"role": "user", "content": "Reply with the single word 'ok'."}],
+        python_callable=summarize_via_litellm,
     )
 
     minio_step = PythonOperator(
@@ -109,7 +127,7 @@ with DAG(
     spark_step >> llm_step >> minio_step
 
 
-# ─── LangChainOperator example (commented; uncomment + adapt as needed) ───
+# ─── LangChain example (commented; uncomment + adapt as needed) ───
 # Notes for adapters / model ids:
 #   - Always route through LiteLLM (base_url=http://litellm:4000/v1) so the
 #     model id can be any LiteLLM alias (Ollama, OpenAI, Anthropic, etc).
@@ -117,13 +135,16 @@ with DAG(
 #     (services/litellm/README.md "Ollama adapter choice"); `ollama/<name>`
 #     hits the embeddings/generate routes instead.
 #   - Use whatever model id appears in `curl http://litellm:4000/v1/models`.
+#   - There is NO `apache-airflow-providers-langchain` (PyPI 404). Use
+#     `pip install langchain-openai langchain-core` in your image or via
+#     a venv-equipped PythonOperator. The pattern below wraps a chain in
+#     a plain Python callable.
 #
 # import os
 # from langchain_core.runnables import RunnablePassthrough
 # from langchain_openai import ChatOpenAI
-# from airflow.providers.langchain.operators.langchain import LangChainOperator
 #
-# def build_chain():
+# def run_chain(**_ctx):
 #     llm = ChatOpenAI(
 #         model="ollama_chat/qwen3.6:latest",  # default Ollama-mode catalog;
 #                                              # see services/litellm/README.md
@@ -131,12 +152,8 @@ with DAG(
 #         base_url="http://litellm:4000/v1",
 #         api_key=os.environ["LITELLM_MASTER_KEY"],
 #     )
-#     return RunnablePassthrough() | llm
+#     chain = RunnablePassthrough() | llm
+#     return chain.invoke({"input": "Reply with the single word 'ok'."})
 #
 # with DAG("langchain_example", ...) as dag2:
-#     LangChainOperator(
-#         task_id="run_chain",
-#         conn_id="litellm_default",
-#         runnable=build_chain,
-#         inputs={"input": "Reply with the single word 'ok'."},
-#     )
+#     PythonOperator(task_id="run_chain", python_callable=run_chain)

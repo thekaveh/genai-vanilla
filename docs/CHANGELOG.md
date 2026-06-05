@@ -36,11 +36,12 @@ plan at
   S3A + JDBC.
 
 - **Apache Airflow** (`AIRFLOW_SOURCE=disabled|container`) — Apache
-  Airflow 3.2.2 (LocalExecutor) with the LLM provider bundle
-  (`apache-airflow-providers-openai` + `apache-airflow-providers-langchain`)
-  pre-wired to LiteLLM. Bundled
-  providers: apache-spark, amazon (MinIO via custom endpoint),
-  postgres, redis, weaviate, neo4j, openai, langchain. Metadata DB
+  Airflow 3.2.2 (LocalExecutor) with `apache-airflow-providers-openai`
+  pre-wired to LiteLLM. Bundled providers: apache-spark, amazon
+  (MinIO via custom endpoint), postgres, redis, common-sql, weaviate,
+  neo4j, openai, fab. (LangChain chains run via PythonOperator +
+  langchain-openai; there is no published apache-airflow-providers-
+  langchain package.) Metadata DB
   lives in a new `airflow` database on Supabase Postgres (created
   idempotently by `airflow-init`). 7 Airflow Connections seeded
   conditionally based on which sibling services are enabled:

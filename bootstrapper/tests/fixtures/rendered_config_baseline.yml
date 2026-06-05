@@ -1778,7 +1778,6 @@ services:
     environment:
       SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
         -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key= -Dspark.hadoop.fs.s3a.path.style.access=true
-      SPARK_NO_DAEMONIZE: 'true'
     image: apache/spark:4.1.2
     networks:
       backend-network: null
@@ -1848,7 +1847,6 @@ services:
       replicas: 0
     environment:
       SPARK_MASTER_HOST: spark-master
-      SPARK_NO_DAEMONIZE: 'true'
     healthcheck:
       test:
       - CMD
@@ -1881,8 +1879,6 @@ services:
         required: true
     deploy:
       replicas: 0
-    environment:
-      SPARK_NO_DAEMONIZE: 'true'
     image: apache/spark:4.1.2
     networks:
       backend-network: null
@@ -2269,7 +2265,6 @@ services:
     deploy:
       replicas: 0
     environment:
-      SPARK_CONNECT_URL: sc://spark-connect:15002
       SPARK_MASTER: spark://spark-master:7077
       SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 --conf spark.hadoop.fs.s3a.access.key=minioadmin
         --conf spark.hadoop.fs.s3a.secret.key= --conf spark.hadoop.fs.s3a.path.style.access=true
