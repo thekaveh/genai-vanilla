@@ -161,7 +161,10 @@ services:
     environment:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
-      _AIRFLOW_DB_MIGRATE: "true"
+      # NOTE: do NOT set _AIRFLOW_DB_MIGRATE=true here. The entrypoint
+      # would try to migrate BEFORE init-airflow.sh CREATEs the airflow
+      # DB — failing with "database does not exist". The script does its
+      # own `airflow db migrate` at line 48 AFTER creating the DB.
       # CRITICAL: init-airflow.sh runs `airflow users create --password
       # "${AIRFLOW_ADMIN_PASSWORD}"` (line 63). Under `set -euo pipefail`
       # an unset var aborts the script — and webserver/scheduler/
@@ -216,7 +219,17 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./init/scripts:/scripts:ro
-    command: ["/scripts/init-airflow.sh"]
+    # CRITICAL: apache/airflow:3.2.2's ENTRYPOINT is /entrypoint
+    # (entrypoint_prod.sh) which treats the first arg as an `airflow`
+    # subcommand and exec's `airflow "$@"`. A bare `["/scripts/init-airflow.sh"]`
+    # becomes `exec airflow /scripts/init-airflow.sh` → invalid
+    # subcommand → exit 2 → init never runs the actual script body →
+    # webserver/scheduler/dag-processor never start (all depends_on
+    # init: service_completed_successfully). The entrypoint explicitly
+    # supports `bash` as a passthrough (entrypoint_prod.sh
+    # exec_to_bash_or_python_command_if_specified), so prefix with `bash`
+    # to make the script actually execute. Caught by Pass 38.
+    command: ["bash", "/scripts/init-airflow.sh"]
     depends_on:
       supabase-db:
         condition: service_healthy

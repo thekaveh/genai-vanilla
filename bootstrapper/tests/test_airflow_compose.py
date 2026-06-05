@@ -28,6 +28,29 @@ def test_airflow_fragment_renders():
         assert svc in services, f"{svc} missing from merged compose"
 
 
+def test_airflow_init_uses_bash_passthrough():
+    """apache/airflow:3.2.2's ENTRYPOINT is entrypoint_prod.sh, which
+    treats the first arg as an `airflow` subcommand and exec's
+    `airflow "$@"`. Without the `bash` prefix, our
+    `["/scripts/init-airflow.sh"]` becomes `exec airflow
+    /scripts/init-airflow.sh` → exit 2 (invalid subcommand) → init
+    fails before the script body runs → webserver/scheduler/dag-processor
+    never start (all depends_on init: service_completed_successfully).
+
+    The entrypoint explicitly supports `bash` as a passthrough — Pass 38
+    caught this; before the fix, every Connection seed, DB create, role
+    create, and admin-user create was silently bypassed at cold start.
+    """
+    doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    cmd = doc["services"]["airflow-init"]["command"]
+    assert cmd[0] in ("bash", "/bin/bash"), (
+        f"airflow-init.command must start with 'bash' to escape the "
+        f"apache/airflow entrypoint's airflow-subcommand dispatch. "
+        f"Got cmd[0]={cmd[0]!r}; would `exec airflow {cmd[0]}` → invalid "
+        f"subcommand → init silently no-ops + the whole family fails to start."
+    )
+
+
 def test_airflow_dag_processor_uses_correct_command():
     """Airflow 3.x's dag-processor is a separate process; the upgrade
     guide is explicit: `The Dag processor must now be started

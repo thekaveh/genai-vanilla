@@ -7,6 +7,7 @@ services:
       args:
         BASE_IMAGE: apache/airflow:3.2.2
     command:
+    - bash
     - /scripts/init-airflow.sh
     container_name: genai-airflow-init
     depends_on:
@@ -16,7 +17,6 @@ services:
     deploy:
       replicas: 0
     environment:
-      _AIRFLOW_DB_MIGRATE: 'true'
       AIRFLOW__API__SECRET_KEY: ''
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       AIRFLOW__CORE__FERNET_KEY: ''
