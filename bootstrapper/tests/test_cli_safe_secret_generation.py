@@ -2,21 +2,27 @@
 of those secrets must use argparse-safe `--flag=VALUE` form.
 
 The trap: `secrets.token_urlsafe()` emits `[A-Za-z0-9_-]`, so ~3% of
-values start with `-` or `_`. Init scripts then call e.g.
-`airflow users create --password ${PASS}` — argparse sees the leading
-`-` and rejects with `argument -p/--password: expected one argument`.
+values start with `-` or `_`. Init scripts then call argparse-style
+CLIs (e.g. `airflow users create --password ${PASS}`); argparse sees
+the leading `-` on the secret value and rejects with
+`argument -p: expected one argument` because it thinks the value is
+another flag.
 
 This was observed live on a user launch the morning after PR #35
-merged: `AIRFLOW_ADMIN_PASSWORD=-aLAySZPdxDL2SpVAzUVYFyV` (leading
-dash) made airflow-init exit rc=1 → the whole airflow family failed
-to start. Two layers of defense:
+merged: a generated `AIRFLOW_ADMIN_PASSWORD` whose first character was
+a literal `-` made airflow-init exit rc=1 → the whole airflow family
+failed to start. (The original docstring quoted the offending token
+verbatim, which is why GitGuardian flagged this file as a generic-
+secret leak — it had already been rotated locally, but the literal in
+git history was the actual problem. Don't quote generated secrets in
+test docstrings even after rotation.) Two layers of defense:
 
 1. **bootstrapper-side guard**: `_cli_safe_token_urlsafe()` re-rolls
    the token if the first char is `-` or `_`. No future generated
    secret can hit this CLI-parsing class.
-2. **consumer-side defense**: init-airflow.sh uses `--flag=VALUE`
-   (= form) which argparse always parses as a single token even if
-   VALUE starts with `-`.
+2. **consumer-side defense**: init-airflow.sh uses the equals form of
+   every flag (single-token binding) which argparse always parses as
+   one argument even if VALUE starts with `-`.
 
 Both layers are independent — either alone would have prevented the
 crash. Together they're belt-and-suspenders.
