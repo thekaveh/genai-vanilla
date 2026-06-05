@@ -223,6 +223,7 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
+| airflow | agents |
 | jupyterhub | apps |
 
 ### 12.3 Architecture diagram
