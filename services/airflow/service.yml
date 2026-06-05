@@ -113,6 +113,10 @@ runtime_sc:
         # Dual-write per project_runtime_sc_vs_compose_env_dual_write.md.
         # Airflow 3.x: was AIRFLOW__WEBSERVER__SECRET_KEY (section retired).
         AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+        # Parity with api-server + init. DagFileProcessor invokes
+        # AuthManager during DAG parsing.
+        AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
+        AIRFLOW__FAB__AUTH_BACKENDS: "airflow.providers.fab.auth_manager.api.auth.backend.basic_auth"
         AIRFLOW__CORE__LOAD_EXAMPLES: "false"
         AIRFLOW_UID: "50000"
       deploy: {}

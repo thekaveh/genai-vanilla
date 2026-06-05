@@ -138,3 +138,31 @@ jobs:
 
       - name: Research schema validator
         run: uv run --project bootstrapper python scripts/validate_research_schema.py --all
+
+  build-validation:
+    name: Build-validation (Dockerfile + requirements.txt installability)
+    runs-on: ubuntu-latest
+    # Catches the Pass 12 / Pass 13 class of bug: unsatisfiable pip pins,
+    # nonexistent packages, broken Dockerfile syntax. Compose-shape checks
+    # never invoke `docker build`, so a broken requirements.txt sails
+    # through the other gates. This job builds each service that ships a
+    # build: context so `pip install -r requirements.txt` is exercised
+    # against real PyPI metadata.
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build airflow image
+        # apache/airflow:3.2.2 + the 9 providers + pyspark[connect]. Catches
+        # unsatisfiable provider floors (Pass 12 saw 3 of these slip past
+        # CI before this job was added) and Dockerfile syntax errors.
+        run: docker buildx build --load --build-arg BASE_IMAGE=apache/airflow:3.2.2 services/airflow/build/
+
+      - name: Build jupyterhub image
+        run: docker buildx build --load services/jupyterhub/build/
+
+      - name: Build backend image
+        # services/backend/app/Dockerfile pulls FastAPI + LangChain stack.
+        run: docker buildx build --load services/backend/app/
