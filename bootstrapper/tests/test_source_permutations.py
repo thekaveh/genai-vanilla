@@ -157,3 +157,41 @@ def test_source_value_produces_valid_compose(var: str, value: str, tmp_path: Pat
     _write_env_with_override(env_file, var, value)
     ok, stderr = _compose_config_ok(env_file)
     assert ok, f"{var}={value} produced invalid compose:\n{stderr}"
+
+
+# ─── Scaled-family rendering tests ──────────────────────────────────────
+# These exercise multi-replica scales that ``test_source_value_produces_valid_compose``
+# can't catch — that test only flips SOURCE vars; the auto-managed *_SCALE
+# vars stay empty (= 0 at render time). When a user actually enables a
+# scaled service (``--spark-source container --spark-workers 2``), the
+# bootstrapper sets the *_SCALE values in .env, and Compose then evaluates
+# rules like "no container_name when replicas > 1".
+
+@pytest.mark.parametrize("worker_count", ["1", "2", "8"])
+def test_spark_renders_at_every_supported_worker_count(worker_count: str, tmp_path: Path):
+    """Spark workers can scale 1-8 via SPARK_WORKER_COUNT. At every
+    supported count the merged compose shape must render — in particular,
+    ``container_name`` MUST NOT be set on spark-worker because Compose
+    forbids it when ``deploy.replicas > 1`` (Docker can't make multiple
+    containers share the same name). Ray's ray-worker has the same
+    constraint and is the precedent for the no-container_name pattern."""
+    env_file = tmp_path / ".env"
+    # Apply all four scales the bootstrapper would write when source=container.
+    env_text = ENV_EXAMPLE.read_text(encoding="utf-8")
+    out_lines = []
+    for line in env_text.splitlines():
+        if line.startswith("SPARK_SOURCE="):
+            out_lines.append("SPARK_SOURCE=container")
+        elif line.startswith("SPARK_MASTER_SCALE="):
+            out_lines.append("SPARK_MASTER_SCALE=1")
+        elif line.startswith("SPARK_WORKER_SCALE="):
+            out_lines.append(f"SPARK_WORKER_SCALE={worker_count}")
+        elif line.startswith("SPARK_HISTORY_SCALE="):
+            out_lines.append("SPARK_HISTORY_SCALE=1")
+        elif line.startswith("SPARK_INIT_SCALE="):
+            out_lines.append("SPARK_INIT_SCALE=1")
+        else:
+            out_lines.append(line)
+    env_file.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+    ok, stderr = _compose_config_ok(env_file)
+    assert ok, f"SPARK_WORKER_SCALE={worker_count} produced invalid compose:\n{stderr}"

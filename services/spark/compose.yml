@@ -27,7 +27,10 @@ services:
 
   spark-worker:
     image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
-    container_name: ${PROJECT_NAME}-spark-worker
+    # NO container_name: ${PROJECT_NAME}-spark-worker — Compose forbids
+    # container_name when deploy.replicas > 1 (which is the default for
+    # SPARK_WORKER_COUNT=2..8). Workers are auto-named by Compose:
+    # `${PROJECT_NAME}-spark-worker-1`, `-2`, etc. Mirrors Ray's ray-worker.
     restart: unless-stopped
     deploy:
       replicas: ${SPARK_WORKER_SCALE:-0}
