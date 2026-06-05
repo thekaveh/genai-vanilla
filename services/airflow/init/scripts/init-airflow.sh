@@ -48,14 +48,27 @@ echo "==> airflow-init: running airflow db migrate"
 airflow db migrate
 
 echo "==> airflow-init: creating admin user (idempotent)"
-airflow users create \
+# Capture stderr so a real failure surfaces in container logs instead of
+# being hidden by the "already exists" success message. The CLI prints
+# `airflow.exceptions.AirflowException: Cannot create user`-class errors
+# on real failure (e.g. FabAuthManager not configured) vs "User admin
+# already exists" on the idempotent re-run case. Only the latter is OK.
+create_output=$(airflow users create \
   --username admin \
   --firstname Admin \
   --lastname User \
   --role Admin \
   --email admin@localhost \
-  --password "${AIRFLOW_ADMIN_PASSWORD}" \
-  || echo "(admin user already exists — skipping)"
+  --password "${AIRFLOW_ADMIN_PASSWORD}" 2>&1) || true
+if echo "$create_output" | grep -qE "already exists|already a user"; then
+  echo "(admin user already exists — skipping)"
+elif echo "$create_output" | grep -qiE "error|exception|traceback"; then
+  echo "airflow-init: ERROR during admin user creation:" >&2
+  echo "$create_output" >&2
+  exit 1
+else
+  echo "$create_output"
+fi
 
 echo "==> airflow-init: seeding Connections (gated on sibling source)"
 
@@ -140,6 +153,6 @@ if [ "${NEO4J_GRAPH_DB_SOURCE}" = "container" ]; then
     --conn-password "${GRAPH_DB_PASSWORD}"
 fi
 
-add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379
+add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379 --conn-password "${REDIS_PASSWORD}"
 
 echo "==> airflow-init: complete"

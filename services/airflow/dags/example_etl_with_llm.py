@@ -114,13 +114,16 @@ with DAG(
 #     hits the embeddings/generate routes instead.
 #   - Use whatever model id appears in `curl http://litellm:4000/v1/models`.
 #
+# import os
 # from langchain_core.runnables import RunnablePassthrough
 # from langchain_openai import ChatOpenAI
 # from airflow.providers.langchain.operators.langchain import LangChainOperator
 #
 # def build_chain():
 #     llm = ChatOpenAI(
-#         model="ollama/qwen3.6:latest",  # default Ollama-mode catalog
+#         model="ollama_chat/qwen3:latest",  # default Ollama-mode catalog;
+#                                            # see services/litellm/README.md
+#                                            # for the adapter-id convention.
 #         base_url="http://litellm:4000/v1",
 #         api_key=os.environ["LITELLM_MASTER_KEY"],
 #     )

@@ -13,7 +13,9 @@ apache-airflow-providers-openai>=2.0.0
 apache-airflow-providers-langchain>=1.1.0
 # Airflow 3.x split out Flask-AppBuilder as a provider. Required by the
 # `airflow.providers.fab.auth_manager.api.auth.backend.basic_auth` backend
-# we use in AIRFLOW__API__AUTH_BACKENDS.
+# we use in AIRFLOW__FAB__AUTH_BACKENDS (renamed from [api] in 3.x). Also
+# required to make `airflow users create` actually work — FAB provides
+# both the auth backend AND the users-management CLI.
 apache-airflow-providers-fab>=2.0.0
 psycopg2-binary>=2.9.10
 # Required by the sample DAG's Spark Connect smoke step (`from pyspark.sql
