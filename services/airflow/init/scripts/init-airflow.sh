@@ -27,6 +27,16 @@ psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres -tAc \
        -c "CREATE ROLE ${AIRFLOW_DB_USER} WITH LOGIN PASSWORD '${AIRFLOW_DB_PASSWORD}'"
 psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
      -c "GRANT ALL PRIVILEGES ON DATABASE airflow TO ${AIRFLOW_DB_USER}"
+# Postgres 15+ (the stack ships supabase/postgres:17.x) tightened the
+# public-schema default: ALL PRIVILEGES on the database does NOT include
+# CREATE on `public` — only the database OWNER has that, via the magic
+# pg_database_owner role. CREATE DATABASE made supabase_admin the owner,
+# so airflow's `db migrate` would fail with "permission denied for schema
+# public" on every cold start. Re-owning the database to airflow flips
+# pg_database_owner over (idempotent — `ALTER ... OWNER TO already_owner`
+# is a no-op).
+psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+     -c "ALTER DATABASE airflow OWNER TO ${AIRFLOW_DB_USER}"
 unset PGPASSWORD
 
 echo "==> airflow-init: running airflow db migrate"
