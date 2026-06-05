@@ -57,6 +57,10 @@ EXPECTED_DISCOVERED = frozenset({
     # Observability bundle (added 2026-05-31).
     "Prometheus",
     "Grafana",
+    # Spark (added 2026-06-04) — standalone cluster, distinct from Ray.
+    # Wizard discovery requires `spark_master_source` shim in
+    # SourceOverrideManager.source_mapping (multi-container family).
+    "Apache Spark",
 })
 
 

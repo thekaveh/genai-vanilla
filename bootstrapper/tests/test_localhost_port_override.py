@@ -78,19 +78,23 @@ def test_localhost_option_carries_secondary_number(display, option_value, env_va
 def test_non_localhost_options_carry_no_secondary_number():
     """Container / external / disabled options never carry a config —
     the inline textbox only makes sense for localhost sources (Ray
-    container variants carry RAY_WORKER_COUNT, which is allowed)."""
+    + Spark container variants carry *_WORKER_COUNT, which is allowed)."""
     steps = _wizard_steps()
+    # Worker-count env vars exempt from the "localhost-only" rule.
+    # Each is attached to its service's container option(s) by integration.py.
+    WORKER_COUNT_VARS = {"RAY_WORKER_COUNT", "SPARK_WORKER_COUNT"}
     for s in steps:
         for opt in s.options:
             if opt.value and "localhost" not in opt.value:
                 if opt.secondary_number is not None:
-                    # Allowed exception: Ray's container-cpu / container-gpu
-                    # rows carry RAY_WORKER_COUNT — that's not a port.
-                    if opt.secondary_number.env_var == "RAY_WORKER_COUNT":
+                    # Allowed exceptions: Ray's container-cpu / container-gpu
+                    # rows carry RAY_WORKER_COUNT; Spark's container row
+                    # carries SPARK_WORKER_COUNT. Neither is a port.
+                    if opt.secondary_number.env_var in WORKER_COUNT_VARS:
                         continue
                     assert False, (
                         f"Option {s.service_name}/{opt.value} carries a "
                         f"SecondaryNumberInput ({opt.secondary_number.env_var}) "
                         f"but it's not a -localhost option. "
-                        f"This widget is only for localhost ports + Ray workers."
+                        f"This widget is only for localhost ports + Ray/Spark workers."
                     )
