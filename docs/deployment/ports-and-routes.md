@@ -20,6 +20,7 @@ Run once to add them to `/etc/hosts`:
 
 Active aliases (every `*-localhost` source also routes through `host.docker.internal`):
 
+- `airflow.localhost` → Airflow Web UI + REST API (`AIRFLOW_SOURCE != disabled`; same alias serves UI at `/` and REST API under `/api/v2/`; auth via `admin` / auto-generated `AIRFLOW_ADMIN_PASSWORD`)
 - `api.localhost` → Backend API (always-on adaptive)
 - `chat.localhost` → Open WebUI (`OPEN_WEB_UI_SOURCE != disabled`)
 - `comfyui.localhost` → ComfyUI (`COMFYUI_SOURCE != disabled`)
@@ -34,10 +35,13 @@ Active aliases (every `*-localhost` source also routes through `host.docker.inte
 - `openclaw.localhost` → OpenClaw gateway (`OPENCLAW_SOURCE != disabled`)
 - `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
 - `search.localhost` → SearxNG (`SEARXNG_SOURCE != disabled`)
+- `spark.localhost` → Spark Master Web UI — routes to in-container `spark-master:8080` (`SPARK_SOURCE != disabled`)
+- `spark-history.localhost` → Spark History Server UI — routes to in-container `spark-history:18080` (`SPARK_SOURCE != disabled`)
 - `stt.localhost` → STT engine — container resolves to `parakeet-gpu` or `speaches`; localhost routes via `host.docker.internal`
 - `studio.localhost` → Supabase Studio dashboard
 - `tts.localhost` → TTS engine — container resolves to `speaches:8000` or `chatterbox:4123`; localhost routes via `host.docker.internal`
 - `weaviate.localhost` → Weaviate REST API (`WEAVIATE_SOURCE != disabled`)
+- `zeppelin.localhost` → Zeppelin notebook UI — routes to in-container `zeppelin:8080` (`ZEPPELIN_SOURCE != disabled`; gated on `SPARK_SOURCE != disabled`)
 - `prometheus.localhost` → Prometheus UI + API (`PROMETHEUS_SOURCE != disabled`; no auth — Kong-gated, internal-only scrape paths)
 - `grafana.localhost` → Grafana dashboards + alerting UI (`GRAFANA_SOURCE != disabled`; admin login via `GRAFANA_ADMIN_USERNAME` / auto-generated `GRAFANA_ADMIN_PASSWORD`)
 

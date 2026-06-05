@@ -476,6 +476,81 @@ GRAFANA_ADMIN_PASSWORD=...       # auto-generated on first bootstrap; persisted 
 - **Cons**: When `PROMETHEUS_SOURCE=disabled`, every panel shows "datasource unreachable" — pair with `--prometheus-source container` for a working setup
 - **Requirements**: ~300 MB image disk + small named volume for SQLite
 
+### SPARK_SOURCE
+
+Spark is a standalone Apache Spark cluster (master + N workers + history server) sitting in the `infra` band alongside Ray. It exposes a Spark Connect endpoint on `:15002` for thin clients (Jupyter, Zeppelin, Backend). The bootstrapper renders `SPARK_MASTER_URL`, `SPARK_CONNECT_URL`, and per-worker resource limits from this source. See [Spark service README](../../services/spark/README.md) for the cluster topology and Spark Connect details.
+
+#### `disabled` (Default)
+```bash
+SPARK_SOURCE=disabled
+```
+- **Use case**: No Spark workloads; saves ~3 GB image disk + per-worker RAM
+- **Pros**: Zero footprint; Zeppelin is also gated off (Zeppelin without Spark errors out at start)
+- **Cons**: No batch / SQL / DataFrame compute; LLM operators in Airflow that import `pyspark` will fail
+- **Requirements**: None
+
+#### `container`
+```bash
+SPARK_SOURCE=container
+SPARK_WORKERS=2          # number of spark-worker replicas; 1..8 — wizard prompts inline
+```
+- **Use case**: Local Spark cluster for batch / SQL / DataFrame jobs and Spark Connect clients
+- **Pros**: Master + N workers + history server, Kong-aliased UIs at `spark.localhost` + `spark-history.localhost`, Spark Connect on `:15002`
+- **Cons**: Each worker reserves CPU + RAM (defaults to 1 core / 1 GB); heavy on laptops above 2 workers
+- **Containers**: `spark-master`, `spark-worker-1..N`, `spark-history`
+- **Requirements**: ~3 GB image disk + ~1 GB RAM per worker
+
+### ZEPPELIN_SOURCE
+
+Zeppelin is the Spark-first notebook UI, pre-configured with Spark + JDBC interpreters wired to the in-cluster Spark master and Supabase Postgres. **Hard-gated on Spark** — `ZEPPELIN_SOURCE=container` with `SPARK_SOURCE=disabled` errors out at bootstrap. See [Zeppelin service README](../../services/zeppelin/README.md) for the interpreter setup.
+
+#### `disabled` (Default)
+```bash
+ZEPPELIN_SOURCE=disabled
+```
+- **Use case**: No notebook UI for Spark; saves ~1.5 GB image disk
+- **Pros**: Zero footprint
+- **Cons**: No Spark notebook authoring (Jupyter notebooks can still drive Spark Connect though)
+- **Requirements**: None
+
+#### `container`
+```bash
+ZEPPELIN_SOURCE=container
+SPARK_SOURCE=container   # REQUIRED — Zeppelin hard-fails without Spark
+```
+- **Use case**: Web-based notebook authoring against the in-cluster Spark master
+- **Pros**: Pre-configured Spark + JDBC interpreters, Kong-aliased UI at `zeppelin.localhost`, persists notebooks to a named volume
+- **Cons**: Adds ~1.5 GB image disk + ~512 MB RAM
+- **Containers**: `zeppelin`
+- **Requirements**: `SPARK_SOURCE=container`
+
+### AIRFLOW_SOURCE
+
+Airflow is a code-defined DAG orchestrator running LocalExecutor (no Celery / Redis broker — the metadata DB is Supabase Postgres). The image ships the AI/ML SDK with LLM operators pre-wired to LiteLLM. The bootstrapper seeds Airflow Connections per sibling source — Postgres, Redis, MinIO/S3, Ollama (via LiteLLM), Spark (gated on `SPARK_SOURCE=container`). See [Airflow service README](../../services/airflow/README.md) for the seeded Connections matrix and the example DAG.
+
+#### `disabled` (Default)
+```bash
+AIRFLOW_SOURCE=disabled
+```
+- **Use case**: No orchestrated workflows; saves ~2 GB image disk + Postgres metadata schema
+- **Pros**: Zero footprint
+- **Cons**: No scheduled DAGs; no Hermes → Airflow trigger pattern
+- **Requirements**: None
+
+#### `container`
+```bash
+AIRFLOW_SOURCE=container
+AIRFLOW_ADMIN_USERNAME=admin            # override only if you want a different login
+AIRFLOW_ADMIN_PASSWORD=...              # auto-generated on first bootstrap; persisted to .env
+AIRFLOW_FERNET_KEY=...                  # auto-generated; encrypts Connections + Variables at rest
+AIRFLOW_SECRET_KEY=...                  # auto-generated; signs Web UI sessions
+```
+- **Use case**: Scheduled / triggered DAG runs (ETL, model fine-tunes, scheduled LLM evals) with first-class LiteLLM-wired LLM operators
+- **Pros**: LocalExecutor (no broker), Supabase Postgres metadata DB, Kong-aliased UI at `airflow.localhost`, REST API under the same alias at `/api/v2/`, Connections auto-seeded per sibling source (Postgres / Redis / MinIO / Ollama / Spark when enabled)
+- **Cons**: ~2 GB image disk + ~1 GB RAM for the webserver + scheduler combo
+- **Containers**: `airflow-init` (one-shot), `airflow-webserver`, `airflow-scheduler`
+- **Requirements**: Supabase Postgres reachable (always-on)
+
 ## Configuration Patterns
 
 ### Development Setup
