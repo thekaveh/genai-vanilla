@@ -57,6 +57,10 @@ Plain `python3 scripts/check-kong-routes.py` works too if `PyYAML` is on your sy
 - `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
 - `stt.localhost` → STT engine (`STT_PROVIDER_SOURCE != disabled`; container resolves to `parakeet-gpu` or `speaches`, localhost to `host.docker.internal` on the per-engine port)
 - `tts.localhost` → TTS engine (`TTS_PROVIDER_SOURCE != disabled`; container resolves to `speaches:8000` or `chatterbox:4123`, localhost to `host.docker.internal` on the per-engine port)
+- `spark.localhost` → Spark Master Web UI (`SPARK_SOURCE != disabled`; routes to in-container `spark-master:8080`)
+- `spark-history.localhost` → Spark History Server UI (`SPARK_SOURCE != disabled`; routes to in-container `spark-history:18080`)
+- `zeppelin.localhost` → Zeppelin notebook UI (`ZEPPELIN_SOURCE != disabled`; routes to in-container `zeppelin:8080`; hard-gated on `SPARK_SOURCE != disabled`)
+- `airflow.localhost` → Airflow Web UI + REST API (`AIRFLOW_SOURCE != disabled`; routes to in-container `airflow-webserver:8080`; same alias serves UI at `/` and REST API under `/api/v2/`)
 
 Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports override via `<SVC>_LOCALHOST_PORT` env vars; both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) and the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) read the same PORT var and derive the URL as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT}`, keeping both paths in sync.
 
@@ -167,6 +171,12 @@ curl -H "Host: openclaw.localhost" http://localhost:63000/
 curl -H "Host: hermes.localhost" http://localhost:63000/
 curl -H "Host: litellm.localhost" http://localhost:63000/ui/
 curl -H "Host: minio.localhost" http://localhost:63000/
+curl -H "Host: spark.localhost" http://localhost:63000/
+curl -H "Host: spark-history.localhost" http://localhost:63000/
+curl -H "Host: zeppelin.localhost" http://localhost:63000/
+curl -H "Host: airflow.localhost" http://localhost:63000/
+# Airflow REST API (same alias):
+curl -u admin:${AIRFLOW_ADMIN_PASSWORD} -H "Host: airflow.localhost" http://localhost:63000/api/v2/dags
 ```
 
 ## 11. Advanced Configuration
