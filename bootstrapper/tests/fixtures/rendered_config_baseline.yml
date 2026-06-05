@@ -23,6 +23,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
       AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
+      AIRFLOW_ADMIN_PASSWORD: ''
       AIRFLOW_DB_PASSWORD: ''
       AIRFLOW_DB_USER: airflow
       AIRFLOW_UID: '50000'
