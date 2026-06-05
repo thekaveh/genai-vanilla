@@ -118,6 +118,13 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+      # MUST wait for spark-init too — it creates the spark-history MinIO
+      # bucket. Spark 4.x's EventLogFileWriters does NOT auto-create the
+      # base eventLog directory; the first job at cold start would throw
+      # `IllegalArgumentException: Log directory s3a://spark-history/ is
+      # not a directory` if spark-init hasn't completed yet.
+      spark-init:
+        condition: service_completed_successfully
     networks:
       - backend-network
 

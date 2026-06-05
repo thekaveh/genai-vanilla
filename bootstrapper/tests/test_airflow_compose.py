@@ -20,8 +20,26 @@ def test_airflow_fragment_renders():
     )
     assert result.returncode == 0, result.stderr
     services = set(result.stdout.split())
-    for svc in ("airflow-webserver", "airflow-scheduler", "airflow-init"):
+    # 4-container family — Airflow 3.x requires a standalone dag-processor
+    # (the scheduler no longer parses DAG files in-process; without
+    # dag-processor, no DAGs are ever loaded into the metadata DB).
+    for svc in ("airflow-webserver", "airflow-scheduler",
+                "airflow-dag-processor", "airflow-init"):
         assert svc in services, f"{svc} missing from merged compose"
+
+
+def test_airflow_dag_processor_uses_correct_command():
+    """Airflow 3.x's dag-processor is a separate process; the upgrade
+    guide is explicit: `The Dag processor must now be started
+    independently, even for local or development setups: airflow dag-processor`.
+    """
+    doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    dp = doc["services"]["airflow-dag-processor"]
+    assert dp["command"] == ["airflow", "dag-processor"], (
+        f"airflow-dag-processor.command must be ['airflow', 'dag-processor'], "
+        f"got {dp['command']!r}. Without it the service runs the default "
+        f"image entrypoint and no DAGs are parsed."
+    )
 
 
 def test_airflow_scheduler_carries_api_secret_key():

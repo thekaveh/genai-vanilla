@@ -80,3 +80,39 @@ def test_spark_init_uses_minio_mc_image():
         f"spark-init image should be minio/mc:..., got {image!r}. "
         "alpine:latest's mc package is Midnight Commander, not MinIO Client."
     )
+
+
+def test_spark_connect_emits_event_log_to_history_bucket():
+    """spark-connect must set spark.eventLog.enabled=true +
+    spark.eventLog.dir=s3a://spark-history/ so that Connect-driven
+    Spark sessions actually feed the History Server. Without these,
+    the Pass 15 fix wouldn't deliver; the documented spark-history
+    feature ships non-functional.
+    """
+    doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    cmd = doc["services"]["spark-connect"]["command"]
+    joined = " ".join(cmd)
+    assert "spark.eventLog.enabled=true" in joined, (
+        "spark-connect must enable eventLog or the History Server stays "
+        "empty forever. Pass 15 fix."
+    )
+    assert "spark.eventLog.dir=s3a://spark-history/" in joined, (
+        "spark-connect must point eventLog at s3a://spark-history/."
+    )
+
+
+def test_spark_connect_depends_on_spark_init():
+    """spark-connect must wait for spark-init (which creates the
+    spark-history MinIO bucket) before starting — Spark 4.x's
+    EventLogFileWriters does NOT auto-create the base eventLog dir;
+    a cold-start race would throw IllegalArgumentException at the
+    first Spark Connect session.
+    """
+    doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    deps = doc["services"]["spark-connect"]["depends_on"]
+    assert "spark-init" in deps, (
+        "spark-connect must depends_on spark-init or the first job at "
+        "cold start fails 'Log directory s3a://spark-history/ is not a "
+        "directory'."
+    )
+    assert deps["spark-init"]["condition"] == "service_completed_successfully"
