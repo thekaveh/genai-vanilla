@@ -26,10 +26,6 @@ services:
     environment:
       SPARK_MASTER_HOST: spark-master
       SPARK_NO_DAEMONIZE: "true"
-      # Spark Connect (gRPC) — apache/spark loads the plugin via
-      # spark.plugins config. Spark Connect's binding port is set via
-      # --conf at boot below.
-      SPARK_DAEMON_JAVA_OPTS: -Dspark.connect.grpc.binding.port=15002
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.master.Master
@@ -74,6 +70,49 @@ services:
     networks:
       - backend-network
 
+  # Spark Connect gRPC server. Standalone process — runs against the
+  # cluster via --master. apache/spark ships start-connect-server.sh +
+  # the spark-connect jars in /opt/spark/jars by default.
+  #
+  # Earlier drafts tried to enable Connect "inside" spark-master via
+  # SPARK_DAEMON_JAVA_OPTS=-Dspark.connect.grpc.binding.port=15002. That
+  # set a JVM system property but did NOT load the Connect plugin or
+  # bind the listener — `spark-class Master` ignores --conf and does
+  # not honor spark.plugins. The dedicated sidecar is the only path
+  # that produces a working `sc://...:15002` URL.
+  #
+  # Clients connect at sc://spark-connect:15002 (NOT spark-master:15002).
+  spark-connect:
+    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    container_name: ${PROJECT_NAME}-spark-connect
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPARK_CONNECT_SCALE:-0}
+    # Intentionally NO `ports:` block. Spark Connect is backend-only —
+    # in-Compose clients (Zeppelin's interpreter, Airflow DAGs running in
+    # the scheduler) reach it at `sc://spark-connect:15002` via the
+    # backend-network. External client access can be added later by
+    # publishing the port; not in scope for the in-stack-only baseline.
+    command:
+      - /opt/spark/sbin/start-connect-server.sh
+      - --master
+      - spark://spark-master:7077
+      - --conf
+      - spark.connect.grpc.binding.port=15002
+      - --conf
+      - spark.hadoop.fs.s3a.endpoint=http://minio:9000
+      - --conf
+      - spark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}
+      - --conf
+      - spark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
+      - --conf
+      - spark.hadoop.fs.s3a.path.style.access=true
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - backend-network
+
   spark-history:
     image: ${SPARK_IMAGE:-apache/spark:4.1.2}
     container_name: ${PROJECT_NAME}-spark-history
@@ -101,21 +140,23 @@ services:
     networks:
       - backend-network
 
-  # NOTE: init container uses vanilla alpine:latest per
-  # project_init_container_pattern.md. Inline apk add. Idempotent.
+  # Use the same minio/mc image as minio-init. The vanilla-alpine + inline
+  # apk pattern (project_init_container_pattern.md) FAILS here because
+  # Alpine's `mc` package is GNU Midnight Commander (a TUI file manager),
+  # NOT MinIO Client — `mc alias set` would error and spark-history would
+  # never start. minio-init solves this by pinning minio/mc; spark-init
+  # does the same so the two stay in lockstep on the upstream mc release.
   spark-init:
-    image: alpine:latest
+    image: ${MINIO_INIT_IMAGE:-minio/mc:RELEASE.2025-08-13T08-35-41Z}
     container_name: ${PROJECT_NAME}-spark-init
     deploy:
       replicas: ${SPARK_INIT_SCALE:-0}
     depends_on:
       minio-init:
         condition: service_completed_successfully
+    entrypoint: ["sh", "-c"]
     command:
-      - sh
-      - -c
       - |
-        apk add --no-cache mc >/dev/null
         mc alias set minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
         mc mb --ignore-existing minio/spark-history
         echo "spark-init: spark-history bucket ready"

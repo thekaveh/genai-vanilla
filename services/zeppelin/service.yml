@@ -56,7 +56,7 @@ runtime_sc:
         ZEPPELIN_LOG_DIR: /logs
         ZEPPELIN_NOTEBOOK_DIR: /notebook
         SPARK_MASTER: "spark://spark-master:7077"
-        SPARK_CONNECT_URL: "sc://spark-master:15002"
+        SPARK_CONNECT_URL: "sc://spark-connect:15002"
         SPARK_SUBMIT_OPTIONS: >-
           --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000
           --conf spark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}

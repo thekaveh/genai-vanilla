@@ -683,6 +683,7 @@ class ServiceConfig:
             env_vars["SPARK_WORKER_SCALE"] = "0"
             env_vars["SPARK_HISTORY_SCALE"] = "0"
             env_vars["SPARK_INIT_SCALE"] = "0"
+            env_vars["SPARK_CONNECT_SCALE"] = "0"
             return env_vars
 
         minio_source = self.service_sources.get("MINIO_SOURCE", "disabled")
@@ -705,6 +706,7 @@ class ServiceConfig:
         env_vars["SPARK_WORKER_SCALE"] = str(worker_count)
         env_vars["SPARK_HISTORY_SCALE"] = "1"
         env_vars["SPARK_INIT_SCALE"] = "1"
+        env_vars["SPARK_CONNECT_SCALE"] = "1"
         return env_vars
 
     def _generate_zeppelin_config(self) -> dict:
