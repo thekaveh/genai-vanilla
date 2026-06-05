@@ -66,6 +66,7 @@ class SourceOverrideManager:
             # spark_source is wired to a CLI flag (--spark-source);
             # spark_master_source exists purely as a discovery shim.
             'spark_master_source': 'SPARK_SOURCE',
+            'zeppelin_source': 'ZEPPELIN_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:
