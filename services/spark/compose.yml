@@ -16,7 +16,16 @@ services:
   # Compose's auto-naming (see the spark-worker block below for the
   # container_name-vs-replicas>1 conflict).
   spark-master:
-    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    # Locally-built image — apache/spark:4.1.2 is missing hadoop-aws +
+    # the AWS SDK v2 bundle. Without them, s3a:// access throws
+    # ClassNotFoundException → spark-history shows no jobs, drivers
+    # fail to write eventLog. The Dockerfile pulls both jars from
+    # Maven Central. (Same `build: + image:` pattern as airflow.)
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    image: ${PROJECT_NAME}-spark:local
     container_name: ${PROJECT_NAME}-spark-master
     restart: unless-stopped
     deploy:
@@ -47,7 +56,11 @@ services:
       - backend-network
 
   spark-worker:
-    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    image: ${PROJECT_NAME}-spark:local
     # NO container_name: ${PROJECT_NAME}-spark-worker — Compose forbids
     # container_name when deploy.replicas > 1 (which is the default for
     # SPARK_WORKER_COUNT=2..8). Workers are auto-named by Compose:
@@ -80,7 +93,11 @@ services:
   #
   # Clients connect at sc://spark-connect:15002 (NOT spark-master:15002).
   spark-connect:
-    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    image: ${PROJECT_NAME}-spark:local
     container_name: ${PROJECT_NAME}-spark-connect
     restart: unless-stopped
     deploy:
@@ -137,7 +154,11 @@ services:
       - backend-network
 
   spark-history:
-    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${SPARK_IMAGE:-apache/spark:4.1.2}
+    image: ${PROJECT_NAME}-spark:local
     container_name: ${PROJECT_NAME}-spark-history
     restart: unless-stopped
     deploy:
