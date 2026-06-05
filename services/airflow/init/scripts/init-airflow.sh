@@ -54,13 +54,20 @@ echo "==> airflow-init: creating admin user (idempotent)"
 # `airflow users create` returns rc=0 on success AND on the documented
 # idempotent already-exists case in 3.x; we still grep stdout to suppress
 # the "already exists" message when the user is unchanged.
+# `--flag=VALUE` form (not `--flag VALUE` with space) is REQUIRED for
+# any value that may legitimately start with `-`. `secrets.token_urlsafe`
+# emits the URL-safe Base64 alphabet `[A-Za-z0-9_-]`, so ~3% of generated
+# passwords start with a leading dash. argparse then interprets the value
+# as another flag → `argument -p/--password: expected one argument`. The
+# `=` form binds the value to the flag in a single token regardless.
+# Applies below to every `--conn-password=` too.
 if create_output=$(airflow users create \
-  --username admin \
-  --firstname Admin \
-  --lastname User \
-  --role Admin \
-  --email admin@localhost \
-  --password "${AIRFLOW_ADMIN_PASSWORD}" 2>&1); then
+  --username=admin \
+  --firstname=Admin \
+  --lastname=User \
+  --role=Admin \
+  --email=admin@localhost \
+  --password="${AIRFLOW_ADMIN_PASSWORD}" 2>&1); then
   if echo "$create_output" | grep -qE "already exists|already a user"; then
     echo "(admin user already exists — skipping)"
   else
@@ -130,7 +137,7 @@ fi
 add_conn litellm_default \
   --conn-type openai \
   --conn-host http://litellm:4000/v1 \
-  --conn-password "${LITELLM_MASTER_KEY}"
+  --conn-password="${LITELLM_MASTER_KEY}"
 
 # NOTE: postgres_supabase intentionally uses the SUPABASE_DB_USER (admin)
 # credentials today. The .env declares SUPABASE_DB_APP_USER / _PASSWORD
@@ -143,8 +150,8 @@ add_conn litellm_default \
 add_conn postgres_supabase \
   --conn-type postgres --conn-host supabase-db --conn-port 5432 \
   --conn-schema "${SUPABASE_DB_NAME}" \
-  --conn-login "${SUPABASE_DB_USER}" \
-  --conn-password "${SUPABASE_DB_PASSWORD}"
+  --conn-login="${SUPABASE_DB_USER}" \
+  --conn-password="${SUPABASE_DB_PASSWORD}"
 
 if [ "${WEAVIATE_SOURCE}" = "container" ]; then
   # WeaviateHook.get_conn() passes conn.host straight into weaviate-client's
@@ -176,10 +183,10 @@ if [ "${NEO4J_GRAPH_DB_SOURCE}" = "container" ]; then
     --conn-type neo4j \
     --conn-host "neo4j-graph-db" \
     --conn-port 7687 \
-    --conn-login "${GRAPH_DB_USER}" \
-    --conn-password "${GRAPH_DB_PASSWORD}"
+    --conn-login="${GRAPH_DB_USER}" \
+    --conn-password="${GRAPH_DB_PASSWORD}"
 fi
 
-add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379 --conn-password "${REDIS_PASSWORD}"
+add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379 --conn-password="${REDIS_PASSWORD}"
 
 echo "==> airflow-init: complete"

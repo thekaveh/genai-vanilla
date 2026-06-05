@@ -11,6 +11,30 @@ from pathlib import Path
 from typing import Optional, Dict
 
 
+def _cli_safe_token_urlsafe(nbytes: int) -> str:
+    """secrets.token_urlsafe() with a guard: never return a value whose
+    first character is `-` or `_`.
+
+    secrets.token_urlsafe() emits the URL-safe Base64 alphabet
+    `[A-Za-z0-9_-]`, so ~3% of values start with one of those two chars.
+    Generated secrets get passed verbatim to argparse-based CLIs
+    (`airflow users create --password ${VAR}`, `airflow connections add
+    --conn-password ${VAR}`, etc.), and argparse interprets the leading
+    `-` as another flag → `argument -p/--password: expected one argument`.
+    Init script crashes; airflow-init exits non-zero; the entire airflow
+    family fails to start.
+
+    The init script ALSO uses `--flag=VALUE` (= form) defensively, but
+    this bootstrapper-side guard keeps any future CLI consumer safe
+    without having to remember the argparse trap. Re-roll until the
+    first character is in `[A-Za-z0-9]`.
+    """
+    while True:
+        candidate = secrets.token_urlsafe(nbytes)
+        if candidate and candidate[0] not in ("-", "_"):
+            return candidate
+
+
 class KeyGenerator:
     """Generates and manages encryption keys for GenAI Stack services."""
 
@@ -53,11 +77,11 @@ class KeyGenerator:
 
     def generate_litellm_master_key(self) -> str:
         """LiteLLM master key — must start with `sk-` per LiteLLM's contract."""
-        return f"sk-{secrets.token_urlsafe(40)}"
+        return f"sk-{_cli_safe_token_urlsafe(40)}"
 
     def generate_minio_root_password(self) -> str:
         """MinIO root password — 32-char URL-safe random."""
-        return secrets.token_urlsafe(24)
+        return _cli_safe_token_urlsafe(24)
 
     def generate_minio_access_key(self) -> str:
         """MinIO service-account access key — 20-char uppercase alphanumeric (S3 convention)."""
@@ -66,7 +90,7 @@ class KeyGenerator:
 
     def generate_minio_secret_key(self) -> str:
         """MinIO service-account secret key — 40-char URL-safe random."""
-        return secrets.token_urlsafe(30)
+        return _cli_safe_token_urlsafe(30)
 
     def get_current_env_value(self, key_name: str) -> Optional[str]:
         """
@@ -202,7 +226,7 @@ class KeyGenerator:
         LITELLM_MASTER_KEY's strength (no `sk-` prefix — Hermes has no contract
         around it).
         """
-        return secrets.token_urlsafe(32)
+        return _cli_safe_token_urlsafe(32)
 
     def generate_and_update_hermes_api_key(self, force: bool = False) -> bool:
         """Generate HERMES_API_KEY when absent. Idempotent: existing keys are
@@ -224,7 +248,7 @@ class KeyGenerator:
         URL-safe 32-byte token — same posture as LITELLM_MASTER_KEY /
         HERMES_API_KEY.
         """
-        return secrets.token_urlsafe(32)
+        return _cli_safe_token_urlsafe(32)
 
     def generate_and_update_webui_secret_key(self, force: bool = False) -> bool:
         """Generate OPEN_WEB_UI_SECRET_KEY when absent OR when the shipped
@@ -244,7 +268,7 @@ class KeyGenerator:
         LiteLLM master-key strength. Persisted to .env on first run; rotating
         is a deliberate operator action.
         """
-        return secrets.token_urlsafe(24)
+        return _cli_safe_token_urlsafe(24)
 
     def generate_and_update_grafana_admin_password(self, force: bool = False) -> bool:
         """Generate GRAFANA_ADMIN_PASSWORD when absent. Idempotent: hand-edits
@@ -303,15 +327,15 @@ class KeyGenerator:
         """AIRFLOW__API__SECRET_KEY (Airflow 3.x). Signs inter-process payloads
         (DagFileProcessor → scheduler RPC, deferrable triggers, multi-scheduler
         JWTs). Was [webserver] secret_key + Flask session in 2.x. 32 chars."""
-        return secrets.token_urlsafe(32)
+        return _cli_safe_token_urlsafe(32)
 
     def generate_airflow_admin_password(self) -> str:
         """Admin login password. 24 chars URL-safe random."""
-        return secrets.token_urlsafe(18)
+        return _cli_safe_token_urlsafe(18)
 
     def generate_airflow_db_password(self) -> str:
         """Postgres role password for the dedicated airflow role/database."""
-        return secrets.token_urlsafe(24)
+        return _cli_safe_token_urlsafe(24)
 
     def generate_and_update_airflow_fernet_key(self, force: bool = False) -> bool:
         """Generate and update AIRFLOW_FERNET_KEY in .env file.
