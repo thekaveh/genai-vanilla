@@ -18,8 +18,8 @@ The OpenClaw service provides an AI-powered agent that connects to messaging app
 
 OpenClaw runs as a single gateway process that:
 
-- Serves the web dashboard on the configured gateway port. The stack default is 63063 (container) / 63024 (localhost); OpenClaw's native/default port is commonly 18789.
-- Manages messaging platform connections (bridge) on the configured bridge port. The stack default is 63064.
+- Serves the web dashboard on the configured gateway port. The stack default is 63064 (container) / 63024 (localhost); OpenClaw's native/default port is commonly 18789.
+- Manages messaging platform connections (bridge) on the configured bridge port. The stack default is 63065.
 - Stores configuration in `~/.openclaw/` directory
 - Stores workspace files in `~/.openclaw/workspace/`
 
@@ -54,7 +54,7 @@ Or use CLI override:
 
 **Step 3: Access the dashboard**
 
-Open `http://localhost:63063` or `http://openclaw.localhost:63000` (via Kong).
+Open `http://localhost:${OPENCLAW_GATEWAY_PORT}` (default 63064) or `http://openclaw.localhost:63000` (via Kong).
 
 **Step 4: Run onboarding**
 ```bash
@@ -110,8 +110,8 @@ OPENCLAW_SOURCE=disabled
 |----------|-------------|---------|
 | `OPENCLAW_SOURCE` | Service source (container, localhost, disabled) | `disabled` |
 | `OPENCLAW_IMAGE` | Docker image | `ghcr.io/openclaw/openclaw:latest` |
-| `OPENCLAW_GATEWAY_PORT` | Gateway HTTP port | `63063` |
-| `OPENCLAW_BRIDGE_PORT` | Bridge port | `63064` |
+| `OPENCLAW_GATEWAY_PORT` | Gateway HTTP port | `63064` |
+| `OPENCLAW_BRIDGE_PORT` | Bridge port | `63065` |
 | `OPENCLAW_GATEWAY_TOKEN` | Optional token for securing gateway API | `` |
 | `OPENCLAW_SCALE` | Container replicas (set by bootstrapper) | `0` |
 
@@ -153,7 +153,7 @@ OpenClaw inherits LLM access from the always-on LiteLLM gateway:
 
 The OpenClaw gateway includes a built-in web dashboard for administration:
 
-- **Direct access**: `http://localhost:63063`
+- **Direct access**: `http://localhost:${OPENCLAW_GATEWAY_PORT}` (default 63064)
 - **Via Kong**: `http://openclaw.localhost:63000`
 
 The dashboard provides:
@@ -191,7 +191,7 @@ docker compose run --rm openclaw-gateway openclaw config get gateway.auth.token
 
 ```bash
 # Direct health check
-curl http://localhost:63063/healthz
+curl http://localhost:${OPENCLAW_GATEWAY_PORT}/healthz
 
 # Deep health check (requires token)
 docker exec genai-openclaw-gateway node dist/index.js health --token "$OPENCLAW_GATEWAY_TOKEN"
@@ -311,7 +311,7 @@ No OpenClaw agent (default).
 **Solution**:
 1. Check logs: `docker logs genai-openclaw-gateway`
 2. Verify image is available: `docker pull ghcr.io/openclaw/openclaw:latest`
-3. Ensure ports 63063/63064 are not in use
+3. Ensure ports 63064/63065 (the canonical gateway/bridge slots — overridable via `OPENCLAW_GATEWAY_PORT` / `OPENCLAW_BRIDGE_PORT`) are not in use
 4. Check Docker has sufficient memory (2GB+ recommended)
 
 ### 13.3 Can't See LLM Models
@@ -330,14 +330,14 @@ No OpenClaw agent (default).
 **Problem**: Web dashboard returns errors
 
 **Solution**:
-1. Check health endpoint: `curl http://localhost:63063/healthz`
+1. Check health endpoint: `curl http://localhost:${OPENCLAW_GATEWAY_PORT}/healthz`
 2. Wait for startup (20s start period)
 3. If using Kong, verify hosts file: `./start.sh --setup-hosts`
 4. Check if `OPENCLAW_GATEWAY_TOKEN` is required
 
 ### 13.5 Port Already in Use
 
-**Problem**: Port 63063 or 63064 is occupied
+**Problem**: Port 63064 (gateway) or 63065 (bridge) is occupied
 
 **Solution**:
 ```bash
@@ -345,5 +345,5 @@ No OpenClaw agent (default).
 ./start.sh --base-port 64000
 
 # Or check what's using the port
-lsof -i :63063
+lsof -i :63064
 ```
