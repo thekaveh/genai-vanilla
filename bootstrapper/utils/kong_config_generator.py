@@ -209,6 +209,10 @@ class KongConfigGenerator:
         if spark_history_service:
             services.append(spark_history_service)
 
+        zeppelin_service = self.generate_zeppelin_service()
+        if zeppelin_service:
+            services.append(zeppelin_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -936,6 +940,31 @@ class KongConfigGenerator:
                     'strip_path': False,
                     'preserve_host': True,
                     'hosts': ['spark-history.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+            ],
+        }
+
+    def generate_zeppelin_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for the Zeppelin notebook UI.
+
+        Browser-facing SPA — needs `preserve_host: True` per
+        reference_kong_preserve_host. Gated on `ZEPPELIN_SOURCE=container`.
+        """
+        source = self.get_env_value('ZEPPELIN_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'zeppelin',
+            'url': 'http://zeppelin:8080',
+            'routes': [
+                {
+                    'name': 'zeppelin-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['zeppelin.localhost'],
                 }
             ],
             'plugins': [

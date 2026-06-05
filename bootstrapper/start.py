@@ -1594,6 +1594,9 @@ class GenAIStackStarter:
               help='Override SPARK_WORKER_COUNT — number of spark-worker replicas '
                    'when --spark-source is container. Range 1-8 (clamped). '
                    'Mirrors --ray-worker-count. Defaults to 2 in .env.example.')
+@click.option('--zeppelin-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override ZEPPELIN_SOURCE — Spark-first notebook UI (requires Spark).')
 @click.option('--no-tui', is_flag=True,
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
@@ -1616,6 +1619,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          ray_source, ray_worker_count,
          prometheus_source, prometheus_retention_days, grafana_source,
          spark_source, spark_workers,
+         zeppelin_source,
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
