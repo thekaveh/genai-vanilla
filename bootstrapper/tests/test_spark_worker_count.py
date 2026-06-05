@@ -1,7 +1,6 @@
 """Wizard widget: Spark's source step carries a SecondaryNumberInput
 for SPARK_WORKER_COUNT mirroring Ray's pattern."""
 from pathlib import Path
-import pytest
 
 
 def _wizard_steps():

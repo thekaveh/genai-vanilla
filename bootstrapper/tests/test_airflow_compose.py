@@ -56,7 +56,10 @@ def test_airflow_scheduler_carries_api_secret_key():
     3.x name to lock against regression.
     """
     doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
-    for svc_name in ("airflow-webserver", "airflow-scheduler"):
+    # Pass 16 added airflow-dag-processor as a 3rd long-running JVM —
+    # it also signs RPC payloads to the scheduler, so the secret must
+    # match across all three.
+    for svc_name in ("airflow-webserver", "airflow-scheduler", "airflow-dag-processor"):
         env = doc["services"][svc_name]["environment"]
         assert "AIRFLOW__API__SECRET_KEY" in env, (
             f"{svc_name} is missing AIRFLOW__API__SECRET_KEY in its "

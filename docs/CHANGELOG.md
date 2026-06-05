@@ -47,11 +47,13 @@ plan at
   langchain-openai; there is no published apache-airflow-providers-
   langchain package.) Metadata DB
   lives in a new `airflow` database on Supabase Postgres (created
-  idempotently by `airflow-init`). 7 Airflow Connections seeded
-  conditionally based on which sibling services are enabled:
-  `postgres_supabase` (always), `spark_default`, `minio_default`,
-  `litellm_default` (LangChain/OpenAI operators wire here),
-  `weaviate_default`, `neo4j_default`, `redis_default`. Sample
+  idempotently by `airflow-init`). 7 Airflow Connections seeded —
+  3 unconditional (`postgres_supabase`, `litellm_default`,
+  `redis_default` — all 3 sibling services are always-on or locked
+  source) and 4 gated on the matching sibling source: `spark_default`
+  (`SPARK_SOURCE=container`), `minio_default` (`MINIO_SOURCE=container`),
+  `weaviate_default` (`WEAVIATE_SOURCE=container`), `neo4j_default`
+  (`NEO4J_GRAPH_DB_SOURCE=container`). Sample
   `example_etl_with_llm` DAG ships in `services/airflow/dags/`. Web UI
   + REST API at `airflow.localhost`. Hermes → Airflow integration via
   the REST API is documented in the per-service README §6.
@@ -113,6 +115,15 @@ because rotating any of them mid-run breaks something.
   `.env.example` but the create-role script is missing). Least-privilege
   migration tracked separately. User DAGs that need fine-grained access
   should create their own Connection objects.
+- **Airflow × Prometheus + Grafana** — Airflow 3.x has no built-in
+  `/metrics` endpoint; the canonical path is StatsD → statsd_exporter
+  → Prometheus. The PR ships none of the three (no statsd_exporter
+  sidecar, no `AIRFLOW__METRICS__STATSD_*` env vars on
+  webserver/scheduler/dag-processor, no scrape job in
+  `services/prometheus/config/prometheus.yml`). `airflow`'s
+  `depends_on.optional` was scrubbed of the dead-promise `prometheus`
+  entry to avoid auto-generated diagrams showing an edge that doesn't
+  exist.
 
 ### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
 
