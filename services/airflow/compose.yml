@@ -15,10 +15,19 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
-      # Airflow 3.x: basic_auth moved into the apache-airflow-providers-fab
-      # package. The provider is installed via services/airflow/build/requirements.txt.
-      AIRFLOW__API__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
+      # Airflow 3.x renamed [webserver] secret_key → [api] secret_key (the
+      # `airflow webserver` subcommand was removed alongside; api-server
+      # now serves both UI and REST). Setting the old AIRFLOW__WEBSERVER__
+      # SECRET_KEY name was a silent no-op.
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      # Airflow 3.x defaults to SimpleAuthManager which does NOT support
+      # HTTP basic_auth — the README's curl examples and the Hermes →
+      # Airflow REST trigger pattern need the FAB auth manager.
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      # Airflow 3.x: basic_auth backend moved from [api] auth_backends
+      # → [fab] auth_backends inside the apache-airflow-providers-fab
+      # package. AIRFLOW__API__AUTH_BACKENDS is silently ignored in 3.x.
+      AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW_UID: "50000"
     volumes:
@@ -63,8 +72,10 @@ services:
       # → scheduler RPC, deferrable triggers, JWT auth between schedulers in
       # an HA setup). Single-scheduler LocalExecutor mostly tolerates a
       # missing key today but pinning it now means scaling later doesn't
-      # silently break. Mirrors the webserver block.
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      # silently break. Mirrors the api-server block.
+      # Airflow 3.x: was AIRFLOW__WEBSERVER__SECRET_KEY ([webserver] section
+      # retired); canonical is now AIRFLOW__API__SECRET_KEY.
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW_UID: "50000"
     volumes:
@@ -101,8 +112,6 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
       _AIRFLOW_DB_MIGRATE: "true"
-      _AIRFLOW_WWW_USER_USERNAME: admin
-      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
       AIRFLOW_UID: "50000"
       # Sibling-source vars consumed by the init script for conditional
       # connection seeding (dual-write per project_runtime_sc_vs_compose_env).

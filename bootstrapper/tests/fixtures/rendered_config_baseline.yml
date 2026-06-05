@@ -17,8 +17,6 @@ services:
       replicas: 0
     environment:
       _AIRFLOW_DB_MIGRATE: 'true'
-      _AIRFLOW_WWW_USER_PASSWORD: ''
-      _AIRFLOW_WWW_USER_USERNAME: admin
       AIRFLOW__CORE__FERNET_KEY: ''
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
       AIRFLOW_DB_PASSWORD: ''
@@ -66,11 +64,11 @@ services:
     deploy:
       replicas: 0
     environment:
+      AIRFLOW__API__SECRET_KEY: ''
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__FERNET_KEY: ''
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: ''
       AIRFLOW_UID: '50000'
     healthcheck:
       test:
@@ -110,12 +108,13 @@ services:
     deploy:
       replicas: 0
     environment:
-      AIRFLOW__API__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
+      AIRFLOW__API__SECRET_KEY: ''
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__FERNET_KEY: ''
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
-      AIRFLOW__WEBSERVER__SECRET_KEY: ''
+      AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
       AIRFLOW_UID: '50000'
     healthcheck:
       test:
@@ -1789,6 +1788,8 @@ services:
     - /opt/spark/sbin/start-connect-server.sh
     - --master
     - spark://spark-master:7077
+    - --conf
+    - spark.connect.grpc.binding.address=0.0.0.0
     - --conf
     - spark.connect.grpc.binding.port=15002
     - --conf
