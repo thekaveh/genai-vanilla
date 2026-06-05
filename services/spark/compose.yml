@@ -106,6 +106,15 @@ services:
       - spark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
       - --conf
       - spark.hadoop.fs.s3a.path.style.access=true
+      # Spark History needs DRIVERS to write event logs — spark-history's
+      # read-side config alone produces nothing to read. Connect-driven
+      # sessions inherit the server's defaults, so writing eventLog.enabled
+      # here means every sc://spark-connect:15002 client emits events
+      # without any per-job config.
+      - --conf
+      - spark.eventLog.enabled=true
+      - --conf
+      - spark.eventLog.dir=s3a://spark-history/
     depends_on:
       spark-master:
         condition: service_healthy

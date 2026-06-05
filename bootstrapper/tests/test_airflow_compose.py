@@ -53,15 +53,20 @@ def test_airflow_scheduler_carries_api_secret_key():
 
 
 def test_airflow_webserver_uses_fab_auth_manager_for_basic_auth():
-    """Airflow 3.x defaults to SimpleAuthManager which does not support
-    HTTP basic auth. The README's `curl -u admin:pass /api/v2/...` calls
-    and the Hermes → Airflow REST trigger pattern need explicit
-    FabAuthManager + the basic_auth backend in the [fab] section.
+    """Airflow 3.x defaults to SimpleAuthManager. The Web UI authentication
+    surface (FAB session cookie at `/login/`) needs explicit FabAuthManager
+    + the FAB-section basic_auth backend; without those, the Web UI logs
+    users in via SimpleAuthManager's password-token flow which doesn't
+    match the seeded `admin` user.
 
-    Pre-Pass-9 the env vars were AIRFLOW__API__AUTH_BACKENDS (silently
-    ignored — 3.x moved it to [fab]) with no AUTH_MANAGER override
-    (defaulted to Simple — basic_auth not implemented). Result: 401 on
-    every REST API call. This test locks both fixes.
+    History:
+    - Pass 9 caught: AIRFLOW__API__AUTH_BACKENDS (legacy 2.x name) was
+      silently ignored — Airflow 3.x renamed the section to [fab].
+    - Pass 14 caught: the public REST API at `/api/v2/` is JWT-ONLY
+      (`/auth/token` exchange). FAB+basic_auth governs LEGACY FAB
+      endpoints and Web-UI sessions, NOT `/api/v2/`. So these env
+      vars stay in place for the UI; the README curl examples switched
+      to the two-step JWT pattern.
     """
     doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
     env = doc["services"]["airflow-webserver"]["environment"]

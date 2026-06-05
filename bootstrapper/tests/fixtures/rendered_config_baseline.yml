@@ -1806,6 +1806,10 @@ services:
     - spark.hadoop.fs.s3a.secret.key=
     - --conf
     - spark.hadoop.fs.s3a.path.style.access=true
+    - --conf
+    - spark.eventLog.enabled=true
+    - --conf
+    - spark.eventLog.dir=s3a://spark-history/
     container_name: genai-spark-connect
     depends_on:
       spark-master:
@@ -2270,6 +2274,7 @@ services:
       SPARK_MASTER: spark://spark-master:7077
       SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 --conf spark.hadoop.fs.s3a.access.key=minioadmin
         --conf spark.hadoop.fs.s3a.secret.key= --conf spark.hadoop.fs.s3a.path.style.access=true
+        --conf spark.eventLog.enabled=true --conf spark.eventLog.dir=s3a://spark-history/
       ZEPPELIN_JDBC_POSTGRES_PASSWORD: password
       ZEPPELIN_JDBC_POSTGRES_URL: jdbc:postgresql://supabase-db:5432/postgres
       ZEPPELIN_JDBC_POSTGRES_USER: supabase_admin

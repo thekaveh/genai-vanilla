@@ -2628,7 +2628,11 @@ Expected: stack boots; all 4 web UIs reachable at their alias URLs.
 curl -fsS http://spark.localhost:63000 > /dev/null && echo "Spark UI OK"
 curl -fsS http://spark-history.localhost:63000 > /dev/null && echo "Spark History OK"
 curl -fsS http://zeppelin.localhost:63000 > /dev/null && echo "Zeppelin OK"
-curl -fsS -u admin:"$(grep '^AIRFLOW_ADMIN_PASSWORD=' .env | cut -d= -f2)" \
+# Airflow 3.x /api/v2/ is JWT-only (verified 2026-06-05; basic_auth is for legacy FAB endpoints).
+TOKEN=$(curl -fsS -X POST -H 'Content-Type: application/json' \
+  -d "{\"username\":\"admin\",\"password\":\"$(grep '^AIRFLOW_ADMIN_PASSWORD=' .env | cut -d= -f2)\"}" \
+  http://airflow.localhost:63000/auth/token | jq -r .access_token)
+curl -fsS -H "Authorization: Bearer $TOKEN" \
   http://airflow.localhost:63000/api/v2/dags > /dev/null && echo "Airflow API OK"
 ```
 
