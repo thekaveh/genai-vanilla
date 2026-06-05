@@ -54,10 +54,11 @@ plan at
   both Web UI + History UI).
 - Zeppelin: Spark (interpreter), MinIO (via Spark), Supabase Postgres
   (JDBC), Kong.
-- Airflow: Supabase Postgres (metadata + user conn), Spark
-  (SparkSubmitOperator), MinIO (S3Hook), LiteLLM (LangChain/OpenAI
-  operators), Redis (RedisHook), Weaviate, Neo4j. Hermes → Airflow
-  REST trigger pattern documented.
+- Airflow: Supabase Postgres (metadata + user conn), Spark (sample DAG
+  uses `PythonOperator` + Spark Connect at `sc://spark-connect:15002`;
+  `SparkSubmitOperator` available via the bundled provider for user DAGs),
+  MinIO (S3Hook), LiteLLM (LangChain/OpenAI operators), Redis (RedisHook),
+  Weaviate, Neo4j. Hermes → Airflow REST trigger pattern documented.
 
 **Wizard additions**: 3 new source steps in the appropriate category
 bands (data / apps / agents). Spark's source step carries a
@@ -84,6 +85,19 @@ because rotating any of them mid-run breaks something.
   container-level metrics cover the gap in the existing dashboards until
   the JMX integration lands. Tracked separately. See
   [`services/spark/README.md`](../services/spark/README.md) §4.
+- **Spark × Supabase Postgres JDBC pre-wiring** — spec §5.1 listed
+  `spark.jdbc.postgres.url` env-var pre-config on the master as CRITICAL
+  (config only). Users wire JDBC manually today via `--jars postgresql.jar`
+  + a `jdbc:postgresql://supabase-db:5432/...` URL per job. See
+  [`services/spark/README.md`](../services/spark/README.md) §4.
+- **Zeppelin JDBC interpreter auto-binding** — the `ZEPPELIN_JDBC_POSTGRES_*`
+  env vars are injected but Zeppelin doesn't auto-bind them to a JDBC
+  interpreter profile. Users do a one-time UI setup
+  (Interpreter → JDBC → `+ Create` → `postgres` group). See
+  [`services/zeppelin/README.md`](../services/zeppelin/README.md) §4.
+- **Top-level architecture diagram** — `docs/diagrams/architecture.svg`
+  was not refreshed to include the airflow / spark / zeppelin tier. Per-
+  service architecture diagrams (auto-regenerated) cover the new edges.
 
 ### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
 
