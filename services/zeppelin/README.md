@@ -8,6 +8,8 @@ Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (n
 
 **Hard requirement:** Zeppelin is gated on `SPARK_SOURCE != disabled`. Picking `ZEPPELIN_SOURCE=container` without Spark surfaces an actionable error from the bootstrapper; the spec considers a Spark-less Zeppelin broken on purpose.
 
+**Design deviation from spec §3.2.7:** the spec envisioned a `zeppelin-init` sidecar to materialize starter notebooks and seed interpreter config files. We ship `notebooks/` bind-mounted directly and rely on env-driven interpreter config — same outcome, simpler topology, and users can edit notebooks without restarting the container.
+
 ## 2. Access
 
 | Surface | URL | Auth |
@@ -57,7 +59,9 @@ Use it as a template for your own notebooks.
 
 ### 6.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| kong | infra |
 
 ### 6.3 Architecture diagram
 

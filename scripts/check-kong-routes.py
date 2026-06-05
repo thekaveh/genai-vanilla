@@ -71,6 +71,18 @@ EXPECTED_HOST_ROUTES = {
     # At default-env runtime there is no ray-head container to route to,
     # so the route is correctly absent. If the default ever flips to a
     # container source, add "ray.localhost": "http://ray-head:8265/" here.
+    #
+    # spark.localhost / spark-history.localhost / zeppelin.localhost /
+    # airflow.localhost are NOT listed for the same reason. .env.example
+    # defaults SPARK_SOURCE / ZEPPELIN_SOURCE / AIRFLOW_SOURCE to disabled;
+    # the generator only emits these routes when SOURCE=container.
+    # Regression coverage at default-env lives here (absence is correct);
+    # opt-in route shape is locked by bootstrapper/tests/test_kong_alias_routes.py.
+    # If a default ever flips, add the matching entries:
+    #   "spark.localhost": "http://spark-master:8080/",
+    #   "spark-history.localhost": "http://spark-history:18080/",
+    #   "zeppelin.localhost": "http://zeppelin:8080/",
+    #   "airflow.localhost": "http://airflow-webserver:8080/",
 }
 
 

@@ -208,6 +208,7 @@ For more information on Kong's role in the overall architecture, see the system 
 |---|---|
 | minio | data |
 | neo4j | data |
+| spark | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
@@ -217,6 +218,7 @@ For more information on Kong's role in the overall architecture, see the system 
 | searxng | media |
 | stt-provider | media |
 | tts-provider | media |
+| airflow | agents |
 | hermes | agents |
 | n8n | agents |
 | openclaw | agents |
@@ -224,6 +226,7 @@ For more information on Kong's role in the overall architecture, see the system 
 | jupyterhub | apps |
 | local-deep-researcher | apps |
 | open-webui | apps |
+| zeppelin | apps |
 
 ### 13.2 Current — Downstream (services that call this)
 

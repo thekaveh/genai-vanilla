@@ -24,6 +24,7 @@ updates:
       - "/services/backend/app/app"
       - "/services/parakeet/provider/gpu"
       - "/services/parakeet/provider/mlx"
+      - "/services/airflow/build"
     schedule:
       interval: weekly
       day: monday
