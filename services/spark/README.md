@@ -33,7 +33,7 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 - **Supabase Postgres** — Spark JDBC connector available; users add `--jars postgresql.jar` and point at `jdbc:postgresql://supabase-db:5432/${SUPABASE_DB_NAME}`. No pre-wired connection.
 - **Zeppelin** — Zeppelin's Spark interpreter points at `spark://spark-master:7077` and `sc://spark-master:15002`. See `services/zeppelin/README.md` (added in the same PR).
 - **Airflow** — Airflow's `spark_default` Connection is seeded by `airflow-init` when `SPARK_SOURCE=container`. The provided `example_etl_with_llm.py` DAG uses `SparkSubmitOperator`. See `services/airflow/README.md` (added in the same PR).
-- **Prometheus** (opt-in) — JMX exporter sidecar; scrape job auto-enabled when both `SPARK_SOURCE=container` AND `PROMETHEUS_SOURCE=container`.
+- **Prometheus + Grafana** — deferred. Spec §5.1 marks Spark × Prometheus + Grafana as CRITICAL-opt-in (JMX exporter sidecar + scrape job + `spark.json` dashboard), but the implementation is not yet wired. Tracking as a follow-up; for now use cAdvisor's container-level metrics in the existing Grafana dashboards.
 
 ## 5. Dependencies & Integrations
 

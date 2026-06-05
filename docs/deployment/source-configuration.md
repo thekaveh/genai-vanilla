@@ -478,7 +478,7 @@ GRAFANA_ADMIN_PASSWORD=...       # auto-generated on first bootstrap; persisted 
 
 ### SPARK_SOURCE
 
-Spark is a standalone Apache Spark cluster (master + N workers + history server) sitting in the `infra` band alongside Ray. It exposes a Spark Connect endpoint on `:15002` for thin clients (Jupyter, Zeppelin, Backend). The bootstrapper renders `SPARK_MASTER_URL`, `SPARK_CONNECT_URL`, and per-worker resource limits from this source. See [Spark service README](../../services/spark/README.md) for the cluster topology and Spark Connect details.
+Spark is a standalone Apache Spark cluster (master + N workers + history server) sitting in the `data` band. It exposes a Spark Connect endpoint on `:15002` for in-stack thin clients (currently Zeppelin's Spark interpreter wires to it; JupyterHub + Backend wiring is a future spec). Spark master URL (`spark://spark-master:7077`) and the Spark Connect URL (`sc://spark-master:15002`) are baked into the Zeppelin interpreter env at compose-render time. See [Spark service README](../../services/spark/README.md) for the cluster topology and Spark Connect details.
 
 #### `disabled` (Default)
 ```bash
@@ -492,7 +492,7 @@ SPARK_SOURCE=disabled
 #### `container`
 ```bash
 SPARK_SOURCE=container
-SPARK_WORKERS=2          # number of spark-worker replicas; 1..8 — wizard prompts inline
+SPARK_WORKER_COUNT=2     # number of spark-worker replicas; 1..8 — wizard prompts inline
 ```
 - **Use case**: Local Spark cluster for batch / SQL / DataFrame jobs and Spark Connect clients
 - **Pros**: Master + N workers + history server, Kong-aliased UIs at `spark.localhost` + `spark-history.localhost`, Spark Connect on `:15002`
@@ -526,7 +526,7 @@ SPARK_SOURCE=container   # REQUIRED — Zeppelin hard-fails without Spark
 
 ### AIRFLOW_SOURCE
 
-Airflow is a code-defined DAG orchestrator running LocalExecutor (no Celery / Redis broker — the metadata DB is Supabase Postgres). The image ships the AI/ML SDK with LLM operators pre-wired to LiteLLM. The bootstrapper seeds Airflow Connections per sibling source — Postgres, Redis, MinIO/S3, Ollama (via LiteLLM), Spark (gated on `SPARK_SOURCE=container`). See [Airflow service README](../../services/airflow/README.md) for the seeded Connections matrix and the example DAG.
+Airflow is a code-defined DAG orchestrator running LocalExecutor (no Celery / Redis broker — the metadata DB is Supabase Postgres). The image bundles the LLM provider stack (`apache-airflow-providers-openai` + `apache-airflow-providers-langchain`) pre-wired to the LiteLLM gateway. `airflow-init` seeds Connection objects conditionally per sibling source: `postgres_supabase` (always-on), `spark_default` (gated on `SPARK_SOURCE=container`), `minio_default` (gated on `MINIO_SOURCE=container`), `litellm_default` / `weaviate_default` / `neo4j_default` / `redis_default` (each gated on the sibling source being non-`disabled`). See [Airflow service README](../../services/airflow/README.md) §4 for the full seeded Connections matrix and the example DAG.
 
 #### `disabled` (Default)
 ```bash
@@ -540,13 +540,15 @@ AIRFLOW_SOURCE=disabled
 #### `container`
 ```bash
 AIRFLOW_SOURCE=container
-AIRFLOW_ADMIN_USERNAME=admin            # override only if you want a different login
+# Username is hardcoded `admin` — there is no AIRFLOW_ADMIN_USERNAME knob.
 AIRFLOW_ADMIN_PASSWORD=...              # auto-generated on first bootstrap; persisted to .env
 AIRFLOW_FERNET_KEY=...                  # auto-generated; encrypts Connections + Variables at rest
 AIRFLOW_SECRET_KEY=...                  # auto-generated; signs Web UI sessions
+AIRFLOW_DB_USER=airflow                 # Postgres role on supabase-db
+AIRFLOW_DB_PASSWORD=...                 # auto-generated
 ```
 - **Use case**: Scheduled / triggered DAG runs (ETL, model fine-tunes, scheduled LLM evals) with first-class LiteLLM-wired LLM operators
-- **Pros**: LocalExecutor (no broker), Supabase Postgres metadata DB, Kong-aliased UI at `airflow.localhost`, REST API under the same alias at `/api/v2/`, Connections auto-seeded per sibling source (Postgres / Redis / MinIO / Ollama / Spark when enabled)
+- **Pros**: LocalExecutor (no broker), Supabase Postgres metadata DB, Kong-aliased UI at `airflow.localhost`, REST API under the same alias at `/api/v2/`, 7 Connections auto-seeded per sibling source (`postgres_supabase` always; `spark_default`, `minio_default`, `litellm_default`, `weaviate_default`, `neo4j_default`, `redis_default` conditional on each sibling)
 - **Cons**: ~2 GB image disk + ~1 GB RAM for the webserver + scheduler combo
 - **Containers**: `airflow-init` (one-shot), `airflow-webserver`, `airflow-scheduler`
 - **Requirements**: Supabase Postgres reachable (always-on)
