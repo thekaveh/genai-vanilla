@@ -119,6 +119,28 @@ runtime_sc:
         _AIRFLOW_WWW_USER_USERNAME: admin
         _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
         AIRFLOW_UID: "50000"
+        # Sibling-source vars consumed by init-airflow.sh for conditional
+        # Connection seeding. Per project_runtime_sc_vs_compose_env_dual_write.md
+        # these must mirror what compose.yml's environment block declares —
+        # compose is the actual injection point; runtime_sc documents
+        # what the container receives for the rendering pipeline.
+        SPARK_SOURCE: ${SPARK_SOURCE:-disabled}
+        MINIO_SOURCE: ${MINIO_SOURCE:-disabled}
+        LITELLM_SOURCE: ${LITELLM_SOURCE:-disabled}
+        WEAVIATE_SOURCE: ${WEAVIATE_SOURCE:-disabled}
+        NEO4J_SOURCE: ${NEO4J_SOURCE:-disabled}
+        REDIS_SOURCE: ${REDIS_SOURCE:-disabled}
+        # Credentials passed through to airflow-init for use by the
+        # connection-seeding helper (litellm + minio + supabase + the
+        # dedicated airflow Postgres role).
+        LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+        MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+        MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+        SUPABASE_DB_NAME: ${SUPABASE_DB_NAME}
+        SUPABASE_DB_USER: ${SUPABASE_DB_USER}
+        SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+        AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
+        AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
       deploy: {}
       extra_hosts: []
     disabled:
