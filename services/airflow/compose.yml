@@ -76,6 +76,13 @@ services:
       # Airflow 3.x: was AIRFLOW__WEBSERVER__SECRET_KEY ([webserver] section
       # retired); canonical is now AIRFLOW__API__SECRET_KEY.
       AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      # Parity with api-server + init: scheduler's DagFileProcessor calls
+      # AuthManager.is_authorized_dag during DAG parsing. Without these,
+      # it falls back to SimpleAuthManager and may emit auth warnings
+      # into the scheduler log (no current functional break but a
+      # dual-write boundary violation per project_runtime_sc_vs_compose_env).
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW_UID: "50000"
     volumes:
