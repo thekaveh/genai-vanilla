@@ -37,6 +37,26 @@ updates:
       security-only:
         applies-to: security-updates
         patterns: ["*"]
+    ignore:
+      # torch + PyG family is coupled to the `--find-links` wheel-index URL
+      # in services/jupyterhub/build/requirements.txt (currently
+      # `https://data.pyg.org/whl/torch-2.4.0+cpu.html`). Each torch
+      # minor/major bump requires (a) a matching PyG wheel-index URL change
+      # AND (b) compatible torch-scatter / torch-sparse / torch-cluster /
+      # torch-spline-conv / torch_geometric versions from the new index.
+      # Auto-bumping torch leaves these stranded — PR #39 (2026-06-05)
+      # bumped torch 2.4 -> 2.12 against a 2.4-only wheel index. Manual
+      # coordination required; surface the bump from `pip list --outdated`
+      # when ready to migrate the whole family in one PR.
+      - dependency-name: "torch"
+      - dependency-name: "torchvision"
+      - dependency-name: "torchaudio"
+      - dependency-name: "torchmetrics"
+      - dependency-name: "torch-scatter"
+      - dependency-name: "torch-sparse"
+      - dependency-name: "torch-cluster"
+      - dependency-name: "torch-spline-conv"
+      - dependency-name: "torch_geometric"
     commit-message:
       prefix: "deps"
       include: "scope"
