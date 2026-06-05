@@ -175,7 +175,7 @@ services:
       - CMD
       - curl
       - -fsS
-      - http://localhost:8080/health
+      - http://localhost:8080/api/v2/monitor/health
       timeout: 10s
       interval: 30s
       retries: 5
