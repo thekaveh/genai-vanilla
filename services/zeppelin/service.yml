@@ -74,9 +74,10 @@ runtime_sc:
       extra_hosts: []
 
 data_flow:
+  # Convention: focus.data_flow.calls = what FOCUS calls (upstream).
+  # Kong routes traffic TO Zeppelin; not an outbound from Zeppelin's perspective.
   calls:
     - spark
     - supabase
     - minio
     - litellm
-    - kong

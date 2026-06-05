@@ -127,7 +127,9 @@ runtime_sc:
       extra_hosts: []
 
 data_flow:
+  # Convention: focus.data_flow.calls = what FOCUS calls (upstream).
+  # Kong routes traffic TO Spark; that's Kong's outbound lane, not Spark's.
+  # Same for the other in-stack services routed via *.localhost aliases.
   calls:
     - supabase   # JDBC reads (user-driven)
     - minio      # s3a:// history + user data
-    - kong       # health endpoints exposed via alias

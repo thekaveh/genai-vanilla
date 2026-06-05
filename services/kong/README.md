@@ -230,9 +230,6 @@ For more information on Kong's role in the overall architecture, see the system 
 | Service | Category |
 |---|---|
 | prometheus | infra |
-| spark | data |
-| airflow | agents |
-| zeppelin | apps |
 
 ### 13.3 Architecture diagram
 
