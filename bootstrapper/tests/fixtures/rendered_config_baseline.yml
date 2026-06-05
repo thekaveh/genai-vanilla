@@ -1814,6 +1814,11 @@ services:
       target: /var/cache/searxng
       volume: {}
   spark-history:
+    build:
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/spark:4.1.2
     command:
     - /opt/spark/bin/spark-class
     - org.apache.spark.deploy.history.HistoryServer
@@ -1827,7 +1832,7 @@ services:
     environment:
       SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
         -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key= -Dspark.hadoop.fs.s3a.path.style.access=true
-    image: apache/spark:4.1.2
+    image: genai-spark:local
     networks:
       backend-network: null
     ports:
@@ -1837,6 +1842,11 @@ services:
       protocol: tcp
     restart: unless-stopped
   spark-connect:
+    build:
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/spark:4.1.2
     command:
     - /opt/spark/sbin/start-connect-server.sh
     - --wait
@@ -1868,7 +1878,7 @@ services:
         required: true
     deploy:
       replicas: 0
-    image: apache/spark:4.1.2
+    image: genai-spark:local
     networks:
       backend-network: null
     restart: unless-stopped
@@ -1890,6 +1900,11 @@ services:
     networks:
       backend-network: null
   spark-master:
+    build:
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/spark:4.1.2
     command:
     - /opt/spark/bin/spark-class
     - org.apache.spark.deploy.master.Master
@@ -1914,7 +1929,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 45s
-    image: apache/spark:4.1.2
+    image: genai-spark:local
     networks:
       backend-network: null
     ports:
@@ -1924,6 +1939,11 @@ services:
       protocol: tcp
     restart: unless-stopped
   spark-worker:
+    build:
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/spark:4.1.2
     command:
     - /opt/spark/bin/spark-class
     - org.apache.spark.deploy.worker.Worker
@@ -1936,7 +1956,7 @@ services:
         required: true
     deploy:
       replicas: 0
-    image: apache/spark:4.1.2
+    image: genai-spark:local
     networks:
       backend-network: null
     restart: unless-stopped
