@@ -148,6 +148,46 @@ def test_init_script_orphan_cleanup_pass_present():
     assert "for orphan in spark_default minio_default weaviate_default neo4j_default" in body
 
 
+def test_init_script_env_refs_match_compose_environment():
+    """Every ${VAR} reference in init-airflow.sh must be passed through
+    the airflow-init compose env block. Under `set -euo pipefail`, an
+    unset var aborts the script — and webserver/scheduler/dag-processor
+    all depend on airflow-init: service_completed_successfully, so a
+    missing var bricks the entire family at first start.
+
+    Pass 23 caught AIRFLOW_ADMIN_PASSWORD being referenced in the
+    script but missing from compose.yml's env block (Pass 10 dropped
+    _AIRFLOW_WWW_USER_PASSWORD as dead bait without realizing the
+    canonical AIRFLOW_ADMIN_PASSWORD was the real consumer).
+    """
+    import re
+    import yaml as _yaml
+    body = SCRIPT.read_text(encoding="utf-8")
+    compose_path = REPO / "services" / "airflow" / "compose.yml"
+    compose = _yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+    init_env = set(compose["services"]["airflow-init"]["environment"].keys())
+
+    # Collect every ${VAR} reference (skip ${VAR:-default} bash patterns and
+    # script-internal vars like ${conn_id}, ${orphan}, ${rc}, $i, $entry).
+    refs = set()
+    for match in re.finditer(r'\$\{([A-Z][A-Z0-9_]*)\}', body):
+        refs.add(match.group(1))
+
+    # Explicitly allowed: PGPASSWORD is set via `export PGPASSWORD=...`
+    # before psql, then `unset PGPASSWORD` after — not from compose env.
+    refs.discard("PGPASSWORD")
+
+    missing = refs - init_env
+    assert not missing, (
+        f"init-airflow.sh references env vars NOT injected by airflow-init's "
+        f"compose.yml environment block: {sorted(missing)}. Under "
+        f"`set -euo pipefail`, unset vars abort the script and the entire "
+        f"airflow family (webserver+scheduler+dag-processor) fails to start. "
+        f"Add the missing vars to services/airflow/compose.yml::airflow-init.environment "
+        f"(and mirror in service.yml::runtime_sc per the dual-write convention)."
+    )
+
+
 def test_init_script_alters_database_owner_for_pg15_public_schema():
     """Postgres 15+ tightened the public schema: ALL PRIVILEGES on a
     database no longer grants CREATE on `public`; only the database

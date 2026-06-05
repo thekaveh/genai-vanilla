@@ -162,6 +162,15 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
       _AIRFLOW_DB_MIGRATE: "true"
+      # CRITICAL: init-airflow.sh runs `airflow users create --password
+      # "${AIRFLOW_ADMIN_PASSWORD}"` (line 63). Under `set -euo pipefail`
+      # an unset var aborts the script — and webserver/scheduler/
+      # dag-processor all depends_on airflow-init: service_completed_successfully,
+      # so the entire family fails to start. Pass 10 dropped the
+      # _AIRFLOW_WWW_USER_PASSWORD mirror as "dead bait" (the legacy
+      # entrypoint var) without realizing the canonical AIRFLOW_ADMIN_PASSWORD
+      # was the actual consumer — caught by Pass 23.
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
       # Parity with webserver/scheduler — keep examples off across the
       # entire family so a future Airflow version that reads this during
       # `db migrate` doesn't accidentally seed examples into our metadata DB.
