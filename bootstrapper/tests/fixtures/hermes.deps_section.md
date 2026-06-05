@@ -11,6 +11,7 @@
 | searxng | media |
 | stt-provider | media |
 | tts-provider | media |
+| airflow | agents |
 
 ### 5.2 Current — Downstream (services that call this)
 
