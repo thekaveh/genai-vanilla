@@ -120,6 +120,7 @@ _No upstream calls._
 |---|---|
 | kong | infra |
 | prometheus | infra |
+| spark | data |
 | jupyterhub | apps |
 
 ### 10.3 Architecture diagram
