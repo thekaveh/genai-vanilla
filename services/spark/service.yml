@@ -61,6 +61,14 @@ rows:
     scale_var: SPARK_MASTER_SCALE
     alias: spark.localhost
     description: "Standalone Spark cluster for batch / SQL / DataFrame workloads."
+  # Second row needed so Topology.aliases includes spark-history.localhost
+  # for /etc/hosts setup. Same SOURCE drives both surfaces.
+  - display_name: "Apache Spark — History Server"
+    source_var: SPARK_SOURCE
+    port_var: SPARK_HISTORY_PORT
+    scale_var: SPARK_HISTORY_SCALE
+    alias: spark-history.localhost
+    description: "Spark History Server — post-mortem job inspection for completed Spark jobs."
 
 exports: []
 
