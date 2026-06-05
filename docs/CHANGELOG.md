@@ -36,8 +36,12 @@ plan at
   S3A + JDBC.
 
 - **Apache Airflow** (`AIRFLOW_SOURCE=disabled|container`) — Apache
-  Airflow 3.2.2 (LocalExecutor) with `apache-airflow-providers-openai`
-  pre-wired to LiteLLM. Bundled providers: apache-spark, amazon
+  Airflow 3.2.2 (LocalExecutor), 4-container family: `airflow-webserver`
+  (api-server: UI + REST API), `airflow-scheduler`, `airflow-dag-processor`
+  (REQUIRED standalone service in Airflow 3.x — the scheduler no longer
+  parses DAG files in-process; without it, no DAGs ever load), and the
+  one-shot `airflow-init`. Wired with `apache-airflow-providers-openai`
+  for LiteLLM integration. Bundled providers: apache-spark, amazon
   (MinIO via custom endpoint), postgres, redis, common-sql, weaviate,
   neo4j, openai, fab. (LangChain chains run via PythonOperator +
   langchain-openai; there is no published apache-airflow-providers-

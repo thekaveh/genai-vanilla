@@ -92,6 +92,15 @@ REQUIRED_DEPENDS_ON = {
     ("airflow-init", "supabase-db"),
     ("airflow-webserver", "airflow-init"),
     ("airflow-scheduler", "airflow-init"),
+    # Airflow 3.x dag-processor — required as a standalone service (the
+    # scheduler no longer parses DAGs in-process); must wait for init.
+    ("airflow-dag-processor", "airflow-init"),
+    # Pass 16 spark cold-start race fix: spark.eventLog.dir is read at
+    # session start; Spark doesn't auto-create the s3a:// base dir, so
+    # spark-connect + zeppelin must wait for spark-init (which creates
+    # the spark-history MinIO bucket via minio/mc).
+    ("spark-connect", "spark-init"),
+    ("zeppelin", "spark-init"),
 }
 
 

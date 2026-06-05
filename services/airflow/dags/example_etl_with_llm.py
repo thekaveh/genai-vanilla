@@ -146,9 +146,12 @@ with DAG(
 #
 # def run_chain(**_ctx):
 #     llm = ChatOpenAI(
-#         model="ollama_chat/qwen3.6:latest",  # default Ollama-mode catalog;
-#                                              # see services/litellm/README.md
-#                                              # for the adapter-id convention.
+#         # Use the SAME model id clients pass through the LiteLLM proxy:
+#         # `ollama/qwen3.6:latest` (registered by litellm-init). The
+#         # `ollama_chat/` prefix mentioned above is LiteLLM's INTERNAL
+#         # adapter name (config.yaml litellm_params.model), NOT what
+#         # clients use to call /v1/chat/completions.
+#         model="ollama/qwen3.6:latest",
 #         base_url="http://litellm:4000/v1",
 #         api_key=os.environ["LITELLM_MASTER_KEY"],
 #     )
