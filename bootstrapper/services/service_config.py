@@ -128,6 +128,10 @@ class ServiceConfig:
         )
         env_vars.update(ray_config)
 
+        # Generate Spark cluster configuration
+        spark_config = self._generate_spark_config()
+        env_vars.update(spark_config)
+
         # Generate observability bundle (Prometheus family + cross-manifest
         # sidecar exporter scales for postgres-exporter and redis-exporter).
         prometheus_source = self.service_sources.get("PROMETHEUS_SOURCE", "disabled")
@@ -648,6 +652,36 @@ class ServiceConfig:
             "RAY_WORKER_SCALE": "0",
             "RAY_ADDRESS": "",
         }
+
+    def _generate_spark_config(self) -> dict:
+        """Generate SPARK_*_SCALE env vars based on SPARK_SOURCE + SPARK_WORKER_COUNT.
+
+        Spark is a 4-container family (master + worker + history + init). When
+        the source is `container`, all four scale up (worker count is clamped
+        to 1-8 per the wizard contract). When `disabled`, all four scale=0.
+        """
+        source_value = self.service_sources.get("SPARK_SOURCE", "disabled")
+        env_vars: dict[str, str] = {}
+
+        if source_value == "disabled":
+            env_vars["SPARK_MASTER_SCALE"] = "0"
+            env_vars["SPARK_WORKER_SCALE"] = "0"
+            env_vars["SPARK_HISTORY_SCALE"] = "0"
+            env_vars["SPARK_INIT_SCALE"] = "0"
+            return env_vars
+
+        current_env = self.config_parser.parse_env_file()
+        raw_count = current_env.get("SPARK_WORKER_COUNT", "2")
+        try:
+            worker_count = max(1, min(8, int(raw_count)))
+        except (TypeError, ValueError):
+            worker_count = 2
+
+        env_vars["SPARK_MASTER_SCALE"] = "1"
+        env_vars["SPARK_WORKER_SCALE"] = str(worker_count)
+        env_vars["SPARK_HISTORY_SCALE"] = "1"
+        env_vars["SPARK_INIT_SCALE"] = "1"
+        return env_vars
 
     def _generate_prometheus_config(self, source_value: str, shared_env: dict) -> dict:
         """Resolve scales for the prometheus family + cross-manifest exporter sidecars.
