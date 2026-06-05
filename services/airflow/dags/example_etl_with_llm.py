@@ -34,7 +34,8 @@ from airflow import DAG
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.openai.operators.openai import OpenAIOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator  # noqa: F401  # available for user DAGs
-from airflow.operators.python import PythonOperator
+# Airflow 3.x canonical path for core operators (was airflow.operators.python in 2.x).
+from airflow.providers.standard.operators.python import PythonOperator
 from datetime import datetime, timedelta
 
 
@@ -78,7 +79,10 @@ with DAG(
     description="Smoke test: Spark + MinIO + LiteLLM Connections",
     default_args=default_args,
     schedule="@daily",
-    start_date=datetime(2026, 6, 4),
+    # Stable past start_date — using a date near "today" creates a year's
+    # worth of skipped runs the scheduler has to evaluate when users pull
+    # this DAG much later. catchup=False prevents backfill anyway.
+    start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["smoke", "stack-internal"],
 ) as dag:
@@ -121,9 +125,9 @@ with DAG(
 #
 # def build_chain():
 #     llm = ChatOpenAI(
-#         model="ollama_chat/qwen3:latest",  # default Ollama-mode catalog;
-#                                            # see services/litellm/README.md
-#                                            # for the adapter-id convention.
+#         model="ollama_chat/qwen3.6:latest",  # default Ollama-mode catalog;
+#                                              # see services/litellm/README.md
+#                                              # for the adapter-id convention.
 #         base_url="http://litellm:4000/v1",
 #         api_key=os.environ["LITELLM_MASTER_KEY"],
 #     )

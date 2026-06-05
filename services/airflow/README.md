@@ -38,12 +38,12 @@ Auto-managed (resolved by the bootstrapper from `AIRFLOW_SOURCE`; do not hand-ed
 | Connection ID | Type | Target | Gated on |
 |---|---|---|---|
 | `postgres_supabase` | postgres | `supabase-db:5432/${SUPABASE_DB_NAME}` | always (required dep) |
-| `litellm_default` | openai | `http://litellm:4000/v1` with `LITELLM_MASTER_KEY` | always (LiteLLM is locked always-on) |
-| `redis_default` | redis | `redis:6379` | always (Redis ships container-only always-on) |
+| `litellm_default` | openai | `http://litellm:4000/v1` with `LITELLM_MASTER_KEY` (the `/v1` lives in conn.host because OpenAIHook ignores `api_base` extras) | always (LiteLLM is locked always-on) |
+| `redis_default` | redis | `redis:6379` with `REDIS_PASSWORD` | always (Redis ships container-only always-on, auth-on by default) |
 | `spark_default` | spark | `spark://spark-master:7077` | `SPARK_SOURCE=container` |
-| `minio_default` | aws (S3-compat) | `http://minio:9000` with root creds | `MINIO_SOURCE=container` |
-| `weaviate_default` | weaviate | `http://weaviate:8080` | `WEAVIATE_SOURCE=container` (NOT `localhost` — the in-Compose DNS does not resolve in host-mode) |
-| `neo4j_default` | neo4j | `bolt://neo4j-graph-db:7687` with `GRAPH_DB_USER`/`GRAPH_DB_PASSWORD` | `NEO4J_GRAPH_DB_SOURCE=container` (same caveat) |
+| `minio_default` | aws (S3-compat) | `http://minio:9000` with root creds, path-style addressing, region `us-east-1` | `MINIO_SOURCE=container` |
+| `weaviate_default` | weaviate | host `weaviate`, port `8080`, gRPC `weaviate:50051` (via extra) | `WEAVIATE_SOURCE=container` (NOT `localhost` — the in-Compose DNS does not resolve in host-mode) |
+| `neo4j_default` | neo4j | host `neo4j-graph-db`, port `7687`, login `${GRAPH_DB_USER}`, password `${GRAPH_DB_PASSWORD}` (Hook prepends `bolt://`) | `NEO4J_GRAPH_DB_SOURCE=container` (same caveat) |
 
 Connection seeding is idempotent — `airflow-init` deletes-then-adds each Connection on every run, so changes to credentials propagate on the next `./start.sh`.
 

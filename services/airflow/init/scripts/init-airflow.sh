@@ -48,26 +48,29 @@ echo "==> airflow-init: running airflow db migrate"
 airflow db migrate
 
 echo "==> airflow-init: creating admin user (idempotent)"
-# Capture stderr so a real failure surfaces in container logs instead of
-# being hidden by the "already exists" success message. The CLI prints
-# `airflow.exceptions.AirflowException: Cannot create user`-class errors
-# on real failure (e.g. FabAuthManager not configured) vs "User admin
-# already exists" on the idempotent re-run case. Only the latter is OK.
-create_output=$(airflow users create \
+# Branch on exit code, not on stdout keywords. The earlier
+# `grep -qiE "error|exception|traceback"` heuristic over-matched
+# (e.g. a success message containing "no errors" would trigger exit 1).
+# `airflow users create` returns rc=0 on success AND on the documented
+# idempotent already-exists case in 3.x; we still grep stdout to suppress
+# the "already exists" message when the user is unchanged.
+if create_output=$(airflow users create \
   --username admin \
   --firstname Admin \
   --lastname User \
   --role Admin \
   --email admin@localhost \
-  --password "${AIRFLOW_ADMIN_PASSWORD}" 2>&1) || true
-if echo "$create_output" | grep -qE "already exists|already a user"; then
-  echo "(admin user already exists — skipping)"
-elif echo "$create_output" | grep -qiE "error|exception|traceback"; then
-  echo "airflow-init: ERROR during admin user creation:" >&2
+  --password "${AIRFLOW_ADMIN_PASSWORD}" 2>&1); then
+  if echo "$create_output" | grep -qE "already exists|already a user"; then
+    echo "(admin user already exists — skipping)"
+  else
+    echo "$create_output"
+  fi
+else
+  rc=$?
+  echo "airflow-init: ERROR during admin user creation (rc=$rc):" >&2
   echo "$create_output" >&2
   exit 1
-else
-  echo "$create_output"
 fi
 
 echo "==> airflow-init: seeding Connections (gated on sibling source)"
@@ -108,16 +111,26 @@ if [ "${SPARK_SOURCE}" = "container" ]; then
 fi
 
 if [ "${MINIO_SOURCE}" = "container" ]; then
+  # MinIO doesn't use DNS-style addressing (bucket.minio:9000); boto3
+  # defaults to virtual-hosted style and would fail DNS for any
+  # bucket-level S3 op. region_name avoids NoRegionError on newer
+  # boto3. Mirrors the spark.hadoop.fs.s3a.path.style.access=true
+  # already set on Spark's compose.
   add_conn minio_default \
     --conn-type aws \
-    --conn-extra "{\"endpoint_url\": \"http://minio:9000\", \"aws_access_key_id\": \"${MINIO_ROOT_USER}\", \"aws_secret_access_key\": \"${MINIO_ROOT_PASSWORD}\"}"
+    --conn-extra "{\"endpoint_url\": \"http://minio:9000\", \"aws_access_key_id\": \"${MINIO_ROOT_USER}\", \"aws_secret_access_key\": \"${MINIO_ROOT_PASSWORD}\", \"region_name\": \"us-east-1\", \"config_kwargs\": {\"s3\": {\"addressing_style\": \"path\"}}}"
 fi
 
+# OpenAIHook.get_conn() does:
+#   base_url = openai_client_kwargs.pop("base_url", None) or conn.host
+# It does NOT recognize `api_base` (silently ignored). So the `/v1` must
+# live IN conn.host — otherwise the OpenAI client POSTs to
+# http://litellm:4000/chat/completions and LiteLLM 404s the path
+# (correct URL is http://litellm:4000/v1/chat/completions).
 add_conn litellm_default \
   --conn-type openai \
-  --conn-host http://litellm:4000 \
-  --conn-password "${LITELLM_MASTER_KEY}" \
-  --conn-extra '{"api_base": "http://litellm:4000/v1"}'
+  --conn-host http://litellm:4000/v1 \
+  --conn-password "${LITELLM_MASTER_KEY}"
 
 # NOTE: postgres_supabase intentionally uses the SUPABASE_DB_USER (admin)
 # credentials today. The .env declares SUPABASE_DB_APP_USER / _PASSWORD
@@ -134,7 +147,16 @@ add_conn postgres_supabase \
   --conn-password "${SUPABASE_DB_PASSWORD}"
 
 if [ "${WEAVIATE_SOURCE}" = "container" ]; then
-  add_conn weaviate_default --conn-type weaviate --conn-host http://weaviate:8080
+  # WeaviateHook.get_conn() passes conn.host straight into weaviate-client's
+  # `connect_to_custom(http_host=..., http_port=conn.port or 80,
+  #   grpc_host=extras['grpc_host'] or conn.host, grpc_port=extras['grpc_port'] or 80)`.
+  # So host must be bare (`weaviate`, NOT `http://weaviate:8080`) and the
+  # gRPC port must be set via extras — Weaviate's gRPC API lives on 50051,
+  # not 80, and the v4 client requires gRPC for query operations.
+  add_conn weaviate_default \
+    --conn-type weaviate \
+    --conn-host weaviate --conn-port 8080 \
+    --conn-extra '{"grpc_host": "weaviate", "grpc_port": 50051}'
 fi
 
 # NOTE: var name is NEO4J_GRAPH_DB_SOURCE (NOT NEO4J_SOURCE — the latter
@@ -144,10 +166,15 @@ fi
 # in-stack consumer uses bolt://neo4j-graph-db:7687. Credentials come
 # from GRAPH_DB_USER / GRAPH_DB_PASSWORD (the Neo4j family's canonical
 # env vars), passed through compose.yml's airflow-init environment.
+#
+# Neo4jHook.get_uri() builds `f"{scheme}://{conn.host}:{port}"` where
+# scheme is `bolt` by default. So conn.host must NOT include the
+# `bolt://` prefix — otherwise the URI becomes `bolt://bolt://neo4j-...`
+# and the Neo4j driver rejects it with a parse error.
 if [ "${NEO4J_GRAPH_DB_SOURCE}" = "container" ]; then
   add_conn neo4j_default \
     --conn-type neo4j \
-    --conn-host "bolt://neo4j-graph-db" \
+    --conn-host "neo4j-graph-db" \
     --conn-port 7687 \
     --conn-login "${GRAPH_DB_USER}" \
     --conn-password "${GRAPH_DB_PASSWORD}"
