@@ -526,7 +526,7 @@ SPARK_SOURCE=container   # REQUIRED — Zeppelin hard-fails without Spark
 
 ### AIRFLOW_SOURCE
 
-Airflow is a code-defined DAG orchestrator running LocalExecutor (no Celery / Redis broker — the metadata DB is Supabase Postgres). The image bundles the LLM provider stack (`apache-airflow-providers-openai` + `apache-airflow-providers-langchain`) pre-wired to the LiteLLM gateway. `airflow-init` seeds Connection objects conditionally per sibling source: `postgres_supabase` (always-on), `spark_default` (gated on `SPARK_SOURCE=container`), `minio_default` (gated on `MINIO_SOURCE=container`), `litellm_default` / `weaviate_default` / `neo4j_default` / `redis_default` (each gated on the sibling source being non-`disabled`). See [Airflow service README](../../services/airflow/README.md) §4 for the full seeded Connections matrix and the example DAG.
+Airflow is a code-defined DAG orchestrator running LocalExecutor (no Celery / Redis broker — the metadata DB is Supabase Postgres). The image bundles the LLM provider stack (`apache-airflow-providers-openai` + `apache-airflow-providers-langchain`) pre-wired to the LiteLLM gateway. `airflow-init` seeds Connection objects per sibling source: `postgres_supabase`, `litellm_default`, and `redis_default` (always-on — required deps and locked-source services), `spark_default` (gated on `SPARK_SOURCE=container`), `minio_default` (gated on `MINIO_SOURCE=container`), `weaviate_default` (gated on `WEAVIATE_SOURCE=container`), `neo4j_default` (gated on `NEO4J_GRAPH_DB_SOURCE=container`). See [Airflow service README](../../services/airflow/README.md) §4 for the full seeded Connections matrix and the example DAG.
 
 #### `disabled` (Default)
 ```bash
@@ -548,7 +548,7 @@ AIRFLOW_DB_USER=airflow                 # Postgres role on supabase-db
 AIRFLOW_DB_PASSWORD=...                 # auto-generated
 ```
 - **Use case**: Scheduled / triggered DAG runs (ETL, model fine-tunes, scheduled LLM evals) with first-class LiteLLM-wired LLM operators
-- **Pros**: LocalExecutor (no broker), Supabase Postgres metadata DB, Kong-aliased UI at `airflow.localhost`, REST API under the same alias at `/api/v2/`, 7 Connections auto-seeded per sibling source (`postgres_supabase` always; `spark_default`, `minio_default`, `litellm_default`, `weaviate_default`, `neo4j_default`, `redis_default` conditional on each sibling)
+- **Pros**: LocalExecutor (no broker), Supabase Postgres metadata DB, Kong-aliased UI at `airflow.localhost`, REST API under the same alias at `/api/v2/`, 7 Connections auto-seeded (`postgres_supabase` / `litellm_default` / `redis_default` always; `spark_default` / `minio_default` / `weaviate_default` / `neo4j_default` gated on the matching sibling being `container`-sourced)
 - **Cons**: ~2 GB image disk + ~1 GB RAM for the webserver + scheduler combo
 - **Containers**: `airflow-init` (one-shot), `airflow-webserver`, `airflow-scheduler`
 - **Requirements**: Supabase Postgres reachable (always-on)
