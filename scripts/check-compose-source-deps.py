@@ -80,6 +80,18 @@ REQUIRED_DEPENDS_ON = {
     # scale together with their respective SOURCE values; the edge is only
     # active when both are running.
     ("grafana", "prometheus"),
+    # Compute tier additions (2026-06-04):
+    # - Spark workers + history must wait on the master being healthy +
+    #   the spark-init bucket-bootstrap respectively.
+    # - Zeppelin is gated on Spark — its Spark interpreter is the whole point.
+    # - Airflow's init container migrates the metadata DB on supabase-db;
+    #   webserver + scheduler depend on the init container completing.
+    ("spark-worker", "spark-master"),
+    ("spark-history", "spark-init"),
+    ("zeppelin", "spark-master"),
+    ("airflow-init", "supabase-db"),
+    ("airflow-webserver", "airflow-init"),
+    ("airflow-scheduler", "airflow-init"),
 }
 
 
