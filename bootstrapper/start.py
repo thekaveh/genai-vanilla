@@ -451,44 +451,165 @@ class GenAIStackStarter:
         if not groups:
             return True
 
-        rendered_lines: list[str] = [
-            "",
-            "# ────────────────────────────────────────────────────────",
-            f"# Auto-backfilled from .env.example on {_format_today()}",
-            "# Entries new in .env.example since this .env was written,",
-            "# grouped by their source section so the file stays tidy.",
-            "# ────────────────────────────────────────────────────────",
-        ]
-        total = 0
-        for section, entries in groups:
-            rendered_lines.append("")
-            rendered_lines.append(f"# === {section} ===")
-            for context, key, value in entries:
-                rendered_lines.extend(context)  # 0+ comment lines
-                rendered_lines.append(f"{key}={value}")
-                total += 1
-        rendered_lines.append("")
-        appended = "\n".join(rendered_lines)
-        if not env_text.endswith("\n"):
-            appended = "\n" + appended
+        # Insert each group AT THE END of its matching section in the
+        # user's .env. If the section doesn't exist in .env (older
+        # layout, e.g. a brand-new service family), the section banner
+        # plus its entries land in an "Auto-backfilled" trailer at the
+        # bottom. This preserves the source-of-truth grouping the
+        # docstring promised — historically the regex below was
+        # `[=]{3,}` which never matched .env.example's `─` (U+2500)
+        # bars, so EVERY key fell into "(unsectioned)" and got dumped
+        # at the bottom. The fix is to (a) match both bar chars and
+        # (b) actually splice in-place.
+        new_env_text, total, in_place_sections, trailer_sections = (
+            self._splice_backfill_in_place(env_text, groups)
+        )
 
         try:
-            with open(env_file_path, "a", encoding="utf-8") as f:
-                f.write(appended)
+            env_file_path.write_text(new_env_text, encoding="utf-8")
         except OSError as e:
             self.banner.show_status_message(
                 f"Failed to backfill {env_file_path}: {e}", "error",
             )
             return False
 
-        section_names = ", ".join(s for s, _ in groups[:4])
-        suffix = " …" if len(groups) > 4 else ""
+        msg_bits = []
+        if in_place_sections:
+            msg_bits.append(
+                f"into {len(in_place_sections)} existing section"
+                f"{'s' if len(in_place_sections) != 1 else ''} "
+                f"({', '.join(in_place_sections[:3])}"
+                f"{' …' if len(in_place_sections) > 3 else ''})"
+            )
+        if trailer_sections:
+            msg_bits.append(
+                f"with {len(trailer_sections)} new section"
+                f"{'s' if len(trailer_sections) != 1 else ''} appended "
+                f"({', '.join(trailer_sections[:3])}"
+                f"{' …' if len(trailer_sections) > 3 else ''})"
+            )
         self.banner.show_status_message(
             f"Backfilled {total} missing env var(s) from .env.example, "
-            f"grouped under: {section_names}{suffix}",
+            + ("; ".join(msg_bits) or "no placement available"),
             "info",
         )
         return True
+
+    @staticmethod
+    def _splice_backfill_in_place(
+        env_text: str,
+        groups: "list[tuple[str, list[tuple[list[str], str, str]]]]",
+    ) -> "tuple[str, int, list[str], list[str]]":
+        """Insert each backfill group at the END of its matching section
+        in ``env_text``. Sections that don't exist in ``env_text`` get
+        an auto-backfilled trailer at the bottom.
+
+        Returns ``(new_env_text, total_keys_added, in_place_section_names,
+        trailer_section_names)``.
+
+        Section identity matches the banner-title text emitted by
+        ``env_assembler`` (e.g. ``"data: Apache Spark (standalone
+        cluster)  (services/spark/service.yml)"``). We tolerate both
+        ``─`` and ``=`` bar chars for back-compat with hand-edited
+        ``.env`` files.
+        """
+        bar_re = re.compile(r"^#\s*[=─]{3,}\s*$")
+        lines = env_text.splitlines(keepends=True)
+        n = len(lines)
+        # Walk env_text and record [(section_name, start_idx, end_idx)]
+        # — start_idx is the line AFTER the closing bar of the banner
+        # block; end_idx is exclusive of the next banner's opening bar.
+        sections: list[tuple[str, int, int]] = []
+        current_name = "(preamble)"
+        current_start = 0
+        i = 0
+        while i < n:
+            line = lines[i]
+            # Banner = bar / # TITLE / bar (3 lines).
+            if (
+                bar_re.match(line.rstrip("\r\n"))
+                and i + 2 < n
+                and lines[i + 1].lstrip().startswith("#")
+                and bar_re.match(lines[i + 2].rstrip("\r\n"))
+            ):
+                title = lines[i + 1].lstrip("#").strip()
+                # Close out the prior section at the line that holds
+                # this banner's opening bar.
+                sections.append((current_name, current_start, i))
+                current_name = title or "(unnamed)"
+                current_start = i + 3
+                i += 3
+                continue
+            i += 1
+        sections.append((current_name, current_start, n))
+
+        # For each group, find an in-place insertion point or queue for
+        # the trailer.
+        section_lookup = {name: idx for idx, (name, _, _) in enumerate(sections)}
+        # Map section index → list of additional lines to splice in
+        # right BEFORE the section's end (so they land at the bottom of
+        # the section, before any blank-line gap to the next banner).
+        per_section_splice: dict[int, list[str]] = {}
+        trailer_groups: list[tuple[str, list[tuple[list[str], str, str]]]] = []
+        in_place_names: list[str] = []
+        trailer_names: list[str] = []
+        total = 0
+
+        for section_name, entries in groups:
+            if section_name in section_lookup:
+                in_place_names.append(section_name)
+                idx = section_lookup[section_name]
+                bucket = per_section_splice.setdefault(idx, [])
+                for context, key, value in entries:
+                    for ctx_line in context:
+                        bucket.append(ctx_line + "\n")
+                    bucket.append(f"{key}={value}\n")
+                    total += 1
+            else:
+                trailer_names.append(section_name)
+                trailer_groups.append((section_name, entries))
+                total += len(entries)
+
+        # Reassemble env_text with in-place splices applied. Walk from
+        # the end backwards so prior splices don't shift later indices.
+        out_lines = list(lines)
+        for idx in sorted(per_section_splice.keys(), reverse=True):
+            name, start, end = sections[idx]
+            # Trim trailing blank lines from the section body so the
+            # spliced entries sit flush with the prior content; the
+            # blank is reinserted between sections.
+            insertion_point = end
+            while (
+                insertion_point > start
+                and out_lines[insertion_point - 1].strip() == ""
+            ):
+                insertion_point -= 1
+            splice = per_section_splice[idx]
+            out_lines[insertion_point:insertion_point] = splice
+
+        # Append the trailer for any groups whose section didn't exist.
+        if trailer_groups:
+            trailer: list[str] = []
+            joined = "".join(out_lines)
+            if joined and not joined.endswith("\n"):
+                trailer.append("\n")
+            trailer.extend([
+                "\n",
+                "# ────────────────────────────────────────────────────────\n",
+                f"# Auto-backfilled from .env.example on {_format_today()}\n",
+                "# Sections new in .env.example since this .env was written.\n",
+                "# ────────────────────────────────────────────────────────\n",
+            ])
+            for section_name, entries in trailer_groups:
+                trailer.append("\n")
+                trailer.append(f"# === {section_name} ===\n")
+                for context, key, value in entries:
+                    for ctx_line in context:
+                        trailer.append(ctx_line + "\n")
+                    trailer.append(f"{key}={value}\n")
+            out_lines.extend(trailer)
+
+        return "".join(out_lines), total, in_place_names, trailer_names
 
     @staticmethod
     def _parse_env_example_sections(
@@ -505,11 +626,16 @@ class GenAIStackStarter:
         capped to the previous variable or section banner so the
         backfill doesn't drag unrelated commentary along.
         """
-        # Match the 3-line section banner pattern in .env.example:
-        #   # ====================
-        #   # SECTION NAME
-        #   # ====================
-        bar_re = re.compile(r"^#\s*={3,}\s*$")
+        # Match the 3-line section banner pattern in .env.example.
+        # env_assembler emits box-drawing `─` (U+2500) — the canonical
+        # form after PR #X. Legacy `=` bars are also tolerated for
+        # backwards-compat with hand-edited `.env.example` files.
+        #
+        # Example match:
+        #   # ──────────────────────────────────────────────────
+        #   # data: Apache Spark (standalone cluster)  (services/spark/service.yml)
+        #   # ──────────────────────────────────────────────────
+        bar_re = re.compile(r"^#\s*[=─]{3,}\s*$")
         lines = example_text.splitlines()
         current_section = "(unsectioned)"
         # Buffer of comment lines accumulated since the last variable
