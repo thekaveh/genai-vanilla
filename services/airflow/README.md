@@ -4,7 +4,7 @@ Airflow runs as a 3-container family in the stack's `agents` band: `airflow-webs
 
 ## 1. Overview
 
-Image: `apache/airflow:3.2.2` (Apache 2.0), wrapped by a local `services/airflow/build/Dockerfile` that adds the 8-provider bundle needed for the cross-stack integrations (apache-spark, amazon, postgres, redis, weaviate, neo4j, openai, langchain). LocalExecutor is the only supported executor in v1 — tasks run in the scheduler's process pool. Metadata DB lives in a new `airflow` database on Supabase Postgres, created by `airflow-init` on first start.
+Image: `apache/airflow:3.2.2` (Apache 2.0), wrapped by a local `services/airflow/build/Dockerfile` that adds the 10-provider bundle needed for the cross-stack integrations (apache-spark, amazon, postgres, redis, common-sql, weaviate, neo4j, openai, langchain, fab) plus `pyspark==4.1.2` (matches the Spark image — required by the Spark Connect smoke step in the sample DAG). LocalExecutor is the only supported executor in v1 — tasks run in the scheduler's process pool. Metadata DB lives in a new `airflow` database on Supabase Postgres, created by `airflow-init` on first start.
 
 ## 2. Access
 
@@ -43,7 +43,7 @@ Auto-managed (resolved by the bootstrapper from `AIRFLOW_SOURCE`; do not hand-ed
 | `spark_default` | spark | `spark://spark-master:7077` | `SPARK_SOURCE=container` |
 | `minio_default` | aws (S3-compat) | `http://minio:9000` with root creds | `MINIO_SOURCE=container` |
 | `weaviate_default` | weaviate | `http://weaviate:8080` | `WEAVIATE_SOURCE=container` (NOT `localhost` — the in-Compose DNS does not resolve in host-mode) |
-| `neo4j_default` | neo4j | `bolt://neo4j:7687` | `NEO4J_GRAPH_DB_SOURCE=container` (same caveat) |
+| `neo4j_default` | neo4j | `bolt://neo4j-graph-db:7687` with `GRAPH_DB_USER`/`GRAPH_DB_PASSWORD` | `NEO4J_GRAPH_DB_SOURCE=container` (same caveat) |
 
 Connection seeding is idempotent — `airflow-init` deletes-then-adds each Connection on every run, so changes to credentials propagate on the next `./start.sh`.
 

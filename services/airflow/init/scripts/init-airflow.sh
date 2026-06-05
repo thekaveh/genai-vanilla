@@ -25,6 +25,11 @@ psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres -tAc \
      "SELECT 1 FROM pg_roles WHERE rolname='${AIRFLOW_DB_USER}'" | grep -q 1 \
   || psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
        -c "CREATE ROLE ${AIRFLOW_DB_USER} WITH LOGIN PASSWORD '${AIRFLOW_DB_PASSWORD}'"
+# Re-apply the password every run so that AIRFLOW_DB_PASSWORD rotations
+# in .env are picked up — CREATE ROLE only runs the first time.
+# Idempotent: setting the role's password to its current value is a no-op.
+psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+     -c "ALTER ROLE ${AIRFLOW_DB_USER} WITH PASSWORD '${AIRFLOW_DB_PASSWORD}'"
 psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
      -c "GRANT ALL PRIVILEGES ON DATABASE airflow TO ${AIRFLOW_DB_USER}"
 # Postgres 15+ (the stack ships supabase/postgres:17.x) tightened the
@@ -60,6 +65,16 @@ add_conn() {
   airflow connections delete "$conn_id" >/dev/null 2>&1 || true
   airflow connections add "$conn_id" "$@"
 }
+
+# Orphan-cleanup pass: drop any source-gated Connection up front. The
+# guarded add_conn calls below will re-create the ones still active. This
+# prevents stale entries from a prior run where the sibling source was
+# `container` from sitting in the metadata DB after the user flips it
+# back to `disabled` — orphan Connections would point at dead DNS names
+# and confuse DAGs that reference them.
+for orphan in spark_default minio_default weaviate_default neo4j_default; do
+  airflow connections delete "$orphan" >/dev/null 2>&1 || true
+done
 
 # Gating convention: every gate uses `= "container"` (NOT `!= "disabled"`).
 # The `!= "disabled"` form silently includes the `localhost` source variant
@@ -104,8 +119,17 @@ fi
 # NOTE: var name is NEO4J_GRAPH_DB_SOURCE (NOT NEO4J_SOURCE — the latter
 # does not exist in .env.example and was silently undefined → "disabled"
 # → neo4j_default never seeded prior to this fix).
+# Compose service id is `neo4j-graph-db` (NOT `neo4j`); every other
+# in-stack consumer uses bolt://neo4j-graph-db:7687. Credentials come
+# from GRAPH_DB_USER / GRAPH_DB_PASSWORD (the Neo4j family's canonical
+# env vars), passed through compose.yml's airflow-init environment.
 if [ "${NEO4J_GRAPH_DB_SOURCE}" = "container" ]; then
-  add_conn neo4j_default --conn-type neo4j --conn-host bolt://neo4j --conn-port 7687
+  add_conn neo4j_default \
+    --conn-type neo4j \
+    --conn-host "bolt://neo4j-graph-db" \
+    --conn-port 7687 \
+    --conn-login "${GRAPH_DB_USER}" \
+    --conn-password "${GRAPH_DB_PASSWORD}"
 fi
 
 add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379
