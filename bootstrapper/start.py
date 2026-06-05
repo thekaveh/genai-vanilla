@@ -54,6 +54,53 @@ from services.dependency_manager import DependencyManager
 from utils.source_override_manager import SourceOverrideManager
 
 
+def _detect_env_image_drift(
+    existing_env: dict, env_example_path,
+) -> list[tuple[str, str, str]]:
+    """Return [(key, user_value, example_value), ...] for every ``*_IMAGE``
+    key whose value in the user's ``.env`` differs from ``.env.example``.
+
+    Why this matters: CI tests `docker compose ... --env-file .env.example
+    config -q`, so divergence in the user's `.env` is invisible to CI but
+    breaks `docker build` at user-side launch. Example incident: PR #35
+    migrated SPARK_IMAGE bitnami/spark:4.1.2 → apache/spark:4.1.2 (Bitnami
+    went paywalled), but a user's pre-migration `.env` retained the stale
+    Bitnami pin → `docker.io/bitnami/spark:4.1.2: not found` at the
+    spark-history image-pull step. See PR #35 docs.
+
+    Scope: ONLY ``*_IMAGE`` keys (image pins control what gets pulled /
+    built and are the only class with this CI-blind failure mode). Other
+    env divergence (ports, secrets, source toggles) is often intentional
+    and would produce noisy false-positives.
+
+    Empty user values are skipped — placeholder lines in `.env` and
+    auto-managed keys correctly defer to compose `:-` fallbacks.
+
+    Kept as a module-level free function so it can be unit-tested without
+    spinning up the full Starter.
+    """
+    if not env_example_path.exists():
+        return []
+    example_pins: dict[str, str] = {}
+    for raw_line in env_example_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '_IMAGE=' not in line:
+            continue
+        key, _, val = line.partition('=')
+        if key.endswith('_IMAGE') and val:
+            example_pins[key] = val.split('#', 1)[0].strip()
+    drift: list[tuple[str, str, str]] = []
+    for key, example_val in example_pins.items():
+        user_val = (existing_env.get(key, '') or '').strip()
+        if not user_val:
+            continue
+        if user_val != example_val:
+            drift.append((key, user_val, example_val))
+    return drift
+
+
 def _detect_port_collisions(rows) -> list[str]:
     """Return human-readable warning strings, one per colliding host port.
 
@@ -1679,6 +1726,38 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             _existing_env = starter.config_parser.parse_env_file()
         except Exception:  # noqa: BLE001
             _existing_env = {}
+
+        # ─── .env vs .env.example image-pin drift warning ────────────────
+        # See _detect_env_image_drift() for the rationale. CI is blind to
+        # this class because it tests against .env.example, so the warning
+        # is the only signal a user with a stale .env gets.
+        try:
+            _drift = _detect_env_image_drift(
+                _existing_env, starter.config_parser.env_example_path,
+            )
+        except Exception:  # noqa: BLE001
+            # Pre-flight warning must never break the start path.
+            _drift = []
+        if _drift:
+            print(
+                "⚠️  .env image-pin drift vs .env.example "
+                "(CI tests .env.example so this is CI-invisible — "
+                "may break docker build):",
+                file=sys.stderr,
+            )
+            for _key, _user_val, _example_val in _drift:
+                print(
+                    f"     {_key}: .env={_user_val!r} → "
+                    f".env.example={_example_val!r}",
+                    file=sys.stderr,
+                )
+            print(
+                "     Update .env to match (sed -i '' "
+                "'s|^<KEY>=.*|<KEY>=<value>|' .env) or accept "
+                "the override if intentional.",
+                file=sys.stderr,
+            )
+
         for _models_flag, _source_kwarg, _source_var in (
             (openai_models,     cloud_openai_source,     'CLOUD_OPENAI_SOURCE'),
             (anthropic_models,  cloud_anthropic_source,  'CLOUD_ANTHROPIC_SOURCE'),
