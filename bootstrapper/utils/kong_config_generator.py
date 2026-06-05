@@ -213,6 +213,10 @@ class KongConfigGenerator:
         if zeppelin_service:
             services.append(zeppelin_service)
 
+        airflow_service = self.generate_airflow_service()
+        if airflow_service:
+            services.append(airflow_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -940,6 +944,32 @@ class KongConfigGenerator:
                     'strip_path': False,
                     'preserve_host': True,
                     'hosts': ['spark-history.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+            ],
+        }
+
+    def generate_airflow_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for the Airflow Web UI + REST API.
+
+        Browser-facing SPA + same alias serves the REST API under /api/v2/.
+        `preserve_host: True` per reference_kong_preserve_host.
+        Gated on `AIRFLOW_SOURCE=container`.
+        """
+        source = self.get_env_value('AIRFLOW_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'airflow',
+            'url': 'http://airflow-webserver:8080',
+            'routes': [
+                {
+                    'name': 'airflow-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['airflow.localhost'],
                 }
             ],
             'plugins': [
