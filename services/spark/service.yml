@@ -28,8 +28,6 @@ sources:
 env:
   - name: SPARK_SOURCE
     default: disabled
-  - name: SPARK_IMAGE
-    default: "bitnami/spark:4.1.2"
   - name: SPARK_MASTER_UI_PORT
     # default removed — computed by services/topology.py slot allocator
     description: "Host port for the Spark Master Web UI (in-container 8080)."
