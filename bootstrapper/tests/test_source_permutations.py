@@ -176,7 +176,10 @@ def test_spark_renders_at_every_supported_worker_count(worker_count: str, tmp_pa
     containers share the same name). Ray's ray-worker has the same
     constraint and is the precedent for the no-container_name pattern."""
     env_file = tmp_path / ".env"
-    # Apply all four scales the bootstrapper would write when source=container.
+    # Apply all five scales the bootstrapper would write when source=container.
+    # (Pass 2 added the dedicated spark-connect sidecar — SPARK_CONNECT_SCALE
+    # must be 1 alongside the rest for the merged compose to render the
+    # full topology that ships at runtime.)
     env_text = ENV_EXAMPLE.read_text(encoding="utf-8")
     out_lines = []
     for line in env_text.splitlines():
@@ -190,6 +193,8 @@ def test_spark_renders_at_every_supported_worker_count(worker_count: str, tmp_pa
             out_lines.append("SPARK_HISTORY_SCALE=1")
         elif line.startswith("SPARK_INIT_SCALE="):
             out_lines.append("SPARK_INIT_SCALE=1")
+        elif line.startswith("SPARK_CONNECT_SCALE="):
+            out_lines.append("SPARK_CONNECT_SCALE=1")
         else:
             out_lines.append(line)
     env_file.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
