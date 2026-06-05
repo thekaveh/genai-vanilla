@@ -51,6 +51,34 @@ def test_airflow_init_uses_bash_passthrough():
     )
 
 
+def test_airflow_webserver_healthcheck_uses_api_v2_monitor_path():
+    """Airflow 3.x's api-server retired `/health`; the canonical health
+    endpoint is `/api/v2/monitor/health`. Using `/health` returns 404
+    forever and Docker marks the container unhealthy — the TUI then
+    shows an orange dot for Airflow even though the UI is fully alive.
+
+    Observed live the morning after PR #35 merged: the user reported
+    "I can't find the new Airflow service" because the TUI's "unhealthy"
+    badge masked an actually-working Airflow at port 64060. Verified
+    against Airflow 3.2.2:
+      $ curl localhost:8080/api/v2/monitor/health
+      → 200 {"metadatabase":{"status":"healthy"},
+             "scheduler":{"status":"healthy",...},
+             "dag_processor":{"status":"healthy",...}}
+    """
+    doc = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    test = doc["services"]["airflow-webserver"]["healthcheck"]["test"]
+    joined = " ".join(test)
+    assert "/api/v2/monitor/health" in joined, (
+        f"airflow-webserver healthcheck must probe `/api/v2/monitor/health` "
+        f"(Airflow 3.x retired the legacy `/health` route). Got: {joined!r}"
+    )
+    assert " /health" not in joined and joined != "/health", (
+        f"airflow-webserver healthcheck still references the legacy "
+        f"`/health` path which returns 404 in Airflow 3.x: {joined!r}"
+    )
+
+
 def test_airflow_dag_processor_uses_correct_command():
     """Airflow 3.x's dag-processor is a separate process; the upgrade
     guide is explicit: `The Dag processor must now be started

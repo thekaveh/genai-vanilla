@@ -40,7 +40,16 @@ services:
       airflow-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      # Airflow 3.x's api-server retired the legacy `/health` route
+      # (it served the FAB webserver in 2.x). The canonical health
+      # endpoint is now `/api/v2/monitor/health` — it returns a JSON
+      # blob with metadatabase / scheduler / triggerer / dag_processor
+      # sub-statuses. `/health` still 404s under the new api-server
+      # router, so the prior healthcheck always marked the container
+      # unhealthy and Docker emitted the orange dot in TUI / `docker ps`.
+      # Verified on 3.2.2: `curl localhost:8080/api/v2/monitor/health` →
+      # 200 with `{"metadatabase":{"status":"healthy"},...}`.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s
       timeout: 10s
       retries: 5
