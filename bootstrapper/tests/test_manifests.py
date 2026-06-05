@@ -429,6 +429,15 @@ def test_airflow_manifest_loads():
     a = next((m for m in manifests if m.name == "airflow"), None)
     assert a is not None
     assert a.category == "agents"
+    # supabase / litellm / redis are unconditional consumers — airflow-init
+    # seeds postgres_supabase / litellm_default / redis_default Connections
+    # without gating. They belong in required: per ordering convention
+    # mirrored by sibling consumers (n8n, jupyterhub).
     assert "supabase" in a.depends_on.required
-    assert "spark" in a.depends_on.optional   # gated connection seeding
-    assert "litellm" in a.depends_on.optional  # gated connection seeding
+    assert "litellm" in a.depends_on.required
+    assert "redis" in a.depends_on.required
+    # spark / weaviate / neo4j Connection seeding is gated on the sibling's
+    # source being container — optional dependency.
+    assert "spark" in a.depends_on.optional
+    assert "weaviate" in a.depends_on.optional
+    assert "neo4j" in a.depends_on.optional
