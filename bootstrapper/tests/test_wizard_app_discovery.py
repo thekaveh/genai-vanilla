@@ -65,6 +65,12 @@ EXPECTED_DISCOVERED = frozenset({
     # on Spark. Single-container family so no shim needed; wired via
     # 'zeppelin_source' in source_mapping.
     "Apache Zeppelin",
+    # Airflow (added 2026-06-04) — code-defined DAG orchestrator.
+    # Multi-container family (webserver + scheduler + init), so wizard
+    # discovery uses the `airflow_webserver_source` shim in
+    # SourceOverrideManager.source_mapping (same pattern as Ray's
+    # ray_head_source / Spark's spark_master_source).
+    "Apache Airflow",
 })
 
 
