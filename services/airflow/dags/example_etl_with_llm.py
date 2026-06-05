@@ -1,11 +1,16 @@
 """Example DAG demonstrating Spark + MinIO + LiteLLM integrations.
 
-Runs daily. Three PythonOperator steps exercising each seeded Airflow
-Connection:
+Runs daily. Three PythonOperator steps exercising the cross-stack
+integrations:
 
 1. ``spark_smoke`` calls the Spark cluster via Spark Connect (the modern
-   gRPC client; no JAR submission needed for a smoke test). Confirms
-   ``spark_default`` Connection + the in-stack Spark master are healthy.
+   gRPC client; no JAR submission needed for a smoke test) at
+   ``sc://spark-connect:15002``. This confirms the in-stack Spark cluster
+   is reachable end-to-end. Note: it does NOT exercise the seeded
+   ``spark_default`` Connection (host: spark-master:7077) — that one is
+   for user DAGs that use ``SparkSubmitOperator``. The Connect endpoint
+   is a separate sidecar; both are seeded for user use, but the smoke
+   step happens to call the Connect path.
 2. ``summarize_via_litellm`` calls LiteLLM's chat-completions endpoint
    through OpenAIHook (which routes via ``litellm_default``). The openai
    provider exports only ``OpenAIEmbeddingOperator`` and

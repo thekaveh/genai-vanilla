@@ -70,7 +70,11 @@ depends_on:
     - minio
     - weaviate
     - neo4j
-    - prometheus
+    # NOTE: prometheus integration is documented as a Known follow-up
+    # in CHANGELOG (Airflow 3.x has no built-in /metrics; the official
+    # path is StatsD → statsd_exporter → Prometheus, not yet wired).
+    # Removed from optional deps so service_dependencies / auto-diagrams
+    # don't show a non-existent edge.
 
 rows:
   - display_name: "Apache Airflow"

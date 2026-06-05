@@ -51,7 +51,7 @@ Connection seeding is idempotent — `airflow-init` deletes-then-adds each Conne
 
 `services/airflow/dags/example_etl_with_llm.py` ships pre-loaded. Three `PythonOperator` steps that smoke-test each Connection:
 
-1. `spark_smoke` invokes Spark Connect at `sc://spark-connect:15002` via `pyspark[connect]`. Smoke-tests `spark_default` reachability without owning a JAR build. See the DAG docstring for why `SparkSubmitOperator` is deferred to user DAGs.
+1. `spark_smoke` invokes Spark Connect at `sc://spark-connect:15002` via `pyspark[connect]`. Smoke-tests the Spark cluster's reachability via the Connect sidecar. Note: this does NOT exercise the seeded `spark_default` Connection — that one points at `spark://spark-master:7077` for user DAGs using `SparkSubmitOperator`. See the DAG docstring.
 2. `summarize_via_litellm` calls LiteLLM's chat-completions endpoint via `OpenAIHook.get_conn()`. There is no `OpenAIOperator` class in `apache-airflow-providers-openai` (only `OpenAIEmbeddingOperator` and `OpenAITriggerBatchOperator`); the Hook is the right surface for chat. Defaults to `ollama/qwen3.6:latest` (Ollama-mode); swap to `gpt-4o-mini` or similar if running with `--llm-provider-source none` + `CLOUD_OPENAI_SOURCE=enabled`.
 3. `list_minio_buckets` calls `S3Hook.list_buckets()` against `minio_default`.
 
