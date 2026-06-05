@@ -231,6 +231,7 @@ _No upstream calls._
 |---|---|
 | kong | infra |
 | prometheus | infra |
+| spark | data |
 | litellm | llm |
 | n8n | agents |
 | backend | apps |
