@@ -4,7 +4,7 @@ This document outlines future development plans and enhancements for the GenAI V
 
 ## Current status
 
-The stack now orchestrates 30+ services across AI inference, workflow automation, data science, document processing, speech, and the Supabase ecosystem. An additional set of candidate services is tracked across the Tier 1/2/3 sections below, including labelled sub-sections for the **3D / game-generation**, **financial / trading-AI**, and **RAG-enhancement** strategic tracks. Architectural milestones to date:
+The stack now orchestrates 33+ services across AI inference, workflow automation, data science, distributed compute (Ray, Spark), DAG orchestration (Airflow), notebook UIs (JupyterHub, Zeppelin), observability (Prometheus + Grafana), document processing, speech, and the Supabase ecosystem. An additional set of candidate services is tracked across the Tier 1/2/3 sections below, including labelled sub-sections for the **3D / game-generation**, **financial / trading-AI**, and **RAG-enhancement** strategic tracks. Architectural milestones to date:
 - Dynamic Kong API Gateway configuration
 - Python cross-platform bootstrapping with CLI SOURCE overrides
 - Service integration spanning Ollama, ComfyUI, n8n, Open WebUI, SearxNG, Supabase, Neo4j, OpenClaw, Weaviate, JupyterHub, and more
@@ -1075,6 +1075,7 @@ This track composes a lakehouse + ingestion + BI + (optional) MLOps platform alo
 **Apache Spark (standalone + Spark Connect) — distributed compute** — ✅ **Shipped 2026-06-04** (PR #35; Spark 4.1.2)
 - Apache-2.0; Spark 4.x. Single image, three roles: master, worker, and `spark-connect` server. Spark Connect (GA since Spark 3.4, recommended in 4.x) is a gRPC server that exposes Spark to Python / Scala / Go / Rust clients transparently — the cluster runs JVM, clients do not.
 - Phase 1 anchor of the data-engineering track. **The Spark Connect server is the architectural unlock**: it lets the FastAPI backend, JupyterHub Python kernels, Dagster / Airflow workers, and Hermes-orchestrated jobs use Spark without a JVM in their containers.
+- **Follow-up — Spark × Prometheus + Grafana observability**: spec §5.1 marked this CRITICAL-opt-in (JMX exporter sidecar + scrape job + a starter `spark.json` Grafana dashboard) but the wiring did not ship in PR #35. cAdvisor's container-level metrics cover the gap in existing dashboards until the JMX integration lands.
 
 **Stack integration points:**
 

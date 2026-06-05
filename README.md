@@ -23,7 +23,7 @@ git clone https://github.com/thekaveh/genai-vanilla && cd genai-vanilla
 
 # 3. Wait ~5 minutes for AI models to download, then access:
 # Open WebUI (Chat):     http://localhost:63082
-# n8n (Workflows):       http://localhost:63062
+# n8n (Workflows):       http://localhost:63063
 # Supabase Studio:       http://localhost:63017
 # SearxNG (Search):      http://localhost:63043
 # ComfyUI:               http://localhost:63041
@@ -231,7 +231,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Data | MinIO Console | 63019 | minio.localhost |
 | Data | Neo4j Graph DB | 63021 | graph.localhost |
 | Data | Redis | 63022 | — |
-| Data | Weaviate | 63024 | weaviate.localhost |
+| Data | Apache Spark | 63024 | spark.localhost |
+| Data | Apache Spark — History Server | 63025 | spark-history.localhost |
+| Data | Weaviate | 63026 | weaviate.localhost |
 | Data | Multi2Vec CLIP | — | — |
 | LLM Core | LiteLLM | 63030 | litellm.localhost |
 | LLM Core | LLM Engine | — | ollama.localhost |
@@ -240,13 +242,15 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Media | STT Provider | 63042 | stt.localhost |
 | Media | SearxNG | 63043 | search.localhost |
 | Media | TTS Provider | 63044 | tts.localhost |
-| Agents & Workflows | Hermes Agent | 63060 | hermes.localhost |
-| Agents & Workflows | n8n | 63062 | n8n.localhost |
-| Agents & Workflows | OpenClaw | 63063 | openclaw.localhost |
+| Agents & Workflows | Apache Airflow | 63060 | airflow.localhost |
+| Agents & Workflows | Hermes Agent | 63061 | hermes.localhost |
+| Agents & Workflows | n8n | 63063 | n8n.localhost |
+| Agents & Workflows | OpenClaw | 63064 | openclaw.localhost |
 | Apps & UIs | Backend API | 63080 | api.localhost |
 | Apps & UIs | JupyterHub | 63081 | jupyter.localhost |
 | Apps & UIs | Open WebUI | 63082 | chat.localhost |
 | Apps & UIs | Local Deep Researcher | 63083 | research.localhost |
+| Apps & UIs | Apache Zeppelin | 63084 | zeppelin.localhost |
 <!-- TOPOLOGY:END -->
 
 ## 4. Core Services
@@ -256,7 +260,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Service | Direct URL | Kong URL | Purpose | Auth required |
 |---------|------------|----------|---------|---------------|
 | **Open WebUI** | http://localhost:63082 | http://chat.localhost:63000 | AI chat interface | Create account |
-| **n8n** | http://localhost:63062 | http://n8n.localhost:63000 | Workflow automation | admin@example.com |
+| **n8n** | http://localhost:63063 | http://n8n.localhost:63000 | Workflow automation | admin@example.com |
 | **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | admin@example.com |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
@@ -266,7 +270,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
 | **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants resolved via `*_LOCALHOST_PORT`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
 | **Docling Processor** | http://localhost:63040 | http://docling.localhost:63000 | Document processing | None |
-| **OpenClaw Agent** | http://localhost:63063 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
+| **OpenClaw Agent** | http://localhost:63064 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
 | **Hermes Agent** | http://localhost:63060 (API), http://localhost:63061 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
 | **MinIO Console** | http://localhost:63019 | http://minio.localhost:63000 | S3-compatible object storage admin UI (gated on `MINIO_SOURCE != disabled`). S3 API at `:63018` is NOT aliased — S3 clients use the direct port. | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 | **Ray Dashboard** | http://localhost:63002 | http://ray.localhost:63000 | Distributed-compute substrate (cluster head + workers). Disabled by default; opt-in via `--ray-source ray-container-cpu` / `ray-container-gpu`. | None |
@@ -462,6 +466,11 @@ genai-vanilla/
 │   ├── openclaw/              # OpenClaw agent gateway + init
 │   ├── kong/                  # Kong API gateway
 │   ├── ray/                   # Ray distributed-compute substrate (head + workers)
+│   ├── prometheus/            # Metrics scraper + TSDB (with config/ scrape jobs, opt-in via PROMETHEUS_SOURCE)
+│   ├── grafana/               # Observability dashboards + unified alerting (with config/ provisioning, opt-in via GRAFANA_SOURCE)
+│   ├── spark/                 # Apache Spark standalone cluster — master + worker + history + init (opt-in via SPARK_SOURCE)
+│   ├── zeppelin/              # Apache Zeppelin Spark-first notebook UI (opt-in via ZEPPELIN_SOURCE; gated on Spark)
+│   ├── airflow/               # Apache Airflow 3.x DAG orchestrator (with build/ Dockerfile + dags/, opt-in via AIRFLOW_SOURCE)
 │   ├── cloud-providers/       # Virtual manifest — OpenAI/Anthropic/OpenRouter toggles
 │   ├── stt-provider/          # Doc-only — aggregate STT provider documentation
 │   ├── doc-processor/         # Doc-only — aggregate doc-processor documentation
