@@ -236,6 +236,7 @@ _No upstream calls._
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |
+| zeppelin | apps |
 
 ### 8.3 Architecture diagram
 
