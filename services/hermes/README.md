@@ -1,6 +1,6 @@
 # Hermes Agent
 
-**Port:** 63060 (API), 63061 (dashboard)
+**Port:** 63061 (API), 63062 (dashboard)
 **SOURCE variable:** `HERMES_SOURCE`
 **SOURCE options:** container, localhost, disabled
 
@@ -34,8 +34,8 @@ Key facts:
 
 | Path | URL | Notes |
 |---|---|---|
-| OpenAI-compatible API (direct) | `http://localhost:63060` | Bearer token: `${HERMES_API_KEY}`. Same surface as OpenAI's `/v1/chat/completions`. |
-| Dashboard (direct) | `http://localhost:63061` | Web admin UI for skills, sessions, model config. |
+| OpenAI-compatible API (direct) | `http://localhost:${HERMES_API_PORT}` (default 63061) | Bearer token: `${HERMES_API_KEY}`. Same surface as OpenAI's `/v1/chat/completions`. |
+| Dashboard (direct) | `http://localhost:${HERMES_DASHBOARD_PORT}` (default 63062) | Web admin UI for skills, sessions, model config. |
 | Dashboard (Kong) | `http://hermes.localhost:63000` | Requires `./start.sh --setup-hosts`. |
 | Internal DNS (other containers) | `http://hermes:8642` | Reachable from LiteLLM, n8n, backend, jupyterhub, openclaw. |
 
@@ -79,8 +79,8 @@ degradation; no failure.
 ```bash
 HERMES_SOURCE=container             # container | localhost | disabled
 HERMES_IMAGE=nousresearch/hermes-agent:0.13.0
-HERMES_API_PORT=63060
-HERMES_DASHBOARD_PORT=63061
+HERMES_API_PORT=63061
+HERMES_DASHBOARD_PORT=63062
 HERMES_DASHBOARD_ENABLED=true
 HERMES_DASHBOARD_TUI=1              # 1 = embed Chat tab (PTY+WS); 0 = read-only dashboard
 HERMES_DEFAULT_MODEL=               # blank = hermes-init auto-picks from LiteLLM's model_list
@@ -279,7 +279,7 @@ docker compose logs hermes-init   # one-shot config rendering
 
 # Verify the OpenAI-compatible API is up
 HERMES_KEY=$(grep ^HERMES_API_KEY .env | cut -d= -f2)
-curl -fsS http://localhost:63060/v1/models \
+curl -fsS http://localhost:${HERMES_API_PORT}/v1/models \
   -H "Authorization: Bearer ${HERMES_KEY}" | jq .
 
 # Verify hermes-agent appears in LiteLLM's model_list
