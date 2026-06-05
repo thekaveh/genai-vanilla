@@ -54,6 +54,7 @@ class SourceOverrideManager:
             'ray_head_source': 'RAY_SOURCE',
             'prometheus_source': 'PROMETHEUS_SOURCE',
             'grafana_source': 'GRAFANA_SOURCE',
+            'spark_source': 'SPARK_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

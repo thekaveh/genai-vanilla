@@ -1587,6 +1587,13 @@ class GenAIStackStarter:
 @click.option('--grafana-source',
               type=click.Choice(['container', 'disabled'], case_sensitive=False),
               help='Override GRAFANA_SOURCE — observability dashboards + alerting UI.')
+@click.option('--spark-source',
+              type=click.Choice(['container', 'disabled'], case_sensitive=False),
+              help='Override SPARK_SOURCE — standalone Spark cluster (master + workers + history).')
+@click.option('--spark-workers', type=int, default=None,
+              help='Override SPARK_WORKER_COUNT — number of spark-worker replicas '
+                   'when --spark-source is container. Range 1-8 (clamped). '
+                   'Mirrors --ray-worker-count. Defaults to 2 in .env.example.')
 @click.option('--no-tui', is_flag=True,
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
@@ -1608,6 +1615,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          multi2vec_clip_source,
          ray_source, ray_worker_count,
          prometheus_source, prometheus_retention_days, grafana_source,
+         spark_source, spark_workers,
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
@@ -1732,6 +1740,12 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # Prometheus retention days — same pattern.
         if prometheus_retention_days is not None:
             user_model_selections['PROMETHEUS_RETENTION_DAYS'] = str(prometheus_retention_days)
+        # Spark worker count — same pattern as Ray's worker count. Clamp 1-8
+        # to match the wizard's SecondaryNumberInput contract.
+        if spark_workers is not None:
+            if not 1 <= spark_workers <= 8:
+                raise click.UsageError("--spark-workers must be in 1-8")
+            user_model_selections['SPARK_WORKER_COUNT'] = str(spark_workers)
 
         # Detect legacy `external` source values left in .env from versions
         # before PR #(observability bundle). These options have been removed
