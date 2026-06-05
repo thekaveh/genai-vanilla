@@ -106,13 +106,21 @@ with DAG(
 
 
 # ─── LangChainOperator example (commented; uncomment + adapt as needed) ───
+# Notes for adapters / model ids:
+#   - Always route through LiteLLM (base_url=http://litellm:4000/v1) so the
+#     model id can be any LiteLLM alias (Ollama, OpenAI, Anthropic, etc).
+#   - LiteLLM's Ollama adapter is `ollama_chat/<name>` for chat models
+#     (services/litellm/README.md "Ollama adapter choice"); `ollama/<name>`
+#     hits the embeddings/generate routes instead.
+#   - Use whatever model id appears in `curl http://litellm:4000/v1/models`.
+#
 # from langchain_core.runnables import RunnablePassthrough
 # from langchain_openai import ChatOpenAI
 # from airflow.providers.langchain.operators.langchain import LangChainOperator
 #
 # def build_chain():
 #     llm = ChatOpenAI(
-#         model="ollama/qwen3.6:latest",
+#         model="ollama/qwen3.6:latest",  # default Ollama-mode catalog
 #         base_url="http://litellm:4000/v1",
 #         api_key=os.environ["LITELLM_MASTER_KEY"],
 #     )

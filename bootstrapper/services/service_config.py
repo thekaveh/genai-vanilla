@@ -664,9 +664,12 @@ class ServiceConfig:
     def _generate_spark_config(self) -> dict:
         """Generate SPARK_*_SCALE env vars based on SPARK_SOURCE + SPARK_WORKER_COUNT.
 
-        Spark is a 4-container family (master + worker + history + init). When
-        the source is `container`, all four scale up (worker count is clamped
-        to 1-8 per the wizard contract). When `disabled`, all four scale=0.
+        Spark is a 5-container family (master + worker + history + connect + init).
+        When the source is `container`, all five scale up (worker count is
+        clamped to 1-8 per the wizard contract). When `disabled`, all five
+        scale=0. spark-connect is a sidecar to spark-master that runs
+        apache/spark's start-connect-server.sh (the upstream path for
+        binding the gRPC Connect listener on port 15002).
 
         Hard-fails if SPARK_SOURCE=container but MINIO_SOURCE=disabled.
         spark-init bootstraps the spark-history bucket via minio-init and
