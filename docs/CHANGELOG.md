@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Apache Airflow + Apache Spark cluster + Apache Zeppelin (compute tier)
+
+Three new services added in a single coordinated landing as the stack's
+compute / orchestration tier. Spec at
+[`docs/superpowers/specs/2026-06-04-airflow-spark-zeppelin-design.md`](superpowers/specs/2026-06-04-airflow-spark-zeppelin-design.md);
+plan at
+[`docs/superpowers/plans/2026-06-04-airflow-spark-zeppelin.md`](superpowers/plans/2026-06-04-airflow-spark-zeppelin.md).
+
+- **Spark cluster** (`SPARK_SOURCE=disabled|container`) — Apache Spark
+  4.1.2 in standalone mode: 1 master + N workers (default 2, range
+  1-8 via the new `--spark-workers` flag mirroring Ray's
+  `--ray-worker-count`) + history server. Spark Connect gRPC enabled
+  on port 15002. Web UI at `spark.localhost`, history at
+  `spark-history.localhost`. Persists event logs to a `spark-history`
+  MinIO bucket (auto-created by `spark-init` via vanilla alpine + mc).
+
+- **Zeppelin notebook** (`ZEPPELIN_SOURCE=disabled|container`) —
+  Apache Zeppelin 0.12.0 with pre-configured Spark / SQL (JDBC to
+  Supabase Postgres) / Shell / Markdown interpreters. **Hard-gated on
+  `SPARK_SOURCE != disabled`** — Zeppelin without Spark refuses to
+  start with an actionable error from `_generate_zeppelin_config`. Web
+  UI at `zeppelin.localhost`. Starter notebook ships at
+  `services/zeppelin/notebooks/spark_basics.zpln` exercising Spark +
+  S3A + JDBC.
+
+- **Apache Airflow** (`AIRFLOW_SOURCE=disabled|container`) — Apache
+  Airflow 3.2.2 (LocalExecutor) with the AI/ML SDK enabled. Bundled
+  providers: apache-spark, amazon (MinIO via custom endpoint),
+  postgres, redis, weaviate, neo4j, openai, langchain. Metadata DB
+  lives in a new `airflow` database on Supabase Postgres (created
+  idempotently by `airflow-init`). 7 Airflow Connections seeded
+  conditionally based on which sibling services are enabled:
+  `postgres_supabase` (always), `spark_default`, `minio_default`,
+  `litellm_default` (LangChain/OpenAI operators wire here),
+  `weaviate_default`, `neo4j_default`, `redis_default`. Sample
+  `example_etl_with_llm` DAG ships in `services/airflow/dags/`. Web UI
+  + REST API at `airflow.localhost`. Hermes → Airflow integration via
+  the REST API is documented in the per-service README §6.
+
+**Cross-stack integration coverage** (per the spec's integration matrix):
+
+- Spark: MinIO (s3a), Supabase Postgres (JDBC), Kong (preserve_host on
+  both Web UI + History UI).
+- Zeppelin: Spark (interpreter), MinIO (via Spark), Supabase Postgres
+  (JDBC), Kong.
+- Airflow: Supabase Postgres (metadata + user conn), Spark
+  (SparkSubmitOperator), MinIO (S3Hook), LiteLLM (LangChain/OpenAI
+  operators), Redis (RedisHook), Weaviate, Neo4j. Hermes → Airflow
+  REST trigger pattern documented.
+
+**Wizard additions**: 3 new source steps in the appropriate category
+bands (data / apps / agents). Spark's source step carries a
+`SecondaryNumberInput` widget for `SPARK_WORKER_COUNT` (1-8) mirroring
+Ray's worker-count widget. New CLI flags: `--spark-source`,
+`--spark-workers N`, `--zeppelin-source`, `--airflow-source`.
+
+**Defaults**: all three services default to `disabled` matching the
+heavyweight-services convention (Ray, Prometheus, Grafana). Opt in via
+wizard or CLI flag. Estimated memory footprint with all three enabled:
+~7-9 GB additional RAM.
+
+**4 new bootstrapper-generated secrets** for Airflow:
+`AIRFLOW_FERNET_KEY` (Connection-password encryption),
+`AIRFLOW_SECRET_KEY` (Flask session), `AIRFLOW_ADMIN_PASSWORD`,
+`AIRFLOW_DB_PASSWORD`. All `force=False` in `generate_missing_keys()`
+because rotating any of them mid-run breaks something.
+
 ### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
 
 `config/prometheus.yml` shipped scrape jobs targeting `jupyterhub:8000`
