@@ -198,14 +198,20 @@ their env exposes `HERMES_ENDPOINT`):
 
 ## 8. Hermes → Airflow integration
 
-Hermes can trigger Airflow DAG runs via the Airflow REST API. Use the
-`airflow.localhost` alias (the same one that serves the Web UI):
+Hermes can trigger Airflow DAG runs via the Airflow REST API. Airflow 3.x's
+public `/api/v2/` uses JWT bearer tokens, not HTTP basic auth — exchange
+the admin password for a JWT first, then trigger:
 
 ```bash
-curl -X POST \
-  -u admin:${AIRFLOW_ADMIN_PASSWORD} \
+TOKEN=$(curl -fsS -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"conf": {}}' \
+  -d "{\"username\":\"admin\",\"password\":\"${AIRFLOW_ADMIN_PASSWORD}\"}" \
+  http://airflow.localhost:${KONG_HTTP_PORT}/auth/token | jq -r .access_token)
+
+curl -fsS -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"logical_date": null, "conf": {}}' \
   http://airflow.localhost:${KONG_HTTP_PORT}/api/v2/dags/example_etl_with_llm/dagRuns
 ```
 

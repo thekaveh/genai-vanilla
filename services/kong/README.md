@@ -175,8 +175,14 @@ curl -H "Host: spark.localhost" http://localhost:63000/
 curl -H "Host: spark-history.localhost" http://localhost:63000/
 curl -H "Host: zeppelin.localhost" http://localhost:63000/
 curl -H "Host: airflow.localhost" http://localhost:63000/
-# Airflow REST API (same alias):
-curl -u admin:${AIRFLOW_ADMIN_PASSWORD} -H "Host: airflow.localhost" http://localhost:63000/api/v2/dags
+# Airflow REST API (same alias). 3.x is JWT-only — exchange password
+# for a token via /auth/token, then call /api/v2/ with Bearer auth:
+TOKEN=$(curl -fsS -X POST -H "Host: airflow.localhost" \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"admin\",\"password\":\"${AIRFLOW_ADMIN_PASSWORD}\"}" \
+  http://localhost:63000/auth/token | jq -r .access_token)
+curl -H "Host: airflow.localhost" -H "Authorization: Bearer $TOKEN" \
+  http://localhost:63000/api/v2/dags
 ```
 
 ## 11. Advanced Configuration

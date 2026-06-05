@@ -10,9 +10,9 @@ Image: `apache/airflow:3.2.2` (Apache 2.0), wrapped by a local `services/airflow
 
 | Surface | URL | Auth |
 |---|---|---|
-| Web UI (direct) | `http://localhost:${AIRFLOW_PORT}` | `admin` / `${AIRFLOW_ADMIN_PASSWORD}` |
+| Web UI (direct) | `http://localhost:${AIRFLOW_PORT}` | `admin` / `${AIRFLOW_ADMIN_PASSWORD}` (FAB session cookie) |
 | Web UI (Kong) | `http://airflow.localhost:${KONG_HTTP_PORT}` | Same |
-| REST API | `http://airflow.localhost:${KONG_HTTP_PORT}/api/v2/` | HTTP basic (same admin creds) |
+| REST API | `http://airflow.localhost:${KONG_HTTP_PORT}/api/v2/` | JWT bearer — POST to `/auth/token` first; `AIRFLOW_FAB_AUTH_BACKENDS=basic_auth` applies to legacy FAB endpoints only, NOT `/api/v2/`. See §6 for the two-step curl. |
 
 `AIRFLOW_ADMIN_PASSWORD` is auto-generated on first run and persisted to `.env`. Treat it like any other secret.
 
@@ -61,13 +61,23 @@ Use it as a template. Drop your own DAGs into `services/airflow/dags/` — they'
 
 ## 6. Hermes → Airflow integration
 
-Hermes can trigger Airflow DAGs via the REST API:
+Hermes can trigger Airflow DAGs via the REST API. Airflow 3.x's public
+`/api/v2/` uses JWT bearer tokens, NOT HTTP basic auth — two steps:
 
 ```bash
-curl -X POST \
-  -u admin:${AIRFLOW_ADMIN_PASSWORD} \
+# 1. Exchange admin password for a short-lived JWT.
+TOKEN=$(curl -fsS -X POST \
   -H 'Content-Type: application/json' \
-  -d '{"conf": {}}' \
+  -d "{\"username\":\"admin\",\"password\":\"${AIRFLOW_ADMIN_PASSWORD}\"}" \
+  http://airflow.localhost:${KONG_HTTP_PORT}/auth/token | jq -r .access_token)
+
+# 2. Trigger the DAG. `logical_date` is REQUIRED-but-nullable in
+# Airflow 3.x's TriggerDAGRunPostBody schema — omit it and the API
+# returns 422. Set to null to let the scheduler assign one.
+curl -fsS -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"logical_date": null, "conf": {}}' \
   http://airflow.localhost:${KONG_HTTP_PORT}/api/v2/dags/example_etl_with_llm/dagRuns
 ```
 
