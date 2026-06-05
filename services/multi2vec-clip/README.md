@@ -1,12 +1,12 @@
 # Multi2Vec CLIP
 
-Multimodal CLIP vectorizer module for Weaviate. Runs the [`semitechnologies/multi2vec-clip-inference`](https://github.com/weaviate/multi2vec-clip-inference) image, exposing `POST /vectorize` and `GET /meta` on internal port `8080`. Today its only consumer is Weaviate (via the `multi2vec-clip` module — `CLIP_INFERENCE_API=http://multi2vec-clip:8080`); the data-flow graph shows no other service calling it directly, but the same `/vectorize` endpoint is reachable from every container on the `backend-network`.
+Multimodal CLIP vectorizer module for Weaviate. Runs the [`semitechnologies/multi2vec-clip`](https://github.com/weaviate/multi2vec-clip-inference) image (the Docker repo dropped the `-inference` suffix; the GitHub source repo kept it), exposing `POST /vectorize` and `GET /meta` on internal port `8080`. Today its only consumer is Weaviate (via the `multi2vec-clip` module — `CLIP_INFERENCE_API=http://multi2vec-clip:8080`); the data-flow graph shows no other service calling it directly, but the same `/vectorize` endpoint is reachable from every container on the `backend-network`.
 
 The default model is `sentence-transformers-clip-ViT-B-32` (English-only ViT-B/32). The module exposes both text and image embedding paths through a single endpoint, so a single call can vectorize a `{texts, images}` batch for cross-modal similarity search.
 
 ## 1. Overview
 
-Image: `semitechnologies/multi2vec-clip-inference:sentence-transformers-clip-ViT-B-32_v1.0.7`. Container port: `8080` (internal-only — no host port published). The container runs CUDA-off by default (`ENABLE_CUDA=0`); a GPU variant exists in the manifest but is undocumented and untested.
+Image: `semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32` (the canonical `MULTI2VEC_CLIP_IMAGE` value in `.env.example`; no version-suffix tag — Weaviate's CLIP module pins by model name, not semver). Container port: `8080` (internal-only — no host port published). The container runs CUDA-off by default (`ENABLE_CUDA=0`); a GPU variant exists in the manifest but is undocumented and untested.
 
 ## 2. Access
 

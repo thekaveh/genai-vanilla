@@ -106,6 +106,14 @@ add_conn litellm_default \
   --conn-password "${LITELLM_MASTER_KEY}" \
   --conn-extra '{"api_base": "http://litellm:4000/v1"}'
 
+# NOTE: postgres_supabase intentionally uses the SUPABASE_DB_USER (admin)
+# credentials today. The .env declares SUPABASE_DB_APP_USER / _PASSWORD
+# for a least-privilege application-tier user, but supabase-db-init's
+# scripts do not actually CREATE that role yet — switching this seed to
+# app_user without first creating the role would break every DAG that
+# uses postgres_supabase. Tracked as a known follow-up in CHANGELOG —
+# the safer migration is: (1) wire app_user creation into supabase-db-init,
+# (2) flip this seed + add an Airflow Variable for the admin escape hatch.
 add_conn postgres_supabase \
   --conn-type postgres --conn-host supabase-db --conn-port 5432 \
   --conn-schema "${SUPABASE_DB_NAME}" \

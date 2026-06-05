@@ -101,6 +101,13 @@ because rotating any of them mid-run breaks something.
 - **Top-level architecture diagram** — `docs/diagrams/architecture.svg`
   was not refreshed to include the airflow / spark / zeppelin tier. Per-
   service architecture diagrams (auto-regenerated) cover the new edges.
+- **Airflow `postgres_supabase` Connection uses admin credentials** —
+  intentionally seeds with `SUPABASE_DB_USER` / `SUPABASE_DB_PASSWORD`
+  (superuser) until the prerequisite `SUPABASE_DB_APP_USER` Postgres
+  role is actually created by `supabase-db-init` (it's declared in
+  `.env.example` but the create-role script is missing). Least-privilege
+  migration tracked separately. User DAGs that need fine-grained access
+  should create their own Connection objects.
 
 ### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
 
