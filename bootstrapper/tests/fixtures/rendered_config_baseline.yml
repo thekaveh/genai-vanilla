@@ -2074,6 +2074,53 @@ services:
       source: weaviate-shared-config
       target: /shared
       volume: {}
+  zeppelin:
+    container_name: genai-zeppelin
+    depends_on:
+      spark-master:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      SPARK_CONNECT_URL: sc://spark-master:15002
+      SPARK_MASTER: spark://spark-master:7077
+      SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 --conf spark.hadoop.fs.s3a.access.key=minioadmin
+        --conf spark.hadoop.fs.s3a.secret.key= --conf spark.hadoop.fs.s3a.path.style.access=true
+      ZEPPELIN_JDBC_POSTGRES_PASSWORD: password
+      ZEPPELIN_JDBC_POSTGRES_URL: jdbc:postgresql://supabase-db:5432/postgres
+      ZEPPELIN_JDBC_POSTGRES_USER: supabase_admin
+      ZEPPELIN_LOG_DIR: /logs
+      ZEPPELIN_NOTEBOOK_DIR: /notebook
+      ZEPPELIN_PORT: '8080'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://localhost:8080/
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
+    image: apache/zeppelin:0.12.0
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 8080
+      published: '63084'
+      protocol: tcp
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: '{REPO_ROOT}/services/zeppelin/notebooks'
+      target: /notebook
+      bind: {}
+    - type: volume
+      source: zeppelin-logs
+      target: /logs
+      volume: {}
 networks:
   backend-network:
     name: genai-network
@@ -2150,4 +2197,7 @@ volumes:
     driver: local
   weaviate-shared-config:
     name: genai-weaviate-shared-config
+    driver: local
+  zeppelin-logs:
+    name: genai-zeppelin-logs
     driver: local

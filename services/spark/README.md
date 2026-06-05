@@ -49,7 +49,9 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 
 ### 5.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| zeppelin | apps |
 
 ### 5.3 Architecture diagram
 

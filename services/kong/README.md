@@ -221,6 +221,7 @@ For more information on Kong's role in the overall architecture, see the system 
 |---|---|
 | prometheus | infra |
 | spark | data |
+| zeppelin | apps |
 
 ### 13.3 Architecture diagram
 
