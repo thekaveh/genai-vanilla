@@ -634,12 +634,13 @@ Tier 3 is organized into four named sub-sections so the use-case tracks are scan
 
 #### General-purpose
 
-**Apache Airflow integration**
+**Apache Airflow integration** — ✅ **Shipped 2026-06-04** (PR #35; Apache Airflow 3.2.2, LocalExecutor)
 - Workflow orchestration
 - Data pipeline management
 - Scheduled AI processing jobs
 - Complex workflow dependencies
 - Cross-track role: alternative endpoint of the **`ORCHESTRATOR_SOURCE`** source-variant pattern proposed under the Data engineering track (Tier 3). **Dagster** is the recommended primary orchestrator for lakehouse / asset-centric work; Airflow is the alternative for task-centric workloads and for teams with existing Airflow muscle memory.
+- Shipped with: 8-provider bundle (apache-spark, amazon, postgres, redis, weaviate, neo4j, openai, langchain) + 7 conditionally-seeded Connections + Spark/MinIO/LiteLLM-wired sample DAG + Hermes → Airflow REST trigger documentation. See `services/airflow/README.md` and the PR #35 design at `docs/superpowers/specs/2026-06-04-airflow-spark-zeppelin-design.md`.
 
 **MeiliSearch (lightweight full-text search)**
 - Fast full-text search capabilities
@@ -1069,9 +1070,9 @@ Consumed by (services that would use FinRL / FinGPT):
 
 #### Data engineering track
 
-This track composes a lakehouse + ingestion + BI + (optional) MLOps platform alongside the AI services, with the JVM / Scala lane explicitly available but **opt-in** (the rest of the stack stays Python-native via Spark Connect). Three notable divergences from the obvious 2024 picks: **Apache Zeppelin** is superseded by the **Almond Scala kernel** on the already-shipped **JupyterHub**; **Dagster** is the primary asset-centric orchestrator with **Apache Airflow** as a permitted alternative (via `ORCHESTRATOR_SOURCE`); and **Spark Connect** makes Scala client-side optional. Unusually strong reuse: the lake is MinIO (existing), every catalog stores metadata in Postgres (existing), Feast's online store is Redis (existing), OpenMetadata's search is OpenSearch (Tier 3 roadmap), Debezium's sink is Redpanda (Tier 3 financial track), and parallel work is the now-shipped **Ray** cluster (see the Completed section above).
+This track composes a lakehouse + ingestion + BI + (optional) MLOps platform alongside the AI services, with the JVM / Scala lane explicitly available but **opt-in** (the rest of the stack stays Python-native via Spark Connect). Three notable divergences from the obvious 2024 picks: **Apache Zeppelin** shipped 2026-06-04 (PR #35) as a Spark-first notebook UI alongside the **Almond Scala kernel** on JupyterHub — they coexist with different audiences (Zeppelin for Spark-first SQL/Scala notebook authoring; Almond/JupyterHub for general-purpose Scala kernels in the Python notebook environment); **Dagster** is the primary asset-centric orchestrator with **Apache Airflow** (also shipped 2026-06-04 in PR #35) as a permitted alternative (via `ORCHESTRATOR_SOURCE`); and **Spark Connect** makes Scala client-side optional. Unusually strong reuse: the lake is MinIO (existing), every catalog stores metadata in Postgres (existing), Feast's online store is Redis (existing), OpenMetadata's search is OpenSearch (Tier 3 roadmap), Debezium's sink is Redpanda (Tier 3 financial track), and parallel work is the now-shipped **Ray** cluster (see the Completed section above).
 
-**Apache Spark (standalone + Spark Connect) — distributed compute**
+**Apache Spark (standalone + Spark Connect) — distributed compute** — ✅ **Shipped 2026-06-04** (PR #35; Spark 4.1.2)
 - Apache-2.0; Spark 4.x. Single image, three roles: master, worker, and `spark-connect` server. Spark Connect (GA since Spark 3.4, recommended in 4.x) is a gRPC server that exposes Spark to Python / Scala / Go / Rust clients transparently — the cluster runs JVM, clients do not.
 - Phase 1 anchor of the data-engineering track. **The Spark Connect server is the architectural unlock**: it lets the FastAPI backend, JupyterHub Python kernels, Dagster / Airflow workers, and Hermes-orchestrated jobs use Spark without a JVM in their containers.
 
@@ -1189,7 +1190,7 @@ Depends on: **Redis** (online store), **Trino** + **Lakekeeper** + **MinIO** (of
 Consumed by: **JupyterHub** (feature-engineering notebooks), **Backend (FastAPI)** (online feature reads during inference), **Dagster** (feature-pipeline assets).
 
 **Almond Scala kernel on existing JupyterHub — Scala lane image flavor**
-- BSD-3 library, not a service. Adds a Scala / Spark / Iceberg notebook kernel to the already-shipped JupyterHub. The dominant 2026 Scala-notebook path; **supersedes Apache Zeppelin** for this stack (Zeppelin release cadence has slowed; Polynote is abandoned, last release 2022).
+- BSD-3 library, not a service. Adds a Scala / Spark / Iceberg notebook kernel to the already-shipped JupyterHub. The dominant 2026 Scala-notebook path. **Coexists with the (now-shipped) Apache Zeppelin** — Almond serves the Python-notebook audience that wants Scala kernels in the JupyterHub Lab UI; Zeppelin serves the Spark-first audience that wants paragraph-based interpreter cells (Spark + SQL + JDBC pre-configured). Polynote is abandoned (last release 2022) — Almond is the still-active Scala kernel.
 
 **Library-in-image companions (Phase 1–3)**
 - **dbt-core** (Apache-2.0) — SQL transformations; lives inside the Dagster / Airflow worker image.
@@ -1328,7 +1329,7 @@ The following candidates were evaluated and explicitly *not* recommended at this
 
 **From the data-engineering stack-fit research (2026-05-21 — see git log for the design doc, retired with `docs/superpowers/` 2026-05-22):**
 
-- **Apache Zeppelin** — release cadence slowed since 2024; the **Almond Scala kernel** on the already-shipped **JupyterHub** delivers the same Scala / Spark notebook capability without a redundant second notebook server. Revisit only if a deployment specifically requires Zeppelin's paragraph-interpreter model.
+- **Apache Zeppelin** — ✅ **Shipped 2026-06-04** (PR #35) as the Spark-first notebook UI. The original rejection rationale (cadence slow + Almond on JupyterHub covers Scala) was overridden by user request for a dedicated Spark-first notebook interface. Both surfaces coexist: Zeppelin for Spark-first paragraph-style authoring with pre-configured Spark + JDBC interpreters; JupyterHub + Almond for general-purpose Scala kernels alongside Python.
 - **Polynote (Netflix)** — abandoned; last release 2022.
 - **Airbyte** — Docker Compose support deprecated in 2025; production now requires Kubernetes + Postgres + Redis + Temporal; ELv2 license is incompatible with the stack's permissive-boilerplate posture. **dlt** (Apache-2.0 Python library) is the recommended Python-first replacement; **Meltano** (MIT) is the documented Singer-based fallback.
 - **DataHub** as the data catalog — GMS + MAE/MCE Kafka consumers + Elasticsearch + Neo4j is too heavy for compose; **OpenMetadata** (Postgres + OpenSearch + server + UI) has the right footprint.
