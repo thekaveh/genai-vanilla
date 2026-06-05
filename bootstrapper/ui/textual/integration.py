@@ -309,7 +309,8 @@ def _build_steps_and_rows(config_parser, hosts_manager):
                 unit_suffix="workers",
             )
         # Spark mirrors Ray's worker-count widget. Spark's runtime_sc has
-        # three containers (master + worker + history); ServiceDiscovery
+        # four containers (master + worker + history + connect); spark-init
+        # is filtered out the same way Ray's ray-worker is. ServiceDiscovery
         # anchors on `spark-master` via the source_mapping shim, so the
         # svc.key check accepts both forms defensively.
         spark_secondary: SecondaryNumberInput | None = None

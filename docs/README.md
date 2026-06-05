@@ -33,7 +33,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Ray](../services/ray/README.md) — distributed compute substrate (head + workers, opt-in via `RAY_SOURCE`)
 - [Prometheus](../services/prometheus/README.md) — observability scraper + TSDB with bundled node-exporter and cAdvisor (opt-in via `PROMETHEUS_SOURCE`)
 - [Grafana](../services/grafana/README.md) — observability dashboards + unified alerting on top of Prometheus (opt-in via `GRAFANA_SOURCE`)
-- [Apache Spark](../services/spark/README.md) — standalone Spark cluster (master + workers + history) for batch / SQL / DataFrame workloads (opt-in via `SPARK_SOURCE`)
+- [Apache Spark](../services/spark/README.md) — standalone Spark cluster (5-container family: master + workers + history + Spark Connect gRPC sidecar + minio/mc bucket init) for batch / SQL / DataFrame workloads (opt-in via `SPARK_SOURCE`)
 - [Apache Zeppelin](../services/zeppelin/README.md) — Spark-first notebook UI with pre-configured Spark + JDBC interpreters (opt-in via `ZEPPELIN_SOURCE`; gated on Spark)
 - [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
 

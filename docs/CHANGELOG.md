@@ -16,12 +16,15 @@ plan at
 [`docs/superpowers/plans/2026-06-04-airflow-spark-zeppelin.md`](superpowers/plans/2026-06-04-airflow-spark-zeppelin.md).
 
 - **Spark cluster** (`SPARK_SOURCE=disabled|container`) — Apache Spark
-  4.1.2 in standalone mode: 1 master + N workers (default 2, range
-  1-8 via the new `--spark-workers` flag mirroring Ray's
-  `--ray-worker-count`) + history server. Spark Connect gRPC enabled
-  on port 15002. Web UI at `spark.localhost`, history at
-  `spark-history.localhost`. Persists event logs to a `spark-history`
-  MinIO bucket (auto-created by `spark-init` via vanilla alpine + mc).
+  4.1.2 in standalone mode, 5-container family: 1 master + N workers
+  (default 2, range 1-8 via the new `--spark-workers` flag mirroring
+  Ray's `--ray-worker-count`) + history server + dedicated `spark-connect`
+  gRPC sidecar (runs `start-connect-server.sh` against the master — the
+  upstream-supported path for binding Spark Connect on port 15002) +
+  one-shot `spark-init` that creates the `spark-history` MinIO bucket
+  using the `minio/mc` image. Web UI at `spark.localhost`, history at
+  `spark-history.localhost`. Clients reach Spark Connect at
+  `sc://spark-connect:15002` (backend-network only).
 
 - **Zeppelin notebook** (`ZEPPELIN_SOURCE=disabled|container`) —
   Apache Zeppelin 0.12.0 with pre-configured Spark / SQL (JDBC to
