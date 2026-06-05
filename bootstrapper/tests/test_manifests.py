@@ -407,3 +407,15 @@ def test_spark_manifest_loads():
     assert "spark-history" in {c for c in spark.containers}
     assert "minio" in spark.depends_on.required
     assert spark.sources.default == "disabled"
+
+
+def test_zeppelin_manifest_loads():
+    from services.manifests import load_manifests
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    manifests = load_manifests(repo_root / "services")
+    z = next((m for m in manifests if m.name == "zeppelin"), None)
+    assert z is not None
+    assert z.category == "apps"
+    assert "spark" in z.depends_on.required, "Zeppelin must hard-require Spark per D3"
+    assert z.sources.default == "disabled"
