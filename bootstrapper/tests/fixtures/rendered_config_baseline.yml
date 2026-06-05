@@ -82,7 +82,7 @@ services:
         BASE_IMAGE: apache/airflow:3.2.2
     command:
     - airflow
-    - webserver
+    - api-server
     container_name: genai-airflow-webserver
     depends_on:
       airflow-init:
@@ -91,7 +91,7 @@ services:
     deploy:
       replicas: 0
     environment:
-      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      AIRFLOW__API__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__FERNET_KEY: ''
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
