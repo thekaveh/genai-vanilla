@@ -132,6 +132,10 @@ class ServiceConfig:
         spark_config = self._generate_spark_config()
         env_vars.update(spark_config)
 
+        # Generate Zeppelin configuration (hard-gated on Spark)
+        zeppelin_config = self._generate_zeppelin_config()
+        env_vars.update(zeppelin_config)
+
         # Generate observability bundle (Prometheus family + cross-manifest
         # sidecar exporter scales for postgres-exporter and redis-exporter).
         prometheus_source = self.service_sources.get("PROMETHEUS_SOURCE", "disabled")
@@ -682,6 +686,23 @@ class ServiceConfig:
         env_vars["SPARK_HISTORY_SCALE"] = "1"
         env_vars["SPARK_INIT_SCALE"] = "1"
         return env_vars
+
+    def _generate_zeppelin_config(self) -> dict:
+        """Generate ZEPPELIN_SCALE. Hard-fails if Zeppelin=container but Spark=disabled.
+
+        Zeppelin's value collapses without Spark — the pre-configured Spark
+        interpreter has nothing to connect to. Raising at source-resolution
+        time surfaces an actionable error rather than letting the container
+        boot into a broken state."""
+        z_source = self.service_sources.get("ZEPPELIN_SOURCE", "disabled")
+        s_source = self.service_sources.get("SPARK_SOURCE", "disabled")
+        if z_source == "container" and s_source == "disabled":
+            raise ValueError(
+                "Zeppelin requires Spark to be enabled. "
+                "Either pass --spark-source container alongside "
+                "--zeppelin-source container, or set --zeppelin-source disabled."
+            )
+        return {"ZEPPELIN_SCALE": "1" if z_source == "container" else "0"}
 
     def _generate_prometheus_config(self, source_value: str, shared_env: dict) -> dict:
         """Resolve scales for the prometheus family + cross-manifest exporter sidecars.
