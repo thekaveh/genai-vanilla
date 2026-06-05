@@ -121,6 +121,13 @@ services:
       SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
       AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
       AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      # Neo4j credentials consumed by init-airflow.sh when seeding
+      # neo4j_default (Connection requires auth — Neo4j is auth-on by
+      # default). Canonical var names are GRAPH_DB_USER / _PASSWORD
+      # (NOT NEO4J_USER / _PASSWORD — the Neo4j manifest's username
+      # field is GRAPH_DB_USER).
+      GRAPH_DB_USER: ${GRAPH_DB_USER}
+      GRAPH_DB_PASSWORD: ${GRAPH_DB_PASSWORD}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./init/scripts:/scripts:ro

@@ -149,6 +149,10 @@ runtime_sc:
         SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
         AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
         AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+        # Neo4j credentials for the neo4j_default Connection seed (Neo4j
+        # is auth-on by default; canonical var names are GRAPH_DB_*).
+        GRAPH_DB_USER: ${GRAPH_DB_USER}
+        GRAPH_DB_PASSWORD: ${GRAPH_DB_PASSWORD}
       deploy: {}
       extra_hosts: []
     disabled:
