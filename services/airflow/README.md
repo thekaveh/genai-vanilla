@@ -4,7 +4,7 @@ Airflow runs as a 3-container family in the stack's `agents` band: `airflow-webs
 
 ## 1. Overview
 
-Image: `apache/airflow:3.2.2` (Apache 2.0), wrapped by a local `services/airflow/build/Dockerfile` that adds the 10-provider bundle needed for the cross-stack integrations (apache-spark, amazon, postgres, redis, common-sql, weaviate, neo4j, openai, langchain, fab) plus `pyspark==4.1.2` (matches the Spark image — required by the Spark Connect smoke step in the sample DAG). LocalExecutor is the only supported executor in v1 — tasks run in the scheduler's process pool. Metadata DB lives in a new `airflow` database on Supabase Postgres, created by `airflow-init` on first start.
+Image: `apache/airflow:3.2.2` (Apache 2.0), wrapped by a local `services/airflow/build/Dockerfile` that adds the 9-provider bundle needed for the cross-stack integrations (apache-spark, amazon, postgres, redis, common-sql, weaviate, neo4j, openai, fab) plus `pyspark[connect]==4.1.2` (the `[connect]` extra pulls grpcio + companions; the Spark Connect smoke step in the sample DAG needs it). LocalExecutor is the only supported executor in v1 — tasks run in the scheduler's process pool. Metadata DB lives in a new `airflow` database on Supabase Postgres, created by `airflow-init` on first start.
 
 ## 2. Access
 
@@ -49,13 +49,13 @@ Connection seeding is idempotent — `airflow-init` deletes-then-adds each Conne
 
 ## 5. Sample DAG
 
-`services/airflow/dags/example_etl_with_llm.py` ships pre-loaded. Three operators that smoke-test each Connection:
+`services/airflow/dags/example_etl_with_llm.py` ships pre-loaded. Three `PythonOperator` steps that smoke-test each Connection:
 
-1. `PythonOperator` invoking Spark Connect at `sc://spark-connect:15002` — smoke-tests `spark_default` reachability without owning a JAR build. See the DAG docstring for why `SparkSubmitOperator` is deferred to user DAGs.
-2. `OpenAIOperator` against `litellm_default` (sends a one-token prompt). Defaults to `ollama/qwen3.6:latest` (Ollama-mode); swap to `gpt-4o-mini` or similar if running with `--llm-provider-source none` + `CLOUD_OPENAI_SOURCE=enabled`.
-3. `S3Hook.list_buckets()` against `minio_default`.
+1. `spark_smoke` invokes Spark Connect at `sc://spark-connect:15002` via `pyspark[connect]`. Smoke-tests `spark_default` reachability without owning a JAR build. See the DAG docstring for why `SparkSubmitOperator` is deferred to user DAGs.
+2. `summarize_via_litellm` calls LiteLLM's chat-completions endpoint via `OpenAIHook.get_conn()`. There is no `OpenAIOperator` class in `apache-airflow-providers-openai` (only `OpenAIEmbeddingOperator` and `OpenAITriggerBatchOperator`); the Hook is the right surface for chat. Defaults to `ollama/qwen3.6:latest` (Ollama-mode); swap to `gpt-4o-mini` or similar if running with `--llm-provider-source none` + `CLOUD_OPENAI_SOURCE=enabled`.
+3. `list_minio_buckets` calls `S3Hook.list_buckets()` against `minio_default`.
 
-A commented `LangChainOperator` block at the bottom of the file shows the recommended pattern for chain-based LLM steps.
+A commented LangChain block at the bottom of the file shows the recommended pattern for chain-based LLM steps via `PythonOperator` (Apache has no published `apache-airflow-providers-langchain` package — wrap chains in a Python callable instead).
 
 Use it as a template. Drop your own DAGs into `services/airflow/dags/` — they're bind-mounted into the container.
 

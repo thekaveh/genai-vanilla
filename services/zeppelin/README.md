@@ -4,7 +4,7 @@ Zeppelin runs as a single container in the stack's `apps` band. The Spark interp
 
 ## 1. Overview
 
-Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline — `SPARK_MASTER` points at the standalone master and `SPARK_CONNECT_URL` points at the dedicated `spark-connect` sidecar (NOT spark-master); `SPARK_SUBMIT_OPTIONS` pre-configures S3A against MinIO.
+Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline — `SPARK_MASTER` points at the standalone master and `SPARK_SUBMIT_OPTIONS` pre-configures S3A against MinIO. Zeppelin's Spark interpreter does NOT read a Spark Connect URL from env — drive Connect from Zeppelin by setting `spark.remote=sc://spark-connect:15002` in the interpreter UI (Interpreter → spark → properties).
 
 **Hard requirement:** Zeppelin is gated on `SPARK_SOURCE != disabled`. Picking `ZEPPELIN_SOURCE=container` without Spark surfaces an actionable error from the bootstrapper; the spec considers a Spark-less Zeppelin broken on purpose.
 
@@ -29,7 +29,7 @@ ZEPPELIN_PORT=                     # auto-assigned (apps band)
 
 ## 4. Integration with the stack
 
-- **Spark** (required) — `SPARK_MASTER=spark://spark-master:7077` and `SPARK_CONNECT_URL=sc://spark-connect:15002` baked into the env. Notebooks use `%spark` cells with no extra config.
+- **Spark** (required) — `SPARK_MASTER=spark://spark-master:7077` baked into the env (standalone master mode). Notebooks use `%spark` cells with no extra config. To use Spark Connect instead, set `spark.remote=sc://spark-connect:15002` in the Zeppelin Interpreter UI (the env-var path is a no-op — Zeppelin's launcher doesn't read it).
 - **MinIO** — Spark interpreter pre-configured with `s3a://` via `SPARK_SUBMIT_OPTIONS` — read/write to MinIO buckets directly from Spark cells.
 - **Supabase Postgres** — JDBC connection details exposed as env vars (`ZEPPELIN_JDBC_POSTGRES_URL` / `_USER` / `_PASSWORD`). Zeppelin does not auto-bind these to the JDBC interpreter — one-time setup: open Zeppelin → Interpreter → `jdbc` → click `+ Create` and add a `postgres` group with `default.driver=org.postgresql.Driver`, `default.url=jdbc:postgresql://supabase-db:5432/${SUPABASE_DB_NAME}` (copy the exact value from the container's `ZEPPELIN_JDBC_POSTGRES_URL` env — `${SUPABASE_DB_NAME}` defaults to `postgres` but is configurable), `default.user`/`default.password` from the corresponding env vars. Then `%jdbc(postgres) SELECT version()` works. Tracked as a future improvement (bind-mount `conf/interpreter.json` so this is zero-touch).
 - **LiteLLM** (optional) — Python interpreter can call the LiteLLM gateway via `openai.OpenAI(base_url="http://litellm:4000/v1", api_key=...)`. No pre-configuration ships; users wire it themselves.

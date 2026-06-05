@@ -86,7 +86,6 @@ runtime_sc:
       scale: 1
       environment:
         SPARK_MASTER_HOST: spark-master
-        SPARK_NO_DAEMONIZE: "true"
       deploy: {}
       extra_hosts: []
     disabled:
@@ -97,8 +96,7 @@ runtime_sc:
   spark-worker:
     container:
       scale: 2   # overridden by SPARK_WORKER_COUNT via auto_managed SPARK_WORKER_SCALE
-      environment:
-        SPARK_NO_DAEMONIZE: "true"
+      environment: {}
       deploy: {}
       extra_hosts: []
     disabled:
@@ -110,7 +108,6 @@ runtime_sc:
     container:
       scale: 1
       environment:
-        SPARK_NO_DAEMONIZE: "true"
         SPARK_HISTORY_OPTS: >-
           -Dspark.history.fs.logDirectory=s3a://spark-history/
           -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
