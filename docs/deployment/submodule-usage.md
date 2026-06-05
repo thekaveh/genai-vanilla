@@ -62,7 +62,7 @@ Services are accessible on ports starting from 63000 (base port):
 - **Supabase DB**: http://localhost:63010 (base + 10)
 - **Supabase Studio**: http://localhost:63016 (base + 16)
 - **Kong API Gateway**: http://localhost:63000 (base + 0)
-- **N8N**: http://localhost:63062 (base + 62)
+- **N8N**: http://localhost:63063 (base + 63)
 - **LiteLLM Gateway** (LLM front door): http://localhost:63030 (base + 30)
 
 See the startup output for the complete port mapping of all services.

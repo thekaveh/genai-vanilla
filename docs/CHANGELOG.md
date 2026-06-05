@@ -76,6 +76,15 @@ wizard or CLI flag. Estimated memory footprint with all three enabled:
 `AIRFLOW_DB_PASSWORD`. All `force=False` in `generate_missing_keys()`
 because rotating any of them mid-run breaks something.
 
+**Known follow-ups (deferred from this PR):**
+
+- **Spark × Prometheus + Grafana** — spec §5.1 marked this CRITICAL-opt-in
+  (JMX exporter sidecar + scrape job + a starter `spark.json` Grafana
+  dashboard) but the wiring did not ship in this PR. cAdvisor's
+  container-level metrics cover the gap in the existing dashboards until
+  the JMX integration lands. Tracked separately. See
+  [`services/spark/README.md`](../services/spark/README.md) §4.
+
 ### Fixed — Drop unreachable JupyterHub + Hermes Prometheus scrape jobs
 
 `config/prometheus.yml` shipped scrape jobs targeting `jupyterhub:8000`
