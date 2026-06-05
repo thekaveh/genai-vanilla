@@ -52,6 +52,7 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 
 | Service | Category |
 |---|---|
+| kong | infra |
 | airflow | agents |
 | zeppelin | apps |
 

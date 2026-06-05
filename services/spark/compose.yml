@@ -10,6 +10,11 @@
 # an explicit `spark-class` invocation that runs the Java process
 # directly in the foreground (no daemonization, signals propagate).
 services:
+  # spark-master keeps container_name because SPARK_MASTER_SCALE is
+  # hard-bounded to 0 or 1 by _generate_spark_config — no HA path today.
+  # If master HA is ever introduced, drop container_name and switch to
+  # Compose's auto-naming (see the spark-worker block below for the
+  # container_name-vs-replicas>1 conflict).
   spark-master:
     image: ${SPARK_IMAGE:-apache/spark:4.1.2}
     container_name: ${PROJECT_NAME}-spark-master

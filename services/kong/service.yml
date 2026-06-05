@@ -83,4 +83,7 @@ data_flow:
     - doc-processor
     - litellm
     - ollama
+    - airflow
+    - spark
+    - zeppelin
 
