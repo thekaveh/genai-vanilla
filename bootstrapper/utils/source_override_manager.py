@@ -55,6 +55,17 @@ class SourceOverrideManager:
             'prometheus_source': 'PROMETHEUS_SOURCE',
             'grafana_source': 'GRAFANA_SOURCE',
             'spark_source': 'SPARK_SOURCE',
+            # Spark's runtime_sc carries three containers (spark-master +
+            # spark-worker + spark-history) so source_configurable holds
+            # them as separate keys. Mapping `spark_master_source` (the
+            # master — main container) here makes ServiceDiscovery treat
+            # it as the wizard's discovery anchor; spark-worker and
+            # spark-history have no entry here and get filtered out, same
+            # way Ray's ray-worker is filtered. Both `spark_source` and
+            # `spark_master_source` resolve to SPARK_SOURCE — only
+            # spark_source is wired to a CLI flag (--spark-source);
+            # spark_master_source exists purely as a discovery shim.
+            'spark_master_source': 'SPARK_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

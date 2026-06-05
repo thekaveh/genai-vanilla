@@ -308,6 +308,27 @@ def _build_steps_and_rows(config_parser, hosts_manager):
                 number_max=64,
                 unit_suffix="workers",
             )
+        # Spark mirrors Ray's worker-count widget. Spark's runtime_sc has
+        # three containers (master + worker + history); ServiceDiscovery
+        # anchors on `spark-master` via the source_mapping shim, so the
+        # svc.key check accepts both forms defensively.
+        spark_secondary: SecondaryNumberInput | None = None
+        if svc.key in ("spark", "spark-master") or svc.display_name == "Apache Spark":
+            raw_default = (env_vars.get("SPARK_WORKER_COUNT") or "2").strip()
+            try:
+                spark_worker_default = max(1, min(8, int(raw_default)))
+            except ValueError:
+                spark_worker_default = 2
+            spark_secondary = SecondaryNumberInput(
+                env_var="SPARK_WORKER_COUNT",
+                description=(
+                    "Number of spark-worker replicas alongside the master. 1-8."
+                ),
+                default_value=spark_worker_default,
+                number_min=1,
+                number_max=8,
+                unit_suffix="workers",
+            )
         opts = [
             PromptOption(
                 value=opt,
@@ -319,6 +340,9 @@ def _build_steps_and_rows(config_parser, hosts_manager):
                     ray_secondary
                     if ray_secondary is not None
                        and opt in ("ray-container-cpu", "ray-container-gpu")
+                    # Spark's container variant → worker-count.
+                    else spark_secondary
+                    if spark_secondary is not None and opt == "container"
                     # Otherwise: per-localhost-row port widget (None if
                     # this option isn't a localhost variant in the wiring).
                     else _localhost_port_config(svc.display_name, opt)
