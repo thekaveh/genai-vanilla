@@ -11,8 +11,12 @@ FROM ${BASE_IMAGE}
 # writes s3a:// throws ClassNotFoundException.
 #
 # Same fix pattern as services/spark/build/Dockerfile, dropped into
-# /opt/zeppelin/interpreter/spark/dep/ which the Spark interpreter adds
-# to its classpath at startup.
+# /opt/zeppelin/interpreter/spark/ directly. Pass 45 originally placed
+# them in a `dep/` subdir; Pass 47 caught that Zeppelin's
+# `bin/interpreter.sh::addJarInDirForIntp` glob is `${INTERPRETER_DIR}/*`
+# (non-recursive Java classpath wildcard) — `dep/*.jar` was invisible
+# to the driver classpath. Placing them directly in the spark interp
+# dir makes them picked up by the existing wildcard.
 
 USER root
 
@@ -20,11 +24,12 @@ ARG HADOOP_AWS_VERSION=3.4.2
 ARG AWS_SDK_BUNDLE_VERSION=2.29.52
 
 RUN set -eux; \
-    mkdir -p /opt/zeppelin/interpreter/spark/dep; \
-    curl -fsSL -o /opt/zeppelin/interpreter/spark/dep/hadoop-aws-${HADOOP_AWS_VERSION}.jar \
+    curl -fsSL -o /opt/zeppelin/interpreter/spark/hadoop-aws-${HADOOP_AWS_VERSION}.jar \
         "https://repo.maven.apache.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_AWS_VERSION}/hadoop-aws-${HADOOP_AWS_VERSION}.jar"; \
-    curl -fsSL -o /opt/zeppelin/interpreter/spark/dep/bundle-${AWS_SDK_BUNDLE_VERSION}.jar \
+    curl -fsSL -o /opt/zeppelin/interpreter/spark/bundle-${AWS_SDK_BUNDLE_VERSION}.jar \
         "https://repo.maven.apache.org/maven2/software/amazon/awssdk/bundle/${AWS_SDK_BUNDLE_VERSION}/bundle-${AWS_SDK_BUNDLE_VERSION}.jar"; \
-    chown -R 1000:1000 /opt/zeppelin/interpreter/spark/dep
+    chown 1000:1000 \
+        /opt/zeppelin/interpreter/spark/hadoop-aws-${HADOOP_AWS_VERSION}.jar \
+        /opt/zeppelin/interpreter/spark/bundle-${AWS_SDK_BUNDLE_VERSION}.jar
 
 USER 1000
