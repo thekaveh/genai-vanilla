@@ -667,6 +667,13 @@ class ServiceConfig:
         Spark is a 4-container family (master + worker + history + init). When
         the source is `container`, all four scale up (worker count is clamped
         to 1-8 per the wizard contract). When `disabled`, all four scale=0.
+
+        Hard-fails if SPARK_SOURCE=container but MINIO_SOURCE=disabled.
+        spark-init bootstraps the spark-history bucket via minio-init and
+        `depends_on: minio-init: condition: service_completed_successfully`
+        — with MinIO off, minio-init never starts and the stack hangs at
+        compose-up. Surface the conflict at source-resolution time instead.
+        Mirrors the Zeppelin → Spark gate in `_generate_zeppelin_config`.
         """
         source_value = self.service_sources.get("SPARK_SOURCE", "disabled")
         env_vars: dict[str, str] = {}
@@ -677,6 +684,15 @@ class ServiceConfig:
             env_vars["SPARK_HISTORY_SCALE"] = "0"
             env_vars["SPARK_INIT_SCALE"] = "0"
             return env_vars
+
+        minio_source = self.service_sources.get("MINIO_SOURCE", "disabled")
+        if minio_source == "disabled":
+            raise ValueError(
+                "Spark requires MinIO to be enabled. spark-init bootstraps "
+                "the spark-history bucket via minio-init and would hang at "
+                "compose-up without it. Either pass --minio-source container "
+                "alongside --spark-source container, or set --spark-source disabled."
+            )
 
         current_env = self.config_parser.parse_env_file()
         raw_count = current_env.get("SPARK_WORKER_COUNT", "2")
