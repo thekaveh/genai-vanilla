@@ -402,13 +402,30 @@ def _check_alias_uniqueness(manifests: list[Manifest]) -> list[ValidationIssue]:
 
 
 def _check_category_overflow(manifests: list[Manifest]) -> list[ValidationIssue]:
-    """Total *_PORT vars per category must fit in that category's block."""
+    """Total slot-consuming *_PORT vars per category must fit in that category's block.
+
+    Mirrors the skip filter in ``services.topology._allocate_slots`` so the
+    validator and the allocator agree on what counts. Without this, the
+    validator over-counts ``BASE_PORT`` and ``*_LOCALHOST_*_PORT`` env vars
+    (which the allocator deliberately skips because they are external hints,
+    not stack slots) and raises false-positive category overflow.
+    """
     from services.topology import CATEGORY_SLOTS
+
+    def _consumes_slot(name: str) -> bool:
+        if not name.endswith("_PORT"):
+            return False
+        if name == "BASE_PORT":
+            return False
+        if "_LOCALHOST_" in name:
+            return False
+        return True
+
     by_cat: dict[str, int] = {c: 0 for c in CATEGORY_SLOTS}
     for m in manifests:
         if m.category not in by_cat:
             continue
-        by_cat[m.category] += sum(1 for e in m.env if e.name.endswith("_PORT"))
+        by_cat[m.category] += sum(1 for e in m.env if _consumes_slot(e.name))
     issues: list[ValidationIssue] = []
     for cat, count in by_cat.items():
         _, block_size = CATEGORY_SLOTS[cat]

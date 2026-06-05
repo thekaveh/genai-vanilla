@@ -186,8 +186,59 @@ def test_source_mapping_includes_app_service_flags() -> None:
         "ray_source",
         "prometheus_source",
         "grafana_source",
+        "spark_source",
+        "zeppelin_source",
+        "airflow_source",
     ):
         assert cli_key in mgr.source_mapping, (
             f"{cli_key} missing from SourceOverrideManager.source_mapping — "
             f"wizard discover() will silently filter the service out."
         )
+
+
+def test_start_py_source_args_dict_includes_every_cli_source_flag() -> None:
+    """Every ``@click.option('--<svc>-source', ...)`` in start.py must appear
+    as a key in the ``source_args`` dict that's passed to
+    ``SourceOverrideManager.collect_overrides``. Otherwise the flag value
+    is silently dropped at runtime (the wizard still works because it
+    builds keys dynamically; only the CLI-flag path is broken).
+
+    Memory: ``project_cli_source_flag_three_seams.md`` documents the 4
+    coordinated edits required when adding a new source flag. PR #17 added
+    this guard for ray/prometheus/grafana; PR #35 omitted spark/zeppelin/
+    airflow and this regression test would have caught it.
+    """
+    import ast
+    import re
+
+    start_py = (REPO_ROOT / "bootstrapper" / "start.py").read_text(encoding="utf-8")
+
+    # Collect every --*-source flag declared via @click.option(...).
+    cli_flags = set(re.findall(r"@click\.option\(\s*['\"](--[a-z0-9-]+-source)['\"]", start_py))
+    # Skip the ROOT flag (--spark-source's parent doesn't exist; spark-workers
+    # is a non-source plumbing flag handled separately).
+    expected_keys = {flag[2:].replace("-", "_") for flag in cli_flags}
+
+    # AST-parse start.py to find the source_args dict literal.
+    tree = ast.parse(start_py)
+    source_args_keys: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "source_args"
+            and isinstance(node.value, ast.Dict)
+        ):
+            for k in node.value.keys:
+                if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                    source_args_keys.add(k.value)
+            break
+
+    missing = expected_keys - source_args_keys
+    assert not missing, (
+        f"start.py declares --*-source CLI flags but their corresponding keys "
+        f"are missing from the source_args dict literal: {sorted(missing)}. "
+        f"This silently drops the flag value at runtime — add the keys to the "
+        f"source_args dict so SourceOverrideManager.collect_overrides receives them."
+    )
