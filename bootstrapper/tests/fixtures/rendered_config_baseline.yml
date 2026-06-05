@@ -25,12 +25,10 @@ services:
       AIRFLOW_DB_USER: airflow
       AIRFLOW_UID: '50000'
       LITELLM_MASTER_KEY: ''
-      LITELLM_SOURCE: container
       MINIO_ROOT_PASSWORD: ''
       MINIO_ROOT_USER: minioadmin
       MINIO_SOURCE: container
-      NEO4J_SOURCE: disabled
-      REDIS_SOURCE: container
+      NEO4J_GRAPH_DB_SOURCE: container
       SPARK_SOURCE: disabled
       SUPABASE_DB_NAME: postgres
       SUPABASE_DB_PASSWORD: password
@@ -70,6 +68,7 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ''
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: ''
       AIRFLOW_UID: '50000'
     image: genai-airflow:local
     networks:

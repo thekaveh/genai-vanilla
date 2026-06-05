@@ -20,6 +20,13 @@ require either (a) bundling the JAR in `services/airflow/dags/` or
 (b) bind-mounting a separate scripts directory. Neither is in scope for
 the v1 sample. Spark Connect via a tiny Python step gives the same
 "connection is alive" smoke without owning a JAR build.
+
+Model selection: the LLM step defaults to ``ollama/qwen3.6:latest``,
+which assumes the stack's default Ollama-mode catalog. If you run with
+``--llm-provider-source none`` + ``CLOUD_OPENAI_SOURCE=enabled`` (cloud-
+only mode), swap ``model="ollama/qwen3.6:latest"`` for a cloud model id
+like ``gpt-4o-mini``. See services/litellm/README.md for the available
+model ids in each provider configuration.
 """
 from __future__ import annotations
 

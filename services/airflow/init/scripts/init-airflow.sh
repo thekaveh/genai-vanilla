@@ -51,6 +51,20 @@ add_conn() {
   airflow connections add "$conn_id" "$@"
 }
 
+# Gating convention: every gate uses `= "container"` (NOT `!= "disabled"`).
+# The `!= "disabled"` form silently includes the `localhost` source variant
+# for services that support it (weaviate / neo4j), which would seed a
+# Connection pointing at the in-Compose DNS name (e.g. `weaviate:8080`)
+# that does NOT resolve when the user is running the service on the host.
+# In-container DNS is only valid when source == container. For host-side
+# variants, the user must manage Connection objects manually (or extend
+# this script to read the LOCALHOST URL override env vars).
+#
+# LiteLLM + Postgres + Redis are unconditional: LiteLLM is locked
+# always-on (services/litellm/service.yml: "Locked. Mandatory."), Postgres
+# is a required dependency, and Redis ships as a container-only always-on
+# service (services/redis/service.yml).
+
 if [ "${SPARK_SOURCE}" = "container" ]; then
   add_conn spark_default --conn-type spark --conn-host spark-master --conn-port 7077
 fi
@@ -61,13 +75,11 @@ if [ "${MINIO_SOURCE}" = "container" ]; then
     --conn-extra "{\"endpoint_url\": \"http://minio:9000\", \"aws_access_key_id\": \"${MINIO_ROOT_USER}\", \"aws_secret_access_key\": \"${MINIO_ROOT_PASSWORD}\"}"
 fi
 
-if [ "${LITELLM_SOURCE}" != "disabled" ]; then
-  add_conn litellm_default \
-    --conn-type openai \
-    --conn-host http://litellm:4000 \
-    --conn-password "${LITELLM_MASTER_KEY}" \
-    --conn-extra '{"api_base": "http://litellm:4000/v1"}'
-fi
+add_conn litellm_default \
+  --conn-type openai \
+  --conn-host http://litellm:4000 \
+  --conn-password "${LITELLM_MASTER_KEY}" \
+  --conn-extra '{"api_base": "http://litellm:4000/v1"}'
 
 add_conn postgres_supabase \
   --conn-type postgres --conn-host supabase-db --conn-port 5432 \
@@ -75,16 +87,17 @@ add_conn postgres_supabase \
   --conn-login "${SUPABASE_DB_USER}" \
   --conn-password "${SUPABASE_DB_PASSWORD}"
 
-if [ "${WEAVIATE_SOURCE}" != "disabled" ]; then
+if [ "${WEAVIATE_SOURCE}" = "container" ]; then
   add_conn weaviate_default --conn-type weaviate --conn-host http://weaviate:8080
 fi
 
-if [ "${NEO4J_SOURCE}" != "disabled" ]; then
+# NOTE: var name is NEO4J_GRAPH_DB_SOURCE (NOT NEO4J_SOURCE — the latter
+# does not exist in .env.example and was silently undefined → "disabled"
+# → neo4j_default never seeded prior to this fix).
+if [ "${NEO4J_GRAPH_DB_SOURCE}" = "container" ]; then
   add_conn neo4j_default --conn-type neo4j --conn-host bolt://neo4j --conn-port 7687
 fi
 
-if [ "${REDIS_SOURCE}" != "disabled" ]; then
-  add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379
-fi
+add_conn redis_default --conn-type redis --conn-host redis --conn-port 6379
 
 echo "==> airflow-init: complete"

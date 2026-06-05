@@ -29,6 +29,8 @@ AIRFLOW_SECRET_KEY=                  # auto-generated (Flask session secret)
 AIRFLOW_ADMIN_PASSWORD=              # auto-generated (admin login)
 ```
 
+Auto-managed (resolved by the bootstrapper from `AIRFLOW_SOURCE`; do not hand-edit): `AIRFLOW_WEBSERVER_SCALE`, `AIRFLOW_SCHEDULER_SCALE`, `AIRFLOW_INIT_SCALE`.
+
 ## 4. Seeded Connections
 
 `airflow-init` runs once at first start and seeds Airflow Connection objects for every enabled sibling service. Each is gated on the sibling's `_SOURCE` env var:
@@ -36,12 +38,12 @@ AIRFLOW_ADMIN_PASSWORD=              # auto-generated (admin login)
 | Connection ID | Type | Target | Gated on |
 |---|---|---|---|
 | `postgres_supabase` | postgres | `supabase-db:5432/${SUPABASE_DB_NAME}` | always (required dep) |
+| `litellm_default` | openai | `http://litellm:4000/v1` with `LITELLM_MASTER_KEY` | always (LiteLLM is locked always-on) |
+| `redis_default` | redis | `redis:6379` | always (Redis ships container-only always-on) |
 | `spark_default` | spark | `spark://spark-master:7077` | `SPARK_SOURCE=container` |
 | `minio_default` | aws (S3-compat) | `http://minio:9000` with root creds | `MINIO_SOURCE=container` |
-| `litellm_default` | openai | `http://litellm:4000/v1` with `LITELLM_MASTER_KEY` | `LITELLM_SOURCE != disabled` |
-| `weaviate_default` | weaviate | `http://weaviate:8080` | `WEAVIATE_SOURCE != disabled` |
-| `neo4j_default` | neo4j | `bolt://neo4j:7687` | `NEO4J_SOURCE != disabled` |
-| `redis_default` | redis | `redis:6379` | `REDIS_SOURCE != disabled` |
+| `weaviate_default` | weaviate | `http://weaviate:8080` | `WEAVIATE_SOURCE=container` (NOT `localhost` — the in-Compose DNS does not resolve in host-mode) |
+| `neo4j_default` | neo4j | `bolt://neo4j:7687` | `NEO4J_GRAPH_DB_SOURCE=container` (same caveat) |
 
 Connection seeding is idempotent — `airflow-init` deletes-then-adds each Connection on every run, so changes to credentials propagate on the next `./start.sh`.
 
@@ -49,9 +51,11 @@ Connection seeding is idempotent — `airflow-init` deletes-then-adds each Conne
 
 `services/airflow/dags/example_etl_with_llm.py` ships pre-loaded. Three operators that smoke-test each Connection:
 
-1. `SparkSubmitOperator` against `spark_default`.
-2. `OpenAIOperator` against `litellm_default` (sends a one-token prompt).
+1. `PythonOperator` invoking Spark Connect at `sc://spark-master:15002` — smoke-tests `spark_default` reachability without owning a JAR build. See the DAG docstring for why `SparkSubmitOperator` is deferred to user DAGs.
+2. `OpenAIOperator` against `litellm_default` (sends a one-token prompt). Defaults to `ollama/qwen3.6:latest` (Ollama-mode); swap to `gpt-4o-mini` or similar if running with `--llm-provider-source none` + `CLOUD_OPENAI_SOURCE=enabled`.
 3. `S3Hook.list_buckets()` against `minio_default`.
+
+A commented `LangChainOperator` block at the bottom of the file shows the recommended pattern for chain-based LLM steps.
 
 Use it as a template. Drop your own DAGs into `services/airflow/dags/` — they're bind-mounted into the container.
 
@@ -89,6 +93,7 @@ This pattern — agent runtime → orchestrated workflow — pairs Hermes's reac
 
 | Service | Category |
 |---|---|
+| kong | infra |
 | hermes | agents |
 
 ### 7.3 Architecture diagram
@@ -115,4 +120,5 @@ _No high-confidence opportunities identified._
 - **Web UI login rejected** — `AIRFLOW_ADMIN_PASSWORD` in `.env` may have rotated. Check the value; if rotated, `airflow-init` re-runs and re-syncs the admin user on next `./start.sh`.
 - **DAG appears in UI but won't run** — Scheduler may be lagging. `docker logs ${PROJECT_NAME}-airflow-scheduler` for parse errors. The scheduler poll interval defaults to 30s.
 - **`OpenAIOperator` errors with `auth required`** — `litellm_default` Connection has the wrong `LITELLM_MASTER_KEY`. Re-run `./start.sh` to re-sync the Connection; alternatively edit it in the Web UI under Admin → Connections.
-- **`SparkSubmitOperator` can't reach spark://spark-master:7077** — Spark isn't running. `SPARK_SOURCE=disabled` in `.env`. Either enable Spark (`--spark-source container`) or remove SparkSubmitOperator from your DAG.
+- **Spark `spark_smoke` task can't reach `sc://spark-master:15002` (or `spark://spark-master:7077` from user `SparkSubmitOperator` DAGs)** — Spark isn't running. `SPARK_SOURCE=disabled` in `.env`. Either enable Spark (`--spark-source container`) or remove the Spark-dependent steps from your DAG.
+- **`spark_smoke` raises `ModuleNotFoundError: No module named 'pyspark'`** — the airflow image hasn't been rebuilt since `pyspark` was added to `services/airflow/build/requirements.txt`. Run `docker compose build airflow-webserver` (or `./start.sh --rebuild airflow-webserver` if your wrapper supports it) and restart.

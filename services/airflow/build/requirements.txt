@@ -11,3 +11,8 @@ apache-airflow-providers-langchain>=1.1.0
 # we use in AIRFLOW__API__AUTH_BACKENDS.
 apache-airflow-providers-fab>=2.0.0
 psycopg2-binary>=2.9.10
+# Required by the sample DAG's Spark Connect smoke step (`from pyspark.sql
+# import SparkSession`). apache-airflow-providers-apache-spark does not
+# transitively pull pyspark, and apache/airflow:3.2.2 doesn't ship it.
+# Pinned to the matching Spark image version (apache/spark:4.1.2).
+pyspark==4.1.2
