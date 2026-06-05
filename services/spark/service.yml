@@ -1,0 +1,127 @@
+# services/spark/service.yml — Apache Spark standalone cluster
+# master + N workers + history server. Distinct from Ray.
+name: spark
+label: "Apache Spark (standalone cluster)"
+category: data
+docs: services/spark/README.md
+
+containers:
+  - spark-master
+  - spark-worker
+  - spark-history
+  - spark-init
+
+images:
+  - var: SPARK_IMAGE
+    default: "bitnami/spark:4.1.2"
+    container: spark-master
+
+sources:
+  var: SPARK_SOURCE
+  default: disabled
+  options:
+    - id: container
+      label: "Container (standalone cluster)"
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: SPARK_SOURCE
+    default: disabled
+  - name: SPARK_IMAGE
+    default: "bitnami/spark:4.1.2"
+  - name: SPARK_MASTER_UI_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for the Spark Master Web UI (in-container 8080)."
+  - name: SPARK_HISTORY_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for the Spark History Server (in-container 18080)."
+  - name: SPARK_WORKER_COUNT
+    default: "2"
+    description: "Number of spark-worker replicas alongside the master. 1-8."
+  - name: SPARK_MASTER_SCALE
+    auto_managed: true
+  - name: SPARK_WORKER_SCALE
+    auto_managed: true
+    description: "Resolved by the bootstrapper from SPARK_WORKER_COUNT when source=container; 0 otherwise."
+  - name: SPARK_HISTORY_SCALE
+    auto_managed: true
+  - name: SPARK_INIT_SCALE
+    auto_managed: true
+
+depends_on:
+  required:
+    - minio
+  optional:
+    - supabase
+    - prometheus
+
+rows:
+  - display_name: "Apache Spark"
+    source_var: SPARK_SOURCE
+    port_var: SPARK_MASTER_UI_PORT
+    scale_var: SPARK_MASTER_SCALE
+    alias: spark.localhost
+    description: "Standalone Spark cluster for batch / SQL / DataFrame workloads."
+
+exports: []
+
+runtime_sc:
+  spark-master:
+    container:
+      scale: 1
+      environment:
+        SPARK_MODE: master
+        SPARK_MASTER_HOST: spark-master
+        SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+        SPARK_RPC_ENCRYPTION_ENABLED: "no"
+        SPARK_LOCAL_SSL_ENABLED: "no"
+        SPARK_NO_DAEMONIZE: "true"
+        SPARK_DAEMON_JAVA_OPTS: "-Dspark.connect.grpc.binding.port=15002"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  spark-worker:
+    container:
+      scale: 2   # overridden by SPARK_WORKER_COUNT via auto_managed SPARK_WORKER_SCALE
+      environment:
+        SPARK_MODE: worker
+        SPARK_MASTER_URL: "spark://spark-master:7077"
+        SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+        SPARK_RPC_ENCRYPTION_ENABLED: "no"
+        SPARK_LOCAL_SSL_ENABLED: "no"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  spark-history:
+    container:
+      scale: 1
+      environment:
+        SPARK_MODE: history
+        SPARK_HISTORY_OPTS: >-
+          -Dspark.history.fs.logDirectory=s3a://spark-history/
+          -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
+          -Dspark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}
+          -Dspark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
+          -Dspark.hadoop.fs.s3a.path.style.access=true
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls:
+    - supabase   # JDBC reads (user-driven)
+    - minio      # s3a:// history + user data
+    - kong       # health endpoints exposed via alias
