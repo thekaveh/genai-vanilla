@@ -77,13 +77,13 @@ def test_kong_fronted_services_in_upstream():
     universal convention 'focus.data_flow.calls = upstream lane' consistently,
     these services appear in Kong's UPSTREAM lane (Kong calls/routes to them).
     Kong's downstream callers: prometheus (scrapes Kong's Status API) +
-    spark + zeppelin (both Web UIs fronted by Kong via their *.localhost
-    aliases)."""
+    spark + zeppelin + airflow (all three Web UIs fronted by Kong via
+    their *.localhost aliases)."""
     from docs.deps_resolver import build_graph
     g = build_graph("kong", SERVICES_DIR)
     assert len(g.upstream) > 10
     downstream_others = {e.other for e in g.downstream}
-    assert downstream_others == {"prometheus", "spark", "zeppelin"}
+    assert downstream_others == {"prometheus", "spark", "zeppelin", "airflow"}
 
 
 def test_aggregate_doc_folder_unions_underlying_manifests():
