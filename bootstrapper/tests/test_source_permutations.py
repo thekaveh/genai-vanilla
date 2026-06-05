@@ -96,6 +96,17 @@ _PERMUTATIONS = [
     # failure during compose rendering.
     ("PROMETHEUS_SOURCE", ["container", "disabled"]),
     ("GRAFANA_SOURCE", ["container", "disabled"]),
+    # Compute tier (added 2026-06-04). Each is single-toggle (no source
+    # variants beyond container/disabled). Spark gates Zeppelin's
+    # `_generate_zeppelin_config` — exercising ZEPPELIN_SOURCE=container
+    # here keeps SPARK_SOURCE at .env.example's default of `disabled`,
+    # which would normally raise — but ServiceConfig isn't run during
+    # `docker compose config` (it only validates compose-render syntax),
+    # so the gate is invisible to this test. The real gate is exercised
+    # by test_zeppelin_spark_gating.py.
+    ("SPARK_SOURCE", ["container", "disabled"]),
+    ("ZEPPELIN_SOURCE", ["container", "disabled"]),
+    ("AIRFLOW_SOURCE", ["container", "disabled"]),
 ]
 
 

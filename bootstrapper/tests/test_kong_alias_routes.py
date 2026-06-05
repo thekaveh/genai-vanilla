@@ -295,6 +295,33 @@ def test_spark_history_route_exists_with_preserve_host():
     assert svc["routes"][0].get("preserve_host") is True
 
 
+def test_zeppelin_route_exists_with_preserve_host():
+    """Zeppelin notebook UI is an SPA — preserve_host=True keeps it routable
+    via the alias. Gated on ZEPPELIN_SOURCE=container."""
+    config = _generate("ZEPPELIN_SOURCE=container\nSPARK_SOURCE=container\n")
+    svc = next(
+        (s for s in config["services"] if s["name"] == "zeppelin"),
+        None,
+    )
+    assert svc is not None, "zeppelin service missing from Kong config"
+    assert "zeppelin.localhost" in svc["routes"][0]["hosts"]
+    assert svc["routes"][0].get("preserve_host") is True
+
+
+def test_airflow_route_exists_with_preserve_host():
+    """Airflow Web UI is an SPA AND the same alias serves the REST API at
+    /api/v2/. preserve_host=True is required for the SPA's asset URLs +
+    redirects to bake the right host. Gated on AIRFLOW_SOURCE=container."""
+    config = _generate("AIRFLOW_SOURCE=container\n")
+    svc = next(
+        (s for s in config["services"] if s["name"] == "airflow"),
+        None,
+    )
+    assert svc is not None, "airflow service missing from Kong config"
+    assert "airflow.localhost" in svc["routes"][0]["hosts"]
+    assert svc["routes"][0].get("preserve_host") is True
+
+
 @pytest.mark.parametrize("env_var,svc_source_var,svc_source_value,expected_port", [
     ("COMFYUI_LOCALHOST_PORT",      "COMFYUI_SOURCE",            "localhost",              "9999"),
     ("DOCLING_LOCALHOST_PORT",      "DOC_PROCESSOR_SOURCE",      "docling-localhost",      "9999"),
