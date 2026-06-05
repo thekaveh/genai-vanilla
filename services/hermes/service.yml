@@ -195,4 +195,8 @@ data_flow:
     - tts-provider
     - comfyui
     - searxng
+    # Hermes → Airflow: documented in services/hermes/README.md §8 —
+    # Hermes triggers DAG runs via the Airflow REST API
+    # (agent runtime → orchestrated workflow pattern).
+    - airflow
 

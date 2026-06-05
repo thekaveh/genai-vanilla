@@ -227,6 +227,7 @@ example DAG.
 | searxng | media |
 | stt-provider | media |
 | tts-provider | media |
+| airflow | agents |
 
 ### 9.2 Current — Downstream (services that call this)
 

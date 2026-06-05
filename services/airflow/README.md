@@ -88,7 +88,9 @@ This pattern — agent runtime → orchestrated workflow — pairs Hermes's reac
 
 ### 7.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| hermes | agents |
 
 ### 7.3 Architecture diagram
 
