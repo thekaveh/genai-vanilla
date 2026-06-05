@@ -4,7 +4,9 @@ Spark runs as a 4-container family in the stack's `data` band: `spark-master`, `
 
 ## 1. Overview
 
-Image: `bitnami/spark:4.1.2` (Apache 2.0). Standalone mode — no YARN, no Kubernetes. Spark Connect (gRPC) is enabled on port `15002` so Zeppelin and external clients can submit jobs via the modern `sc://spark-master:15002` URL.
+Image: `apache/spark:4.1.2` (Apache 2.0; the upstream Apache image). Standalone mode — no YARN, no Kubernetes. Each role (master, worker, history) is launched with an explicit `/opt/spark/bin/spark-class` command in `services/spark/compose.yml` since `apache/spark` doesn't carry the `SPARK_MODE=master|worker|history` env-driven entrypoint that Bitnami used to ship. Spark Connect (gRPC) is enabled on port `15002` so Zeppelin and external clients can submit jobs via the modern `sc://spark-master:15002` URL.
+
+> **Note on image choice:** earlier drafts of this service pinned `bitnami/spark:4.1.2`. Bitnami's image library moved behind the Broadcom paywall in 2025; no public 4.x tag exists today. `apache/spark` is the upstream-maintained alternative.
 
 ## 2. Access
 
@@ -21,7 +23,7 @@ Image: `bitnami/spark:4.1.2` (Apache 2.0). Standalone mode — no YARN, no Kuber
 
 ```bash
 SPARK_SOURCE=disabled              # container | disabled
-SPARK_IMAGE=bitnami/spark:4.1.2
+SPARK_IMAGE=apache/spark:4.1.2
 SPARK_MASTER_UI_PORT=              # auto-assigned by topology (data band)
 SPARK_HISTORY_PORT=                # auto-assigned
 SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInput)

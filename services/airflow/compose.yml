@@ -40,6 +40,16 @@ services:
       - backend-network
 
   airflow-scheduler:
+    # Same locally-built image as airflow-webserver. Compose only
+    # auto-builds for services that DECLARE `build:`; without it, an
+    # `up` command tries to PULL `${PROJECT_NAME}-airflow:local` from
+    # a registry (which doesn't exist) and fails. Declaring `build:`
+    # with the same context here makes Compose reuse the already-built
+    # tag without rebuilding.
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:3.2.2}
     image: ${PROJECT_NAME}-airflow:local
     container_name: ${PROJECT_NAME}-airflow-scheduler
     restart: unless-stopped
@@ -62,6 +72,11 @@ services:
       - backend-network
 
   airflow-init:
+    # Same locally-built image; see comment above on airflow-scheduler.
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:3.2.2}
     image: ${PROJECT_NAME}-airflow:local
     container_name: ${PROJECT_NAME}-airflow-init
     deploy:

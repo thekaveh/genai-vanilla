@@ -13,7 +13,7 @@ containers:
 
 images:
   - var: SPARK_IMAGE
-    default: "bitnami/spark:4.1.2"
+    default: "apache/spark:4.1.2"
     container: spark-master
 
 sources:
@@ -73,15 +73,15 @@ rows:
 exports: []
 
 runtime_sc:
+  # apache/spark images don't use SPARK_MODE — each role is started by an
+  # explicit `/opt/spark/bin/spark-class` command in compose.yml. The env
+  # blocks below mirror what compose.yml's `environment:` declares per
+  # service (dual-write per project_runtime_sc_vs_compose_env_dual_write.md).
   spark-master:
     container:
       scale: 1
       environment:
-        SPARK_MODE: master
         SPARK_MASTER_HOST: spark-master
-        SPARK_RPC_AUTHENTICATION_ENABLED: "no"
-        SPARK_RPC_ENCRYPTION_ENABLED: "no"
-        SPARK_LOCAL_SSL_ENABLED: "no"
         SPARK_NO_DAEMONIZE: "true"
         SPARK_DAEMON_JAVA_OPTS: "-Dspark.connect.grpc.binding.port=15002"
       deploy: {}
@@ -95,11 +95,7 @@ runtime_sc:
     container:
       scale: 2   # overridden by SPARK_WORKER_COUNT via auto_managed SPARK_WORKER_SCALE
       environment:
-        SPARK_MODE: worker
-        SPARK_MASTER_URL: "spark://spark-master:7077"
-        SPARK_RPC_AUTHENTICATION_ENABLED: "no"
-        SPARK_RPC_ENCRYPTION_ENABLED: "no"
-        SPARK_LOCAL_SSL_ENABLED: "no"
+        SPARK_NO_DAEMONIZE: "true"
       deploy: {}
       extra_hosts: []
     disabled:
@@ -111,7 +107,7 @@ runtime_sc:
     container:
       scale: 1
       environment:
-        SPARK_MODE: history
+        SPARK_NO_DAEMONIZE: "true"
         SPARK_HISTORY_OPTS: >-
           -Dspark.history.fs.logDirectory=s3a://spark-history/
           -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000

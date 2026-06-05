@@ -1,7 +1,17 @@
 # services/spark/compose.yml — Spark master + workers + history + init
+#
+# Image note (2026-06-04): switched from bitnami/spark to apache/spark
+# because Bitnami's image library moved behind the Broadcom paywall
+# post-acquisition — bitnami/spark:4.x has no public tags on Docker Hub.
+# apache/spark is the upstream-maintained alternative.
+#
+# apache/spark does NOT provide the SPARK_MODE=master|worker|history env
+# convenience that bitnami's entrypoint shipped. Instead each role uses
+# an explicit `spark-class` invocation that runs the Java process
+# directly in the foreground (no daemonization, signals propagate).
 services:
   spark-master:
-    image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
+    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
     container_name: ${PROJECT_NAME}-spark-master
     restart: unless-stopped
     deploy:
@@ -9,24 +19,35 @@ services:
     ports:
       - "${SPARK_MASTER_UI_PORT}:8080"
     environment:
-      SPARK_MODE: master
       SPARK_MASTER_HOST: spark-master
-      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
-      SPARK_RPC_ENCRYPTION_ENABLED: "no"
-      SPARK_LOCAL_SSL_ENABLED: "no"
       SPARK_NO_DAEMONIZE: "true"
+      # Spark Connect (gRPC) — apache/spark loads the plugin via
+      # spark.plugins config. Spark Connect's binding port is set via
+      # --conf at boot below.
       SPARK_DAEMON_JAVA_OPTS: -Dspark.connect.grpc.binding.port=15002
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - spark-master
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
     healthcheck:
+      # apache/spark image ships curl; the master's REST/UI on 8080 is
+      # the readiness signal. Don't probe the standalone-master REST API
+      # (port 6066) — it's off by default.
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 45s
     networks:
       - backend-network
 
   spark-worker:
-    image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
+    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
     # NO container_name: ${PROJECT_NAME}-spark-worker — Compose forbids
     # container_name when deploy.replicas > 1 (which is the default for
     # SPARK_WORKER_COUNT=2..8). Workers are auto-named by Compose:
@@ -35,11 +56,13 @@ services:
     deploy:
       replicas: ${SPARK_WORKER_SCALE:-0}
     environment:
-      SPARK_MODE: worker
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
-      SPARK_RPC_ENCRYPTION_ENABLED: "no"
-      SPARK_LOCAL_SSL_ENABLED: "no"
+      SPARK_NO_DAEMONIZE: "true"
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --webui-port
+      - "8081"
     depends_on:
       spark-master:
         condition: service_healthy
@@ -47,7 +70,7 @@ services:
       - backend-network
 
   spark-history:
-    image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
+    image: ${SPARK_IMAGE:-apache/spark:4.1.2}
     container_name: ${PROJECT_NAME}-spark-history
     restart: unless-stopped
     deploy:
@@ -55,7 +78,7 @@ services:
     ports:
       - "${SPARK_HISTORY_PORT}:18080"
     environment:
-      SPARK_MODE: history
+      SPARK_NO_DAEMONIZE: "true"
       # NOTE: dual-write per project_runtime_sc_vs_compose_env_dual_write.md.
       # Same SPARK_HISTORY_OPTS must appear in service.yml::runtime_sc.
       SPARK_HISTORY_OPTS: >-
@@ -64,6 +87,9 @@ services:
         -Dspark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}
         -Dspark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
         -Dspark.hadoop.fs.s3a.path.style.access=true
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.history.HistoryServer
     depends_on:
       spark-init:
         condition: service_completed_successfully

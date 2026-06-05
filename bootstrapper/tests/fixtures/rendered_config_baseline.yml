@@ -1,6 +1,11 @@
 name: genai
 services:
   airflow-init:
+    build:
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/airflow:3.2.2
     command:
     - /scripts/init-airflow.sh
     container_name: genai-airflow-init
@@ -45,6 +50,11 @@ services:
       read_only: true
       bind: {}
   airflow-scheduler:
+    build:
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/airflow:3.2.2
     command:
     - airflow
     - scheduler
@@ -1742,6 +1752,9 @@ services:
       target: /var/cache/searxng
       volume: {}
   spark-history:
+    command:
+    - /opt/spark/bin/spark-class
+    - org.apache.spark.deploy.history.HistoryServer
     container_name: genai-spark-history
     depends_on:
       spark-init:
@@ -1752,8 +1765,8 @@ services:
     environment:
       SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
         -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key= -Dspark.hadoop.fs.s3a.path.style.access=true
-      SPARK_MODE: history
-    image: bitnami/spark:4.1.2
+      SPARK_NO_DAEMONIZE: 'true'
+    image: apache/spark:4.1.2
     networks:
       backend-network: null
     ports:
@@ -1779,17 +1792,22 @@ services:
     networks:
       backend-network: null
   spark-master:
+    command:
+    - /opt/spark/bin/spark-class
+    - org.apache.spark.deploy.master.Master
+    - --host
+    - spark-master
+    - --port
+    - '7077'
+    - --webui-port
+    - '8080'
     container_name: genai-spark-master
     deploy:
       replicas: 0
     environment:
       SPARK_DAEMON_JAVA_OPTS: -Dspark.connect.grpc.binding.port=15002
-      SPARK_LOCAL_SSL_ENABLED: 'no'
       SPARK_MASTER_HOST: spark-master
-      SPARK_MODE: master
       SPARK_NO_DAEMONIZE: 'true'
-      SPARK_RPC_AUTHENTICATION_ENABLED: 'no'
-      SPARK_RPC_ENCRYPTION_ENABLED: 'no'
     healthcheck:
       test:
       - CMD
@@ -1799,8 +1817,8 @@ services:
       timeout: 10s
       interval: 30s
       retries: 5
-      start_period: 30s
-    image: bitnami/spark:4.1.2
+      start_period: 45s
+    image: apache/spark:4.1.2
     networks:
       backend-network: null
     ports:
@@ -1810,6 +1828,12 @@ services:
       protocol: tcp
     restart: unless-stopped
   spark-worker:
+    command:
+    - /opt/spark/bin/spark-class
+    - org.apache.spark.deploy.worker.Worker
+    - spark://spark-master:7077
+    - --webui-port
+    - '8081'
     depends_on:
       spark-master:
         condition: service_healthy
@@ -1817,12 +1841,8 @@ services:
     deploy:
       replicas: 0
     environment:
-      SPARK_LOCAL_SSL_ENABLED: 'no'
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_MODE: worker
-      SPARK_RPC_AUTHENTICATION_ENABLED: 'no'
-      SPARK_RPC_ENCRYPTION_ENABLED: 'no'
-    image: bitnami/spark:4.1.2
+      SPARK_NO_DAEMONIZE: 'true'
+    image: apache/spark:4.1.2
     networks:
       backend-network: null
     restart: unless-stopped
