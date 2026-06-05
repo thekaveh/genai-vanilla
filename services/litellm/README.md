@@ -291,7 +291,6 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | jupyterhub | apps |
 | local-deep-researcher | apps |
 | open-webui | apps |
-| zeppelin | apps |
 
 ### 13.3 Architecture diagram
 

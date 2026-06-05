@@ -35,7 +35,10 @@ depends_on:
   optional:
     - supabase
     - minio
-    - litellm
+    # litellm: removed (was aspirational). No env vars are wired to the
+    # gateway in zeppelin's compose/runtime_sc and the README says users
+    # wire LiteLLM themselves. Re-add only if zeppelin starts injecting
+    # LITELLM_BASE_URL / LITELLM_MASTER_KEY at compose-render time.
 
 rows:
   - display_name: "Apache Zeppelin"
@@ -76,8 +79,11 @@ runtime_sc:
 data_flow:
   # Convention: focus.data_flow.calls = what FOCUS calls (upstream).
   # Kong routes traffic TO Zeppelin; not an outbound from Zeppelin's perspective.
+  # NOTE: litellm is intentionally absent here even though the README
+  # describes wiring it from inside Python cells — Zeppelin doesn't auto-
+  # inject LITELLM_* env vars at compose-render time, so the call is
+  # user-driven, not part of the runtime topology. Mirroring depends_on.
   calls:
     - spark
     - supabase
     - minio
-    - litellm
