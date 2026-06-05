@@ -55,7 +55,6 @@ Use it as a template for your own notebooks.
 | minio | data |
 | spark | data |
 | supabase | data |
-| litellm | llm |
 
 ### 6.2 Current — Downstream (services that call this)
 

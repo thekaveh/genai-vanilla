@@ -24,7 +24,7 @@ services/
 ├── redis/
 │   ├── service.yml
 │   └── compose.yml
-└── … (≈24 more service folders)
+└── … (≈28 more service folders)
 ```
 
 A virtual service (e.g. `cloud-providers/`, `tts-provider/`, `globals/`) has

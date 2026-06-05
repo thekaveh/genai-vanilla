@@ -32,6 +32,7 @@ def test_spark_disabled_sets_all_scales_to_zero():
     assert env_vars["SPARK_WORKER_SCALE"] == "0"
     assert env_vars["SPARK_HISTORY_SCALE"] == "0"
     assert env_vars["SPARK_INIT_SCALE"] == "0"
+    assert env_vars["SPARK_CONNECT_SCALE"] == "0"
 
 
 def test_spark_container_with_default_worker_count():
@@ -40,6 +41,7 @@ def test_spark_container_with_default_worker_count():
     assert env_vars["SPARK_WORKER_SCALE"] == "2"
     assert env_vars["SPARK_HISTORY_SCALE"] == "1"
     assert env_vars["SPARK_INIT_SCALE"] == "1"
+    assert env_vars["SPARK_CONNECT_SCALE"] == "1"
 
 
 def test_spark_container_respects_worker_count_override():

@@ -23,6 +23,7 @@ def test_spark_disabled_returns_all_scales_zero():
     assert out["SPARK_WORKER_SCALE"] == "0"
     assert out["SPARK_HISTORY_SCALE"] == "0"
     assert out["SPARK_INIT_SCALE"] == "0"
+    assert out["SPARK_CONNECT_SCALE"] == "0"
 
 
 def test_spark_container_with_minio_container_returns_full_scales():
@@ -32,6 +33,7 @@ def test_spark_container_with_minio_container_returns_full_scales():
     assert out["SPARK_WORKER_SCALE"] == "2"
     assert out["SPARK_HISTORY_SCALE"] == "1"
     assert out["SPARK_INIT_SCALE"] == "1"
+    assert out["SPARK_CONNECT_SCALE"] == "1"
 
 
 def test_spark_container_with_minio_disabled_raises():

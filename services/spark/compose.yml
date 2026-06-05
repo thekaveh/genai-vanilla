@@ -98,6 +98,8 @@ services:
       - --master
       - spark://spark-master:7077
       - --conf
+      - spark.connect.grpc.binding.address=0.0.0.0
+      - --conf
       - spark.connect.grpc.binding.port=15002
       - --conf
       - spark.hadoop.fs.s3a.endpoint=http://minio:9000
