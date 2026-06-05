@@ -137,6 +137,19 @@ services:
       # field is GRAPH_DB_USER).
       GRAPH_DB_USER: ${GRAPH_DB_USER}
       GRAPH_DB_PASSWORD: ${GRAPH_DB_PASSWORD}
+      # Redis is auth-on (services/redis/compose.yml passes --requirepass
+      # ${REDIS_PASSWORD}). Without this, redis_default Connection auth-
+      # fails with NOAUTH/WRONGPASS on every DAG that uses RedisHook.
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Same Airflow 3.x section renames as webserver/scheduler — needed
+      # so `airflow users create` (a FAB-provider CLI) actually finds
+      # FabAuthManager and successfully writes the admin row. The init
+      # script's `|| echo "skipping"` swallow would otherwise hide
+      # failure, leaving the webserver auth-backend without an admin to
+      # validate against (same 401 class as Pass 9's basic_auth bug).
+      AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
     volumes:
       - ./dags:/opt/airflow/dags
       - ./init/scripts:/scripts:ro

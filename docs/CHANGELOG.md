@@ -76,7 +76,7 @@ wizard or CLI flag. Estimated memory footprint with all three enabled:
 
 **4 new bootstrapper-generated secrets** for Airflow:
 `AIRFLOW_FERNET_KEY` (Connection-password encryption),
-`AIRFLOW_SECRET_KEY` (Flask session), `AIRFLOW_ADMIN_PASSWORD`,
+`AIRFLOW_SECRET_KEY` (Airflow 3.x `AIRFLOW__API__SECRET_KEY` — inter-process payload signing), `AIRFLOW_ADMIN_PASSWORD`,
 `AIRFLOW_DB_PASSWORD`. All `force=False` in `generate_missing_keys()`
 because rotating any of them mid-run breaks something.
 

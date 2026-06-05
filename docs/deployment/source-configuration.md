@@ -502,7 +502,7 @@ SPARK_WORKER_COUNT=2     # number of spark-worker replicas; 1..8 — wizard prom
 
 ### ZEPPELIN_SOURCE
 
-Zeppelin is the Spark-first notebook UI, pre-configured with Spark + JDBC interpreters wired to the in-cluster Spark master and Supabase Postgres. **Hard-gated on Spark** — `ZEPPELIN_SOURCE=container` with `SPARK_SOURCE=disabled` errors out at bootstrap. See [Zeppelin service README](../../services/zeppelin/README.md) for the interpreter setup.
+Zeppelin is the Spark-first notebook UI. The Spark interpreter is pre-configured against the in-cluster master + Spark Connect; the JDBC interpreter ships with Supabase Postgres credentials in env vars but requires a one-time UI-driven `postgres` profile setup (see [Zeppelin service README](../../services/zeppelin/README.md) §4). **Hard-gated on Spark** — `ZEPPELIN_SOURCE=container` with `SPARK_SOURCE=disabled` errors out at bootstrap.
 
 #### `disabled` (Default)
 ```bash
@@ -519,7 +519,7 @@ ZEPPELIN_SOURCE=container
 SPARK_SOURCE=container   # REQUIRED — Zeppelin hard-fails without Spark
 ```
 - **Use case**: Web-based notebook authoring against the in-cluster Spark master
-- **Pros**: Pre-configured Spark + JDBC interpreters, Kong-aliased UI at `zeppelin.localhost`, persists notebooks to a named volume
+- **Pros**: Pre-configured Spark interpreter (master RPC + Spark Connect gRPC + MinIO S3A), Kong-aliased UI at `zeppelin.localhost`, persists notebooks to a named volume. JDBC interpreter ships with credentials in env but needs a one-time UI setup.
 - **Cons**: Adds ~1.5 GB image disk + ~512 MB RAM
 - **Containers**: `zeppelin`
 - **Requirements**: `SPARK_SOURCE=container`

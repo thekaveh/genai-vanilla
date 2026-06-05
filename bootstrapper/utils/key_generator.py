@@ -288,7 +288,8 @@ class KeyGenerator:
 
     # ─── Airflow secrets ───────────────────────────────────────────────
     # Airflow 3.x requires four bootstrapper-generated secrets on first
-    # run: Fernet (Connection-password encryption), Flask session secret,
+    # run: Fernet (Connection-password encryption), AIRFLOW__API__SECRET_KEY
+    # (signs inter-process payloads — was [webserver] secret_key in 2.x),
     # admin login password, and the dedicated airflow Postgres role
     # password. None should rotate mid-run — Fernet rotation invalidates
     # every stored Connection password; admin/role rotation breaks UI
@@ -299,7 +300,9 @@ class KeyGenerator:
         return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
 
     def generate_airflow_secret_key(self) -> str:
-        """Flask session secret. 32 chars URL-safe random."""
+        """AIRFLOW__API__SECRET_KEY (Airflow 3.x). Signs inter-process payloads
+        (DagFileProcessor → scheduler RPC, deferrable triggers, multi-scheduler
+        JWTs). Was [webserver] secret_key + Flask session in 2.x. 32 chars."""
         return secrets.token_urlsafe(32)
 
     def generate_airflow_admin_password(self) -> str:

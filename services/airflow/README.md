@@ -25,7 +25,7 @@ AIRFLOW_PORT=                        # auto-assigned (agents band)
 AIRFLOW_DB_USER=airflow              # role on Supabase Postgres
 AIRFLOW_DB_PASSWORD=                 # auto-generated
 AIRFLOW_FERNET_KEY=                  # auto-generated (Connection-password encryption)
-AIRFLOW_SECRET_KEY=                  # auto-generated (Flask session secret)
+AIRFLOW_SECRET_KEY=                  # auto-generated (AIRFLOW__API__SECRET_KEY — signs inter-process payloads in Airflow 3.x)
 AIRFLOW_ADMIN_PASSWORD=              # auto-generated (admin login)
 ```
 

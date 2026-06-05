@@ -40,7 +40,7 @@ env:
   - name: AIRFLOW_SECRET_KEY
     default: ""
     secret: true
-    description: "Auto-generated. Flask session secret."
+    description: "Auto-generated. AIRFLOW__API__SECRET_KEY — signs inter-process payloads (DagFileProcessor → scheduler RPC, deferrable triggers, multi-scheduler JWTs). Airflow 3.x; previously [webserver] secret_key + Flask sessions in 2.x."
   - name: AIRFLOW_ADMIN_PASSWORD
     default: ""
     secret: true
@@ -157,6 +157,16 @@ runtime_sc:
         # is auth-on by default; canonical var names are GRAPH_DB_*).
         GRAPH_DB_USER: ${GRAPH_DB_USER}
         GRAPH_DB_PASSWORD: ${GRAPH_DB_PASSWORD}
+        # Redis is auth-on (--requirepass); without REDIS_PASSWORD the
+        # redis_default Connection seed authenticates as anonymous and
+        # every DAG using RedisHook fails NOAUTH.
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        # Mirror webserver/scheduler's Airflow 3.x auth settings so the
+        # init script's `airflow users create` CLI (FAB provider)
+        # actually writes the admin row.
+        AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+        AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+        AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
       deploy: {}
       extra_hosts: []
     disabled:

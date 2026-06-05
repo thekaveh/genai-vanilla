@@ -1330,7 +1330,7 @@ The following candidates were evaluated and explicitly *not* recommended at this
 
 **From the data-engineering stack-fit research (2026-05-21 — see git log for the design doc, retired with `docs/superpowers/` 2026-05-22):**
 
-- **Apache Zeppelin** — ✅ **Shipped 2026-06-04** (PR #35) as the Spark-first notebook UI. The original rejection rationale (cadence slow + Almond on JupyterHub covers Scala) was overridden by user request for a dedicated Spark-first notebook interface. Both surfaces coexist: Zeppelin for Spark-first paragraph-style authoring with pre-configured Spark + JDBC interpreters; JupyterHub + Almond for general-purpose Scala kernels alongside Python.
+- **Apache Zeppelin** — ✅ **Shipped 2026-06-04** (PR #35) as the Spark-first notebook UI. The original rejection rationale (cadence slow + Almond on JupyterHub covers Scala) was overridden by user request for a dedicated Spark-first notebook interface. Both surfaces coexist: Zeppelin for Spark-first paragraph-style authoring with a pre-configured Spark interpreter (JDBC requires one-time UI setup — see service README); JupyterHub + Almond for general-purpose Scala kernels alongside Python.
 - **Polynote (Netflix)** — abandoned; last release 2022.
 - **Airbyte** — Docker Compose support deprecated in 2025; production now requires Kubernetes + Postgres + Redis + Temporal; ELv2 license is incompatible with the stack's permissive-boilerplate posture. **dlt** (Apache-2.0 Python library) is the recommended Python-first replacement; **Meltano** (MIT) is the documented Singer-based fallback.
 - **DataHub** as the data catalog — GMS + MAE/MCE Kafka consumers + Elasticsearch + Neo4j is too heavy for compose; **OpenMetadata** (Postgres + OpenSearch + server + UI) has the right footprint.
