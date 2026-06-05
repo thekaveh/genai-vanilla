@@ -478,7 +478,7 @@ GRAFANA_ADMIN_PASSWORD=...       # auto-generated on first bootstrap; persisted 
 
 ### SPARK_SOURCE
 
-Spark is a standalone Apache Spark cluster (master + N workers + history server) sitting in the `data` band. It exposes a Spark Connect endpoint on `:15002` for in-stack thin clients (currently Zeppelin's Spark interpreter wires to it; JupyterHub + Backend wiring is a future spec). Spark master URL (`spark://spark-master:7077`) and the Spark Connect URL (`sc://spark-master:15002`) are baked into the Zeppelin interpreter env at compose-render time. See [Spark service README](../../services/spark/README.md) for the cluster topology and Spark Connect details.
+Spark is a standalone Apache Spark cluster (master + N workers + history server + dedicated `spark-connect` gRPC sidecar + one-shot `spark-init`) sitting in the `data` band. It exposes a Spark Connect endpoint on `:15002` via the sidecar for in-stack thin clients (currently Zeppelin's Spark interpreter wires to it; JupyterHub + Backend wiring is a future spec). Spark master URL (`spark://spark-master:7077`) and the Spark Connect URL (`sc://spark-connect:15002`) are baked into the Zeppelin interpreter env at compose-render time. See [Spark service README](../../services/spark/README.md) for the cluster topology and Spark Connect details.
 
 #### `disabled` (Default)
 ```bash
@@ -497,7 +497,7 @@ SPARK_WORKER_COUNT=2     # number of spark-worker replicas; 1..8 — wizard prom
 - **Use case**: Local Spark cluster for batch / SQL / DataFrame jobs and Spark Connect clients
 - **Pros**: Master + N workers + history server, Kong-aliased UIs at `spark.localhost` + `spark-history.localhost`, Spark Connect on `:15002`
 - **Cons**: Each worker reserves CPU + RAM (defaults to 1 core / 1 GB); heavy on laptops above 2 workers
-- **Containers**: `spark-master`, `spark-worker-1..N`, `spark-history`
+- **Containers**: `spark-master`, `spark-worker-1..N`, `spark-history`, `spark-connect` (gRPC Connect sidecar), `spark-init` (one-shot — creates the spark-history MinIO bucket)
 - **Requirements**: ~3 GB image disk + ~1 GB RAM per worker
 
 ### ZEPPELIN_SOURCE
