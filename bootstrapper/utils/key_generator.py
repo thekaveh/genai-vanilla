@@ -4,6 +4,7 @@ Encryption key generation utilities for GenAI Stack services.
 Generates N8N_ENCRYPTION_KEY and SEARXNG_SECRET for secure operation.
 """
 
+import base64
 import secrets
 import re
 from pathlib import Path
@@ -285,6 +286,54 @@ class KeyGenerator:
 
         return results
 
+    # ─── Airflow secrets ───────────────────────────────────────────────
+    # Airflow 3.x requires four bootstrapper-generated secrets on first
+    # run: Fernet (Connection-password encryption), Flask session secret,
+    # admin login password, and the dedicated airflow Postgres role
+    # password. None should rotate mid-run — Fernet rotation invalidates
+    # every stored Connection password; admin/role rotation breaks UI
+    # login + scheduler DB access.
+
+    def generate_airflow_fernet_key(self) -> str:
+        """32-byte URL-safe base64 (Fernet's required format)."""
+        return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+
+    def generate_airflow_secret_key(self) -> str:
+        """Flask session secret. 32 chars URL-safe random."""
+        return secrets.token_urlsafe(32)
+
+    def generate_airflow_admin_password(self) -> str:
+        """Admin login password. 24 chars URL-safe random."""
+        return secrets.token_urlsafe(18)
+
+    def generate_airflow_db_password(self) -> str:
+        """Postgres role password for the dedicated airflow role/database."""
+        return secrets.token_urlsafe(24)
+
+    def generate_and_update_airflow_fernet_key(self, force: bool = False) -> bool:
+        current = self.get_current_env_value('AIRFLOW_FERNET_KEY')
+        if not force and current:
+            return True
+        return self.update_env_key('AIRFLOW_FERNET_KEY', self.generate_airflow_fernet_key())
+
+    def generate_and_update_airflow_secret_key(self, force: bool = False) -> bool:
+        current = self.get_current_env_value('AIRFLOW_SECRET_KEY')
+        if not force and current:
+            return True
+        return self.update_env_key('AIRFLOW_SECRET_KEY', self.generate_airflow_secret_key())
+
+    def generate_and_update_airflow_admin_password(self, force: bool = False) -> bool:
+        current = self.get_current_env_value('AIRFLOW_ADMIN_PASSWORD')
+        if not force and current:
+            return True
+        return self.update_env_key('AIRFLOW_ADMIN_PASSWORD', self.generate_airflow_admin_password())
+
+    def generate_and_update_airflow_db_password(self, force: bool = False) -> bool:
+        current = self.get_current_env_value('AIRFLOW_DB_PASSWORD')
+        if not force and current:
+            return True
+        return self.update_env_key('AIRFLOW_DB_PASSWORD', self.generate_airflow_db_password())
+
     def generate_missing_keys(self, force_regenerate: bool = False) -> Dict[str, bool]:
         """
         Generate any missing encryption keys.
@@ -333,6 +382,16 @@ class KeyGenerator:
         # MinIO per-consumer service-account credentials — only generate when absent.
         # Rotating these means re-running minio-init, which is a deliberate operator action.
         results.update(self.generate_and_update_minio_consumer_keys(force=False))
+
+        # Airflow secrets — Fernet (Connection encryption), session, admin
+        # login password, and the airflow-role Postgres password. All
+        # `force=False` because rotating any of them mid-run breaks something
+        # (Fernet rotation invalidates every stored Connection password;
+        # admin/role rotation locks operators out).
+        results['AIRFLOW_FERNET_KEY'] = self.generate_and_update_airflow_fernet_key(force=False)
+        results['AIRFLOW_SECRET_KEY'] = self.generate_and_update_airflow_secret_key(force=False)
+        results['AIRFLOW_ADMIN_PASSWORD'] = self.generate_and_update_airflow_admin_password(force=False)
+        results['AIRFLOW_DB_PASSWORD'] = self.generate_and_update_airflow_db_password(force=False)
 
         return results
     

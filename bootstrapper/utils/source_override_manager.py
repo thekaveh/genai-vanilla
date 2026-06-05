@@ -67,6 +67,12 @@ class SourceOverrideManager:
             # spark_master_source exists purely as a discovery shim.
             'spark_master_source': 'SPARK_SOURCE',
             'zeppelin_source': 'ZEPPELIN_SOURCE',
+            'airflow_source': 'AIRFLOW_SOURCE',
+            # Airflow has a multi-container family (webserver + scheduler +
+            # init) so source_configurable carries three keys. Map the
+            # webserver as the discovery anchor (mirroring Ray's
+            # ray_head_source and Spark's spark_master_source shims).
+            'airflow_webserver_source': 'AIRFLOW_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

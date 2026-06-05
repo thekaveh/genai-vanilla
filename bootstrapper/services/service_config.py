@@ -136,6 +136,10 @@ class ServiceConfig:
         zeppelin_config = self._generate_zeppelin_config()
         env_vars.update(zeppelin_config)
 
+        # Generate Airflow configuration (3-container family scales)
+        airflow_config = self._generate_airflow_config()
+        env_vars.update(airflow_config)
+
         # Generate observability bundle (Prometheus family + cross-manifest
         # sidecar exporter scales for postgres-exporter and redis-exporter).
         prometheus_source = self.service_sources.get("PROMETHEUS_SOURCE", "disabled")
@@ -703,6 +707,26 @@ class ServiceConfig:
                 "--zeppelin-source container, or set --zeppelin-source disabled."
             )
         return {"ZEPPELIN_SCALE": "1" if z_source == "container" else "0"}
+
+    def _generate_airflow_config(self) -> dict:
+        """Generate AIRFLOW_*_SCALE based on AIRFLOW_SOURCE.
+
+        Airflow is a 3-container family (webserver + scheduler + init).
+        When source=container all three scale to 1 (init is one-shot but
+        still scale=1 so it runs once on stack-up). When disabled, all 0.
+        """
+        source_value = self.service_sources.get("AIRFLOW_SOURCE", "disabled")
+        if source_value == "disabled":
+            return {
+                "AIRFLOW_WEBSERVER_SCALE": "0",
+                "AIRFLOW_SCHEDULER_SCALE": "0",
+                "AIRFLOW_INIT_SCALE": "0",
+            }
+        return {
+            "AIRFLOW_WEBSERVER_SCALE": "1",
+            "AIRFLOW_SCHEDULER_SCALE": "1",
+            "AIRFLOW_INIT_SCALE": "1",
+        }
 
     def _generate_prometheus_config(self, source_value: str, shared_env: dict) -> dict:
         """Resolve scales for the prometheus family + cross-manifest exporter sidecars.
