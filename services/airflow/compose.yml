@@ -1,0 +1,101 @@
+services:
+  airflow-webserver:
+    build:
+      context: ./build
+      args:
+        BASE_IMAGE: ${AIRFLOW_IMAGE:-apache/airflow:3.2.2}
+    image: ${PROJECT_NAME}-airflow:local
+    container_name: ${PROJECT_NAME}-airflow-webserver
+    restart: unless-stopped
+    deploy:
+      replicas: ${AIRFLOW_WEBSERVER_SCALE:-0}
+    ports:
+      - "${AIRFLOW_PORT}:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW_UID: "50000"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+    command: ["airflow", "webserver"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - backend-network
+
+  airflow-scheduler:
+    image: ${PROJECT_NAME}-airflow:local
+    container_name: ${PROJECT_NAME}-airflow-scheduler
+    restart: unless-stopped
+    deploy:
+      replicas: ${AIRFLOW_SCHEDULER_SCALE:-0}
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW_UID: "50000"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+    command: ["airflow", "scheduler"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - backend-network
+
+  airflow-init:
+    image: ${PROJECT_NAME}-airflow:local
+    container_name: ${PROJECT_NAME}-airflow-init
+    deploy:
+      replicas: ${AIRFLOW_INIT_SCALE:-0}
+    environment:
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW_UID: "50000"
+      # Sibling-source vars consumed by the init script for conditional
+      # connection seeding (dual-write per project_runtime_sc_vs_compose_env)
+      SPARK_SOURCE: ${SPARK_SOURCE:-disabled}
+      MINIO_SOURCE: ${MINIO_SOURCE:-disabled}
+      LITELLM_SOURCE: ${LITELLM_SOURCE:-disabled}
+      WEAVIATE_SOURCE: ${WEAVIATE_SOURCE:-disabled}
+      NEO4J_SOURCE: ${NEO4J_SOURCE:-disabled}
+      REDIS_SOURCE: ${REDIS_SOURCE:-disabled}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      SUPABASE_DB_NAME: ${SUPABASE_DB_NAME}
+      SUPABASE_DB_USER: ${SUPABASE_DB_USER}
+      SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./init/scripts:/scripts:ro
+    command: ["/scripts/init-airflow.sh"]
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+volumes:
+  airflow-logs:
+    name: ${PROJECT_NAME}-airflow-logs
+    driver: local
