@@ -51,7 +51,7 @@ Connection seeding is idempotent — `airflow-init` deletes-then-adds each Conne
 
 `services/airflow/dags/example_etl_with_llm.py` ships pre-loaded. Three operators that smoke-test each Connection:
 
-1. `PythonOperator` invoking Spark Connect at `sc://spark-master:15002` — smoke-tests `spark_default` reachability without owning a JAR build. See the DAG docstring for why `SparkSubmitOperator` is deferred to user DAGs.
+1. `PythonOperator` invoking Spark Connect at `sc://spark-connect:15002` — smoke-tests `spark_default` reachability without owning a JAR build. See the DAG docstring for why `SparkSubmitOperator` is deferred to user DAGs.
 2. `OpenAIOperator` against `litellm_default` (sends a one-token prompt). Defaults to `ollama/qwen3.6:latest` (Ollama-mode); swap to `gpt-4o-mini` or similar if running with `--llm-provider-source none` + `CLOUD_OPENAI_SOURCE=enabled`.
 3. `S3Hook.list_buckets()` against `minio_default`.
 
@@ -120,5 +120,5 @@ _No high-confidence opportunities identified._
 - **Web UI login rejected** — `AIRFLOW_ADMIN_PASSWORD` in `.env` may have rotated. Check the value; if rotated, `airflow-init` re-runs and re-syncs the admin user on next `./start.sh`.
 - **DAG appears in UI but won't run** — Scheduler may be lagging. `docker logs ${PROJECT_NAME}-airflow-scheduler` for parse errors. The scheduler poll interval defaults to 30s.
 - **`OpenAIOperator` errors with `auth required`** — `litellm_default` Connection has the wrong `LITELLM_MASTER_KEY`. Re-run `./start.sh` to re-sync the Connection; alternatively edit it in the Web UI under Admin → Connections.
-- **Spark `spark_smoke` task can't reach `sc://spark-master:15002` (or `spark://spark-master:7077` from user `SparkSubmitOperator` DAGs)** — Spark isn't running. `SPARK_SOURCE=disabled` in `.env`. Either enable Spark (`--spark-source container`) or remove the Spark-dependent steps from your DAG.
+- **Spark `spark_smoke` task can't reach `sc://spark-connect:15002` (or `spark://spark-master:7077` from user `SparkSubmitOperator` DAGs)** — Spark isn't running. `SPARK_SOURCE=disabled` in `.env`. Either enable Spark (`--spark-source container`) or remove the Spark-dependent steps from your DAG.
 - **`spark_smoke` raises `ModuleNotFoundError: No module named 'pyspark'`** — the airflow image hasn't been rebuilt since `pyspark` was added to `services/airflow/build/requirements.txt`. Run `docker compose build airflow-webserver` (or `./start.sh --rebuild airflow-webserver` if your wrapper supports it) and restart.

@@ -10,6 +10,7 @@ containers:
   - spark-worker
   - spark-history
   - spark-init
+  - spark-connect
 
 images:
   - var: SPARK_IMAGE
@@ -46,6 +47,9 @@ env:
     auto_managed: true
   - name: SPARK_INIT_SCALE
     auto_managed: true
+  - name: SPARK_CONNECT_SCALE
+    auto_managed: true
+    description: "Resolved by the bootstrapper from SPARK_SOURCE; spark-connect runs as a sidecar to spark-master."
 
 depends_on:
   required:
@@ -83,7 +87,6 @@ runtime_sc:
       environment:
         SPARK_MASTER_HOST: spark-master
         SPARK_NO_DAEMONIZE: "true"
-        SPARK_DAEMON_JAVA_OPTS: "-Dspark.connect.grpc.binding.port=15002"
       deploy: {}
       extra_hosts: []
     disabled:
@@ -114,6 +117,21 @@ runtime_sc:
           -Dspark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}
           -Dspark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
           -Dspark.hadoop.fs.s3a.path.style.access=true
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  spark-connect:
+    # Spark Connect gRPC server (apache/spark's start-connect-server.sh).
+    # Sidecar to spark-master — earlier attempts at in-master plugin
+    # loading via SPARK_DAEMON_JAVA_OPTS didn't actually bind the
+    # listener. Backend-only; no host port.
+    container:
+      scale: 1
+      environment: {}
       deploy: {}
       extra_hosts: []
     disabled:

@@ -47,15 +47,19 @@ default_args = {
 
 
 def spark_smoke(**_ctx):
-    """Confirm spark://spark-master:7077 + sc://spark-master:15002 are reachable.
+    """Confirm spark://spark-master:7077 + sc://spark-connect:15002 are reachable.
 
     Uses Spark Connect (modern gRPC client) — no JAR submission, no
     cluster-mode dependencies. Returns the master version.
+
+    Note: the gRPC endpoint lives on the dedicated `spark-connect` sidecar
+    container (it runs apache/spark's start-connect-server.sh against
+    `spark://spark-master:7077`), NOT on spark-master itself.
     """
     from pyspark.sql import SparkSession
     spark = (
         SparkSession.builder
-        .remote("sc://spark-master:15002")
+        .remote("sc://spark-connect:15002")
         .appName("airflow-smoke")
         .getOrCreate()
     )
