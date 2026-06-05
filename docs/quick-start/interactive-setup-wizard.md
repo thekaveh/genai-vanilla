@@ -224,13 +224,14 @@ entries is not treated as a fallback trigger.
 
 ## 5a. Inline secondary numeric inputs
 
-Two service rows mount an inline numeric input alongside the source prompt
+Three service rows mount an inline numeric input alongside the source prompt
 via the `SecondaryNumberInput` widget (see `ui.textual.widgets.prompt_panel`).
 Selections persist as a sibling env var:
 
 | Row | Env var | Default | Range | Visible when |
 |---|---|---|---|---|
 | Ray | `RAY_WORKER_COUNT` | `2` | 0..(no upper cap) | `ray-container-cpu`, `ray-container-gpu` |
+| Spark | `SPARK_WORKERS` | `2` | 1..8 | `container` |
 | Prometheus | `PROMETHEUS_RETENTION_DAYS` | `7` | 1..365 | `container` |
 
 The input renders directly on the source step — no follow-up cascade — so
@@ -346,6 +347,9 @@ The wizard automatically discovers all configurable services from each `services
 | SearxNG | container, disabled |
 | JupyterHub | container, disabled |
 | Ray | ray-container-cpu, ray-container-gpu, disabled (with inline `RAY_WORKER_COUNT` input on container variants) |
+| Spark cluster | container, disabled (with inline `SPARK_WORKERS` input on `container`, default 2, range 1..8) |
+| Zeppelin | container, disabled (requires Spark — `ZEPPELIN_SOURCE=container` with `SPARK_SOURCE=disabled` errors at bootstrap) |
+| Airflow | container, disabled |
 | Prometheus | container, disabled (with inline `PROMETHEUS_RETENTION_DAYS` input on `container`, default 7, range 1..365) |
 | Grafana | container, disabled |
 
