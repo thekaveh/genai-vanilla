@@ -166,12 +166,6 @@ jobs:
         # support layer. Pass 44 caught the missing-jars shipping bug.
         run: docker buildx build --load --build-arg BASE_IMAGE=apache/spark:4.1.2 services/spark/build/
 
-      - name: Build zeppelin image
-        # apache/zeppelin:0.12.0 + hadoop-aws + AWS SDK v2 bundle into
-        # /opt/zeppelin/interpreter/spark/dep/. Pass 45 caught this as
-        # a sibling of Pass 44's bug — Zeppelin's Spark interpreter
-        # driver runs in-container and needs the same jars.
-        run: docker buildx build --load --build-arg BASE_IMAGE=apache/zeppelin:0.12.0 services/zeppelin/build/
 
       - name: Build jupyterhub image
         run: docker buildx build --load services/jupyterhub/build/
