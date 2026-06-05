@@ -112,6 +112,10 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
       _AIRFLOW_DB_MIGRATE: "true"
+      # Parity with webserver/scheduler — keep examples off across the
+      # entire family so a future Airflow version that reads this during
+      # `db migrate` doesn't accidentally seed examples into our metadata DB.
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW_UID: "50000"
       # Sibling-source vars consumed by the init script for conditional
       # connection seeding (dual-write per project_runtime_sc_vs_compose_env).

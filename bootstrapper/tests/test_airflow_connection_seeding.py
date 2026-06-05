@@ -51,22 +51,77 @@ def test_init_script_seeds_always_on_connections_unconditionally():
 
 def test_init_script_neo4j_uses_canonical_compose_dns_and_credentials():
     """neo4j_default Connection must point at the canonical compose service
-    name (`neo4j-graph-db`, NOT `neo4j` — the latter does not resolve) and
-    must carry GRAPH_DB_USER/GRAPH_DB_PASSWORD credentials (Neo4j is
-    auth-on by default; missing creds → Neo.ClientError.Security.Unauthorized).
-    Pre-Pass-6 the script wrote `bolt://neo4j` with no creds and any
-    Neo4jOperator DAG would error at run time.
+    name (`neo4j-graph-db`, NOT `neo4j`) and must carry GRAPH_DB_USER /
+    GRAPH_DB_PASSWORD credentials.
+
+    Critically: Neo4jHook.get_uri() prepends `bolt://` itself
+    (`f"{scheme}://{conn.host}:{port}"`), so the seed must use the BARE
+    hostname — passing `bolt://neo4j-graph-db` would yield
+    `bolt://bolt://neo4j-graph-db:7687` and the driver rejects it.
     """
     body = SCRIPT.read_text(encoding="utf-8")
-    assert "bolt://neo4j-graph-db" in body, (
-        "neo4j_default Connection must use compose-canonical "
-        "bolt://neo4j-graph-db (NOT bolt://neo4j — that DNS name doesn't exist)"
+    # Bare host without scheme — Hook prepends bolt://.
+    assert '"neo4j-graph-db"' in body, (
+        "neo4j_default conn-host must be bare 'neo4j-graph-db' — the Hook "
+        "prepends bolt:// itself. A bolt:// prefix produces bolt://bolt://..."
     )
-    assert "${GRAPH_DB_USER}" in body, (
-        "neo4j_default Connection must pass --conn-login ${GRAPH_DB_USER}"
+    assert "bolt://neo4j-graph-db" not in body or (
+        # Allowed only in comments (the comment that explains the bug).
+        body.count("bolt://neo4j-graph-db") <= body.count("# ")
+    ), "bolt:// prefix in conn-host yields a double-scheme URI"
+    assert "${GRAPH_DB_USER}" in body
+    assert "${GRAPH_DB_PASSWORD}" in body
+
+
+def test_init_script_litellm_default_host_includes_v1_path():
+    """OpenAIHook builds base_url from conn.host (or openai_client_kwargs
+    extra). It does NOT recognize an `api_base` extra. So the `/v1` path
+    must live inside conn.host — otherwise the OpenAI SDK POSTs to
+    /chat/completions instead of /v1/chat/completions and LiteLLM 404s.
+    """
+    body = SCRIPT.read_text(encoding="utf-8")
+    assert "--conn-host http://litellm:4000/v1" in body, (
+        "litellm_default conn.host must include /v1 — OpenAIHook ignores "
+        "the legacy api_base extra and uses conn.host as base_url verbatim."
     )
-    assert "${GRAPH_DB_PASSWORD}" in body, (
-        "neo4j_default Connection must pass --conn-password ${GRAPH_DB_PASSWORD}"
+    assert '"api_base"' not in body, (
+        "api_base extra is silently ignored by OpenAIHook in 3.x. Set the "
+        "full URL in conn.host instead."
+    )
+
+
+def test_init_script_weaviate_default_uses_bare_host_and_grpc_extras():
+    """WeaviateHook passes conn.host straight into weaviate-client's
+    connect_to_custom(http_host=..., grpc_host=extras['grpc_host'] or
+    conn.host, grpc_port=extras['grpc_port'] or 80). conn.host must be
+    bare ('weaviate'), conn.port must be 8080 (http), and the gRPC
+    endpoint must be set via extras — Weaviate's gRPC is on 50051, not 80,
+    and the v4 client requires gRPC for queries.
+    """
+    body = SCRIPT.read_text(encoding="utf-8")
+    assert "--conn-host weaviate --conn-port 8080" in body, (
+        "weaviate_default conn.host must be bare 'weaviate' (not "
+        "'http://weaviate:8080') and conn.port must be 8080 explicit."
+    )
+    assert '"grpc_host": "weaviate"' in body
+    assert '"grpc_port": 50051' in body
+
+
+def test_init_script_minio_default_carries_path_style_addressing():
+    """MinIO doesn't do DNS-style addressing (bucket.minio:9000); boto3
+    defaults to virtual-hosted style. Any S3 op other than list_buckets
+    fails DNS resolution without the addressing_style override. Mirrors
+    spark.hadoop.fs.s3a.path.style.access=true on Spark's compose.
+    """
+    body = SCRIPT.read_text(encoding="utf-8")
+    # JSON keys appear escaped (\"...\") inside the bash add_conn argument.
+    assert "addressing_style" in body and "path" in body, (
+        "minio_default extras must include S3 addressing_style=path or "
+        "boto3 fails DNS on bucket-level operations."
+    )
+    assert "region_name" in body, (
+        "minio_default extras must set region_name to avoid NoRegionError "
+        "on newer boto3 versions."
     )
 
 
