@@ -358,8 +358,7 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY"
-        http://127.0.0.1:8642/v1/models >/dev/null'
+      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY" http://127.0.0.1:8642/v1/models >/dev/null'
       timeout: 10s
       interval: 30s
       retries: 5
@@ -641,8 +640,8 @@ services:
       - CMD
       - python
       - -c
-      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',
-        timeout=3).status == 200 else 1)
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status
+        == 200 else 1)
       timeout: 5s
       interval: 10s
       retries: 12
@@ -1362,11 +1361,10 @@ services:
     entrypoint:
     - sh
     - -c
-    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\n\
-      PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
-      :true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '.\
-      \ * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\
-      \nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
+    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\nPATCH='{\"gateway\":{\"controlUi\"\
+      :{\"dangerouslyAllowHostHeaderOriginFallback\":true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\"\
+      \ '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq .\
+      \ > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
     networks:
       backend-network: null
@@ -1461,8 +1459,8 @@ services:
     command:
     - bash
     - -c
-    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port\
-      \ 10001 \\\n  --dashboard-port 8265 \\\n  --block\n"
+    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port 10001 \\\n  --dashboard-port\
+      \ 8265 \\\n  --block\n"
     container_name: genai-ray-head
     deploy:
       replicas: 0
@@ -1617,6 +1615,92 @@ services:
       source: searxng-data
       target: /var/cache/searxng
       volume: {}
+  spark-history:
+    container_name: genai-spark-history
+    depends_on:
+      spark-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
+        -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key= -Dspark.hadoop.fs.s3a.path.style.access=true
+      SPARK_MODE: history
+    image: bitnami/spark:4.1.2
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 18080
+      published: '63025'
+      protocol: tcp
+    restart: unless-stopped
+  spark-init:
+    command:
+    - sh
+    - -c
+    - "apk add --no-cache mc >/dev/null\nmc alias set minio http://minio:9000 minioadmin \nmc mb --ignore-existing minio/spark-history\n\
+      echo \"spark-init: spark-history bucket ready\"\n"
+    container_name: genai-spark-init
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    image: alpine:latest
+    networks:
+      backend-network: null
+  spark-master:
+    container_name: genai-spark-master
+    deploy:
+      replicas: 0
+    environment:
+      SPARK_DAEMON_JAVA_OPTS: -Dspark.connect.grpc.binding.port=15002
+      SPARK_LOCAL_SSL_ENABLED: 'no'
+      SPARK_MASTER_HOST: spark-master
+      SPARK_MODE: master
+      SPARK_NO_DAEMONIZE: 'true'
+      SPARK_RPC_AUTHENTICATION_ENABLED: 'no'
+      SPARK_RPC_ENCRYPTION_ENABLED: 'no'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://localhost:8080/
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 30s
+    image: bitnami/spark:4.1.2
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 8080
+      published: '63024'
+      protocol: tcp
+    restart: unless-stopped
+  spark-worker:
+    container_name: genai-spark-worker
+    depends_on:
+      spark-master:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      SPARK_LOCAL_SSL_ENABLED: 'no'
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_MODE: worker
+      SPARK_RPC_AUTHENTICATION_ENABLED: 'no'
+      SPARK_RPC_ENCRYPTION_ENABLED: 'no'
+    image: bitnami/spark:4.1.2
+    networks:
+      backend-network: null
+    restart: unless-stopped
   supabase-api:
     container_name: genai-supabase-api
     depends_on:
@@ -1934,11 +2018,11 @@ services:
     ports:
     - mode: ingress
       target: 8080
-      published: '63024'
+      published: '63026'
       protocol: tcp
     - mode: ingress
       target: 50051
-      published: '63025'
+      published: '63027'
       protocol: tcp
     restart: unless-stopped
     volumes:
