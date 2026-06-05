@@ -732,20 +732,26 @@ class ServiceConfig:
     def _generate_airflow_config(self) -> dict:
         """Generate AIRFLOW_*_SCALE based on AIRFLOW_SOURCE.
 
-        Airflow is a 3-container family (webserver + scheduler + init).
-        When source=container all three scale to 1 (init is one-shot but
-        still scale=1 so it runs once on stack-up). When disabled, all 0.
+        Airflow is a 4-container family (webserver + scheduler +
+        dag-processor + init). The dag-processor is REQUIRED in Airflow
+        3.x — the scheduler no longer parses DAG files in-process, so
+        without dag-processor no DAGs are ever loaded into the metadata
+        DB. When source=container all four scale to 1 (init is one-shot
+        but still scale=1 so it runs once on stack-up). When disabled,
+        all 0.
         """
         source_value = self.service_sources.get("AIRFLOW_SOURCE", "disabled")
         if source_value == "disabled":
             return {
                 "AIRFLOW_WEBSERVER_SCALE": "0",
                 "AIRFLOW_SCHEDULER_SCALE": "0",
+                "AIRFLOW_DAG_PROCESSOR_SCALE": "0",
                 "AIRFLOW_INIT_SCALE": "0",
             }
         return {
             "AIRFLOW_WEBSERVER_SCALE": "1",
             "AIRFLOW_SCHEDULER_SCALE": "1",
+            "AIRFLOW_DAG_PROCESSOR_SCALE": "1",
             "AIRFLOW_INIT_SCALE": "1",
         }
 

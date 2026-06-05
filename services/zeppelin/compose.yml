@@ -34,6 +34,12 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+      # Same cold-start race as spark-connect — Zeppelin's first %spark
+      # cell writes to s3a://spark-history/ via spark.eventLog.dir; the
+      # bucket must exist before Spark's EventLogFileWriters runs
+      # requireLogBaseDirAsDirectory().
+      spark-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
       interval: 30s

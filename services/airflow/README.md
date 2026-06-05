@@ -1,6 +1,6 @@
 # Apache Airflow (DAG orchestrator)
 
-Airflow runs as a 3-container family in the stack's `agents` band: `airflow-webserver` (Web UI + REST API), `airflow-scheduler` (DAG parser + LocalExecutor task runner), and `airflow-init` (one-shot bootstrap: DB migrate + admin user + Connection seeding).
+Airflow runs as a 4-container family in the stack's `agents` band: `airflow-webserver` (Web UI + REST API; runs `airflow api-server`), `airflow-scheduler` (LocalExecutor task runner), `airflow-dag-processor` (parses DAG files into the metadata DB — required as a standalone service in Airflow 3.x; the scheduler no longer parses in-process), and `airflow-init` (one-shot bootstrap: DB migrate + admin user + Connection seeding).
 
 ## 1. Overview
 

@@ -6,6 +6,7 @@ docs: services/airflow/README.md
 containers:
   - airflow-webserver
   - airflow-scheduler
+  - airflow-dag-processor
   - airflow-init
 
 images:
@@ -49,6 +50,9 @@ env:
     auto_managed: true
   - name: AIRFLOW_SCHEDULER_SCALE
     auto_managed: true
+  - name: AIRFLOW_DAG_PROCESSOR_SCALE
+    auto_managed: true
+    description: "Required in Airflow 3.x — the standalone DAG processor service parses DAG files into the metadata DB (the scheduler no longer does this in-process)."
   - name: AIRFLOW_INIT_SCALE
     auto_managed: true
 
@@ -115,6 +119,27 @@ runtime_sc:
         AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
         # Parity with api-server + init. DagFileProcessor invokes
         # AuthManager during DAG parsing.
+        AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
+        AIRFLOW__FAB__AUTH_BACKENDS: "airflow.providers.fab.auth_manager.api.auth.backend.basic_auth"
+        AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+        AIRFLOW_UID: "50000"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+  # Airflow 3.x BREAKING CHANGE — see compose.yml comment. Mirror of
+  # scheduler env block since they run the same JVM/Python image.
+  airflow-dag-processor:
+    container:
+      scale: 1
+      environment:
+        AIRFLOW__CORE__EXECUTOR: LocalExecutor
+        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow"
+        AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+        AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
         AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
         AIRFLOW__FAB__AUTH_BACKENDS: "airflow.providers.fab.auth_manager.api.auth.backend.basic_auth"
         AIRFLOW__CORE__LOAD_EXAMPLES: "false"
