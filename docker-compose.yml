@@ -53,6 +53,9 @@ include:
   - services/openclaw/compose.yml
   - services/hermes/compose.yml
 
+  # Compute additions (2026-06-04)
+  - services/spark/compose.yml
+
   # Gateway last (depends on everything else it routes to)
   - services/kong/compose.yml
 

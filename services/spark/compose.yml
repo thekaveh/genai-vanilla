@@ -1,0 +1,89 @@
+# services/spark/compose.yml — Spark master + workers + history + init
+services:
+  spark-master:
+    image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
+    container_name: ${PROJECT_NAME}-spark-master
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPARK_MASTER_SCALE:-0}
+    ports:
+      - "${SPARK_MASTER_UI_PORT}:8080"
+    environment:
+      SPARK_MODE: master
+      SPARK_MASTER_HOST: spark-master
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_SSL_ENABLED: "no"
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_DAEMON_JAVA_OPTS: -Dspark.connect.grpc.binding.port=15002
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend-network
+
+  spark-worker:
+    image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
+    container_name: ${PROJECT_NAME}-spark-worker
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPARK_WORKER_SCALE:-0}
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_SSL_ENABLED: "no"
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - backend-network
+
+  spark-history:
+    image: ${SPARK_IMAGE:-bitnami/spark:4.1.2}
+    container_name: ${PROJECT_NAME}-spark-history
+    restart: unless-stopped
+    deploy:
+      replicas: ${SPARK_HISTORY_SCALE:-0}
+    ports:
+      - "${SPARK_HISTORY_PORT}:18080"
+    environment:
+      SPARK_MODE: history
+      # NOTE: dual-write per project_runtime_sc_vs_compose_env_dual_write.md.
+      # Same SPARK_HISTORY_OPTS must appear in service.yml::runtime_sc.
+      SPARK_HISTORY_OPTS: >-
+        -Dspark.history.fs.logDirectory=s3a://spark-history/
+        -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
+        -Dspark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER}
+        -Dspark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD}
+        -Dspark.hadoop.fs.s3a.path.style.access=true
+    depends_on:
+      spark-init:
+        condition: service_completed_successfully
+    networks:
+      - backend-network
+
+  # NOTE: init container uses vanilla alpine:latest per
+  # project_init_container_pattern.md. Inline apk add. Idempotent.
+  spark-init:
+    image: alpine:latest
+    container_name: ${PROJECT_NAME}-spark-init
+    deploy:
+      replicas: ${SPARK_INIT_SCALE:-0}
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache mc >/dev/null
+        mc alias set minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+        mc mb --ignore-existing minio/spark-history
+        echo "spark-init: spark-history bucket ready"
+    networks:
+      - backend-network
