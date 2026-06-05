@@ -283,6 +283,7 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | prometheus | infra |
 | weaviate | data |
 | comfyui | media |
+| airflow | agents |
 | hermes ↔ | agents |
 | n8n | agents |
 | openclaw | agents |

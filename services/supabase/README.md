@@ -233,6 +233,7 @@ _No upstream calls._
 | prometheus | infra |
 | spark | data |
 | litellm | llm |
+| airflow | agents |
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |

@@ -73,6 +73,7 @@ Optional consumers should use `WEAVIATE_URL` and perform feature-level readiness
 |---|---|
 | kong | infra |
 | prometheus | infra |
+| airflow | agents |
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |

@@ -51,6 +51,7 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 
 | Service | Category |
 |---|---|
+| airflow | agents |
 | zeppelin | apps |
 
 ### 5.3 Architecture diagram

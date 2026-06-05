@@ -67,6 +67,7 @@ _No upstream calls._
 |---|---|
 | prometheus | infra |
 | litellm | llm |
+| airflow | agents |
 
 ### 5.3 Architecture diagram
 

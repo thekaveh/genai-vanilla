@@ -121,6 +121,7 @@ _No upstream calls._
 | kong | infra |
 | prometheus | infra |
 | spark | data |
+| airflow | agents |
 | jupyterhub | apps |
 | zeppelin | apps |
 

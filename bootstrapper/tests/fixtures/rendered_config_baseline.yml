@@ -1,5 +1,131 @@
 name: genai
 services:
+  airflow-init:
+    command:
+    - /scripts/init-airflow.sh
+    container_name: genai-airflow-init
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_PASSWORD: ''
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
+      AIRFLOW_DB_PASSWORD: ''
+      AIRFLOW_DB_USER: airflow
+      AIRFLOW_UID: '50000'
+      LITELLM_MASTER_KEY: ''
+      LITELLM_SOURCE: container
+      MINIO_ROOT_PASSWORD: ''
+      MINIO_ROOT_USER: minioadmin
+      MINIO_SOURCE: container
+      NEO4J_SOURCE: disabled
+      REDIS_SOURCE: container
+      SPARK_SOURCE: disabled
+      SUPABASE_DB_NAME: postgres
+      SUPABASE_DB_PASSWORD: password
+      SUPABASE_DB_USER: supabase_admin
+      WEAVIATE_SOURCE: container
+    image: genai-airflow:local
+    networks:
+      backend-network: null
+    volumes:
+    - type: bind
+      source: '{REPO_ROOT}/services/airflow/dags'
+      target: /opt/airflow/dags
+      bind: {}
+    - type: bind
+      source: '{REPO_ROOT}/services/airflow/init/scripts'
+      target: /scripts
+      read_only: true
+      bind: {}
+  airflow-scheduler:
+    command:
+    - airflow
+    - scheduler
+    container_name: genai-airflow-scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
+      AIRFLOW_UID: '50000'
+    image: genai-airflow:local
+    networks:
+      backend-network: null
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: '{REPO_ROOT}/services/airflow/dags'
+      target: /opt/airflow/dags
+      bind: {}
+    - type: volume
+      source: airflow-logs
+      target: /opt/airflow/logs
+      volume: {}
+  airflow-webserver:
+    build:
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: apache/airflow:3.2.2
+    command:
+    - airflow
+    - webserver
+    container_name: genai-airflow-webserver
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: ''
+      AIRFLOW_UID: '50000'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://localhost:8080/health
+      timeout: 10s
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
+    image: genai-airflow:local
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      target: 8080
+      published: '63060'
+      protocol: tcp
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: '{REPO_ROOT}/services/airflow/dags'
+      target: /opt/airflow/dags
+      bind: {}
+    - type: volume
+      source: airflow-logs
+      target: /opt/airflow/logs
+      volume: {}
   backend:
     build:
       context: '{REPO_ROOT}/services/backend/app'
@@ -373,11 +499,11 @@ services:
     ports:
     - mode: ingress
       target: 8642
-      published: '63060'
+      published: '63061'
       protocol: tcp
     - mode: ingress
       target: 9119
-      published: '63061'
+      published: '63062'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -967,7 +1093,7 @@ services:
     ports:
     - mode: ingress
       target: 5678
-      published: '63062'
+      published: '63063'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -1338,11 +1464,11 @@ services:
     ports:
     - mode: ingress
       target: 18789
-      published: '63063'
+      published: '63064'
       protocol: tcp
     - mode: ingress
       target: 18790
-      published: '63064'
+      published: '63065'
       protocol: tcp
     restart: unless-stopped
     volumes:
@@ -2126,6 +2252,9 @@ networks:
     name: genai-network
     driver: bridge
 volumes:
+  airflow-logs:
+    name: genai-airflow-logs
+    driver: local
   backend-data:
     name: genai-backend-data
     driver: local
