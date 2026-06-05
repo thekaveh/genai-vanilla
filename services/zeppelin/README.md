@@ -4,7 +4,13 @@ Zeppelin runs as a single container in the stack's `apps` band. The Spark interp
 
 ## 1. Overview
 
-Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline — `SPARK_MASTER` points at the standalone master and `SPARK_SUBMIT_OPTIONS` pre-configures S3A against MinIO. Zeppelin's Spark interpreter does NOT read a Spark Connect URL from env — drive Connect from Zeppelin by setting `spark.remote=sc://spark-connect:15002` in the interpreter UI (Interpreter → spark → properties).
+Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline. The image does NOT bundle a full Spark distribution — `/opt/zeppelin/interpreter/spark/` contains only the interpreter shim. To run `%spark` cells, configure the Spark interpreter UI to use **Spark Connect** mode:
+
+1. Open Interpreter (top-right user menu) → `spark` → click `edit`
+2. Add a property: `spark.remote` = `sc://spark-connect:15002`
+3. Save + restart the interpreter
+
+The driver then runs on the dedicated `spark-connect` sidecar, which has `hadoop-aws` + AWS SDK v2 bundle pre-installed (via `services/spark/build/Dockerfile`). All s3a:// reads/writes work transparently. `SPARK_MASTER` and `SPARK_SUBMIT_OPTIONS` are kept in env for users who want to wire a different deploy mode, but the supported in-stack pattern is Spark Connect.
 
 **Hard requirement:** Zeppelin is gated on `SPARK_SOURCE != disabled`. Picking `ZEPPELIN_SOURCE=container` without Spark surfaces an actionable error from the bootstrapper; the spec considers a Spark-less Zeppelin broken on purpose.
 

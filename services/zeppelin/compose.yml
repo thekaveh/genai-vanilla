@@ -1,16 +1,22 @@
 # services/zeppelin/compose.yml — Spark-first notebook UI
 services:
   zeppelin:
-    # Locally-built image — apache/zeppelin:0.12.0 ships the Spark
-    # interpreter but lacks hadoop-aws + AWS SDK v2 bundle. The driver
-    # runs in-container in client deploy-mode; `s3a://` access throws
-    # ClassNotFoundException without these jars. Pass 45 caught this
-    # as a sibling shipping bug to Pass 44 (spark image).
-    build:
-      context: ./build
-      args:
-        BASE_IMAGE: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.0}
-    image: ${PROJECT_NAME}-zeppelin:local
+    # Stock apache/zeppelin:0.12.0. The image does NOT bundle a full
+    # Spark distribution — its `interpreter/spark/` dir contains only
+    # the interpreter shim (spark-interpreter-0.12.0.jar +
+    # scala-2.13/), no spark-core, no SPARK_HOME. The %spark interpreter
+    # therefore requires either (a) SPARK_HOME mounted from an external
+    # Spark install, or (b) Spark Connect mode (the canonical 4.x
+    # pattern). For S3A access in Zeppelin, configure the Spark
+    # interpreter via the UI: Interpreter → spark → properties
+    # `spark.remote = sc://spark-connect:15002`. The driver then runs
+    # on spark-connect — which DOES have hadoop-aws + AWS SDK v2
+    # bundle pre-installed via services/spark/build/Dockerfile
+    # (Pass 44). Pass 45/47 attempted to install jars into the
+    # Zeppelin image directly; that path was wrong because Zeppelin
+    # never runs Spark locally without SPARK_HOME. Pass 48 retired
+    # the misguided Dockerfile.
+    image: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.0}
     container_name: ${PROJECT_NAME}-zeppelin
     restart: unless-stopped
     deploy:

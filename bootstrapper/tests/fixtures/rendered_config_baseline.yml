@@ -2334,11 +2334,6 @@ services:
       target: /shared
       volume: {}
   zeppelin:
-    build:
-      context: '{REPO_ROOT}/services/zeppelin/build'
-      dockerfile: Dockerfile
-      args:
-        BASE_IMAGE: apache/zeppelin:0.12.0
     container_name: genai-zeppelin
     depends_on:
       spark-init:
@@ -2370,7 +2365,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 1m0s
-    image: genai-zeppelin:local
+    image: apache/zeppelin:0.12.0
     networks:
       backend-network: null
     ports:
