@@ -61,6 +61,10 @@ EXPECTED_DISCOVERED = frozenset({
     # Wizard discovery requires `spark_master_source` shim in
     # SourceOverrideManager.source_mapping (multi-container family).
     "Apache Spark",
+    # Zeppelin (added 2026-06-04) — Spark-first notebook UI, hard-gated
+    # on Spark. Single-container family so no shim needed; wired via
+    # 'zeppelin_source' in source_mapping.
+    "Apache Zeppelin",
 })
 
 
