@@ -1740,6 +1740,9 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
             'ray_source': ray_source,
             'prometheus_source': prometheus_source,
             'grafana_source': grafana_source,
+            'spark_source': spark_source,
+            'zeppelin_source': zeppelin_source,
+            'airflow_source': airflow_source,
         }
         # Ray non-SOURCE settings (worker count) get plumbed via
         # update_env_file the same way the cloud-API keys do.
