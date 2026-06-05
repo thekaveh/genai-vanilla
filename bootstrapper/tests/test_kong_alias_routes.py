@@ -263,6 +263,38 @@ def test_stt_and_tts_container_urls_match_compose_listen_ports():
 import pytest
 
 
+def test_spark_master_route_exists_with_preserve_host():
+    """Spark Master Web UI is an SPA — its redirects build URLs from the
+    Host header, same lesson as Grafana / n8n / MinIO / Ray. Without
+    preserve_host=True, Kong rewrites Host to ``spark-master:8080`` and
+    the browser can't resolve it. Regression guard.
+    """
+    config = _generate("SPARK_SOURCE=container\n")
+    svc = next(
+        (s for s in config["services"] if s["name"] == "spark-master-ui"),
+        None,
+    )
+    assert svc is not None, "spark-master-ui service missing"
+    route = svc["routes"][0]
+    assert "spark.localhost" in route["hosts"]
+    assert route.get("preserve_host") is True, (
+        "preserve_host must be True for SPA Web UI"
+    )
+
+
+def test_spark_history_route_exists_with_preserve_host():
+    """Spark History Server is also an SPA with the same preserve_host
+    requirement as the master UI."""
+    config = _generate("SPARK_SOURCE=container\n")
+    svc = next(
+        (s for s in config["services"] if s["name"] == "spark-history-ui"),
+        None,
+    )
+    assert svc is not None
+    assert "spark-history.localhost" in svc["routes"][0]["hosts"]
+    assert svc["routes"][0].get("preserve_host") is True
+
+
 @pytest.mark.parametrize("env_var,svc_source_var,svc_source_value,expected_port", [
     ("COMFYUI_LOCALHOST_PORT",      "COMFYUI_SOURCE",            "localhost",              "9999"),
     ("DOCLING_LOCALHOST_PORT",      "DOC_PROCESSOR_SOURCE",      "docling-localhost",      "9999"),

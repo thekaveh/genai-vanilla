@@ -201,6 +201,14 @@ class KongConfigGenerator:
         if grafana_service:
             services.append(grafana_service)
 
+        spark_master_service = self.generate_spark_master_service()
+        if spark_master_service:
+            services.append(spark_master_service)
+
+        spark_history_service = self.generate_spark_history_service()
+        if spark_history_service:
+            services.append(spark_history_service)
+
         # Always-containerized adaptive services
         services.extend(self.get_adaptive_services())
 
@@ -872,6 +880,62 @@ class KongConfigGenerator:
                     'strip_path': False,
                     'preserve_host': True,
                     'hosts': ['prometheus.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+            ],
+        }
+
+    def generate_spark_master_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for the Spark Master Web UI.
+
+        `preserve_host: True` is critical — Spark's Web UI is an SPA that
+        bakes hostnames into redirects/assets. Without `preserve_host`,
+        Kong rewrites Host to `spark-master:8080` and the browser can't
+        resolve it (same lesson as Grafana / n8n / MinIO / Ray).
+
+        Gated on `SPARK_SOURCE=container`. When disabled, no
+        `spark-master` container exists and the route would 502 — so we
+        skip it.
+        """
+        source = self.get_env_value('SPARK_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'spark-master-ui',
+            'url': 'http://spark-master:8080',
+            'routes': [
+                {
+                    'name': 'spark-master-ui-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['spark.localhost'],
+                }
+            ],
+            'plugins': [
+                {'name': 'cors'},
+            ],
+        }
+
+    def generate_spark_history_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for the Spark History Server UI.
+
+        Same SPA / `preserve_host: True` requirement as the master UI.
+        Gated on `SPARK_SOURCE=container`.
+        """
+        source = self.get_env_value('SPARK_SOURCE')
+        if source != 'container':
+            return None
+        return {
+            'name': 'spark-history-ui',
+            'url': 'http://spark-history:18080',
+            'routes': [
+                {
+                    'name': 'spark-history-ui-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['spark-history.localhost'],
                 }
             ],
             'plugins': [
