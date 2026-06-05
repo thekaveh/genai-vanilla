@@ -196,11 +196,29 @@ their env exposes `HERMES_ENDPOINT`):
 - Open WebUI integration guide — <https://hermes-agent.nousresearch.com/docs/user-guide/messaging/open-webui>
 - Docker / bridged-network compose form — <https://hermes-agent.nousresearch.com/docs/user-guide/docker>
 
-## 8. Dependencies & Integrations
+## 8. Hermes → Airflow integration
+
+Hermes can trigger Airflow DAG runs via the Airflow REST API. Use the
+`airflow.localhost` alias (the same one that serves the Web UI):
+
+```bash
+curl -X POST \
+  -u admin:${AIRFLOW_ADMIN_PASSWORD} \
+  -H 'Content-Type: application/json' \
+  -d '{"conf": {}}' \
+  http://airflow.localhost:${KONG_HTTP_PORT}/api/v2/dags/example_etl_with_llm/dagRuns
+```
+
+This is the agent-runtime → orchestrated-workflow pattern — Hermes
+detects a request, decides a long-running pipeline is needed, and
+triggers an Airflow DAG. See `services/airflow/README.md` for the
+example DAG.
+
+## 9. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/hermes/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen hermes` after manifest changes.
 
-### 8.1 Current — Upstream (this service calls)
+### 9.1 Current — Upstream (this service calls)
 
 | Service | Category |
 |---|---|
@@ -210,7 +228,7 @@ their env exposes `HERMES_ENDPOINT`):
 | stt-provider | media |
 | tts-provider | media |
 
-### 8.2 Current — Downstream (services that call this)
+### 9.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
@@ -220,13 +238,13 @@ their env exposes `HERMES_ENDPOINT`):
 | openclaw | agents |
 | jupyterhub | apps |
 
-### 8.3 Architecture diagram
+### 9.3 Architecture diagram
 
 ![hermes architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 8.4 Future — Missing pair integrations
+### 9.4 Future — Missing pair integrations
 
 - **hermes ↔ neo4j** — *Why:* Adds durable cross-session episodic memory (entities, relations) queryable from other services, replacing flat-file state under `/opt/data`. *Mechanism:* Custom skill over `bolt://graph-db:7687` exposed as a `memory.graph` tool. *Effort:* medium. *Confidence:* medium.
 - **hermes ↔ weaviate** — *Why:* Semantic recall across sessions and ingested docs, reusing the in-stack `multi2vec-clip` vectorizer. *Mechanism:* Skill calling `http://weaviate:8080/v1/objects` against a `HermesMemory` class. *Effort:* medium. *Confidence:* medium.
@@ -235,12 +253,12 @@ their env exposes `HERMES_ENDPOINT`):
 - **hermes ↔ doc-processor** — *Why:* Lets Hermes answer questions about uploaded PDFs by routing them through the in-stack Docling parser before context or vector ingest. *Mechanism:* Skill POSTing multipart to `http://docling:5001/v1/convert/file`. *Effort:* small. *Confidence:* high.
 - **hermes ↔ supabase** — *Why:* A JWT-scoped shared session store lets one Hermes session follow a user across Open WebUI, JupyterHub, and OpenClaw instead of being pinned to single-tenant `/opt/data`. *Mechanism:* Skill writing to `hermes_sessions` via PostgREST at `http://supabase-api:3000`, keyed by Supabase JWT `sub`. *Effort:* medium. *Confidence:* medium.
 
-### 8.5 Future — Candidate new services
+### 9.5 Future — Candidate new services
 
 - **Langfuse** ([details](../../docs/research/candidates/langfuse.md)) — *Headline:* Self-hostable observability and prompt-trace store for LLM and diffusion workflows, capturing structured traces, evaluations, and cost telemetry. *Wires into:* litellm, hermes, n8n, comfyui, supabase, minio.
 - **MCP Gateway** ([details](../../docs/research/candidates/mcp-gateway.md)) — *Headline:* A consolidated MCP server exposing neo4j, weaviate, minio, n8n, and supabase as MCP tools any MCP-native client can mount. *Wires into:* hermes, open-webui, jupyterhub, neo4j, weaviate, minio, n8n.
 
-### 8.6 Future — Unused features in this service
+### 9.6 Future — Unused features in this service
 
 - **MCP server mode** — *Why pursue:* Unlocks tool-use over Neo4j/Weaviate/MinIO/n8n via a uniform protocol instead of bespoke skills, leveraging Hermes's existing MCP-client support. *Effort:* medium.
 - **Messaging-platform allowlists** — *Why pursue:* Wiring `GATEWAY_ALLOW_ALL_USERS`, `TELEGRAM_ALLOWED_USERS`, and `DISCORD_ALLOWED_USERS` is required before OpenClaw can safely bridge Hermes to Telegram/Discord/WhatsApp without an open relay. *Effort:* small.
@@ -248,7 +266,7 @@ their env exposes `HERMES_ENDPOINT`):
 - **Voice mode (mic passthrough)** — *Why pursue:* Enables true voice agent UX in-stack, currently gated on running Hermes via `localhost` SOURCE for mic access. *Effort:* large.
 - **Skill marketplace / dynamic skill install** — *Why pursue:* Lets users add capabilities without rebuilding the image; Hermes upstream already supports dynamic skill loading. *Effort:* medium.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 ```bash
 # Service status
