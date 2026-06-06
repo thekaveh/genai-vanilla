@@ -120,6 +120,10 @@ class ServiceConfig:
         hermes_config = self._generate_hermes_config()
         env_vars.update(hermes_config)
 
+        # Generate TEI Reranker configuration
+        tei_reranker_config = self._generate_tei_reranker_config()
+        env_vars.update(tei_reranker_config)
+
         # Generate Ray cluster configuration
         ray_source = self.service_sources.get("RAY_SOURCE", "disabled")
         ray_config = self._generate_ray_config(
@@ -604,6 +608,37 @@ class ServiceConfig:
             env_vars['HERMES_ENDPOINT'] = endpoint
             env_vars['HERMES_SCALE'] = '1'
 
+        return env_vars
+
+    def _generate_tei_reranker_config(self) -> Dict[str, str]:
+        """Resolve TEI Reranker endpoint, scale, and per-source image."""
+        source_value = self.service_sources.get('TEI_RERANKER_SOURCE', 'disabled')
+        env_vars: Dict[str, str] = {}
+        current_env = self.config_parser.parse_env_file()
+        cpu_image = current_env.get(
+            'TEI_RERANKER_CPU_IMAGE',
+            'ghcr.io/huggingface/text-embeddings-inference:cpu-1.9',
+        )
+        gpu_image = current_env.get(
+            'TEI_RERANKER_GPU_IMAGE',
+            'ghcr.io/huggingface/text-embeddings-inference:1.9',
+        )
+
+        if source_value == 'disabled':
+            env_vars['TEI_RERANKER_ENDPOINT'] = ''
+            env_vars['TEI_RERANKER_SCALE'] = '0'
+            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = cpu_image
+        elif source_value == 'localhost':
+            port = current_env.get('TEI_RERANKER_LOCALHOST_PORT', '63031')
+            env_vars['TEI_RERANKER_ENDPOINT'] = f'http://{self.localhost_host}:{port}'
+            env_vars['TEI_RERANKER_SCALE'] = '0'
+            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = cpu_image
+        else:  # container-cpu | container-gpu
+            env_vars['TEI_RERANKER_ENDPOINT'] = 'http://tei-reranker:80'
+            env_vars['TEI_RERANKER_SCALE'] = '1'
+            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = (
+                gpu_image if source_value == 'container-gpu' else cpu_image
+            )
         return env_vars
 
     def _generate_ray_config(self, source_value: str, shared_env: dict) -> dict:
