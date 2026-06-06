@@ -119,6 +119,13 @@ class LocalhostValidator:
             'port_env_var': 'HERMES_LOCALHOST_PORT',
             'service_name': 'Hermes Agent',
             'default_port': 63028
+        },
+        'TEI_RERANKER_SOURCE': {
+            'source_values': ['localhost'],
+            'check_type': 'http',
+            'port_env_var': 'TEI_RERANKER_LOCALHOST_PORT',
+            'service_name': 'TEI Reranker',
+            'default_port': 63031
         }
     }
     
