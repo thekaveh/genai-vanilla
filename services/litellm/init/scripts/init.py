@@ -300,6 +300,35 @@ def hermes_model_entry() -> dict[str, Any] | None:
     }
 
 
+def lightrag_model_entry() -> dict[str, Any] | None:
+    """Return a model_list entry for `lightrag` when LightRAG is enabled.
+
+    Adapter is openai/ (not ollama_chat/) because LightRAG's Ollama-shim
+    implements /api/chat with OpenAI-style messages and the ollama_chat
+    adapter expects the full Ollama tag-listing protocol.
+    """
+    if os.environ.get("LIGHTRAG_SOURCE", "disabled") == "disabled":
+        return None
+    endpoint = os.environ.get("LIGHTRAG_ENDPOINT", "")
+    if not endpoint:
+        return None
+    return {
+        "model_name": "lightrag",
+        "litellm_params": {
+            "model": "openai/lightrag",
+            "api_base": f"{endpoint.rstrip('/')}/api",
+            "api_key": os.environ.get("LIGHTRAG_API_KEY", "sk-no-auth"),
+        },
+        "model_info": {
+            "mode": "chat",
+            "description": (
+                "LightRAG graph-augmented RAG. Encode query mode as "
+                "system prompt prefix /hybrid|/local|/global|/naive|/mix."
+            ),
+        },
+    }
+
+
 def render_config(active_rows: list[tuple[str, str]]) -> dict[str, Any]:
     """Build the complete config.yaml dict (model_list + settings).
     The settings half comes from bootstrapper/utils/litellm_settings.py
@@ -315,6 +344,13 @@ def render_config(active_rows: list[tuple[str, str]]) -> dict[str, Any]:
         model_list.append(hermes_entry)
         print(
             f"  ↳ appended hermes-agent entry → {hermes_entry['litellm_params']['api_base']}",
+            flush=True,
+        )
+    lightrag_entry = lightrag_model_entry()
+    if lightrag_entry is not None:
+        model_list.append(lightrag_entry)
+        print(
+            f"  ↳ appended lightrag entry → {lightrag_entry['litellm_params']['api_base']}",
             flush=True,
         )
     return {
