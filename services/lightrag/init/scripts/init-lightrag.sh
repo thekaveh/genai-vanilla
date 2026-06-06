@@ -39,16 +39,25 @@ fi
 
 if [ -n "${LIGHTRAG_NEO4J_URI:-}" ]; then
   echo "[lightrag-init] running Neo4j migrations..."
-  # Use cypher-shell from apk (not installed by default — install on demand).
-  if ! command -v cypher-shell >/dev/null 2>&1; then
-    apk add --no-cache cypher-shell >/dev/null 2>&1 || {
-      # cypher-shell not in alpine main; fall back to a curl-based HTTP submission.
-      curl -fs -u "${LIGHTRAG_NEO4J_USERNAME}:${LIGHTRAG_NEO4J_PASSWORD}" \
-        -H 'Content-Type: application/json' \
-        --data "$(jq -Rn --rawfile q /scripts/migrate-neo4j.cypher \
-                  '{statements: [{statement: $q}]}')" \
-        "http://neo4j:7474/db/neo4j/tx/commit" >/dev/null
+  # Use Neo4j's HTTP transaction endpoint directly (cypher-shell is not in
+  # alpine main; bundling it would inflate the init image significantly).
+  cypher_payload=$(jq -Rn --rawfile q /scripts/migrate-neo4j.cypher \
+                  '{statements: [{statement: $q}]}')
+  http_status=$(curl -fs -o /tmp/neo4j-resp.json -w '%{http_code}' \
+    -u "${LIGHTRAG_NEO4J_USERNAME}:${LIGHTRAG_NEO4J_PASSWORD}" \
+    -H 'Content-Type: application/json' \
+    --data "$cypher_payload" \
+    "http://neo4j:7474/db/neo4j/tx/commit" 2>&1) || {
+      echo "[lightrag-init] WARN: Neo4j migration HTTP call failed (curl exit $?)" >&2
+      echo "[lightrag-init] response: $(cat /tmp/neo4j-resp.json 2>/dev/null)" >&2
     }
+  if [ "$http_status" = "200" ]; then
+    echo "[lightrag-init] Neo4j migration: OK"
+  else
+    echo "[lightrag-init] WARN: Neo4j migration returned HTTP $http_status" >&2
+    echo "[lightrag-init] response: $(cat /tmp/neo4j-resp.json 2>/dev/null)" >&2
+    # Non-fatal — Neo4j may already have the constraints; LightRAG will
+    # create them on first write anyway via its NetworkXStorage fallback.
   fi
 fi
 

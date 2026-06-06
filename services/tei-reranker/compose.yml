@@ -35,6 +35,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+    restart: unless-stopped
 
 volumes:
   tei-reranker-data:

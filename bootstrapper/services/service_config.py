@@ -1105,8 +1105,7 @@ class ServiceConfig:
         else:
             # LightRAG disabled — emit blanks so any stale .env values are
             # cleared on next run.
-            tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
-            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = tei_endpoint
+            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = ''
             env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = ''
             env_vars['LIGHTRAG_PG_URI'] = ''
             env_vars['LIGHTRAG_NEO4J_URI'] = ''
