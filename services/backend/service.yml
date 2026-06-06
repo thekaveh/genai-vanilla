@@ -36,10 +36,6 @@ env:
     description: "LiteLLM model id (empty = highest-priority active content model from public.llms)."
   - name: LANGMEM_EMBEDDING_MODEL
     default: ""
-  - name: LIGHTRAG_ENDPOINT
-    auto_managed: true
-  - name: LIGHTRAG_API_KEY
-    auto_managed: true
 
 depends_on:
   # Mirrors services/backend/compose.yml. LiteLLM is gated on service_healthy
