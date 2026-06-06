@@ -261,11 +261,21 @@ psql -h localhost -p ${SUPABASE_DB_PORT} -U postgres -d litellm -c "SELECT * FRO
 
 If LiteLLM ever stops being a fit (license shift, security incident, project drift), [Portkey AI Gateway](https://github.com/Portkey-ai/gateway) (Apache-2.0, ~8.7k★, 1600+ models) is the documented fallback. Migration cost is bounded because every consumer reads only `LITELLM_BASE_URL` + `LITELLM_API_KEY` — swap the gateway, not the consumers.
 
-## 13. Dependencies & Integrations
+## 13. Built-in `lightrag` model
+
+When `LIGHTRAG_SOURCE != disabled`, `litellm-init` registers a `lightrag` model that proxies to LightRAG's Ollama-shim (`{LIGHTRAG_ENDPOINT}/api`). Encode the query mode in the user message prefix: `/hybrid`, `/local`, `/global`, `/naive`, `/mix`. Default mode is `/hybrid`.
+
+```bash
+curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
+  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
+  -d '{"model":"lightrag","messages":[{"role":"user","content":"/hybrid What is RAG?"}]}'
+```
+
+## 14. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/litellm/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen litellm` after manifest changes.
 
-### 13.1 Current — Upstream (this service calls)
+### 14.1 Current — Upstream (this service calls)
 
 | Service | Category |
 |---|---|
@@ -275,7 +285,7 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | ollama | llm |
 | hermes ↔ | agents |
 
-### 13.2 Current — Downstream (services that call this)
+### 14.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
@@ -293,24 +303,24 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | local-deep-researcher | apps |
 | open-webui | apps |
 
-### 13.3 Architecture diagram
+### 14.3 Architecture diagram
 
 ![litellm architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 13.4 Future — Missing pair integrations
+### 14.4 Future — Missing pair integrations
 
 - **litellm ↔ minio** — *Why:* LiteLLM ships a first-class S3 logger that persists full request/response payloads. MinIO is in the stack but unused for LLM telemetry — wiring it gives offline replay, prompt-regression diffs, and audit trails without a new dependency. *Mechanism:* `litellm_settings.success_callback: ["s3"]` + `s3_callback_params` pointing at `http://minio:9000`; provision a `litellm-logs` bucket via `minio-init`. *Effort:* small. *Confidence:* high.
 - **litellm ↔ stt-provider** — *Why:* LiteLLM exposes a unified `/v1/audio/transcriptions` endpoint, but consumers hit `STT_ENDPOINT` directly today, bypassing LiteLLM's auth/rate-limit/spend/Kong-alias affordances. *Mechanism:* add an `audio_transcription` row in `model_list` with `model: openai/<name>` + `api_base: ${STT_ENDPOINT}` (speaches is OpenAI-compatible; parakeet needs a thin shim). *Effort:* medium. *Confidence:* medium.
 - **litellm ↔ tts-provider** — *Why:* same argument as STT — LiteLLM has `/v1/audio/speech` routing; consumers hit TTS engines directly. *Mechanism:* TTS row in `model_list` with `model: openai/<voice>` + `api_base: ${TTS_ENDPOINT}` for speaches; chatterbox (port 4123, non-OpenAI shape) needs an adapter. *Effort:* medium. *Confidence:* medium.
 - **litellm ↔ searxng** — *Why:* LiteLLM's MCP servers feature lets a tool be advertised to every chat-completions client. Wiring searxng as a built-in `search_web` tool gives open-webui/n8n/hermes/jupyterhub web search for free. *Mechanism:* define a LiteLLM MCP server in `litellm_settings.mcp_servers` calling `http://searxng:8080/search?format=json`. *Effort:* medium. *Confidence:* medium.
 
-### 13.5 Future — Candidate new services
+### 14.5 Future — Candidate new services
 
 - **Langfuse** ([details](../../docs/research/candidates/langfuse.md)) — *Headline:* self-hostable LLM observability (traces, prompts, evals) with a documented LiteLLM callback. *Wires into:* litellm, hermes, n8n, open-webui, backend, local-deep-researcher, jupyterhub.
 
-### 13.6 Future — Unused features in this service
+### 14.6 Future — Unused features in this service
 
 - **Guardrails** — *Why pursue:* presidio PII redaction, lakera prompt-injection scanning, hide-secrets — all configurable per virtual key. Stack handles user data but has zero LLM-side PII controls today. *Effort:* medium.
 - **Virtual keys + team budgets** — *Why pursue:* the master key is the only credential; consumers all share it. Per-service virtual keys with spend caps would give n8n / jupyterhub / open-webui isolated budgets and revocable creds. *Effort:* small.

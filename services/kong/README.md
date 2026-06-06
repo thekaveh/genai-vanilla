@@ -61,6 +61,10 @@ Plain `python3 scripts/check-kong-routes.py` works too if `PyYAML` is on your sy
 - `spark-history.localhost` → Spark History Server UI (`SPARK_SOURCE != disabled`; routes to in-container `spark-history:18080`)
 - `zeppelin.localhost` → Zeppelin notebook UI (`ZEPPELIN_SOURCE != disabled`; routes to in-container `zeppelin:8080`; hard-gated on `SPARK_SOURCE != disabled`)
 - `airflow.localhost` → Airflow Web UI + REST API (`AIRFLOW_SOURCE != disabled`; routes to in-container `airflow-webserver:8080`; same alias serves UI at `/` and REST API under `/api/v2/`)
+- `lightrag.localhost` → http://lightrag:9621/ (LightRAG WebUI + API; `preserve_host` enabled)
+- `rerank.localhost` → http://tei-reranker:80/ (TEI rerank API)
+
+Example: `curl http://lightrag.localhost:${KONG_HTTP_PORT}/health`
 
 Each `*-localhost` source still gets a Kong route — Kong proxies through `host.docker.internal` to the user's host machine. Kong's compose entry includes `extra_hosts: ["host.docker.internal:${HOST_GATEWAY_IP}"]` so this works on Linux Docker too (Docker Desktop on macOS/Windows resolves it automatically). Users with non-default localhost ports override via `<SVC>_LOCALHOST_PORT` env vars; both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) and the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) read the same PORT var and derive the URL as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT}`, keeping both paths in sync.
 
