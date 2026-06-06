@@ -15,6 +15,13 @@ When this test fails, either:
   - start.py is missing the `user_model_selections[KEY] = kwarg` assignment, OR
   - integration.py / start.py disagree on the env var name.
 """
+
+# LightRAG and TEI Reranker (added 2026-06-05) intentionally have NO model
+# picker step in the wizard. LightRAG inherits LITELLM_DEFAULT_MODEL /
+# LITELLM_EMBEDDING_MODEL via lightrag-init at startup; TEI Reranker uses a
+# static TEI_RERANKER_MODEL_ID default. Neither needs the --<svc>-models
+# four-seam pattern guarded by this file's tests. Do not add them here.
+
 from __future__ import annotations
 
 import ast
