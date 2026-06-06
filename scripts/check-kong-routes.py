@@ -83,6 +83,15 @@ EXPECTED_HOST_ROUTES = {
     #   "spark-history.localhost": "http://spark-history:18080/",
     #   "zeppelin.localhost": "http://zeppelin:8080/",
     #   "airflow.localhost": "http://airflow-webserver:8080/",
+    #
+    # rerank.localhost is NOT listed here. .env.example defaults
+    # TEI_RERANKER_SOURCE=disabled; the generator only emits the reranker
+    # route for TEI_RERANKER_SOURCE ∈ {container-cpu, container-gpu, localhost}.
+    # At default-env runtime there is no tei-reranker container to route to,
+    # so the route is correctly absent. Opt-in route shape is locked by
+    # bootstrapper/tests/test_kong_alias_routes.py::test_tei_reranker_*.
+    # If the default ever flips, add:
+    #   "rerank.localhost": "http://tei-reranker:80/",
 }
 
 

@@ -185,6 +185,10 @@ class KongConfigGenerator:
         if hermes_service:
             services.append(hermes_service)
 
+        tei_reranker_service = self.generate_tei_reranker_service()
+        if tei_reranker_service:
+            services.append(tei_reranker_service)
+
         minio_service = self.generate_minio_service()
         if minio_service:
             services.append(minio_service)
@@ -784,6 +788,45 @@ class KongConfigGenerator:
             service['url'] = 'http://hermes:9119/'
 
         return service
+
+    def generate_tei_reranker_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for TEI Reranker — pure REST inference, no SPA.
+
+        Routes ``rerank.localhost:${KONG_HTTP_PORT}`` to the TEI
+        text-embeddings-inference container at ``http://tei-reranker:80/``.
+
+        Unlike browser-facing SPAs (n8n, LiteLLM, Hermes, etc.), the
+        TEI Reranker serves only a JSON REST API. ``preserve_host`` is
+        intentionally NOT set (defaults False) — the upstream cares only
+        about the request path, not the Host header, and there are no
+        redirects to break.
+
+        Gated on ``TEI_RERANKER_SOURCE != disabled``.  When disabled, no
+        ``tei-reranker`` container exists and the route would 502 — skip it.
+        """
+        source = self.get_env_value("TEI_RERANKER_SOURCE", "disabled")
+        if not source or source == "disabled":
+            return None
+
+        if source == "localhost":
+            url = self._localhost_url("TEI_RERANKER_LOCALHOST_PORT", "63031")
+        else:  # container-cpu | container-gpu
+            url = "http://tei-reranker:80/"
+
+        return {
+            "name": "tei-reranker",
+            "url": url,
+            "routes": [
+                {
+                    "name": "tei-reranker-all",
+                    "strip_path": False,
+                    # preserve_host is omitted (defaults False) — REST-only
+                    # endpoint; no SPA redirect-URL construction from Host.
+                    "hosts": ["rerank.localhost"],
+                }
+            ],
+            "plugins": [{"name": "cors"}],
+        }
 
     def generate_minio_service(self) -> Optional[Dict[str, Any]]:
         """Generate MinIO console Kong route.
