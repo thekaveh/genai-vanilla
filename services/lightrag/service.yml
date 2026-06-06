@@ -1,0 +1,201 @@
+# services/lightrag/service.yml
+# LightRAG — graph-augmented RAG server.
+# Storage backends adapt to Supabase/Neo4j/Redis when enabled, fall back to
+# in-process file backends when those sources are disabled. LLM + embedding
+# bindings inherit from LiteLLM defaults (resolved at startup by lightrag-init).
+name: lightrag
+label: "LightRAG (graph-augmented RAG server)"
+category: agents
+docs: services/lightrag/README.md
+
+containers:
+  - lightrag
+  - lightrag-init
+
+images:
+  - var: LIGHTRAG_IMAGE
+    default: "ghcr.io/hkuds/lightrag:1.5.0"
+    container: lightrag
+  - var: LIGHTRAG_INIT_IMAGE
+    default: "alpine:latest"
+    container: lightrag-init
+
+sources:
+  var: LIGHTRAG_SOURCE
+  default: disabled
+  options:
+    - id: container
+      label: "Container (in-stack LightRAG)"
+    - id: localhost
+      label: "Host (existing LightRAG on this machine)"
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: LIGHTRAG_SOURCE
+    default: disabled
+  - name: LIGHTRAG_API_PORT
+    # default computed by services/topology.py slot allocator
+    description: "Host port for LightRAG (in-container 9621)."
+  - name: LIGHTRAG_LOCALHOST_PORT
+    default: "63068"
+    description: "Host port for the localhost source variant."
+  - name: LIGHTRAG_API_KEY
+    default: ""
+    secret: true
+    description: "Auto-generated bearer key. Forwarded to LiteLLM as the model api_key."
+  - name: LIGHTRAG_WORKERS
+    default: 2
+  - name: LIGHTRAG_MEMORY_LIMIT
+    default: 6g
+  - name: LIGHTRAG_CPU_LIMIT
+    default: "2.0"
+  - name: LIGHTRAG_LLM_BINDING
+    default: openai
+  - name: LIGHTRAG_LLM_BINDING_HOST
+    default: "http://litellm:4000/v1"
+  - name: LIGHTRAG_LLM_MODEL
+    default: ""
+    description: "Empty = lightrag-init resolves from LITELLM_DEFAULT_MODEL."
+  - name: LIGHTRAG_EMBEDDING_BINDING
+    default: openai
+  - name: LIGHTRAG_EMBEDDING_BINDING_HOST
+    default: "http://litellm:4000/v1"
+  - name: LIGHTRAG_EMBEDDING_MODEL
+    default: ""
+    description: "Empty = lightrag-init resolves from LITELLM_EMBEDDING_MODEL."
+  - name: LIGHTRAG_EMBEDDING_DIM
+    default: 768
+  - name: LIGHTRAG_VLM_PROCESS_ENABLE
+    default: "true"
+  - name: LIGHTRAG_KV_STORAGE
+    default: RedisKVStorage
+  - name: LIGHTRAG_VECTOR_STORAGE
+    default: PGVectorStorage
+  - name: LIGHTRAG_GRAPH_STORAGE
+    default: Neo4JStorage
+  - name: LIGHTRAG_DOC_STATUS_STORAGE
+    default: RedisKVStorage
+  - name: LIGHTRAG_SCALE
+    auto_managed: true
+  - name: LIGHTRAG_INIT_SCALE
+    auto_managed: true
+  - name: LIGHTRAG_ENDPOINT
+    auto_managed: true
+    description: "Consumed by hermes/n8n/backend runtime_adaptive and LiteLLM model_list."
+  - name: LIGHTRAG_RERANK_BINDING_HOST
+    auto_managed: true
+  - name: LIGHTRAG_DOCLING_ENDPOINT
+    auto_managed: true
+  - name: LIGHTRAG_PG_URI
+    auto_managed: true
+  - name: LIGHTRAG_NEO4J_URI
+    auto_managed: true
+  - name: LIGHTRAG_NEO4J_USERNAME
+    auto_managed: true
+  - name: LIGHTRAG_NEO4J_PASSWORD
+    auto_managed: true
+  - name: LIGHTRAG_REDIS_URI
+    auto_managed: true
+
+depends_on:
+  required:
+    - litellm
+  optional:
+    - supabase
+    - neo4j
+    - redis
+    - docling
+    - tei-reranker
+
+rows:
+  - display_name: "LightRAG"
+    source_var: LIGHTRAG_SOURCE
+    port_var: LIGHTRAG_API_PORT
+    scale_var: LIGHTRAG_SCALE
+    alias: lightrag.localhost
+    description: "Graph-augmented RAG server with WebUI, KG extractor, multimodal ingestion."
+    localhost_endpoint_var: LIGHTRAG_ENDPOINT
+    localhost_port_var: LIGHTRAG_LOCALHOST_PORT
+
+exports: []
+
+runtime_sc:
+  lightrag:
+    container:
+      scale: 1
+      environment:
+        LIGHTRAG_ENDPOINT: "http://lightrag:9621"
+      deploy: {}
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        LIGHTRAG_ENDPOINT: "http://host.docker.internal:${LIGHTRAG_LOCALHOST_PORT:-63068}"
+      deploy: {}
+      extra_hosts:
+        - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        LIGHTRAG_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
+  lightrag-init:
+    container:
+      scale: 1
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+runtime_adaptive:
+  lightrag:
+    adapts_to:
+      - doc_processor
+      - tei_reranker
+      - supabase
+      - neo4j
+      - redis
+    environment_adaptation:
+      LIGHTRAG_DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      LIGHTRAG_RERANK_BINDING_HOST: ${TEI_RERANKER_ENDPOINT}
+      LIGHTRAG_PG_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@supabase-db:5432/${POSTGRES_DB}"
+      LIGHTRAG_NEO4J_URI: "bolt://neo4j:7687"
+      LIGHTRAG_NEO4J_USERNAME: neo4j
+      LIGHTRAG_NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      LIGHTRAG_REDIS_URI: "redis://:${REDIS_PASSWORD}@redis:6379/2"
+    extra_hosts_adaptation: none
+    failure_mode: "Storage falls back to NanoVectorDB / NetworkX / JsonKV when supabase/neo4j/redis source is disabled. Reranker omitted when disabled. Docling skipped → multimodal images become text-only."
+  lightrag-init:
+    adapts_to:
+      - llm_provider
+    environment_adaptation:
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL}
+      LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+    extra_hosts_adaptation: inherit from llm_provider
+    failure_mode: "lightrag-init exits non-zero; LightRAG container does not start. Required because lightrag-init resolves model names from LiteLLM's /v1/models."
+
+runtime_deps:
+  lightrag:
+    optional:
+      - supabase
+      - neo4j
+      - redis
+      - docling
+      - tei-reranker
+    info_message: "LightRAG enabled — will wire optional storage and capability services when available."
+
+data_flow:
+  calls:
+    - litellm
+    - supabase
+    - neo4j
+    - redis
+    - docling
+    - tei-reranker
