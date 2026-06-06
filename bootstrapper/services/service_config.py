@@ -124,6 +124,9 @@ class ServiceConfig:
         tei_reranker_config = self._generate_tei_reranker_config()
         env_vars.update(tei_reranker_config)
 
+        # Generate LightRAG configuration
+        env_vars.update(self._generate_lightrag_config())
+
         # Generate Ray cluster configuration
         ray_source = self.service_sources.get("RAY_SOURCE", "disabled")
         ray_config = self._generate_ray_config(
@@ -639,6 +642,37 @@ class ServiceConfig:
             env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = (
                 gpu_image if source_value == 'container-gpu' else cpu_image
             )
+        return env_vars
+
+    def _generate_lightrag_config(self) -> Dict[str, str]:
+        """Resolve LightRAG endpoint and init scale per source.
+
+        Storage URI adaptation (PG/Neo4j/Redis) happens in
+        _generate_adaptive_services_config since those are listed in
+        service.yml::runtime_adaptive.environment_adaptation.
+        """
+        source_value = self.service_sources.get('LIGHTRAG_SOURCE', 'disabled')
+        env_vars: Dict[str, str] = {}
+        if source_value == 'disabled':
+            env_vars['LIGHTRAG_ENDPOINT'] = ''
+            env_vars['LIGHTRAG_SCALE'] = '0'
+            env_vars['LIGHTRAG_INIT_SCALE'] = '0'
+        elif source_value == 'localhost':
+            current_env = self.config_parser.parse_env_file()
+            port = current_env.get('LIGHTRAG_LOCALHOST_PORT', '63068')
+            env_vars['LIGHTRAG_ENDPOINT'] = f'http://{self.localhost_host}:{port}'
+            env_vars['LIGHTRAG_SCALE'] = '0'
+            env_vars['LIGHTRAG_INIT_SCALE'] = '0'
+        else:  # container
+            cfg = self.get_service_config('lightrag', source_value)
+            endpoint = cfg.get('environment', {}).get(
+                'LIGHTRAG_ENDPOINT', 'http://lightrag:9621'
+            )
+            env_vars['LIGHTRAG_ENDPOINT'] = endpoint.replace(
+                'host.docker.internal', self.localhost_host
+            )
+            env_vars['LIGHTRAG_SCALE'] = '1'
+            env_vars['LIGHTRAG_INIT_SCALE'] = '1'
         return env_vars
 
     def _generate_ray_config(self, source_value: str, shared_env: dict) -> dict:
