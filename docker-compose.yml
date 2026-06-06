@@ -34,6 +34,7 @@ include:
   # LLM tier (cloud-providers + tts-provider are virtual; no compose fragment)
   - services/litellm/compose.yml
   - services/ollama/compose.yml
+  - services/tei-reranker/compose.yml
 
   # AI tier
   - services/weaviate/compose.yml
