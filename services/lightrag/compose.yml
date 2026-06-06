@@ -66,9 +66,6 @@ services:
     container_name: ${PROJECT_NAME}-lightrag-init
     deploy:
       replicas: ${LIGHTRAG_INIT_SCALE:-0}
-    depends_on:
-      litellm:
-        condition: service_healthy
     entrypoint: ["sh", "-c", "/scripts/init-lightrag.sh"]
     environment:
       LIGHTRAG_SOURCE: ${LIGHTRAG_SOURCE}
