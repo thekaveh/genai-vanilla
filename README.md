@@ -141,7 +141,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 The canonical architecture diagram is embedded at the top of this README; the source lives at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg) — hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram) (cyan / emerald / violet / amber / rose / orange palette, JetBrains Mono, layered topological flow). See [`docs/diagrams/README.md`](docs/diagrams/README.md) for update instructions.
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
 
 ## 3. Getting Started
 
@@ -198,6 +198,8 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
 - **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes; the bootstrapper resolves `host.docker.internal:${HERMES_LOCALHOST_PORT}` (default `63028`); useful when Hermes should drive your real shell, browser, or microphone
+- **LightRAG** (`LIGHTRAG_SOURCE=localhost`) — use a host-installed LightRAG; the bootstrapper resolves `host.docker.internal:${LIGHTRAG_LOCALHOST_PORT}` (default `63068`)
+- **TEI Reranker** (`TEI_RERANKER_SOURCE=localhost`) — use a host-installed TEI Reranker; the bootstrapper resolves `host.docker.internal:${TEI_RERANKER_LOCALHOST_PORT}` (default `63031`)
 
 **Container-only services:**
 - **n8n** (`N8N_SOURCE=container|disabled`) — workflow automation
@@ -279,6 +281,8 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Apache Airflow** | http://localhost:${AIRFLOW_PORT} | http://airflow.localhost:63000 | Code-defined DAG orchestrator. LocalExecutor + AI/ML SDK with LiteLLM-wired LLM operators. Disabled by default. | `admin` / auto-generated `AIRFLOW_ADMIN_PASSWORD` |
 | **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 12 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
 | **Grafana** | http://localhost:63008 | http://grafana.localhost:63000 | Observability dashboards + unified alerting on top of Prometheus. Disabled by default; opt-in via `--grafana-source container`. 7 starter dashboards ship pre-provisioned. | `admin` / auto-generated `GRAFANA_ADMIN_PASSWORD` (first-run) |
+| **LightRAG** | `http://lightrag.localhost:${KONG_HTTP_PORT}` (WebUI), `http://localhost:${LIGHTRAG_API_PORT}/webui` | http://lightrag.localhost:63000 | Graph-augmented RAG server. KG + vector + multimodal ingestion. Disabled by default. | None |
+| **TEI Reranker** | `http://localhost:${TEI_RERANKER_PORT}/rerank` (API only) | — | BGE-reranker-v2-m3 inference for RAG quality lift. Disabled by default. | None |
 
 ### 4.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -299,6 +303,8 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 - **Deep Researcher** — research assistant
 - **LangMem** — persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
 - **Ray** — distributed-compute substrate (head + workers) for parallelizing Python workloads (data prep, fine-tuning, batch inference). Disabled by default; enable via `--ray-source ray-container-cpu` (or `ray-container-gpu`). Consumed by Backend / JupyterHub via `RAY_ADDRESS`.
+- **LightRAG** — graph-augmented RAG server. KG + vector + multimodal ingestion. Default disabled.
+- **TEI Reranker** — BGE-reranker-v2-m3 inference for RAG quality lift. Default disabled.
 
 ## 5. Usage Guide
 
@@ -328,6 +334,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh --hermes-source localhost                   # Use a host-installed Hermes
 ./start.sh --hermes-source disabled                    # Skip Hermes entirely
 ./start.sh --n8n-source disabled
+
+# Enable LightRAG with default backends (uses Supabase + Neo4j + Redis)
+./start.sh --lightrag-source=container --tei-reranker-source=container-cpu
 
 # Combined examples
 ./start.sh --cold --base-port 55666 --llm-provider-source ollama-localhost
