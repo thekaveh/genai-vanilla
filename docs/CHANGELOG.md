@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (LightRAG service)
+- New `services/lightrag/` manifest: graph-augmented RAG server pinned to `ghcr.io/hkuds/lightrag:1.5.0`. Default `disabled`.
+- Storage adapts to Supabase pgvector, Neo4j, Redis with in-process fallback when any backend source is `disabled`.
+- Registered with LiteLLM as the `lightrag` model (Ollama-shim served via OpenAI adapter); reachable transitively by open-webui, openclaw, n8n, hermes, backend, local-deep-researcher, jupyterhub.
+- Wired into `runtime_adaptive` of hermes/n8n/backend for direct calls.
+- Kong route `lightrag.localhost` with `preserve_host: True` (WebUI SPA).
+- Init container resolves LLM/embedding model + dim from LiteLLM `/v1/models` at boot.
+- RAG-Anything is NOT added — subsumed by LightRAG v1.5.0's multimodal pipeline.
+
+### Added (TEI Reranker service)
+- New `services/tei-reranker/` manifest: HF text-embeddings-inference running BAAI/bge-reranker-v2-m3. Default `disabled`. Four source variants: `container-cpu`, `container-gpu`, `localhost`, `disabled`.
+- Consumed optionally by LightRAG (`RERANK_BINDING_HOST`); reusable by any future service.
+- Kong route `rerank.localhost`.
+
 ### Added — Apache Airflow + Apache Spark cluster + Apache Zeppelin (data / apps / agents bands)
 
 Three new services added in a single coordinated landing as the stack's

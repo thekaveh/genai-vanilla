@@ -28,6 +28,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Neo4j (Graph Database)](../services/neo4j/README.md) — graph database service
 - [Kong (API Gateway)](../services/kong/README.md) — dynamic API gateway configuration
 - [JupyterHub (Data Science IDE)](../services/jupyterhub/README.md) — interactive Jupyter Lab environment
+- [LightRAG](../services/lightrag/README.md) — graph-augmented RAG server with WebUI + multimodal ingestion
 - [OpenClaw (AI Agent)](../services/openclaw/README.md) — AI agent for messaging platforms
 - [Hermes Agent](../services/hermes/README.md) — programmable AI agent runtime (Nous Research)
 - [Ray](../services/ray/README.md) — distributed compute substrate (head + workers, opt-in via `RAY_SOURCE`)
@@ -36,6 +37,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Apache Spark](../services/spark/README.md) — standalone Spark cluster (5-container family: master + workers + history + Spark Connect gRPC sidecar + minio/mc bucket init) for batch / SQL / DataFrame workloads (opt-in via `SPARK_SOURCE`)
 - [Apache Zeppelin](../services/zeppelin/README.md) — Spark-first notebook UI; Spark interpreter pre-configured, JDBC interpreter requires a one-time UI setup (opt-in via `ZEPPELIN_SOURCE`; gated on Spark)
 - [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
+- [TEI Reranker](../services/tei-reranker/README.md) — BGE-reranker-v2-m3 inference for RAG quality lift
 
 ### 1.3 Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants
