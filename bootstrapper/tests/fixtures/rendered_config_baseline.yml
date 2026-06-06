@@ -863,6 +863,7 @@ services:
     image: ghcr.io/hkuds/lightrag:1.5.0
     networks:
       backend-network: null
+    platform: linux/amd64
     ports:
     - mode: ingress
       protocol: tcp
@@ -2366,6 +2367,7 @@ services:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
     networks:
       backend-network: null
+    platform: linux/amd64
     ports:
     - mode: ingress
       protocol: tcp

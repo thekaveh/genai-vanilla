@@ -4,6 +4,11 @@
 services:
   tei-reranker:
     image: ${TEI_RERANKER_IMAGE_RESOLVED:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.9}
+    # text-embeddings-inference :cpu-1.9 / :1.9 are amd64-only; the only
+    # arm64 tag (cpu-arm64-latest) is unversioned. Pin amd64 to keep
+    # version determinism; Apple Silicon runs under Rosetta 2 emulation.
+    # Switch to an arm64 versioned tag if HF publishes one.
+    platform: linux/amd64
     container_name: ${PROJECT_NAME}-tei-reranker
     deploy:
       replicas: ${TEI_RERANKER_SCALE:-0}
