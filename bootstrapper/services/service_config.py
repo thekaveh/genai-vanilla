@@ -1053,12 +1053,66 @@ class ServiceConfig:
             env_vars['OPEN_WEB_UI_TTS_MODEL'] = ''
             env_vars['OPEN_WEB_UI_TTS_VOICE'] = ''
 
-        # LightRAG reranker adaptation — mirror TEI_RERANKER_ENDPOINT into
-        # LIGHTRAG_RERANK_BINDING_HOST (declared in service.yml runtime_adaptive
-        # under lightrag.environment_adaptation).  A blank/disabled endpoint
-        # leaves the host empty, which disables reranking inside LightRAG.
-        tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
-        env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = tei_endpoint
+        # LightRAG adaptive substitutions — all declared in service.yml
+        # runtime_adaptive.lightrag.environment_adaptation.
+        # Gated on LIGHTRAG_SOURCE so that disabled LightRAG leaves all
+        # storage URIs blank (no spurious credentials in the env).
+        lightrag_source = sources.get('LIGHTRAG_SOURCE', 'disabled')
+        if lightrag_source != 'disabled':
+            lightrag_raw_env = self.config_parser.parse_env_file()
+
+            # Reranker — mirror TEI_RERANKER_ENDPOINT.  A blank/disabled
+            # endpoint leaves the host empty, which disables reranking.
+            tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
+            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = tei_endpoint
+
+            # Docling — mirror DOCLING_ENDPOINT.
+            env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = parent_vars.get('DOCLING_ENDPOINT', '')
+
+            # Supabase pgvector URI.
+            supabase_source = sources.get('SUPABASE_SOURCE', 'container')
+            if supabase_source != 'disabled':
+                pg_user = lightrag_raw_env.get('SUPABASE_DB_USER', 'supabase_admin')
+                pg_password = lightrag_raw_env.get('SUPABASE_DB_PASSWORD', '')
+                pg_db = lightrag_raw_env.get('SUPABASE_DB_NAME', 'postgres')
+                env_vars['LIGHTRAG_PG_URI'] = (
+                    f'postgresql://{pg_user}:{pg_password}@supabase-db:5432/{pg_db}'
+                )
+            else:
+                env_vars['LIGHTRAG_PG_URI'] = ''
+
+            # Neo4j graph URI + credentials.
+            neo4j_source = sources.get('NEO4J_GRAPH_DB_SOURCE', 'container')
+            if neo4j_source != 'disabled':
+                env_vars['LIGHTRAG_NEO4J_URI'] = 'bolt://neo4j:7687'
+                env_vars['LIGHTRAG_NEO4J_USERNAME'] = 'neo4j'
+                env_vars['LIGHTRAG_NEO4J_PASSWORD'] = lightrag_raw_env.get('GRAPH_DB_PASSWORD', '')
+            else:
+                env_vars['LIGHTRAG_NEO4J_URI'] = ''
+                env_vars['LIGHTRAG_NEO4J_USERNAME'] = ''
+                env_vars['LIGHTRAG_NEO4J_PASSWORD'] = ''
+
+            # Redis KV / doc-status URI.
+            redis_source = sources.get('REDIS_SOURCE', 'container')
+            if redis_source != 'disabled':
+                redis_password = lightrag_raw_env.get('REDIS_PASSWORD', '')
+                env_vars['LIGHTRAG_REDIS_URI'] = (
+                    f'redis://:{redis_password}@redis:6379/2'
+                )
+            else:
+                env_vars['LIGHTRAG_REDIS_URI'] = ''
+
+        else:
+            # LightRAG disabled — emit blanks so any stale .env values are
+            # cleared on next run.
+            tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
+            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = tei_endpoint
+            env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = ''
+            env_vars['LIGHTRAG_PG_URI'] = ''
+            env_vars['LIGHTRAG_NEO4J_URI'] = ''
+            env_vars['LIGHTRAG_NEO4J_USERNAME'] = ''
+            env_vars['LIGHTRAG_NEO4J_PASSWORD'] = ''
+            env_vars['LIGHTRAG_REDIS_URI'] = ''
 
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')

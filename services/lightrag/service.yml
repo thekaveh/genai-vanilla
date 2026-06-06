@@ -164,10 +164,10 @@ runtime_adaptive:
     environment_adaptation:
       LIGHTRAG_DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       LIGHTRAG_RERANK_BINDING_HOST: ${TEI_RERANKER_ENDPOINT}
-      LIGHTRAG_PG_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@supabase-db:5432/${POSTGRES_DB}"
+      LIGHTRAG_PG_URI: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}"
       LIGHTRAG_NEO4J_URI: "bolt://neo4j:7687"
       LIGHTRAG_NEO4J_USERNAME: neo4j
-      LIGHTRAG_NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      LIGHTRAG_NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       LIGHTRAG_REDIS_URI: "redis://:${REDIS_PASSWORD}@redis:6379/2"
     extra_hosts_adaptation: none
     failure_mode: "Storage falls back to NanoVectorDB / NetworkX / JsonKV when supabase/neo4j/redis source is disabled. Reranker omitted when disabled. Docling skipped → multimodal images become text-only."
