@@ -53,15 +53,19 @@ Database-index convention (consumer-built URLs):
 
 **Observability sidecar (`redis-exporter`).** The Redis family also ships a `redis-exporter` container (`oliver006/redis_exporter:v1.62.0`) on host port `${REDIS_EXPORTER_PORT}` and in-container `9121`. It scales **1↔0 with `PROMETHEUS_SOURCE`** — the bootstrapper's `_generate_prometheus_config()` hook writes `REDIS_EXPORTER_SCALE` from this single switch, so the sidecar is dormant when Prometheus is off and self-starts when Prom is enabled. Prometheus scrapes it at `redis-exporter:9121/metrics`; the `Postgres + Redis` Grafana dashboard renders memory usage, ops/sec, and hit ratio.
 
-## 5. Dependencies & Integrations
+## 5. LightRAG KV store
+
+When `LIGHTRAG_SOURCE != disabled` AND `REDIS_SOURCE != disabled`, LightRAG uses Redis `db=2` as its KV and doc-status backend (via `RedisKVStorage`). Use `redis-cli -n 2 KEYS '*'` to inspect.
+
+## 6. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/redis/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen redis` after manifest changes.
 
-### 5.1 Current — Upstream (this service calls)
+### 6.1 Current — Upstream (this service calls)
 
 _No upstream calls._
 
-### 5.2 Current — Downstream (services that call this)
+### 6.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
@@ -70,13 +74,13 @@ _No upstream calls._
 | airflow | agents |
 | lightrag | agents |
 
-### 5.3 Architecture diagram
+### 6.3 Architecture diagram
 
 ![redis architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 5.4 Future — Missing pair integrations
+### 6.4 Future — Missing pair integrations
 
 - **redis ↔ comfyui** — *Why:* ComfyUI's compose declares `depends_on: redis` (startup ordering only) but the container receives no `REDIS_URL`. A real link would let n8n/backend enqueue generation jobs to a Redis list/stream and read `progress`/`executed` events back via a sidecar publisher, replacing the per-caller websocket pattern. *Mechanism:* ComfyUI custom node + `redis-py` writing `XADD comfyui:events` on progress; producers `BLPOP comfyui:jobs` from a tiny worker that calls `/prompt`. *Effort:* medium. *Confidence:* medium.
 - **redis ↔ local-deep-researcher** — *Why:* the manifest comment in `services/redis/service.yml` already reserves db `/3` for LDR, but its compose has no `REDIS_URL`. LangGraph's Redis checkpointer would let long-running research runs survive container restarts and let backend stream node-by-node progress. *Mechanism:* `redis://:${REDIS_PASSWORD}@redis:6379/3` consumed by `langgraph.checkpoint.redis.RedisSaver`; `PUBSUB` channel `ldr:run:<id>` for progress. *Effort:* small. *Confidence:* high.
@@ -84,12 +88,12 @@ _No upstream calls._
 - **redis ↔ doc-processor** — *Why:* document parsing is expensive and idempotent on file SHA. A Redis cache keyed on `sha256(file)` lets repeat ingests (common during n8n flow iteration) short-circuit; a Redis stream broadcasts `doc:parsed` events to backend + weaviate ingest. *Mechanism:* cache: `SETEX doc:parsed:<sha> 86400 <json>`; event bus: `XADD doc:events`. *Effort:* small. *Confidence:* medium.
 - **redis ↔ weaviate** — *Why:* embedding generation dominates ingest latency; a content-hash → vector cache cuts repeat-ingest cost dramatically and de-duplicates concurrent embeddings across n8n/backend. *Mechanism:* `GET emb:<model>:<sha>` before calling Weaviate's vectorizer; `SETEX` on miss. Lives behind a tiny helper in backend. *Effort:* medium. *Confidence:* medium.
 
-### 5.5 Future — Candidate new services
+### 6.5 Future — Candidate new services
 
 - **RedisInsight** ([details](../../docs/research/candidates/redisinsight.md)) — *Headline:* official Redis GUI for browsing keys, profiling commands, and inspecting streams across all stack consumers. *Wires into:* backend, n8n, kong, litellm, open-webui, jupyterhub.
 - **Redis Stack (`redis-stack-server`)** ([details](../../docs/research/candidates/redis-stack.md)) — *Headline:* drop-in Redis image bundling RediSearch, RedisJSON, RedisBloom, and RedisTimeSeries — unlocks vector + JSON queries without a second datastore. *Wires into:* backend, weaviate (overlap), n8n, hermes.
 
-### 5.6 Future — Unused features in this service
+### 6.6 Future — Unused features in this service
 
 - **Redis Streams (`XADD`/`XREAD`/consumer groups)** — *Why pursue:* replace ad-hoc HTTP fan-out between backend, n8n, ComfyUI, and doc-processor with a single durable event bus already present in the image. *Effort:* medium.
 - **Pub/Sub channels** — *Why pursue:* live progress streaming for ComfyUI and LDR to the Open WebUI chat surface without polling. *Effort:* small.
@@ -97,7 +101,7 @@ _No upstream calls._
 - **`maxmemory` + eviction policy** — *Why pursue:* cache use-cases (embedding cache, doc cache) need `allkeys-lru`; currently unbounded. *Effort:* small.
 - **RDB snapshots alongside AOF** — *Why pursue:* faster cold-start restore; current `--appendonly yes` is durable but slow to replay on large datasets. *Effort:* small.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 **`NOAUTH Authentication required`.** Consumer's `REDIS_URL` is missing the password segment. Inspect with `docker exec <project>-backend env | grep REDIS_URL`. Expected shape: `redis://:${REDIS_PASSWORD}@redis:6379/<db>` — note the leading colon before the password (no username).
 
@@ -115,7 +119,7 @@ docker exec <project>-redis redis-cli -a "$REDIS_PASSWORD" INFO server
 
 For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md).
 
-## 7. Operations
+## 8. Operations
 
 **Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `langmem:` (backend memory locks), `kong:` (rate-limit counters). Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
 
@@ -127,7 +131,7 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 **Capacity rule of thumb.** With AOF and no `maxmemory`, the container OOMs at the Docker memory limit. The stack default is whatever Docker Desktop allocates (~2 GB). For production deployments, set `maxmemory` explicitly to ~75% of the container's memory budget and pick an eviction policy per workload.
 
-## 8. Tuning
+## 9. Tuning
 
 Stack-relevant knobs that aren't currently exposed via `.env`:
 
@@ -140,14 +144,14 @@ Stack-relevant knobs that aren't currently exposed via `.env`:
 
 To change these today, edit the `command:` line in `services/redis/compose.yml`. Adding them to `service.yml` as proper env vars is a small future change.
 
-## 9. Security
+## 10. Security
 
 - **Shared password.** Every consumer uses the same `REDIS_PASSWORD`. A compromised n8n container can read Kong's rate-limit cache, LiteLLM's budget counters, and backend sessions. Redis 7 ACLs would fix this — see Future — Unused features.
 - **No TLS in-cluster.** Traffic on `backend-network` is unencrypted. Acceptable for the single-host stack; not for multi-host deployments. Wrap with `stunnel` or upgrade to a Redis variant with native TLS if you cross trust boundaries.
 - **Host port exposed.** `REDIS_PORT` (default 63021) is published on the host. With the default password this is a soft target if anyone has LAN access. Either rotate `REDIS_PASSWORD` aggressively or remove the host-port publish from `services/redis/compose.yml` and use `docker exec` for debugging.
 - **AOF includes commands, not just data.** `appendonly.aof` is a literal command log; anyone with read access to the volume can reconstruct every key. Treat the volume as confidential.
 
-## 10. Further reading
+## 11. Further reading
 
 - [Redis commands reference](https://redis.io/commands/) — the canonical command index, organized by data type.
 - [Redis persistence](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/) — AOF vs RDB trade-offs, useful when tuning the stack's defaults.

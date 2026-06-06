@@ -79,11 +79,19 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 
 **Seeded workflows.** `services/n8n/init/workflows/searxng-research-workflow.json` ships as a worked example of the SearXNG → LiteLLM research pattern. More workflows would go here.
 
-## 5. Dependencies & Integrations
+## 5. Calling LightRAG from n8n
+
+When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTRAG_API_KEY` are injected into n8n containers. Use the HTTP Request node:
+
+- URL: `={{$env.LIGHTRAG_ENDPOINT}}/query`
+- Auth: Bearer token from `={{$env.LIGHTRAG_API_KEY}}`
+- Body (JSON): `{"query": "/hybrid Your question"}`
+
+## 6. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/n8n/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen n8n` after manifest changes.
 
-### 5.1 Current — Upstream (this service calls)
+### 6.1 Current — Upstream (this service calls)
 
 | Service | Category |
 |---|---|
@@ -97,7 +105,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 | tts-provider | media |
 | hermes | agents |
 
-### 5.2 Current — Downstream (services that call this)
+### 6.2 Current — Downstream (services that call this)
 
 | Service | Category |
 |---|---|
@@ -106,13 +114,13 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 | openclaw | agents |
 | backend | apps |
 
-### 5.3 Architecture diagram
+### 6.3 Architecture diagram
 
 ![n8n architecture](./architecture.svg)
 
 [Open the interactive HTML diagram](./architecture.html) for a full-screen view.
 
-### 5.4 Future — Missing pair integrations
+### 6.4 Future — Missing pair integrations
 
 - **n8n ↔ comfyui** — *Why:* `n8n-nodes-comfyui` is installed by `n8n-init`, but no `COMFYUI_ENDPOINT` env is injected into n8n's compose, so users hand-enter `http://comfyui:18188` in every workflow credential. *Mechanism:* inject `COMFYUI_ENDPOINT=${COMFYUI_ENDPOINT}` (matches the STT/TTS/DOCLING pattern); add `comfyui` to `runtime_deps.optional`. *Effort:* small. *Confidence:* high.
 - **n8n ↔ minio** — *Why:* MinIO already provisions an `n8n` bucket plus `MINIO_N8N_*` creds, but neither credentials nor the S3 endpoint are passed to n8n, so the dedicated bucket sits unused. *Mechanism:* env-inject `S3_ENDPOINT=http://minio:9000`, `S3_BUCKET=${MINIO_BUCKET_N8N}`, `S3_ACCESS_KEY`/`S3_SECRET_KEY`; add `minio` to `runtime_deps.optional`. Path-style addressing required. *Effort:* small. *Confidence:* high.
@@ -120,19 +128,19 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 - **n8n ↔ searxng** — *Why:* n8n advertises a `SearXNG Tool` sub-node for AI-agent workflows but the endpoint is not injected. *Mechanism:* inject `SEARXNG_ENDPOINT=http://searxng:8080`; add `searxng` to `runtime_deps.optional`. *Effort:* small. *Confidence:* high.
 - **n8n ↔ openclaw** — *Why:* OpenClaw is the messaging-platform gateway. Wiring it to n8n turns every n8n webhook into a chat-triggered automation. *Mechanism:* OpenClaw → n8n via webhook at `http://n8n:5678/webhook/<path>`; n8n → OpenClaw via HTTP Request node; shared bearer secret in both manifests. *Effort:* medium. *Confidence:* medium.
 
-### 5.5 Future — Candidate new services
+### 6.5 Future — Candidate new services
 
 - **Langfuse** ([details](../../docs/research/candidates/langfuse.md)) — *Headline:* self-hostable LLM/diffusion trace + eval store; n8n's HTTP node can log per-step trace events. *Wires into:* litellm, hermes, comfyui.
 - **Browserless** ([details](../../docs/research/candidates/browserless.md)) — *Headline:* headless-Chrome backend so n8n can scrape JS-rendered pages, render PDFs, screenshot. *Wires into:* searxng, doc-processor, backend.
 - **NocoDB** ([details](../../docs/research/candidates/nocodb.md)) — *Headline:* spreadsheet UI over the existing Supabase Postgres, with a first-party n8n node for row CRUD. *Wires into:* supabase, backend.
 
-### 5.6 Future — Unused features in this service
+### 6.6 Future — Unused features in this service
 
 - **MCP Server Trigger node** — *Why pursue:* n8n can expose workflows as MCP tools that Hermes/LiteLLM clients consume, completing the bidirectional MCP story (we install the client node `n8n-nodes-mcp` but never run a server). *Effort:* small.
 - **Native Weaviate Vector Store cluster node** — *Why pursue:* upstream ships a native Weaviate vector-store node; workflows currently talk to Weaviate via raw HTTP. Switching unlocks embeddings + retrievers without custom code. *Effort:* small.
 - **Built-in webhook auth (header auth + signature verification)** — *Why pursue:* OpenClaw and external triggers need verified webhooks; n8n supports this but no defaults are baked into the manifest. *Effort:* small.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 **`Command start not found` restart loop.** Almost always corruption in the `genai-n8n-data` volume after a partial cold-start. Surgical fix: `docker volume rm <project>-n8n-data` (without `./stop.sh --cold`). On next `./start.sh`, n8n re-initializes from scratch.
 
