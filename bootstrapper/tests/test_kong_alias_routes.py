@@ -358,6 +358,43 @@ def test_airflow_route_exists_with_preserve_host():
     assert svc["routes"][0].get("preserve_host") is True
 
 
+def test_lightrag_route_generated_with_preserve_host():
+    """lightrag.localhost route is emitted when LIGHTRAG_SOURCE=container,
+    targeting the in-network lightrag container. SPA at /webui requires
+    preserve_host=True."""
+    config = _generate("LIGHTRAG_SOURCE=container\nLIGHTRAG_LOCALHOST_PORT=63068\n")
+    by_host_with_svc = {
+        host: svc
+        for svc in config["services"]
+        for route in svc.get("routes", [])
+        for host in route.get("hosts") or []
+    }
+    assert "lightrag.localhost" in by_host_with_svc, (
+        f"Expected lightrag.localhost route, got: {sorted(by_host_with_svc)}"
+    )
+    svc = by_host_with_svc["lightrag.localhost"]
+    assert svc["url"] == "http://lightrag:9621/", (
+        f"lightrag.localhost should target http://lightrag:9621/, got {svc['url']}"
+    )
+    # SPA at /webui — preserve_host required
+    route = next(
+        r for r in svc["routes"]
+        if "lightrag.localhost" in (r.get("hosts") or [])
+    )
+    assert route.get("preserve_host") is True, (
+        "LightRAG ships a WebUI SPA at /webui — preserve_host must be True"
+    )
+
+
+def test_lightrag_route_omitted_when_disabled():
+    """lightrag.localhost route must be absent when LIGHTRAG_SOURCE=disabled."""
+    config = _generate("LIGHTRAG_SOURCE=disabled\n")
+    by_host = _hosts_to_service(config)
+    assert "lightrag.localhost" not in by_host, (
+        "lightrag.localhost should not appear when LIGHTRAG_SOURCE=disabled"
+    )
+
+
 @pytest.mark.parametrize("env_var,svc_source_var,svc_source_value,expected_port", [
     ("COMFYUI_LOCALHOST_PORT",      "COMFYUI_SOURCE",            "localhost",              "9999"),
     ("DOCLING_LOCALHOST_PORT",      "DOC_PROCESSOR_SOURCE",      "docling-localhost",      "9999"),

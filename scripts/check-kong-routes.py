@@ -92,6 +92,16 @@ EXPECTED_HOST_ROUTES = {
     # bootstrapper/tests/test_kong_alias_routes.py::test_tei_reranker_*.
     # If the default ever flips, add:
     #   "rerank.localhost": "http://tei-reranker:80/",
+    #
+    # lightrag.localhost is NOT listed here. .env.example defaults
+    # LIGHTRAG_SOURCE=disabled; the generator only emits the LightRAG route
+    # for LIGHTRAG_SOURCE ∈ {container, localhost}.
+    # At default-env runtime there is no lightrag container to route to,
+    # so the route is correctly absent. Opt-in route shape (including
+    # preserve_host=True for the WebUI SPA) is locked by
+    # bootstrapper/tests/test_kong_alias_routes.py::test_lightrag_*.
+    # If the default ever flips, add:
+    #   "lightrag.localhost": "http://lightrag:9621/",
 }
 
 
