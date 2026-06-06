@@ -860,10 +860,9 @@ services:
       - -fs
       - http://localhost:9621/health
       timeout: 5s
-    image: ghcr.io/hkuds/lightrag:1.5.0
+    image: ghcr.io/hkuds/lightrag:v1.5.0
     networks:
       backend-network: null
-    platform: linux/amd64
     ports:
     - mode: ingress
       protocol: tcp

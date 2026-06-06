@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added (LightRAG service)
-- New `services/lightrag/` manifest: graph-augmented RAG server pinned to `ghcr.io/hkuds/lightrag:1.5.0`. Default `disabled`.
+- New `services/lightrag/` manifest: graph-augmented RAG server pinned to `ghcr.io/hkuds/lightrag:v1.5.0`. Default `disabled`.
 - Storage adapts to Supabase pgvector, Neo4j, Redis with in-process fallback when any backend source is `disabled`.
 - Registered with LiteLLM as the `lightrag` model (Ollama-shim served via OpenAI adapter); reachable transitively by open-webui, openclaw, n8n, hermes, backend, local-deep-researcher, jupyterhub.
 - Wired into `runtime_adaptive` of hermes/n8n/backend for direct calls.
