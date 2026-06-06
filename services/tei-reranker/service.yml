@@ -1,0 +1,117 @@
+# services/tei-reranker/service.yml
+# TEI Reranker — BGE-reranker-v2-m3 inference for RAG quality lift.
+# Published image, no build context. Image var resolved per source variant
+# in service_config._generate_tei_reranker_config (mirrors DOCLING_GPU_IMAGE).
+name: tei-reranker
+label: "TEI Reranker (BGE-reranker-v2-m3)"
+category: llm
+docs: services/tei-reranker/README.md
+
+containers:
+  - tei-reranker
+
+images:
+  - var: TEI_RERANKER_CPU_IMAGE
+    default: "ghcr.io/huggingface/text-embeddings-inference:cpu-1.9"
+    container: tei-reranker
+    notes: "Used when TEI_RERANKER_SOURCE=container-cpu."
+  - var: TEI_RERANKER_GPU_IMAGE
+    default: "ghcr.io/huggingface/text-embeddings-inference:1.9"
+    container: tei-reranker
+    notes: "Used when TEI_RERANKER_SOURCE=container-gpu. CUDA host required."
+
+sources:
+  var: TEI_RERANKER_SOURCE
+  default: disabled
+  options:
+    - id: container-cpu
+      label: "Container (CPU)"
+    - id: container-gpu
+      label: "Container (GPU, NVIDIA)"
+    - id: localhost
+      label: "Host (existing TEI rerank on this machine)"
+    - id: disabled
+      label: "Disabled"
+
+env:
+  - name: TEI_RERANKER_SOURCE
+    default: disabled
+  - name: TEI_RERANKER_PORT
+    # default computed by services/topology.py slot allocator
+    description: "Host port for the TEI rerank API (in-container listen port is 80)."
+  - name: TEI_RERANKER_LOCALHOST_PORT
+    default: "63031"
+    description: "Host port for the host-installed TEI rerank source variant."
+  - name: TEI_RERANKER_MODEL_ID
+    default: "BAAI/bge-reranker-v2-m3"
+  - name: TEI_RERANKER_REVISION
+    default: "main"
+  - name: TEI_RERANKER_MAX_CLIENT_BATCH_SIZE
+    default: 32
+  - name: TEI_RERANKER_MEMORY_LIMIT
+    default: 4g
+  - name: TEI_RERANKER_CPU_LIMIT
+    default: "2.0"
+  - name: TEI_RERANKER_HF_CACHE_DIR
+    default: "/data"
+  - name: TEI_RERANKER_SCALE
+    auto_managed: true
+  - name: TEI_RERANKER_ENDPOINT
+    auto_managed: true
+    description: "Resolved per TEI_RERANKER_SOURCE. Consumed by LightRAG runtime_adaptive."
+  - name: TEI_RERANKER_IMAGE_RESOLVED
+    auto_managed: true
+    description: "Image picked per source variant (CPU vs GPU)."
+
+depends_on:
+  required: []
+  optional: []
+
+rows:
+  - display_name: "TEI Reranker"
+    source_var: TEI_RERANKER_SOURCE
+    port_var: TEI_RERANKER_PORT
+    scale_var: TEI_RERANKER_SCALE
+    alias: rerank.localhost
+    description: "BGE-reranker-v2-m3 inference for RAG quality lift."
+    localhost_endpoint_var: TEI_RERANKER_ENDPOINT
+    localhost_port_var: TEI_RERANKER_LOCALHOST_PORT
+
+exports: []
+
+runtime_sc:
+  tei-reranker:
+    container-cpu:
+      scale: 1
+      environment:
+        TEI_RERANKER_ENDPOINT: "http://tei-reranker:80"
+      deploy: {}
+      extra_hosts: []
+    container-gpu:
+      scale: 1
+      environment:
+        TEI_RERANKER_ENDPOINT: "http://tei-reranker:80"
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      extra_hosts: []
+    localhost:
+      scale: 0
+      environment:
+        TEI_RERANKER_ENDPOINT: "http://host.docker.internal:${TEI_RERANKER_LOCALHOST_PORT:-63031}"
+      deploy: {}
+      extra_hosts:
+        - host.docker.internal:host-gateway
+    disabled:
+      scale: 0
+      environment:
+        TEI_RERANKER_ENDPOINT: ""
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls: []
