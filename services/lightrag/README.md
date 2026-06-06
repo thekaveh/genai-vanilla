@@ -1,0 +1,143 @@
+# LightRAG
+
+> **Image:** `ghcr.io/hkuds/lightrag:1.5.0`
+> **Container port:** 9621 (API + WebUI)  · **Default host port:** allocated by `topology.py` (agents band 63060–63079)
+> **Default:** disabled
+
+## 1. Overview
+
+[LightRAG](https://github.com/HKUDS/LightRAG) is a graph-augmented RAG server. It ingests documents (PDF, Office, images, tables, equations — multimodal pipeline absorbed from RAG-Anything in v1.5.0), extracts a knowledge graph via LLM-driven entity/relation extraction, embeds chunks and entities into a vector store, and exposes a unified query API that combines graph traversal with vector search.
+
+In this stack, LightRAG reuses existing infrastructure:
+
+- **LLM + embeddings** routed through LiteLLM (`LLM_BINDING_HOST=http://litellm:4000/v1`).
+- **Vector store** → Supabase pgvector (`PGVectorStorage`).
+- **Graph store** → Neo4j (`Neo4JStorage`).
+- **KV + doc-status** → Redis (`RedisKVStorage`).
+- **Document parsing** → Docling (when `DOC_PROCESSOR_SOURCE != disabled`).
+- **Reranker** → TEI Reranker (when `TEI_RERANKER_SOURCE != disabled`).
+
+When any of these backends is disabled, LightRAG transparently falls back to in-process file backends (`NanoVectorDBStorage` / `NetworkXStorage` / `JsonKVStorage`). Multimodal images become text-only when docling is disabled.
+
+## 2. Source variants
+
+| Source | Scale | Endpoint | Notes |
+|---|---|---|---|
+| `container` | 1 | `http://lightrag:9621` | In-stack LightRAG |
+| `localhost` | 0 | `http://host.docker.internal:${LIGHTRAG_LOCALHOST_PORT}` | Host-installed LightRAG |
+| `disabled` | 0 | `""` | LightRAG off; consumers see empty endpoint |
+
+## 3. Configuration
+
+Storage selectors and model bindings can be overridden via `.env`:
+
+```env
+LIGHTRAG_SOURCE=disabled                            # default
+LIGHTRAG_KV_STORAGE=RedisKVStorage                  # alt: JsonKVStorage
+LIGHTRAG_VECTOR_STORAGE=PGVectorStorage             # alt: NanoVectorDBStorage, QdrantVectorDBStorage, ...
+LIGHTRAG_GRAPH_STORAGE=Neo4JStorage                 # alt: NetworkXStorage, MemgraphStorage, AGEStorage
+LIGHTRAG_DOC_STATUS_STORAGE=RedisKVStorage          # alt: JsonKVStorage
+LIGHTRAG_LLM_MODEL=                                 # empty = inherit LITELLM_DEFAULT_MODEL
+LIGHTRAG_EMBEDDING_MODEL=                           # empty = inherit LITELLM_EMBEDDING_MODEL
+LIGHTRAG_VLM_PROCESS_ENABLE=true                    # vision LLM for images/figures
+```
+
+## 4. Usage
+
+### 4a. Web UI
+
+Browse `http://lightrag.localhost:${KONG_HTTP_PORT}` (after `--setup-hosts`) or `http://localhost:${LIGHTRAG_API_PORT}/webui`. Upload documents, view the KG, run queries.
+
+### 4b. Native API
+
+```bash
+# Insert a document
+curl -sX POST http://localhost:${LIGHTRAG_API_PORT}/documents/upload \
+  -H "Authorization: Bearer ${LIGHTRAG_API_KEY}" \
+  -F "file=@my-paper.pdf"
+
+# Query
+curl -sX POST http://localhost:${LIGHTRAG_API_PORT}/query \
+  -H "Authorization: Bearer ${LIGHTRAG_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "/hybrid What is graph-augmented RAG?"}'
+```
+
+Query mode prefixes: `/hybrid`, `/local`, `/global`, `/naive`, `/mix`. Default is `/hybrid`.
+
+### 4c. Via LiteLLM (recommended for other stack services)
+
+LightRAG is registered with LiteLLM as the `lightrag` model when enabled. Any LiteLLM consumer (open-webui, openclaw, n8n, hermes, backend, local-deep-researcher, jupyterhub) can invoke it:
+
+```bash
+curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
+  -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "lightrag",
+    "messages": [
+      {"role": "user", "content": "/hybrid What is graph-augmented RAG?"}
+    ]
+  }'
+```
+
+## 5. Dependencies & Integrations
+
+> Auto-generated section — the **Current** subsections are derived from `services/lightrag/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen lightrag` after manifest changes.
+
+### 5.1 Current — Upstream (this service calls)
+
+| Service | Category |
+|---|---|
+| neo4j | data |
+| redis | data |
+| supabase | data |
+| litellm | llm |
+| tei-reranker | llm |
+| docling | media |
+
+### 5.2 Current — Downstream (services that call this)
+
+_No downstream consumers._
+
+### 5.3 Architecture diagram
+
+![lightrag architecture](./architecture.svg)
+
+[Open the interactive HTML diagram](./architecture.html) for a full-screen view.
+
+### 5.4 Future — Missing pair integrations
+
+_No high-confidence opportunities identified._
+
+### 5.5 Future — Candidate new services
+
+_No high-confidence opportunities identified._
+
+### 5.6 Future — Unused features in this service
+
+_No high-confidence opportunities identified._
+
+## 6. Storage backend matrix
+
+| Storage role | Default backend | In-process fallback (when source disabled) |
+|---|---|---|
+| KV | Redis `db=2` | JsonKVStorage (`/app/data/kv/*.json`) |
+| Vector | Supabase pgvector | NanoVectorDBStorage (`/app/data/vectors/*.json`) |
+| Graph | Neo4j | NetworkXStorage (`/app/data/graph/*.graphml`) |
+| Doc-status | Redis `db=2` | JsonKVStorage |
+
+## 7. Init container
+
+`lightrag-init` runs once per `docker compose up`. It:
+
+1. Waits for LiteLLM `/v1/models` (60 s timeout).
+2. Resolves `LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` / `LIGHTRAG_EMBEDDING_DIM` from LiteLLM.
+3. Runs idempotent pgvector + Neo4j migrations.
+
+## 8. Troubleshooting
+
+- **First boot exceeds health-check timeout** — `start_period` is 300 s. Initial model downloads (tokenizer + embedding model + reranker) can take up to 5 min.
+- **`OPENAI_API_KEY` warning at startup** — LightRAG checks env even when using `openai`-compatible Ollama. Harmless; the actual key is the `LITELLM_MASTER_KEY` forwarded as `LLM_BINDING_API_KEY`.
+- **Empty KG after ingestion** — verify `LIGHTRAG_LLM_MODEL` actually points at a chat-capable model. Some embedding-only Ollama tags will silently produce empty triples.
+- **`pgvector` dim mismatch** — drop and rerun the migration when changing `LIGHTRAG_EMBEDDING_DIM`: `psql ... -c "DROP SCHEMA lightrag CASCADE"` then restart.
