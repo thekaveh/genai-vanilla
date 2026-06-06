@@ -106,3 +106,11 @@ def test_init_airflow_uses_equals_form_for_password_flags():
         f"will mis-parse when the value starts with `-`: {matches}. "
         f"Use `--flag=\"${{VAR}}\"` form instead. See PR #37 history."
     )
+
+
+def test_generate_lightrag_api_key_returns_prefixed_secret():
+    from utils.key_generator import KeyGenerator
+    gen = KeyGenerator()
+    key = gen.generate_lightrag_api_key()
+    assert key.startswith("sk-lightrag-")
+    assert len(key) > len("sk-lightrag-") + 20  # token_urlsafe entropy floor
