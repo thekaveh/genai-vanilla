@@ -61,6 +61,9 @@ services:
       # model is the default surface). Empty when HERMES_SOURCE=disabled.
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
       HERMES_API_KEY: ${HERMES_API_KEY:-}
+      # LightRAG — graph-augmented RAG endpoint (empty when LIGHTRAG_SOURCE=disabled)
+      LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
       # LangMem Memory Configuration
       LANGMEM_ENABLED: ${LANGMEM_ENABLED:-true}
       LANGMEM_NAMESPACE: ${LANGMEM_MEMORY_NAMESPACE:-default}

@@ -34,7 +34,9 @@ _No upstream calls._
 
 ### 2.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| lightrag | agents |
 
 ### 2.3 Architecture diagram
 

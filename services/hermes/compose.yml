@@ -31,6 +31,9 @@ services:
       STT_INTERNAL_URL: ${STT_INTERNAL_URL:-}
       COMFYUI_INTERNAL_URL: ${COMFYUI_INTERNAL_URL:-}
       SEARXNG_INTERNAL_URL: ${SEARXNG_INTERNAL_URL:-}
+      # LightRAG — graph-augmented RAG endpoint (empty when LIGHTRAG_SOURCE=disabled)
+      LIGHTRAG_INTERNAL_URL: ${LIGHTRAG_INTERNAL_URL:-}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     volumes:
       - hermes-data:/opt/data
       - ./init/scripts:/scripts:ro

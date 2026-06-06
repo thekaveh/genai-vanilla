@@ -66,6 +66,9 @@ services:
       # `hermes-agent`; direct route bypasses the gateway for webhook/dashboard).
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
       HERMES_API_KEY: ${HERMES_API_KEY:-}
+      # LightRAG — graph-augmented RAG endpoint (empty when LIGHTRAG_SOURCE=disabled)
+      LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     ports:
       - "${N8N_PORT}:5678"
     volumes:

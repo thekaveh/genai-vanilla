@@ -147,6 +147,8 @@ export TTS_INTERNAL_URL="${TTS_INTERNAL_URL:-}"
 export STT_INTERNAL_URL="${STT_INTERNAL_URL:-}"
 export COMFYUI_INTERNAL_URL="${COMFYUI_INTERNAL_URL:-}"
 export SEARXNG_INTERNAL_URL="${SEARXNG_INTERNAL_URL:-}"
+export LIGHTRAG_INTERNAL_URL="${LIGHTRAG_INTERNAL_URL:-}"
+export LIGHTRAG_API_KEY="${LIGHTRAG_API_KEY:-}"
 
 # ─── compose providers.litellm.models list ────────────────────────
 # Hermes's provider picker lists every model returned by
@@ -210,7 +212,8 @@ export LITELLM_MODELS_LIST
 VARS='${HERMES_DEFAULT_MODEL} ${HERMES_CONTEXT_LENGTH} ${LITELLM_MASTER_KEY}
 ${LITELLM_MODELS_LIST}
 ${TTS_INTERNAL_URL} ${STT_INTERNAL_URL} ${COMFYUI_INTERNAL_URL}
-${SEARXNG_INTERNAL_URL}'
+${SEARXNG_INTERNAL_URL}
+${LIGHTRAG_INTERNAL_URL} ${LIGHTRAG_API_KEY}'
 
 if [[ ! -f "${TEMPLATE_DIR}/config.yaml.tmpl" ]]; then
   log "❌ template ${TEMPLATE_DIR}/config.yaml.tmpl is missing — check the bind mount"
@@ -238,6 +241,7 @@ strip_block() {
 strip_block TTS    TTS_INTERNAL_URL
 strip_block STT    STT_INTERNAL_URL
 strip_block SEARCH SEARXNG_INTERNAL_URL
+strip_block RAG    LIGHTRAG_INTERNAL_URL
 
 # Atomic write so a crash mid-write doesn't leave a partial config.
 tmp="${CONFIG_OUT}.tmp"

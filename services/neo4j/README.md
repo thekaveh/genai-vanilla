@@ -224,6 +224,7 @@ _No upstream calls._
 |---|---|
 | kong | infra |
 | airflow | agents |
+| lightrag | agents |
 | jupyterhub | apps |
 
 ### 12.3 Architecture diagram
