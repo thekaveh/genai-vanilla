@@ -117,3 +117,84 @@ def test_lightrag_adaptive_blanks_rerank_when_tei_disabled(env_copy):
     })
     env = sc.generate_service_environment()
     assert env.get("LIGHTRAG_RERANK_BINDING_HOST", "") == ""
+
+
+# ---------------------------------------------------------------------------
+# Storage adaptive var tests — 6 newly-emitted vars
+# ---------------------------------------------------------------------------
+
+def test_lightrag_pg_uri_populated_when_supabase_enabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "container",
+        "SUPABASE_SOURCE": "container",
+    })
+    env = sc.generate_service_environment()
+    assert env.get("LIGHTRAG_PG_URI", "").startswith("postgresql://")
+    assert "supabase-db:5432" in env["LIGHTRAG_PG_URI"]
+
+
+def test_lightrag_pg_uri_blank_when_supabase_disabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "container",
+        "SUPABASE_SOURCE": "disabled",
+    })
+    env = sc.generate_service_environment()
+    assert env.get("LIGHTRAG_PG_URI", "") == ""
+
+
+def test_lightrag_neo4j_uri_populated_when_neo4j_enabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "container",
+        "NEO4J_GRAPH_DB_SOURCE": "container",
+    })
+    env = sc.generate_service_environment()
+    assert env.get("LIGHTRAG_NEO4J_URI") == "bolt://neo4j:7687"
+    assert env.get("LIGHTRAG_NEO4J_USERNAME") == "neo4j"
+    assert env.get("LIGHTRAG_NEO4J_PASSWORD")  # truthy — non-empty from .env.example
+
+
+def test_lightrag_neo4j_blank_when_neo4j_disabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "container",
+        "NEO4J_GRAPH_DB_SOURCE": "disabled",
+    })
+    env = sc.generate_service_environment()
+    assert env.get("LIGHTRAG_NEO4J_URI", "") == ""
+    assert env.get("LIGHTRAG_NEO4J_USERNAME", "") == ""
+    assert env.get("LIGHTRAG_NEO4J_PASSWORD", "") == ""
+
+
+def test_lightrag_redis_uri_populated_when_redis_enabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "container",
+        "REDIS_SOURCE": "container",
+    })
+    env = sc.generate_service_environment()
+    assert env.get("LIGHTRAG_REDIS_URI", "").startswith("redis://")
+    assert "redis:6379/2" in env["LIGHTRAG_REDIS_URI"]
+
+
+def test_lightrag_docling_endpoint_mirrors_DOCLING_ENDPOINT(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "container",
+        "DOC_PROCESSOR_SOURCE": "docling-container-gpu",
+    })
+    env = sc.generate_service_environment()
+    assert "docling" in env.get("LIGHTRAG_DOCLING_ENDPOINT", "")
+
+
+def test_lightrag_storage_blanks_when_lightrag_disabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "disabled",
+        "SUPABASE_SOURCE": "container",
+        "NEO4J_GRAPH_DB_SOURCE": "container",
+        "REDIS_SOURCE": "container",
+    })
+    env = sc.generate_service_environment()
+    # LightRAG disabled → storage adaptive vars are blank
+    assert env.get("LIGHTRAG_PG_URI", "") == ""
+    assert env.get("LIGHTRAG_NEO4J_URI", "") == ""
+    assert env.get("LIGHTRAG_NEO4J_USERNAME", "") == ""
+    assert env.get("LIGHTRAG_NEO4J_PASSWORD", "") == ""
+    assert env.get("LIGHTRAG_REDIS_URI", "") == ""
+    assert env.get("LIGHTRAG_DOCLING_ENDPOINT", "") == ""
