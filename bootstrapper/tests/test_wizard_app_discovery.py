@@ -71,6 +71,10 @@ EXPECTED_DISCOVERED = frozenset({
     # SourceOverrideManager.source_mapping (same pattern as Ray's
     # ray_head_source / Spark's spark_master_source).
     "Apache Airflow",
+    # TEI Reranker (added 2026-06-05) — GPU-accelerated reranker inference.
+    # Single-container family; wired via 'tei_reranker_source' in
+    # source_mapping with container-cpu / container-gpu / localhost / disabled.
+    "TEI Reranker",
 })
 
 
@@ -194,6 +198,14 @@ def test_source_mapping_includes_app_service_flags() -> None:
             f"{cli_key} missing from SourceOverrideManager.source_mapping — "
             f"wizard discover() will silently filter the service out."
         )
+
+
+def test_source_mapping_includes_tei_reranker():
+    from utils.source_override_manager import SourceOverrideManager
+    cp = ConfigParser(str(REPO_ROOT))
+    mgr = SourceOverrideManager(cp)
+    assert 'tei_reranker_source' in mgr.source_mapping
+    assert mgr.source_mapping['tei_reranker_source'] == 'TEI_RERANKER_SOURCE'
 
 
 def test_start_py_source_args_dict_includes_every_cli_source_flag() -> None:
