@@ -239,6 +239,20 @@ class KeyGenerator:
         new_key = self.generate_hermes_api_key()
         return self.update_env_key('HERMES_API_KEY', new_key)
 
+    def generate_lightrag_api_key(self) -> str:
+        """Bearer key for LightRAG /api endpoints. Forwarded to LiteLLM."""
+        return f"sk-lightrag-{_cli_safe_token_urlsafe(32)}"
+
+    def generate_and_update_lightrag_api_key(self, force: bool = False) -> bool:
+        """Generate LIGHTRAG_API_KEY when absent. Idempotent: existing keys are
+        preserved so already-running LightRAG requests keep working across re-runs.
+        """
+        current_value = self.get_current_env_value('LIGHTRAG_API_KEY')
+        if not force and current_value:
+            return True
+        new_key = self.generate_lightrag_api_key()
+        return self.update_env_key('LIGHTRAG_API_KEY', new_key)
+
     def generate_webui_secret_key(self) -> str:
         """Open WebUI JWT/session signing key. Used by Open WebUI itself
         AND by ``services/open-webui/init/scripts/register-{tools,functions}.py``
@@ -427,6 +441,12 @@ class KeyGenerator:
         # references it via os.environ/HERMES_API_KEY, so rotating it
         # without restarting the LiteLLM container would break routing.
         results['HERMES_API_KEY'] = self.generate_and_update_hermes_api_key(force=False)
+
+        # LightRAG API bearer key — only generate when LIGHTRAG_SOURCE != disabled
+        # and the key is absent. Same preservation posture as HERMES_API_KEY.
+        if self.get_current_env_value("LIGHTRAG_SOURCE") != "disabled" and \
+                not self.get_current_env_value("LIGHTRAG_API_KEY"):
+            results['LIGHTRAG_API_KEY'] = self.generate_and_update_lightrag_api_key(force=False)
 
         # Open WebUI JWT/session signing key. Upgrades the shipped
         # ``"secret"`` placeholder to a real 32-byte token; preserves
