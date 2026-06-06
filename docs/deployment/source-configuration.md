@@ -31,10 +31,12 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `OPENCLAW_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing | AI messaging agent. |
 | `HERMES_SOURCE` | `container` | `container`, `localhost`, `disabled` | User-facing | Programmable AI agent runtime (Nous Research). Routes reasoning through LiteLLM and appears as the `hermes-agent` model to every consumer. |
 | `STT_PROVIDER_SOURCE` | `speaches-container-cpu` | `speaches-container-cpu`, `speaches-container-gpu`, `parakeet-container-gpu`, `parakeet-localhost`, `whisper-cpp-localhost`, `disabled` | User-facing optional | Speech-to-text provider. Speaches is the CPU-friendly default; Parakeet remains for SOTA NVIDIA; whisper.cpp is the best Apple Silicon native option. |
+| `TEI_RERANKER_SOURCE` | `disabled` | `container-cpu`, `container-gpu`, `localhost`, `disabled` | User-facing optional | BGE-reranker-v2-m3 inference for RAG quality lift. Consumed optionally by LightRAG. |
 | `TTS_PROVIDER_SOURCE` | `speaches-container-cpu` | `speaches-container-cpu`, `speaches-container-gpu`, `chatterbox-container-gpu`, `chatterbox-localhost`, `disabled` | User-facing optional | Text-to-speech provider. Speaches serves Kokoro/Piper voices; Chatterbox adds 5-sec zero-shot voice cloning. |
 | `DOC_PROCESSOR_SOURCE` | `disabled` | `docling-container-gpu`, `docling-localhost`, `disabled` | User-facing optional | Document processing provider. |
 | `JUPYTERHUB_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Data science notebooks; adaptive integrations. |
 | `MULTI2VEC_CLIP_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `disabled` | User-facing optional | Multimodal Weaviate vectorizer. |
+| `LIGHTRAG_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing optional | Graph-augmented RAG server. Storage adapts to Supabase pgvector, Neo4j, Redis. |
 | `LOCAL_DEEP_RESEARCHER_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Local research/orchestration service. |
 | `OPEN_WEB_UI_SOURCE` | `container` | `container`, `disabled` | Adaptive application | Main chat UI; adapts to LLM provider. |
 | `BACKEND_SOURCE` | `container` | `container` | Adaptive core | Always-on Backend API; not disableable in this remediation track. |
@@ -70,7 +72,9 @@ These services can run on your host machine instead of in containers:
 | **Neo4j** | `NEO4J_GRAPH_DB_SOURCE` | `localhost` | Use an existing graph database |
 | **OpenClaw** | `OPENCLAW_SOURCE` | `localhost` | Native performance, existing config |
 | **Hermes Agent** | `HERMES_SOURCE` | `localhost` | Operate your real machine (shell, browser, microphone); host-installed Hermes |
+| **LightRAG** | `LIGHTRAG_SOURCE` | `localhost` | Use a host-installed LightRAG process |
 | **STT Provider** | `STT_PROVIDER_SOURCE` | `parakeet-localhost`, `whisper-cpp-localhost` | Run STT natively (best on Apple Silicon — Metal+ANE for whisper.cpp, MLX for Parakeet) |
+| **TEI Reranker** | `TEI_RERANKER_SOURCE` | `localhost` | Use a host-installed TEI reranker process |
 | **TTS Provider** | `TTS_PROVIDER_SOURCE` | `chatterbox-localhost` | Run Chatterbox voice cloning natively (macOS MPS / Linux) |
 | **Document Processor** | `DOC_PROCESSOR_SOURCE` | `docling-localhost` | Use a host Docling service |
 
@@ -396,6 +400,14 @@ HERMES_SOURCE=disabled
 - **Cons**: No agent loop, skills, voice, or programmable behaviour
 - **Requirements**: None — `litellm-init` automatically omits the `hermes-agent` row from the model_list when disabled
 
+### LIGHTRAG_SOURCE
+
+LightRAG runs out-of-process as either an in-stack container or a host-installed process.
+
+- **`container`** — Pulls `ghcr.io/hkuds/lightrag:1.5.0` and runs it on `backend-network`. Storage backends are adapted from existing services (Supabase pgvector, Neo4j, Redis); when any of those is `disabled`, LightRAG falls back to in-process file backends.
+- **`localhost`** — Expects an existing LightRAG running on the host at `LIGHTRAG_LOCALHOST_PORT` (default 63068). Backend-network consumers reach it via `host.docker.internal`.
+- **`disabled`** — `LIGHTRAG_ENDPOINT` empties; hermes/n8n/backend skip the LightRAG capability; LiteLLM's `model_list` omits the `lightrag` entry.
+
 ### RAY_SOURCE
 
 Ray is the stack's distributed-compute substrate (head + worker containers, `infra` category). Consumers reach it via `RAY_ADDRESS` set per source by the bootstrapper's `_generate_ray_config()` hook. See [Ray service README](../../services/ray/README.md) for the full configuration reference.
@@ -499,6 +511,15 @@ SPARK_WORKER_COUNT=2     # number of spark-worker replicas; 1..8 — wizard prom
 - **Cons**: Each worker reserves CPU + RAM (defaults to 1 core / 1 GB); heavy on laptops above 2 workers
 - **Containers**: `spark-master`, `spark-worker-1..N`, `spark-history`, `spark-connect` (gRPC Connect sidecar), `spark-init` (one-shot — creates the spark-history MinIO bucket)
 - **Requirements**: ~3 GB image disk + ~1 GB RAM per worker
+
+### TEI_RERANKER_SOURCE
+
+Inference server for BGE-reranker-v2-m3. Used by LightRAG as an optional reranker.
+
+- **`container-cpu`** — `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9`. Runs anywhere; ~150 ms per pair latency.
+- **`container-gpu`** — `:1.9` image with NVIDIA reservation. ~15 ms per pair on RTX-class GPU.
+- **`localhost`** — Existing TEI process on host at `TEI_RERANKER_LOCALHOST_PORT` (default 63031).
+- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is blank.
 
 ### ZEPPELIN_SOURCE
 

@@ -346,10 +346,12 @@ The wizard automatically discovers all configurable services from each `services
 | n8n | container, disabled |
 | SearxNG | container, disabled |
 | JupyterHub | container, disabled |
+| LightRAG | container, localhost, disabled |
 | Ray | ray-container-cpu, ray-container-gpu, disabled (with inline `RAY_WORKER_COUNT` input on container variants) |
 | Spark cluster | container, disabled (with inline `SPARK_WORKER_COUNT` input on `container`, default 2, range 1..8) |
 | Zeppelin | container, disabled (requires Spark — `ZEPPELIN_SOURCE=container` with `SPARK_SOURCE=disabled` errors at bootstrap) |
 | Airflow | container, disabled |
+| TEI Reranker | container-cpu, container-gpu, localhost, disabled |
 | Prometheus | container, disabled (with inline `PROMETHEUS_RETENTION_DAYS` input on `container`, default 7, range 1..365) |
 | Grafana | container, disabled |
 
