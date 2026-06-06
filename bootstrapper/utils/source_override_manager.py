@@ -76,6 +76,7 @@ class SourceOverrideManager:
             # ray_head_source and Spark's spark_master_source shims).
             'airflow_webserver_source': 'AIRFLOW_SOURCE',
             'tei_reranker_source': 'TEI_RERANKER_SOURCE',
+            'lightrag_source': 'LIGHTRAG_SOURCE',
         }
     
     def collect_overrides(self, **kwargs) -> Dict[str, str]:

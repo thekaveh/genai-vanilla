@@ -75,6 +75,9 @@ EXPECTED_DISCOVERED = frozenset({
     # Single-container family; wired via 'tei_reranker_source' in
     # source_mapping with container-cpu / container-gpu / localhost / disabled.
     "TEI Reranker",
+    # LightRAG (added 2026-06-05) — knowledge-graph-augmented RAG engine.
+    # Single-container family; wired via 'lightrag_source' in source_mapping.
+    "LightRAG",
 })
 
 
@@ -206,6 +209,14 @@ def test_source_mapping_includes_tei_reranker():
     mgr = SourceOverrideManager(cp)
     assert 'tei_reranker_source' in mgr.source_mapping
     assert mgr.source_mapping['tei_reranker_source'] == 'TEI_RERANKER_SOURCE'
+
+
+def test_source_mapping_includes_lightrag():
+    from utils.source_override_manager import SourceOverrideManager
+    cp = ConfigParser(str(REPO_ROOT))
+    mgr = SourceOverrideManager(cp)
+    assert 'lightrag_source' in mgr.source_mapping
+    assert mgr.source_mapping['lightrag_source'] == 'LIGHTRAG_SOURCE'
 
 
 def test_start_py_source_args_dict_includes_every_cli_source_flag() -> None:
