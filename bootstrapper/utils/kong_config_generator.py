@@ -189,6 +189,10 @@ class KongConfigGenerator:
         if tei_reranker_service:
             services.append(tei_reranker_service)
 
+        lightrag_service = self.generate_lightrag_service()
+        if lightrag_service:
+            services.append(lightrag_service)
+
         minio_service = self.generate_minio_service()
         if minio_service:
             services.append(minio_service)
@@ -823,6 +827,47 @@ class KongConfigGenerator:
                     # preserve_host is omitted (defaults False) — REST-only
                     # endpoint; no SPA redirect-URL construction from Host.
                     "hosts": ["rerank.localhost"],
+                }
+            ],
+            "plugins": [{"name": "cors"}],
+        }
+
+    def generate_lightrag_service(self) -> Optional[Dict[str, Any]]:
+        """Kong route for LightRAG — WebUI SPA at /webui, preserve_host required.
+
+        Routes ``lightrag.localhost:${KONG_HTTP_PORT}`` to the LightRAG
+        container at ``http://lightrag:9621/``.
+
+        Why ``preserve_host: True``: LightRAG ships a React-based WebUI at
+        ``/webui``. The SPA constructs asset and API URLs from the Host
+        header. Without ``preserve_host``, Kong rewrites Host to
+        ``lightrag:9621`` and the browser cannot resolve that internal Docker
+        hostname. Same pattern as n8n / LiteLLM / Hermes.
+
+        Gated on ``LIGHTRAG_SOURCE != disabled``. When disabled, no
+        ``lightrag`` container exists and the route would 502 — skip it.
+        """
+        source = self.get_env_value("LIGHTRAG_SOURCE", "disabled")
+        if not source or source == "disabled":
+            return None
+
+        if source == "localhost":
+            url = self._localhost_url("LIGHTRAG_LOCALHOST_PORT", "63068")
+        else:  # container
+            url = "http://lightrag:9621/"
+
+        return {
+            "name": "lightrag",
+            "url": url,
+            "routes": [
+                {
+                    "name": "lightrag-all",
+                    "strip_path": False,
+                    # LightRAG WebUI SPA at /webui derives asset and API URLs
+                    # from the Host header — preserve_host is mandatory.
+                    # See reference_kong_preserve_host memory.
+                    "preserve_host": True,
+                    "hosts": ["lightrag.localhost"],
                 }
             ],
             "plugins": [{"name": "cors"}],

@@ -126,6 +126,13 @@ class LocalhostValidator:
             'port_env_var': 'TEI_RERANKER_LOCALHOST_PORT',
             'service_name': 'TEI Reranker',
             'default_port': 63031
+        },
+        'LIGHTRAG_SOURCE': {
+            'source_values': ['localhost'],
+            'check_type': 'http',
+            'port_env_var': 'LIGHTRAG_LOCALHOST_PORT',
+            'service_name': 'LightRAG',
+            'default_port': 63068
         }
     }
     
