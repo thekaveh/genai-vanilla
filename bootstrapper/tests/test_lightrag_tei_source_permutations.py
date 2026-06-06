@@ -198,3 +198,13 @@ def test_lightrag_storage_blanks_when_lightrag_disabled(env_copy):
     assert env.get("LIGHTRAG_NEO4J_PASSWORD", "") == ""
     assert env.get("LIGHTRAG_REDIS_URI", "") == ""
     assert env.get("LIGHTRAG_DOCLING_ENDPOINT", "") == ""
+
+
+def test_lightrag_rerank_blank_when_lightrag_disabled(env_copy):
+    sc = _make(env_copy, {
+        "LIGHTRAG_SOURCE": "disabled",
+        "TEI_RERANKER_SOURCE": "container-cpu",  # tei is on
+    })
+    env = sc.generate_service_environment()
+    # Even though TEI is on, LightRAG is disabled — its rerank var must be blank
+    assert env.get("LIGHTRAG_RERANK_BINDING_HOST", "") == ""
