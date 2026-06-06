@@ -1,0 +1,90 @@
+"""Resolve LightRAG's LLM/embedding model names + embedding dim from LiteLLM.
+
+Reads LiteLLM's /v1/models, picks LITELLM_DEFAULT_MODEL for chat/VLM and
+LITELLM_EMBEDDING_MODEL for embedding, computes the embedding dimension from
+a known lookup table (or by issuing a probe embedding), and emits
+KEY=VALUE lines on stdout for the calling shell to consume.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+LITELLM_URL = "http://litellm:4000/v1/models"
+MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
+
+# Known embedding dims for the commonly-used models in this stack. If the
+# resolved model isn't here, fall back to a probe embedding.
+KNOWN_DIMS = {
+    "nomic-embed-text": 768,
+    "ollama/nomic-embed-text": 768,
+    "bge-m3": 1024,
+    "BAAI/bge-m3": 1024,
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "text-embedding-ada-002": 1536,
+}
+
+
+def fetch_models() -> list[str]:
+    req = urllib.request.Request(
+        LITELLM_URL,
+        headers={"Authorization": f"Bearer {MASTER_KEY}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            payload = json.loads(r.read().decode("utf-8"))
+        return [m["id"] for m in payload.get("data", [])]
+    except (urllib.error.URLError, json.JSONDecodeError) as e:
+        print(f"# WARN could not fetch /v1/models: {e}", file=sys.stderr)
+        return []
+
+
+def resolve_dim(model: str) -> int:
+    # Direct hit
+    if model in KNOWN_DIMS:
+        return KNOWN_DIMS[model]
+    # Substring match (e.g. "ollama/bge-m3" matches "bge-m3")
+    for key, dim in KNOWN_DIMS.items():
+        if key in model:
+            return dim
+    # Probe embedding fallback
+    try:
+        req = urllib.request.Request(
+            "http://litellm:4000/v1/embeddings",
+            data=json.dumps({"input": "probe", "model": model}).encode(),
+            headers={
+                "Authorization": f"Bearer {MASTER_KEY}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            payload = json.loads(r.read().decode("utf-8"))
+        return len(payload["data"][0]["embedding"])
+    except Exception as e:
+        print(f"# WARN dim probe failed for {model}: {e}", file=sys.stderr)
+        return 768  # safe fallback for nomic-embed-text
+
+
+def main() -> None:
+    available = fetch_models()
+    chat = os.environ.get("LITELLM_DEFAULT_MODEL", "").strip()
+    embed = os.environ.get("LITELLM_EMBEDDING_MODEL", "").strip()
+    if not chat and available:
+        chat = available[0]
+    if not embed:
+        # Prefer anything with "embed" in the name
+        embed_candidates = [m for m in available if "embed" in m.lower()]
+        embed = embed_candidates[0] if embed_candidates else "ollama/nomic-embed-text"
+    dim = resolve_dim(embed)
+    print(f"LIGHTRAG_LLM_MODEL={chat}")
+    print(f"LIGHTRAG_EMBEDDING_MODEL={embed}")
+    print(f"LIGHTRAG_EMBEDDING_DIM={dim}")
+
+
+if __name__ == "__main__":
+    main()
