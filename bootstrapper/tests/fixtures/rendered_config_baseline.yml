@@ -1,11 +1,61 @@
 name: genai
+networks:
+  backend-network:
+    driver: bridge
+    name: genai-network
 services:
-  airflow-init:
+  airflow-dag-processor:
     build:
-      context: '{REPO_ROOT}/services/airflow/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: apache/airflow:3.2.2
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
+    command:
+    - airflow
+    - dag-processor
+    container_name: genai-airflow-dag-processor
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      AIRFLOW_UID: '50000'
+      AIRFLOW__API__SECRET_KEY: ''
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
+      AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 1m30s
+      test:
+      - CMD-SHELL
+      - airflow jobs check --job-type DagProcessorJob --hostname "$$(hostname)"
+      timeout: 10s
+    image: genai-airflow:local
+    networks:
+      backend-network: null
+    restart: unless-stopped
+    volumes:
+    - bind: {}
+      source: '{REPO_ROOT}/services/airflow/dags'
+      target: /opt/airflow/dags
+      type: bind
+    - source: airflow-logs
+      target: /opt/airflow/logs
+      type: volume
+      volume: {}
+  airflow-init:
+    build:
+      args:
+        BASE_IMAGE: apache/airflow:3.2.2
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
     command:
     - bash
     - /scripts/init-airflow.sh
@@ -17,16 +67,16 @@ services:
     deploy:
       replicas: 0
     environment:
+      AIRFLOW_ADMIN_PASSWORD: ''
+      AIRFLOW_DB_PASSWORD: ''
+      AIRFLOW_DB_USER: airflow
+      AIRFLOW_UID: '50000'
       AIRFLOW__API__SECRET_KEY: ''
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       AIRFLOW__CORE__FERNET_KEY: ''
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
       AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
-      AIRFLOW_ADMIN_PASSWORD: ''
-      AIRFLOW_DB_PASSWORD: ''
-      AIRFLOW_DB_USER: airflow
-      AIRFLOW_UID: '50000'
       GRAPH_DB_PASSWORD: neo4j_password
       GRAPH_DB_USER: neo4j
       LITELLM_MASTER_KEY: ''
@@ -44,67 +94,21 @@ services:
     networks:
       backend-network: null
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/airflow/dags'
       target: /opt/airflow/dags
-      bind: {}
-    - type: bind
+      type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/airflow/init/scripts'
       target: /scripts
-      read_only: true
-      bind: {}
-  airflow-dag-processor:
-    build:
-      context: '{REPO_ROOT}/services/airflow/build'
-      dockerfile: Dockerfile
-      args:
-        BASE_IMAGE: apache/airflow:3.2.2
-    command:
-    - airflow
-    - dag-processor
-    container_name: genai-airflow-dag-processor
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-        required: true
-    deploy:
-      replicas: 0
-    environment:
-      AIRFLOW__API__SECRET_KEY: ''
-      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__FERNET_KEY: ''
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
-      AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
-      AIRFLOW_UID: '50000'
-    healthcheck:
-      test:
-      - CMD-SHELL
-      - airflow jobs check --job-type DagProcessorJob --hostname "$$(hostname)"
-      timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 1m30s
-    image: genai-airflow:local
-    networks:
-      backend-network: null
-    restart: unless-stopped
-    volumes:
-    - type: bind
-      source: '{REPO_ROOT}/services/airflow/dags'
-      target: /opt/airflow/dags
-      bind: {}
-    - type: volume
-      source: airflow-logs
-      target: /opt/airflow/logs
-      volume: {}
+      type: bind
   airflow-scheduler:
     build:
-      context: '{REPO_ROOT}/services/airflow/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: apache/airflow:3.2.2
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
     command:
     - airflow
     - scheduler
@@ -116,6 +120,7 @@ services:
     deploy:
       replicas: 0
     environment:
+      AIRFLOW_UID: '50000'
       AIRFLOW__API__SECRET_KEY: ''
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -123,34 +128,33 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
       AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
-      AIRFLOW_UID: '50000'
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 1m30s
       test:
       - CMD-SHELL
       - airflow jobs check --job-type SchedulerJob --hostname "$$(hostname)"
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 1m30s
     image: genai-airflow:local
     networks:
       backend-network: null
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/airflow/dags'
       target: /opt/airflow/dags
-      bind: {}
-    - type: volume
-      source: airflow-logs
+      type: bind
+    - source: airflow-logs
       target: /opt/airflow/logs
+      type: volume
       volume: {}
   airflow-webserver:
     build:
-      context: '{REPO_ROOT}/services/airflow/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: apache/airflow:3.2.2
+      context: '{REPO_ROOT}/services/airflow/build'
+      dockerfile: Dockerfile
     command:
     - airflow
     - api-server
@@ -162,6 +166,7 @@ services:
     deploy:
       replicas: 0
     environment:
+      AIRFLOW_UID: '50000'
       AIRFLOW__API__SECRET_KEY: ''
       AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -169,41 +174,40 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:@supabase-db:5432/airflow
       AIRFLOW__FAB__AUTH_BACKENDS: airflow.providers.fab.auth_manager.api.auth.backend.basic_auth
-      AIRFLOW_UID: '50000'
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
       test:
       - CMD
       - curl
       - -fsS
       - http://localhost:8080/api/v2/monitor/health
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 1m0s
     image: genai-airflow:local
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63060'
       protocol: tcp
+      published: '63060'
+      target: 8080
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/airflow/dags'
       target: /opt/airflow/dags
-      bind: {}
-    - type: volume
-      source: airflow-logs
+      type: bind
+    - source: airflow-logs
       target: /opt/airflow/logs
+      type: volume
       volume: {}
   backend:
     build:
-      context: '{REPO_ROOT}/services/backend/app'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: python:3.12
+      context: '{REPO_ROOT}/services/backend/app'
+      dockerfile: Dockerfile
     container_name: genai-backend
     depends_on:
       kong-api-gateway:
@@ -244,6 +248,8 @@ services:
       LANGMEM_EXTRACTION_MODEL: ''
       LANGMEM_MAX_FACTS_PER_USER: '1000'
       LANGMEM_NAMESPACE: default
+      LIGHTRAG_API_KEY: ''
+      LIGHTRAG_ENDPOINT: ''
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_DEFAULT_MODEL: ''
@@ -266,22 +272,22 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8000
-      published: '63080'
       protocol: tcp
+      published: '63080'
+      target: 8000
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/backend/app/app'
       target: /app
-      bind: {}
-    - type: volume
-      source: backend-data
+      type: bind
+    - source: backend-data
       target: /app/data
+      type: volume
       volume: {}
-    - type: volume
-      source: weaviate-shared-config
+    - source: weaviate-shared-config
       target: /shared
+      type: volume
       volume: {}
   cadvisor:
     container_name: genai-cadvisor
@@ -292,36 +298,36 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63007'
       protocol: tcp
+      published: '63007'
+      target: 8080
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: /
       target: /rootfs
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: /var/run/docker.sock
       target: /var/run/docker.sock
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: /sys
       target: /sys
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: /var/lib/docker/
       target: /var/lib/docker
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: /dev/disk/
       target: /dev/disk
-      read_only: true
-      bind: {}
+      type: bind
   comfyui:
     container_name: genai-comfyui
     depends_on:
@@ -349,15 +355,15 @@ services:
       SUPABASE_URL: http://kong-api-gateway:8000/comfyui
       WEB_ENABLE_AUTH: 'false'
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 2m0s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:18188/system_stats
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 2m0s
     image: ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7
     labels:
       com.genai.category: ai
@@ -368,31 +374,31 @@ services:
     platform: linux/amd64
     ports:
     - mode: ingress
-      target: 18188
-      published: '63041'
       protocol: tcp
+      published: '63041'
+      target: 18188
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: comfyui-models
+    - source: comfyui-models
       target: /opt/ComfyUI/models
+      type: volume
       volume: {}
-    - type: volume
-      source: comfyui-output
+    - source: comfyui-output
       target: /opt/ComfyUI/output
+      type: volume
       volume: {}
-    - type: volume
-      source: comfyui-input
+    - source: comfyui-input
       target: /opt/ComfyUI/input
+      type: volume
       volume: {}
-    - type: volume
-      source: comfyui-custom-nodes
+    - source: comfyui-custom-nodes
       target: /opt/ComfyUI/custom_nodes
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
       source: '{HOME}/Documents/ComfyUI/models'
       target: /host_models
-      bind: {}
+      type: bind
   comfyui-catalog-init:
     build:
       context: '{REPO_ROOT}/services/comfyui/catalog-init'
@@ -416,21 +422,21 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/comfyui/catalog-init/scripts'
       target: /scripts
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/services/comfyui/custom-models.yaml'
       target: /custom-models.yaml
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
-      read_only: true
-      bind: {}
+      type: bind
   comfyui-init:
     container_name: genai-comfyui-init
     depends_on:
@@ -463,13 +469,13 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/comfyui/init/scripts'
       target: /scripts
-      bind: {}
-    - type: volume
-      source: comfyui-models
+      type: bind
+    - source: comfyui-models
       target: /models
+      type: volume
       volume: {}
   grafana:
     container_name: genai-grafana
@@ -487,37 +493,37 @@ services:
       GF_USERS_ALLOW_SIGN_UP: 'false'
       PROMETHEUS_ENDPOINT: http://prometheus:9090
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD-SHELL
       - wget -q -O- http://localhost:3000/api/health | grep -q ok
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: grafana/grafana:11.4.3
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 3000
-      published: '63008'
       protocol: tcp
+      published: '63008'
+      target: 3000
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: grafana-data
+    - source: grafana-data
       target: /var/lib/grafana
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/grafana/config/grafana.ini'
       target: /etc/grafana/grafana.ini
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/services/grafana/config/provisioning'
       target: /etc/grafana/provisioning
-      read_only: true
-      bind: {}
+      type: bind
   hermes:
     command:
     - gateway
@@ -554,13 +560,14 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
-      test:
-      - CMD-SHELL
-      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY" http://127.0.0.1:8642/v1/models >/dev/null'
-      timeout: 10s
       interval: 30s
       retries: 5
       start_period: 1m0s
+      test:
+      - CMD-SHELL
+      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY"
+        http://127.0.0.1:8642/v1/models >/dev/null'
+      timeout: 10s
     image: nousresearch/hermes-agent:latest
     labels:
       com.genai.agent: hermes
@@ -570,18 +577,18 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8642
+      protocol: tcp
       published: '63061'
-      protocol: tcp
+      target: 8642
     - mode: ingress
-      target: 9119
-      published: '63062'
       protocol: tcp
+      published: '63062'
+      target: 9119
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: hermes-data
+    - source: hermes-data
       target: /opt/data
+      type: volume
       volume: {}
   hermes-init:
     container_name: genai-hermes-init
@@ -600,6 +607,8 @@ services:
       HERMES_DEFAULT_MODEL: ''
       HERMES_GID: '10000'
       HERMES_UID: '10000'
+      LIGHTRAG_API_KEY: ''
+      LIGHTRAG_INTERNAL_URL: ''
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_MASTER_KEY: ''
       SEARXNG_INTERNAL_URL: ''
@@ -614,26 +623,26 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: volume
-      source: hermes-data
+    - source: hermes-data
       target: /opt/data
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/hermes/init/scripts'
       target: /scripts
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/services/hermes/init/templates'
       target: /templates
-      read_only: true
-      bind: {}
+      type: bind
   jupyterhub:
     build:
-      context: '{REPO_ROOT}/services/jupyterhub/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: jupyter/datascience-notebook:python-3.11
+      context: '{REPO_ROOT}/services/jupyterhub/build'
+      dockerfile: Dockerfile
     command:
     - start-notebook.sh
     - --ServerApp.allow_origin=*
@@ -680,15 +689,15 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:8888/api
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     labels:
       com.genai.category: application
       com.genai.service: jupyterhub
@@ -697,24 +706,24 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8888
-      published: '63081'
       protocol: tcp
+      published: '63081'
+      target: 8888
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: jupyterhub-data
+    - source: jupyterhub-data
       target: /home/jovyan/work
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/jupyterhub/build/notebooks'
       target: /home/jovyan/notebooks
-      read_only: true
-      bind: {}
-    - type: volume
+      type: bind
+    - read_only: true
       source: weaviate-shared-config
       target: /shared
-      read_only: true
+      type: volume
       volume: {}
   kong-api-gateway:
     container_name: genai-kong-api-gateway
@@ -750,9 +759,9 @@ services:
       KONG_NGINX_HTTP_UPSTREAM_KEEPALIVE_TIMEOUT: 60s
       KONG_NGINX_PROXY_CHUNKED_TRANSFER_ENCODING: 'on'
       KONG_NGINX_PROXY_KEEPALIVE_TIMEOUT: '300'
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERING: 'off'
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_CACHE: 'off'
       KONG_NGINX_PROXY_TCP_NODELAY: 'on'
       KONG_NGINX_PROXY_TCP_NOPUSH: 'on'
@@ -770,33 +779,133 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD-SHELL
       - kong health
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: kong:3.9.0
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8000
+      protocol: tcp
       published: '63000'
-      protocol: tcp
+      target: 8000
     - mode: ingress
-      target: 8443
-      published: '63001'
       protocol: tcp
+      published: '63001'
+      target: 8443
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind:
+        selinux: z
+      read_only: true
       source: '{REPO_ROOT}/volumes/api/kong-dynamic.yml'
       target: /home/kong/kong.yml
+      type: bind
+  lightrag:
+    container_name: genai-lightrag
+    depends_on:
+      lightrag-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+      resources:
+        limits:
+          cpus: 2
+          memory: '6442450944'
+    environment:
+      DOCLING_ENDPOINT: ''
+      EMBEDDING_BINDING: openai
+      EMBEDDING_BINDING_API_KEY: ''
+      EMBEDDING_BINDING_HOST: http://litellm:4000/v1
+      EMBEDDING_DIM: '768'
+      EMBEDDING_MODEL: ''
+      HOST: 0.0.0.0
+      LIGHTRAG_API_KEY: ''
+      LIGHTRAG_DOC_STATUS_STORAGE: RedisKVStorage
+      LIGHTRAG_ENDPOINT: ''
+      LIGHTRAG_GRAPH_STORAGE: Neo4JStorage
+      LIGHTRAG_KV_STORAGE: RedisKVStorage
+      LIGHTRAG_PARSER: '*:native-teP,*:legacy-R'
+      LIGHTRAG_VECTOR_STORAGE: PGVectorStorage
+      LLM_BINDING: openai
+      LLM_BINDING_API_KEY: ''
+      LLM_BINDING_HOST: http://litellm:4000/v1
+      LLM_MODEL: ''
+      NEO4J_PASSWORD: ''
+      NEO4J_URI: ''
+      NEO4J_USERNAME: ''
+      PORT: '9621'
+      POSTGRES_URI: ''
+      REDIS_URI: ''
+      RERANK_BINDING: ''
+      RERANK_BINDING_HOST: ''
+      RERANK_MODEL: BAAI/bge-reranker-v2-m3
+      VLM_PROCESS_ENABLE: 'true'
+      WORKERS: '2'
+    extra_hosts:
+    - host.docker.internal=
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 5m0s
+      test:
+      - CMD
+      - curl
+      - -fs
+      - http://localhost:9621/health
+      timeout: 5s
+    image: ghcr.io/hkuds/lightrag:1.5.0
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      protocol: tcp
+      published: '63063'
+      target: 9621
+    restart: unless-stopped
+    volumes:
+    - source: lightrag-data
+      target: /app/data
+      type: volume
+      volume: {}
+  lightrag-init:
+    container_name: genai-lightrag-init
+    deploy:
+      replicas: 0
+    entrypoint:
+    - sh
+    - -c
+    - /scripts/init-lightrag.sh
+    environment:
+      LIGHTRAG_NEO4J_PASSWORD: ''
+      LIGHTRAG_NEO4J_URI: ''
+      LIGHTRAG_NEO4J_USERNAME: ''
+      LIGHTRAG_PG_URI: ''
+      LIGHTRAG_REDIS_URI: ''
+      LIGHTRAG_SOURCE: disabled
+      LITELLM_DEFAULT_MODEL: ''
+      LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
+      LITELLM_MASTER_KEY: ''
+    image: alpine:latest
+    networks:
+      backend-network: null
+    restart: 'no'
+    volumes:
+    - bind: {}
       read_only: true
-      bind:
-        selinux: z
+      source: '{REPO_ROOT}/services/lightrag/init/scripts'
+      target: /scripts
+      type: bind
+    - source: lightrag-data
+      target: /app/data
+      type: volume
+      volume: {}
   litellm:
     command:
     - --config
@@ -834,33 +943,33 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
+      interval: 10s
+      retries: 12
+      start_period: 30s
       test:
       - CMD
       - python
       - -c
-      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status
-        == 200 else 1)
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',
+        timeout=3).status == 200 else 1)
       timeout: 5s
-      interval: 10s
-      retries: 12
-      start_period: 30s
     image: ghcr.io/berriai/litellm:v1.83.14-stable.patch.2
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 4000
-      published: '63030'
       protocol: tcp
+      published: '63030'
+      target: 4000
     restart: unless-stopped
     tmpfs:
     - /tmp/litellm_metrics:rw,size=64m
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/volumes/litellm/config.yaml'
       target: /app/config.yaml
-      read_only: true
-      bind: {}
+      type: bind
   litellm-init:
     build:
       context: '{REPO_ROOT}/services/litellm/init'
@@ -890,20 +999,20 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/litellm/init/scripts'
       target: /scripts
-      read_only: true
-      bind: {}
-    - type: bind
+      type: bind
+    - bind: {}
       source: '{REPO_ROOT}/volumes/litellm'
       target: /litellm-config
-      bind: {}
-    - type: bind
+      type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
-      read_only: true
-      bind: {}
+      type: bind
   llm-catalog-init:
     build:
       context: '{REPO_ROOT}/services/litellm/catalog-init'
@@ -939,22 +1048,22 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/litellm/catalog-init/scripts'
       target: /scripts
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
-      read_only: true
-      bind: {}
+      type: bind
   local-deep-researcher:
     build:
-      context: '{REPO_ROOT}/services/local-deep-researcher/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: python:3.11-slim
+      context: '{REPO_ROOT}/services/local-deep-researcher/build'
+      dockerfile: Dockerfile
     container_name: genai-local-deep-researcher
     depends_on:
       litellm:
@@ -982,18 +1091,18 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 2024
-      published: '63083'
       protocol: tcp
+      published: '63083'
+      target: 2024
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: local-deep-researcher-data
+    - source: local-deep-researcher-data
       target: /app/data
+      type: volume
       volume: {}
-    - type: volume
-      source: local-deep-researcher-repo
+    - source: local-deep-researcher-repo
       target: /app/repo
+      type: volume
       volume: {}
   minio:
     command:
@@ -1011,32 +1120,32 @@ services:
       MINIO_ROOT_PASSWORD: ''
       MINIO_ROOT_USER: minioadmin
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:9000/minio/health/live
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 9000
+      protocol: tcp
       published: '63018'
-      protocol: tcp
+      target: 9000
     - mode: ingress
-      target: 9001
-      published: '63019'
       protocol: tcp
+      published: '63019'
+      target: 9001
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: minio-data
+    - source: minio-data
       target: /data
+      type: volume
       volume: {}
   minio-init:
     container_name: genai-minio-init
@@ -1072,11 +1181,11 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/minio/init/scripts'
       target: /scripts
-      read_only: true
-      bind: {}
+      type: bind
   multi2vec-clip:
     container_name: genai-multi2vec-clip
     depends_on:
@@ -1119,6 +1228,8 @@ services:
       GENERIC_TIMEZONE: UTC
       HERMES_API_KEY: ''
       HERMES_ENDPOINT: ''
+      LIGHTRAG_API_KEY: ''
+      LIGHTRAG_ENDPOINT: ''
       N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63000
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
@@ -1150,28 +1261,28 @@ services:
       WEAVIATE_URL: http://weaviate:8080
       WEBHOOK_URL: http://n8n.localhost:63000/
     healthcheck:
+      interval: 15s
+      retries: 10
+      start_period: 1m30s
       test:
       - CMD
       - wget
       - -qO-
       - http://127.0.0.1:5678/healthz
       timeout: 5s
-      interval: 15s
-      retries: 10
-      start_period: 1m30s
     image: n8nio/n8n:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 5678
-      published: '63063'
       protocol: tcp
+      published: '63064'
+      target: 5678
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: n8n-data
+    - source: n8n-data
       target: /home/node/.n8n
+      type: volume
       volume: {}
   n8n-init:
     container_name: genai-n8n-init
@@ -1195,17 +1306,17 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/n8n/init/scripts'
       target: /scripts
-      bind: {}
-    - type: bind
+      type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/n8n/init/config'
       target: /config
-      bind: {}
-    - type: volume
-      source: n8n-data
+      type: bind
+    - source: n8n-data
       target: /n8n-data
+      type: volume
       volume: {}
   n8n-worker:
     command:
@@ -1248,16 +1359,16 @@ services:
       backend-network: null
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: n8n-data
+    - source: n8n-data
       target: /home/node/.n8n
+      type: volume
       volume: {}
   neo4j-graph-db:
     build:
-      context: '{REPO_ROOT}/services/neo4j/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: neo4j:5.19.0
+      context: '{REPO_ROOT}/services/neo4j/build'
+      dockerfile: Dockerfile
     container_name: genai-neo4j-graph-db
     deploy:
       replicas: 1
@@ -1271,26 +1382,26 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 7687
+      protocol: tcp
       published: '63020'
-      protocol: tcp
+      target: 7687
     - mode: ingress
-      target: 7474
-      published: '63021'
       protocol: tcp
+      published: '63021'
+      target: 7474
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/neo4j/build/scripts'
       target: /scripts
-      bind: {}
-    - type: bind
+      type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/neo4j/build/snapshot'
       target: /snapshot
-      bind: {}
-    - type: volume
-      source: graph-db-data
+      type: bind
+    - source: graph-db-data
       target: /data
+      type: volume
       volume: {}
   node-exporter:
     command:
@@ -1305,26 +1416,26 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 9100
-      published: '63006'
       protocol: tcp
+      published: '63006'
+      target: 9100
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: /proc
       target: /host/proc
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: /sys
       target: /host/sys
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: /
       target: /rootfs
-      read_only: true
-      bind: {}
+      type: bind
   ollama:
     container_name: genai-ollama
     deploy:
@@ -1336,9 +1447,9 @@ services:
       backend-network: null
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: llm-provider-data
+    - source: llm-provider-data
       target: /root/.ollama
+      type: volume
       volume: {}
   ollama-pull:
     container_name: genai-ollama-pull
@@ -1370,11 +1481,11 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/ollama/pull/scripts'
       target: /scripts
-      read_only: true
-      bind: {}
+      type: bind
   open-web-ui:
     container_name: genai-open-web-ui
     depends_on:
@@ -1430,29 +1541,29 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63082'
       protocol: tcp
+      published: '63082'
+      target: 8080
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: open-web-ui-data
+    - source: open-web-ui-data
       target: /app/backend/data
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/open-webui/extras/tools'
       target: /app/backend/data/tools
-      bind: {}
-    - type: bind
+      type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/open-webui/extras/functions'
       target: /app/backend/data/functions
-      bind: {}
+      type: bind
   open-webui-init:
     build:
-      context: '{REPO_ROOT}/services/open-webui/init'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: python:3.11-slim
+      context: '{REPO_ROOT}/services/open-webui/init'
+      dockerfile: Dockerfile
     container_name: genai-open-webui-init
     depends_on:
       open-web-ui:
@@ -1476,16 +1587,16 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/open-webui/extras/tools'
       target: /tools
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/services/open-webui/extras/functions'
       target: /functions
-      read_only: true
-      bind: {}
+      type: bind
   openclaw-gateway:
     command:
     - node
@@ -1517,15 +1628,15 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 20s
       test:
       - CMD
       - curl
       - -f
       - http://localhost:18789/healthz
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 20s
     image: ghcr.io/openclaw/openclaw:latest
     labels:
       com.genai.agent: openclaw
@@ -1535,22 +1646,22 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 18789
-      published: '63064'
       protocol: tcp
-    - mode: ingress
-      target: 18790
       published: '63065'
+      target: 18789
+    - mode: ingress
       protocol: tcp
+      published: '63066'
+      target: 18790
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: openclaw-config
+    - source: openclaw-config
       target: /home/node/.openclaw
+      type: volume
       volume: {}
-    - type: volume
-      source: openclaw-workspace
+    - source: openclaw-workspace
       target: /home/node/.openclaw/workspace
+      type: volume
       volume: {}
   openclaw-init:
     container_name: genai-openclaw-init
@@ -1559,22 +1670,23 @@ services:
     entrypoint:
     - sh
     - -c
-    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\nPATCH='{\"gateway\":{\"controlUi\"\
-      :{\"dangerouslyAllowHostHeaderOriginFallback\":true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\"\
-      \ '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq .\
-      \ > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
+    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\n\
+      PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
+      :true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '.\
+      \ * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\
+      \nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
     networks:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: volume
-      source: openclaw-config
+    - source: openclaw-config
       target: /home/node/.openclaw
+      type: volume
       volume: {}
-    - type: volume
-      source: openclaw-workspace
+    - source: openclaw-workspace
       target: /home/node/.openclaw/workspace
+      type: volume
       volume: {}
   postgres-exporter:
     container_name: genai-postgres-exporter
@@ -1588,6 +1700,9 @@ services:
       DATA_SOURCE_NAME: postgresql://supabase_admin:password@supabase-db:5432/postgres?sslmode=disable
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: 'true'
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - wget
@@ -1595,17 +1710,14 @@ services:
       - --spider
       - http://localhost:9187/metrics
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: prometheuscommunity/postgres-exporter:v0.16.0
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 9187
-      published: '63011'
       protocol: tcp
+      published: '63011'
+      target: 9187
     restart: unless-stopped
   prometheus:
     command:
@@ -1619,6 +1731,9 @@ services:
     deploy:
       replicas: 0
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - wget
@@ -1626,67 +1741,64 @@ services:
       - --spider
       - http://localhost:9090/-/healthy
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: prom/prometheus:v2.55.1
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 9090
-      published: '63005'
       protocol: tcp
+      published: '63005'
+      target: 9090
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
+      read_only: true
       source: '{REPO_ROOT}/services/prometheus/config/prometheus.yml'
       target: /etc/prometheus/prometheus.yml
+      type: bind
+    - bind: {}
       read_only: true
-      bind: {}
-    - type: bind
       source: '{REPO_ROOT}/services/prometheus/config/rules'
       target: /etc/prometheus/rules
-      read_only: true
-      bind: {}
-    - type: volume
-      source: prometheus-data
+      type: bind
+    - source: prometheus-data
       target: /prometheus
+      type: volume
       volume: {}
   ray-head:
     command:
     - bash
     - -c
-    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port 10001 \\\n  --dashboard-port\
-      \ 8265 \\\n  --block\n"
+    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port\
+      \ 10001 \\\n  --dashboard-port 8265 \\\n  --block\n"
     container_name: genai-ray-head
     deploy:
       replicas: 0
-    hostname: ray-head
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
       test:
       - CMD-SHELL
       - wget -q --spider http://localhost:8265/api/version || exit 1
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 1m0s
+    hostname: ray-head
     image: rayproject/ray:2.55.1
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8265
+      protocol: tcp
       published: '63002'
-      protocol: tcp
+      target: 8265
     - mode: ingress
-      target: 6379
+      protocol: tcp
       published: '63003'
-      protocol: tcp
+      target: 6379
     - mode: ingress
-      target: 10001
-      published: '63004'
       protocol: tcp
+      published: '63004'
+      target: 10001
     restart: unless-stopped
     shm_size: '4294967296'
   ray-worker:
@@ -1716,6 +1828,9 @@ services:
     - redis_password
     container_name: genai-redis
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - redis-cli
@@ -1723,22 +1838,19 @@ services:
       - redis_password
       - ping
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: redis:7.2-alpine
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 6379
-      published: '63022'
       protocol: tcp
+      published: '63022'
+      target: 6379
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: redis-data
+    - source: redis-data
       target: /data
+      type: volume
       volume: {}
   redis-exporter:
     container_name: genai-redis-exporter
@@ -1752,6 +1864,9 @@ services:
       REDIS_ADDR: redis://redis:6379
       REDIS_PASSWORD: redis_password
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - wget
@@ -1759,17 +1874,14 @@ services:
       - --spider
       - http://localhost:9121/metrics
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: oliver006/redis_exporter:v1.62.0
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 9121
-      published: '63023'
       protocol: tcp
+      published: '63023'
+      target: 9121
     restart: unless-stopped
   searxng:
     container_name: genai-searxng
@@ -1784,6 +1896,9 @@ services:
       SEARXNG_BASE_URL: http://localhost:63043
       SEARXNG_SECRET: ''
     healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 30s
       test:
       - CMD
       - wget
@@ -1792,61 +1907,30 @@ services:
       - '--header=X-Forwarded-For: 127.0.0.1'
       - http://localhost:8080/healthz
       timeout: 10s
-      interval: 30s
-      retries: 3
-      start_period: 30s
     image: searxng/searxng:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63043'
       protocol: tcp
+      published: '63043'
+      target: 8080
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/searxng/config'
       target: /etc/searxng
-      bind: {}
-    - type: volume
-      source: searxng-data
+      type: bind
+    - source: searxng-data
       target: /var/cache/searxng
+      type: volume
       volume: {}
-  spark-history:
-    build:
-      context: '{REPO_ROOT}/services/spark/build'
-      dockerfile: Dockerfile
-      args:
-        BASE_IMAGE: apache/spark:4.1.2
-    command:
-    - /opt/spark/bin/spark-class
-    - org.apache.spark.deploy.history.HistoryServer
-    container_name: genai-spark-history
-    depends_on:
-      spark-init:
-        condition: service_completed_successfully
-        required: true
-    deploy:
-      replicas: 0
-    environment:
-      SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
-        -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key= -Dspark.hadoop.fs.s3a.path.style.access=true
-    image: genai-spark:local
-    networks:
-      backend-network: null
-    ports:
-    - mode: ingress
-      target: 18080
-      published: '63025'
-      protocol: tcp
-    restart: unless-stopped
   spark-connect:
     build:
-      context: '{REPO_ROOT}/services/spark/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: apache/spark:4.1.2
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
     command:
     - /opt/spark/sbin/start-connect-server.sh
     - --wait
@@ -1882,6 +1966,35 @@ services:
     networks:
       backend-network: null
     restart: unless-stopped
+  spark-history:
+    build:
+      args:
+        BASE_IMAGE: apache/spark:4.1.2
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
+    command:
+    - /opt/spark/bin/spark-class
+    - org.apache.spark.deploy.history.HistoryServer
+    container_name: genai-spark-history
+    depends_on:
+      spark-init:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
+        -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key=
+        -Dspark.hadoop.fs.s3a.path.style.access=true
+    image: genai-spark:local
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      protocol: tcp
+      published: '63025'
+      target: 18080
+    restart: unless-stopped
   spark-init:
     command:
     - "mc alias set minio http://minio:9000 minioadmin \nmc mb --ignore-existing minio/spark-history\n\
@@ -1901,10 +2014,10 @@ services:
       backend-network: null
   spark-master:
     build:
-      context: '{REPO_ROOT}/services/spark/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: apache/spark:4.1.2
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
     command:
     - /opt/spark/bin/spark-class
     - org.apache.spark.deploy.master.Master
@@ -1920,30 +2033,30 @@ services:
     environment:
       SPARK_MASTER_HOST: spark-master
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 45s
       test:
       - CMD
       - curl
       - -fsS
       - http://localhost:8080/
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 45s
     image: genai-spark:local
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63024'
       protocol: tcp
+      published: '63024'
+      target: 8080
     restart: unless-stopped
   spark-worker:
     build:
-      context: '{REPO_ROOT}/services/spark/build'
-      dockerfile: Dockerfile
       args:
         BASE_IMAGE: apache/spark:4.1.2
+      context: '{REPO_ROOT}/services/spark/build'
+      dockerfile: Dockerfile
     command:
     - /opt/spark/bin/spark-class
     - org.apache.spark.deploy.worker.Worker
@@ -1977,9 +2090,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 3000
-      published: '63015'
       protocol: tcp
+      published: '63015'
+      target: 3000
     restart: unless-stopped
   supabase-auth:
     container_name: genai-supabase-auth
@@ -2014,9 +2127,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 9999
-      published: '63014'
       protocol: tcp
+      published: '63014'
+      target: 9999
     restart: unless-stopped
   supabase-db:
     container_name: genai-supabase-db
@@ -2026,30 +2139,30 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: supabase_admin
     healthcheck:
+      interval: 10s
+      retries: 5
       test:
       - CMD-SHELL
       - pg_isready -U supabase_admin -d postgres
       timeout: 5s
-      interval: 10s
-      retries: 5
     image: supabase/postgres:17.4.1.016
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 5432
-      published: '63010'
       protocol: tcp
+      published: '63010'
+      target: 5432
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: supabase-db-data
+    - source: supabase-db-data
       target: /var/lib/postgresql/data
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/supabase/db/snapshot'
       target: /snapshot
-      bind: {}
+      type: bind
   supabase-db-init:
     container_name: genai-supabase-db-init
     depends_on:
@@ -2068,10 +2181,10 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/supabase/db/scripts'
       target: /scripts
-      bind: {}
+      type: bind
   supabase-meta:
     container_name: genai-supabase-meta
     depends_on:
@@ -2090,9 +2203,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63012'
       protocol: tcp
+      published: '63012'
+      target: 8080
     restart: unless-stopped
   supabase-realtime:
     container_name: genai-supabase-realtime
@@ -2131,9 +2244,9 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 4000
-      published: '63016'
       protocol: tcp
+      published: '63016'
+      target: 4000
     restart: unless-stopped
   supabase-storage:
     container_name: genai-supabase-storage
@@ -2161,14 +2274,14 @@ services:
       backend-network: null
     ports:
     - mode: ingress
-      target: 5000
-      published: '63013'
       protocol: tcp
+      published: '63013'
+      target: 5000
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: supabase-storage-data
+    - source: supabase-storage-data
       target: /var/lib/storage
+      type: volume
       volume: {}
   supabase-studio:
     container_name: genai-supabase-studio
@@ -2206,22 +2319,63 @@ services:
       SUPABASE_SERVICE_KEY: ''
       SUPABASE_URL: http://kong-api-gateway:8000
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 30s
       test:
       - CMD-SHELL
       - node -e 'require("net").createConnection({port:3000,host:"localhost"},()=>process.exit(0)).on("error",()=>process.exit(1))'
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 30s
     image: supabase/studio:latest
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 3000
-      published: '63017'
       protocol: tcp
+      published: '63017'
+      target: 3000
     restart: unless-stopped
+  tei-reranker:
+    command:
+    - --model-id=BAAI/bge-reranker-v2-m3
+    - --revision=main
+    - --max-client-batch-size=32
+    - --port=80
+    container_name: genai-tei-reranker
+    deploy:
+      replicas: 0
+      resources:
+        limits:
+          cpus: 2
+          memory: '4294967296'
+    environment:
+      HF_HOME: /data
+      TEI_RERANKER_ENDPOINT: ''
+    extra_hosts:
+    - host.docker.internal=
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 2m0s
+      test:
+      - CMD
+      - wget
+      - -qO-
+      - http://localhost/health
+      timeout: 5s
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    networks:
+      backend-network: null
+    ports:
+    - mode: ingress
+      protocol: tcp
+      published: '63031'
+      target: 80
+    volumes:
+    - source: tei-reranker-data
+      target: /data
+      type: volume
+      volume: {}
   weaviate:
     container_name: genai-weaviate
     depends_on:
@@ -2262,6 +2416,8 @@ services:
     extra_hosts:
     - host.docker.internal=
     healthcheck:
+      interval: 10s
+      retries: 5
       test:
       - CMD
       - wget
@@ -2269,34 +2425,32 @@ services:
       - -q
       - http://localhost:8080/v1/.well-known/ready
       timeout: 5s
-      interval: 10s
-      retries: 5
     image: cr.weaviate.io/semitechnologies/weaviate:1.27.5
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
+      protocol: tcp
       published: '63026'
-      protocol: tcp
+      target: 8080
     - mode: ingress
-      target: 50051
-      published: '63027'
       protocol: tcp
+      published: '63027'
+      target: 50051
     restart: unless-stopped
     volumes:
-    - type: volume
-      source: weaviate-data
+    - source: weaviate-data
       target: /var/lib/weaviate
+      type: volume
       volume: {}
-    - type: volume
-      source: weaviate-shared-config
+    - source: weaviate-shared-config
       target: /shared
+      type: volume
       volume: {}
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/weaviate/init/scripts'
       target: /scripts
-      bind: {}
+      type: bind
   weaviate-init:
     container_name: genai-weaviate-init
     depends_on:
@@ -2325,13 +2479,13 @@ services:
       backend-network: null
     restart: 'no'
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/weaviate/init/scripts'
       target: /scripts
-      bind: {}
-    - type: volume
-      source: weaviate-shared-config
+      type: bind
+    - source: weaviate-shared-config
       target: /shared
+      type: volume
       volume: {}
   zeppelin:
     container_name: genai-zeppelin
@@ -2346,9 +2500,10 @@ services:
       replicas: 0
     environment:
       SPARK_MASTER: spark://spark-master:7077
-      SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 --conf spark.hadoop.fs.s3a.access.key=minioadmin
-        --conf spark.hadoop.fs.s3a.secret.key= --conf spark.hadoop.fs.s3a.path.style.access=true
-        --conf spark.eventLog.enabled=true --conf spark.eventLog.dir=s3a://spark-history/
+      SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000
+        --conf spark.hadoop.fs.s3a.access.key=minioadmin --conf spark.hadoop.fs.s3a.secret.key=
+        --conf spark.hadoop.fs.s3a.path.style.access=true --conf spark.eventLog.enabled=true
+        --conf spark.eventLog.dir=s3a://spark-history/
       ZEPPELIN_JDBC_POSTGRES_PASSWORD: password
       ZEPPELIN_JDBC_POSTGRES_URL: jdbc:postgresql://supabase-db:5432/postgres
       ZEPPELIN_JDBC_POSTGRES_USER: supabase_admin
@@ -2356,113 +2511,113 @@ services:
       ZEPPELIN_NOTEBOOK_DIR: /notebook
       ZEPPELIN_PORT: '8080'
     healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 1m0s
       test:
       - CMD
       - curl
       - -fsS
       - http://localhost:8080/
       timeout: 10s
-      interval: 30s
-      retries: 5
-      start_period: 1m0s
     image: apache/zeppelin:0.12.0
     networks:
       backend-network: null
     ports:
     - mode: ingress
-      target: 8080
-      published: '63084'
       protocol: tcp
+      published: '63084'
+      target: 8080
     restart: unless-stopped
     volumes:
-    - type: bind
+    - bind: {}
       source: '{REPO_ROOT}/services/zeppelin/notebooks'
       target: /notebook
-      bind: {}
-    - type: volume
-      source: zeppelin-logs
+      type: bind
+    - source: zeppelin-logs
       target: /logs
+      type: volume
       volume: {}
-networks:
-  backend-network:
-    name: genai-network
-    driver: bridge
 volumes:
   airflow-logs:
+    driver: local
     name: genai-airflow-logs
-    driver: local
   backend-data:
+    driver: local
     name: genai-backend-data
-    driver: local
   comfyui-custom-nodes:
+    driver: local
     name: genai-comfyui-custom-nodes
-    driver: local
   comfyui-input:
+    driver: local
     name: genai-comfyui-input
-    driver: local
   comfyui-models:
+    driver: local
     name: genai-comfyui-models
-    driver: local
   comfyui-output:
+    driver: local
     name: genai-comfyui-output
-    driver: local
   grafana-data:
+    driver: local
     name: genai-grafana-data
-    driver: local
   graph-db-data:
+    driver: local
     name: genai-graph-db-data
-    driver: local
   hermes-data:
+    driver: local
     name: genai-hermes-data
-    driver: local
   jupyterhub-data:
+    driver: local
     name: genai-jupyterhub-data
-    driver: local
+  lightrag-data:
+    name: genai-lightrag-data
   llm-provider-data:
+    driver: local
     name: genai-llm-provider-data
-    driver: local
   local-deep-researcher-data:
+    driver: local
     name: genai-local-deep-researcher-data
-    driver: local
   local-deep-researcher-repo:
+    driver: local
     name: genai-local-deep-researcher-repo
-    driver: local
   minio-data:
+    driver: local
     name: genai-minio-data
-    driver: local
   n8n-data:
+    driver: local
     name: genai-n8n-data
-    driver: local
   open-web-ui-data:
+    driver: local
     name: genai-open-web-ui-data
-    driver: local
   openclaw-config:
+    driver: local
     name: genai-openclaw-config
-    driver: local
   openclaw-workspace:
+    driver: local
     name: genai-openclaw-workspace
-    driver: local
   prometheus-data:
+    driver: local
     name: genai-prometheus-data
-    driver: local
   redis-data:
+    driver: local
     name: genai-redis-data
-    driver: local
   searxng-data:
+    driver: local
     name: genai-searxng-data
-    driver: local
   supabase-db-data:
+    driver: local
     name: genai-supabase-db-data
-    driver: local
   supabase-storage-data:
+    driver: local
     name: genai-supabase-storage-data
-    driver: local
+  tei-reranker-data:
+    name: genai-tei-reranker-data
   weaviate-data:
+    driver: local
     name: genai-weaviate-data
-    driver: local
   weaviate-shared-config:
+    driver: local
     name: genai-weaviate-shared-config
-    driver: local
   zeppelin-logs:
-    name: genai-zeppelin-logs
     driver: local
+    name: genai-zeppelin-logs
