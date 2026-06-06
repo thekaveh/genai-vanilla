@@ -1053,6 +1053,13 @@ class ServiceConfig:
             env_vars['OPEN_WEB_UI_TTS_MODEL'] = ''
             env_vars['OPEN_WEB_UI_TTS_VOICE'] = ''
 
+        # LightRAG reranker adaptation — mirror TEI_RERANKER_ENDPOINT into
+        # LIGHTRAG_RERANK_BINDING_HOST (declared in service.yml runtime_adaptive
+        # under lightrag.environment_adaptation).  A blank/disabled endpoint
+        # leaves the host empty, which disables reranking inside LightRAG.
+        tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
+        env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = tei_endpoint
+
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')
         env_vars['LOCAL_DEEP_RESEARCHER_SCALE'] = '0' if researcher_source == 'disabled' else '1'
