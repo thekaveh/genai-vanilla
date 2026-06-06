@@ -38,6 +38,15 @@ FORBIDDEN_OPTIONAL_DEPENDS_ON = {
     ("jupyterhub", "ollama"),
     ("jupyterhub", "neo4j-graph-db"),
     ("weaviate", "multi2vec-clip"),
+    # LightRAG (2026-06-05): all external backends are SOURCE-replaceable via
+    # LIGHTRAG_SOURCE; does not compose-depend but references via env vars.
+    ("lightrag", "litellm"),
+    ("lightrag", "supabase-db"),
+    ("lightrag", "redis"),
+    ("lightrag", "neo4j-graph-db"),
+    ("lightrag", "docling-gpu"),
+    ("lightrag", "tei-reranker"),
+    ("lightrag-init", "litellm"),
 }
 
 # Edges that are expected after the SOURCE-safe dependency cleanup. These are
@@ -101,6 +110,9 @@ REQUIRED_DEPENDS_ON = {
     # the spark-history MinIO bucket via minio/mc).
     ("spark-connect", "spark-init"),
     ("zeppelin", "spark-init"),
+    # LightRAG (2026-06-05): init container has service_completed_successfully
+    # condition gate; must wait before the main service starts.
+    ("lightrag", "lightrag-init"),
 }
 
 
