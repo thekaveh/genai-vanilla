@@ -60,7 +60,9 @@ _No upstream calls._
 
 ### 5.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| lightrag | agents |
 
 ### 5.3 Architecture diagram
 

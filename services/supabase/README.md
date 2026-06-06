@@ -234,6 +234,7 @@ _No upstream calls._
 | spark | data |
 | litellm | llm |
 | airflow | agents |
+| lightrag | agents |
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |

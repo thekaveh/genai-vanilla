@@ -285,6 +285,7 @@ If LiteLLM ever stops being a fit (license shift, security incident, project dri
 | comfyui | media |
 | airflow | agents |
 | hermes ↔ | agents |
+| lightrag | agents |
 | n8n | agents |
 | openclaw | agents |
 | backend | apps |

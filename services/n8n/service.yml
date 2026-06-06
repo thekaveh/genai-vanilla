@@ -61,6 +61,10 @@ env:
     auto_managed: true
   - name: N8N_INIT_SCALE
     auto_managed: true
+  - name: LIGHTRAG_ENDPOINT
+    auto_managed: true
+  - name: LIGHTRAG_API_KEY
+    auto_managed: true
 
 depends_on:
   required:
@@ -122,10 +126,13 @@ runtime_adaptive:
     - stt_provider
     - tts_provider
     - doc_processor
+    - lightrag
     environment_adaptation:
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY}
     extra_hosts_adaptation: inherit from stt_provider, tts_provider, doc_processor
 
 runtime_deps:

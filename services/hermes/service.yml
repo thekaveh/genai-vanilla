@@ -98,6 +98,10 @@ env:
     auto_managed: true
   - name: SEARXNG_INTERNAL_URL
     auto_managed: true
+  - name: LIGHTRAG_INTERNAL_URL
+    auto_managed: true
+  - name: LIGHTRAG_API_KEY
+    auto_managed: true
 
 depends_on:
   required:
@@ -162,11 +166,13 @@ runtime_adaptive:
     - tts_provider
     - comfyui
     - searxng
+    - lightrag
     environment_adaptation:
       TTS_INTERNAL_URL: ${TTS_ENDPOINT}
       STT_INTERNAL_URL: ${STT_ENDPOINT}
       COMFYUI_INTERNAL_URL: ${COMFYUI_ENDPOINT}
       SEARXNG_INTERNAL_URL: http://searxng:8080
+      LIGHTRAG_INTERNAL_URL: ${LIGHTRAG_ENDPOINT}
     extra_hosts_adaptation: none
     failure_mode: "Capability block omitted from config.yaml; Hermes runs without it."
   hermes:

@@ -96,3 +96,14 @@ providers:
 # Intentionally empty. LiteLLM lives in ``providers:`` above; do NOT
 # duplicate it here or the picker shows two rows.
 custom_providers: []
+
+# ─── Tools (optional capability blocks) ───────────────────────────────
+# Each block is wrapped in BEGIN-X / END-X sentinels so init-hermes.sh
+# can strip blocks whose backing service is disabled (URL is empty).
+# BEGIN-RAG
+tools:
+  - name: rag_query
+    endpoint: ${LIGHTRAG_INTERNAL_URL}/query
+    api_key: ${LIGHTRAG_API_KEY}
+    description: "Graph-augmented RAG query (LightRAG)."
+# END-RAG

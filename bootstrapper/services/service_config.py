@@ -1114,6 +1114,16 @@ class ServiceConfig:
             env_vars['LIGHTRAG_NEO4J_PASSWORD'] = ''
             env_vars['LIGHTRAG_REDIS_URI'] = ''
 
+        # Hermes-init consumes LightRAG when both hermes and lightrag are enabled.
+        # LIGHTRAG_INTERNAL_URL is read by init-hermes.sh and rendered into config.yaml
+        # as a rag_query tool block when non-empty.
+        lightrag_endpoint = parent_vars.get('LIGHTRAG_ENDPOINT', '')
+        hermes_source = sources.get('HERMES_SOURCE', 'container')
+        if hermes_source == 'container' and lightrag_endpoint:
+            env_vars['LIGHTRAG_INTERNAL_URL'] = lightrag_endpoint
+        else:
+            env_vars.setdefault('LIGHTRAG_INTERNAL_URL', '')
+
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')
         env_vars['LOCAL_DEEP_RESEARCHER_SCALE'] = '0' if researcher_source == 'disabled' else '1'
