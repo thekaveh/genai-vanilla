@@ -260,6 +260,42 @@ def test_stt_and_tts_container_urls_match_compose_listen_ports():
         )
 
 
+def test_tei_reranker_route_generated_when_enabled():
+    """rerank.localhost route is emitted when TEI_RERANKER_SOURCE is a
+    container variant, targeting the in-network tei-reranker container."""
+    config = _generate("TEI_RERANKER_SOURCE=container-cpu\n")
+    by_host_with_svc = {
+        host: svc
+        for svc in config["services"]
+        for route in svc.get("routes", [])
+        for host in route.get("hosts") or []
+    }
+    assert "rerank.localhost" in by_host_with_svc, (
+        f"Expected rerank.localhost route, got: {sorted(by_host_with_svc)}"
+    )
+    svc = by_host_with_svc["rerank.localhost"]
+    assert svc["url"] == "http://tei-reranker:80/", (
+        f"rerank.localhost should target http://tei-reranker:80/, got {svc['url']}"
+    )
+    # Pure REST inference endpoint — no SPA, so preserve_host must not be True
+    route = next(
+        r for r in svc["routes"]
+        if "rerank.localhost" in (r.get("hosts") or [])
+    )
+    assert route.get("preserve_host") is not True, (
+        "TEI Reranker is a pure REST API — preserve_host must not be True"
+    )
+
+
+def test_tei_reranker_route_omitted_when_disabled():
+    """rerank.localhost route must be absent when TEI_RERANKER_SOURCE=disabled."""
+    config = _generate("TEI_RERANKER_SOURCE=disabled\n")
+    by_host = _hosts_to_service(config)
+    assert "rerank.localhost" not in by_host, (
+        "rerank.localhost should not appear when TEI_RERANKER_SOURCE=disabled"
+    )
+
+
 import pytest
 
 
