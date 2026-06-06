@@ -4,11 +4,7 @@
 # the environment block below — memory: project_runtime_sc_vs_compose_env_dual_write.
 services:
   lightrag:
-    image: ${LIGHTRAG_IMAGE:-ghcr.io/hkuds/lightrag:1.5.0}
-    # ghcr.io/hkuds/lightrag:1.5.0 is amd64-only as of 2026-06-06. On Apple
-    # Silicon hosts Docker Desktop runs it under Rosetta 2 emulation (~30%
-    # slowdown). Remove this pin if HKUDS publishes a multi-arch tag.
-    platform: linux/amd64
+    image: ${LIGHTRAG_IMAGE:-ghcr.io/hkuds/lightrag:v1.5.0}
     container_name: ${PROJECT_NAME}-lightrag
     deploy:
       replicas: ${LIGHTRAG_SCALE:-0}
