@@ -88,6 +88,12 @@ services:
       # api_base is HERMES_ENDPOINT/v1. Empty/disabled → no row.
       HERMES_SOURCE: ${HERMES_SOURCE:-disabled}
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      # LightRAG passthrough — same shape as hermes. init.py's
+      # lightrag_model_entry() returns None unless LIGHTRAG_SOURCE is set,
+      # so litellm-init needs to see these env vars (the dual-write rule).
+      LIGHTRAG_SOURCE: ${LIGHTRAG_SOURCE:-disabled}
+      LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     volumes:
       - ./init/scripts:/scripts:ro
       - ../../volumes/litellm:/litellm-config:rw

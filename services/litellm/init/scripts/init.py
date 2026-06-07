@@ -303,9 +303,10 @@ def hermes_model_entry() -> dict[str, Any] | None:
 def lightrag_model_entry() -> dict[str, Any] | None:
     """Return a model_list entry for `lightrag` when LightRAG is enabled.
 
-    Adapter is openai/ (not ollama_chat/) because LightRAG's Ollama-shim
-    implements /api/chat with OpenAI-style messages and the ollama_chat
-    adapter expects the full Ollama tag-listing protocol.
+    Uses the `ollama_chat/` adapter: it POSTs to `<api_base>/api/chat`,
+    which matches LightRAG's Ollama-compatible shim path exactly. The
+    earlier `openai/` adapter targeted `<api_base>/chat/completions`, a
+    path LightRAG doesn't expose — caused 404 on every query.
     """
     if os.environ.get("LIGHTRAG_SOURCE", "disabled") == "disabled":
         return None
@@ -315,8 +316,8 @@ def lightrag_model_entry() -> dict[str, Any] | None:
     return {
         "model_name": "lightrag",
         "litellm_params": {
-            "model": "openai/lightrag",
-            "api_base": f"{endpoint.rstrip('/')}/api",
+            "model": "ollama_chat/lightrag",
+            "api_base": endpoint.rstrip("/"),
             "api_key": os.environ.get("LIGHTRAG_API_KEY", "sk-no-auth"),
         },
         "model_info": {
