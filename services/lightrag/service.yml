@@ -79,7 +79,7 @@ env:
   - name: LIGHTRAG_GRAPH_STORAGE
     default: Neo4JStorage
   - name: LIGHTRAG_DOC_STATUS_STORAGE
-    default: RedisKVStorage
+    default: RedisDocStatusStorage
   - name: LIGHTRAG_SCALE
     auto_managed: true
   - name: LIGHTRAG_INIT_SCALE

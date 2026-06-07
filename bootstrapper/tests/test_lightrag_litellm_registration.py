@@ -32,15 +32,19 @@ def test_returns_entry_when_enabled(monkeypatch):
     entry = mod.lightrag_model_entry()
     assert entry is not None
     assert entry["model_name"] == "lightrag"
-    assert entry["litellm_params"]["api_base"] == "http://lightrag:9621/api"
+    # api_base is the bare endpoint; the ollama_chat adapter appends /api/chat
+    # internally to reach LightRAG's Ollama-shim endpoint.
+    assert entry["litellm_params"]["api_base"] == "http://lightrag:9621"
     assert entry["litellm_params"]["api_key"] == "sk-lightrag-test"
 
 
-def test_adapter_is_openai_not_ollama_chat(monkeypatch):
+def test_adapter_is_ollama_chat_not_openai(monkeypatch):
+    """LightRAG exposes /api/chat (Ollama-shim path), not /chat/completions.
+    The openai/ adapter targets /chat/completions and 404s; ollama_chat/
+    targets /api/chat and resolves correctly."""
     monkeypatch.setenv("LIGHTRAG_SOURCE", "container")
     monkeypatch.setenv("LIGHTRAG_ENDPOINT", "http://lightrag:9621")
     monkeypatch.setenv("LIGHTRAG_API_KEY", "sk-lightrag-test")
     mod = _load_init_module()
     entry = mod.lightrag_model_entry()
-    assert entry["litellm_params"]["model"].startswith("openai/")
-    assert "ollama_chat" not in entry["litellm_params"]["model"]
+    assert entry["litellm_params"]["model"] == "ollama_chat/lightrag"
