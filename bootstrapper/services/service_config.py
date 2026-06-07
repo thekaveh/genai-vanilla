@@ -627,9 +627,11 @@ class ServiceConfig:
 
         For container-cpu, picks the arm64 image on arm64 hosts and the
         amd64 image otherwise. This matters because TEI's amd64 cpu-1.9
-        image uses the ORT backend (requires ONNX weights, which
-        bge-reranker-v2-m3 doesn't ship), while the arm64 image uses the
-        candle backend which loads safetensors natively.
+        image uses the ORT backend (requires ONNX weights), while the
+        arm64 image uses the candle backend (loads safetensors natively).
+        The default model (mxbai-rerank-base-v1) ships ONNX so both
+        backends work; some models like bge-reranker-v2-m3 are safetensors-
+        only AND too heavy for the arm64 candle backend's warmup path.
         """
         import platform as _platform
         source_value = self.service_sources.get('TEI_RERANKER_SOURCE', 'disabled')

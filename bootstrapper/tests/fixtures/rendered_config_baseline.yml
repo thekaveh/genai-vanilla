@@ -821,13 +821,16 @@ services:
         limits:
           cpus: 2
           memory: '6442450944'
+    entrypoint:
+    - sh
+    - -c
+    - set -a; [ -f /app/data/.env ] && . /app/data/.env; set +a; exec python -m
+      lightrag.api.lightrag_server
     environment:
       DOCLING_ENDPOINT: ''
       EMBEDDING_BINDING: openai
       EMBEDDING_BINDING_API_KEY: ''
       EMBEDDING_BINDING_HOST: http://litellm:4000/v1
-      EMBEDDING_DIM: '768'
-      EMBEDDING_MODEL: ''
       HOST: 0.0.0.0
       LIGHTRAG_API_KEY: ''
       LIGHTRAG_DOC_STATUS_STORAGE: RedisDocStatusStorage
@@ -839,7 +842,6 @@ services:
       LLM_BINDING: openai
       LLM_BINDING_API_KEY: ''
       LLM_BINDING_HOST: http://litellm:4000/v1
-      LLM_MODEL: ''
       NEO4J_DATABASE: neo4j
       NEO4J_PASSWORD: ''
       NEO4J_URI: ''
@@ -855,7 +857,7 @@ services:
       REDIS_URI: ''
       RERANK_BINDING: ''
       RERANK_BINDING_HOST: ''
-      RERANK_MODEL: BAAI/bge-reranker-v2-m3
+      RERANK_MODEL: mixedbread-ai/mxbai-rerank-base-v1
       TOKEN_SECRET: ''
       VLM_PROCESS_ENABLE: 'true'
       WORKERS: '2'
@@ -2356,7 +2358,7 @@ services:
     restart: unless-stopped
   tei-reranker:
     command:
-    - --model-id=BAAI/bge-reranker-v2-m3
+    - --model-id=mixedbread-ai/mxbai-rerank-base-v1
     - --revision=main
     - --max-client-batch-size=32
     - --port=80
@@ -2378,8 +2380,8 @@ services:
       start_period: 2m0s
       test:
       - CMD
-      - wget
-      - -qO-
+      - curl
+      - -fs
       - http://localhost/health
       timeout: 5s
     image: __TEI_RERANKER_CPU_IMAGE__

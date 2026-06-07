@@ -14,6 +14,16 @@ services:
           cpus: '${LIGHTRAG_CPU_LIMIT:-2.0}'
     ports:
       - "${LIGHTRAG_API_PORT}:9621"
+    # Override the image's bare `python -m lightrag.api.lightrag_server`
+    # entrypoint with a shell wrapper that exports the resolved values
+    # lightrag-init wrote to /app/data/.env BEFORE python starts. Without
+    # this, LightRAG's own dotenv loader looks at /app/.env (its WORKDIR)
+    # which doesn't exist, leaving LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM
+    # empty. `set -a` auto-exports every var sourced after it.
+    entrypoint:
+      - sh
+      - -c
+      - 'set -a; [ -f /app/data/.env ] && . /app/data/.env; set +a; exec python -m lightrag.api.lightrag_server'
     environment:
       LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT}
       HOST: 0.0.0.0
@@ -26,12 +36,14 @@ services:
       LLM_BINDING: ${LIGHTRAG_LLM_BINDING:-openai}
       LLM_BINDING_HOST: ${LIGHTRAG_LLM_BINDING_HOST:-http://litellm:4000/v1}
       LLM_BINDING_API_KEY: ${LITELLM_MASTER_KEY}
-      LLM_MODEL: ${LIGHTRAG_LLM_MODEL}
+      # LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM are intentionally NOT
+      # set here — lightrag-init resolves them from LiteLLM /v1/models at
+      # boot and writes them to /app/data/.env, which the entrypoint
+      # sources above. Setting them empty here would clobber the resolved
+      # values (compose env wins over dotenv).
       EMBEDDING_BINDING: ${LIGHTRAG_EMBEDDING_BINDING:-openai}
       EMBEDDING_BINDING_HOST: ${LIGHTRAG_EMBEDDING_BINDING_HOST:-http://litellm:4000/v1}
       EMBEDDING_BINDING_API_KEY: ${LITELLM_MASTER_KEY}
-      EMBEDDING_MODEL: ${LIGHTRAG_EMBEDDING_MODEL}
-      EMBEDDING_DIM: ${LIGHTRAG_EMBEDDING_DIM:-768}
       VLM_PROCESS_ENABLE: ${LIGHTRAG_VLM_PROCESS_ENABLE:-true}
       LIGHTRAG_KV_STORAGE: ${LIGHTRAG_KV_STORAGE:-RedisKVStorage}
       LIGHTRAG_VECTOR_STORAGE: ${LIGHTRAG_VECTOR_STORAGE:-PGVectorStorage}
@@ -60,7 +72,7 @@ services:
       # The :+ pattern only emits the value when the host var is non-empty.
       RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING_HOST:+jina}
       RERANK_BINDING_HOST: ${LIGHTRAG_RERANK_BINDING_HOST}
-      RERANK_MODEL: BAAI/bge-reranker-v2-m3
+      RERANK_MODEL: mixedbread-ai/mxbai-rerank-base-v1
     volumes:
       - lightrag-data:/app/data
     networks:
