@@ -867,10 +867,11 @@ services:
       start_period: 5m0s
       test:
       - CMD
-      - curl
-      - -fs
-      - http://localhost:9621/health
-      timeout: 5s
+      - python
+      - -c
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9621/health',
+        timeout=5).status == 200 else 1)
+      timeout: 8s
     image: ghcr.io/hkuds/lightrag:v1.5.0
     networks:
       backend-network: null

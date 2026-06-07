@@ -73,9 +73,11 @@ services:
       litellm:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:9621/health"]
+      # LightRAG's image is python:3.12-slim — no curl/wget. Probe via
+      # the bundled python urllib (same pattern as litellm's healthcheck).
+      test: ["CMD", "python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9621/health', timeout=5).status == 200 else 1)"]
       interval: 30s
-      timeout: 5s
+      timeout: 8s
       retries: 5
       start_period: 300s
     restart: unless-stopped
