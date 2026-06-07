@@ -16,7 +16,7 @@ services:
           memory: ${TEI_RERANKER_MEMORY_LIMIT:-4g}
           cpus: '${TEI_RERANKER_CPU_LIMIT:-2.0}'
     command:
-      - "--model-id=${TEI_RERANKER_MODEL_ID:-BAAI/bge-reranker-v2-m3}"
+      - "--model-id=${TEI_RERANKER_MODEL_ID:-mixedbread-ai/mxbai-rerank-base-v1}"
       - "--revision=${TEI_RERANKER_REVISION:-main}"
       - "--max-client-batch-size=${TEI_RERANKER_MAX_CLIENT_BATCH_SIZE:-32}"
       - "--port=80"
@@ -34,7 +34,10 @@ services:
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      # TEI's image has curl but not wget — using wget here flipped the
+      # container to (unhealthy) on every probe with
+      # `exec: "wget": executable file not found in $PATH`.
+      test: ["CMD", "curl", "-fs", "http://localhost/health"]
       interval: 30s
       timeout: 5s
       retries: 5

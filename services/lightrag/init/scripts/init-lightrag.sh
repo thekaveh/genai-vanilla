@@ -24,9 +24,13 @@ fi
 # No in-script poll loop needed (matches the hermes-init pattern).
 
 echo "[lightrag-init] resolving model bindings..."
-# Write to /app/data/.env so LightRAG's startup loader picks it up. LightRAG
-# WARNs at boot when the working directory lacks a .env file — this satisfies
-# that requirement and provides the per-instance LLM/embedding model bindings.
+# Write resolved LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM to the
+# shared volume path /app/data/.env. The lightrag container's compose
+# entrypoint overrides the image's direct python invocation with a
+# `sh -c 'set -a; . /app/data/.env; exec ...'` wrapper so these values
+# enter the server's environment. The lightrag compose env block does
+# NOT set LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM — that would
+# clobber the resolved values via os.environ precedence.
 python3 /scripts/resolve-models.py > /app/data/.env
 
 if [ -n "${LIGHTRAG_PG_URI:-}" ]; then

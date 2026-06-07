@@ -88,7 +88,7 @@ def _strip_volatile_defaults(data):
     """
     # Arch-specific images: the bootstrapper picks `cpu-1.9` on amd64 and
     # `cpu-arm64-latest` on arm64 hosts for tei-reranker (the amd64 image is
-    # ORT-only and bge-reranker-v2-m3 ships no ONNX; the arm64 image's candle
+    # ORT-only; the arm64 image's candle
     # backend loads safetensors). Normalize both to a sentinel so the test
     # passes on either arch.
     _TEI_IMAGE_SENTINEL = "__TEI_RERANKER_CPU_IMAGE__"

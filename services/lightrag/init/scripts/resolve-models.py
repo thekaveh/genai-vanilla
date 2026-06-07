@@ -81,9 +81,15 @@ def main() -> None:
         embed_candidates = [m for m in available if "embed" in m.lower()]
         embed = embed_candidates[0] if embed_candidates else "ollama/nomic-embed-text"
     dim = resolve_dim(embed)
-    print(f"LIGHTRAG_LLM_MODEL={chat}")
-    print(f"LIGHTRAG_EMBEDDING_MODEL={embed}")
-    print(f"LIGHTRAG_EMBEDDING_DIM={dim}")
+    # Write the BARE env var names LightRAG reads (`LLM_MODEL`,
+    # `EMBEDDING_MODEL`, `EMBEDDING_DIM`) — NOT the `LIGHTRAG_*` prefixed
+    # versions. LightRAG's server reads these unprefixed names directly;
+    # writing the prefixed names leaves them sitting unused in the env
+    # while LightRAG falls back to internal defaults (caught 2026-06-07:
+    # /health showed embedding_model=None despite prefixed vars being set).
+    print(f"LLM_MODEL={chat}")
+    print(f"EMBEDDING_MODEL={embed}")
+    print(f"EMBEDDING_DIM={dim}")
 
 
 if __name__ == "__main__":

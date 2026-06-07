@@ -6,7 +6,9 @@
 
 ## 1. Overview
 
-HuggingFace `text-embeddings-inference` running BAAI/bge-reranker-v2-m3 — a cross-encoder reranker that scores `(query, passage)` pairs. Use it as a quality lift on top of any first-stage retriever (vector search, BM25, hybrid). The image exposes a stable `/rerank` HTTP endpoint and a `/health` probe.
+HuggingFace `text-embeddings-inference` running `mixedbread-ai/mxbai-rerank-base-v1` — a cross-encoder reranker that scores `(query, passage)` pairs. Use it as a quality lift on top of any first-stage retriever (vector search, BM25, hybrid). The image exposes a stable `/rerank` HTTP endpoint and a `/health` probe.
+
+**Why this model:** mxbai-rerank-base-v1 ships ONNX out of the box (so the amd64 ORT backend in `cpu-1.9` loads it cleanly) AND is light enough (~184 M params) that the arm64 candle backend in `cpu-arm64-latest` completes warmup successfully on Apple Silicon. BGE-reranker-v2-m3 was the original spec'd model but its safetensors-only distribution + ~560 M params caused the arm64 candle backend to crash silently during warmup (RestartCount climbed in live smoke until the model was swapped 2026-06-07).
 
 The vanilla stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's `RERANK_BINDING` points at `${TEI_RERANKER_ENDPOINT}`). The service is reusable: any consumer with an OpenAI-style request body can call it directly.
 
@@ -25,7 +27,7 @@ The vanilla stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's 
 TEI_RERANKER_SOURCE=disabled                       # default
 TEI_RERANKER_PORT=...                              # slot-allocated
 TEI_RERANKER_LOCALHOST_PORT=63031                  # mirror
-TEI_RERANKER_MODEL_ID=BAAI/bge-reranker-v2-m3
+TEI_RERANKER_MODEL_ID=mixedbread-ai/mxbai-rerank-base-v1
 TEI_RERANKER_REVISION=main
 TEI_RERANKER_MAX_CLIENT_BATCH_SIZE=32
 TEI_RERANKER_MEMORY_LIMIT=4g

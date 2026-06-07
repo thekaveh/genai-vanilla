@@ -47,7 +47,7 @@ env:
     default: "63031"
     description: "Host port for the host-installed TEI rerank source variant."
   - name: TEI_RERANKER_MODEL_ID
-    default: "BAAI/bge-reranker-v2-m3"
+    default: "mixedbread-ai/mxbai-rerank-base-v1"
   - name: TEI_RERANKER_REVISION
     default: "main"
   - name: TEI_RERANKER_MAX_CLIENT_BATCH_SIZE
