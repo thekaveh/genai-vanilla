@@ -239,6 +239,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Data | Multi2Vec CLIP | — | — |
 | LLM Core | LiteLLM | 63030 | litellm.localhost |
 | LLM Core | LLM Engine | — | ollama.localhost |
+| LLM Core | TEI Reranker | 63031 | rerank.localhost |
 | Media | Document Processor | 63040 | docling.localhost |
 | Media | ComfyUI | 63041 | comfyui.localhost |
 | Media | STT Provider | 63042 | stt.localhost |
@@ -246,8 +247,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Media | TTS Provider | 63044 | tts.localhost |
 | Agents & Workflows | Apache Airflow | 63060 | airflow.localhost |
 | Agents & Workflows | Hermes Agent | 63061 | hermes.localhost |
-| Agents & Workflows | n8n | 63063 | n8n.localhost |
-| Agents & Workflows | OpenClaw | 63064 | openclaw.localhost |
+| Agents & Workflows | LightRAG | 63063 | lightrag.localhost |
+| Agents & Workflows | n8n | 63064 | n8n.localhost |
+| Agents & Workflows | OpenClaw | 63065 | openclaw.localhost |
 | Apps & UIs | Backend API | 63080 | api.localhost |
 | Apps & UIs | JupyterHub | 63081 | jupyter.localhost |
 | Apps & UIs | Open WebUI | 63082 | chat.localhost |
