@@ -31,6 +31,16 @@ If you see a warning *not* on this list, that's a real signal — start there.
 | `genai-supabase-db` | `ERROR: relation "LiteLLM_VerificationTokenView" does not exist` × 8, `ERROR: type "LiteLLM_VerificationTokenView" already exists` × 1 (and similar for `MonthlyGlobalSpend`, `Last30dKeysBySpend`, …) | LiteLLM's `/v1/proxy` starts 4 worker processes in parallel. After the parent runs `prisma migrate deploy` (once, cleanly), each worker calls `create_missing_views()` which uses a SELECT-then-CREATE pattern. Two of the eight views (`LiteLLM_VerificationTokenView`, `Last30dTopEndUsersSpend`) use plain `CREATE VIEW` instead of `CREATE OR REPLACE VIEW`, so the 4 workers race — one wins, the rest see "already exists". This is a LiteLLM upstream source-code race; mitigating it would require either monkey-patching `litellm/proxy/db/create_views.py` inside the container, running LiteLLM with `--num_workers 1` (kills throughput), or waiting for an upstream patch. |
 | `genai-weaviate` | `level":"warning","msg":"heartbeat timeout reached, starting election` (1 line) | Single-node Raft REQUIRES a leader election to make the only node the leader. Election takes ~100 ms. The `failed to join cluster` warning that previously preceded this is silenced by `RAFT_BOOTSTRAP_EXPECT=1` + `RAFT_JOIN=weaviate` in `services/weaviate/compose.yml`. The remaining heartbeat-timeout is intrinsic to Raft. |
 
+### macOS Docker Desktop — container expects Linux host paths
+
+The following warnings appear because containers built for Linux look for Linux-specific paths (`/etc/machine-id`, `/run/udev/data`, container-runtime sockets) that don't exist on macOS Docker Desktop's VM. All non-fatal; the affected services run normally.
+
+| Service | Message | Why |
+|---|---|---|
+| `genai-cadvisor` | `Failed to get system UUID: open /etc/machine-id: no such file or directory` + Podman / containerd / crio / mesos `factory` registration failures | cAdvisor tries to discover container runtimes at startup. Docker Desktop on macOS only provides the Docker socket; the rest fail registration. cAdvisor still collects Docker metrics. |
+| `genai-node-exporter` | `Failed to open directory, disabling udev device properties` (path `/run/udev/data`) | node-exporter's diskstats collector wants udev metadata. macOS doesn't have udev; the collector falls back to bare diskstats without device labels. |
+| `genai-postgres-exporter` | `Error opening config file "postgres_exporter.yml": no such file or directory` | The exporter looks for an optional config file we don't mount. Without it, it uses sensible defaults and queries the database directly. Harmless. |
+
 ### Bind-mount permission quirks (macOS Docker Desktop)
 
 | Service | Message | Why |

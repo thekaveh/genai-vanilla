@@ -86,6 +86,17 @@ def _strip_volatile_defaults(data):
     Add new entries here when a future Compose version starts emitting
     another spec default that wasn't previously serialized.
     """
+    # Arch-specific images: the bootstrapper picks `cpu-1.9` on amd64 and
+    # `cpu-arm64-latest` on arm64 hosts for tei-reranker (the amd64 image is
+    # ORT-only and bge-reranker-v2-m3 ships no ONNX; the arm64 image's candle
+    # backend loads safetensors). Normalize both to a sentinel so the test
+    # passes on either arch.
+    _TEI_IMAGE_SENTINEL = "__TEI_RERANKER_CPU_IMAGE__"
+    _tei_image_variants = {
+        "ghcr.io/huggingface/text-embeddings-inference:cpu-1.9",
+        "ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest",
+    }
+
     def _walk(node):
         if isinstance(node, list):
             return [_walk(x) for x in node]
@@ -96,6 +107,10 @@ def _strip_volatile_defaults(data):
             if isinstance(bind, dict) and bind.get("create_host_path") is True:
                 bind_copy = {k: v for k, v in bind.items() if k != "create_host_path"}
                 cleaned["bind"] = bind_copy
+            # Normalize arch-specific tei-reranker image
+            img = cleaned.get("image")
+            if isinstance(img, str) and img in _tei_image_variants:
+                cleaned["image"] = _TEI_IMAGE_SENTINEL
             return cleaned
         return node
 

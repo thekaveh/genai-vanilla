@@ -106,8 +106,9 @@ def test_lightrag_adaptive_picks_up_tei_endpoint(env_copy):
     })
     env = sc.generate_service_environment()
     # LIGHTRAG_RERANK_BINDING_HOST should mirror TEI_RERANKER_ENDPOINT
-    # via runtime_adaptive substitution.
-    assert env.get("LIGHTRAG_RERANK_BINDING_HOST") == "http://tei-reranker:80"
+    # plus the /rerank path — LightRAG's `jina` rerank binding POSTs to
+    # the host URL as-is without auto-appending any path.
+    assert env.get("LIGHTRAG_RERANK_BINDING_HOST") == "http://tei-reranker:80/rerank"
 
 
 def test_lightrag_adaptive_blanks_rerank_when_tei_disabled(env_copy):

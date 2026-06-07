@@ -24,7 +24,10 @@ fi
 # No in-script poll loop needed (matches the hermes-init pattern).
 
 echo "[lightrag-init] resolving model bindings..."
-python3 /scripts/resolve-models.py > /app/data/.lightrag-resolved.env
+# Write to /app/data/.env so LightRAG's startup loader picks it up. LightRAG
+# WARNs at boot when the working directory lacks a .env file — this satisfies
+# that requirement and provides the per-instance LLM/embedding model bindings.
+python3 /scripts/resolve-models.py > /app/data/.env
 
 if [ -n "${LIGHTRAG_PG_URI:-}" ]; then
   echo "[lightrag-init] running pgvector migrations..."
@@ -41,7 +44,7 @@ if [ -n "${LIGHTRAG_NEO4J_URI:-}" ]; then
     -u "${LIGHTRAG_NEO4J_USERNAME}:${LIGHTRAG_NEO4J_PASSWORD}" \
     -H 'Content-Type: application/json' \
     --data "$cypher_payload" \
-    "http://neo4j:7474/db/neo4j/tx/commit" 2>&1) || {
+    "http://neo4j-graph-db:7474/db/neo4j/tx/commit" 2>&1) || {
       echo "[lightrag-init] WARN: Neo4j migration HTTP call failed (curl exit $?)" >&2
       echo "[lightrag-init] response: $(cat /tmp/neo4j-resp.json 2>/dev/null)" >&2
     }
