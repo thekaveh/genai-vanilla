@@ -1,6 +1,11 @@
 ARG BASE_IMAGE=jupyter/datascience-notebook:latest
 FROM ${BASE_IMAGE}
 
+# Auto-populated by buildx (and `docker build` since v20.10) with the
+# target architecture (`amd64`, `arm64`). Used below to pick the
+# arch-matching Coursier binary URL.
+ARG TARGETARCH
+
 # Almond (the Scala kernel for Jupyter) and its Coursier installer are baked at
 # image-build time. Bumping either value rebuilds the kernel cache, so pin
 # explicitly rather than `latest`. Versions current as of 2026-06-02.
@@ -24,9 +29,17 @@ RUN apt-get update && apt-get install -y \
 
 # Coursier — Scala's launcher/dep-resolver. Almond's install path uses
 # `cs launch almond:<ver> --scala <ver> -- --install` to register a Jupyter
-# kernel. Coursier itself is a single static binary (~30 MB).
-RUN curl -fL "https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz" \
-      | gzip -d > /usr/local/bin/cs \
+# kernel.
+#
+# We install the arch-neutral bootstrap launcher (`coursier`) rather than the
+# native-image binaries (`cs-x86_64-pc-linux.gz` / `cs-aarch64-apple-darwin.gz`
+# etc.) because Coursier doesn't publish a Linux arm64 native binary — using
+# the amd64 binary on an arm64 image triggers
+# `rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2` at the
+# `cs launch --fork` step. The bootstrap launcher is a thin JAR wrapper that
+# runs on the JVM we already installed above; it works on every arch.
+RUN curl -fL "https://github.com/coursier/coursier/releases/latest/download/coursier" \
+      > /usr/local/bin/cs \
  && chmod +x /usr/local/bin/cs
 
 # Switch back to jovyan user for Python package installation
