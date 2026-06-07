@@ -38,15 +38,16 @@ FORBIDDEN_OPTIONAL_DEPENDS_ON = {
     ("jupyterhub", "ollama"),
     ("jupyterhub", "neo4j-graph-db"),
     ("weaviate", "multi2vec-clip"),
-    # LightRAG (2026-06-05): all external backends are SOURCE-replaceable via
-    # LIGHTRAG_SOURCE; does not compose-depend but references via env vars.
-    ("lightrag", "litellm"),
+    # LightRAG (2026-06-05): storage + capability services are
+    # SOURCE-replaceable. LightRAG transparently falls back to in-process
+    # backends (NanoVectorDB / NetworkX / JsonKV) when the corresponding
+    # source is disabled. LiteLLM is the only hard dependency — see
+    # REQUIRED_DEPENDS_ON below.
     ("lightrag", "supabase-db"),
     ("lightrag", "redis"),
     ("lightrag", "neo4j-graph-db"),
     ("lightrag", "docling-gpu"),
     ("lightrag", "tei-reranker"),
-    ("lightrag-init", "litellm"),
 }
 
 # Edges that are expected after the SOURCE-safe dependency cleanup. These are
@@ -113,6 +114,12 @@ REQUIRED_DEPENDS_ON = {
     # LightRAG (2026-06-05): init container has service_completed_successfully
     # condition gate; must wait before the main service starts.
     ("lightrag", "lightrag-init"),
+    # LightRAG hard-depends on LiteLLM (the only mandatory backend — every
+    # other backend has an in-process fallback). Uses Compose's
+    # service_healthy condition instead of in-script polling, matching the
+    # hermes-init / open-web-ui / backend / n8n pattern.
+    ("lightrag", "litellm"),
+    ("lightrag-init", "litellm"),
 }
 
 

@@ -18,25 +18,10 @@ if [ "${LIGHTRAG_SOURCE:-disabled}" = "disabled" ]; then
   exit 0
 fi
 
-echo "[lightrag-init] waiting for LiteLLM /v1/models..."
-# Timeout matches LightRAG's own start_period (300s). LiteLLM cold start
-# (Prisma migrations + worker spawn) can take 2-3 min on first boot; the
-# previous 60s ceiling was too aggressive and caused init to bail before
-# LiteLLM was ready. Polling progress is printed every 30s.
-deadline=$((SECONDS + 300))
-last_log=$SECONDS
-until curl -fs -H "Authorization: Bearer ${LITELLM_MASTER_KEY:-}" \
-            http://litellm:4000/v1/models >/dev/null 2>&1; do
-  if [ "$SECONDS" -ge "$deadline" ]; then
-    echo "[lightrag-init] FAIL: LiteLLM not reachable after 300s" >&2
-    exit 1
-  fi
-  if [ $((SECONDS - last_log)) -ge 30 ]; then
-    echo "[lightrag-init] still waiting for LiteLLM (${SECONDS}s elapsed)..."
-    last_log=$SECONDS
-  fi
-  sleep 2
-done
+# LiteLLM readiness is guaranteed by compose: lightrag-init's compose entry
+# declares `depends_on: litellm: condition: service_healthy`, so by the time
+# this script runs LiteLLM has already passed its /health/liveliness probe.
+# No in-script poll loop needed (matches the hermes-init pattern).
 
 echo "[lightrag-init] resolving model bindings..."
 python3 /scripts/resolve-models.py > /app/data/.lightrag-resolved.env

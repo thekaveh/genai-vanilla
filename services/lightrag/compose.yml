@@ -53,6 +53,8 @@ services:
     depends_on:
       lightrag-init:
         condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:9621/health"]
       interval: 30s
@@ -66,6 +68,9 @@ services:
     container_name: ${PROJECT_NAME}-lightrag-init
     deploy:
       replicas: ${LIGHTRAG_INIT_SCALE:-0}
+    depends_on:
+      litellm:
+        condition: service_healthy
     entrypoint: ["sh", "-c", "/scripts/init-lightrag.sh"]
     environment:
       LIGHTRAG_SOURCE: ${LIGHTRAG_SOURCE}

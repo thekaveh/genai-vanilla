@@ -812,6 +812,9 @@ services:
       lightrag-init:
         condition: service_completed_successfully
         required: true
+      litellm:
+        condition: service_healthy
+        required: true
     deploy:
       replicas: 0
       resources:
@@ -876,6 +879,10 @@ services:
       volume: {}
   lightrag-init:
     container_name: genai-lightrag-init
+    depends_on:
+      litellm:
+        condition: service_healthy
+        required: true
     deploy:
       replicas: 0
     entrypoint:
