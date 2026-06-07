@@ -7,7 +7,11 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${RAY_HEAD_SCALE:-0}
-    shm_size: 4gb
+    # Ray's object store uses /dev/shm. Default Docker Desktop allocates 64MB;
+    # 4GB triggered Ray's "/dev/shm too small, falling back to /tmp/ray" warning
+    # on every launch. 8GB satisfies Ray's recommended >30% RAM threshold for
+    # most workloads without hard-reserving excessive shared memory.
+    shm_size: 8gb
     command:
       - bash
       - -c
@@ -48,7 +52,11 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${RAY_WORKER_SCALE:-0}
-    shm_size: 4gb
+    # Ray's object store uses /dev/shm. Default Docker Desktop allocates 64MB;
+    # 4GB triggered Ray's "/dev/shm too small, falling back to /tmp/ray" warning
+    # on every launch. 8GB satisfies Ray's recommended >30% RAM threshold for
+    # most workloads without hard-reserving excessive shared memory.
+    shm_size: 8gb
     command:
       - bash
       - -c

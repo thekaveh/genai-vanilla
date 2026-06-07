@@ -2,7 +2,7 @@
 """Tests for _generate_tei_reranker_config()."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from services.service_config import ServiceConfig
 
@@ -11,6 +11,7 @@ _BASE_ENV = {
     "PROJECT_NAME": "genai",
     "TEI_RERANKER_LOCALHOST_PORT": "63031",
     "TEI_RERANKER_CPU_IMAGE": "ghcr.io/huggingface/text-embeddings-inference:cpu-1.9",
+    "TEI_RERANKER_CPU_ARM64_IMAGE": "ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest",
     "TEI_RERANKER_GPU_IMAGE": "ghcr.io/huggingface/text-embeddings-inference:1.9",
 }
 
@@ -30,12 +31,25 @@ def test_disabled_clears_endpoint_and_scale():
     assert env["TEI_RERANKER_SCALE"] == "0"
 
 
-def test_container_cpu_resolves_cpu_image():
+def test_container_cpu_resolves_cpu_image_on_amd64():
+    """On amd64 hosts, container-cpu picks the ORT-backend cpu-1.9 image."""
     sc = _make("container-cpu")
-    env = sc._generate_tei_reranker_config()
+    with patch("platform.machine", return_value="x86_64"):
+        env = sc._generate_tei_reranker_config()
     assert env["TEI_RERANKER_ENDPOINT"] == "http://tei-reranker:80"
     assert env["TEI_RERANKER_SCALE"] == "1"
     assert env["TEI_RERANKER_IMAGE_RESOLVED"].endswith(":cpu-1.9")
+
+
+def test_container_cpu_resolves_arm64_image_on_arm64():
+    """On arm64 hosts (Apple Silicon), container-cpu picks the candle-backend
+    cpu-arm64-latest image so safetensors-only models load natively."""
+    sc = _make("container-cpu")
+    with patch("platform.machine", return_value="arm64"):
+        env = sc._generate_tei_reranker_config()
+    assert env["TEI_RERANKER_ENDPOINT"] == "http://tei-reranker:80"
+    assert env["TEI_RERANKER_SCALE"] == "1"
+    assert env["TEI_RERANKER_IMAGE_RESOLVED"].endswith(":cpu-arm64-latest")
 
 
 def test_container_gpu_resolves_gpu_image():

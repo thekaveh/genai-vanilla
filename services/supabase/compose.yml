@@ -232,7 +232,7 @@ services:
       - backend-network
 
   postgres-exporter:
-    image: ${POSTGRES_EXPORTER_IMAGE:-prometheuscommunity/postgres-exporter:v0.16.0}
+    image: ${POSTGRES_EXPORTER_IMAGE:-prometheuscommunity/postgres-exporter:v0.18.1}
     container_name: ${PROJECT_NAME}-postgres-exporter
     restart: unless-stopped
     deploy:

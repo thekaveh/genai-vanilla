@@ -44,6 +44,10 @@ env:
     default: ""
     secret: true
     description: "Auto-generated bearer key. Forwarded to LiteLLM as the model api_key."
+  - name: LIGHTRAG_TOKEN_SECRET
+    default: ""
+    secret: true
+    description: "Auto-generated JWT signing key for LightRAG's /login endpoint. Without this, LightRAG falls back to a hardcoded default key (security risk)."
   - name: LIGHTRAG_WORKERS
     default: 2
   - name: LIGHTRAG_MEMORY_LIMIT
@@ -165,7 +169,9 @@ runtime_adaptive:
       LIGHTRAG_DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       LIGHTRAG_RERANK_BINDING_HOST: ${TEI_RERANKER_ENDPOINT}
       LIGHTRAG_PG_URI: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}"
-      LIGHTRAG_NEO4J_URI: "bolt://neo4j:7687"
+      # Neo4j compose service id is `neo4j-graph-db`, not `neo4j` (memory:
+      # reference_kong_compose_service_id documents the same pattern for Kong).
+      LIGHTRAG_NEO4J_URI: "bolt://neo4j-graph-db:7687"
       LIGHTRAG_NEO4J_USERNAME: neo4j
       LIGHTRAG_NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       LIGHTRAG_REDIS_URI: "redis://:${REDIS_PASSWORD}@redis:6379/2"

@@ -20,6 +20,9 @@ services:
       PORT: 9621
       WORKERS: ${LIGHTRAG_WORKERS:-2}
       LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY}
+      # JWT signing key for /login flow; without this LightRAG warns and
+      # falls back to a hardcoded default secret (security risk).
+      TOKEN_SECRET: ${LIGHTRAG_TOKEN_SECRET}
       LLM_BINDING: ${LIGHTRAG_LLM_BINDING:-openai}
       LLM_BINDING_HOST: ${LIGHTRAG_LLM_BINDING_HOST:-http://litellm:4000/v1}
       LLM_BINDING_API_KEY: ${LITELLM_MASTER_KEY}
@@ -41,7 +44,11 @@ services:
       REDIS_URI: ${LIGHTRAG_REDIS_URI}
       LIGHTRAG_PARSER: "*:native-teP,*:legacy-R"
       DOCLING_ENDPOINT: ${LIGHTRAG_DOCLING_ENDPOINT}
-      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING_HOST:+openai}
+      # LightRAG v1.5.0 only accepts cohere/jina/aliyun/null for RERANK_BINDING.
+      # TEI's /rerank endpoint is wire-compatible with the Jina/Cohere standard
+      # payload, so we use `jina` whenever the reranker endpoint is set.
+      # The :+ pattern only emits the value when the host var is non-empty.
+      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING_HOST:+jina}
       RERANK_BINDING_HOST: ${LIGHTRAG_RERANK_BINDING_HOST}
       RERANK_MODEL: BAAI/bge-reranker-v2-m3
     volumes:

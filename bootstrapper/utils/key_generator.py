@@ -253,6 +253,21 @@ class KeyGenerator:
         new_key = self.generate_lightrag_api_key()
         return self.update_env_key('LIGHTRAG_API_KEY', new_key)
 
+    def generate_lightrag_token_secret(self) -> str:
+        """JWT signing secret for LightRAG /login flows. Without it, LightRAG
+        emits a TOKEN_SECRET warning on every boot and falls back to a
+        hardcoded default key (real security risk in any non-trivial deploy).
+        """
+        return _cli_safe_token_urlsafe(48)
+
+    def generate_and_update_lightrag_token_secret(self, force: bool = False) -> bool:
+        """Generate LIGHTRAG_TOKEN_SECRET when absent. Idempotent."""
+        current_value = self.get_current_env_value('LIGHTRAG_TOKEN_SECRET')
+        if not force and current_value:
+            return True
+        new_key = self.generate_lightrag_token_secret()
+        return self.update_env_key('LIGHTRAG_TOKEN_SECRET', new_key)
+
     def generate_webui_secret_key(self) -> str:
         """Open WebUI JWT/session signing key. Used by Open WebUI itself
         AND by ``services/open-webui/init/scripts/register-{tools,functions}.py``
@@ -442,11 +457,14 @@ class KeyGenerator:
         # without restarting the LiteLLM container would break routing.
         results['HERMES_API_KEY'] = self.generate_and_update_hermes_api_key(force=False)
 
-        # LightRAG API bearer key — only generate when LIGHTRAG_SOURCE != disabled
-        # and the key is absent. Same preservation posture as HERMES_API_KEY.
-        if self.get_current_env_value("LIGHTRAG_SOURCE") != "disabled" and \
-                not self.get_current_env_value("LIGHTRAG_API_KEY"):
-            results['LIGHTRAG_API_KEY'] = self.generate_and_update_lightrag_api_key(force=False)
+        # LightRAG API bearer key + JWT token secret — only generate when
+        # LIGHTRAG_SOURCE != disabled and the keys are absent. Same
+        # preservation posture as HERMES_API_KEY.
+        if self.get_current_env_value("LIGHTRAG_SOURCE") != "disabled":
+            if not self.get_current_env_value("LIGHTRAG_API_KEY"):
+                results['LIGHTRAG_API_KEY'] = self.generate_and_update_lightrag_api_key(force=False)
+            if not self.get_current_env_value("LIGHTRAG_TOKEN_SECRET"):
+                results['LIGHTRAG_TOKEN_SECRET'] = self.generate_and_update_lightrag_token_secret(force=False)
 
         # Open WebUI JWT/session signing key. Upgrades the shipped
         # ``"secret"`` placeholder to a real 32-byte token; preserves

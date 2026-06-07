@@ -614,7 +614,15 @@ class ServiceConfig:
         return env_vars
 
     def _generate_tei_reranker_config(self) -> Dict[str, str]:
-        """Resolve TEI Reranker endpoint, scale, and per-source image."""
+        """Resolve TEI Reranker endpoint, scale, and per-source image.
+
+        For container-cpu, picks the arm64 image on arm64 hosts and the
+        amd64 image otherwise. This matters because TEI's amd64 cpu-1.9
+        image uses the ORT backend (requires ONNX weights, which
+        bge-reranker-v2-m3 doesn't ship), while the arm64 image uses the
+        candle backend which loads safetensors natively.
+        """
+        import platform as _platform
         source_value = self.service_sources.get('TEI_RERANKER_SOURCE', 'disabled')
         env_vars: Dict[str, str] = {}
         current_env = self.config_parser.parse_env_file()
@@ -622,25 +630,31 @@ class ServiceConfig:
             'TEI_RERANKER_CPU_IMAGE',
             'ghcr.io/huggingface/text-embeddings-inference:cpu-1.9',
         )
+        cpu_arm64_image = current_env.get(
+            'TEI_RERANKER_CPU_ARM64_IMAGE',
+            'ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest',
+        )
         gpu_image = current_env.get(
             'TEI_RERANKER_GPU_IMAGE',
             'ghcr.io/huggingface/text-embeddings-inference:1.9',
         )
+        host_is_arm64 = _platform.machine().lower() in ('arm64', 'aarch64')
+        container_cpu_image = cpu_arm64_image if host_is_arm64 else cpu_image
 
         if source_value == 'disabled':
             env_vars['TEI_RERANKER_ENDPOINT'] = ''
             env_vars['TEI_RERANKER_SCALE'] = '0'
-            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = cpu_image
+            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = container_cpu_image
         elif source_value == 'localhost':
             port = current_env.get('TEI_RERANKER_LOCALHOST_PORT', '63031')
             env_vars['TEI_RERANKER_ENDPOINT'] = f'http://{self.localhost_host}:{port}'
             env_vars['TEI_RERANKER_SCALE'] = '0'
-            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = cpu_image
+            env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = container_cpu_image
         else:  # container-cpu | container-gpu
             env_vars['TEI_RERANKER_ENDPOINT'] = 'http://tei-reranker:80'
             env_vars['TEI_RERANKER_SCALE'] = '1'
             env_vars['TEI_RERANKER_IMAGE_RESOLVED'] = (
-                gpu_image if source_value == 'container-gpu' else cpu_image
+                gpu_image if source_value == 'container-gpu' else container_cpu_image
             )
         return env_vars
 
@@ -1061,10 +1075,15 @@ class ServiceConfig:
         if lightrag_source != 'disabled':
             lightrag_raw_env = self.config_parser.parse_env_file()
 
-            # Reranker — mirror TEI_RERANKER_ENDPOINT.  A blank/disabled
-            # endpoint leaves the host empty, which disables reranking.
+            # Reranker — mirror TEI_RERANKER_ENDPOINT and append the /rerank
+            # path. LightRAG's `jina` binding POSTs directly to the host URL
+            # (no path-appending), so the env value must already include the
+            # full endpoint. A blank/disabled endpoint leaves the host empty,
+            # which disables reranking.
             tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
-            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = tei_endpoint
+            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = (
+                f'{tei_endpoint.rstrip("/")}/rerank' if tei_endpoint else ''
+            )
 
             # Docling — mirror DOCLING_ENDPOINT.
             env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = parent_vars.get('DOCLING_ENDPOINT', '')
