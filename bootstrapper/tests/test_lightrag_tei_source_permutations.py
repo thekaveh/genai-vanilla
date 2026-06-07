@@ -149,7 +149,12 @@ def test_lightrag_neo4j_uri_populated_when_neo4j_enabled(env_copy):
         "NEO4J_GRAPH_DB_SOURCE": "container",
     })
     env = sc.generate_service_environment()
-    assert env.get("LIGHTRAG_NEO4J_URI") == "bolt://neo4j:7687"
+    # Hostname MUST be `neo4j-graph-db` (the compose service id), NOT bare `neo4j`.
+    # Memory: reference_kong_compose_service_id documents the same pattern.
+    # The previous assertion asserted `bolt://neo4j:7687` which was a
+    # bug-confirming test — both this test and the imperative emission in
+    # service_config.py:1106 had the wrong hostname; live smoke surfaced it.
+    assert env.get("LIGHTRAG_NEO4J_URI") == "bolt://neo4j-graph-db:7687"
     assert env.get("LIGHTRAG_NEO4J_USERNAME") == "neo4j"
     assert env.get("LIGHTRAG_NEO4J_PASSWORD")  # truthy — non-empty from .env.example
 
