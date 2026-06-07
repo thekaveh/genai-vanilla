@@ -62,17 +62,26 @@ class ServiceConfig:
         """
         Generate all service environment variables based on YAML configuration.
         Replicates the generate_service_environment() function from start.sh.
-        
+
         Returns:
             dict: Dictionary of environment variables to set
         """
         if not self.load_config():
             return {}
-            
+
         env_vars = {}
 
         # Resolve host gateway IP for extra_hosts compatibility (Docker vs Podman)
         env_vars['HOST_GATEWAY_IP'] = resolve_host_gateway_ip()
+
+        # Refresh image-pin env vars from manifest defaults. Without this,
+        # users who pulled a tag-bump (e.g. postgres-exporter v0.16→v0.18 in
+        # PR #62) keep running the old image because the bootstrapper
+        # historically preserved their existing .env value. Image pins are
+        # deterministic — the manifest is the source of truth. Users who
+        # genuinely want to pin a different image should shell-export the
+        # var (compose interpolation honors shell env over .env).
+        env_vars.update(self._refresh_image_pins_from_manifests())
 
         # Generate LLM Provider (Ollama) configuration
         llm_config = self._generate_llm_provider_config()
@@ -1103,7 +1112,9 @@ class ServiceConfig:
             # Neo4j graph URI + credentials.
             neo4j_source = sources.get('NEO4J_GRAPH_DB_SOURCE', 'container')
             if neo4j_source != 'disabled':
-                env_vars['LIGHTRAG_NEO4J_URI'] = 'bolt://neo4j:7687'
+                # Neo4j compose service id is `neo4j-graph-db` (NOT `neo4j`).
+                # MUST match services/lightrag/service.yml::runtime_adaptive.
+                env_vars['LIGHTRAG_NEO4J_URI'] = 'bolt://neo4j-graph-db:7687'
                 env_vars['LIGHTRAG_NEO4J_USERNAME'] = 'neo4j'
                 env_vars['LIGHTRAG_NEO4J_PASSWORD'] = lightrag_raw_env.get('GRAPH_DB_PASSWORD', '')
             else:
@@ -1152,6 +1163,48 @@ class ServiceConfig:
 
         return env_vars
     
+    def _refresh_image_pins_from_manifests(self) -> Dict[str, str]:
+        """Force-refresh `*_IMAGE` env vars from manifest `images[].default`.
+
+        Image pins are deterministic — the manifest is the source of truth.
+        Without this refresh, a user who pulled a tag-bump keeps running the
+        old image because the bootstrapper preserves their existing .env
+        value across launches. Specifically caught:
+          - PR #62 bumped postgres-exporter v0.16.0 → v0.18.1 (PG18 schema
+            support). User's .env kept v0.16.0; live `checkpoints_timed`
+            errors on every scrape until manually patched.
+
+        Override path for users who genuinely pin a different image:
+        shell-export the var before start.sh (e.g.
+        ``LIGHTRAG_IMAGE=ghcr.io/hkuds/lightrag:v1.4.6 ./start.sh``). Compose
+        interpolation honors shell env over .env, AND this method skips any
+        var that's already set in os.environ.
+        """
+        import os
+        from pathlib import Path
+        from services.manifests import load_manifests
+
+        try:
+            services_root = self.config_parser.root_dir / "services"
+            manifests = load_manifests(services_root)
+        except Exception:
+            # Defensive: if manifests can't load (unusual), do nothing rather
+            # than crash the whole env-generation flow.
+            return {}
+
+        env_vars: Dict[str, str] = {}
+        for m in manifests:
+            for img in getattr(m, 'images', None) or []:
+                var = getattr(img, 'var', None) or (img.get('var') if isinstance(img, dict) else None)
+                default = getattr(img, 'default', None) or (img.get('default') if isinstance(img, dict) else None)
+                if not var or not default:
+                    continue
+                # Respect shell-export override
+                if os.environ.get(var):
+                    continue
+                env_vars[var] = default
+        return env_vars
+
     def update_env_file(self, env_vars: Dict[str, str], create_backup: bool = True) -> bool:
         """
         Update .env file with computed environment variables.
