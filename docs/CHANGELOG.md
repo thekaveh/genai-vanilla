@@ -7,6 +7,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security — Auto-rotate 8 weak credential placeholders on first launch
+
+`.env.example` shipped publicly-known defaults for 8 credential vars
+that survived a clean `cp .env.example .env && ./start.sh` boot
+unchanged. The worst was `N8N_ENCRYPTION_KEY=your-random-encryption-key`
+(n8n AES-encrypts every saved workflow credential under it, so saved
+API keys / OAuth tokens were recoverable from the on-disk SQLite blob
+by anyone reading the public repo). Others: `SUPABASE_DB_PASSWORD=password`,
+`SUPABASE_DB_APP_PASSWORD=app_password`, `GRAPH_DB_PASSWORD=neo4j_password`
+(Neo4j; also rewrites the composite `GRAPH_DB_AUTH=neo4j/<password>`),
+`REDIS_PASSWORD=redis_password`, `DASHBOARD_PASSWORD=kong_password`
+(Kong admin), `OPEN_WEB_UI_ADMIN_PASSWORD=admin`, `OPEN_WEB_UI_SECRET_KEY=secret`.
+
+`bootstrapper/utils/key_generator.py` now carries a `PLACEHOLDER_DEFAULTS`
+dict and a `_is_placeholder_or_empty()` helper; per-rotator
+`generate_and_update_*` methods upgrade the placeholder on first launch
+and preserve any operator-supplied real value (rotating mid-run would
+lock out the existing database/role/user — destructive). The aggregator
+in `generate_missing_keys()` wires all 8 rotators alongside the existing
+LiteLLM / Hermes / Airflow / Grafana / MinIO / SearxNG generators.
+
+Operator action: hand-edited `.env` files with custom values are left
+alone. Fresh installs (or any `.env` still carrying a placeholder)
+will rotate to a random value on the next `./start.sh`.
+
+### Fixed — start.py cold-start port-clear + TUI launch flag pass-through
+
+Two latent bootstrapper holes surfaced by the overnight audit loop:
+
+1. `unset_port_environment_variables` was missing 9 port slots added
+   by PR #29 / PR #35 (`RAY_DASHBOARD_PORT`, `RAY_CLIENT_PORT`,
+   `RAY_GCS_PORT`, `SPARK_MASTER_UI_PORT`, `SPARK_HISTORY_PORT`,
+   `AIRFLOW_PORT`, `ZEPPELIN_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`).
+   Cold-start with a custom `--base-port` would have shell-export-shadowed
+   the freshly-computed slot for any of these services with a stale value.
+
+2. The TUI-launch flow's `stack_options` carried `cloud_user_models` and
+   `ollama_user_models` filters but had no catch-all bucket for scalar
+   env-write flags (`COMFYUI_CUSTOM_MODELS_FILE`, `RAY_WORKER_COUNT`,
+   `PROMETHEUS_RETENTION_DAYS`, `SPARK_WORKER_COUNT`). On the
+   `./start.sh --flag <value>` path under a TUI-capable terminal, all
+   four flags were silently dropped (they only worked under `--no-tui`).
+   New `user_env_writes` bucket carries the residual unfiltered keys
+   through to the same `apply_user_model_selections` pipeline.
+
+### Fixed — LightRAG init resilience + open-webui init timeouts
+
+- `services/lightrag/init/scripts/resolve-models.py` embed-dim probe
+  no longer swallows `Exception` — narrowed to
+  `(URLError, JSONDecodeError, KeyError, IndexError)`. The wide swallow
+  silently fell back to `dim=768` against a 1024-dim store on transient
+  failures, then every runtime insert failed with "dimension mismatch"
+  with no log trail.
+- `services/lightrag/init/scripts/init-lightrag.sh` writes
+  `resolve-models.py` output to `/app/data/.env.tmp` then `mv`
+  atomically — the plain `>` redirect truncated the destination BEFORE
+  python ran, so a script crash left the file empty and lightrag
+  booted with no `LLM_MODEL` / `EMBEDDING_MODEL` / `EMBEDDING_DIM`.
+- `services/open-webui/init/scripts/register-{tools,functions}.py`
+  picked up missing `requests.get`/`requests.post` timeouts (10s/30s),
+  `psycopg2.connect(connect_timeout=5)` to bound the TCP-handshake
+  worst case, and a `try/finally` pattern around DB cursor+conn so a
+  restart loop doesn't leak one connection per attempt.
+
+### Fixed — Documentation post-migration drift sweep
+
+After PR #29/PR #35/PR #47 port reshuffles, ~25 stale port literals
+remained scattered across READMEs (root README, services/n8n/README.md,
+services/openclaw/README.md, services/neo4j/README.md, services/redis/README.md,
+services/supabase/README.md, docs/deployment/submodule-usage.md,
+docs/quick-start/troubleshooting.md, docs/deployment/source-configuration.md)
+and ROADMAP.md carried wrong Kong-route shape + ports for the shipped
+LightRAG + TEI Reranker entries. Stale `external`/`api` source-variant
+references in README, source-configuration.md, and wizard-guide were
+also scrubbed.
+
+### Fixed — Manifest data_flow.calls gap for LightRAG / TEI Reranker
+
+`services/kong/service.yml::data_flow.calls` was missing `lightrag` +
+`tei-reranker` despite live Kong routes; `services/hermes/service.yml`,
+`services/n8n/service.yml`, `services/backend/service.yml` each had
+`runtime_adaptive.adapts_to lightrag` with compose passing the env
+vars, but the manifest's `data_flow.calls` had no matching row — so
+the auto-generated §5.2 / §6.2 tables and per-service architecture
+diagrams omitted the edge. Filled all four gaps + regenerated docs
+and the hermes byte-equivalence golden fixtures.
+
+### Fixed — LightRAG three small drift bugs
+
+- `LIGHTRAG_RERANK_BINDING_HOST` manifest declaration aligned with
+  `service_config.py`'s imperative `/rerank` append (the two sources
+  of truth had drifted).
+- `LIGHTRAG_DOC_STATUS_STORAGE` default unified to `RedisDocStatusStorage`
+  across `service.yml` / `compose.yml` fallback / README (three-way
+  split was using `RedisKVStorage` in two of them).
+- `services/hermes/service.yml::runtime_adaptive.hermes-init.environment_adaptation`
+  was missing `LIGHTRAG_API_KEY` — the compose env block + init script
+  + template all read it, but the manifest under-specified the
+  cross-service contract.
+
+### Fixed — CI hygiene
+
+- Top-level `permissions: contents: read` on `.github/workflows/services-lint.yml`
+  (no job needs write scopes; principle-of-least-privilege).
+- Path-filter expanded with `LICENSE` and `.gitattributes` to prevent
+  required-checks deadlock on a config-only PR (the same class of bug
+  PR #48 hit on `.github/dependabot.yml`).
+- `services/open-webui/init/Dockerfile` bumped `python:3.11-slim` →
+  `python:3.12-slim` (psycopg2-binary 2.9.9 ships cp312 wheels; the
+  3.11 pin was no longer load-bearing) and pinned
+  `requests==2.32.3`/`psycopg2-binary==2.9.9`/`PyJWT==2.10.1` against
+  upstream-regression surprise.
+- `services/docling/provider/gpu/Dockerfile` ARG default aligned to
+  `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime` (the manifest pin).
+
 ### Added (LightRAG service)
 - New `services/lightrag/` manifest: graph-augmented RAG server pinned to `ghcr.io/hkuds/lightrag:v1.5.0`. Default `disabled`.
 - Storage adapts to Supabase pgvector, Neo4j, Redis with in-process fallback when any backend source is `disabled`.
