@@ -112,12 +112,41 @@ def test_wizard_screen_consumes_comfyui_user_models():
             and isinstance(node.args[0].value, str)
         ):
             keys_used_in_get_calls.add(node.args[0].value)
-    for key in ("cloud_user_models", "ollama_user_models", "comfyui_user_models"):
+    for key in ("cloud_user_models", "ollama_user_models", "comfyui_user_models", "user_env_writes"):
         assert key in keys_used_in_get_calls, (
             f"wizard_screen.py must call `.get({key!r}, ...)` on stack_options "
             f"in the 'Apply user model selections' lambda. Commented-out or string "
             f"literals in other contexts won't satisfy this (AST-checked)."
         )
+
+
+def test_tui_launch_carries_user_env_writes_bucket():
+    """start.py's TUI-launch stack_options must carry a `user_env_writes`
+    bucket containing every user_model_selections entry that doesn't
+    match the cosmetic *_USER_MODELS / OLLAMA_* filters
+    (COMFYUI_CUSTOM_MODELS_FILE, RAY_WORKER_COUNT,
+    PROMETHEUS_RETENTION_DAYS, SPARK_WORKER_COUNT). Without it the
+    ./start.sh --flag <value> path under a TUI-capable terminal
+    silently drops these flags.
+    """
+    tree = ast.parse(START_PY.read_text())
+    saw_user_env_writes = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            for k in node.keys:
+                if isinstance(k, ast.Constant) and k.value == "user_env_writes":
+                    saw_user_env_writes = True
+                    break
+        if saw_user_env_writes:
+            break
+    assert saw_user_env_writes, (
+        "start.py's TUI-launch stack_options dict must declare a "
+        "'user_env_writes' key carrying every user_model_selections value "
+        "that does NOT match the *_USER_MODELS or OLLAMA_* filters. "
+        "Without it, RAY_WORKER_COUNT / SPARK_WORKER_COUNT / "
+        "PROMETHEUS_RETENTION_DAYS / COMFYUI_CUSTOM_MODELS_FILE flags are "
+        "silently dropped on the TUI-launch path."
+    )
 
 
 def test_integration_inner_keys_use_uppercase_env_var_names():

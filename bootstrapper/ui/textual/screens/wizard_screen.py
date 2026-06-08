@@ -1317,6 +1317,13 @@ class WizardScreen(Screen):
                  **((self._stack_options or {}).get("cloud_user_models", {}) or {}),
                  **((self._stack_options or {}).get("ollama_user_models", {}) or {}),
                  **((self._stack_options or {}).get("comfyui_user_models", {}) or {}),
+                 # CLI-launch catch-all: COMFYUI_CUSTOM_MODELS_FILE,
+                 # RAY_WORKER_COUNT, PROMETHEUS_RETENTION_DAYS,
+                 # SPARK_WORKER_COUNT — flags that don't match the wizard's
+                 # cosmetic *_USER_MODELS / OLLAMA_* bucket patterns.
+                 # Without this bucket they'd be silently dropped on the
+                 # ./start.sh --flag <value> path while TUI is active.
+                 **((self._stack_options or {}).get("user_env_writes", {}) or {}),
              })),
             ("Validate source configurations",
              starter.validate_source_configurations),
