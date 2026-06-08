@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs — Top-level architecture diagram refreshed
+
+`docs/diagrams/architecture.svg` (and its `architecture.html` standalone
+view) refreshed to reflect the current 33-service stack. Eight services
+shipped since the diagram was last hand-authored were absent:
+**LightRAG** + **TEI Reranker** (2026-06-05, PR #62), **Apache Airflow**
++ **Apache Spark** + **Apache Zeppelin** (2026-06-05, PR #35), and
+**Ray** + **Prometheus** + **Grafana** (earlier in 2026).
+
+Layout additions: Zeppelin joins APPS (5 cards), LightRAG + Airflow
+join AGENTS (5), TEI Reranker joins LLM CORE (4), Spark sits beside
+Ray in DISTRIBUTED COMPUTE (2), and a new OBSERVABILITY band carries
+Prometheus + Grafana. ViewBox grew from 1400×1100 to 1400×1240 to
+host the new bands without compressing the existing topology.
+
+The README's embedded diagram updates transparently (GitHub renders
+the SVG inline). The corresponding "Known follow-up" entry under
+[Unreleased] is removed.
+
 ### Security — Auto-rotate 8 weak credential placeholders on first launch
 
 `.env.example` shipped publicly-known defaults for 8 credential vars
@@ -267,13 +286,6 @@ because rotating any of them mid-run breaks something.
   interpreter profile. Users do a one-time UI setup
   (Interpreter → JDBC → `+ Create` → `postgres` group). See
   [`services/zeppelin/README.md`](../services/zeppelin/README.md) §4.
-- **Top-level architecture diagram** — `docs/diagrams/architecture.svg`
-  was not refreshed to include the airflow / spark / zeppelin tier
-  shipped here, nor the **lightrag** + **tei-reranker** services shipped
-  2026-06-05, nor the **ray / prometheus / grafana** tier shipped
-  earlier in 2026. Per-service architecture diagrams (auto-regenerated)
-  cover every new edge. A future authoring session via the
-  architecture-diagram skill will refresh the top-level overview.
 - **Airflow `postgres_supabase` Connection uses admin credentials** —
   intentionally seeds with `SUPABASE_DB_USER` / `SUPABASE_DB_PASSWORD`
   (superuser) until the prerequisite `SUPABASE_DB_APP_USER` Postgres
