@@ -107,6 +107,39 @@ and the hermes byte-equivalence golden fixtures.
   + template all read it, but the manifest under-specified the
   cross-service contract.
 
+### Fixed — Narrow broad except clauses in 3 bootstrapper modules
+
+`bootstrapper/utils/hosts_manager.py` (6 sites),
+`bootstrapper/core/docker_manager.py` (4 sites), and
+`bootstrapper/services/dependency_manager.py` (2 sites) all carried
+bare `except Exception` blocks that silently absorbed real bugs
+(malformed regex, attribute typos, KeyError) alongside the intended
+OS-level failures. Narrowed each to its actual failure surface
+(`OSError`, `UnicodeDecodeError`, `subprocess.SubprocessError`,
+`psycopg2.Error`) so future regressions in these modules surface
+loudly instead of being silently absorbed into safe-default returns.
+Behavioral diff: previously-masked TypeError / AttributeError / etc.
+now propagate.
+
+### Tests — Regression-guard additions
+
+- `tests/test_lightrag_manifest_imperative_parity.py` (new):
+  asserts both ends of the `LIGHTRAG_RERANK_BINDING_HOST` contract end
+  in `/rerank` so a future manifest edit can't silently drift from the
+  imperative emitter in `bootstrapper/services/service_config.py`.
+- `tests/test_user_model_selections_seam_parity.py::test_tui_launch_carries_user_env_writes_bucket`
+  tightened: was a loose AST walk accepting any Dict literal with a
+  `user_env_writes` key; now requires the key live on the specific
+  `Assign(targets=[Name('stack_options')])` Dict AND its value be a
+  `DictComp` over `user_model_selections.items()`. Stub assignments now
+  fail loudly.
+- `tests/test_lightrag_litellm_registration.py`: stub `psycopg2` /
+  `psycopg2.extras` in `sys.modules` before exec_module so the 3
+  lightrag_model_entry tests run in any bootstrapper venv (matched the
+  established pattern from `test_catalog_init_auto_import.py`).
+  Previously these tests silently failed locally — CI's resolved dep
+  tree pulled psycopg2 transitively, masking the breakage.
+
 ### Fixed — CI hygiene
 
 - Top-level `permissions: contents: read` on `.github/workflows/services-lint.yml`
