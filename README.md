@@ -90,7 +90,7 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 Running `./start.sh` with no arguments launches an interactive setup wizard that walks through configuring every service step by step:
 
 - Step-by-step service configuration with descriptions and contextual hints (GPU requirements, localhost options, etc.)
-- LLM cluster spliced immediately after the LLM Engine step: single unified Ollama models multiselect (source-aware — localhost/external rows are badged `[pulled]` / `[library]`) + a free-text "additional models to pull" step → OpenAI / Anthropic / OpenRouter key + multiselect pairs (live `/v1/models` fetch), keeping engine + local + cloud adjacent in the wizard flow
+- LLM cluster spliced immediately after the LLM Engine step: single unified Ollama models multiselect (source-aware — localhost rows are badged `[pulled]` / `[library]`) + a free-text "additional models to pull" step → OpenAI / Anthropic / OpenRouter key + multiselect pairs (live `/v1/models` fetch), keeping engine + local + cloud adjacent in the wizard flow
 - Live `ollama.com/library` scrape (a few hundred entries; exact count depends on the upstream catalog at fetch time) for both container and host-side Ollama sources
 - Real-time command preview showing the equivalent CLI command as you make selections
 - Dependency validation that warns if you enable a service without its required dependencies
@@ -123,7 +123,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **Dynamic service configuration**: SOURCE-based deployment with CLI overrides
 - **Kong gateway**: auto-generated routes based on active services
 - **Cross-platform support**: Python-based bootstrapping works on all OS
-- **Flexible deployment**: mix containerized, localhost, and external services
+- **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
 - **Always-on core**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
 - **Opt-in**: Ray (distributed compute) and the LLM/Media/Agents tiers are activated via SOURCE flags or the interactive wizard
@@ -132,7 +132,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 - **API gateway (Kong)**: centralized API management with dynamic routing
 - **Real-time data sync**: live database notifications via Supabase Realtime
-- **Flexible service sources**: switch between container, localhost, external, and cloud variants
+- **Flexible service sources**: switch between container and localhost variants per service, plus cloud LLM providers via LiteLLM
 - **Modular architecture**: choose service combinations via SOURCE variables
 - **Environment-based config**: configuration through environment variables
 - **Cross-platform Python scripts**: consistent behavior across Windows, macOS, Linux
@@ -295,7 +295,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 ### 4.3 AI services
 - **LiteLLM Gateway** — always-on OpenAI-compatible front door for every LLM provider in the stack (one URL, one key)
-- **Ollama** — local LLM inference engine behind LiteLLM (supports CPU/GPU/localhost/external/none)
+- **Ollama** — local LLM inference engine behind LiteLLM (supports CPU/GPU/localhost/none)
 - **ComfyUI** — image generation with workflows
 - **STT layer** — pluggable speech-to-text: Speaches (default, Faster-Whisper inside, CPU-friendly), NVIDIA Parakeet-TDT (SOTA EN/EU), whisper.cpp localhost (best on Apple Silicon)
 - **TTS layer** — pluggable text-to-speech: Speaches (default, Kokoro + Piper voices), Chatterbox (voice cloning, MIT-licensed)
@@ -542,7 +542,7 @@ Key entry points by audience:
 - [Expected startup warnings](docs/deployment/expected-startup-warnings.md) — log lines that look scary but aren't
 
 ### 9.2 Operators
-- [SOURCE configuration](docs/deployment/source-configuration.md) — every service's container / localhost / external / disabled / api modes (and GPU variants)
+- [SOURCE configuration](docs/deployment/source-configuration.md) — every service's container / localhost / disabled modes (and GPU variants for the LLM/embedding engines)
 - [Ports and routes](docs/deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
 - [Using as a submodule](docs/deployment/submodule-usage.md) — embedding the stack inside another project
 - [Service documentation](services/) — per-service READMEs (each owns its manifest, compose fragment, and architecture diagram)

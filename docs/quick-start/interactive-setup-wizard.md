@@ -41,7 +41,7 @@ Each wizard step renders one of five prompt widgets, picked based on the questio
 | `options` | Single-select with a small fixed option set (every `*_SOURCE`, the `Cold start` toggle, the `Hosts file` choice). | Up/Down arrows + Enter; the current `.env` value is pre-highlighted. |
 | `number` | Numeric prompts (`Base port`). | Single-line input restricted to digits; range-validated. |
 | `secret` | API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`). | Masked password Input + a live char-count hint as you paste. When a key is already set, the hint shows the source-aware action: press Enter to keep the saved key, type a new key to replace, type `clear` + Enter to remove. No sentinel rows are rendered — the input field IS the prompt. |
-| `multiselect` | Cloud and Ollama model lists. | `[✓]` / `[ ]` rows in a scrollable viewport (capped height; the cursor follows the selection so a 230-row library scrape stays usable). Space toggles, Enter confirms. **Cloud** multiselect: default-active set (intersected with what your account actually returns) is pre-checked on first visit. **Ollama** multiselect: source-aware — container shows the library only, localhost/external shows a merged `[pulled]` + `[library]` view. Purely additive; the default-active baseline is already active via `08-seed-data.sql`. |
+| `multiselect` | Cloud and Ollama model lists. | `[✓]` / `[ ]` rows in a scrollable viewport (capped height; the cursor follows the selection so a 230-row library scrape stays usable). Space toggles, Enter confirms. **Cloud** multiselect: default-active set (intersected with what your account actually returns) is pre-checked on first visit. **Ollama** multiselect: source-aware — container shows the library only, localhost shows a merged `[pulled]` + `[library]` view. Purely additive; the default-active baseline is already active via `08-seed-data.sql`. |
 | `text` | Free-text additions (the Ollama "additional models to pull" step). | Comma-separated input; trimmed and merged into selections. |
 
 Throughout: `Up/Down` to move, `Enter` to confirm, `Space` to toggle multiselect rows, `Esc` returns to the previous step, `Ctrl+C` (or `Ctrl+Q`) quits.
@@ -101,7 +101,7 @@ This pushes year-old hits like `llama3.1` (114M pulls but updated a year ago) be
 
 Selections persist as `OLLAMA_USER_MODELS`.
 
-When the library scrape fails (rare), the wizard falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). Capability tags and sizes aren't recoverable in fallback (the catalog only carries `embedding` / `vision` flags); the `[legacy]` badge is suppressed because age data is unavailable. When `/api/tags` fails for a localhost/external source, the merge degrades to library-only with a warning in the session log.
+When the library scrape fails (rare), the wizard falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). Capability tags and sizes aren't recoverable in fallback (the catalog only carries `embedding` / `vision` flags); the `[legacy]` badge is suppressed because age data is unavailable. When `/api/tags` fails for a localhost source, the merge degrades to library-only with a warning in the session log.
 
 The default-active baseline is already activated in `public.llms` from `08-seed-data.sql`, so checking items here is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour:
 
@@ -134,7 +134,7 @@ Live fetches run in a background worker so the wizard stays responsive (Esc stil
 
 `ComfyUI  ·  models` — a multiselect step parallel to the Ollama
 models step, shown for every non-`disabled` `COMFYUI_SOURCE`
-(`container-cpu` / `container-gpu` / `localhost` / `external`).
+(`container-cpu` / `container-gpu` / `localhost`).
 The wizard's catalog is sourced from `bootstrapper/utils/comfyui_library.py`,
 which merges a live Hugging Face scrape (per-category filters
 covering Image, Image-edit, Video, Audio, and 3D models) +
@@ -255,7 +255,7 @@ Before launching, a configuration summary inside the same anchored info-box show
 - Every service with its selected source, alias (when hosts are configured), and direct port.
 - Hosted endpoints (e.g., `chat.localhost:63000`) if hosts file entries are configured.
 - A separate **Cloud APIs** sub-section lists OpenAI / Anthropic / OpenRouter status (`enabled · key set ✓`, `disabled`, `enabled · key MISSING ⚠`). Cloud providers don't run as containers, so they render below the services grid rather than alongside real services.
-- Color-coded source choices (container = green, localhost / external / cloud = cyan, off = slate).
+- Color-coded source choices (container = green, localhost / cloud = cyan, off = slate).
 
 You confirm to launch (the **Launch the stack with this configuration?** step is the wizard's final question), or cancel to exit without changes.
 

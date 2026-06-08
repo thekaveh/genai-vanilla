@@ -8,7 +8,7 @@ The easiest way to configure SOURCE variables is the **interactive setup wizard*
 
 ## Understanding SOURCE Variables
 
-SOURCE variables control how each service is deployed - whether in a Docker container, using a localhost installation, connecting to an external service, or disabling the service entirely.
+SOURCE variables control how each service is deployed — whether in a Docker container, using a localhost installation, or disabling the service entirely. (The legacy `external` and `api` source values were retired earlier in 2026; see the `LLM_PROVIDER_SOURCE` migration note below.)
 
 ## Service SOURCE Support Matrix
 
@@ -99,7 +99,7 @@ The interactive wizard's per-provider multiselects persist as comma-separated en
 
 | Variable | Set by | Default | Notes |
 |---|---|---|---|
-| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware; localhost/external rows are badged `[pulled]` / `[library]`). | Default-active baseline (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). | Registered in `public.llms` for every Ollama source. Pulled by `ollama-pull` only for container sources. |
+| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware; localhost rows are badged `[pulled]` / `[library]`). | Default-active baseline (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). | Registered in `public.llms` for every Ollama source. Pulled by `ollama-pull` only for container sources. |
 | `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | Empty. | Comma-separated. Pulled by `ollama-pull` for container sources only. |
 | `OPENAI_USER_MODELS` | OpenAI multiselect (live `/v1/models` fetch). | Curated default-active intersection (gpt-5, gpt-5-mini, text-embedding-3-large) when key valid. | Requires `OPENAI_API_KEY`. |
 | `ANTHROPIC_USER_MODELS` | Anthropic multiselect (live `/v1/models` fetch). | Curated default-active intersection (claude-opus-4-7, claude-sonnet-4-6) when key valid. | Requires `ANTHROPIC_API_KEY`. |
