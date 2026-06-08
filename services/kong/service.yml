@@ -86,4 +86,6 @@ data_flow:
     - airflow
     - spark
     - zeppelin
+    - lightrag
+    - tei-reranker
 

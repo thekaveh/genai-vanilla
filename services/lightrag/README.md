@@ -98,7 +98,12 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 
 ### 5.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| kong | infra |
+| hermes | agents |
+| n8n | agents |
+| backend | apps |
 
 ### 5.3 Architecture diagram
 

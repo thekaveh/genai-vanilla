@@ -111,4 +111,5 @@ data_flow:
     - n8n
     - ray
     - local-deep-researcher
+    - lightrag
 

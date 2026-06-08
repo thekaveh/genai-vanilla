@@ -12,6 +12,7 @@
 | stt-provider | media |
 | tts-provider | media |
 | airflow | agents |
+| lightrag | agents |
 
 ### 5.2 Current — Downstream (services that call this)
 
