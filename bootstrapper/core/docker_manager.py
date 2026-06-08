@@ -260,9 +260,9 @@ class DockerManager:
             )
             # Return True even if network doesn't exist (exit code 1)
             return True
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             return False
-    
+
     def prune_system(self, remove_volumes: bool = False) -> int:
         """
         Run docker system prune to clean up unused resources.
@@ -450,7 +450,7 @@ class DockerManager:
             )
 
             return result.returncode == 0 and bool(result.stdout.strip())
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             return False
 
     def get_service_port(self, service: str, internal_port: str) -> str:
@@ -489,7 +489,7 @@ class DockerManager:
                 if match:
                     return match.group(1)
             return ""
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             return ""
     
     def show_container_logs(self, follow: bool = True) -> int:
@@ -628,7 +628,9 @@ class DockerManager:
             except subprocess.TimeoutExpired:
                 proc.kill()
                 return proc.wait()
-        except Exception:
+        except (subprocess.SubprocessError, OSError, AttributeError):
+            # AttributeError covers proc.kill() being called on a
+            # subprocess.Popen that crashed before assignment.
             return 1
 
     def get_services_status(self) -> dict:
