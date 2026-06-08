@@ -65,8 +65,18 @@ def resolve_dim(model: str) -> int:
         with urllib.request.urlopen(req, timeout=15) as r:
             payload = json.loads(r.read().decode("utf-8"))
         return len(payload["data"][0]["embedding"])
-    except Exception as e:
-        print(f"# WARN dim probe failed for {model}: {e}", file=sys.stderr)
+    except (urllib.error.URLError, json.JSONDecodeError, KeyError, IndexError) as e:
+        # Narrow except so a genuinely unexpected error (bug in this script,
+        # OOM, etc.) crashes lightrag-init loudly. Returning 768 when the
+        # real model has dim 1024 silently writes a dim-768 PGVector index
+        # against a 1024-dim store → every insert at runtime fails with
+        # "dimension mismatch" and no log trail back to this fallback.
+        print(
+            f"# WARN dim probe failed for {model} ({type(e).__name__}: {e});"
+            f" falling back to 768 (nomic-embed-text). Override via"
+            f" EMBEDDING_DIM if your model uses a different size.",
+            file=sys.stderr,
+        )
         return 768  # safe fallback for nomic-embed-text
 
 

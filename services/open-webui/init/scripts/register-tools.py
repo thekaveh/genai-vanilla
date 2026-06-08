@@ -49,6 +49,7 @@ def create_admin_user():
     try:
         resp = requests.post(
             f"{WEBUI_URL}/api/v1/auths/signup",
+            timeout=30,
             json={
                 "email": ADMIN_EMAIL,
                 "password": ADMIN_PASSWORD,
@@ -73,23 +74,35 @@ def get_admin_user_id():
     """Query the database for the admin user ID, creating one if needed."""
     print("open-webui-init: Looking for admin user in database...")
     for attempt in range(1, MAX_RETRIES + 1):
+        conn = None
+        cursor = None
         try:
-            conn = psycopg2.connect(DATABASE_URL)
+            # connect_timeout caps the TCP-handshake stage so a stalled
+            # DB host doesn't push each attempt to the ~75s OS-level
+            # connect timeout — the 60-attempt loop would otherwise
+            # balloon past an hour worst-case.
+            conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT id FROM public.\"user\" WHERE role = 'admin' LIMIT 1"
             )
             row = cursor.fetchone()
-            cursor.close()
-            conn.close()
             if row:
                 admin_id = row[0]
                 print(f"open-webui-init: Found admin user: {admin_id}")
                 return admin_id
-        except Exception as e:
+        except psycopg2.Error as e:
             print(f"open-webui-init: Database query failed: {e}")
             time.sleep(RETRY_INTERVAL)
             continue
+        finally:
+            # Close on every iteration, including the error path that
+            # bypassed the post-fetch cleanup — restart-loop scenarios
+            # would otherwise leak one connection per attempt.
+            if cursor is not None:
+                cursor.close()
+            if conn is not None:
+                conn.close()
 
         # No admin exists — try to create one via signup API
         admin_id = create_admin_user()
@@ -127,7 +140,9 @@ def parse_tool_metadata(content):
 
 def tool_exists(tool_id, headers):
     """Check if a tool already exists in Open WebUI."""
-    resp = requests.get(f"{WEBUI_URL}/api/v1/tools/id/{tool_id}", headers=headers)
+    resp = requests.get(
+        f"{WEBUI_URL}/api/v1/tools/id/{tool_id}", headers=headers, timeout=10
+    )
     return resp.status_code == 200
 
 
