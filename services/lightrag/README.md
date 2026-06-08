@@ -36,7 +36,7 @@ LIGHTRAG_SOURCE=disabled                            # default
 LIGHTRAG_KV_STORAGE=RedisKVStorage                  # alt: JsonKVStorage
 LIGHTRAG_VECTOR_STORAGE=PGVectorStorage             # alt: NanoVectorDBStorage, QdrantVectorDBStorage, ...
 LIGHTRAG_GRAPH_STORAGE=Neo4JStorage                 # alt: NetworkXStorage, MemgraphStorage, AGEStorage
-LIGHTRAG_DOC_STATUS_STORAGE=RedisKVStorage          # alt: JsonKVStorage
+LIGHTRAG_DOC_STATUS_STORAGE=RedisDocStatusStorage   # alt: PGDocStatusStorage, JsonDocStatusStorage
 LIGHTRAG_LLM_MODEL=                                 # empty = inherit LITELLM_DEFAULT_MODEL
 LIGHTRAG_EMBEDDING_MODEL=                           # empty = inherit LITELLM_EMBEDDING_MODEL
 LIGHTRAG_VLM_PROCESS_ENABLE=true                    # vision LLM for images/figures

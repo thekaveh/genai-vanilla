@@ -167,7 +167,12 @@ runtime_adaptive:
       - redis
     environment_adaptation:
       LIGHTRAG_DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
-      LIGHTRAG_RERANK_BINDING_HOST: ${TEI_RERANKER_ENDPOINT}
+      # LightRAG's `jina` binding POSTs directly to the host URL with no
+      # path appending, so the env value must already include the full
+      # `/rerank` endpoint. _generate_lightrag_config() in service_config.py
+      # appends `/rerank` imperatively; keep the manifest in sync so the
+      # two sources of truth never drift.
+      LIGHTRAG_RERANK_BINDING_HOST: "${TEI_RERANKER_ENDPOINT}/rerank"
       LIGHTRAG_PG_URI: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}"
       # Neo4j compose service id is `neo4j-graph-db`, not `neo4j` (memory:
       # reference_kong_compose_service_id documents the same pattern for Kong).
