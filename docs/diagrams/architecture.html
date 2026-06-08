@@ -79,9 +79,12 @@
     }
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 16px;
       margin-top: 24px;
+    }
+    @media (max-width: 1400px) {
+      .summary-grid { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 900px) {
       .summary-grid { grid-template-columns: 1fr; }
@@ -181,8 +184,22 @@
         <ul>
           <li>LiteLLM exposes one OpenAI-compatible <code>/v1</code> surface</li>
           <li>Routes by model name to Ollama (local) or cloud providers</li>
+          <li>TEI Reranker adds a cross-encoder rerank stage for RAG</li>
           <li><code>public.llms</code> in Supabase is the model catalog source of truth</li>
-          <li>Every consumer hits the same <code>LITELLM_BASE_URL</code> + <code>LITELLM_API_KEY</code></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>Agents &amp; Workflows</h3>
+        </div>
+        <ul>
+          <li>Hermes — conversational agent runtime (Nous Research)</li>
+          <li>n8n — visual workflow engine, 400+ integrations</li>
+          <li>OpenClaw — messaging-platform AI agent</li>
+          <li>LightRAG — graph-augmented RAG (Neo4j + pgvector + Redis)</li>
+          <li>Airflow — DAG orchestration triggered via REST API</li>
         </ul>
       </div>
 
@@ -196,6 +213,19 @@
           <li>Weaviate for vectors / semantic search · pgvector fallback</li>
           <li>Neo4j for knowledge graphs (Bolt + dashboard)</li>
           <li>Redis for cache, sessions, websockets · MinIO for S3 blobs</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot slate"></div>
+          <h3>Compute &amp; Observability</h3>
+        </div>
+        <ul>
+          <li>Ray cluster — distributed Python compute (opt-in)</li>
+          <li>Spark cluster — master + workers + history + Connect (opt-in)</li>
+          <li>Prometheus scrapes Kong, LiteLLM, n8n, Backend, Weaviate, MinIO + DB sidecars</li>
+          <li>Grafana — pre-provisioned stack dashboards</li>
         </ul>
       </div>
     </div>
