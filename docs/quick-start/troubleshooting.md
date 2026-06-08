@@ -146,7 +146,7 @@ curl http://localhost:63041  # Direct port access
 docker logs genai-n8n -f
 
 # Try direct access
-curl http://localhost:63063
+curl http://localhost:63064
 
 # Check Kong routing
 curl -H "Host: n8n.localhost" http://localhost:63000/

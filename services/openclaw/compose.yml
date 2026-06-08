@@ -59,8 +59,8 @@ services:
       - openclaw-config:/home/node/.openclaw
       - openclaw-workspace:/home/node/.openclaw/workspace
     ports:
-      - "${OPENCLAW_GATEWAY_PORT:-63064}:18789"
-      - "${OPENCLAW_BRIDGE_PORT:-63065}:18790"
+      - "${OPENCLAW_GATEWAY_PORT:-63065}:18789"
+      - "${OPENCLAW_BRIDGE_PORT:-63066}:18790"
     networks:
       - backend-network
     healthcheck:
