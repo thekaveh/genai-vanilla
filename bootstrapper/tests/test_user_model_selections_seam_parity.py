@@ -128,24 +128,58 @@ def test_tui_launch_carries_user_env_writes_bucket():
     PROMETHEUS_RETENTION_DAYS, SPARK_WORKER_COUNT). Without it the
     ./start.sh --flag <value> path under a TUI-capable terminal
     silently drops these flags.
+
+    Locates the specific `stack_options = {...}` Dict literal (the one
+    assigned to the local in main()) and confirms its keys include
+    'user_env_writes' AND that the value is a DictComp filtering on
+    user_model_selections — broader AST walks would green-light any
+    unrelated dict literal that happens to use the same key name.
     """
     tree = ast.parse(START_PY.read_text())
-    saw_user_env_writes = False
+    # Find an `Assign(targets=[Name("stack_options")], value=Dict)`
+    stack_options_dicts: list[ast.Dict] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Dict):
-            for k in node.keys:
-                if isinstance(k, ast.Constant) and k.value == "user_env_writes":
-                    saw_user_env_writes = True
-                    break
-        if saw_user_env_writes:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "stack_options"
+            and isinstance(node.value, ast.Dict)
+        ):
+            stack_options_dicts.append(node.value)
+    assert stack_options_dicts, (
+        "Expected at least one `stack_options = {...}` Dict assignment in "
+        "start.py; none found."
+    )
+    found_user_env_writes_dictcomp = False
+    for d in stack_options_dicts:
+        for k, v in zip(d.keys, d.values):
+            if not (isinstance(k, ast.Constant) and k.value == "user_env_writes"):
+                continue
+            # Value must be a DictComp iterating user_model_selections.items()
+            if (
+                isinstance(v, ast.DictComp)
+                and any(
+                    isinstance(g.iter, ast.Call)
+                    and isinstance(g.iter.func, ast.Attribute)
+                    and g.iter.func.attr == "items"
+                    and isinstance(g.iter.func.value, ast.Name)
+                    and g.iter.func.value.id == "user_model_selections"
+                    for g in v.generators
+                )
+            ):
+                found_user_env_writes_dictcomp = True
+                break
+        if found_user_env_writes_dictcomp:
             break
-    assert saw_user_env_writes, (
-        "start.py's TUI-launch stack_options dict must declare a "
-        "'user_env_writes' key carrying every user_model_selections value "
-        "that does NOT match the *_USER_MODELS or OLLAMA_* filters. "
-        "Without it, RAY_WORKER_COUNT / SPARK_WORKER_COUNT / "
-        "PROMETHEUS_RETENTION_DAYS / COMFYUI_CUSTOM_MODELS_FILE flags are "
-        "silently dropped on the TUI-launch path."
+    assert found_user_env_writes_dictcomp, (
+        "stack_options must declare a 'user_env_writes' key whose value "
+        "is a DictComp over user_model_selections.items() filtering the "
+        "OLLAMA_*/_USER_MODELS-shaped keys away. A plain stub or unrelated "
+        "dict literal won't satisfy this — the catch-all must actually "
+        "ingest user_model_selections so RAY_WORKER_COUNT / "
+        "PROMETHEUS_RETENTION_DAYS / SPARK_WORKER_COUNT / "
+        "COMFYUI_CUSTOM_MODELS_FILE land in .env on the TUI-launch path."
     )
 
 
