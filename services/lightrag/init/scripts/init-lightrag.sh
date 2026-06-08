@@ -31,7 +31,12 @@ echo "[lightrag-init] resolving model bindings..."
 # enter the server's environment. The lightrag compose env block does
 # NOT set LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM — that would
 # clobber the resolved values via os.environ precedence.
-python3 /scripts/resolve-models.py > /app/data/.env
+# Write to a temp file then mv atomically — the redirect `>` truncates
+# the destination BEFORE python runs, so a python crash would leave
+# /app/data/.env empty and lightrag would boot with no LLM_MODEL /
+# EMBEDDING_MODEL / EMBEDDING_DIM. Mirrors init-hermes.sh's pattern.
+python3 /scripts/resolve-models.py > /app/data/.env.tmp
+mv /app/data/.env.tmp /app/data/.env
 
 if [ -n "${LIGHTRAG_PG_URI:-}" ]; then
   echo "[lightrag-init] running pgvector migrations..."
@@ -44,7 +49,7 @@ if [ -n "${LIGHTRAG_NEO4J_URI:-}" ]; then
   # alpine main; bundling it would inflate the init image significantly).
   cypher_payload=$(jq -Rn --rawfile q /scripts/migrate-neo4j.cypher \
                   '{statements: [{statement: $q}]}')
-  http_status=$(curl -fs -o /tmp/neo4j-resp.json -w '%{http_code}' \
+  http_status=$(curl -fs --max-time 30 -o /tmp/neo4j-resp.json -w '%{http_code}' \
     -u "${LIGHTRAG_NEO4J_USERNAME}:${LIGHTRAG_NEO4J_PASSWORD}" \
     -H 'Content-Type: application/json' \
     --data "$cypher_payload" \

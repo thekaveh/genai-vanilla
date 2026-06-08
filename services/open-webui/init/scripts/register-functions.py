@@ -36,19 +36,27 @@ def wait_for_webui():
 
 def get_admin_user_id():
     """Query the database for the admin user ID."""
+    conn = None
+    cursor = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        # connect_timeout caps the TCP-handshake stage.
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id FROM public.\"user\" WHERE role = 'admin' LIMIT 1"
         )
         row = cursor.fetchone()
-        cursor.close()
-        conn.close()
         if row:
             return row[0]
-    except Exception as e:
+    except psycopg2.Error as e:
         print(f"open-webui-init: Function registration - DB query failed: {e}")
+    finally:
+        # Close on the error path too so a restart loop doesn't leak
+        # one connection per attempt.
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
     return None
 
 
@@ -78,7 +86,7 @@ def parse_function_metadata(content):
 def function_exists(function_id, headers):
     """Check if a function already exists in Open WebUI."""
     resp = requests.get(
-        f"{WEBUI_URL}/api/v1/functions/id/{function_id}", headers=headers
+        f"{WEBUI_URL}/api/v1/functions/id/{function_id}", headers=headers, timeout=10
     )
     return resp.status_code == 200
 
