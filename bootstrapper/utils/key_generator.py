@@ -40,6 +40,32 @@ class KeyGenerator:
 
     MINIO_CONSUMERS = ("COMFYUI", "BACKEND", "N8N", "JUPYTER", "DOCLING")
 
+    # `.env.example` ships placeholders for credential vars whose canonical
+    # generators rotate-when-absent only. Treating these literal placeholders
+    # as "absent" so the rotator runs on first ./start.sh stops the stack
+    # from booting with a publicly-known, repo-committed credential.
+    # Hand-supplied real values stay untouched.
+    PLACEHOLDER_DEFAULTS = {
+        "N8N_ENCRYPTION_KEY": "your-random-encryption-key",
+        "SUPABASE_DB_PASSWORD": "password",
+        "SUPABASE_DB_APP_PASSWORD": "app_password",
+        "GRAPH_DB_PASSWORD": "neo4j_password",
+        "REDIS_PASSWORD": "redis_password",
+        "DASHBOARD_PASSWORD": "kong_password",
+        "OPEN_WEB_UI_ADMIN_PASSWORD": "admin",
+        "OPEN_WEB_UI_SECRET_KEY": "secret",
+    }
+
+    def _is_placeholder_or_empty(self, var_name: str) -> bool:
+        """Return True if .env carries either no value for `var_name` or the
+        literal placeholder shipped in `.env.example`. Used by every
+        rotate-when-absent generator to also rotate the known placeholder.
+        """
+        current = self.get_current_env_value(var_name)
+        if not current:
+            return True
+        return current == self.PLACEHOLDER_DEFAULTS.get(var_name)
+
     def __init__(self, root_dir: Optional[str] = None):
         """
         Initialize key generator.
@@ -177,16 +203,19 @@ class KeyGenerator:
     def generate_and_update_n8n_key(self, force: bool = False) -> bool:
         """
         Generate and update N8N_ENCRYPTION_KEY in .env file.
-        
+
+        Rotates when absent OR when the shipped placeholder
+        ``"your-random-encryption-key"`` is still present. Any other
+        operator-supplied value sticks — rotating the encryption key
+        mid-run makes every previously-saved n8n credential unreadable.
+
         Args:
-            force: Generate new key even if one already exists
-            
+            force: Generate new key even if one already exists.
+
         Returns:
             bool: True if successful
         """
-        current_value = self.get_current_env_value('N8N_ENCRYPTION_KEY')
-        
-        if not force and current_value:
+        if not force and not self._is_placeholder_or_empty('N8N_ENCRYPTION_KEY'):
             return True
 
         new_key = self.generate_n8n_encryption_key()
@@ -286,11 +315,90 @@ class KeyGenerator:
         Rotating mid-run signs everyone out of Open WebUI, so we only
         upgrade the placeholder, never a real key.
         """
-        current_value = self.get_current_env_value('OPEN_WEB_UI_SECRET_KEY')
-        if not force and current_value and current_value != 'secret':
+        if not force and not self._is_placeholder_or_empty('OPEN_WEB_UI_SECRET_KEY'):
             return True
         new_key = self.generate_webui_secret_key()
         return self.update_env_key('OPEN_WEB_UI_SECRET_KEY', new_key)
+
+    # ─── Infrastructure password placeholders ──────────────────────────
+    # SUPABASE_DB_PASSWORD, GRAPH_DB_PASSWORD, REDIS_PASSWORD,
+    # DASHBOARD_PASSWORD (Kong), and OPEN_WEB_UI_ADMIN_PASSWORD all ship
+    # well-known placeholder values in `.env.example`. Without rotation,
+    # `cp .env.example .env && ./start.sh` boots the stack with
+    # repo-committed credentials. Each rotator upgrades the placeholder
+    # only — hand-supplied values stick (rotating mid-run is destructive:
+    # the existing database/role/user already authenticates against the
+    # current value, and post-init container state diverges).
+
+    def generate_password(self, nbytes: int = 24) -> str:
+        """Generic infrastructure-credential generator. URL-safe, CLI-safe."""
+        return _cli_safe_token_urlsafe(nbytes)
+
+    def generate_and_update_supabase_db_password(self, force: bool = False) -> bool:
+        """Rotate `SUPABASE_DB_PASSWORD` (Postgres `supabase_admin` role) only
+        when absent or still the `password` placeholder. The value is baked
+        into Postgres at `initdb` time; rotating after the cluster initialises
+        would not change the stored role password.
+        """
+        if not force and not self._is_placeholder_or_empty('SUPABASE_DB_PASSWORD'):
+            return True
+        return self.update_env_key('SUPABASE_DB_PASSWORD', self.generate_password())
+
+    def generate_and_update_supabase_db_app_password(self, force: bool = False) -> bool:
+        """Rotate `SUPABASE_DB_APP_PASSWORD` (application role) only when absent
+        or still the `app_password` placeholder. Same `initdb`-bound semantics
+        as the admin role.
+        """
+        if not force and not self._is_placeholder_or_empty('SUPABASE_DB_APP_PASSWORD'):
+            return True
+        return self.update_env_key('SUPABASE_DB_APP_PASSWORD', self.generate_password())
+
+    def generate_and_update_graph_db_password(self, force: bool = False) -> bool:
+        """Rotate `GRAPH_DB_PASSWORD` (Neo4j) only when absent or still the
+        `neo4j_password` placeholder. Also rewrites the composite
+        `GRAPH_DB_AUTH=neo4j/<password>` since `services/neo4j/compose.yml`
+        passes that literal through to `NEO4J_AUTH`. Neo4j sets the password
+        from `NEO4J_AUTH` only at first boot — rotating after the database
+        initialises requires `ALTER USER ... SET PASSWORD` in cypher-shell.
+        """
+        if not force and not self._is_placeholder_or_empty('GRAPH_DB_PASSWORD'):
+            return True
+        new_pw = self.generate_password()
+        if not self.update_env_key('GRAPH_DB_PASSWORD', new_pw):
+            return False
+        graph_user = self.get_current_env_value('GRAPH_DB_USER') or 'neo4j'
+        return self.update_env_key('GRAPH_DB_AUTH', f'{graph_user}/{new_pw}')
+
+    def generate_and_update_redis_password(self, force: bool = False) -> bool:
+        """Rotate `REDIS_PASSWORD` only when absent or still the `redis_password`
+        placeholder. `REDIS_URL` is a `${REDIS_PASSWORD}`-interpolated
+        compose-time expansion so no separate sync is required. Rotating a
+        live Redis without restart-with-`--requirepass` breaks every active
+        consumer connection mid-flight.
+        """
+        if not force and not self._is_placeholder_or_empty('REDIS_PASSWORD'):
+            return True
+        return self.update_env_key('REDIS_PASSWORD', self.generate_password())
+
+    def generate_and_update_kong_dashboard_password(self, force: bool = False) -> bool:
+        """Rotate Kong's `DASHBOARD_PASSWORD` only when absent or still the
+        `kong_password` placeholder. Read by `KongConfigGenerator` at
+        `volumes/api/kong-dynamic.yml` render time, so a placeholder upgrade
+        propagates on the next `./start.sh`.
+        """
+        if not force and not self._is_placeholder_or_empty('DASHBOARD_PASSWORD'):
+            return True
+        return self.update_env_key('DASHBOARD_PASSWORD', self.generate_password())
+
+    def generate_and_update_webui_admin_password(self, force: bool = False) -> bool:
+        """Rotate `OPEN_WEB_UI_ADMIN_PASSWORD` only when absent or still the
+        `admin` placeholder. The open-webui-init container re-registers the
+        admin user on every boot via the Open WebUI signup API, so a
+        placeholder upgrade applies on the next `./start.sh`.
+        """
+        if not force and not self._is_placeholder_or_empty('OPEN_WEB_UI_ADMIN_PASSWORD'):
+            return True
+        return self.update_env_key('OPEN_WEB_UI_ADMIN_PASSWORD', self.generate_password())
 
     def generate_grafana_admin_password(self) -> str:
         """Grafana admin password — 32-char URL-safe random. Mirrors the
@@ -496,6 +604,16 @@ class KeyGenerator:
         results['AIRFLOW_SECRET_KEY'] = self.generate_and_update_airflow_secret_key(force=False)
         results['AIRFLOW_ADMIN_PASSWORD'] = self.generate_and_update_airflow_admin_password(force=False)
         results['AIRFLOW_DB_PASSWORD'] = self.generate_and_update_airflow_db_password(force=False)
+
+        # Infrastructure password placeholders shipped in `.env.example`.
+        # Each rotator upgrades the well-known default value only — see
+        # PLACEHOLDER_DEFAULTS. Hand-supplied real values stick.
+        results['SUPABASE_DB_PASSWORD'] = self.generate_and_update_supabase_db_password(force=False)
+        results['SUPABASE_DB_APP_PASSWORD'] = self.generate_and_update_supabase_db_app_password(force=False)
+        results['GRAPH_DB_PASSWORD'] = self.generate_and_update_graph_db_password(force=False)
+        results['REDIS_PASSWORD'] = self.generate_and_update_redis_password(force=False)
+        results['DASHBOARD_PASSWORD'] = self.generate_and_update_kong_dashboard_password(force=False)
+        results['OPEN_WEB_UI_ADMIN_PASSWORD'] = self.generate_and_update_webui_admin_password(force=False)
 
         return results
     
