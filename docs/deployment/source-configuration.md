@@ -291,10 +291,10 @@ WEAVIATE_SOURCE=disabled
 ```bash
 MINIO_SOURCE=container
 MINIO_ENDPOINT=http://minio:9000
-MINIO_PUBLIC_ENDPOINT=http://localhost:63017
+MINIO_PUBLIC_ENDPOINT=http://localhost:63018
 ```
 - **Use case**: S3-compatible artifact-tier object storage (ComfyUI outputs, Backend blobs, n8n files, JupyterHub datasets, Doc Processor output)
-- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63018`
+- **Pros**: Five pre-provisioned buckets with scoped service-account credentials; complements Supabase Storage; admin console at `http://localhost:63019` (S3 API on `:63018`)
 - **Cons**: Container resource usage
 - **Requirements**: None
 
@@ -459,8 +459,8 @@ PROMETHEUS_SOURCE=disabled
 PROMETHEUS_SOURCE=container
 PROMETHEUS_RETENTION_DAYS=7   # 1..365 — wizard prompts inline on the source step
 ```
-- **Use case**: Stack-wide observability — scrapes Kong, LiteLLM, Weaviate, n8n, JupyterHub, MinIO, Backend, Hermes, plus the postgres/redis sidecars and cAdvisor/node-exporter
-- **Pros**: 14 pre-configured scrape jobs, recording-rules folder ready to extend, Kong-aliased UI at `prometheus.localhost`
+- **Use case**: Stack-wide observability — scrapes Kong, LiteLLM, Weaviate, n8n, MinIO, Backend, plus the postgres/redis sidecars and cAdvisor/node-exporter. JupyterHub + Hermes scrape jobs were retired (the JupyterHub image is single-user `jupyter/datascience-notebook` with no `/metrics`; the third-party Hermes image likewise has no `/metrics` endpoint)
+- **Pros**: 12 pre-configured scrape jobs, recording-rules folder ready to extend, Kong-aliased UI at `prometheus.localhost`
 - **Cons**: cAdvisor polls every container every 5s and node-exporter polls `/proc` continuously — non-trivial overhead on a laptop
 - **Requirements**: ~500 MB image disk + retention-day-dependent disk for the TSDB volume
 

@@ -77,6 +77,7 @@ def _detect_gpu_memory_gb() -> float | None:
             ["nvidia-smi", "--query-gpu=memory.total",
              "--format=csv,noheader,nounits"],
             capture_output=True, text=True, check=True, timeout=5,
+            encoding="utf-8", errors="replace",
         )
         values = [int(v.strip()) for v in out.stdout.splitlines() if v.strip()]
         if not values:
