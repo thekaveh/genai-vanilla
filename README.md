@@ -23,7 +23,7 @@ git clone https://github.com/thekaveh/genai-vanilla && cd genai-vanilla
 
 # 3. Wait ~5 minutes for AI models to download, then access:
 # Open WebUI (Chat):     http://localhost:63082
-# n8n (Workflows):       http://localhost:63063
+# n8n (Workflows):       http://localhost:63064
 # Supabase Studio:       http://localhost:63017
 # SearxNG (Search):      http://localhost:63043
 # ComfyUI:               http://localhost:63041
@@ -264,7 +264,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Service | Direct URL | Kong URL | Purpose | Auth required |
 |---------|------------|----------|---------|---------------|
 | **Open WebUI** | http://localhost:63082 | http://chat.localhost:63000 | AI chat interface | Create account |
-| **n8n** | http://localhost:63063 | http://n8n.localhost:63000 | Workflow automation | admin@example.com |
+| **n8n** | http://localhost:63064 | http://n8n.localhost:63000 | Workflow automation | admin@example.com |
 | **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | admin@example.com |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
@@ -274,7 +274,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
 | **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants resolved via `*_LOCALHOST_PORT`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
 | **Docling Processor** | http://localhost:63040 | http://docling.localhost:63000 | Document processing | None |
-| **OpenClaw Agent** | http://localhost:63064 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
+| **OpenClaw Agent** | http://localhost:63065 | http://openclaw.localhost:63000 | AI agent (messaging) | Token (optional) |
 | **Hermes Agent** | http://localhost:63061 (API), http://localhost:63062 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
 | **MinIO Console** | http://localhost:63019 | http://minio.localhost:63000 | S3-compatible object storage admin UI (gated on `MINIO_SOURCE != disabled`). S3 API at `:63018` is NOT aliased — S3 clients use the direct port. | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 | **Ray Dashboard** | http://localhost:63002 | http://ray.localhost:63000 | Distributed-compute substrate (cluster head + workers). Disabled by default; opt-in via `--ray-source ray-container-cpu` / `ray-container-gpu`. | None |

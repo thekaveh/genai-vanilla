@@ -60,9 +60,9 @@ PROJECT_NAME=myproject  # Change from 'genai' to your project name
 
 Services are accessible on ports starting from 63000 (base port):
 - **Supabase DB**: http://localhost:63010 (base + 10)
-- **Supabase Studio**: http://localhost:63016 (base + 16)
+- **Supabase Studio**: http://localhost:63017 (base + 17)
 - **Kong API Gateway**: http://localhost:63000 (base + 0)
-- **N8N**: http://localhost:63063 (base + 63)
+- **N8N**: http://localhost:63064 (base + 64)
 - **LiteLLM Gateway** (LLM front door): http://localhost:63030 (base + 30)
 
 See the startup output for the complete port mapping of all services.
@@ -266,7 +266,7 @@ import os
 LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:63030")
 LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")  # equals LITELLM_MASTER_KEY
 SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:63014")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:63021")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:63022")
 ```
 
 ### Pattern 4: Service Extension
