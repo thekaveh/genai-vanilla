@@ -79,15 +79,19 @@ class HostsManager:
         try:
             with open(self.hosts_file_path, 'r', encoding="utf-8") as f:
                 hosts_content = f.read()
-                
+
             for host in self.get_genai_hosts():
                 # Check for line like "127.0.0.1    hostname" with flexible whitespace
                 pattern = rf'^\s*127\.0\.0\.1\s+.*\b{re.escape(host)}\b'
                 if not re.search(pattern, hosts_content, re.MULTILINE):
                     missing.append(host)
-                    
-        except Exception:
-            return self.get_genai_hosts()  # All are missing on error
+
+        except (OSError, UnicodeDecodeError):
+            # Conservative degrade: treat unreadable hosts file as
+            # "all entries missing". Narrow to filesystem/encoding
+            # errors so a future bug (e.g. malformed regex pattern)
+            # surfaces loudly instead of being silently absorbed.
+            return self.get_genai_hosts()
             
         return missing
     
@@ -126,12 +130,12 @@ class HostsManager:
             # Write back the filtered content
             with open(hosts_file_path, 'w', encoding="utf-8") as f:
                 f.writelines(filtered_lines)
-                
+
             return True
-            
-        except Exception:
+
+        except (OSError, UnicodeDecodeError):
             return False
-    
+
     def add_hosts_entries(self, hosts_file_path: str, create_backup: bool = True) -> bool:
         """
         Add GenAI hosts entries to the hosts file.
@@ -161,10 +165,10 @@ class HostsManager:
                     f.write(f"127.0.0.1 {host}\n")
                     
             return True
-            
-        except Exception:
+
+        except (OSError, UnicodeDecodeError):
             return False
-    
+
     def remove_hosts_entries(self, hosts_file_path: str) -> bool:
         """
         Remove GenAI hosts entries with backup.
@@ -182,10 +186,10 @@ class HostsManager:
                 self._log(f"  • Created backup: {backup_path}", "info")
 
             return self.remove_hosts_entries_silent(hosts_file_path)
-            
-        except Exception:
+
+        except OSError:
             return False
-    
+
     def _create_hosts_backup(self, hosts_file_path: str) -> Optional[str]:
         """
         Create a backup of the hosts file with timestamp.
@@ -201,7 +205,7 @@ class HostsManager:
             backup_path = f"{hosts_file_path}.backup.{timestamp}"
             shutil.copy2(hosts_file_path, backup_path)
             return backup_path
-        except Exception:
+        except OSError:
             return None
     
     def setup_hosts_entries(self) -> bool:
