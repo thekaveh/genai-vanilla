@@ -35,7 +35,11 @@ def test_returns_entry_when_enabled(monkeypatch):
     # api_base is the bare endpoint; the ollama_chat adapter appends /api/chat
     # internally to reach LightRAG's Ollama-shim endpoint.
     assert entry["litellm_params"]["api_base"] == "http://lightrag:9621"
-    assert entry["litellm_params"]["api_key"] == "sk-lightrag-test"
+    # api_key uses LiteLLM's `os.environ/X` directive so the value is
+    # resolved at request time, not baked into config.yaml. Rotating
+    # LIGHTRAG_API_KEY then only needs `docker compose restart litellm`,
+    # mirroring hermes_model_entry's pattern.
+    assert entry["litellm_params"]["api_key"] == "os.environ/LIGHTRAG_API_KEY"
 
 
 def test_adapter_is_ollama_chat_not_openai(monkeypatch):

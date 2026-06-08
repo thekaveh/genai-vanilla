@@ -318,7 +318,11 @@ def lightrag_model_entry() -> dict[str, Any] | None:
         "litellm_params": {
             "model": "ollama_chat/lightrag",
             "api_base": endpoint.rstrip("/"),
-            "api_key": os.environ.get("LIGHTRAG_API_KEY", "sk-no-auth"),
+            # Resolve at LiteLLM runtime via the `os.environ/X` directive
+            # so rotating LIGHTRAG_API_KEY only needs a `docker compose
+            # restart litellm` (mirrors hermes_model_entry's pattern).
+            # Literal embedding would force a full litellm-init re-seed.
+            "api_key": "os.environ/LIGHTRAG_API_KEY",
         },
         "model_info": {
             "mode": "chat",
