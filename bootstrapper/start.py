@@ -705,8 +705,12 @@ class GenAIStackStarter:
         Unset potentially lingering port environment variables.
         Replicates the unset logic from the original start.sh.
         """
-        # List of all port environment variables that need to be unset
-        # This matches the exact list from the original Bash script
+        # Every container-PORT slot the bootstrapper allocates. A stale
+        # shell-exported value would shadow the freshly-computed value
+        # on cold-start with a custom --base-port, so unset before we
+        # re-allocate. Localhost/exporter-only ports (*_LOCALHOST_PORT,
+        # CADVISOR_PORT, *_EXPORTER_PORT) don't enter the slot allocator
+        # and stay out of this list.
         port_variables = [
             'SUPABASE_DB_PORT',
             'REDIS_PORT',
@@ -742,7 +746,19 @@ class GenAIStackStarter:
             'LIGHTRAG_API_PORT',
             'MINIO_PORT',
             'MINIO_CONSOLE_PORT',
-            'JUPYTERHUB_PORT'
+            'JUPYTERHUB_PORT',
+            # PR #29 / PR #35 additions: ray + spark + airflow + zeppelin
+            # + prometheus + grafana. Without these the previous-run
+            # exports silently shadow the freshly-computed slots.
+            'RAY_DASHBOARD_PORT',
+            'RAY_CLIENT_PORT',
+            'RAY_GCS_PORT',
+            'SPARK_MASTER_UI_PORT',
+            'SPARK_HISTORY_PORT',
+            'AIRFLOW_PORT',
+            'ZEPPELIN_PORT',
+            'PROMETHEUS_PORT',
+            'GRAFANA_PORT',
         ]
         
         self.banner.show_status_message("  • Unsetting potentially lingering port environment variables...", "info")
@@ -2097,11 +2113,19 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     # launch pipeline; the wizard pipeline writes them
                     # to .env via SourceOverrideManager.update_env_file.
                     "cloud_api_keys": cloud_api_keys,
-                    # Forward any CLI-supplied user model selections
-                    # (X_USER_MODELS / OLLAMA_CUSTOM_MODELS). Same path
-                    # as the wizard's multiselect output — keys live
-                    # in cloud_user_models/ollama_user_models split,
-                    # but they all flow through apply_user_model_selections.
+                    # Forward CLI-supplied user model selections (and
+                    # any other --x-y --z scalar env-write flags like
+                    # COMFYUI_CUSTOM_MODELS_FILE, RAY_WORKER_COUNT,
+                    # PROMETHEUS_RETENTION_DAYS, SPARK_WORKER_COUNT)
+                    # through the same apply_user_model_selections
+                    # pipeline as the wizard's multiselect output. The
+                    # wizard splits its dict into cloud/ollama/comfyui
+                    # buckets for purely-cosmetic step grouping; here
+                    # we forward the entire dict in a fourth catch-all
+                    # bucket so no flag is silently dropped. wizard_screen
+                    # merges all four buckets into one update_env_file
+                    # call so the bucket boundaries are irrelevant for
+                    # persistence.
                     "cloud_user_models": {
                         k: v for k, v in user_model_selections.items()
                         if k.endswith("_USER_MODELS") and not k.startswith("OLLAMA_")
@@ -2109,6 +2133,10 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     "ollama_user_models": {
                         k: v for k, v in user_model_selections.items()
                         if k.startswith("OLLAMA_")
+                    },
+                    "user_env_writes": {
+                        k: v for k, v in user_model_selections.items()
+                        if not k.endswith("_USER_MODELS") and not k.startswith("OLLAMA_")
                     },
                 }
                 rc = run_launch_flow(
