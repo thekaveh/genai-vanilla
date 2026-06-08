@@ -1,4 +1,7 @@
-ARG BASE_IMAGE=pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime
+# Default must match services/docling/service.yml::images and
+# services/docling/compose.yml so a hand-invoked `docker buildx build .`
+# pulls the same image the bootstrapper-managed compose flow uses.
+ARG BASE_IMAGE=pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 FROM ${BASE_IMAGE}
 
 WORKDIR /app

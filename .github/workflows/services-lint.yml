@@ -15,6 +15,10 @@ name: services-lint
 
 on:
   pull_request:
+    # Every required-checks-eligible file must appear here, or a PR
+    # touching only that file deadlocks: no job runs ⇒ no status posts
+    # ⇒ required-check rule never satisfies. PR #48 hit exactly this on
+    # a .github/dependabot.yml-only change.
     paths:
       - "services/**"
       - "docs/**"
@@ -23,14 +27,21 @@ on:
       - "bootstrapper/**"
       - ".env.example"
       - ".gitignore"
+      - ".gitattributes"
       - "README.md"
       - "SECURITY.md"
+      - "LICENSE"
       - "start.sh"
       - "stop.sh"
       - ".github/workflows/services-lint.yml"
       - ".github/dependabot.yml"
   push:
     branches: [main]
+
+# Principle-of-least-privilege: this is a read-only lint/test workflow;
+# none of the jobs need write access to the repo, PRs, or packages.
+permissions:
+  contents: read
 
 jobs:
   lint:
