@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -11,6 +12,14 @@ INIT_PY = REPO_ROOT / "services/litellm/init/scripts/init.py"
 
 
 def _load_init_module():
+    # The init.py module-level `import psycopg2` runs only inside the
+    # litellm-init container image (psycopg2-binary is pinned in the
+    # init Dockerfile, not the bootstrapper venv). Stub it in sys.modules
+    # before exec_module so pytest can exercise the pure-Python helpers
+    # without provisioning the container's deps. Mirrors the established
+    # pattern in test_catalog_init_auto_import.py.
+    sys.modules.setdefault("psycopg2", MagicMock())
+    sys.modules.setdefault("psycopg2.extras", MagicMock())
     spec = importlib.util.spec_from_file_location("litellm_init", INIT_PY)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["litellm_init"] = mod
