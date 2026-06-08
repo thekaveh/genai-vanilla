@@ -64,6 +64,7 @@ _No upstream calls._
 
 | Service | Category |
 |---|---|
+| kong | infra |
 | lightrag | agents |
 
 ### 5.3 Architecture diagram

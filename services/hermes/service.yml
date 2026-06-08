@@ -207,4 +207,5 @@ data_flow:
     # data_flow.calls so auto-generated diagrams surface the supported
     # pattern; remove the entry if a future PR retracts the docs.
     - airflow
+    - lightrag
 

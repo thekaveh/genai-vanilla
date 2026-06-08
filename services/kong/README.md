@@ -223,6 +223,7 @@ For more information on Kong's role in the overall architecture, see the system 
 | weaviate | data |
 | litellm | llm |
 | ollama | llm |
+| tei-reranker | llm |
 | comfyui | media |
 | doc-processor | media |
 | searxng | media |
@@ -230,6 +231,7 @@ For more information on Kong's role in the overall architecture, see the system 
 | tts-provider | media |
 | airflow | agents |
 | hermes | agents |
+| lightrag | agents |
 | n8n | agents |
 | openclaw | agents |
 | backend | apps |

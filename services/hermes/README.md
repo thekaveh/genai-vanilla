@@ -238,6 +238,7 @@ example DAG.
 | stt-provider | media |
 | tts-provider | media |
 | airflow | agents |
+| lightrag | agents |
 
 ### 10.2 Current — Downstream (services that call this)
 

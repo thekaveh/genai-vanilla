@@ -104,6 +104,7 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 | stt-provider | media |
 | tts-provider | media |
 | hermes | agents |
+| lightrag | agents |
 
 ### 6.2 Current — Downstream (services that call this)
 
