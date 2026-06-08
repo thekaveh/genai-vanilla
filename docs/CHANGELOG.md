@@ -120,8 +120,12 @@ because rotating any of them mid-run breaks something.
   (Interpreter → JDBC → `+ Create` → `postgres` group). See
   [`services/zeppelin/README.md`](../services/zeppelin/README.md) §4.
 - **Top-level architecture diagram** — `docs/diagrams/architecture.svg`
-  was not refreshed to include the airflow / spark / zeppelin tier. Per-
-  service architecture diagrams (auto-regenerated) cover the new edges.
+  was not refreshed to include the airflow / spark / zeppelin tier
+  shipped here, nor the **lightrag** + **tei-reranker** services shipped
+  2026-06-05, nor the **ray / prometheus / grafana** tier shipped
+  earlier in 2026. Per-service architecture diagrams (auto-regenerated)
+  cover every new edge. A future authoring session via the
+  architecture-diagram skill will refresh the top-level overview.
 - **Airflow `postgres_supabase` Connection uses admin credentials** —
   intentionally seeds with `SUPABASE_DB_USER` / `SUPABASE_DB_PASSWORD`
   (superuser) until the prerequisite `SUPABASE_DB_APP_USER` Postgres
