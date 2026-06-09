@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Critical bugs caught by the 2026-06-08 overnight audit
+
+- **`services/open-webui/init/scripts/register-tools.py:create_admin_user`
+  shipped with a duplicate `timeout=30` keyword argument**, raising
+  `SyntaxError: keyword argument repeated: timeout` at module-import
+  time on every open-webui-init container boot since PR #67. The
+  function's broad `except Exception` swallowed the SyntaxError as a
+  generic "Signup request failed", so the admin user silently never got
+  created — open-webui-init's 60-attempt retry loop then exited 1 with
+  "No admin user found". Fix removes the duplicate kwarg.
+- **`services/grafana/config/provisioning/dashboards/*.json` shipped
+  with 12 metric names that don't exist in upstream LiteLLM / n8n /
+  postgres-exporter / Weaviate / Prometheus**. Every affected panel
+  rendered "No data" indefinitely. Verified firsthand against canonical
+  source files (LiteLLM `prometheus.py`, n8n `prometheus-metrics.service.ts`,
+  postgres-exporter `pg_stat_user_tables.go`, Weaviate monitoring docs,
+  Prometheus config docs):
+  - litellm.json: 4 panels — `litellm_requests_total`,
+    `litellm_total_tokens`, `litellm_request_latency_bucket`,
+    `litellm_failed_requests_metric` corrected to the upstream
+    `_metric` / `litellm_proxy_*` / `litellm_request_total_latency_metric_bucket`
+    names.
+  - n8n.json: complete rewrite (5 panels) — upstream emits
+    `n8n_workflow_execution_duration_seconds`, `n8n_active_workflow_count`,
+    `n8n_execution_data_writes_total`, not `n8n_workflow_executions_total`
+    / `n8n_active_workflows` / `n8n_total_workflows` / `n8n_process_start_time_seconds`.
+  - postgres-redis.json: `pg_relation_size_bytes` → `pg_stat_user_tables_table_size_bytes`.
+  - app-tier.json: `weaviate_queries_total` + `weaviate_objects_total`
+    → `weaviate_module_requests_total` + `weaviate_module_request_duration_seconds_bucket`;
+    `minio_bucket_usage_total_bytes` (only at `/metrics/bucket` which
+    we don't scrape) → `minio_cluster_usage_total_bytes`.
+  - stack-overview.json: `up{stack="genai-vanilla"}` → `up`. The Prometheus
+    docs explicitly note `global.external_labels` only apply to
+    `remote_write`/federation/Alertmanager, NEVER to locally-scraped TSDB
+    series — the selector matched zero series. Panel title also updated to
+    drop "Hermes" (Hermes ships no `/metrics`).
+- **`services/lightrag/service.yml::runtime_adaptive.lightrag-init.failure_mode`
+  contract was wrong** — declared "lightrag-init exits non-zero; LightRAG
+  container does not start" when LiteLLM is unreachable, but
+  `resolve-models.py:42` catches URLError + JSONDecodeError and returns
+  `[]`, then `main()` falls back to env-var defaults / hardcoded
+  `ollama/nomic-embed-text` + dim=768 and exits 0. Realigned to
+  "lightrag-init logs warning, falls back to env-var defaults; LightRAG
+  starts but every chat/embed call 502s until LiteLLM becomes reachable".
+
+### Fixed — Init container resilience (7 unbounded loops)
+
+- `services/weaviate/init/scripts/init-weaviate.sh:18` —
+  `until psql ... do sleep 5; done` had no upper bound; a persistently
+  unreachable Supabase DB would hang weaviate-init forever. Bounded to
+  300s (mirrors n8n / minio patterns).
+- `services/hermes/init/scripts/init-hermes.sh:100` — curl to LiteLLM
+  `/v1/models` gained `--max-time 15`. Previously a LiteLLM-side stall
+  blocked hermes-init for the OS default TCP timeout (~75s).
+- `services/comfyui/init/scripts/download_models.sh:88` — wget gained
+  `--timeout=30 --tries=3` so a stalled HF/civitai mirror doesn't hang
+  a multi-GB download.
+- `services/n8n/init/scripts/install-nodes.sh` — 4 curl sites missing
+  `--max-time` (readiness probes capped at 5s, GET community-packages
+  at 15s, POST install at 120s).
+- `bootstrapper/utils/system.py` — 3 `subprocess.run` sites
+  (`docker version`, `docker network inspect`, `docker run --rm alpine`)
+  + the generic `run_command()` helper gained explicit `timeout=` (10s
+  / 60s) with `subprocess.TimeoutExpired` added to the except clauses.
+
+### Fixed — Documentation drift (MinIO ports, TEI memory guide)
+
+- `services/minio/README.md:12-13` + `docs/ROADMAP.md:63` — both files
+  advertised the MinIO admin console on `63018` and S3 API on `63017`,
+  contradicting `.env.example`'s `MINIO_PORT=63018` (S3 API) and
+  `MINIO_CONSOLE_PORT=63019` (console). User-facing instructions now
+  match.
+- `services/tei-reranker/README.md:98` — CPU memory guidance still
+  quoted BGE-reranker-v2-m3 needing ~3 GB; updated to mxbai-rerank-base-v1
+  (~1.5 GB) which has been the default since 2026-06-07.
+
+### Fixed — Build & supply-chain hygiene
+
+- `services/{litellm/init,litellm/catalog-init,comfyui/catalog-init}/Dockerfile`
+  — patch-version pinned `FROM python:3.12-slim → python:3.12.7-slim`
+  (floating tags admit moving targets without operator visibility).
+  comfyui/catalog-init also gained pinned `requests==2.32.3` and
+  `PyYAML==6.0.2` for the same reason.
+- `bootstrapper/pyproject.toml` — migrated `[tool.uv].dev-dependencies`
+  → PEP 735 `[dependency-groups].dev`. The old table is deprecated and
+  uv warns on every invocation. CI workflow updated to
+  `uv sync --group dev`.
+- `.github/dependabot.yml` — added `torchao` to the torch+PyG ignore
+  list. torchao tracks torch's minor version (PyTorch ecosystem); an
+  auto-bump would silently break against the current `torch==2.4.1` pin.
+- `bootstrapper/services/dependency_manager.py:245` — narrow second
+  `except Exception` on .env-rewrite path → `except OSError`. PR #67
+  narrowed line 221 but missed this parallel block.
+
+### Tests — Structural regression guards
+
+- `bootstrapper/tests/test_init_scripts_compile.py` — parametrised
+  `py_compile` over every `services/*/init/scripts/*.py` + parametrised
+  `bash -n` over every `*.sh` + AST-walk for duplicate kwargs. Closes
+  the gap that let the open-webui-init SyntaxError ship.
+- `bootstrapper/tests/test_dockerfile_pins.py` — every
+  `services/**/Dockerfile`'s non-ARG FROM must use a digest or a
+  patch-version-pinned tag (major.minor.patch prefix). Locks the Pass 1
+  pin posture in CI.
+- `bootstrapper/tests/test_pyproject_dependency_groups.py` — guards
+  PEP 735 `[dependency-groups].dev` contract; fails if a future edit
+  re-introduces deprecated `[tool.uv].dev-dependencies`.
+
 ### Docs — Top-level architecture diagram refreshed
 
 `docs/diagrams/architecture.svg` (and its `architecture.html` standalone
