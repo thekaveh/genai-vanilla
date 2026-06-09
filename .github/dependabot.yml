@@ -52,6 +52,7 @@ updates:
       - dependency-name: "torchvision"
       - dependency-name: "torchaudio"
       - dependency-name: "torchmetrics"
+      - dependency-name: "torchao"
       - dependency-name: "torch-scatter"
       - dependency-name: "torch-sparse"
       - dependency-name: "torch-cluster"
