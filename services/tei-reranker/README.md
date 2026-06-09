@@ -95,6 +95,6 @@ Container `start_period` is 120 s (first run downloads the model).
 
 ## 7. Troubleshooting
 
-- **Out of memory on CPU variant** — bump `TEI_RERANKER_MEMORY_LIMIT`. BGE-reranker-v2-m3 needs ~3 GB on CPU under typical load.
+- **Out of memory on CPU variant** — bump `TEI_RERANKER_MEMORY_LIMIT`. mxbai-rerank-base-v1 needs ~1.5 GB on CPU; the originally spec'd BGE-reranker-v2-m3 needed ~3 GB.
 - **Slow inference** — switch to `container-gpu` if NVIDIA is available; CPU latency is ~150 ms per pair vs ~15 ms on GPU.
 - **Model not found** — verify `TEI_RERANKER_MODEL_ID` matches a public HF repo. Private repos need an `HF_TOKEN` env var (not wired by default; hand-add to the compose env block).
