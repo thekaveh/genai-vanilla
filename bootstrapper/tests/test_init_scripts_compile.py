@@ -103,10 +103,14 @@ def test_shell_init_script_parses(script_path: Path) -> None:
 )
 def test_init_script_no_duplicate_keyword_args(script_path: Path) -> None:
     """AST-walk every `Call` node, assert no keyword name appears twice in
-    the same call. The PR #67 duplicate `timeout=30` would syntactically
-    *parse* (Python allows duplicate kwargs at AST level — only at runtime
-    does it raise `TypeError: got multiple values for keyword argument`),
-    so `py_compile` alone doesn't catch it. This explicit AST check does.
+    the same call.
+
+    Belt-and-suspenders against the PR #67 duplicate `timeout=30` bug
+    class. `py_compile` (in `test_init_script_compiles`) already catches
+    duplicate kwargs with a `SyntaxError: keyword argument repeated: X`,
+    but this AST test gives a clearer per-script failure message that
+    names the duplicated kwarg, the line number, and the function being
+    called — easier to triage than a bare SyntaxError from the parser.
     """
     tree = ast.parse(script_path.read_text(encoding="utf-8"))
     violations: list[str] = []

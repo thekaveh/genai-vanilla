@@ -1,6 +1,7 @@
 """Every `services/**/Dockerfile` must pin its FROM image to a digest or
 patch-versioned tag — never to a floating tag like `latest`, `slim`,
-`stable`, or `edge`.
+`stable`, `edge`, or a major-only tag like `python:3.12` (which silently
+tracks the latest patch).
 
 A floating tag means rebuilds can pick up a future supply-chain-compromised
 or behaviorally-changed base image without lockstep visibility. Today the
@@ -23,12 +24,42 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Floating tags that admit a moving target. `latest` is the worst offender;
-# `slim` / `stable` / `edge` / `bookworm` (Debian codename, no version) all
-# track a moving point without operator visibility.
+# Whole-tag floating markers — block immediately. A future addition like
+# `mainline` / `latest-slim` should be added here too.
 FORBIDDEN_TAGS = {"latest", "slim", "stable", "edge", "bookworm", "bullseye"}
 
+# A tag is considered patch-version-pinned if its numeric prefix has
+# at least major.minor.patch (e.g. `3.12.7`, `2.5.1`, `3.2.2`,
+# `2.5.1-cuda12.4-cudnn9-runtime`). This rejects `python:3.12-slim` and
+# `python:3.12` which both track the moving latest patch.
+PATCH_VERSION_PREFIX = re.compile(r"^\d+\.\d+\.\d+")
+
+# Date / SHA / hash-style tags (RELEASE.YYYY-MM-DDTHH-MM-SS, full sha256
+# digests handled separately, hex SHAs, ...) are also acceptable. List
+# patterns we recognise as fully-qualified.
+ACCEPTABLE_NONSEMVER_PATTERNS = [
+    re.compile(r"^RELEASE\.\d{4}-\d{2}-\d{2}T"),  # MinIO style
+    re.compile(r"^v\d+\.\d+\.\d+"),                # `vMAJOR.MINOR.PATCH`
+    re.compile(r"^\d+\.\d+\.\d+"),                 # plain `MAJOR.MINOR.PATCH`
+    re.compile(r"^cpu-\d+\.\d+"),                  # TEI Reranker `cpu-1.9`
+    re.compile(r"^cpu-arm64-"),                    # TEI arm64 image suffix
+]
+
 FROM_RE = re.compile(r"^\s*FROM\s+(\S+)", re.MULTILINE)
+
+
+def _is_pinned_enough(tag: str) -> bool:
+    """Returns True if the tag is sufficiently specific (digest or
+    patch-versioned). Used to reject `:slim` / `:3.12` / `:3.12-slim` etc.
+    """
+    if tag in FORBIDDEN_TAGS:
+        return False
+    if PATCH_VERSION_PREFIX.match(tag):
+        return True
+    for pat in ACCEPTABLE_NONSEMVER_PATTERNS:
+        if pat.match(tag):
+            return True
+    return False
 
 
 def _discover_dockerfiles() -> list[Path]:
@@ -60,13 +91,12 @@ def test_dockerfile_from_is_pinned(dockerfile: Path) -> None:
             f"image (rebuilds resolve to :latest). Pin to a patch-version tag."
         )
         tag = image.rsplit(":", 1)[1].lower()
-        # Accept tag-with-suffix like "3.12.7-slim" — only fail when the WHOLE
-        # tag is a known floating marker (slim alone, latest alone, etc.).
-        if tag in FORBIDDEN_TAGS:
+        if not _is_pinned_enough(tag):
             pytest.fail(
                 f"{dockerfile.relative_to(REPO_ROOT)} FROM {image!r}: "
-                f"floating tag {tag!r}. Pin to a patch-version tag "
-                f"(e.g. python:3.12.7-slim, alpine:3.20)."
+                f"tag {tag!r} is not patch-version-pinned. Use "
+                f"major.minor.patch (e.g. python:3.12.7-slim, "
+                f"apache/airflow:3.2.2) or a digest (image@sha256:...)."
             )
 
 
