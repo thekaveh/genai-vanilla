@@ -97,7 +97,7 @@ export LITELLM_MASTER_KEY="${LITELLM_MASTER_KEY:-}"
 # catalog whenever the operator pinned HERMES_DEFAULT_MODEL.
 litellm_url="${LITELLM_BASE_URL:-http://litellm:4000}"
 log "querying LiteLLM /v1/models"
-models_json=$(curl -fsS \
+models_json=$(curl -fsS --max-time 15 \
   -H "Authorization: Bearer ${LITELLM_MASTER_KEY}" \
   "${litellm_url}/v1/models" 2>/dev/null || true)
 if [[ -n "${models_json}" ]]; then
