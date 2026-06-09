@@ -86,13 +86,13 @@ def detect_container_runtime() -> str:
     try:
         result = subprocess.run(
             ['docker', 'version'],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, timeout=10,
             encoding="utf-8", errors="replace",
         )
         output = (result.stdout + result.stderr).lower()
         if 'podman' in output:
             return "podman"
-    except (FileNotFoundError, OSError):
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         pass
     return "docker"
 
@@ -120,27 +120,28 @@ def resolve_host_gateway_ip() -> str:
         result = subprocess.run(
             ['docker', 'network', 'inspect', 'bridge',
              '--format', '{{range .IPAM.Config}}{{.Gateway}}{{end}}'],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, timeout=10,
             encoding="utf-8", errors="replace",
         )
         gateway = result.stdout.strip()
         if gateway:
             return gateway
-    except (FileNotFoundError, OSError):
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         pass
 
-    # Podman fallback: run a throwaway container to read the default route
+    # Podman fallback: run a throwaway container to read the default route.
+    # 60s timeout covers a one-time alpine image pull on a fresh Podman.
     try:
         result = subprocess.run(
             ['docker', 'run', '--rm', 'alpine',
              'sh', '-c', "ip route | awk '/default/{print $3}'"],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, timeout=60,
             encoding="utf-8", errors="replace",
         )
         gateway = result.stdout.strip()
         if gateway:
             return gateway
-    except (FileNotFoundError, OSError):
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
         pass
 
     # Ultimate fallback: Podman's typical bridge gateway
@@ -164,14 +165,15 @@ def get_hosts_file_path() -> str:
         return ""
 
 
-def run_command(command: list, capture_output: bool = True) -> subprocess.CompletedProcess:
+def run_command(command: list, capture_output: bool = True, timeout: float = 60.0) -> subprocess.CompletedProcess:
     """
     Run a system command with proper error handling.
-    
+
     Args:
         command: List of command arguments
         capture_output: Whether to capture stdout/stderr
-        
+        timeout: Seconds before the subprocess is killed. Default 60.
+
     Returns:
         subprocess.CompletedProcess: The completed process
     """
@@ -181,6 +183,7 @@ def run_command(command: list, capture_output: bool = True) -> subprocess.Comple
             capture_output=capture_output,
             text=True,
             check=False,
+            timeout=timeout,
             encoding="utf-8",
             errors="replace",
         )
