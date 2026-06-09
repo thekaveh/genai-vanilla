@@ -8,22 +8,22 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Weaviate — queries per second",
+      "title": "Weaviate — module request rate",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "expr": "sum(rate(weaviate_queries_total[5m])) by (class_name)", "refId": "A" }
+        { "expr": "sum(rate(weaviate_module_requests_total[5m])) by (module)", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Weaviate — object insert rate",
+      "title": "Weaviate — module request p95 duration",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [
-        { "expr": "sum(rate(weaviate_objects_total[5m])) by (class_name)", "refId": "A" }
+        { "expr": "histogram_quantile(0.95, sum(rate(weaviate_module_request_duration_seconds_bucket[5m])) by (le, module))", "refId": "A" }
       ]
     },
     {
@@ -33,17 +33,17 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 3,
       "targets": [
-        { "expr": "rate(minio_s3_requests_total[5m])", "refId": "A" }
+        { "expr": "sum(rate(minio_s3_requests_total[5m])) by (api)", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "MinIO — bucket sizes",
-      "type": "bargauge",
+      "title": "MinIO — cluster usage (bytes)",
+      "type": "stat",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "id": 4,
       "targets": [
-        { "expr": "minio_bucket_usage_total_bytes", "refId": "A" }
+        { "expr": "minio_cluster_usage_total_bytes", "refId": "A" }
       ]
     }
   ],
