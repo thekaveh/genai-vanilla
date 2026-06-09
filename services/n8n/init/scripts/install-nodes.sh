@@ -21,7 +21,7 @@ echo "n8n-init: Waiting for n8n to be ready..."
 # Wait for n8n to be fully ready (check healthz endpoint or root endpoint)
 timeout=300  # 5 minutes timeout
 elapsed=0
-while ! curl -s --fail "$N8N_API_URL/" > /dev/null 2>&1; do
+while ! curl -s --fail --max-time 5 "$N8N_API_URL/" > /dev/null 2>&1; do
   if [ $elapsed -ge $timeout ]; then
     echo "n8n-init: ERROR - Timeout waiting for n8n to be ready after ${timeout}s"
     exit 1
@@ -40,7 +40,7 @@ echo "n8n-init: n8n API is ready."
 echo "n8n-init: Waiting for n8n community-packages endpoint to be ready..."
 pkg_timeout=120
 pkg_elapsed=0
-while ! curl -s --fail "$N8N_API_URL/rest/community-packages" -H "Content-Type: application/json" >/dev/null 2>&1; do
+while ! curl -s --fail --max-time 5 "$N8N_API_URL/rest/community-packages" -H "Content-Type: application/json" >/dev/null 2>&1; do
   if [ $pkg_elapsed -ge $pkg_timeout ]; then
     echo "n8n-init: WARNING - /rest/community-packages still not ready after ${pkg_timeout}s; proceeding anyway."
     break
@@ -95,7 +95,7 @@ while IFS= read -r node_name; do
   # non-zero on HTTP 4xx/5xx so the `|| echo "[]"` fallback fires (matching
   # the readiness curls at lines 24 and 43); without it, an error-page body
   # would be fed to jq and silently fail to parse the same way.
-  installed_check=$(curl -s --fail -X GET "$N8N_API_URL/rest/community-packages" \
+  installed_check=$(curl -s --fail --max-time 15 -X GET "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" 2>/dev/null || echo "[]")
 
   # Check if node is already installed
@@ -113,7 +113,7 @@ while IFS= read -r node_name; do
   # on HTTP 500) are silently treated as success because the jq -e '.error'
   # check below only matches when that exact key exists.
   curl_exit_code=0
-  install_response=$(curl -s --fail -X POST "$N8N_API_URL/rest/community-packages" \
+  install_response=$(curl -s --fail --max-time 120 -X POST "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" \
     -d "{\"name\": \"$node_clean\"}" \
     2>&1) || curl_exit_code=$?
