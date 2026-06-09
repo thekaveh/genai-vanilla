@@ -13,47 +13,48 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "expr": "rate(n8n_workflow_executions_total[5m]) * 60", "refId": "A" }
+        { "expr": "rate(n8n_workflow_execution_duration_seconds_count[5m]) * 60", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Workflow execution status",
+      "title": "Workflow execution p95 duration",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [
-        { "expr": "sum by (status) (rate(n8n_workflow_executions_total[5m]))", "refId": "A" }
+        { "expr": "histogram_quantile(0.95, sum(rate(n8n_workflow_execution_duration_seconds_bucket[5m])) by (le))", "refId": "p95" },
+        { "expr": "histogram_quantile(0.50, sum(rate(n8n_workflow_execution_duration_seconds_bucket[5m])) by (le))", "refId": "p50" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Active workflows (gauge)",
+      "title": "Active workflows",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
       "id": 3,
       "targets": [
-        { "expr": "n8n_active_workflows", "refId": "A" }
+        { "expr": "n8n_active_workflow_count", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Total workflows (gauge)",
+      "title": "Execution data writes/sec",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
       "id": 4,
       "targets": [
-        { "expr": "n8n_total_workflows", "refId": "A" }
+        { "expr": "rate(n8n_execution_data_writes_total[5m])", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "n8n process uptime",
+      "title": "n8n process uptime (default prom-client metric)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "id": 5,
       "targets": [
-        { "expr": "n8n_process_start_time_seconds", "refId": "A" }
+        { "expr": "time() - process_start_time_seconds{job=\"n8n\"}", "refId": "A" }
       ]
     }
   ],

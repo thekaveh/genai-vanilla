@@ -13,7 +13,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "expr": "sum(rate(litellm_requests_total[5m])) by (model)", "refId": "A" }
+        { "expr": "sum(rate(litellm_requests_metric[5m])) by (model)", "refId": "A" }
       ]
     },
     {
@@ -23,7 +23,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [
-        { "expr": "sum(rate(litellm_total_tokens[5m])) by (model)", "refId": "A" }
+        { "expr": "sum(rate(litellm_total_tokens_metric[5m])) by (model)", "refId": "A" }
       ]
     },
     {
@@ -33,9 +33,9 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 3,
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum(rate(litellm_request_latency_bucket[5m])) by (le, model))", "refId": "P50" },
-        { "expr": "histogram_quantile(0.95, sum(rate(litellm_request_latency_bucket[5m])) by (le, model))", "refId": "P95" },
-        { "expr": "histogram_quantile(0.99, sum(rate(litellm_request_latency_bucket[5m])) by (le, model))", "refId": "P99" }
+        { "expr": "histogram_quantile(0.50, sum(rate(litellm_request_total_latency_metric_bucket[5m])) by (le, model))", "refId": "P50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(litellm_request_total_latency_metric_bucket[5m])) by (le, model))", "refId": "P95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(litellm_request_total_latency_metric_bucket[5m])) by (le, model))", "refId": "P99" }
       ]
     },
     {
@@ -55,7 +55,7 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 5,
       "targets": [
-        { "expr": "sum(rate(litellm_failed_requests_metric[5m])) by (model, error)", "refId": "A" }
+        { "expr": "sum(rate(litellm_proxy_failed_requests_metric[5m])) by (model, error)", "refId": "A" }
       ]
     }
   ],

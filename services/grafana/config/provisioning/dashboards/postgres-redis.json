@@ -34,7 +34,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 3,
       "targets": [
-        { "expr": "topk(10, pg_relation_size_bytes)", "refId": "A" }
+        { "expr": "topk(10, pg_stat_user_tables_table_size_bytes)", "refId": "A" }
       ]
     },
     {

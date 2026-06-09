@@ -13,7 +13,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "expr": "sum(up{stack=\"genai-vanilla\"})", "refId": "A" }
+        { "expr": "sum(up)", "refId": "A" }
       ]
     },
     {
@@ -23,12 +23,12 @@
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "id": 2,
       "targets": [
-        { "expr": "sum(1 - up{stack=\"genai-vanilla\"})", "refId": "A" }
+        { "expr": "sum(1 - up)", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "HTTP request rate (Backend + Hermes)",
+      "title": "HTTP request rate (Backend)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 3,
