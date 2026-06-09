@@ -15,9 +15,19 @@ apk add --no-cache postgresql-client
 
 echo "weaviate-init: Waiting for database to be ready..."
 sleep 5 # Initial wait
+# Bounded readiness loop (mirrors n8n install-nodes.sh + minio init-minio.sh
+# patterns). A persistently unreachable Supabase DB would otherwise hang the
+# init container forever and block the rest of the weaviate-config.env chain.
+db_wait=0
+db_wait_max=300
 until PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -d "$PGDATABASE" -U "$PGUSER" -c '\q' 2>/dev/null; do
   echo "weaviate-init: Waiting for database..."
   sleep 5
+  db_wait=$((db_wait + 5))
+  if [ $db_wait -ge $db_wait_max ]; then
+    echo "weaviate-init: ERROR — database not reachable after ${db_wait_max}s; aborting." >&2
+    exit 1
+  fi
 done
 echo "weaviate-init: Database is available."
 
