@@ -85,7 +85,11 @@ download_one() {
   fi
   echo "+ $name → $dest"
   wget_rc=0
-  wget_out=$(wget -c -O "$dest" "$url" 2>&1) || wget_rc=$?
+  # --timeout caps each TCP/DNS/read stage (default is unbounded); --tries
+  # bounds retries on transient errors. ComfyUI model downloads can be
+  # multi-GB; a stalled HF/civitai mirror would otherwise hang the init
+  # container indefinitely with no compose-level kill switch.
+  wget_out=$(wget --timeout=30 --tries=3 -c -O "$dest" "$url" 2>&1) || wget_rc=$?
   printf '%s\n' "$wget_out" | tail -1
   if [ $wget_rc -eq 0 ]; then
     OK_COUNT=$((OK_COUNT + 1))
