@@ -49,7 +49,6 @@ def create_admin_user():
     try:
         resp = requests.post(
             f"{WEBUI_URL}/api/v1/auths/signup",
-            timeout=30,
             json={
                 "email": ADMIN_EMAIL,
                 "password": ADMIN_PASSWORD,
