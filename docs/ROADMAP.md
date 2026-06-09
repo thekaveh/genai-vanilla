@@ -60,7 +60,7 @@ The stack now orchestrates ~40 services / ~85 containers across AI inference, wo
 **MinIO object storage (artifact tier)**
 - S3-compatible artifact-tier storage server (Go, AGPL-v3). Pinned to `minio/minio:RELEASE.2025-09-07T16-13-09Z` (most recent stable tag on Docker Hub; the GitHub-only service-account-CVE release `RELEASE.2025-10-15T17-29-55Z` is not yet available as a Docker image — bump the pin when a fixed image lands upstream).
 - Five pre-provisioned buckets — `comfyui`, `backend`, `n8n`, `jupyter`, `docling` — each with a scoped service-account credential surfaced as `MINIO_<NAME>_ACCESS_KEY` / `MINIO_<NAME>_SECRET_KEY` in `.env`.
-- Admin console at `http://localhost:63018`; S3 API at `http://localhost:63017` (host) / `http://minio:9000` (internal).
+- Admin console at `http://localhost:63019`; S3 API at `http://localhost:63018` (host) / `http://minio:9000` (internal).
 - Complements Supabase Storage rather than replacing it. Per-consumer wiring (ComfyUI, Backend, n8n, JupyterHub, Doc Processor) ships in dedicated follow-up PRs — credentials and bucket names are in `.env` from day one for opt-in by env-only change.
 
 **Ray distributed-compute cluster**
