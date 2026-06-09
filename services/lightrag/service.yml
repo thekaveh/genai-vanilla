@@ -190,7 +190,7 @@ runtime_adaptive:
       LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
     extra_hosts_adaptation: inherit from llm_provider
-    failure_mode: "lightrag-init exits non-zero; LightRAG container does not start. Required because lightrag-init resolves model names from LiteLLM's /v1/models."
+    failure_mode: "lightrag-init logs a warning, falls back to LITELLM_DEFAULT_MODEL / EMBEDDING_MODEL env-var defaults (or the hardcoded ollama/nomic-embed-text + dim=768) and exits 0. LightRAG container then starts but every chat/embed call 502s until LiteLLM becomes reachable. Required for correct boot; degrades silently if LiteLLM is unavailable at init time."
 
 runtime_deps:
   lightrag:
