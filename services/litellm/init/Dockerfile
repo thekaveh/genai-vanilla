@@ -3,7 +3,7 @@
 # psycopg2-binary wheel is glibc-only (incompatible with musl/alpine),
 # and pinning matters because the script's SQL/YAML output is consumed by
 # litellm's runtime config. Python-slim avoids the apk + build-deps gymnastics.
-FROM python:3.12-slim
+FROM python:3.12.7-slim
 
 # psycopg2-binary keeps the image small (no system libpq build chain).
 # pyyaml renders the config.yaml from query results.

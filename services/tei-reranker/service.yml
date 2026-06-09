@@ -1,9 +1,12 @@
 # services/tei-reranker/service.yml
-# TEI Reranker — BGE-reranker-v2-m3 inference for RAG quality lift.
+# TEI Reranker — cross-encoder reranker inference for RAG quality lift.
+# Default model: mixedbread-ai/mxbai-rerank-base-v1 (arm64-compatible;
+# the originally spec'd BGE-reranker-v2-m3 crashed the arm64 candle
+# backend on warmup, swapped 2026-06-07 in commit ad7dda0).
 # Published image, no build context. Image var resolved per source variant
 # in service_config._generate_tei_reranker_config (mirrors DOCLING_GPU_IMAGE).
 name: tei-reranker
-label: "TEI Reranker (BGE-reranker-v2-m3)"
+label: "TEI Reranker (mxbai-rerank-base-v1)"
 category: llm
 docs: services/tei-reranker/README.md
 
@@ -77,7 +80,7 @@ rows:
     port_var: TEI_RERANKER_PORT
     scale_var: TEI_RERANKER_SCALE
     alias: rerank.localhost
-    description: "BGE-reranker-v2-m3 inference for RAG quality lift."
+    description: "Cross-encoder reranker (default: mxbai-rerank-base-v1) for RAG quality lift."
     localhost_endpoint_var: TEI_RERANKER_ENDPOINT
     localhost_port_var: TEI_RERANKER_LOCALHOST_PORT
 
