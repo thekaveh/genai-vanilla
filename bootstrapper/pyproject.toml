@@ -20,8 +20,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+# PEP 735 dependency groups (replaces the deprecated `[tool.uv]
+# dev-dependencies` table; uv warns on every invocation otherwise).
+# CI invokes `uv sync --group dev`.
+dev = [
     "pytest>=7.0.0",
 ]
 

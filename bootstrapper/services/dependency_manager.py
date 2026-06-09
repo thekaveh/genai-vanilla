@@ -241,8 +241,8 @@ class DependencyManager:
                             f.write(updated_content)
                         
                         disabled_services.append(service_name)
-                        
-                    except Exception as e:
+
+                    except OSError as e:
                         print(f"❌ Failed to disable {service_name}: {e}")
                     
         return disabled_services

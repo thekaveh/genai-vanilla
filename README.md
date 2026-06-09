@@ -284,7 +284,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 12 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
 | **Grafana** | http://localhost:63008 | http://grafana.localhost:63000 | Observability dashboards + unified alerting on top of Prometheus. Disabled by default; opt-in via `--grafana-source container`. 7 starter dashboards ship pre-provisioned. | `admin` / auto-generated `GRAFANA_ADMIN_PASSWORD` (first-run) |
 | **LightRAG** | `http://lightrag.localhost:${KONG_HTTP_PORT}` (WebUI), `http://localhost:${LIGHTRAG_API_PORT}/webui` | http://lightrag.localhost:63000 | Graph-augmented RAG server. KG + vector + multimodal ingestion. Disabled by default. | None |
-| **TEI Reranker** | `http://localhost:${TEI_RERANKER_PORT}/rerank` (API only) | — | BGE-reranker-v2-m3 inference for RAG quality lift. Disabled by default. | None |
+| **TEI Reranker** | `http://localhost:${TEI_RERANKER_PORT}/rerank` (API only) | http://rerank.localhost:63000 | Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift. Disabled by default. | None |
 
 ### 4.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -306,7 +306,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 - **LangMem** — persistent conversation memory with automated fact extraction, semantic recall, and consolidation (embedded in Backend)
 - **Ray** — distributed-compute substrate (head + workers) for parallelizing Python workloads (data prep, fine-tuning, batch inference). Disabled by default; enable via `--ray-source ray-container-cpu` (or `ray-container-gpu`). Consumed by Backend / JupyterHub via `RAY_ADDRESS`.
 - **LightRAG** — graph-augmented RAG server. KG + vector + multimodal ingestion. Default disabled.
-- **TEI Reranker** — BGE-reranker-v2-m3 inference for RAG quality lift. Default disabled.
+- **TEI Reranker** — Cross-encoder reranker (default `mixedbread-ai/mxbai-rerank-base-v1`) for RAG quality lift. Default disabled.
 
 ## 5. Usage Guide
 

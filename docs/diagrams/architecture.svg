@@ -303,7 +303,7 @@
   <!-- ─────────────────  OBSERVABILITY  ───────────────── -->
   <g>
     <rect x="60" y="1000" width="1280" height="72" rx="10" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="6,4" opacity="0.5"/>
-    <text x="76" y="1018" fill="#94a3b8" font-size="10" font-weight="600" letter-spacing="2">OBSERVABILITY  (always-on)</text>
+    <text x="76" y="1018" fill="#94a3b8" font-size="10" font-weight="600" letter-spacing="2">OBSERVABILITY  (opt-in)</text>
 
     <rect x="80" y="1028" width="600" height="36" rx="6" fill="#0f172a"/>
     <rect x="80" y="1028" width="600" height="36" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>

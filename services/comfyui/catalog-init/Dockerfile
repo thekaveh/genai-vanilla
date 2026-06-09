@@ -3,12 +3,14 @@
 # ComfyUI catalog. Python-slim avoids the apk + build-deps gymnastics that
 # the musl/alpine wheel story for psycopg2 forces. Mirrors the
 # services/litellm/catalog-init image.
-FROM python:3.12-slim
+FROM python:3.12.7-slim
 
 # psycopg2-binary: same pinned wheel as llm-catalog-init for consistency.
-# requests + pyyaml: live HF/civitai scrape + sidecar YAML parse via
-# bootstrapper/utils/comfyui_library (mounted at /catalog).
-RUN pip install --no-cache-dir psycopg2-binary==2.9.9 requests pyyaml
+# requests + PyYAML: live HF/civitai scrape + sidecar YAML parse via
+# bootstrapper/utils/comfyui_library (mounted at /catalog). Pinned so a
+# future upstream regression doesn't slip in at docker compose up time
+# (this Dockerfile isn't covered by CI build-validation).
+RUN pip install --no-cache-dir psycopg2-binary==2.9.9 requests==2.32.3 PyYAML==6.0.2
 
 WORKDIR /app
 
