@@ -31,6 +31,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import Screen
+from textual.worker import Worker, WorkerState
 
 from ..widgets import (
     BrandInfo,
@@ -210,7 +211,6 @@ class WizardScreen(Screen):
 
         self._phase: str = "setup"   # "setup" | "launch"
 
-        from ..widgets.category_legend import CategoryLegend
         self._command_summary = CommandSummary()
         self._service_table = ServiceTable(services)
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
@@ -219,7 +219,6 @@ class WizardScreen(Screen):
         self._cloud_apis_row = CloudApisRow(
             self._cloud_apis, service_table=self._service_table,
         )
-        self._category_legend = CategoryLegend()
         summaries = [
             ServiceSummary(name=r.name, source=r.source, port=r.port,
                            alias=r.alias, pending=r.pending)
@@ -231,9 +230,7 @@ class WizardScreen(Screen):
                 services=summaries,
                 cloud_apis=self._cloud_apis,
             ),
-            # CloudApisRow now renders the category legend on its right
-            # half, so the standalone CategoryLegend widget is no longer
-            # part of the body composition.
+            # CloudApisRow renders the category legend on its right half.
             body_widgets=[self._service_table, self._cloud_apis_row],
             title=f" Stack overview · {len(services)} services ",
         )
@@ -317,6 +314,23 @@ class WizardScreen(Screen):
         # ALWAYS visible regardless of whether the user has reached the
         # base-port step yet.
         self._refresh_command_summary()
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        """Surface failures from exit_on_error=False workers.
+
+        The auto-launch transition (CLI-flag mode) runs with
+        exit_on_error=False; without this, any exception inside it left
+        the worker in ERROR state and the user staring at a permanently
+        empty lower pane with no message anywhere.
+        """
+        if event.state is not WorkerState.ERROR:
+            return
+        err = event.worker.error
+        with contextlib.suppress(Exception):
+            self._write_status(
+                f"❌ {event.worker.name or 'background task'} failed: {err}",
+                style="bold red", source="pipeline",
+            )
 
     # ─── setup phase ─────────────────────────────────────────────────
 
@@ -458,7 +472,14 @@ class WizardScreen(Screen):
         generation = self._fetch_generation
         try:
             options = await asyncio.to_thread(provider, sel_snapshot)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            # Surface instead of swallowing: a silent [] here looked like
+            # an empty catalog and (pre-SECRET_KEEP guard) let a single
+            # Enter wipe the user's saved model CSV after a network blip.
+            self._safe_log(
+                f"[warn/options-fetch] {original.title}: {type(exc).__name__}: {exc}",
+                source="wizard", level="warn",
+            )
             options = []
         # Generation drift means action_back ran while we were waiting
         # — the user may have changed the upstream key, so writing our
@@ -668,6 +689,12 @@ class WizardScreen(Screen):
                 self._on_complete(dict(self._selections))
             if opt.value == "yes":
                 self.run_worker(self._transition_to_launch(), exclusive=True)
+            else:
+                # "No — exit without starting" must actually exit
+                # (previously a silent no-op: Enter did nothing and only
+                # Esc/Ctrl+Q could leave the screen).
+                self._close_launch_log_tee()
+                self.app.exit()
 
     def _refresh_info_panel(self) -> None:
         """Rebuild the service summaries from self._services and re-emit
@@ -1227,7 +1254,10 @@ class WizardScreen(Screen):
     async def _run_pipeline_and_stream(self) -> None:
         starter = self._starter
         cold = bool((self._stack_options or {}).get("cold", False))
-        base_port = int((self._stack_options or {}).get("base_port", 63000))
+        from core.config_parser import DEFAULT_BASE_PORT
+        base_port = int(
+            (self._stack_options or {}).get("base_port") or DEFAULT_BASE_PORT
+        )
         setup_hosts = bool((self._stack_options or {}).get("setup_hosts", False))
         skip_hosts = bool((self._stack_options or {}).get("skip_hosts", False))
 
@@ -1441,6 +1471,18 @@ class WizardScreen(Screen):
                 style="bold cyan", source="pipeline",
             )
             await self._run_compose(["logs", "-f"])
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # The pipeline runs in an exit_on_error=False worker: without
+            # this catch, a crash died silently and the UI froze at the
+            # last status line with nothing in the log pane or tee file.
+            import traceback
+            self._write_status(
+                f"❌ launch crashed: {exc}", style="bold red", source="pipeline",
+            )
+            for tb_line in traceback.format_exc().splitlines():
+                self._safe_log(tb_line, source="pipeline", level="error")
         finally:
             starter.banner = original_banner
             try:
@@ -1493,7 +1535,9 @@ class WizardScreen(Screen):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
-        except FileNotFoundError as exc:
+        except (OSError, RuntimeError) as exc:
+            # OSError covers PermissionError etc., not just a missing
+            # binary; RuntimeError covers compose-detection failures.
             self._write_status(f"❌ {exc}", style="bold red", source="docker")
             return 1
         try:
@@ -1547,7 +1591,9 @@ class WizardScreen(Screen):
                 stderr=asyncio.subprocess.STDOUT,
                 env=env,
             )
-        except FileNotFoundError as exc:
+        except (OSError, RuntimeError) as exc:
+            # OSError covers PermissionError etc., not just a missing
+            # binary; RuntimeError covers compose-detection failures.
             self._write_status(f"❌ {exc}", style="bold red", source="docker")
             return 1
         try:

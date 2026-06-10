@@ -1361,6 +1361,11 @@ class PromptPanel(Container):
             or not self._step.filter_tags
         ):
             return
+        # Normalize once: chips lowercase their keys at construction, but
+        # PromptStep.filter_tags may be Title-Case (ComfyUI's are). Without
+        # this, `f`-cycling filtered the rows correctly while highlighting
+        # the ALL chip (set_active fell back on the unknown key).
+        tag = (tag or FILTER_ALL_KEY).strip().lower()
         if tag == self._filter_tag:
             return
         prev_identity: str | None = None
@@ -1386,7 +1391,12 @@ class PromptPanel(Container):
         """
         if not self._step or not self._step.filter_tags:
             return
-        order = [FILTER_ALL_KEY, *self._step.filter_tags]
+        # Lowercase to match the normalized self._filter_tag — a raw
+        # Title-Case order made order.index() raise after a chip click
+        # (which posts lowercase keys), silently restarting the cycle
+        # from ALL every time.
+        order = [FILTER_ALL_KEY,
+                 *(t.strip().lower() for t in self._step.filter_tags)]
         try:
             idx = order.index(self._filter_tag)
         except ValueError:
@@ -1496,6 +1506,16 @@ class PromptPanel(Container):
                 return PromptOption(value=SECRET_CLEAR, label="cleared")
             return PromptOption(value=raw, label=raw)
         if self._step.kind == "multiselect":
+            # Degraded step: no real (non-empty-value) options means the
+            # provider fetch failed or returned only a placeholder row.
+            # Commit "keep current" so an Enter here can't wipe the
+            # user's previously-saved CSV (e.g. OLLAMA_USER_MODELS)
+            # after a transient network failure.
+            real = [o for o in (self._step.options or [])
+                    if (o.value or "").strip()]
+            if not real:
+                return PromptOption(value=SECRET_KEEP,
+                                    label="kept current (options unavailable)")
             checked = sorted(self._checked_values)
             return PromptOption(
                 value=",".join(checked),

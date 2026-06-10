@@ -58,46 +58,6 @@ def _wizard_warn(msg: str) -> None:
 
 # ─── helpers ─────────────────────────────────────────────────────────
 
-# Log-pane tag taxonomy. INTENTIONALLY DIFFERENT from the six topology
-# categories (infra/data/llm/media/agents/apps) — log-stream coloring uses
-# its own five-tag palette (INFRA/LLM/ML/DATA/TOOL) that groups services by
-# the visual shape of their log output rather than their stack role. Notable
-# divergences from `services.topology` categories:
-#   • backend (apps category) → "ML"  — ML-heavy logs
-#   • supabase (data category) → "INFRA" — substrate, treated as plumbing
-#   • n8n/searxng (media in topology) → "TOOL" — workflow-style logs
-# Topology already exports a category-tag mapping (`palette.CAT_*`) for
-# wizard/info-box rendering — those are different on purpose. If a new
-# service is added without an entry here, `_tag_for` returns "" (uncolored)
-# which is the desired fallback.
-_TAG_BY_KEY = {
-    "supabase": "INFRA", "supabase-db": "INFRA", "supabase-studio": "INFRA",
-    "redis": "INFRA", "kong": "INFRA", "kong_api_gateway": "INFRA",
-    "litellm": "LLM", "litellm-init": "LLM",
-    "llm_provider": "LLM", "ollama": "LLM",
-    "open_webui": "TOOL", "open-webui": "TOOL",
-    "comfyui": "ML", "stt_provider": "ML", "tts_provider": "ML",
-    "backend": "ML", "doc_processor": "ML", "multi2vec_clip": "ML",
-    "multi2vec-clip": "ML",
-    "weaviate": "DATA", "minio": "DATA", "neo4j": "DATA", "neo4j_graph_db": "DATA",
-    "neo4j-graph-db": "DATA",
-    "n8n": "TOOL", "searxng": "TOOL", "openclaw": "TOOL", "hermes": "TOOL", "jupyterhub": "TOOL",
-    "prometheus": "INFRA", "node-exporter": "INFRA", "cadvisor": "INFRA",
-    "grafana": "INFRA",
-    "postgres-exporter": "DATA", "redis-exporter": "DATA",
-}
-
-
-def _tag_for(key: str) -> str:
-    k = (key or "").lower().replace(" ", "_")
-    if k in _TAG_BY_KEY:
-        return _TAG_BY_KEY[k]
-    for prefix, tag in _TAG_BY_KEY.items():
-        if k.startswith(prefix):
-            return tag
-    return ""
-
-
 def _badges_for_option(opt: str, *, recommended: bool = False) -> list[str]:
     s = (opt or "").lower()
     badges: list[str] = []
@@ -153,7 +113,7 @@ def recompute_ports_for_base(
     synth_env = dict(live_env)
     for pv, off in port_offsets.items():
         synth_env[pv] = str(new_base + off)
-    new_kong = str(new_base + port_offsets.get("KONG_HTTP_PORT", 2))
+    new_kong = str(new_base + port_offsets.get("KONG_HTTP_PORT", 0))
     new_rows = []
     for r in current_rows:
         meta = lookup_service_meta(r.name)
@@ -163,7 +123,7 @@ def recompute_ports_for_base(
             name=r.name, source=r.source, alias=r.alias,
             port=new_port,
             alias_port=(new_kong if r.alias else ""),
-            tag=r.tag, default_source=r.default_source,
+            default_source=r.default_source,
             configurable=r.configurable,
             category=r.category,
             pending=r.pending,
@@ -423,7 +383,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         options=[
             PromptOption("yes", "Yes — launch now", "starts docker compose"),
             PromptOption("no", "No — exit without starting",
-                         "keeps your .env changes but doesn't launch"),
+                         "discards wizard selections; nothing written or launched"),
         ],
         default_value="yes", service_name="",
     ))
@@ -468,7 +428,6 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             name=s.name, source=(s.source or "container"),
             alias=(s.alias or ""), port=(s.port or ""),
             alias_port=(kong_port if (s.alias or "") else ""),
-            tag=_tag_for(s.name.lower().replace(" ", "_")),
             default_source=(s.source or "container"),
             configurable=(s.name in configurable_names),
             category=s.category,
@@ -559,7 +518,9 @@ def _selections_to_args(
         # Multiselect intent (renders only when the provider is
         # enabled — otherwise skip_if_prev hides the step).
         models_v = selections.get(cloud_models_title(name))
-        if models_v is None:
+        if models_v is None or models_v == SECRET_KEEP:
+            # SECRET_KEEP = degraded multiselect commit (options never
+            # loaded) — leave the saved CSV untouched.
             continue
         cloud_user_models[models_var] = models_v
         # Explicit "0 selected" → user walked through the list and
@@ -577,7 +538,7 @@ def _selections_to_args(
     # CSV is already the user's final selection — no union needed.
     ollama_user_models: dict = {}
     models_v = selections.get(OLLAMA_MODELS_TITLE)
-    if models_v is not None:
+    if models_v is not None and models_v != SECRET_KEEP:
         names = sorted({n.strip() for n in models_v.split(",") if n.strip()})
         ollama_user_models["OLLAMA_USER_MODELS"] = ",".join(names)
     # Free-text custom models — honor SECRET_KEEP/SECRET_CLEAR
@@ -596,7 +557,7 @@ def _selections_to_args(
     # apply_user_model_selections can persist it as COMFYUI_USER_MODELS.
     comfyui_user_models: dict = {}
     comfyui_models_v = selections.get(COMFYUI_MODELS_TITLE, set())
-    if comfyui_models_v:
+    if comfyui_models_v and comfyui_models_v != SECRET_KEEP:
         out_names = sorted(comfyui_models_v) if isinstance(comfyui_models_v, set) else \
             sorted({n.strip() for n in str(comfyui_models_v).split(",") if n.strip()})
         comfyui_user_models["COMFYUI_USER_MODELS"] = ",".join(out_names)
@@ -792,7 +753,7 @@ def run_launch_flow(
     synth_env = dict(env_vars)
     for pv, off in port_offsets.items():
         synth_env[pv] = str(base_port + off)
-    kong_port = str(base_port + port_offsets.get("KONG_HTTP_PORT", 2))
+    kong_port = str(base_port + port_offsets.get("KONG_HTTP_PORT", 0))
 
     # Map CLI source-arg keys (e.g. "llm_provider_source") onto the
     # corresponding display name from the wizard's services_info list,
@@ -816,7 +777,7 @@ def run_launch_flow(
             name=r.name, source=new_source, alias=r.alias,
             port=new_port,
             alias_port=(kong_port if r.alias else ""),
-            tag=r.tag, default_source=r.default_source,
+            default_source=r.default_source,
             configurable=r.configurable,
             category=r.category,
             pending=False,  # launch-flow rows are fully resolved before display
