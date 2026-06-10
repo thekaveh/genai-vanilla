@@ -4,7 +4,9 @@ Handles runtime overrides of SERVICE SOURCE configurations.
 """
 
 from typing import Dict
+import os
 import re
+from pathlib import Path
 
 class SourceOverrideManager:
     """Manages command-line SOURCE overrides for services."""
@@ -159,9 +161,12 @@ class SourceOverrideManager:
                     print(f"⚠️  {var_name} not found in .env, appending...")
                     updated_content += f'\n{replacement}'
             
-            # Write updated content back to file
-            with open(env_file_path, 'w', encoding="utf-8") as f:
+            # Write atomically (tmp + os.replace): a crash mid-write on
+            # an in-place open(..., 'w') truncates the user's .env.
+            tmp_path = Path(str(env_file_path) + '.tmp')
+            with open(tmp_path, 'w', encoding="utf-8") as f:
                 f.write(updated_content)
+            os.replace(tmp_path, env_file_path)
             
             return True
             

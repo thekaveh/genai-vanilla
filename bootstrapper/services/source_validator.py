@@ -333,7 +333,9 @@ class SourceValidator:
         return tts_stt_ok and cloud_ok
 
     def _migrate_legacy_tts_stt_sources(self) -> bool:
-        """Auto-rewrite TTS/STT source values from the pre-Speaches era.
+        """Auto-rewrite legacy TTS source values from the pre-Speaches era
+        (the STT side of the migration is limited to stripping the
+        retired PARAKEET_ENDPOINT var — no STT source values change).
 
         Background: the previous TTS path used ``ghcr.io/matatonic/openedai-
         speech`` which was archived 2026-01-04, and the previous voice-cloning

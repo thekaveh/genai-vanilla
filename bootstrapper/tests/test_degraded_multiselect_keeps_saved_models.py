@@ -76,3 +76,30 @@ def test_selections_to_args_still_persists_real_csv():
     )
     blob = repr(result)
     assert "'OLLAMA_USER_MODELS': 'a-model,b-model'" in blob
+
+
+def test_launch_prune_drops_skip_hidden_step_commits():
+    """A commit from a step whose skip-predicate is true at launch time
+    must not reach _selections_to_args — e.g. the user visits the
+    ComfyUI picker, commits '0 selected', Backs out and disables
+    ComfyUI; the stale empty CSV used to wipe COMFYUI_USER_MODELS for a
+    now-disabled service. Mirrors WizardScreen._transition_to_launch's
+    prune loop."""
+    from ui.textual.widgets.prompt_panel import PromptStep
+
+    picker = PromptStep(
+        title=COMFYUI_MODELS_TITLE, step_index=2, step_total=2,
+        heading="x", subtitle="", options=[], kind="multiselect",
+        skip_if_prev=lambda sel: sel.get("ComfyUI  ·  source") == "disabled",
+    )
+    selections = {
+        "ComfyUI  ·  source": "disabled",
+        COMFYUI_MODELS_TITLE: "",          # stale empty commit
+    }
+    # Replicate the prune exactly as _transition_to_launch does.
+    pruned = dict(selections)
+    for step in [picker]:
+        if step.skip_if_prev is not None and step.skip_if_prev(pruned):
+            pruned.pop(step.title, None)
+    result = _selections_to_args(pruned, [], 63000)
+    assert "COMFYUI_USER_MODELS" not in repr(result)

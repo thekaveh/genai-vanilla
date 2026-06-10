@@ -835,8 +835,14 @@ class WizardScreen(Screen):
             cloud_models_title(p.name): p.key for p in CLOUD_PROVIDERS
         }
 
-        # All other steps follow.
-        for step in self._steps:
+        # All other steps follow. Skip-hidden steps are excluded so the
+        # summary matches what the launch-time prune will actually
+        # persist (a stale commit from a step the user later hid via
+        # Back+disable used to render a flag that would never apply).
+        for idx, step in enumerate(self._steps):
+            if (getattr(step, "skip_if_prev", None) is not None
+                    and self._step_should_skip(idx)):
+                continue
             value = self._selections.get(step.title)
             if value is None:
                 continue
