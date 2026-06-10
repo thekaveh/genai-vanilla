@@ -49,8 +49,6 @@ class ServiceRow:
     # (KONG_HTTP_PORT), NOT the service's internal port. Falls back
     # to ``port`` when not explicitly set.
     alias_port: str = ""
-    tag: str = ""              # kept for back-compat
-    selected: bool = False
     default_source: str = ""
     # True when the user can pick the service's source via the wizard.
     # False marks always-on infrastructure (e.g. Supabase DB) where the
@@ -192,7 +190,6 @@ class ServiceTable(Widget):
     ) -> None:
         super().__init__(id=id)
         self._rows: list[ServiceRow] = list(rows or [])
-        self._filter: str = ""
         self.max_visible = max_visible if max_visible is not None else 999
         # Number of slot columns the user requested. The actual number
         # rendered may drop to 1 when the data is too wide to fit two
@@ -212,28 +209,9 @@ class ServiceTable(Widget):
         self._cursor = 0
         self.refresh()
 
-    def set_filter(self, q: str) -> None:
-        self._filter = (q or "").strip().lower()
-        self._cursor = 0
-        self.refresh()
-
     @property
     def visible_rows(self) -> list[ServiceRow]:
-        if not self._filter:
-            return self._rows
-        q = self._filter
-        return [
-            r for r in self._rows
-            if q in r.name.lower() or q in r.alias.lower()
-            or q in r.source.lower() or q in r.tag.lower()
-        ]
-
-    def move_cursor(self, delta: int) -> None:
-        rows = self.visible_rows
-        if not rows:
-            return
-        self._cursor = (self._cursor + delta) % len(rows)
-        self.refresh()
+        return self._rows
 
     # ─── width math ─────────────────────────────────────────────────
 
