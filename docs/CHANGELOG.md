@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 13 (1 commit)
+
+- The speaches GPU-image rewrite now honors a shell-exported
+  `SPEACHES_GPU_IMAGE` (the pin refresher's documented override path) —
+  pass 12's version consulted only `.env`, losing exported pins and, in
+  the no-.env-line case, silently falling back to the CPU image again.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 12 (1 commit)
 
 - The image-pin refresher now also covers pins declared as plain env
