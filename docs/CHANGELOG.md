@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 5 (2 commits)
+
+- **Both seeded n8n research workflows were broken end-to-end**: the
+  weekly scheduler sent `user_id: "system_scheduler"` (backend casts to
+  UUID → 500 on every run, forever); the SearXNG research workflow's
+  model-lookup compared the integer `content` column to a boolean (no
+  such Postgres operator → node always errored) and its AI-summary node
+  read `$env.LITELLM_BASE_URL` / `LITELLM_API_KEY`, which were never in
+  the n8n containers' env (URL rendered "undefined/…"). All three
+  fixed; the LiteLLM vars are now injected into n8n AND n8n-worker
+  (queue mode) with the runtime_sc dual-write.
+- Curated OpenRouter id corrected to `anthropic/claude-sonnet-4.6`
+  (OpenRouter serves the dot form; the hyphen form is Anthropic-direct
+  only — verified against the live models API).
+- A stale picker commit no longer persists after Back-navigating and
+  disabling the owning service (skip-hidden steps are pruned at
+  launch).
+- `services/docling/provider/localhost/requirements.txt` removed — it
+  duplicated pyproject+uv.lock (the actual install path), and
+  Dependabot bumps to it alone would silently re-drift the pins the
+  lock-gate can't see.
+- redis fragment header no longer claims the fragment is unreferenced.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 4 (2 commits)
 
 - **`--base-port` runs now persist `BASE_PORT` itself** — the port
