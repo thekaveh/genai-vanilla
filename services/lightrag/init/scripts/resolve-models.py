@@ -74,7 +74,7 @@ def resolve_dim(model: str) -> int:
         print(
             f"# WARN dim probe failed for {model} ({type(e).__name__}: {e});"
             f" falling back to 768 (nomic-embed-text). Override via"
-            f" EMBEDDING_DIM if your model uses a different size.",
+            f" LIGHTRAG_EMBEDDING_DIM if your model uses a different size.",
             file=sys.stderr,
         )
         return 768  # safe fallback for nomic-embed-text
@@ -82,8 +82,14 @@ def resolve_dim(model: str) -> int:
 
 def main() -> None:
     available = fetch_models()
-    chat = os.environ.get("LITELLM_DEFAULT_MODEL", "").strip()
-    embed = os.environ.get("LITELLM_EMBEDDING_MODEL", "").strip()
+    # LIGHTRAG_* are the service-specific overrides the manifest + README
+    # document; they take precedence over the stack-wide LITELLM_* picks.
+    # (They were declared-but-unread before — the "Override via …" advice
+    # pointed at vars nothing consumed.)
+    chat = (os.environ.get("LIGHTRAG_LLM_MODEL", "").strip()
+            or os.environ.get("LITELLM_DEFAULT_MODEL", "").strip())
+    embed = (os.environ.get("LIGHTRAG_EMBEDDING_MODEL", "").strip()
+             or os.environ.get("LITELLM_EMBEDDING_MODEL", "").strip())
     if not chat and available:
         # LITELLM_DEFAULT_MODEL is empty in the stock .env, so this
         # fallback is the DEFAULT path. /v1/models sorts by provider/name
@@ -101,7 +107,11 @@ def main() -> None:
         # Prefer anything with "embed" in the name
         embed_candidates = [m for m in available if "embed" in m.lower()]
         embed = embed_candidates[0] if embed_candidates else "ollama/nomic-embed-text"
-    dim = resolve_dim(embed)
+    dim_override = os.environ.get("LIGHTRAG_EMBEDDING_DIM", "").strip()
+    if dim_override.isdigit():
+        dim = int(dim_override)
+    else:
+        dim = resolve_dim(embed)
     # Write the BARE env var names LightRAG reads (`LLM_MODEL`,
     # `EMBEDDING_MODEL`, `EMBEDDING_DIM`) — NOT the `LIGHTRAG_*` prefixed
     # versions. LightRAG's server reads these unprefixed names directly;

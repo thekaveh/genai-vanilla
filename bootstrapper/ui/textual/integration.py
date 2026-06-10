@@ -220,6 +220,8 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         ("STT Provider",       "parakeet-localhost"):    ("PARAKEET_LOCALHOST_PORT", 63022),
         ("STT Provider",       "whisper-cpp-localhost"): ("WHISPER_CPP_LOCALHOST_PORT", 63025),
         ("TTS Provider",       "chatterbox-localhost"):  ("CHATTERBOX_LOCALHOST_PORT", 63027),
+        ("LightRAG",           "localhost"):             ("LIGHTRAG_LOCALHOST_PORT", 63068),
+        ("TEI Reranker",       "localhost"):             ("TEI_RERANKER_LOCALHOST_PORT", 63031),
     }
 
     def _localhost_port_config(display: str, opt_value: str) -> "SecondaryNumberInput | None":

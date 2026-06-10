@@ -124,6 +124,21 @@ class ServiceConfig:
         tts_config = self._generate_tts_provider_config(shared_env=env_vars)
         env_vars.update(tts_config)
 
+        # Resolve the speaches image for the WINNING profile. The compose
+        # fragment is a single service interpolating ${SPEACHES_IMAGE}
+        # under both profiles, so the gpu profile previously ran the CPU
+        # image despite three docs claiming SPEACHES_GPU_IMAGE "is
+        # selected by the profile". The pin refresher (top of this
+        # method) resets SPEACHES_IMAGE to the manifest CPU default every
+        # run, so a gpu→cpu switch self-heals; shell-exported pins win at
+        # compose interpolation regardless.
+        _profiles_now = (env_vars.get('COMPOSE_PROFILES') or '').split(',')
+        if 'speaches-gpu' in _profiles_now:
+            env_vars['SPEACHES_IMAGE'] = (
+                (self._resolved_env('SPEACHES_GPU_IMAGE', env_vars) or '').strip()
+                or 'ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda'
+            )
+
         # Generate Document Processor configuration
         doc_config = self._generate_doc_processor_config(shared_env=env_vars)
         env_vars.update(doc_config)

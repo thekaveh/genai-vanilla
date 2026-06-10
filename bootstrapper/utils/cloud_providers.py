@@ -12,9 +12,15 @@ Callers that previously held their own list:
   • ``bootstrapper/services/source_validator.py`` — auto-disable
     on missing key.
   • ``bootstrapper/services/service_config.py`` — emit LITELLM_*_ENABLED.
-  • ``bootstrapper/start.py`` — CLI flag conflict warnings.
+  • ``bootstrapper/start.py`` — cloud key/source flag plumbing.
 
-All now import from here. Order is the canonical user-facing order
+All of the above import from here EXCEPT start.py's inert-model-flag
+warning loop, which necessarily keeps a local 3-tuple: it pairs each
+provider with its Click KWARG locals (openai_models, …), which can't
+be looked up from a shared registry without locals() tricks. Adding a
+4th provider still means updating that loop by hand — the AST
+seam-parity tests flag the miss. Order here is the canonical
+user-facing order
 (matches the wizard's step splice and the overview's Cloud APIs row).
 """
 

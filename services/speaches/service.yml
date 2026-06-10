@@ -27,7 +27,7 @@ images:
 env:
   - name: SPEACHES_GPU_IMAGE
     default: "ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda"
-    description: "CUDA build of the same image; not yet wired to image var."
+    description: "CUDA build of the same image. When the speaches-gpu profile wins, the bootstrapper writes this value into SPEACHES_IMAGE (the compose interpolation target)."
   - name: SPEACHES_TTS_MODEL
     default: "hexgrad/Kokoro-82M"
     description: "Model name Open WebUI sends in /v1/audio/speech requests."

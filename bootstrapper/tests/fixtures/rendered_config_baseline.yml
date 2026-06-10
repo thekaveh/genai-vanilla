@@ -902,6 +902,9 @@ services:
     - -c
     - /scripts/init-lightrag.sh
     environment:
+      LIGHTRAG_EMBEDDING_DIM: ''
+      LIGHTRAG_EMBEDDING_MODEL: ''
+      LIGHTRAG_LLM_MODEL: ''
       LIGHTRAG_NEO4J_PASSWORD: ''
       LIGHTRAG_NEO4J_URI: ''
       LIGHTRAG_NEO4J_USERNAME: ''

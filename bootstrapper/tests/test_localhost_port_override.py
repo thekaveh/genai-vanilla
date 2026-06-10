@@ -1,6 +1,6 @@
 """End-to-end tests for the localhost-port-override wizard wiring.
 
-For each of the 10 localhost-capable services, the source step has
+For each of the 12 localhost-capable services, the source step has
 the matching localhost option(s) carrying a SecondaryNumberInput with
 the correct env_var, default, min/max, unit_suffix='port'."""
 

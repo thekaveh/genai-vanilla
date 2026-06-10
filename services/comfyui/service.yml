@@ -58,12 +58,6 @@ env:
     default: "comfyui-images"
   - name: COMFYUI_MODELS_PATH
     default: "/opt/ComfyUI/models"
-  - name: COMFYUI_OUTPUT_PATH
-    default: "/opt/ComfyUI/output"
-  - name: COMFYUI_INPUT_PATH
-    default: "/opt/ComfyUI/input"
-  - name: COMFYUI_CUSTOM_NODES_PATH
-    default: "/opt/ComfyUI/custom_nodes"
   - name: COMFYUI_LOCAL_MODELS_PATH
     default: "~/Documents/ComfyUI/models"
   - name: COMFYUI_USER_MODELS
