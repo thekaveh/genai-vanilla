@@ -335,13 +335,14 @@ def _check_per_manifest_contract(manifests: list[Manifest]) -> list[ValidationIs
                 )
             )
 
-        # 2. Every runtime_sc.<key>.<source>.environment key must be declared
-        # in this manifest's env[] OR in some other manifest's env[]. The
-        # latter is OK because runtime values cross service boundaries
-        # (e.g. ollama's runtime_sc writes LITELLM_OLLAMA_UPSTREAM, which is
-        # owned by litellm's manifest). This rule catches typo'd env vars.
-        # Note: collected across ALL manifests, so cross-manifest writes are
-        # allowed as long as some manifest declares the var.
+        # 2. (intentionally no check) runtime_sc.<container>.<source>
+        # .environment blocks routinely carry container-INTERNAL keys
+        # (AIRFLOW__*, GF_*, weaviate module config, ~80 across the repo)
+        # that are deliberately NOT declared in any manifest's env[] —
+        # they never surface in .env. A "must be declared" rule here
+        # would force all of them into .env.example. Typo protection for
+        # the user-facing subset comes from the env-example consistency
+        # and localhost-port symmetry tests instead.
 
         # 3. Every export name must be either a declared env var OR produced
         # by this manifest's runtime_sc.

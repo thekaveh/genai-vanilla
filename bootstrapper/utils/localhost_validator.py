@@ -16,25 +16,32 @@ class LocalhostValidator:
     
     # Service validation configurations
     SERVICE_CHECKS = {
+        # All single-engine services read their *_LOCALHOST_PORT override
+        # (the same var runtime_sc, Kong's _localhost_url, and
+        # service_config read) so a user-set port doesn't produce a false
+        # "not detected" warning — the asymmetric-override class tracked
+        # in feedback_localhost_url_override_symmetry.md.
         'LLM_PROVIDER_SOURCE': {
             'source_values': ['ollama-localhost'],
             'check_type': 'http',
-            'endpoints': ['http://localhost:11434/api/tags'],
+            'port_env_var': 'OLLAMA_LOCALHOST_PORT',
+            'health_path': '/api/tags',
             'service_name': 'Ollama',
             'default_port': 11434
         },
         'COMFYUI_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
-            'endpoints': ['http://localhost:8188/system_stats', 'http://localhost:8000/system_stats'],
+            'port_env_var': 'COMFYUI_LOCALHOST_PORT',
+            'health_path': '/system_stats',
             'service_name': 'ComfyUI',
-            'default_port': 8188,
-            'fallback_ports': [8000]
+            'default_port': 8000
         },
         'WEAVIATE_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
-            'endpoints': ['http://localhost:8080/v1/schema'],
+            'port_env_var': 'WEAVIATE_LOCALHOST_PORT',
+            'health_path': '/v1/schema',
             'service_name': 'Weaviate',
             'default_port': 8080
         },
@@ -42,6 +49,7 @@ class LocalhostValidator:
             'source_values': ['localhost'],
             'check_type': 'tcp',
             'host': 'localhost',
+            'port_env_var': 'NEO4J_LOCALHOST_BOLT_PORT',
             'port': 7687,
             'service_name': 'Neo4j',
             'default_port': 7687
@@ -234,9 +242,10 @@ class LocalhostValidator:
             #    localhost variant has its own port; the same var that
             #    compose's runtime_sc and Kong's _localhost_url helper read.
             #
-            # 2. Legacy: ``endpoints`` is a hardcoded list. Preserved for
-            #    single-engine services (ComfyUI, Weaviate, …) so this
-            #    refactor doesn't ripple beyond audio.
+            # 2. ``endpoints`` — a literal URL list. No SERVICE_CHECKS
+            #    entry uses it anymore (every service reads its
+            #    *_LOCALHOST_PORT var); kept as the escape hatch for
+            #    ad-hoc checks.
             if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
                 port = env_vars.get(config['port_env_var'], config['default_port'])
@@ -262,7 +271,7 @@ class LocalhostValidator:
                 if hint:
                     messages.append(f"   {hint}")
                 elif source_var == 'COMFYUI_SOURCE':
-                    messages.append("   Please start ComfyUI locally with: python main.py --listen --port 8188")
+                    messages.append("   Please start ComfyUI locally with: python main.py --listen --port ${COMFYUI_LOCALHOST_PORT:-8000}")
                     messages.append("   Or refer to the documentation for installation instructions.")
 
             return accessible, messages

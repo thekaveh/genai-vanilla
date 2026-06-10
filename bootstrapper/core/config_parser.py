@@ -129,11 +129,27 @@ class ConfigParser:
                 # Split on first = only
                 if '=' in line:
                     key, value = line.split('=', 1)
-                    # Remove any inline comments
-                    if '#' in value:
-                        value = value.split('#')[0]
-                    # Clean up the value
-                    value = value.strip().strip('"').strip("'")
+                    value = value.strip()
+                    if value[:1] in ('"', "'"):
+                        # Quoted value: take the quoted span verbatim —
+                        # a `#` inside quotes is data, not a comment
+                        # (PASSWORD="ab#cd" used to be read as `ab`).
+                        quote = value[0]
+                        end = value.find(quote, 1)
+                        if end != -1:
+                            value = value[1:end]
+                        else:
+                            # Unterminated quote — legacy cleanup.
+                            value = value.strip('"').strip("'")
+                    else:
+                        # Unquoted: a comment starts only at a hash
+                        # preceded by whitespace (`ab#cd` is a value;
+                        # `abc  # note` carries a comment).
+                        for i, ch in enumerate(value):
+                            if ch == '#' and (i == 0 or value[i - 1] in ' \t'):
+                                value = value[:i]
+                                break
+                        value = value.strip()
                     env_vars[key.strip()] = value
                     
         return env_vars

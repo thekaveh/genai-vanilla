@@ -35,17 +35,30 @@ def test_run_port_migration_handles_blank_base_port(tmp_path):
     starter.run_port_migration(no_port_migrate=False)
 
 
-def test_wizard_build_handles_blank_base_port(tmp_path, monkeypatch):
-    """``_build_steps_and_rows`` doesn't crash when BASE_PORT is blank."""
-    (tmp_path / ".env").write_text("BASE_PORT=\n")
-    (tmp_path / "docker-compose.yml").write_text("services: {}\n")
-    monkeypatch.chdir(tmp_path)
+def test_wizard_build_handles_blank_base_port(tmp_path):
+    """The REAL ``_build_steps_and_rows`` must not crash on a blank
+    BASE_PORT and must resolve it to DEFAULT_BASE_PORT.
+
+    (An earlier version of this test re-implemented the int-guard inline
+    and asserted its own copy — it kept passing no matter what
+    integration.py did.)"""
+    import shutil
+    from pathlib import Path
+
     from core.config_parser import ConfigParser, DEFAULT_BASE_PORT
-    cp = ConfigParser(str(tmp_path))
-    # Just exercise the int(BASE_PORT or DEFAULT) helper the wizard uses.
-    raw = (cp.parse_env_file().get("BASE_PORT") or "").strip()
-    try:
-        base_port = int(raw) if raw else DEFAULT_BASE_PORT
-    except ValueError:
-        base_port = DEFAULT_BASE_PORT
-    assert base_port == DEFAULT_BASE_PORT
+    from ui.textual.integration import _build_steps_and_rows
+    from utils.hosts_manager import HostsManager
+
+    repo_root = Path(__file__).resolve().parents[2]
+    env = tmp_path / ".env"
+    shutil.copy(repo_root / ".env.example", env)
+    text = env.read_text(encoding="utf-8").replace("BASE_PORT=63000", "BASE_PORT=")
+    env.write_text(text, encoding="utf-8")
+
+    cp = ConfigParser(str(repo_root))
+    cp.env_file_path = env
+    steps, rows, services_info, current_base_port, state, cloud = (
+        _build_steps_and_rows(cp, HostsManager())
+    )
+    assert current_base_port == DEFAULT_BASE_PORT
+    assert steps and rows

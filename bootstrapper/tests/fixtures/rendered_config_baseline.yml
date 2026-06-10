@@ -1918,10 +1918,6 @@ services:
     restart: unless-stopped
   searxng:
     container_name: genai-searxng
-    depends_on:
-      redis:
-        condition: service_healthy
-        required: true
     deploy:
       replicas: 1
     environment:
