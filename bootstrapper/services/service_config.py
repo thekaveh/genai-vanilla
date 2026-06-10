@@ -564,7 +564,9 @@ class ServiceConfig:
         """Look up ``var`` in this run's accumulated env, then .env, then ''.
 
         Used by the TTS/STT generators to read the speaches/chatterbox port
-        slots that the port allocator wrote earlier in the pipeline.
+        slots that the port allocator wrote earlier in the pipeline, and
+        by the speaches image resolution to read the SPEACHES_GPU_IMAGE
+        pin (whose shell-export precedence lives at the caller).
         """
         if var in env_vars:
             return env_vars[var]

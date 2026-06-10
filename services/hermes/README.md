@@ -21,7 +21,9 @@ Key facts:
 - **MCP-native** — first-class client for any MCP server.
 - **64K-context floor** — Hermes preflight-checks the model's context
   window. `HERMES_DEFAULT_MODEL` MUST be a ≥64K-context model. Stock Ollama
-  models default to 4096 — use `--ctx-size 65536` or a cloud model.
+  models default to 4096 — set `OLLAMA_CONTEXT_LENGTH=65536` on the
+  Ollama server (or `/set parameter num_ctx 65536` + `/save` inside
+  `ollama run`), or use a cloud model.
 - **Disk footprint** — verified at **~5.66 GB** on `linux/amd64` and
   `linux/arm64` (the image is multi-arch — works on Apple Silicon and
   standard Linux servers). Plan-time estimates put it at 2.6 GB; the
@@ -155,7 +157,9 @@ for scripted changes.
   `provider: command` with a `HERMES_LOCAL_STT_COMMAND`-style curl. See the
   comment in `services/hermes/init/templates/config.yaml.tmpl`.
 - **64K context floor** — small Ollama models (default 4096 ctx) will fail
-  Hermes's preflight check. Pull with `ollama run <model> --ctx-size 65536`
+  Hermes's preflight check. Raise it via `OLLAMA_CONTEXT_LENGTH=65536`
+  on the Ollama server, or `/set parameter num_ctx 65536` + `/save`
+  inside `ollama run <model>`
   or pick a cloud model.
 - **Open WebUI model-list cache** — Open WebUI caches the LiteLLM model list
   for 5 minutes (`MODEL_LIST_CACHE_TTL=300`). After first start, `hermes-agent`
