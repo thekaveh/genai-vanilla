@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 9 (1 commit)
+
+- Clearing log filters while the source popup is open no longer gets
+  silently reverted by the popup's stale snapshot on dismiss; one
+  garbled docstring from pass 8 rewritten whole; hermes config template
+  comment now cites the `ollama/`-prefixed id LiteLLM actually
+  publishes.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 8 (1 commit)
 
 - The atomic `.env` write clamps the tmp file's mode BEFORE secrets are
