@@ -457,9 +457,7 @@ services:
     entrypoint:
     - /scripts/download_models.sh
     environment:
-      COMFYUI_HOST_URL: http://comfyui:18188
       COMFYUI_MODELS_PATH: /models
-      IS_LOCAL_COMFYUI: 'false'
       PGDATABASE: postgres
       PGHOST: supabase-db
       PGPASSWORD: password
@@ -1563,9 +1561,6 @@ services:
       USER_AGENT: GenAI-Vanilla/Open-WebUI
       WEBSOCKET_MANAGER: redis
       WEBSOCKET_REDIS_URL: redis://:redis_password@redis:6379/2
-      WEBUI_ADMIN_EMAIL: admin@localhost
-      WEBUI_ADMIN_NAME: Admin
-      WEBUI_ADMIN_PASSWORD: admin
       WEBUI_SECRET_KEY: secret
     extra_hosts:
     - host.docker.internal=
@@ -1594,7 +1589,7 @@ services:
   open-webui-init:
     build:
       args:
-        BASE_IMAGE: python:3.11-slim
+        BASE_IMAGE: python:3.12-slim
       context: '{REPO_ROOT}/services/open-webui/init'
       dockerfile: Dockerfile
     container_name: genai-open-webui-init
@@ -1703,11 +1698,15 @@ services:
     entrypoint:
     - sh
     - -c
-    - "apk add --no-cache jq > /dev/null 2>&1\nCONFIG=/home/node/.openclaw/openclaw.json\n\
+    - "set -e\napk add --no-cache jq > /dev/null\nCONFIG=/home/node/.openclaw/openclaw.json\n\
       PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
-      :true}}}'\nif [ -f \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '.\
-      \ * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\
-      \nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
+      :true}}}'\n# Write via tmp + mv on BOTH branches: `> \"$$CONFIG\"` truncates\n\
+      # the target before jq runs, so a missing/failed jq used to\n# leave a 0-byte\
+      \ config the gateway chokes on (and re-runs\n# could not self-heal \u2014 jq\
+      \ errors on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch\
+      \ \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\"\
+      \ \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG.tmp\" && mv \"\
+      $$CONFIG.tmp\" \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
     networks:
       backend-network: null

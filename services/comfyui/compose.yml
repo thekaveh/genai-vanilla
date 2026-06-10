@@ -57,8 +57,6 @@ services:
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       COMFYUI_MODELS_PATH: /models
-      COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
-      IS_LOCAL_COMFYUI: ${IS_LOCAL_COMFYUI:-false}
     volumes:
       - ./init/scripts:/scripts
       - comfyui-models:/models

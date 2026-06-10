@@ -8,8 +8,17 @@ if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATA
 fi
 
 echo "db-init-runner: Waiting for database service $PGHOST..."
-# Use pg_isready to wait for the database server to accept connections
+# Use pg_isready to wait for the database server to accept connections.
+# Bounded (300s) like every other init wait loop — depends_on's
+# service_healthy gate normally makes this instant, but a wedged DB
+# should fail the init container, not hang it forever.
+WAITED=0
 until pg_isready -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -q; do
+  WAITED=$((WAITED + 1))
+  if [ "$WAITED" -ge 300 ]; then
+    echo "db-init-runner: ERROR - database not ready after 300s; giving up." >&2
+    exit 1
+  fi
   echo "db-init-runner: Database unavailable - sleeping 1s"
   sleep 1
 done

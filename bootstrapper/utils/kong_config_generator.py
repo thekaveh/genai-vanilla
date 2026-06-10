@@ -551,7 +551,17 @@ class KongConfigGenerator:
                         'hosts': ['studio.localhost', 'localhost'],
                     }
                 ],
-                'plugins': [{'name': 'cors'}]
+                # basic-auth + ACL, like the /pg/ meta route above and
+                # upstream Supabase's own kong template. The dashboard
+                # ships no auth of its own (SQL-editor-level DB access),
+                # and README/.env document DASHBOARD_USERNAME/PASSWORD as
+                # gating Studio — without these plugins that promise was
+                # false and Studio sat open on the gateway root.
+                'plugins': [
+                    {'name': 'cors'},
+                    {'name': 'basic-auth'},
+                    {'name': 'acl', 'config': {'allow': ['dashboard_user']}}
+                ]
             }
         ]
     

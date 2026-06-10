@@ -275,10 +275,6 @@ class ServiceConfig:
         else:
             env_vars['COMFYUI_DEPLOY_RESOURCES'] = '~'
             
-        # Set local ComfyUI flag
-        is_local = config.get('environment', {}).get('IS_LOCAL_COMFYUI', 'false')
-        env_vars['IS_LOCAL_COMFYUI'] = is_local
-        
         return env_vars
     
     def _generate_minio_config(self) -> Dict[str, str]:

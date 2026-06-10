@@ -311,6 +311,23 @@ def apply_user_models_selection(
                 flush=True,
             )
 
+        # Activation below is NAME-keyed while uniqueness is (name, type):
+        # a name that exists under two types would toggle both rows.
+        # No catalog/sidecar name collides across types today — warn
+        # loudly if that ever changes so the selection format can grow
+        # a type qualifier before this becomes a real bug.
+        cur.execute(
+            "SELECT name FROM public.comfyui_models "
+            "GROUP BY name HAVING count(DISTINCT type) > 1;"
+        )
+        collisions = [r[0] for r in cur.fetchall()]
+        if collisions:
+            print(
+                "⚠️  comfyui-catalog: name(s) present under multiple types "
+                f"(activation toggles all of them): {', '.join(collisions)}",
+                file=sys.stderr, flush=True,
+            )
+
         # Activate the matched-known subset.
         matched = sorted(set(user_models) & present)
         if matched:

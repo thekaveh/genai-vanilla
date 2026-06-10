@@ -45,14 +45,37 @@ def test_validator_ignores_external_links(tmp_path):
     assert result.returncode == 0
 
 
-def test_validator_ignores_anchors(tmp_path):
-    """Bare `#anchor` and `./file.md#anchor` links don't require anchor existence."""
+def test_validator_checks_anchor_fragments(tmp_path):
+    """Anchor fragments are validated against the target's heading slugs
+    (GitHub slugger rules) — both `./file.md#anchor` and same-page
+    `#anchor` forms."""
     a = tmp_path / "a.md"
     b = tmp_path / "b.md"
-    a.write_text("[same](#here) [other](./b.md#section)")
-    b.write_text("body")
+    a.write_text("# Here\n[same](#here) [other](./b.md#2-some-section)")
+    b.write_text("## 2. Some Section\nbody")
     result = _run(tmp_path)
-    assert result.returncode == 0
+    assert result.returncode == 0, result.stdout
+
+
+def test_validator_flags_dead_anchor(tmp_path):
+    a = tmp_path / "a.md"
+    b = tmp_path / "b.md"
+    a.write_text("[other](./b.md#no-such-heading)")
+    b.write_text("## Real Heading\nbody")
+    result = _run(tmp_path)
+    assert result.returncode == 1
+    assert "dead anchor" in result.stdout
+
+
+def test_validator_keeps_underscores_in_slugs(tmp_path):
+    """GitHub keeps underscores in heading slugs (`depends_on` →
+    depends_on); the slugifier must not strip them as md formatting."""
+    a = tmp_path / "a.md"
+    b = tmp_path / "b.md"
+    a.write_text("[link](./b.md#9-decision--depends_onrequired--optional)")
+    b.write_text("## 9. Decision — (`depends_on.required` / `optional`)\nbody")
+    result = _run(tmp_path)
+    assert result.returncode == 0, result.stdout
 
 
 def test_validator_resolves_relative_paths_with_parent_segments(tmp_path):

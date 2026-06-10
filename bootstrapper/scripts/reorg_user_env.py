@@ -17,13 +17,23 @@ You did back up first — right?
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_PATH = REPO_ROOT / ".env"
+# Honor GENAI_ENV_FILE like every other .env consumer (start.py,
+# config_parser, docker_manager, key_generator) — a custom-env-file user
+# running this cleanup would otherwise reorganize the wrong file.
+# Relative paths anchor at the repo root, matching ConfigParser.
+_custom = os.environ.get("GENAI_ENV_FILE", "").strip()
+if _custom:
+    _p = Path(_custom).expanduser()
+    ENV_PATH = (_p if _p.is_absolute() else REPO_ROOT / _p).resolve()
+else:
+    ENV_PATH = REPO_ROOT / ".env"
 EXAMPLE_PATH = REPO_ROOT / ".env.example"
 
 # `KEY=value` with optional inline comment. We deliberately don't strip

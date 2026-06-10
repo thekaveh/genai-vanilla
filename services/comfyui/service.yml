@@ -84,9 +84,6 @@ env:
     description: "Resolved per COMFYUI_SOURCE. Consumed by backend, open-webui, n8n, jupyterhub."
   - name: COMFYUI_DEPLOY_RESOURCES
     default: "~"
-  - name: IS_LOCAL_COMFYUI
-    auto_managed: true
-    description: "True when COMFYUI_SOURCE=localhost."
 
 
 depends_on:
@@ -130,7 +127,6 @@ runtime_sc:
         WEB_ENABLE_AUTH: 'false'
         ENABLE_QUICKTUNNEL: 'false'
         SERVERLESS: 'false'
-        IS_LOCAL_COMFYUI: 'false'
         COMFYUI_LOCAL_MODELS_PATH: ./empty
       deploy: {}
       extra_hosts: []
@@ -145,7 +141,6 @@ runtime_sc:
         WEB_ENABLE_AUTH: 'false'
         ENABLE_QUICKTUNNEL: 'false'
         SERVERLESS: 'false'
-        IS_LOCAL_COMFYUI: 'false'
         COMFYUI_LOCAL_MODELS_PATH: ./empty
       deploy:
         resources:
@@ -163,7 +158,6 @@ runtime_sc:
       scale: 0
       environment:
         COMFYUI_ENDPOINT: http://host.docker.internal:${COMFYUI_LOCALHOST_PORT:-8000}
-        IS_LOCAL_COMFYUI: 'true'
         COMFYUI_LOCAL_MODELS_PATH: ${COMFYUI_LOCAL_MODELS_PATH:-~/Documents/ComfyUI/models}
       deploy: {}
       extra_hosts:
@@ -172,7 +166,6 @@ runtime_sc:
       scale: 0
       environment:
         COMFYUI_ENDPOINT: http://comfyui:18188
-        IS_LOCAL_COMFYUI: 'false'
       deploy: {}
       extra_hosts: []
   comfyui-init:

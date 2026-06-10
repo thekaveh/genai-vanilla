@@ -459,3 +459,17 @@ def test_n8n_forwarded_host_header_has_resolved_port():
             headers = plugin["config"]["add"]["headers"]
     assert headers == ["X-Forwarded-Host: n8n.localhost:64000"], headers
     assert not any("${" in h for h in headers)
+
+
+def test_dashboard_route_is_basic_auth_gated():
+    """Supabase Studio has no auth of its own; the Kong dashboard
+    service must carry basic-auth + the dashboard_user ACL (the
+    documented DASHBOARD_USERNAME/PASSWORD gate). Regression: it shipped
+    with only CORS, leaving the SQL editor open on the gateway root."""
+    config = _generate("")
+    dash = [s for s in config["services"] if s["name"] == "dashboard"]
+    assert dash, "dashboard service missing"
+    plugin_names = {p["name"] for p in dash[0].get("plugins", [])}
+    assert "basic-auth" in plugin_names
+    acl = [p for p in dash[0]["plugins"] if p["name"] == "acl"]
+    assert acl and acl[0]["config"]["allow"] == ["dashboard_user"]

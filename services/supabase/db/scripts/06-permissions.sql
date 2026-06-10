@@ -1,4 +1,4 @@
--- 05-permissions.sql
+-- 06-permissions.sql
 -- Grant permissions assuming base roles (anon, authenticated, service_role) exist
 
 DO $$ BEGIN

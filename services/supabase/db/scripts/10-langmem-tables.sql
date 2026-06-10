@@ -87,15 +87,21 @@ DROP POLICY IF EXISTS "Service role can access all memory sessions" ON public.me
 DROP POLICY IF EXISTS "Users can view their own consolidation logs" ON public.memory_consolidation_log;
 DROP POLICY IF EXISTS "Service role can access all consolidation logs" ON public.memory_consolidation_log;
 
--- Service role (backend) can access all memory data
+-- Service role (backend) can access all memory data. Scoped to the
+-- service_role claim like the research tables in 09 — the previous
+-- USING (true) made the policy a no-op, and 06-permissions' default
+-- privileges grant `authenticated` table rights, so any authenticated
+-- PostgREST caller had full CRUD on every user's memories. The
+-- backend's direct supabase_admin connection bypasses RLS (owner) and
+-- is unaffected.
 CREATE POLICY "Service role can access all memory facts" ON public.memory_facts
-    FOR ALL USING (true);
+    FOR ALL USING (auth.role() = 'service_role');
 
 CREATE POLICY "Service role can access all memory sessions" ON public.memory_sessions
-    FOR ALL USING (true);
+    FOR ALL USING (auth.role() = 'service_role');
 
 CREATE POLICY "Service role can access all consolidation logs" ON public.memory_consolidation_log
-    FOR ALL USING (true);
+    FOR ALL USING (auth.role() = 'service_role');
 
 -- Grant permissions to service roles
 GRANT ALL ON public.memory_facts TO service_role;

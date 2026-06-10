@@ -3,13 +3,15 @@
 
 Scans markdown files for relative `[label](./path.md)` and `[label](path.md)`
 links and asserts every target resolves to an existing file. External links
-(http://, https://, mailto:) are skipped. Anchors (`#section`) are not
-required to exist; the file half is still checked.
+(http://, https://, mailto:) are skipped. Anchor fragments (`#section`,
+including pure same-page `#section` links) are validated against the
+target file's GitHub-computed heading slugs and explicit
+`<a name=…>`/`<a id=…>` anchors.
 
 Default scan set when invoked with no args:
   - README.md
-  - CHANGELOG.md (top-level if present)
   - docs/ (recursive, *.md only)
+  - services/ (recursive, *.md only)
 
 Exit codes:
   0 — every link resolves.
@@ -28,7 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Match `[label](target)` where target does NOT start with http://, https://,
 # mailto:, or `#`. Greedy on label; non-greedy avoidance not needed because
 # the link is opaque to label content (we only consume up to the matching `)`).
-_LINK_RE = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<target>(?!https?://|mailto:|#)[^)]+)\)")
+_LINK_RE = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<target>(?!https?://|mailto:)[^)]+)\)")
 
 # Strip fenced code blocks (```...```) — non-greedy, multiline.
 _FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
@@ -42,6 +44,67 @@ def _strip_fenced_code(text: str) -> str:
     real links and must be validated.
     """
     return _FENCED_CODE_RE.sub("", text)
+
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
+_EXPLICIT_ANCHOR_RE = re.compile(r"<a\s+(?:name|id)=[\"']([^\"']+)[\"']")
+# Strip backticks/asterisks (md formatting) and [text](url) wrappers.
+# Underscores are NOT stripped — GitHub keeps them in slugs
+# (`depends_on` → depends_on, not dependson).
+_INLINE_FORMAT_RE = re.compile(r"[`*]|\[(?P<txt>[^\]]*)\]\([^)]*\)")
+
+
+def _slugify(title: str) -> str:
+    """GitHub heading slug: drop md formatting, lowercase, strip
+    punctuation (keep word chars/hyphens/underscores), spaces → hyphens.
+    Consecutive hyphens are preserved (GitHub does not collapse them)."""
+    title = _INLINE_FORMAT_RE.sub(lambda m: m.group("txt") or "", title)
+    out = []
+    for ch in title.strip().lower():
+        if ch.isalnum() or ch == "_" or ch == "-":
+            out.append(ch)
+        elif ch in " \t":
+            out.append("-")
+        # everything else (periods, em-dashes, emoji, …) is dropped
+    return "".join(out)
+
+
+_ANCHOR_CACHE: dict[Path, set[str]] = {}
+
+
+def _heading_anchors(md: Path) -> set[str]:
+    """All valid fragment ids for a markdown file: GitHub slugs of every
+    heading (with -1/-2 dedupe suffixes) plus explicit <a name=/id=>
+    anchors. Lenient variants with leading/trailing hyphens stripped are
+    included to absorb slugger edge cases (emoji-prefixed headings)."""
+    if md in _ANCHOR_CACHE:
+        return _ANCHOR_CACHE[md]
+    anchors: set[str] = set()
+    seen_counts: dict[str, int] = {}
+    in_fence = False
+    try:
+        text = md.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        _ANCHOR_CACHE[md] = anchors
+        return anchors
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = _HEADING_RE.match(line)
+        if m:
+            slug = _slugify(m.group(2))
+            n = seen_counts.get(slug, 0)
+            seen_counts[slug] = n + 1
+            anchors.add(slug if n == 0 else f"{slug}-{n}")
+        for a in _EXPLICIT_ANCHOR_RE.finditer(line):
+            anchors.add(a.group(1))
+    anchors |= {a.strip("-") for a in anchors}
+    _ANCHOR_CACHE[md] = anchors
+    return anchors
 
 
 def _collect_md_files(roots: list[Path]) -> list[Path]:
@@ -81,14 +144,22 @@ def _check_file(md: Path) -> list[str]:
     text = _strip_fenced_code(md.read_text(encoding="utf-8", errors="replace"))
     for m in _LINK_RE.finditer(text):
         target = m.group("target").strip()
-        # Strip anchor suffix; we don't require anchor existence.
-        file_part = target.split("#", 1)[0]
-        if not file_part:
-            # Pure anchor like `#section` — same-page, skip.
-            continue
-        resolved = (md.parent / file_part).resolve()
-        if not resolved.exists():
-            errors.append(f"{md}: broken link [{m.group('label')}]({target}) → {resolved}")
+        file_part, _, fragment = target.partition("#")
+        if file_part:
+            resolved = (md.parent / file_part).resolve()
+            if not resolved.exists():
+                errors.append(f"{md}: broken link [{m.group('label')}]({target}) → {resolved}")
+                continue
+        else:
+            resolved = md  # pure `#section` — same-page anchor
+        if fragment and resolved.suffix == ".md" and resolved.is_file():
+            frag = fragment.strip().lower()
+            anchors = _heading_anchors(resolved)
+            if frag not in anchors and frag.strip("-") not in anchors:
+                errors.append(
+                    f"{md}: dead anchor [{m.group('label')}]({target}) — "
+                    f"no heading slug `#{frag}` in {resolved.name}"
+                )
     return errors
 
 
@@ -103,7 +174,7 @@ def main(argv: list[str]) -> int:
     else:
         roots = _default_roots()
         if not roots:
-            print("error: no default paths exist (README.md / CHANGELOG.md / docs/)", file=sys.stderr)
+            print("error: no default paths exist (README.md / docs/ / services/)", file=sys.stderr)
             return 2
 
     all_errors: list[str] = []
