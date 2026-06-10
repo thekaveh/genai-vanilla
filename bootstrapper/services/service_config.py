@@ -134,10 +134,18 @@ class ServiceConfig:
         # compose interpolation regardless.
         _profiles_now = (env_vars.get('COMPOSE_PROFILES') or '').split(',')
         if 'speaches-gpu' in _profiles_now:
-            # The pin refresher (top of this method) guarantees
-            # SPEACHES_GPU_IMAGE is present from the manifest default;
-            # _resolved_env still lets a user .env pin win.
-            gpu_image = (self._resolved_env('SPEACHES_GPU_IMAGE', env_vars) or '').strip()
+            # Precedence mirrors the refresher's documented override
+            # story: a shell-exported pin wins (the refresher skips
+            # shell-exported vars, so env_vars would otherwise carry a
+            # stale .env value or nothing); else the refresher-loaded
+            # manifest default in env_vars. One of the two is always
+            # non-empty, so the gpu profile can't silently fall back to
+            # the CPU image.
+            import os as _os
+            gpu_image = (
+                (_os.environ.get('SPEACHES_GPU_IMAGE') or '').strip()
+                or (self._resolved_env('SPEACHES_GPU_IMAGE', env_vars) or '').strip()
+            )
             if gpu_image:
                 env_vars['SPEACHES_IMAGE'] = gpu_image
 

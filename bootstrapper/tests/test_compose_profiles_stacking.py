@@ -111,3 +111,18 @@ def test_speaches_cpu_profile_keeps_cpu_image(env_with_overrides):
     env = sc.generate_service_environment()
     assert "speaches-cpu" in env["COMPOSE_PROFILES"]
     assert env["SPEACHES_IMAGE"].endswith("-cpu")
+
+
+def test_speaches_gpu_image_shell_export_wins(env_with_overrides, monkeypatch):
+    """The refresher's documented override path is a shell export —
+    the gpu rewrite must consult os.environ first (regression: it read
+    env_vars/.env only, so an exported pin silently lost — or, with no
+    .env line either, the gpu profile fell back to the CPU image)."""
+    monkeypatch.setenv("SPEACHES_GPU_IMAGE", "ghcr.io/example/speaches:custom-cuda")
+    sc = _sc(env_with_overrides({
+        "STT_PROVIDER_SOURCE": "speaches-container-gpu",
+        "TTS_PROVIDER_SOURCE": "disabled",
+        "DOC_PROCESSOR_SOURCE": "disabled",
+    }))
+    env = sc.generate_service_environment()
+    assert env["SPEACHES_IMAGE"] == "ghcr.io/example/speaches:custom-cuda"
