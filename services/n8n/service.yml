@@ -94,6 +94,8 @@ runtime_sc:
     container:
       scale: 1
       environment:
+        LITELLM_BASE_URL: http://litellm:4000
+        LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
         STT_ENDPOINT: ${STT_ENDPOINT}
         TTS_ENDPOINT: ${TTS_ENDPOINT}
         DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}

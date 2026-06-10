@@ -1252,6 +1252,8 @@ services:
       HERMES_ENDPOINT: ''
       LIGHTRAG_API_KEY: ''
       LIGHTRAG_ENDPOINT: ''
+      LITELLM_API_KEY: ''
+      LITELLM_BASE_URL: http://litellm:4000
       N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63000
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
@@ -1375,6 +1377,8 @@ services:
       HERMES_ENDPOINT: ''
       LIGHTRAG_API_KEY: ''
       LIGHTRAG_ENDPOINT: ''
+      LITELLM_API_KEY: ''
+      LITELLM_BASE_URL: http://litellm:4000
       N8N_ENCRYPTION_KEY: your-random-encryption-key
       NODE_ENV: development
       QUEUE_BULL_REDIS_DB: '0'

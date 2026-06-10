@@ -51,10 +51,6 @@
             {
               "name": "search_api",
               "value": "={{ $json.search_api }}"
-            },
-            {
-              "name": "user_id",
-              "value": "system_scheduler"
             }
           ]
         },

@@ -47,6 +47,11 @@ services:
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
+      # LiteLLM gateway — the seeded research workflow's AI-summary node
+      # reads $env.LITELLM_BASE_URL / $env.LITELLM_API_KEY (previously
+      # undeclared: the node rendered "undefined/v1/chat/completions").
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
       # STT/TTS/DOC endpoints (available for workflows)
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
@@ -135,6 +140,8 @@ services:
       # workflow actually runs. GENERIC_TIMEZONE likewise (n8n docs:
       # set it on workers too, or Date/Schedule nodes skew).
       GENERIC_TIMEZONE: ${TZ:-UTC}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
