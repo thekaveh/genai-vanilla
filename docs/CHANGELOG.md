@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-10 overnight maintenance pass 4 (3 commits)
+### Fixed — 2026-06-10 overnight maintenance pass 4 (2 commits)
 
 - **`--base-port` runs now persist `BASE_PORT` itself** — the port
   rewriter updated every `*_PORT` but never the anchor, so the very

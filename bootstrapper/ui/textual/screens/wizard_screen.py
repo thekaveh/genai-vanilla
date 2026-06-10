@@ -979,8 +979,19 @@ class WizardScreen(Screen):
         # honor them. Otherwise resolve from the wizard's selections.
         if self._source_args is None or self._stack_options is None:
             if self._stack_options_resolver is not None:
+                # Drop commits from steps whose skip-predicate is true at
+                # LAUNCH time: a user can visit a step (e.g. ComfyUI
+                # picker), commit, then go Back and disable the owning
+                # service — the stale commit would otherwise persist
+                # (e.g. an empty CSV wiping COMFYUI_USER_MODELS for a
+                # service that is now disabled).
+                selections = dict(self._selections)
+                for idx, step in enumerate(self._steps):
+                    if (getattr(step, "skip_if_prev", None) is not None
+                            and self._step_should_skip(idx)):
+                        selections.pop(step.title, None)
                 self._source_args, self._stack_options = self._stack_options_resolver(
-                    dict(self._selections)
+                    selections
                 )
             else:
                 self._source_args, self._stack_options = {}, {}
