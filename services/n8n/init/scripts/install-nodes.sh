@@ -98,8 +98,14 @@ while IFS= read -r node_name; do
   installed_check=$(curl -s --fail --max-time 15 -X GET "$N8N_API_URL/rest/community-packages" \
     -H "Content-Type: application/json" 2>/dev/null || echo "[]")
 
-  # Check if node is already installed
-  if echo "$installed_check" | jq -e --arg name "$node_clean" '.[] | select(.packageName == $name)' > /dev/null 2>&1; then
+  # Check if node is already installed. n8n's internal /rest API wraps
+  # list payloads in a {"data": [...]} envelope — unwrap it, falling back
+  # to a bare array for older shapes. (The old bare `.[]` indexed into
+  # the envelope and errored, so every node looked "not installed" on
+  # every boot.) NOTE: /rest/* needs a session cookie once an owner
+  # account exists, so this init can only install nodes on a first-boot
+  # stack; afterwards the calls 401 and are counted as failures below.
+  if echo "$installed_check" | jq -e --arg name "$node_clean" '(.data? // .) | .[] | select(.packageName == $name)' > /dev/null 2>&1; then
     echo "n8n-init: Node $node_clean is already installed, skipping."
     success_count=$((success_count + 1))
     continue

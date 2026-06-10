@@ -47,7 +47,7 @@ class Tools:
         height: Optional[int] = None,
         steps: Optional[int] = None,
         cfg: Optional[float] = None,
-        checkpoint: str = "sd_v1-5_pruned_emaonly.safetensors",
+        checkpoint: str = "v1-5-pruned-emaonly.safetensors",
     ) -> str:
         """
         Generate an image using ComfyUI with the specified parameters.
@@ -58,7 +58,7 @@ class Tools:
         :param height: Image height in pixels (default: 512)
         :param steps: Number of denoising steps (default: 20)
         :param cfg: CFG scale for guidance strength (default: 7.0)
-        :param checkpoint: Model checkpoint to use (default: sd_v1-5_pruned_emaonly.safetensors)
+        :param checkpoint: Model checkpoint to use (default: v1-5-pruned-emaonly.safetensors)
         :return: Image generation result with base64 encoded image or error message
         """
 

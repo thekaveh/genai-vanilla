@@ -85,7 +85,18 @@ def main() -> None:
     chat = os.environ.get("LITELLM_DEFAULT_MODEL", "").strip()
     embed = os.environ.get("LITELLM_EMBEDDING_MODEL", "").strip()
     if not chat and available:
-        chat = available[0]
+        # LITELLM_DEFAULT_MODEL is empty in the stock .env, so this
+        # fallback is the DEFAULT path. /v1/models sorts by provider/name
+        # and the first entry is typically ollama/nomic-embed-text — an
+        # embeddings-only route. Filter out embedding models and the
+        # agent/self entries (hermes-agent answers via its own loop;
+        # lightrag pointing at itself would loop) before picking.
+        chat_candidates = [
+            m for m in available
+            if "embed" not in m.lower()
+            and m not in ("hermes-agent", "lightrag")
+        ]
+        chat = chat_candidates[0] if chat_candidates else available[0]
     if not embed:
         # Prefer anything with "embed" in the name
         embed_candidates = [m for m in available if "embed" in m.lower()]

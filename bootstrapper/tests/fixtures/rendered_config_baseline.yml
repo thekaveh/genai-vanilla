@@ -420,7 +420,7 @@ services:
       PGHOST: supabase-db
       PGPASSWORD: password
       PGPORT: '5432'
-      PGUSER: postgres
+      PGUSER: supabase_admin
     networks:
       backend-network: null
     restart: 'no'
@@ -492,7 +492,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: 'false'
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_SECURITY_ADMIN_USER: admin
-      GF_SERVER_ROOT_URL: http://grafana.localhost
+      GF_SERVER_ROOT_URL: http://grafana.localhost:63000
       GF_USERS_ALLOW_SIGN_UP: 'false'
       PROMETHEUS_ENDPOINT: http://prometheus:9090
     healthcheck:

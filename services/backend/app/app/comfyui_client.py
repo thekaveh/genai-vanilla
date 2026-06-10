@@ -175,7 +175,7 @@ class ComfyUIClient:
         steps: int = 20,
         cfg: float = 7.0,
         seed: Optional[int] = None,
-        checkpoint: str = "sd_v1-5_pruned_emaonly.safetensors"
+        checkpoint: str = "v1-5-pruned-emaonly.safetensors"
     ) -> Dict[str, Any]:
         """Generate an image using a simple text-to-image workflow"""
         

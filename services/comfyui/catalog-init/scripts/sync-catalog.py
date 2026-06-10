@@ -197,7 +197,9 @@ def _entry_row(entry, default_active: bool):
     return (
         entry.name,
         entry.category,
-        _filename_from_url(entry.url),
+        # Prefer the catalog-declared filename (civitai URLs carry no
+        # usable path component — see ComfyUILibraryEntry.filename).
+        getattr(entry, "filename", None) or _filename_from_url(entry.url),
         entry.url,
         float(entry.size_gb) if entry.size_gb is not None else None,
         entry.notes or "",

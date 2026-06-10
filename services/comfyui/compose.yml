@@ -17,8 +17,8 @@ services:
     environment:
       PGHOST: supabase-db
       PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME:-postgres}
-      PGUSER: postgres
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       COMFYUI_USER_MODELS: ${COMFYUI_USER_MODELS:-}
       COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml

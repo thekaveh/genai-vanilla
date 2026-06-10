@@ -83,6 +83,11 @@ class ComfyUILibraryEntry:
     pulled: bool
     cloud_only: bool = False
     notes: str | None = None  # Optional one-line subtitle for wizard rendering (T15).
+    # Explicit on-disk filename. Needed when the URL path carries none —
+    # civitai download URLs are `/api/download/models/<id>?token=…`, so a
+    # URL-derived name is a bare numeric id with no extension and ComfyUI's
+    # extension-filtered scanner never lists the downloaded file.
+    filename: str | None = None
 
 
 # ── HF + civitai response parsers ──────────────────────────────────────
@@ -294,6 +299,7 @@ def _parse_civitai_response(
             popularity=int(stats.get("downloadCount") or 0),
             source="civitai",
             pulled=False,
+            filename=primary_file.get("name"),
         ))
     return out
 
@@ -425,6 +431,7 @@ def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
         pulled=False,
         cloud_only=bool(d.get("cloud_only", False)),
         notes=d.get("notes"),
+        filename=d.get("filename"),
     )
 
 
@@ -665,7 +672,9 @@ def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
     Invalid entries skipped with stderr warnings; never raises for
     malformed YAML (returns empty list). Required: name, category, url.
     Optional: family, size_gb, sha256, requires_custom_node, cpu_supported,
-    min_vram_gb, notes.
+    min_vram_gb, notes, filename (REQUIRED in practice for signed-civitai
+    URLs whose path has no real filename — without it the download lands
+    extension-less and ComfyUI never lists it).
 
     The loader uses `_dict_to_entry` so future schema changes only need
     a single edit point (same path as curated/fallback).

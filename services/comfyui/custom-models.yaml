@@ -10,6 +10,9 @@
 #                                   #   embedding, clip, animatediff, motion_lora,
 #                                   #   video_model, voice_model, audio_model, mesh_model
 #       url: <direct-download-url>  # required; HF resolve URL or signed civitai URL
+#       filename: <on-disk name>    # required for civitai URLs (their path has no
+#                                   #   filename — without this the download lands
+#                                   #   extension-less and ComfyUI never lists it)
 #       family: <string>            # optional; display family (e.g. "SDXL", "Flux"); defaults to name
 #       size_gb: <float>            # optional; surfaced in wizard, used for disk warning
 #       sha256: <hex>               # optional; verified by init script when present
