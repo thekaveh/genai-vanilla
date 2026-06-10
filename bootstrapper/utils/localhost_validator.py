@@ -248,7 +248,10 @@ class LocalhostValidator:
             #    ad-hoc checks.
             if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
-                port = env_vars.get(config['port_env_var'], config['default_port'])
+                # `or default`: dict.get's default only applies when the
+                # key is ABSENT — a present-but-blank var would otherwise
+                # produce http://localhost:/path and a false warning.
+                port = env_vars.get(config['port_env_var']) or config['default_port']
                 endpoints = [f"http://localhost:{port}{config.get('health_path', '/health')}"]
             else:
                 endpoints = config['endpoints']
@@ -271,7 +274,7 @@ class LocalhostValidator:
                 if hint:
                     messages.append(f"   {hint}")
                 elif source_var == 'COMFYUI_SOURCE':
-                    messages.append("   Please start ComfyUI locally with: python main.py --listen --port ${COMFYUI_LOCALHOST_PORT:-8000}")
+                    messages.append(f"   Please start ComfyUI locally with: python main.py --listen --port {port}")
                     messages.append("   Or refer to the documentation for installation instructions.")
 
             return accessible, messages
@@ -283,11 +286,18 @@ class LocalhostValidator:
             # check treats as "down").
             if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
-                port = env_vars.get(config['port_env_var'], config['default_port'])
+                port = env_vars.get(config['port_env_var']) or config['default_port']
                 host = 'localhost'
             else:
                 host = config['host']
                 port = config['port']
+
+            # socket.connect_ex needs an int; env reads yield strings and
+            # a str port made the probe raise (swallowed) → always-fail.
+            try:
+                port = int(str(port).strip())
+            except ValueError:
+                port = int(config['default_port'])
 
             accessible = self.check_tcp_port(host, port)
 

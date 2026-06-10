@@ -147,16 +147,18 @@ memory_service = MemoryService()
 class WorkflowResponse(BaseModel):
     """Response model for workflow operations.
 
-    n8n's public API emits camelCase timestamps — aliases map them onto
-    the snake_case response surface."""
+    n8n's public API emits camelCase timestamps — validation aliases map
+    them in while serialization keeps the snake_case response surface
+    (FastAPI serializes by alias by default, so a plain `alias=` would
+    have flipped the wire format to camelCase)."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     id: str
     name: str
     active: bool
-    created_at: Optional[str] = Field(default=None, alias="createdAt")
-    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
+    created_at: Optional[str] = Field(default=None, validation_alias="createdAt")
+    updated_at: Optional[str] = Field(default=None, validation_alias="updatedAt")
 
 
 
@@ -440,7 +442,7 @@ class ComfyUIGenerateRequest(BaseModel):
     steps: int = 20
     cfg: float = 7.0
     seed: Optional[int] = None
-    checkpoint: Optional[str] = "sd_v1-5_pruned_emaonly.safetensors"
+    checkpoint: Optional[str] = "v1-5-pruned-emaonly.safetensors"
     wait_for_completion: bool = True
 
 

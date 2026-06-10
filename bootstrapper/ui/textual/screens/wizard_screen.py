@@ -729,6 +729,7 @@ class WizardScreen(Screen):
             SECRET_KEEP+disabled+key path; without this, the overview
             would lag the launch state).
         """
+        from ..widgets.prompt_panel import SECRET_KEEP
         from wizard.llm_steps import cloud_models_title
         title = step.title or ""
         target: CloudApiSummary | None = None
@@ -737,6 +738,11 @@ class WizardScreen(Screen):
                 target = entry
                 break
         if target is None:
+            return
+        if value == SECRET_KEEP:
+            # Degraded multiselect commit (options never loaded) — leave
+            # the overview untouched; _selections_to_args skips the
+            # bucket too, so promoting here would make the overview lie.
             return
         csv = (value or "").strip()
         if csv == "":
@@ -869,6 +875,8 @@ class WizardScreen(Screen):
             # selection count.
             if step.title in cloud_models_titles:
                 provider = cloud_models_titles[step.title]
+                if value == SECRET_KEEP:
+                    continue  # degraded fetch — selection kept, no flag
                 csv = (value or "").strip()
                 if csv == "":
                     flags.append((f"--{provider}-models", "(none — provider disabled)"))
@@ -881,6 +889,8 @@ class WizardScreen(Screen):
             # Ollama models step (single unified [pulled]/[library] view).
             # The custom free-text step has its own flag below.
             if step.title == OLLAMA_MODELS_TITLE:
+                if value == SECRET_KEEP:
+                    continue  # degraded fetch — selection kept, no flag
                 csv = (value or "").strip()
                 if csv == "":
                     continue
@@ -1537,7 +1547,9 @@ class WizardScreen(Screen):
             )
         except (OSError, RuntimeError) as exc:
             # OSError covers PermissionError etc., not just a missing
-            # binary; RuntimeError covers compose-detection failures.
+            # binary. (Compose-detection RuntimeErrors raise BEFORE this
+            # try — they surface via the pipeline-level "launch crashed"
+            # handler instead.)
             self._write_status(f"❌ {exc}", style="bold red", source="docker")
             return 1
         try:
@@ -1593,7 +1605,9 @@ class WizardScreen(Screen):
             )
         except (OSError, RuntimeError) as exc:
             # OSError covers PermissionError etc., not just a missing
-            # binary; RuntimeError covers compose-detection failures.
+            # binary. (Compose-detection RuntimeErrors raise BEFORE this
+            # try — they surface via the pipeline-level "launch crashed"
+            # handler instead.)
             self._write_status(f"❌ {exc}", style="bold red", source="docker")
             return 1
         try:

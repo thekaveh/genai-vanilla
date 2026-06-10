@@ -136,23 +136,21 @@ class KeyGenerator:
         """
         if not self.env_file_path.exists():
             return None
-            
+
         try:
-            with open(self.env_file_path, 'r', encoding="utf-8") as f:
-                content = f.read()
-            
-            # Look for line like "KEY_NAME=value"
-            pattern = rf'^{re.escape(key_name)}=(.*)$'
-            match = re.search(pattern, content, re.MULTILINE)
-            
-            if match:
-                value = match.group(1).strip().strip('"').strip("'")
-                return value if value else None
-            
+            # Delegate to ConfigParser so quote / inline-comment semantics
+            # stay identical to every other .env reader. The old local
+            # regex captured the whole rest-of-line: a blank value with an
+            # inline comment (`KEY=   # note`) read back as "# note", and
+            # inline comments stayed inside values — both broke the
+            # rotate-when-absent placeholder comparisons.
+            cp = ConfigParser(str(self.root_dir))
+            cp.env_file_path = self.env_file_path
+            value = cp.parse_env_file().get(key_name, '')
         except Exception:
-            pass
-            
-        return None
+            return None
+
+        return value if value else None
     
     def update_env_key(self, key_name: str, key_value: str, create_backup: bool = False) -> bool:
         """
@@ -186,9 +184,16 @@ class KeyGenerator:
             # Check if key already exists
             pattern = rf'^{re.escape(key_name)}=.*$'
             if re.search(pattern, content, re.MULTILINE):
-                # Replace existing key
+                # Replace existing key. Lambda form so re.sub doesn't
+                # interpret backslash sequences in the value (same guard
+                # as SourceOverrideManager.update_env_file) — current
+                # generators emit [A-Za-z0-9_-] only, but keep the seam
+                # corruption-proof for future value shapes.
                 replacement = f'{key_name}={key_value}'
-                updated_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+                updated_content = re.sub(
+                    pattern, lambda _m, r=replacement: r, content,
+                    flags=re.MULTILINE,
+                )
             else:
                 # Add new key at the end
                 updated_content = content
