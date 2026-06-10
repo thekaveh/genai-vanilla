@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 20 (1 commit)
+
+- The regen tool's doc-only boilerplate variant now also covers
+  AGGREGATE folders: stt-provider / doc-processor READMEs stopped
+  citing a `service.yml` they don't have (they now point at the member
+  manifests that actually carry the edges); `services/comfyui/empty/`
+  is committed so container-mode runs stop creating it root-owned at
+  runtime; an airflow troubleshooting bullet stopped referencing the
+  `OpenAIOperator` class the same README explains doesn't exist.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 19 (1 commit)
 
 - The host-run Docling localhost server loaded `.env` from the wrong
