@@ -54,27 +54,29 @@ class DockerManager:
             
         # Check if docker is available
         try:
-            subprocess.run(['docker', '--version'], 
-                         capture_output=True, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
+            subprocess.run(['docker', '--version'],
+                         capture_output=True, check=True, timeout=10)
+        except (subprocess.CalledProcessError, FileNotFoundError,
+                subprocess.TimeoutExpired):
             raise RuntimeError("Docker is not installed or not in PATH")
         
         # Check if 'docker compose' (newer) works
         try:
-            result = subprocess.run(['docker', 'compose', 'version'], 
-                                  capture_output=True, check=True)
+            result = subprocess.run(['docker', 'compose', 'version'],
+                                  capture_output=True, check=True, timeout=10)
             self._compose_cmd = "docker compose"
             return self._compose_cmd
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             pass
         
         # Check if 'docker-compose' (legacy) works
         try:
-            subprocess.run(['docker-compose', '--version'], 
-                         capture_output=True, check=True)
+            subprocess.run(['docker-compose', '--version'],
+                         capture_output=True, check=True, timeout=10)
             self._compose_cmd = "docker-compose"
             return self._compose_cmd
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, FileNotFoundError,
+                subprocess.TimeoutExpired):
             pass
             
         raise RuntimeError("Neither 'docker compose' nor 'docker-compose' command is available")
@@ -162,7 +164,9 @@ class DockerManager:
 
         # Add --env-file if .env exists and use_env_file is True
         if use_env_file and self.config_parser.env_file_exists():
-            full_cmd.extend(['--env-file=.env'])
+            # Use the resolved path (honors GENAI_ENV_FILE) — hardcoding .env
+            # silently ignored custom env files at the compose seam.
+            full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
 
         full_cmd.extend(args)
 
@@ -256,7 +260,8 @@ class DockerManager:
             subprocess.run(
                 ['docker', 'network', 'rm', network_name],
                 capture_output=True,
-                check=False
+                check=False,
+                timeout=10,
             )
             # Return True even if network doesn't exist (exit code 1)
             return True
@@ -436,7 +441,7 @@ class DockerManager:
             project_name = self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
-                cmd.append('--env-file=.env')
+                cmd.append(f'--env-file={self.config_parser.env_file_path}')
             cmd.extend(['ps', '-q'])
 
             result = subprocess.run(
@@ -447,6 +452,7 @@ class DockerManager:
                 check=False,
                 encoding="utf-8",
                 errors="replace",
+                timeout=10,
             )
 
             return result.returncode == 0 and bool(result.stdout.strip())
@@ -470,7 +476,7 @@ class DockerManager:
             project_name = self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
-                cmd.append('--env-file=.env')
+                cmd.append(f'--env-file={self.config_parser.env_file_path}')
             cmd.extend(['port', service, internal_port])
 
             result = subprocess.run(
@@ -481,6 +487,7 @@ class DockerManager:
                 check=False,
                 encoding="utf-8",
                 errors="replace",
+                timeout=10,
             )
             
             if result.returncode == 0 and result.stdout.strip():
@@ -538,7 +545,9 @@ class DockerManager:
         project_name = self.config_parser.get_project_name()
         full_cmd.extend(['-p', project_name])
         if use_env_file and self.config_parser.env_file_exists():
-            full_cmd.extend(['--env-file=.env'])
+            # Use the resolved path (honors GENAI_ENV_FILE) — hardcoding .env
+            # silently ignored custom env files at the compose seam.
+            full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
         full_cmd.extend(args)
         return full_cmd
 

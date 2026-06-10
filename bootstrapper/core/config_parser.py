@@ -57,9 +57,16 @@ class ConfigParser:
         custom_env_path = os.environ.get('GENAI_ENV_FILE', '').strip()
 
         if custom_env_path:
-            # User specified custom path - resolve and expand
-            resolved_path = Path(custom_env_path).expanduser().resolve()
-            return resolved_path
+            # User specified custom path - expand, then anchor relative
+            # paths at the repo root. Resolving against CWD made the same
+            # command pick different files depending on the launcher:
+            # `./start.sh` runs via `uv run --directory bootstrapper`
+            # (CWD=bootstrapper/) but falls back to system python at the
+            # repo root when uv is absent.
+            expanded = Path(custom_env_path).expanduser()
+            if not expanded.is_absolute():
+                expanded = self.root_dir / expanded
+            return expanded.resolve()
 
         # Default: .env in repository root
         return self.root_dir / ".env"

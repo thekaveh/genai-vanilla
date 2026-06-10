@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import Optional, Dict
 
+from core.config_parser import ConfigParser
+
 
 def _cli_safe_token_urlsafe(nbytes: int) -> str:
     """secrets.token_urlsafe() with a guard: never return a value whose
@@ -78,8 +80,12 @@ class KeyGenerator:
             self.root_dir = Path(__file__).resolve().parent.parent.parent
         else:
             self.root_dir = Path(root_dir)
-            
-        self.env_file_path = self.root_dir / ".env"
+
+        # Resolve through ConfigParser so GENAI_ENV_FILE is honored —
+        # hardcoding root/.env wrote every generated secret to the wrong
+        # file when a custom env path was in use (SupabaseKeyGenerator
+        # already resolves this way).
+        self.env_file_path = ConfigParser(str(self.root_dir)).env_file_path
     
     def generate_n8n_encryption_key(self) -> str:
         """
