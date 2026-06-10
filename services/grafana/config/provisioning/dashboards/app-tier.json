@@ -8,22 +8,22 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Weaviate — module request rate",
+      "title": "Weaviate — request rate (by API)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "expr": "sum(rate(weaviate_module_requests_total[5m])) by (module)", "refId": "A" }
+        { "expr": "sum(rate(requests_total{job=\"weaviate\"}[5m])) by (api)", "refId": "A" }
       ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Weaviate — module request p95 duration",
+      "title": "Weaviate — query p95 duration (ms)",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(weaviate_module_request_duration_seconds_bucket[5m])) by (le, module))", "refId": "A" }
+        { "expr": "histogram_quantile(0.95, sum(rate(queries_durations_ms_bucket{job=\"weaviate\"}[5m])) by (le, query_type))", "refId": "A" }
       ]
     },
     {

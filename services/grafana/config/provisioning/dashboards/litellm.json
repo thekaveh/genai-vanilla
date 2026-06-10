@@ -55,7 +55,7 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 5,
       "targets": [
-        { "expr": "sum(rate(litellm_proxy_failed_requests_metric[5m])) by (model, error)", "refId": "A" }
+        { "expr": "sum(rate(litellm_proxy_failed_requests_metric[5m])) by (requested_model, exception_class)", "refId": "A" }
       ]
     }
   ],

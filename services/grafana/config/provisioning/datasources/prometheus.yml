@@ -2,6 +2,11 @@ apiVersion: 1
 
 datasources:
   - name: Prometheus
+    # Explicit uid — every dashboard panel pins {"uid": "Prometheus"};
+    # without this Grafana assigns a generated uid and panels resolve
+    # only via the frontend's by-name fallback (backend-evaluated
+    # consumers like provisioned alert rules would not).
+    uid: Prometheus
     type: prometheus
     access: proxy
     url: ${PROMETHEUS_ENDPOINT}
