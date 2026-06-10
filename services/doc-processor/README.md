@@ -484,7 +484,7 @@ Identifies and extracts code blocks with syntax preservation.
 
 ## 16. Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/doc-processor/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen doc-processor` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from the member manifests' `data_flow.calls` (`services/docling/service.yml`). Re-run `python -m bootstrapper.docs.regen doc-processor` after changing them.
 
 ### 16.1 Current — Upstream (this service calls)
 
