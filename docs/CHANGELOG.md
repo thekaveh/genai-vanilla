@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 2 (7 commits)
+
+- **`storage.objects` was dropped and recreated on EVERY `docker compose
+  up`** (04-storage.sql) — all Supabase Storage object metadata (ComfyUI
+  uploads included) silently vanished on each restart, and storage-api's
+  own migration ledger stayed marked applied so its later columns never
+  came back. Now `CREATE TABLE IF NOT EXISTS` like every sibling table.
+- **Grafana dashboards re-verified against the PINNED upstream versions**
+  (the previous fix validated against upstream master): kong.json's four
+  panels all used Kong 2.x metric names that don't exist in kong:3.9.0
+  (`kong_http_requests_total` / `kong_request_latency_ms_bucket` /
+  `kong_bandwidth_bytes{direction}` now); both Weaviate app-tier panels
+  used master-only `weaviate_module_*` metrics absent from 1.27.5
+  (unprefixed `requests_total{api}` / `queries_durations_ms_bucket`);
+  the n8n uptime fix had replaced a correct prefixed name with an
+  unprefixed one (`n8n_process_start_time_seconds` is right —
+  prom-client default metrics ARE prefixed); litellm failed-requests
+  grouped by labels that don't exist (`requested_model` /
+  `exception_class` now). Datasource provisioning gains an explicit
+  `uid: Prometheus` matching every panel ref; `GF_SERVER_ROOT_URL` now
+  carries the Kong port.
+- **Supabase Studio is now actually behind the documented credential
+  gate**: the Kong dashboard route shipped with only CORS — no
+  basic-auth, no ACL — while README/.env promised
+  `DASHBOARD_USERNAME`/`DASHBOARD_PASSWORD` protection (the consumer +
+  auto-rotated password existed; the route just never used them).
+- **Pass-1 regressions caught by an adversarial diff review and fixed**:
+  the localhost-validator port conversion fed a string port into
+  `socket.connect_ex` (Neo4j probe always failed even with a live
+  listener) and used blank-value-unsafe `dict.get`; `GET /workflows`
+  would have flipped its wire format to camelCase (validation-only
+  aliases now); a degraded model-fetch's KEEP sentinel leaked into the
+  command summary and could wrongly flip a cloud provider's overview
+  state.
+- **local-deep-researcher could be configured against model ids LiteLLM
+  never serves** — its init prefixed every provider (`openai/gpt-…`,
+  `openrouter/openrouter/…`); only Ollama rows carry a prefixed alias.
+  Same family: LightRAG's default-chat fallback picked the first
+  /v1/models entry, which is typically an embeddings-only route — now
+  filters out embedding/agent/self entries.
+- **Six seeded workflows/tools referenced checkpoint filenames the
+  download pipeline never produces** (`sd_v1-5_pruned_emaonly` vs the
+  catalog's `v1-5-pruned-emaonly`, `sdxl_base_1.0` vs `sd_xl_base_1.0`)
+  — every seeded ComfyUI workflow failed at render even with the model
+  installed. Civitai catalog entries also gain a real `filename` (their
+  download URLs have none, so files landed extension-less where ComfyUI
+  never lists them).
+- **LightRAG's Neo4j migration never applied while logging OK** — the
+  whole multi-statement cypher file went up as a single tx statement
+  (guaranteed syntax error) and Neo4j reports errors inside an HTTP 200
+  body the script never read. Now split per-statement + errors[] gate.
+  Its pgvector meta table also gains the PK that made `ON CONFLICT DO
+  NOTHING` a no-op (one new row per boot, with self-heal for existing
+  installs).
+- **CI hardening**: backend's pytest suite now runs in the required
+  `Manifest lint + unit tests` check (it previously ran nowhere); the
+  docling localhost provider gets a `uv lock --locked` gate (no
+  Dockerfile → build-validation can't see its pins); all GitHub Actions
+  are SHA-pinned; `check_doc_links.py` now validates `#anchor`
+  fragments against GitHub heading slugs (and immediately caught a dead
+  `{#launch-log}` kramdown anchor GitHub never supported);
+  `check-kong-routes.py` now covers all 17 default-emitted hosts (was
+  9). hermes-init's model dedup no longer hides direct-API cloud
+  entries when OpenRouter twins exist; ollama-pull's wait is bounded
+  and pull errors inside HTTP-200 NDJSON are surfaced; n8n
+  community-package checks parse n8n's `{"data": …}` envelope;
+  memory-table RLS policies now actually scope to `service_role`
+  (`USING (true)` + default-privilege grants had left authenticated
+  PostgREST callers full CRUD on all memories).
+- Docs: zeppelin README no longer claims `%spark` works without the
+  Spark-Connect setup (the image ships no Spark distro) and its starter
+  notebook uses `spark.version` (no `sc` under Connect); comfyui README
+  stops claiming the bootstrapper injects `--force-fp16`/`AUTO_UPDATE`
+  per source (all static via `.env`); searxng's "Redis is wired"
+  claims corrected everywhere (`valkey.url: false`, dependency is
+  slot-pinning only); n8n README's Hermes→n8n inverse path is
+  webhook-based (no execute endpoint exists); ROADMAP counts corrected
+  to 32 families / 62 containers.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 1 (18 commits)
 
 - **`N8N_SOURCE=disabled` never disabled n8n.** `N8N_SCALE` was read from
