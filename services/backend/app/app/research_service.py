@@ -381,8 +381,12 @@ class ResearchService:
         # Test database connection
         try:
             conn = await self._get_db_connection()
-            await conn.fetchval("SELECT 1")
-            await conn.close()
+            try:
+                await conn.fetchval("SELECT 1")
+            finally:
+                # close in finally — a probe failure post-connect used to
+                # leak the connection (every other site closes in finally).
+                await conn.close()
             results["database"] = "healthy"
         except Exception as e:
             results["database"] = f"unhealthy: {str(e)}"
