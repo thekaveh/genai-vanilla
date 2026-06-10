@@ -196,9 +196,11 @@ class DependencyManager:
             
             # Handle N8N services which need multiple scale variables updated
             if service_name in ['n8n', 'n8n-worker']:
-                # When disabling n8n, also disable worker and init services
-                scale_vars_to_update = ['N8N_SCALE']
-                # Note: N8N_WORKER_SCALE and N8N_INIT_SCALE are set by service_config based on N8N_SCALE
+                # When disabling n8n, also disable worker and init services.
+                # service_config wrote all three scales BEFORE this runs
+                # (start.py step 4 vs 4.1), so zeroing only N8N_SCALE would
+                # leave n8n-worker and n8n-init running against a dead main.
+                scale_vars_to_update = ['N8N_SCALE', 'N8N_WORKER_SCALE', 'N8N_INIT_SCALE']
                 
                 env_file_path = self.config_parser.env_file_path
                 try:
