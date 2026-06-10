@@ -49,12 +49,15 @@ services consume.
    ```bash
    cd bootstrapper && uv run pytest tests/test_env_example_consistency.py
    ```
-   Note: `.env.example` itself is hand-maintained (prose-rich descriptions,
-   commented section headers). Adding new env-affecting vars means editing
-   `.env.example` directly to keep both halves in lock-step. The
-   auto-generator at `bootstrapper/services/env_assembler.py` is reserved
-   for a future cutover (see its module docstring) and `validate_fragments
-   --check-env-example` will only pass once that cutover lands.
+   Note: `.env.example` is AUTO-GENERATED from the manifests' `env:`
+   declarations by `bootstrapper/services/env_assembler.py`. After adding
+   or changing env vars in a `service.yml`, regenerate it:
+   ```bash
+   cd bootstrapper && uv run python -m services.env_assembler
+   ```
+   `tests/test_env_assembler.py` enforces byte-equivalence between the
+   committed file and the assembler's output. Never edit `.env.example`
+   by hand.
 5. New service? Add the fragment's path to the `include:` list in the root
    `docker-compose.yml`. Service order is now derived automatically from
    `depends_on:` topology (see `bootstrapper/services/topology.py`).

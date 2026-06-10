@@ -222,7 +222,7 @@ usable. Note: the fallback only triggers when BOTH scrapers raise
 network exceptions; an HF response of `200 OK` with zero parseable
 entries is not treated as a fallback trigger.
 
-## 5a. Inline secondary numeric inputs
+## 6. Inline secondary numeric inputs
 
 Three service rows mount an inline numeric input alongside the source prompt
 via the `SecondaryNumberInput` widget (see `ui.textual.widgets.prompt_panel`).
@@ -240,7 +240,7 @@ sequence. Adding a new inline input requires only a `secondary_number` block
 on the relevant `rows[]` entry in `service.yml` (the schema field is
 documented in `docs/CONTRIBUTING-services.md`).
 
-## 6. Stack Options
+## 7. Stack Options
 
 After service configuration, the wizard prompts for:
 
@@ -248,7 +248,7 @@ After service configuration, the wizard prompts for:
 - **Cold start** option to remove volumes and rebuild from scratch.
 - **Hosts file configuration** to enable friendly URLs like `chat.localhost` and `n8n.localhost`.
 
-## 7. Pre-Launch Summary
+## 8. Pre-Launch Summary
 
 Before launching, a configuration summary inside the same anchored info-box shows:
 
@@ -259,7 +259,7 @@ Before launching, a configuration summary inside the same anchored info-box show
 
 You confirm to launch (the **Launch the stack with this configuration?** step is the wizard's final question), or cancel to exit without changes.
 
-## 8. Streaming Logs
+## 9. Streaming Logs
 
 After confirmation, the wizard transitions in-place from prompts to the launch phase:
 
@@ -269,7 +269,7 @@ After confirmation, the wizard transitions in-place from prompts to the launch p
 - The full launch-phase output is also tee'd to `/tmp/genai-vanilla-launch-<timestamp>.log` for post-mortem inspection. See [Troubleshooting](troubleshooting.md#launch-log).
 - Press `Ctrl+Q` to detach cleanly from the wizard UI. `Ctrl+C` sends SIGINT — fine after services are up (already-detached compose containers keep running) but during the launch pipeline it may interrupt a compose step mid-flight, leaving the stack in a partial state. Either way, services that have finished starting keep running; resume log streaming with `docker compose logs -f <service>`.
 
-## 9. Navigation
+## 10. Navigation
 
 | Key | Action |
 |-----|--------|
@@ -279,11 +279,11 @@ After confirmation, the wizard transitions in-place from prompts to the launch p
 | `Esc` | Return to the previous step (and from the first step, exit) |
 | `Ctrl+Q` | Quit the wizard |
 
-## 10. Progress Tracking
+## 11. Progress Tracking
 
 A progress bar at the top of each screen shows how far you are through the configuration process. It starts at 0% and reaches 100% after all steps (services + stack options) are completed.
 
-## 11. When to Use the Wizard vs CLI Flags
+## 12. When to Use the Wizard vs CLI Flags
 
 | Scenario | Approach |
 |----------|----------|
@@ -293,7 +293,7 @@ A progress bar at the top of each screen shows how far you are through the confi
 | CI/CD or scripted deployments | CLI flags or `.env` file |
 | Repeating a previous configuration | CLI flags (copy from wizard's command preview) |
 
-## 12. Relationship to .env and CLI Flags
+## 13. Relationship to .env and CLI Flags
 
 The wizard reads your current `.env` values as defaults and produces the same `--*-source` overrides that CLI flags would. After confirmation, these overrides are applied to `.env` and the stack launches normally.
 
@@ -301,7 +301,7 @@ The wizard reads your current `.env` values as defaults and produces the same `-
 - **CLI flags always skip the wizard** and apply directly
 - **Any flag** (including `--cold`, `--base-port`, etc.) skips the wizard
 
-## 13. Requirements
+## 14. Requirements
 
 The TUI uses two Python libraries — both included in `bootstrapper/pyproject.toml`:
 
@@ -310,7 +310,7 @@ The TUI uses two Python libraries — both included in `bootstrapper/pyproject.t
 
 Python ≥ 3.10 is required (see `bootstrapper/pyproject.toml`). The wizard automatically falls back to the linear stdout flow when `stdin` isn't a TTY, when the terminal is too small to host the Textual app, or when the user passes `--no-tui`. In that mode `./start.sh` prints a pre-launch summary table and streams docker compose output directly.
 
-## 14. Brand Customization
+## 15. Brand Customization
 
 The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the GenAI Vanilla project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
 
@@ -326,7 +326,7 @@ BRAND_REPO_URL=https://github.com/thekaveh/genai-vanilla
 
 Empty values fall back to the canonical defaults (encoded in `bootstrapper/ui/state.py::AppState`). See `.env.example` for the latest documented block.
 
-## 15. Configurable Services
+## 16. Configurable Services
 
 The wizard automatically discovers all configurable services from each `services/<name>/service.yml` manifest. Currently these include:
 
@@ -340,7 +340,7 @@ The wizard automatically discovers all configurable services from each `services
 | Neo4j Graph DB | container, localhost, disabled |
 | STT Provider | speaches-container-cpu, speaches-container-gpu, parakeet-container-gpu, parakeet-localhost, whisper-cpp-localhost, disabled |
 | TTS Provider | speaches-container-cpu, speaches-container-gpu, chatterbox-container-gpu, chatterbox-localhost, disabled |
-| Document Processor (Docling) | container-gpu, localhost, disabled |
+| Document Processor (Docling) | docling-container-gpu, docling-localhost, disabled |
 | OpenClaw | container, localhost, disabled |
 | Hermes Agent | container, localhost, disabled |
 | n8n | container, disabled |
@@ -355,7 +355,7 @@ The wizard automatically discovers all configurable services from each `services
 | Prometheus | container, disabled (with inline `PROMETHEUS_RETENTION_DAYS` input on `container`, default 7, range 1..365) |
 | Grafana | container, disabled |
 
-### 15.1 Cloud LLM providers (not auto-discovered)
+### 16.1 Cloud LLM providers (not auto-discovered)
 
 OpenAI, Anthropic, and OpenRouter are **not** regular services — they don't run as containers (`scale: 0` in the `services/cloud-providers/service.yml` virtual manifest). Instead, the wizard injects them via `bootstrapper/wizard/llm_steps.py:build_cloud_steps` as bespoke (secret + multiselect) pairs spliced after the LLM Engine step:
 
@@ -369,11 +369,11 @@ Source toggles are persisted as `CLOUD_OPENAI_SOURCE` / `CLOUD_ANTHROPIC_SOURCE`
 
 New services added under `services/<name>/` with a `service.yml` manifest (and included in `docker-compose.yml`'s `include:` list) are automatically picked up by the wizard.
 
-## 16. Dependency Validation
+## 17. Dependency Validation
 
 The wizard validates service dependencies in real time. For example, if you enable n8n but disable Weaviate (which n8n requires), the wizard warns you and offers to either enable the dependency or disable the dependent service. The same machinery enforces the "LiteLLM must have an upstream" rule (LLM Engine != `none`, or at least one cloud provider is `enabled`).
 
-## 17. Hosts File Setup
+## 18. Hosts File Setup
 
 The hosts file configuration step enables friendly URLs routed through Kong API Gateway:
 

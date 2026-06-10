@@ -38,8 +38,8 @@ git clone https://github.com/thekaveh/genai-vanilla && cd genai-vanilla
 # MinIO Console:         http://minio.localhost:63000
 
 # Default credentials:
-# Supabase Studio: admin@example.com / changeme123
-# n8n:             admin@example.com / changeme123
+# Supabase Studio: kong_admin / DASHBOARD_PASSWORD (auto-generated into .env on first launch)
+# n8n:             owner account created in the web UI on first visit
 ```
 
 The default configuration runs the full stack on CPU: chat UI, workflow automation, vector database, and privacy search.
@@ -126,7 +126,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
 - **Always-on core**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
-- **Opt-in**: Ray (distributed compute) and the LLM/Media/Agents tiers are activated via SOURCE flags or the interactive wizard
+- **Opt-in**: Ray, OpenClaw, Airflow, Spark, Zeppelin, LightRAG, TEI Reranker, and the observability bundle (Prometheus + Grafana) ship disabled; everything is switchable per service via SOURCE flags or the interactive wizard
 
 ### 2.2 Key features
 
@@ -264,8 +264,8 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Service | Direct URL | Kong URL | Purpose | Auth required |
 |---------|------------|----------|---------|---------------|
 | **Open WebUI** | http://localhost:63082 | http://chat.localhost:63000 | AI chat interface | Create account |
-| **n8n** | http://localhost:63064 | http://n8n.localhost:63000 | Workflow automation | admin@example.com |
-| **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | admin@example.com |
+| **n8n** | http://localhost:63064 | http://n8n.localhost:63000 | Workflow automation | Owner setup on first visit |
+| **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | `kong_admin` / `DASHBOARD_PASSWORD` from `.env` |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
 | **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs genai-jupyterhub`) |
@@ -317,7 +317,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh                    # Launches step-by-step configuration wizard
 
 # Direct commands (skip wizard)
-./start.sh --llm-provider-source ollama-localhost  # Any flag skips wizard
+./start.sh --llm-provider-source ollama-localhost  # Any configuration flag skips the wizard
 ./start.sh --help            # Show all options
 ./stop.sh                    # Stop services, keep data
 ./stop.sh --cold             # Stop and remove all data
@@ -443,7 +443,7 @@ genai-vanilla/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
 │   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
 │   ├── schemas/               # JSON Schemas for service.yml manifests
-│   ├── tests/                 # ~390 tests (loader, validator, byte-equiv, source-permutation, hooks)
+│   ├── tests/                 # 800+ tests (loader, validator, byte-equiv, source-permutation, hooks)
 │   ├── tools/                 # validate_fragments CLI lint
 │   └── start.py / stop.py     # Entry points
 ├── services/                  # One folder per service family — single source of truth
@@ -491,8 +491,8 @@ genai-vanilla/
 │   ├── CONTRIBUTING-services.md  # How to add a new service to the modular layout
 │   └── …
 ├── scripts/                   # Top-level utility scripts (e.g. migration helpers)
-├── docker-compose.yml         # ~55-line thin shell — include: list pulling each fragment
-├── .env.example               # Configuration template (hand-maintained; kept in sync with manifests by tests)
+├── docker-compose.yml         # ~70-line thin shell — include: list pulling each fragment
+├── .env.example               # Configuration template (auto-generated from manifests via env_assembler; byte-equivalence enforced by tests)
 ├── start.sh / stop.sh         # Entry points
 └── .github/workflows/         # CI: services-lint (validator, byte-equiv, source-permutation)
 ```

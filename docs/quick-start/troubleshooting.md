@@ -389,8 +389,8 @@ cp .env.example .env
 ./start.sh --cold  # Regenerate keys only
 
 # Reset specific service data
-docker volume rm genai-vanilla_supabase_db_data  # Database only
-docker volume rm genai-vanilla_n8n_data          # n8n workflows only
+docker volume rm genai-supabase-db-data  # Database only
+docker volume rm genai-n8n-data          # n8n workflows only
 ```
 
 ### Backup Before Reset
@@ -398,8 +398,8 @@ docker volume rm genai-vanilla_n8n_data          # n8n workflows only
 ```bash
 # Backup important data before reset
 mkdir -p backup/$(date +%Y%m%d_%H%M%S)
-docker run --rm -v genai-vanilla_supabase_db_data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/supabase_db
-docker run --rm -v genai-vanilla_n8n_data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/n8n
+docker run --rm -v genai-supabase-db-data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/supabase_db
+docker run --rm -v genai-n8n-data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/n8n
 ```
 
 Remember: Most issues can be resolved without losing data. Try targeted solutions before doing a complete reset!

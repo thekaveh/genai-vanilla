@@ -524,7 +524,7 @@ The `.github/workflows/services-lint.yml` workflow has three jobs:
 
 | Job | What it catches |
 |---|---|
-| **Manifest lint + unit tests** | `validate_fragments` lint + 390+ pytest tests. Catches: manifest schema violations, dependency cycles, env-example drift, category overflow. |
+| **Manifest lint + unit tests** | `validate_fragments` lint + 800+ pytest tests. Catches: manifest schema violations, dependency cycles, env-example drift, category overflow. |
 | **Compose merge + byte-equivalence + source-permutation matrix** | Renders `docker compose config` for the merged fragment list + verifies it matches the golden baseline + tests every source variant of every service. Catches: compose-syntax errors, source-permutation regressions. |
 | **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links`, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`). Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken markdown links, research-schema violations. |
 

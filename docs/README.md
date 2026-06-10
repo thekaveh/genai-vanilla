@@ -54,9 +54,13 @@ Documentation index for the GenAI Vanilla Stack.
 - The top-level diagram itself lives at [diagrams/architecture.svg](diagrams/architecture.svg) (embedded in the project README) and [diagrams/architecture.html](diagrams/architecture.html) (standalone view)
 
 ### 1.6 Cross-service research (Phase B corpus)
+- [Research corpus guide](research/README.md) — layout, authoring rules, and the schema the validator enforces
 - [Integration matrix](research/integration-matrix.md) — auto-generated index linking every service to its candidate integrations
 - [Per-service rows](research/rows/) — missing-pair integrations, candidate new services, per-service feature gaps
 - [Candidate one-pagers](research/candidates/) — design notes per candidate service
+
+### 1.7 Feature-track plans and specs
+- [superpowers/plans](superpowers/plans/) + [superpowers/specs](superpowers/specs/) — point-in-time implementation plans and specs for the larger 2026-05/06 feature tracks (consult when archaeology on a past track is needed; CHANGELOG entries link the relevant ones)
 
 ## 2. Related documentation
 

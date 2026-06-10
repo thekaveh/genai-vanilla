@@ -224,7 +224,7 @@ services:
 cd infra && ./start.sh && cd ..
 
 # Start your application
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Pattern 2: Kong Gateway as Single Entry Point
@@ -304,7 +304,7 @@ echo "Waiting for services to be ready..."
 sleep 10
 
 echo "Starting application services..."
-docker-compose up -d
+docker compose up -d
 
 echo "All services started!"
 echo "Infrastructure: http://localhost:63000"
@@ -317,7 +317,7 @@ echo "Application: http://localhost:8080"
 #!/bin/bash
 
 echo "Stopping application services..."
-docker-compose down
+docker compose down
 
 echo "Stopping infrastructure..."
 cd infra && ./stop.sh && cd ..
