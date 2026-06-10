@@ -170,8 +170,11 @@ class SourceOverrideManager:
             try:
                 original_mode = os.stat(env_file_path).st_mode
                 with open(tmp_path, 'w', encoding="utf-8") as f:
+                    # Clamp the mode BEFORE writing secrets — a
+                    # umask-default tmp next to a 0600 .env would
+                    # briefly expose the content otherwise.
+                    os.chmod(tmp_path, original_mode)
                     f.write(updated_content)
-                os.chmod(tmp_path, original_mode)
                 os.replace(tmp_path, env_file_path)
             finally:
                 tmp_path.unlink(missing_ok=True)
