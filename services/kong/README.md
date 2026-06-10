@@ -158,8 +158,9 @@ cat volumes/api/kong-dynamic.yml
 # View Kong logs
 docker logs genai-kong-api-gateway -f
 
-# Test Kong health
-curl http://localhost:63000/health
+# Test Kong routing end-to-end (proxies SearXNG's /healthz through Kong;
+# the bare-localhost root now serves the basic-auth-gated Studio route)
+curl -H 'Host: search.localhost' http://localhost:63000/healthz
 ```
 
 ### 10.2 Verify Routes

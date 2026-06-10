@@ -44,7 +44,6 @@ Auto-managed (do not edit manually):
 
 ```bash
 COMFYUI_ENDPOINT=...                        # what backend/n8n/jupyterhub/open-webui consume
-IS_LOCAL_COMFYUI=true|false
 COMFYUI_SCALE / COMFYUI_INIT_SCALE
 ```
 

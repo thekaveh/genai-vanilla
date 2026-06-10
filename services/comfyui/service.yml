@@ -194,8 +194,10 @@ runtime_sc:
 runtime_adaptive:
   comfyui-init:
     adapts_to: comfyui
-    environment_adaptation:
-      COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT}
+    # (no environment_adaptation: the old COMFYUI_HOST_URL entry was a
+    # dead promise — download_models.sh reads only PG vars +
+    # COMFYUI_MODELS_PATH, and compose never injected it.)
+    environment_adaptation: {}
     extra_hosts_adaptation: inherit from comfyui
 
 data_flow:
