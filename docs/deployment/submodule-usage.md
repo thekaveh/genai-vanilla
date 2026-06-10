@@ -11,6 +11,10 @@ This guide explains how to use the genai-vanilla stack as a git submodule in you
 - [Integration Patterns](#6-integration-patterns)
 - [Contributing Back](#7-contributing-back)
 - [Troubleshooting](#8-troubleshooting)
+- [Advanced Topics](#9-advanced-topics)
+- [Best Practices](#10-best-practices)
+- [Additional Resources](#11-additional-resources)
+- [Getting Help](#12-getting-help)
 
 ## 2. Quick Start
 

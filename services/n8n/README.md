@@ -75,7 +75,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 
 **Adaptive integrations** (`runtime_adaptive.n8n.adapts_to`): `stt_provider`, `tts_provider`, `doc_processor`. When any of those is `disabled`, the corresponding endpoint env var is set to empty and workflow nodes referencing it surface 502 at run time.
 
-**Hermes wiring.** `HERMES_ENDPOINT` is injected so workflows can call into Hermes via the HTTP Request node. Inverse path (Hermes → n8n) goes through n8n's REST `/workflows/{id}/execute`.
+**Hermes wiring.** `HERMES_ENDPOINT` is injected so workflows can call into Hermes via the HTTP Request node. Inverse path (Hermes → n8n) is webhook-driven: n8n's public REST API has no execute endpoint, so expose a Webhook-trigger workflow and have Hermes POST to its URL.
 
 **Seeded workflows.** `services/n8n/init/workflows/searxng-research-workflow.json` ships as a worked example of the SearXNG → LiteLLM research pattern. More workflows would go here.
 

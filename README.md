@@ -71,7 +71,7 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 ./start.sh --llm-provider-source none --cloud-openai-source enabled --openai-api-key sk-... --comfyui-source disabled
 
 # Observability bundle (Prometheus + Grafana + node-exporter + cAdvisor + per-service exporters)
-# Off by default; opt in to scrape Kong, LiteLLM, Weaviate, n8n, JupyterHub, MinIO, Backend,
+# Off by default; opt in to scrape Kong, LiteLLM, Weaviate, n8n, MinIO, Backend,
 # Postgres, and Redis. 7 starter dashboards in the "GenAI Vanilla" Grafana folder.
 # Grafana admin password is auto-generated on first run (see .env after launch).
 ./start.sh --prometheus-source container --grafana-source container
@@ -269,7 +269,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
 | **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs genai-jupyterhub`) |
-| **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | neo4j / password |
+| **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | `neo4j` / `GRAPH_DB_PASSWORD` from `.env` |
 | **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
 | **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants resolved via `*_LOCALHOST_PORT`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |

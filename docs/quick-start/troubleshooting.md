@@ -12,7 +12,7 @@ If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about m
 
 The simplest reset is `cp .env.example .env` followed by `./start.sh --cold` — keys are regenerated and every variable is in its current form.
 
-## 2. Session Log {#launch-log}
+## 2. Session Log
 
 When `./start.sh` runs the Textual TUI, every line is tee'd to a timestamped file — both wizard-time diagnostic events (cloud `/v1/models` fetch failures, Ollama upstream discovery warnings, etc.) and the entire launch phase (build, port verification, `docker compose up`, per-service `logs --tail` on failure):
 
@@ -194,8 +194,8 @@ cat bootstrapper/utils/kong_config_generator.py
 # Verify Kong is running
 docker logs genai-kong-api-gateway -f
 
-# Test Kong health
-curl http://localhost:63000/health
+# Test Kong routing end-to-end (proxies SearXNG's /healthz through Kong)
+curl -H 'Host: search.localhost' http://localhost:63000/healthz
 ```
 
 **Service routing not working:**

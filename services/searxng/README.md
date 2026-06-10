@@ -2,7 +2,7 @@
 
 Privacy-preserving metasearch engine. SearXNG aggregates results from 200+ upstream engines (Google, Bing, DuckDuckGo, Brave, Wikipedia, arXiv, Crossref, etc.) without keeping logs, fingerprinting users, or sending API keys. The stack uses it as the default search backend for Local Deep Researcher, Hermes, Open WebUI's "Web Search" toggle, and n8n's seeded `searxng-research-workflow.json`.
 
-The container runs `searxng/searxng:latest` with stack-tuned config under `services/searxng/config/settings.yml` — JSON output enabled (so it's machine-readable), public-instance mode off, metrics on, and a generated `SEARXNG_SECRET` (auto-rotated at first start). Redis backs the limiter and bot-detection store (both currently off — see Future — Unused features).
+The container runs `searxng/searxng:latest` with stack-tuned config under `services/searxng/config/settings.yml` — JSON output enabled (so it's machine-readable), public-instance mode off, metrics on, and a generated `SEARXNG_SECRET` (auto-rotated at first start). The limiter and bot-detection store are off (`valkey.url: false`) — no Redis/Valkey is wired; see Future — Unused features for the enable path.
 
 ## 1. Overview
 
@@ -46,7 +46,7 @@ Static config at `services/searxng/config/settings.yml` (do not redirect users t
 - `outgoing.request_timeout: 3.0` / `max_request_timeout: 10.0`.
 - `engines: [...]` — default-on engines. Scholarly ones (arXiv, Crossref, OpenAlex, PubMed, Semantic Scholar) ship default-off.
 
-**Required hard dependencies** (`depends_on.required`): `supabase`, `redis`. Redis is wired for the limiter + bot-detection store; the limiter is currently disabled but the dep stays so it's an env-flip away.
+**Required hard dependencies** (`depends_on.required`): `redis` — **ordering/slot-pinning only**. SearXNG runs with `valkey.url: false` (no Redis/Valkey traffic) and compose no longer gates startup on redis; the manifest entry remains because the topology port allocator derives slot positions from `depends_on` (removing it would renumber later services' ports). Re-enabling the limiter store means pointing `valkey.url` at `redis` and restoring the compose gate.
 
 ## 4. Architecture & wiring
 
@@ -56,7 +56,7 @@ Static config at `services/searxng/config/settings.yml` (do not redirect users t
 
 **Trusted-proxy concern.** SearXNG's bot detection trusts only configured proxies for `X-Forwarded-For`. The stack uses `botdetection.ip_lists.pass_searxng_org: false` and trusts only the Docker network gateway, so n8n / LDR / backend requests pass through cleanly even when the limiter is later enabled.
 
-**Consumers (data-flow downstream):** Kong, Hermes, n8n, Local Deep Researcher, Open WebUI. The data-flow graph doesn't list Open WebUI today because the upstream-supported web-search toggle is wired off — flipping `ENABLE_RAG_WEB_SEARCH=true` and `RAG_WEB_SEARCH_ENGINE=searxng` adds Open WebUI as a runtime caller.
+**Consumers (data-flow downstream):** Kong, Hermes, n8n, Local Deep Researcher, JupyterHub (SEARXNG_URL in the notebook env), Open WebUI. The data-flow graph doesn't list Open WebUI today because the upstream-supported web-search toggle is wired off — flipping `ENABLE_RAG_WEB_SEARCH=true` and `RAG_WEB_SEARCH_ENGINE=searxng` adds Open WebUI as a runtime caller.
 
 **Volumes / state.** No persistent volumes — SearXNG is stateless. Restarts are instant.
 
@@ -101,7 +101,7 @@ _No upstream calls._
 - **`open_metrics` Prometheus endpoint** — *Why pursue:* `settings.yml` leaves `open_metrics: ''`, so `/metrics` is disabled. Engine-latency and error-rate stats are a near-free win for any future Prometheus sidecar. *Effort:* small.
 - **`image_proxy: true`** — *Why pursue:* currently off; turning it on (or wiring `SEARXNG_IMAGE_PROXY`) lets ComfyUI / Open WebUI fetch image results without third-party-host 403s, at the cost of RAM. *Effort:* small.
 - **Scholarly engines (arXiv, Crossref, OpenAlex, PubMed, Semantic Scholar)** — *Why pursue:* enabling them upgrades LDR/Hermes from general-web to scholarly search. *Effort:* small.
-- **`limiter: true` with Redis/Valkey bot detection** — *Why pursue:* SearXNG is already wired to Redis (required dep) but the limiter plugin is off. *Effort:* small.
+- **`limiter: true` with Redis/Valkey bot detection** — *Why pursue:* the stack ships a Redis the limiter could use, but nothing is wired today (`valkey.url: false`, no startup dependency). Enabling means pointing `valkey.url` at `redis://redis:6379` AND restoring the compose/manifest dependency in one change. *Effort:* small.
 - **JSON-RPC `engines=` filter exposure** — *Why pursue:* Open WebUI/Hermes call `/search` with no engine pinning, so a slow/failing engine drags p99. Pass `engines=duckduckgo,brave` from callers. *Effort:* small.
 
 ## 6. Troubleshooting
@@ -149,11 +149,11 @@ SearXNG aggregates upstream engines in parallel; aggregate latency tracks the sl
 - **No request logging.** SearXNG's design is to forget queries the moment a response goes out. The stack doesn't override that — there are no access logs to scrape and no per-user query history.
 - **Engine selection sets your exposure.** Default-on engines include Google, Bing, Brave (commercial trackers as upstreams). The privacy story is "SearXNG hides *you* from them" via no-referrer + IP-from-server, not "no commercial engine sees your query." If that matters, prune the engines list to privacy-aligned upstreams (DuckDuckGo, Mojeek, Brave's privacy-flag mode).
 - **No outbound proxy by default.** SearXNG calls each engine directly from its container. To route engine calls through Tor or another proxy, set `outgoing.proxies:` in `settings.yml`.
-- **Public-instance hardening.** If you must expose SearXNG to the internet, edit `config/settings.yml` directly: set `server.public_instance: true` AND `server.limiter: true` (with Redis backing, currently off) AND open the Kong route. Without the limiter, the instance becomes an open relay for engine abuse. See §3 for why the env-var path isn't wired today.
+- **Public-instance hardening.** If you must expose SearXNG to the internet, edit `config/settings.yml` directly: set `server.public_instance: true` AND `server.limiter: true` (after wiring `valkey.url` at the stack Redis — nothing is wired today) AND open the Kong route. Without the limiter, the instance becomes an open relay for engine abuse. See §3 for why the env-var path isn't wired today.
 
 ## 10. Further reading
 
 - [SearXNG documentation](https://docs.searxng.org/) — admin + dev reference; covers `settings.yml`, engine configuration, and the limiter plugin.
 - [SearXNG search API](https://docs.searxng.org/dev/search_api.html) — exact request/response shape for `/search`.
 - [Engine settings reference](https://docs.searxng.org/admin/settings/settings_engines.html) — every engine's tunable knobs, useful when enabling scholarly engines.
-- [Botdetection / limiter](https://docs.searxng.org/admin/searx.botdetection.html) — explains the Redis-backed limiter the stack already has wired but disabled.
+- [Botdetection / limiter](https://docs.searxng.org/admin/searx.botdetection.html) — explains the Redis/Valkey-backed limiter (not wired in this stack; see §3).

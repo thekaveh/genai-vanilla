@@ -2,7 +2,7 @@
   "paragraphs": [
     {
       "title": "Spark version",
-      "text": "%spark\nsc.version",
+      "text": "%spark\nspark.version",
       "user": "anonymous",
       "config": {"editorSetting": {"language": "scala"}}
     },
