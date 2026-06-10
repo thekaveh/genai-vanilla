@@ -96,10 +96,7 @@ def test_launch_prune_drops_skip_hidden_step_commits():
         "ComfyUI  ·  source": "disabled",
         COMFYUI_MODELS_TITLE: "",          # stale empty commit
     }
-    # Replicate the prune exactly as _transition_to_launch does.
-    pruned = dict(selections)
-    for step in [picker]:
-        if step.skip_if_prev is not None and step.skip_if_prev(pruned):
-            pruned.pop(step.title, None)
+    from ui.textual.screens.wizard_screen import prune_skip_hidden_selections
+    pruned = prune_skip_hidden_selections([picker], selections)
     result = _selections_to_args(pruned, [], 63000)
     assert "COMFYUI_USER_MODELS" not in repr(result)

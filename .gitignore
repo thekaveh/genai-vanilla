@@ -27,6 +27,8 @@ MANIFEST
 
 # Virtual Environment
 .env
+# transient atomic-write sibling (SourceOverrideManager)
+.env.tmp
 .venv
 env/
 venv/

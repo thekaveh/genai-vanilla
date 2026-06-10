@@ -163,10 +163,18 @@ class SourceOverrideManager:
             
             # Write atomically (tmp + os.replace): a crash mid-write on
             # an in-place open(..., 'w') truncates the user's .env.
+            # Preserve the original mode (a user-chmod'd 0600 .env must
+            # not come back umask-default), and never leave the
+            # secrets-bearing tmp file behind on failure.
             tmp_path = Path(str(env_file_path) + '.tmp')
-            with open(tmp_path, 'w', encoding="utf-8") as f:
-                f.write(updated_content)
-            os.replace(tmp_path, env_file_path)
+            try:
+                original_mode = os.stat(env_file_path).st_mode
+                with open(tmp_path, 'w', encoding="utf-8") as f:
+                    f.write(updated_content)
+                os.chmod(tmp_path, original_mode)
+                os.replace(tmp_path, env_file_path)
+            finally:
+                tmp_path.unlink(missing_ok=True)
             
             return True
             

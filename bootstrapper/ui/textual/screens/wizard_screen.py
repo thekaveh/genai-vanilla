@@ -81,6 +81,33 @@ _LAUNCH_HINTS = [
 ]
 
 
+
+def prune_skip_hidden_selections(steps, selections: dict) -> dict:
+    """Return a copy of ``selections`` without commits from steps whose
+    skip-predicate is true.
+
+    A user can visit a step (e.g. the ComfyUI picker), commit, then go
+    Back and disable the owning service — the stale commit would
+    otherwise persist (an empty CSV wiping COMFYUI_USER_MODELS for a
+    now-disabled service). Predicate exceptions mean "don't skip" (keep
+    the commit), mirroring WizardScreen._step_should_skip. Synthetic
+    ``__secondary__:`` keys are never step titles, so they always
+    survive. Module-level so tests bind to the production logic.
+    """
+    pruned = dict(selections)
+    for step in steps:
+        skip = getattr(step, "skip_if_prev", None)
+        if skip is None:
+            continue
+        try:
+            hidden = bool(skip(pruned))
+        except Exception:  # noqa: BLE001 — buggy predicate must not crash launch
+            hidden = False
+        if hidden:
+            pruned.pop(step.title, None)
+    return pruned
+
+
 class WizardScreen(Screen):
     """Setup wizard + in-place log streaming."""
 
@@ -986,18 +1013,9 @@ class WizardScreen(Screen):
         if self._source_args is None or self._stack_options is None:
             if self._stack_options_resolver is not None:
                 # Drop commits from steps whose skip-predicate is true at
-                # LAUNCH time: a user can visit a step (e.g. ComfyUI
-                # picker), commit, then go Back and disable the owning
-                # service — the stale commit would otherwise persist
-                # (e.g. an empty CSV wiping COMFYUI_USER_MODELS for a
-                # service that is now disabled).
-                selections = dict(self._selections)
-                for idx, step in enumerate(self._steps):
-                    if (getattr(step, "skip_if_prev", None) is not None
-                            and self._step_should_skip(idx)):
-                        selections.pop(step.title, None)
+                # LAUNCH time (see prune_skip_hidden_selections).
                 self._source_args, self._stack_options = self._stack_options_resolver(
-                    selections
+                    prune_skip_hidden_selections(self._steps, self._selections)
                 )
             else:
                 self._source_args, self._stack_options = {}, {}
