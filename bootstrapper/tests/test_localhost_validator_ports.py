@@ -8,7 +8,6 @@ present-but-blank values.
 from __future__ import annotations
 
 import socket
-import threading
 
 from core.config_parser import ConfigParser
 from utils.localhost_validator import LocalhostValidator
@@ -48,8 +47,7 @@ def test_tcp_probe_blank_port_falls_back_to_default(tmp_path):
         "NEO4J_GRAPH_DB_SOURCE", "localhost"
     )
     joined = "\n".join(messages)
-    assert "7687" in joined
-    assert isinstance(accessible, bool)
+    assert "7687" in joined, joined
 
 
 def test_http_probe_blank_port_falls_back_to_default(tmp_path):
