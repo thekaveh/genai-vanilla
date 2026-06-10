@@ -7,9 +7,13 @@ search, and warn-only badges for custom-node requirements + hardware
 mismatches.
 
 Data source: `assemble_wizard_catalog()` (HF + civitai live scrape +
-curated + fallback). Pulled flags computed from filesystem scan of the
-comfyui-models volume. NO DB query — the wizard runs BEFORE
-comfyui-catalog-init populates public.comfyui_models.
+curated + fallback). Pulled flags are best-effort: the models live in
+the `<project>-comfyui-models` named Docker volume, so the host-side
+wizard can only see them when `docker volume inspect`'s Mountpoint is
+readable from the host (rootful Linux). On Docker Desktop the path
+lives inside the VM and the [pulled] badges are simply omitted. NO DB
+query — the wizard runs BEFORE comfyui-catalog-init populates
+public.comfyui_models.
 """
 from __future__ import annotations
 
@@ -94,10 +98,42 @@ def _scan_pulled(volume_root: Path) -> set[str]:
     pulled: set[str] = set()
     if not volume_root.is_dir():
         return pulled
-    for p in volume_root.rglob("*"):
-        if p.is_file() and p.stat().st_size > 0:
-            pulled.add(p.name)
+    try:
+        for p in volume_root.rglob("*"):
+            if p.is_file() and p.stat().st_size > 0:
+                pulled.add(p.name)
+    except OSError:
+        # Permission denied mid-walk (e.g. root-owned docker dirs) —
+        # return whatever was collected; badges are best-effort.
+        pass
     return pulled
+
+
+def _resolve_models_volume_root(env_vars: Dict[str, str]) -> Path | None:
+    """Host-side mountpoint of the `<project>-comfyui-models` volume.
+
+    The wizard runs on the HOST while the models live in a named Docker
+    volume (in-container path /opt/ComfyUI/models), so the only host
+    handle is `docker volume inspect`. Returns None when the volume
+    doesn't exist yet or its Mountpoint isn't readable from the host
+    (Docker Desktop keeps it inside the VM) — callers then skip the
+    [pulled] badges instead of scanning a path that can never match.
+    """
+    project = (env_vars.get("PROJECT_NAME", "genai") or "genai").strip()
+    volume_name = f"{project}-comfyui-models"
+    try:
+        out = subprocess.run(
+            ["docker", "volume", "inspect", "-f", "{{ .Mountpoint }}",
+             volume_name],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=5, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    mountpoint = Path(out.stdout.strip())
+    return mountpoint if mountpoint.is_dir() else None
 
 
 def _filename_of(url: str) -> str:
@@ -377,9 +413,11 @@ def build_comfyui_steps(
         if sidecar_path:
             sidecar = load_custom_models(sidecar_path)
 
-        # Filesystem scan for already-downloaded models.
-        scan_root = volume_root or Path("/opt/comfyui/models")
-        pulled = _scan_pulled(scan_root)
+        # Filesystem scan for already-downloaded models (best-effort —
+        # see _resolve_models_volume_root for when this yields nothing).
+        scan_root = (volume_root if volume_root is not None
+                     else _resolve_models_volume_root(env_vars))
+        pulled = _scan_pulled(scan_root) if scan_root is not None else set()
 
         # GPU memory detection.
         gpu_mem = _detect_gpu_memory_gb()
@@ -413,13 +451,18 @@ def build_comfyui_steps(
         same as running `ollama pull <name>` on the host for Ollama
         localhost.
         """
-        src = sel.get("COMFYUI_SOURCE", "") or (
-            env_vars.get("COMFYUI_SOURCE", "") or ""
+        # The wizard's selections dict is keyed by STEP TITLE (see
+        # WizardScreen.action_confirm), so the live user choice must be
+        # consulted FIRST. Reading .env first made the predicate act on
+        # the pre-wizard value: a user flipping disabled→container-gpu
+        # never saw the picker, and one flipping container→disabled was
+        # shown a picker for a service they just turned off.
+        src = (
+            sel.get("ComfyUI  ·  source")
+            or sel.get("COMFYUI_SOURCE")
+            or env_vars.get("COMFYUI_SOURCE", "")
+            or ""
         )
-        if not src:
-            # Fall back: check the step title's selection key
-            comfyui_title = "ComfyUI  ·  source"
-            src = sel.get(comfyui_title, "") or ""
         # Empty source = treat as disabled (defensive: should not occur
         # in practice since the source step always writes a value, but
         # preserves the pre-fix behavior where the picker skipped on
