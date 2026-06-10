@@ -443,3 +443,19 @@ def test_kong_localhost_route_reads_port_var(
         f"host.docker.internal:{expected_port} (matching {env_var}). "
         f"Got services: {[(s['name'], s.get('url')) for s in cfg['services']]}"
     )
+
+
+def test_n8n_forwarded_host_header_has_resolved_port():
+    """Kong DB-less config performs no env interpolation: the n8n
+    X-Forwarded-Host header must carry the literal resolved port, never
+    an unexpanded ``${KONG_HTTP_PORT}`` token (n8n bakes this header into
+    webhook/editor URLs)."""
+    config = _generate("N8N_SOURCE=container\nKONG_HTTP_PORT=64000\n")
+    n8n_services = [s for s in config["services"] if s["name"] == "n8n-api"]
+    assert n8n_services, "n8n-api service missing from Kong config"
+    headers = []
+    for plugin in n8n_services[0].get("plugins", []):
+        if plugin.get("name") == "request-transformer":
+            headers = plugin["config"]["add"]["headers"]
+    assert headers == ["X-Forwarded-Host: n8n.localhost:64000"], headers
+    assert not any("${" in h for h in headers)

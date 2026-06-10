@@ -622,7 +622,14 @@ class KongConfigGenerator:
             'plugins': [
                 {'name': 'cors'},
                 {'name': 'request-transformer', 'config': {
-                    'add': {'headers': ['X-Forwarded-Host: n8n.localhost:${KONG_HTTP_PORT}']}
+                    # Kong DB-less config takes header values literally (no
+                    # env interpolation) — resolve the port at generation
+                    # time or n8n bakes the unexpanded token into webhook
+                    # and editor URLs served via this alias.
+                    'add': {'headers': [
+                        'X-Forwarded-Host: n8n.localhost:'
+                        + (self.get_env_value('KONG_HTTP_PORT') or '63000')
+                    ]}
                 }}
             ]
         }
