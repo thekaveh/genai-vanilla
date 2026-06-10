@@ -689,6 +689,13 @@ def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
               file=_sys.stderr)
         return []
 
+    if not isinstance(raw, dict):
+        # A list-rooted file (models written at top level) used to crash
+        # with AttributeError, contradicting the never-raises contract.
+        print(f"⚠️  custom-models YAML at {path} must have a top-level "
+              f"'models:' mapping; got {type(raw).__name__}. Ignoring file.",
+              file=_sys.stderr)
+        return []
     raw_models = raw.get("models") or []
     out: list[ComfyUILibraryEntry] = []
     for idx, d in enumerate(raw_models):

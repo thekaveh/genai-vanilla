@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import re
 import socket
+import http.client
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -201,7 +202,8 @@ def list_library_entries(timeout: float = 5.0) -> list[OllamaLibraryEntry]:
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             html = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError):
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException):
         return []
 
     seen: set[str] = set()
@@ -349,7 +351,8 @@ def fetch_model_variants(name: str, timeout: float = 5.0) -> list[OllamaVariant]
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             html = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError):
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException):
         return None
 
     block_re = re.compile(

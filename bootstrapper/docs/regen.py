@@ -79,7 +79,7 @@ def _extract_future_blocks(deps_text: str) -> dict[str, str]:
         "Unused features in this service": "",
     }
     matches = list(FUTURE_HEADER_RE.finditer(deps_text))
-    for i, m in enumerate(matches):
+    for m in matches:
         key = m.group(1)
         body_start = m.end()
         # Block extends to the next ### or ## header

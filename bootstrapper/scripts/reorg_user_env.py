@@ -8,6 +8,10 @@ values, producing a tidy .env that matches the template's section
 ordering. Keys the user has but .env.example doesn't are preserved
 under a ``# User-only keys`` trailer at the bottom.
 
+This is a MANUAL operational tool — nothing in CI, the bootstrapper,
+or the docs invokes it; run it yourself when an old .env has accreted
+trailers. Honors GENAI_ENV_FILE like the rest of the stack.
+
 Usage:
     python bootstrapper/scripts/reorg_user_env.py [--dry-run]
 

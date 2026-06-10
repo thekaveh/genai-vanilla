@@ -520,15 +520,18 @@ If your service ships a `requirements.txt` / `pyproject.toml` in a `build/` or `
 
 ### 13.4 CI gates that run on every push
 
-The `.github/workflows/services-lint.yml` workflow has three jobs:
+The `.github/workflows/services-lint.yml` workflow has four jobs (the
+first three are the REQUIRED branch-protection checks; build-validation
+is advisory):
 
 | Job | What it catches |
 |---|---|
-| **Manifest lint + unit tests** | `validate_fragments` lint + 800+ pytest tests. Catches: manifest schema violations, dependency cycles, env-example drift, category overflow. |
+| **Manifest lint + unit tests** | `validate_fragments` lint + 800+ pytest tests + the backend's own pytest suite (`services/backend/app/app/tests/`). Catches: manifest schema violations, dependency cycles, env-example drift, category overflow, backend route regressions. |
 | **Compose merge + byte-equivalence + source-permutation matrix** | Renders `docker compose config` for the merged fragment list + verifies it matches the golden baseline + tests every source variant of every service. Catches: compose-syntax errors, source-permutation regressions. |
-| **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links`, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`). Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken markdown links, research-schema violations. |
+| **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links` — incl. `#anchor` fragment validation, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`) + a `uv lock --locked` gate for the docling localhost provider. Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken links/anchors, research-schema violations, stale provider locks. |
+| **Build-validation** (non-required) | `docker buildx build` for the four highest-churn build contexts (airflow, spark, jupyterhub, backend). Catches: unsatisfiable pip pins, broken Dockerfiles. |
 
-Run the equivalent of all three locally before pushing:
+Run the equivalent of the three required jobs locally before pushing:
 
 ```bash
 cd bootstrapper && uv run pytest -q                                    # job 1 + 2 (minus byte-equivalence)
@@ -542,7 +545,26 @@ python scripts/check-kong-routes.py                                    # job 3 k
 python scripts/validate_research_schema.py --all                       # job 3 research schema
 ```
 
+### 13.5 Model-picker CLI flags: the four-seam rule
+
+A `--<svc>-models`-style flag (anything persisted via the wizard's
+user-model-selection path) needs FOUR coordinated edits, not two:
+1. the `@click.option` declaration in `start.py`,
+2. the `source_mapping` / collector-dict entry,
+3. the `user_model_selections[KEY] = kwarg` assignment in `main()`,
+4. the `wizard_screen` bucket lambda in `integration.py`.
+PR #17 shipped a flag that silently dropped its value because seam 4
+was missed. AST-based seam-parity tests
+(`tests/test_user_model_selections_seam_parity.py`,
+`tests/test_wizard_app_discovery.py`) guard all four — extend them when
+adding a picker.
+
 ## 14. Common gotchas + anti-patterns
+
+> Also note: `.env` image pins are auto-refreshed from the manifests at
+> startup (`_refresh_image_pins_from_manifests()`, shipped 2026-06-07) —
+> don't hand-edit `*_IMAGE` values in a user `.env` expecting them to
+> stick across manifest bumps.
 
 Distilled from real audit findings — each entry cites the commit, PR, or memory note it came from.
 

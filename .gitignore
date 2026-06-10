@@ -125,9 +125,6 @@ CLAUDE.md
 opencode.json
 .superpowers
 
-# Personal scratch / demo files that don't belong to the project
-ascii_drape_water_demo.py
-ascii_drape_water_out/
 # Downstream submodule consumers' overlay slot — `services/_user/<name>/`
 # folders are loaded by the manifest loader (the loader still skips `_user`
 # itself but a custom downstream loader can be configured to read its

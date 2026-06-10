@@ -118,7 +118,11 @@ def build_ollama_steps(
         src = _selected_llm_source(env_vars, selections)
         url = (env_vars.get("LITELLM_OLLAMA_UPSTREAM", "") or "").strip()
         if "localhost" in src:
-            return "http://localhost:11434"
+            # Honor the user's port override — the 5th consumer site of
+            # the localhost-port symmetry rule (runtime_sc, Kong,
+            # service_config, localhost_validator already read it).
+            port = (env_vars.get("OLLAMA_LOCALHOST_PORT", "") or "").strip() or "11434"
+            return f"http://localhost:{port}"
         if "external" in src and url:
             return url
         return ""
@@ -348,7 +352,11 @@ def build_ollama_steps(
         #    age unknown, so they neither get a ``legacy`` badge nor
         #    surface near the top. They drop to the alphabetical tail.
         for name in pulled_names:
-            if name in library_by_name:
+            # /api/tags names are always TAGGED (qwen3.6:latest) while
+            # library keys are bare families (qwen3.6) — compare the
+            # family root or every normal pull duplicates its library
+            # row as a bogus "(local model, not in public library)".
+            if name in library_by_name or name.split(":", 1)[0] in library_by_name:
                 continue
             meta = curated_meta.get(name)
             curated_badges = list(meta.badges) if meta else []

@@ -294,3 +294,39 @@ def test_options_carry_enough_info_for_pre_check_seeding(
         f"Pre-check seeding would miss: "
         f"{sorted(expected_seeded - seeded)}"
     )
+
+
+def test_pulled_library_tag_does_not_duplicate_as_flat_row(
+    monkeypatch, library_qwen3_gemma4,
+):
+    """A pulled TAG of a library family (qwen3.6:latest vs library key
+    qwen3.6) must merge into the family row, not also appear as a bogus
+    flat '(local model, not in public library)' row. Regression: the
+    bucket-1 filter compared the tagged name against bare family keys,
+    so every normal pull duplicated."""
+    host_tags = ["qwen3.6:latest"]
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_pulled_models", _stub_pulled(host_tags),
+    )
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_library_entries",
+        lambda timeout=5.0: library_qwen3_gemma4,
+    )
+    env = {"LLM_PROVIDER_SOURCE": "ollama-localhost"}
+    opts = _get_options_provider(env)(_select_localhost())
+    flat_dupes = [o for o in opts if o.value == "qwen3.6:latest"]
+    assert flat_dupes == [], (
+        f"tagged pull of a library family must not produce a flat row: "
+        f"{[o.label for o in flat_dupes]}"
+    )
+    assert any(o.value == "qwen3.6" for o in opts)
+
+
+def test_wizard_upstream_honors_ollama_localhost_port():
+    """The wizard's /api/tags probe must read OLLAMA_LOCALHOST_PORT —
+    the 5th consumer site of the localhost-port symmetry rule."""
+    from wizard.llm_steps import build_ollama_steps  # noqa: F401 (import context)
+    import wizard.llm_steps as llm_steps_mod
+    import inspect
+    src = inspect.getsource(llm_steps_mod)
+    assert 'OLLAMA_LOCALHOST_PORT' in src

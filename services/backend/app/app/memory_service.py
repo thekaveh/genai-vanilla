@@ -563,7 +563,13 @@ Extract the facts as JSON:"""
                         VALUES ($1, $2, $3, $4, $5)
                         """,
                         uid,
-                        action if action in ("merged", "superseded") else "superseded",
+                        # The LLM contract (above) emits present-tense
+                        # "merge"/"supersede"; the log table stores past
+                        # tense. The old guard compared against past-tense
+                        # values, so every merge was logged "superseded".
+                        {"merge": "merged", "supersede": "superseded"}.get(
+                            action, "superseded"
+                        ),
                         source_fact_uuids,
                         keep_fact["id"],  # Already UUID from asyncpg
                         reason,

@@ -117,10 +117,14 @@ class HostsManager:
                 if "# GenAI Stack subdomains" in line:
                     continue
                     
-                # Skip any line with GenAI hostnames
+                # Skip any line with GenAI hostnames. Whole-token
+                # comparison — a substring check deleted the user's own
+                # entries like `127.0.0.1 my-n8n.localhost` because they
+                # CONTAIN a stack alias.
                 should_skip = False
+                line_tokens = line.split()
                 for host in self.get_genai_hosts():
-                    if f"127.0.0.1" in line and host in line:
+                    if "127.0.0.1" in line_tokens and host in line_tokens:
                         should_skip = True
                         break
                         

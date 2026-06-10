@@ -69,7 +69,12 @@ def _parse_env(text: str) -> dict[str, str]:
             continue
         if "=" in line:
             k, _, v = line.partition("=")
-            result[k.strip()] = v.strip()
+            # Strip inline comments like migration_v1 does — without this,
+            # `COMFYUI_MODEL_SET=sdxl  # note` parsed as "sdxl  # note",
+            # missed the translation table, and silently dropped the
+            # user's model selection.
+            v, _, _ = v.partition("#")
+            result[k.strip()] = v.strip().strip('"').strip("'")
     return result
 
 
