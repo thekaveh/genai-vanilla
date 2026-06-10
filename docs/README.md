@@ -36,7 +36,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Grafana](../services/grafana/README.md) — observability dashboards + unified alerting on top of Prometheus (opt-in via `GRAFANA_SOURCE`)
 - [Apache Spark](../services/spark/README.md) — standalone Spark cluster (5-container family: master + workers + history + Spark Connect gRPC sidecar + minio/mc bucket init) for batch / SQL / DataFrame workloads (opt-in via `SPARK_SOURCE`)
 - [Apache Zeppelin](../services/zeppelin/README.md) — Spark-first notebook UI; Spark interpreter pre-configured, JDBC interpreter requires a one-time UI setup (opt-in via `ZEPPELIN_SOURCE`; gated on Spark)
-- [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
+- [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + dag-processor + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
 - [TEI Reranker](../services/tei-reranker/README.md) — Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift
 
 ### 1.3 Deployment guides

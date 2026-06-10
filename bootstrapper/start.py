@@ -1706,7 +1706,7 @@ class GenAIStackStarter:
                    'Persists as OLLAMA_CUSTOM_MODELS; ollama-pull fetches them at startup.')
 @click.option('--comfyui-models',
               help='Comma-separated catalog model names to pull for ComfyUI '
-                   '(e.g. "sdxl-base-1.0,sdxl-vae,flux1-dev-Q4_K_S"). '
+                   '(e.g. "sd_xl_base_1.0,sdxl-vae,flux1-dev-Q4_K_S"). '
                    'Overrides wizard selection and existing COMFYUI_USER_MODELS '
                    'in .env. Pass "" to clear. Unknown names skip with warning '
                    '(comfyui-catalog-init logs them).')

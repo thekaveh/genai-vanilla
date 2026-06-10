@@ -194,6 +194,11 @@ def _flat_option(
     is_pulled = (
         entry.name in pulled_names
         or _filename_of(entry.url) in pulled_names
+        # download_models.sh saves under the catalog's filename column —
+        # for civitai/sidecar entries that's entry.filename (the URL path
+        # carries no usable name), so match it too or those models never
+        # show [pulled] on re-runs.
+        or (entry.filename is not None and entry.filename in pulled_names)
     )
     group = (
         "Custom" if entry.source == "custom"
@@ -243,7 +248,9 @@ def _family_parent_option(
     leaf_details: dict[str, tuple[str, tuple[str, ...]]] = {}
     for m in sorted(members, key=lambda x: (-x.popularity, x.name)):
         is_pulled = (
-            m.name in pulled_names or _filename_of(m.url) in pulled_names
+            m.name in pulled_names
+            or _filename_of(m.url) in pulled_names
+            or (m.filename is not None and m.filename in pulled_names)
         )
         leaf_badges = tuple(_badges_for_entry(m, is_pulled, gpu_mem_gb))
         leaf_details[m.name] = (m.name, leaf_badges)

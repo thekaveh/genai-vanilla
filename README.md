@@ -265,7 +265,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 |---------|------------|----------|---------|---------------|
 | **Open WebUI** | http://localhost:63082 | http://chat.localhost:63000 | AI chat interface | Create account |
 | **n8n** | http://localhost:63064 | http://n8n.localhost:63000 | Workflow automation | Owner setup on first visit |
-| **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | `kong_admin` / `DASHBOARD_PASSWORD` from `.env` |
+| **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | Kong route: `kong_admin` / `DASHBOARD_PASSWORD` from `.env` (direct port is ungated) |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
 | **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs genai-jupyterhub`) |

@@ -45,3 +45,33 @@ def test_explicit_flag_still_wins(tmp_path, monkeypatch):
     starter, captured = _starter_with_env(tmp_path, monkeypatch, "BASE_PORT=64000\n")
     assert starter.handle_port_configuration(65000) is True
     assert captured["base_port"] == 65000
+
+
+def test_update_env_ports_persists_base_port_itself(tmp_path, monkeypatch):
+    """A --base-port run must rewrite BASE_PORT in .env, or the next
+    flagless run (which preserves .env's BASE_PORT) reads the STALE
+    anchor and silently reverts every *_PORT to the old layout —
+    exactly the motivating case of the preserve fix."""
+    from start import GenAIStackStarter
+
+    env = tmp_path / ".env"
+    env.write_text("BASE_PORT=63000\nKONG_HTTP_PORT=63000\n", encoding="utf-8")
+    starter = GenAIStackStarter()
+    starter.config_parser.env_file_path = env
+    starter.port_manager.config_parser = starter.config_parser
+    monkeypatch.setattr(starter.port_manager, "get_port_conflicts", lambda bp: {})
+    # Point the port manager's writer at the tmp env file.
+    if hasattr(starter.port_manager, "env_file_path"):
+        starter.port_manager.env_file_path = env
+    assert starter.handle_port_configuration(64000) is True
+    text = env.read_text(encoding="utf-8")
+    assert "BASE_PORT=64000" in text, text
+    assert "KONG_HTTP_PORT=64000" in text, text
+    # And the follow-up flagless run now resolves the NEW anchor.
+    captured = {}
+    monkeypatch.setattr(
+        starter.port_manager, "update_env_ports",
+        lambda bp: captured.setdefault("bp", bp) or True,
+    )
+    assert starter.handle_port_configuration(None) is True
+    assert captured["bp"] == 64000

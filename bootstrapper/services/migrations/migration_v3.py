@@ -37,11 +37,15 @@ _SENTINEL_RE = re.compile(
 _OLD_VAR = "COMFYUI_MODEL_SET"
 
 # Translation table: enum value → CSV of catalog names.
+# Names must match CATALOG rows (curated layer — always merged), or
+# comfyui-catalog-init activates nothing and the translated selection is
+# a silent no-op. The earlier sd15-pruned-emaonly / sdxl-base-1.0
+# spellings existed nowhere in the catalog.
 _TRANSLATION: dict[str, str] = {
-    "minimal": "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
-    "sd15":    "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
-    "sdxl":    "sdxl-base-1.0,sdxl-vae",
-    "full":    "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned,sdxl-base-1.0,sdxl-vae",
+    "minimal": "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
+    "sd15":    "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
+    "sdxl":    "sd_xl_base_1.0,sdxl-vae",
+    "full":    "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned,sd_xl_base_1.0,sdxl-vae",
     "":        "",
 }
 

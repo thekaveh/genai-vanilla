@@ -556,8 +556,13 @@ def _selections_to_args(
     # COMFYUI_MODELS_TITLE; we convert it to a sorted CSV here so
     # apply_user_model_selections can persist it as COMFYUI_USER_MODELS.
     comfyui_user_models: dict = {}
-    comfyui_models_v = selections.get(COMFYUI_MODELS_TITLE, set())
-    if comfyui_models_v and comfyui_models_v != SECRET_KEEP:
+    comfyui_models_v = selections.get(COMFYUI_MODELS_TITLE)
+    # None = step never visited (skip-predicate hid it) → no write.
+    # SECRET_KEEP = degraded fetch → no write. An explicit empty commit
+    # ("0 selected" on a healthy list) WRITES the empty CSV — the user
+    # deselected everything, mirroring the Ollama block above (the old
+    # truthiness gate made deselect-all silently unpersistable).
+    if comfyui_models_v is not None and comfyui_models_v != SECRET_KEEP:
         out_names = sorted(comfyui_models_v) if isinstance(comfyui_models_v, set) else \
             sorted({n.strip() for n in str(comfyui_models_v).split(",") if n.strip()})
         comfyui_user_models["COMFYUI_USER_MODELS"] = ",".join(out_names)

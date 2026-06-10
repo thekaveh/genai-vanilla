@@ -11,6 +11,8 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 from urllib.parse import urlparse
 
+from core.config_parser import DEFAULT_BASE_PORT
+
 
 class KongConfigGenerator:
     """Generates dynamic Kong configuration based on SOURCE values."""
@@ -638,7 +640,8 @@ class KongConfigGenerator:
                     # and editor URLs served via this alias.
                     'add': {'headers': [
                         'X-Forwarded-Host: n8n.localhost:'
-                        + (self.get_env_value('KONG_HTTP_PORT') or '63000')
+                        + (self.get_env_value('KONG_HTTP_PORT')
+                           or str(DEFAULT_BASE_PORT))
                     ]}
                 }}
             ]

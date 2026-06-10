@@ -160,8 +160,15 @@ class PortManager:
 
             # Update each port in the content. Preserve any inline
             # comment that follows the value — only the numeric portion
-            # is replaced.
+            # is replaced. BASE_PORT itself is persisted too: it's the
+            # allocator's anchor, not a slot, so calculate_port_assignments
+            # omits it — but without rewriting it here, a `--base-port
+            # 64000` run left BASE_PORT=63000 in .env and the next
+            # flagless run (which now PRESERVES .env's BASE_PORT) silently
+            # reverted every port to the old layout.
             updated_content = content
+            port_assignments = dict(port_assignments)
+            port_assignments['BASE_PORT'] = base_port
             for port_var, new_port in port_assignments.items():
                 pattern = rf'^({re.escape(port_var)}\s*=\s*)([^\s#]*)([ \t]*#.*)?$'
                 replacement = rf'\g<1>{new_port}\g<3>'

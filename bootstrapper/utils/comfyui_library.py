@@ -310,6 +310,28 @@ def _parse_civitai_response(
 # improves over time via community contributions.
 
 _CURATED_ENTRIES: tuple[dict, ...] = (
+    # ── Checkpoints ────────────────────────────────────────────────────
+    # SD1.5 + SDXL-base live in the CURATED layer (always merged) so the
+    # names migration_v3's COMFYUI_MODEL_SET translation emits and the
+    # filenames the seeded workflows / backend defaults reference
+    # (v1-5-pruned-emaonly.safetensors, sd_xl_base_1.0.safetensors) have
+    # catalog rows regardless of scrape outcome. Previously they existed
+    # only in the both-scrapers-down fallback snapshot, so an upgraded
+    # .env activated nothing and every seeded workflow failed at render.
+    {
+        "name": "v1-5-pruned-emaonly",
+        "family": "SD1.5", "category": "checkpoint", "size_gb": 3.97,
+        "url": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors",
+        "min_vram_gb": 4.0, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 95,
+    },
+    {
+        "name": "sd_xl_base_1.0",
+        "family": "SDXL", "category": "checkpoint", "size_gb": 6.94,
+        "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
+        "min_vram_gb": 8.0, "cpu_supported": False,
+        "requires_custom_node": (), "popularity": 93,
+    },
     # ── VAE ────────────────────────────────────────────────────────────
     {
         "name": "vae-ft-mse-840000-ema-pruned",

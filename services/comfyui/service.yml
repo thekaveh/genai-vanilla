@@ -120,10 +120,12 @@ runtime_sc:
   comfyui:
     container-cpu:
       scale: 1
+      # NOTE: no COMFYUI_ARGS / AUTO_UPDATE here — service_config reads
+      # only COMFYUI_ENDPOINT from this block; the container's args come
+      # verbatim from .env's COMFYUI_ARGS / COMFYUI_AUTO_UPDATE (README
+      # §3). Per-source values listed here were never applied.
       environment:
-        COMFYUI_ARGS: --listen --cpu
         COMFYUI_ENDPOINT: http://comfyui:18188
-        AUTO_UPDATE: 'false'
         WEB_ENABLE_AUTH: 'false'
         ENABLE_QUICKTUNNEL: 'false'
         SERVERLESS: 'false'
@@ -133,9 +135,7 @@ runtime_sc:
     container-gpu:
       scale: 1
       environment:
-        COMFYUI_ARGS: --listen --force-fp16
         COMFYUI_ENDPOINT: http://comfyui:18188
-        AUTO_UPDATE: 'true'
         NVIDIA_VISIBLE_DEVICES: all
         NVIDIA_DRIVER_CAPABILITIES: compute,utility
         WEB_ENABLE_AUTH: 'false'

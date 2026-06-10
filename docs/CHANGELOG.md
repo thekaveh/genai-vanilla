@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-10 overnight maintenance pass 3 (6 commits)
+### Fixed — 2026-06-10 overnight maintenance pass 4 (3 commits)
+
+- **`--base-port` runs now persist `BASE_PORT` itself** — the port
+  rewriter updated every `*_PORT` but never the anchor, so the very
+  next flagless run (which preserves `.env`'s `BASE_PORT` since pass 1)
+  read the stale 63000 and silently reverted the whole custom layout.
+- **Upgrading an old `.env` with `COMFYUI_MODEL_SET` now activates real
+  models** — migration_v3 translated to catalog-phantom names
+  (`sd15-pruned-emaonly` / `sdxl-base-1.0` exist nowhere), so
+  catalog-init activated only the VAEs and every seeded workflow failed
+  at render. The SD1.5/SDXL-base checkpoints now live in the curated
+  catalog layer (present regardless of scrape outcome) and the
+  translation emits their real names.
+- ComfyUI `[pulled]` badges now also match the catalog `filename`
+  column (civitai/sidecar downloads were never recognized on re-runs);
+  an explicit deselect-all in the ComfyUI picker now clears
+  `COMFYUI_USER_MODELS` like the Ollama picker; the consolidation-log
+  tense map accepts both tense forms; the dead per-source
+  `COMFYUI_ARGS`/`AUTO_UPDATE` keys left in `runtime_sc` are gone;
+  `DASHBOARD_PASSWORD`'s `.env.example` description now documents the
+  auto-rotation; Studio auth nuance documented (Kong route gated,
+  direct port open).
+
+### Fixed — 2026-06-10 overnight maintenance pass 3 (5 commits)
 
 - **CRITICAL (self-caught): the pass-2 airflow quote-safety fix broke
   airflow-init on every boot** — psql performs `:'var'` interpolation
@@ -48,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   placeholder CVE id; `.gitignore` sheds two dead personal-scratch
   entries; kong/comfyui READMEs lose claims invalidated this run.
 
-### Fixed — 2026-06-10 overnight maintenance pass 2 (7 commits)
+### Fixed — 2026-06-10 overnight maintenance pass 2 (6 commits)
 
 - **`storage.objects` was dropped and recreated on EVERY `docker compose
   up`** (04-storage.sql) — all Supabase Storage object metadata (ComfyUI
@@ -117,6 +140,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   memory-table RLS policies now actually scope to `service_role`
   (`USING (true)` + default-privilege grants had left authenticated
   PostgREST callers full CRUD on all memories).
+- **Init hardening + dead-chain removals** (same commit as the CI
+  gates): airflow-init's role statements switched to quote-safe psql
+  `:'pw'` interpolation (NOTE: this introduced the regression pass 3's
+  first bullet fixes — `-c` strings don't interpolate); openclaw's
+  inline config patcher got `set -e` + tmp-file writes (a missing jq
+  used to truncate openclaw.json to 0 bytes); db-init-runner's DB wait
+  is bounded (300s); minio-init now refreshes service-account secrets +
+  policies on re-runs (rotations used to silently never propagate); the
+  dead `IS_LOCAL_COMFYUI` chain, unread `WEBUI_ADMIN_*` container env,
+  and two never-called legacy methods in the research streaming tool
+  were removed.
 - Docs: zeppelin README no longer claims `%spark` works without the
   Spark-Connect setup (the image ships no Spark distro) and its starter
   notebook uses `spark.version` (no `sc` under Connect); comfyui README
@@ -222,8 +256,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   / `WEAVIATE_LOCALHOST_PORT` / `NEO4J_LOCALHOST_BOLT_PORT` like every
   other consumer, instead of probing hardcoded ports and warning
   falsely on overridden setups.
-- searxng no longer `depends_on` redis (`valkey.url: false` — the gate
-  was pure startup coupling).
+- searxng's compose no longer gates startup on redis (`valkey.url:
+  false` — pure coupling; the manifest keeps a slot-pinning entry).
 
 ### Changed — 2026-06-10 overnight maintenance pass 1
 
