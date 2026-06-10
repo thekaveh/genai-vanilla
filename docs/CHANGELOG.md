@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance passes 21-25 (4 commits)
+
+- **Neo4j backup/restore never worked on the shipped 5.19 image** —
+  `database dump --output-name` doesn't exist (every backup failed AND
+  `set -e` aborted before `neo4j start`, leaving the DB stopped), and
+  community editions have no `database restore` subcommand at all. The
+  scripts now dump via `--to-path` + rename, restore via `database load
+  --from-stdin`, and restart Neo4j through an EXIT trap even on
+  failure; the README's 4.x-isms (NEO4J_dbms_memory_*, `db.indexes()`,
+  "incremental backups", wrong volume name, phantom APOC) corrected.
+- node-exporter now passes `--path.rootfs=/rootfs` — without it the
+  filesystem metrics the containers-and-host dashboard graphs described
+  the exporter's own overlay mount, not the host disks the bind exists
+  to expose.
+- The ollama.com variant scraper accepts `M`-suffixed context windows
+  (`10M context window` rows — the llama4 class — were silently
+  dropped to coarse sizes).
+- Earlier in this span: a health-probe DB connection leak closed
+  (close-in-finally), the silently-no-op'd keys help-text edit landed
+  for real, and the whole resource-close pattern class was exhaustively
+  swept (23 sites verified safe).
+
 ### Fixed — 2026-06-10 overnight maintenance pass 20 (1 commit)
 
 - The regen tool's doc-only boilerplate variant now also covers
