@@ -183,7 +183,12 @@ if [[ -n "${models_json:-}" ]]; then
         | select(
             (contains("/"))
             or
-            (($all | any(. != $current and endswith("/" + $current))) | not)
+            # Only the ollama dual-alias counts as a twin of a bare id.
+            # The old endswith("/"+id) check also matched OpenRouter
+            # forms (openrouter/openai/gpt-5 vs gpt-5) and silently
+            # dropped the DIRECT-API entry — a different upstream with
+            # different keys/billing, not an alias.
+            (($all | any(. == ("ollama/" + $current))) | not)
           )
       )
     | .[]
