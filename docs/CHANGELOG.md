@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 7 (1 commit)
+
+- The `--no-tui` banner now honors the `BRAND_*` rebranding knobs (it
+  hardcoded the upstream credits while the Textual wizard rebranded);
+  the atomic `.env` write preserves the file's mode, cleans up its tmp
+  sibling on failure, and `.env.tmp` is gitignored; the launch-time
+  skip-prune moved to a module-level helper so its regression test
+  binds to production code instead of an inline replica.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 6 (1 commit)
 
 - Pre-launch command summary no longer shows flags from steps the user
