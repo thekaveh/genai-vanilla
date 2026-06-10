@@ -21,12 +21,24 @@ def render_section(graph: DepGraph, position: int = 5) -> str:
     lines: list[str] = []
     lines.append(f"## {position}. Dependencies & Integrations")
     lines.append("")
-    lines.append(
-        "> Auto-generated section — the **Current** subsections are derived from "
-        f"`services/{graph.focus}/service.yml`'s `data_flow.calls` field "
-        f"(and inverse passes). Re-run "
-        f"`python -m bootstrapper.docs.regen {graph.focus}` after manifest changes."
-    )
+    if getattr(graph, "source", "").startswith("(pointer doc"):
+        # Doc-only folders (no service.yml of their own — e.g.
+        # multi2vec-clip): citing `services/<focus>/service.yml` would
+        # point at a file the same README says doesn't exist.
+        lines.append(
+            "> Auto-generated section — this is a doc-only folder (no "
+            f"`services/{graph.focus}/service.yml`); its data-flow edges "
+            "live in the owning family's manifest (see §4). Re-run "
+            f"`python -m bootstrapper.docs.regen {graph.focus}` after "
+            "changing them there."
+        )
+    else:
+        lines.append(
+            "> Auto-generated section — the **Current** subsections are derived from "
+            f"`services/{graph.focus}/service.yml`'s `data_flow.calls` field "
+            f"(and inverse passes). Re-run "
+            f"`python -m bootstrapper.docs.regen {graph.focus}` after manifest changes."
+        )
     lines.append("")
 
     # Current — Upstream

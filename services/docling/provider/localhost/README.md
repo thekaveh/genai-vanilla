@@ -29,7 +29,7 @@ uv pip install torch torchvision
 uv run server.py
 ```
 
-The server will start on `http://0.0.0.0:63021` by default (reads `DOC_PROCESSOR_PORT` from environment).
+The server will start on `http://0.0.0.0:63021` by default (reads `DOCLING_LOCALHOST_PORT` from environment).
 
 **First run:** Downloads AI models (~500MB - DocLayNet + TableFormer). Please be patient (5-10 minutes).
 **Subsequent runs:** Instant startup.
@@ -50,7 +50,7 @@ curl -X POST http://localhost:63021/v1/document/convert \
 Set before running server:
 
 ```bash
-export DOC_PROCESSOR_PORT=63021          # Server port (default: 63021)
+export DOCLING_LOCALHOST_PORT=63021      # Server port (default: 63021)
 export DOCLING_DEVICE=cpu                # Device: cpu, cuda, mps
 export DOCLING_OUTPUT_FORMAT=markdown    # Format: markdown, html, json, doctags
 export DOCLING_TABLE_MODE=accurate       # Table mode: accurate, fast
@@ -60,14 +60,14 @@ export HF_TOKEN=your_token_here          # HuggingFace token (if needed)
 ### Custom Port
 
 ```bash
-export DOC_PROCESSOR_PORT=55021
+export DOCLING_LOCALHOST_PORT=55021
 uv run server.py
 ```
 
 Or read from project .env:
 ```bash
 # .env lives at the repo root, four levels up from this README
-export DOC_PROCESSOR_PORT=$(grep DOC_PROCESSOR_PORT ../../../../.env | cut -d'=' -f2)
+export DOCLING_LOCALHOST_PORT=$(grep '^DOCLING_LOCALHOST_PORT' ../../../../.env | cut -d'=' -f2)
 uv run server.py
 ```
 
@@ -146,7 +146,7 @@ uv run server.py
 
 ```bash
 # Terminal 1: Export port from .env (repo root is four levels up)
-export DOC_PROCESSOR_PORT=$(grep DOC_PROCESSOR_PORT ../../../../.env | cut -d'=' -f2)
+export DOCLING_LOCALHOST_PORT=$(grep '^DOCLING_LOCALHOST_PORT' ../../../../.env | cut -d'=' -f2)
 uv run server.py
 
 # Terminal 2: Start stack with custom port
@@ -190,7 +190,7 @@ Then start stack:
 
 ```bash
 # Use different port
-export DOC_PROCESSOR_PORT=63022
+export DOCLING_LOCALHOST_PORT=63022
 uv run server.py
 ```
 

@@ -26,10 +26,11 @@ MULTI2VEC_CLIP_SOURCE=container-cpu       # container-cpu | container-gpu | disa
 CLIP_INFERENCE_API=http://multi2vec-clip:8080
 ```
 
-What Weaviate sees (set by the `weaviate-init` step):
+What Weaviate sees (compose interpolation of `WEAVIATE_ENABLE_MODULES`
+from `.env` — `services/weaviate/compose.yml`; no init step touches it):
 
 ```bash
-WEAVIATE_ENABLE_MODULES=text2vec-openai,multi2vec-clip,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama
 CLIP_INFERENCE_API=http://multi2vec-clip:8080
 ```
 
@@ -37,7 +38,7 @@ Disabling the CLIP module requires updating both the source variant **and** Weav
 
 ```bash
 MULTI2VEC_CLIP_SOURCE=disabled
-WEAVIATE_ENABLE_MODULES=text2vec-openai,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,text2vec-ollama,generative-openai,generative-ollama
 CLIP_INFERENCE_API=
 ```
 
@@ -73,7 +74,7 @@ Weaviate calls this endpoint internally on every `POST /v1/objects` against a co
 
 ## 5. Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/multi2vec-clip/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen multi2vec-clip` after manifest changes.
+> Auto-generated section — this is a doc-only folder (no `services/multi2vec-clip/service.yml`); its data-flow edges live in the owning family's manifest (see §4). Re-run `python -m bootstrapper.docs.regen multi2vec-clip` after changing them there.
 
 ### 5.1 Current — Upstream (this service calls)
 

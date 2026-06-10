@@ -156,7 +156,7 @@ for scripted changes.
   override for the OpenAI TTS provider; STT may need a fallback to
   `provider: command` with a `HERMES_LOCAL_STT_COMMAND`-style curl. See the
   comment in `services/hermes/init/templates/config.yaml.tmpl`.
-- **64K context floor** — small Ollama models (default 4096 ctx) will fail
+- **64K context floor** — small Ollama models (small default contexts) will fail
   Hermes's preflight check. Raise it via `OLLAMA_CONTEXT_LENGTH=65536`
   on the Ollama server, or `/set parameter num_ctx 65536` + `/save <model>`
   inside `ollama run <model>`

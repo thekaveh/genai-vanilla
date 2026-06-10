@@ -7,10 +7,13 @@ import os
 import sys
 from pathlib import Path
 
-# Load .env from project root (for port configuration with --base-port)
+# Load .env from the REPO root (for port configuration with --base-port).
+# This file lives at services/docling/provider/localhost/, so the root is
+# five parents up — three only reached services/docling/ and the load
+# silently no-op'd.
 try:
     from dotenv import load_dotenv
-    env_file = Path(__file__).parent.parent.parent / '.env'
+    env_file = Path(__file__).resolve().parents[4] / '.env'
     if env_file.exists():
         load_dotenv(env_file)
 except ImportError:
@@ -100,7 +103,11 @@ async def convert_document(
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("DOC_PROCESSOR_PORT", 63021))
+    # DOCLING_LOCALHOST_PORT is the stack's localhost-mode contract (the
+    # var Kong / runtime_sc / localhost_validator all probe). The old
+    # DOC_PROCESSOR_PORT read is the CONTAINER-mode host-bind var — it
+    # only worked because the fallback happened to be 63021.
+    port = int(os.getenv("DOCLING_LOCALHOST_PORT") or 63021)
     print(f"🚀 Starting Docling server on port {port}")
     print(f"📄 Device: {os.getenv('DOCLING_DEVICE', 'cpu')}")
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
