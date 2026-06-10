@@ -134,3 +134,35 @@ def full_manifest_dict():
         }
 
     return _make
+
+
+@pytest.fixture
+def env_with_overrides(tmp_path):
+    """Factory: copy .env.example to a tmp .env with KEY=value overrides
+    spliced in-place (appended when the key is absent). Returns the path.
+
+    Extracted from the identical 15-line loop previously duplicated in
+    four test files (compose-profiles, n8n-scale, lightrag/tei
+    permutations, lightrag adaptation).
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    env_example = repo_root / ".env.example"
+
+    def _build(overrides: dict, filename: str = ".env") -> Path:
+        env_path = tmp_path / filename
+        text = env_example.read_text(encoding="utf-8")
+        out, replaced = [], set()
+        for line in text.splitlines():
+            key = line.split("=", 1)[0] if "=" in line else None
+            if key in overrides and key not in replaced:
+                out.append(f"{key}={overrides[key]}")
+                replaced.add(key)
+            else:
+                out.append(line)
+        for var, val in overrides.items():
+            if var not in replaced:
+                out.append(f"{var}={val}")
+        env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+        return env_path
+
+    return _build
