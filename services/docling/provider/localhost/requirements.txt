@@ -1,4 +1,4 @@
-docling==2.93.0
+docling==2.94.0
 fastapi==0.136.3
 uvicorn[standard]==0.47.0
 python-multipart==0.0.32
