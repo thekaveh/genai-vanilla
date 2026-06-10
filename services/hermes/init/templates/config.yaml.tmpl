@@ -75,7 +75,8 @@ search:
 #        - ``hermes-agent`` — LiteLLM's passthrough back to Hermes,
 #          which would create a recursive loop if selected.
 #        - Bare aliases (e.g. ``qwen3.6:latest``) whose prefixed twins
-#          (``ollama_chat/qwen3.6:latest``) are also in the catalog.
+#          (``ollama/qwen3.6:latest`` — the id LiteLLM publishes on
+#          /v1/models) are also in the catalog.
 #
 # The list is rendered by ``hermes-init`` from a live LiteLLM query at
 # boot; the canonical prefixed forms survive the filter. Other

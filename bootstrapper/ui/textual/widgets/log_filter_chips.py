@@ -332,6 +332,12 @@ class LogFilterChips(Container):
         self._notify()
 
     def clear_filters(self) -> None:
+        # Close an open source popup first: its dismiss handler writes
+        # back the popup's open-time disabled-set snapshot, which would
+        # silently revert this clear.
+        if self._open_popup is not None:
+            self._open_popup.action_dismiss()
+            self._open_popup = None
         self._level = "all"
         self._disabled_svcs.clear()
         for k, chip in self._level_chips.items():

@@ -29,10 +29,11 @@ Behavior:
            - If LLM_PROVIDER_SOURCE in {none, disabled} → deactivate all.
            - If OLLAMA_USER_MODELS set → activate exactly those rows.
            - OLLAMA_CUSTOM_MODELS rows (not in catalog) → INSERT new
-             rows with sensible defaults and active=true. Only honored
-             for ollama-container-* sources; registered + activated anyway, with a warning (the host-side Ollama owns the actual pull)
-             otherwise, because ollama-pull doesn't run for host-side
-             Ollama and the row would be unreachable.
+             rows with sensible defaults and active=true, for ALL
+             ollama sources. Non-container sources get a loud warning:
+             ollama-pull doesn't run host-side, so the operator must
+             `ollama pull` the model themselves or requests to the row
+             404 at LiteLLM.
   5. Exit 0.
 
 Catalog rows that get added/removed in ``llm_catalog.py`` flow through
