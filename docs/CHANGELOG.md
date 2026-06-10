@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 8 (1 commit)
+
+- The atomic `.env` write clamps the tmp file's mode BEFORE secrets are
+  written (no umask-default window beside a 0600 `.env`); two LiteLLM
+  docstrings corrected to match actual behavior (a missing config stub
+  is always written; non-container custom Ollama models are registered
+  with a warning, not ignored).
+
 ### Fixed — 2026-06-10 overnight maintenance pass 7 (1 commit)
 
 - The `--no-tui` banner now honors the `BRAND_*` rebranding knobs (it
