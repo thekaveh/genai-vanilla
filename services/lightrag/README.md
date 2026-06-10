@@ -116,7 +116,6 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 | kong | infra |
 | hermes | agents |
 | n8n | agents |
-| backend | apps |
 
 ### 5.3 Architecture diagram
 

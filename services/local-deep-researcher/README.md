@@ -72,6 +72,7 @@ DOCLING_ENDPOINT=...
 
 | Service | Category |
 |---|---|
+| supabase | data |
 | litellm | llm |
 | searxng | media |
 

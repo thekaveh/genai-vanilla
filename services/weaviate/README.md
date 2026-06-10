@@ -77,7 +77,6 @@ Optional consumers should use `WEAVIATE_URL` and perform feature-level readiness
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |
-| open-webui | apps |
 
 ### 5.3 Architecture diagram
 

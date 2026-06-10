@@ -63,11 +63,13 @@ All dashboards reference the `Prometheus` datasource by name (UID = `Prometheus`
 
 | Service | Category |
 |---|---|
-| prometheus | infra |
+| prometheus ↔ | infra |
 
 ### 5.2 Current — Downstream (services that call this)
 
-_No downstream consumers._
+| Service | Category |
+|---|---|
+| prometheus ↔ | infra |
 
 ### 5.3 Architecture diagram
 

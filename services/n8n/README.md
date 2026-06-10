@@ -114,6 +114,7 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 | prometheus | infra |
 | openclaw | agents |
 | backend | apps |
+| jupyterhub | apps |
 
 ### 6.3 Architecture diagram
 

@@ -78,6 +78,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 | hermes | agents |
 | n8n | agents |
 | backend | apps |
+| jupyterhub | apps |
 | open-webui | apps |
 
 ### 5.3 Architecture diagram

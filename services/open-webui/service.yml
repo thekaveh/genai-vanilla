@@ -132,16 +132,22 @@ runtime_deps:
 
 data_flow:
   # Open WebUI reaches every plugged-in media + agent feature at request
-  # time. Calls beyond litellm + searxng are guarded by their SOURCE
-  # being != disabled; runtime_deps.open-web-ui.optional lists the same
-  # services from a different angle (wizard hints + compose ordering).
+  # time. Media calls are guarded by their SOURCE being != disabled;
+  # runtime_deps.open-web-ui.optional lists the same services from a
+  # different angle (wizard hints + compose ordering). supabase is the
+  # app DB (DATABASE_URL), redis backs the websocket manager, and the
+  # bundled extras tools/functions call the backend's memory/research/
+  # comfyui endpoints. searxng + weaviate are NOT wired today — they
+  # live in README §5.4 Future pairs (ENABLE_RAG_WEB_SEARCH / vector
+  # store) until someone adds the mechanism.
   calls:
     - litellm
-    - searxng
+    - supabase
+    - redis
+    - backend
     - comfyui
     - stt-provider
     - tts-provider
     - doc-processor
     - local-deep-researcher
-    - weaviate
 

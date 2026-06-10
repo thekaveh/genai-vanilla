@@ -352,12 +352,15 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 | Service | Category |
 |---|---|
 | ray | infra |
-| minio | data |
 | neo4j | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
+| comfyui | media |
+| searxng | media |
 | hermes | agents |
+| n8n | agents |
+| backend | apps |
 
 ### 15.2 Current — Downstream (services that call this)
 
