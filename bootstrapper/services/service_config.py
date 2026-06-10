@@ -111,6 +111,13 @@ class ServiceConfig:
         # We pass the running env_vars dict through both so the TTS pass sees
         # any SPEACHES_SCALE / COMPOSE_PROFILES that STT already set — this is
         # how the speaches dedup avoids double-adding profile or scale.
+        #
+        # COMPOSE_PROFILES is fully owned by this pipeline: seed it empty so
+        # the final value reflects exactly this run's active sources. Without
+        # the seed, a run in which no generator adds a profile leaves the key
+        # out of the dict, and update_env_file() then preserves a stale value
+        # in .env (e.g. a docling-gpu profile from a since-disabled source).
+        env_vars['COMPOSE_PROFILES'] = ''
         stt_config = self._generate_stt_provider_config(shared_env=env_vars)
         env_vars.update(stt_config)
 
@@ -118,7 +125,7 @@ class ServiceConfig:
         env_vars.update(tts_config)
 
         # Generate Document Processor configuration
-        doc_config = self._generate_doc_processor_config()
+        doc_config = self._generate_doc_processor_config(shared_env=env_vars)
         env_vars.update(doc_config)
 
         # Generate OpenClaw configuration
@@ -398,15 +405,14 @@ class ServiceConfig:
     def _add_compose_profile(self, env_vars: Dict[str, str], profile: str) -> None:
         """Append a docker-compose profile to COMPOSE_PROFILES idempotently.
 
-        Reads the running tally from ``env_vars`` first (so multiple generators
-        in a single pass can stack additions) and falls back to whatever the
-        user pre-seeded in .env. Skips the add if ``profile`` is already
-        present. Used by the speaches dedup path — if both TTS and STT pick
-        speaches, both generators try to add the same profile and we don't
-        want it duplicated in COMPOSE_PROFILES.
+        Reads the running tally from ``env_vars`` (seeded empty at the top of
+        generate_service_environment, so each run rebuilds the value from
+        scratch). Skips the add if ``profile`` is already present. Used by
+        the speaches dedup path — if both TTS and STT pick speaches, both
+        generators try to add the same profile and we don't want it
+        duplicated in COMPOSE_PROFILES.
         """
-        current = env_vars.get('COMPOSE_PROFILES',
-                               self.service_sources.get('COMPOSE_PROFILES', '')) or ''
+        current = env_vars.get('COMPOSE_PROFILES', '') or ''
         existing = [p for p in current.split(',') if p]
         if profile in existing:
             return
@@ -529,8 +535,7 @@ class ServiceConfig:
 
     def _remove_compose_profile(self, env_vars: Dict[str, str], profile: str) -> None:
         """Drop a profile from COMPOSE_PROFILES if present (no-op otherwise)."""
-        current = env_vars.get('COMPOSE_PROFILES',
-                               self.service_sources.get('COMPOSE_PROFILES', '')) or ''
+        current = env_vars.get('COMPOSE_PROFILES', '') or ''
         existing = [p for p in current.split(',') if p and p != profile]
         env_vars['COMPOSE_PROFILES'] = ','.join(existing)
 
@@ -544,12 +549,17 @@ class ServiceConfig:
             return env_vars[var]
         return self.config_parser.parse_env_file().get(var, '')
 
-    def _generate_doc_processor_config(self) -> Dict[str, str]:
-        """Generate Document Processor (Docling) configuration."""
+    def _generate_doc_processor_config(self, shared_env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        """Generate Document Processor (Docling) configuration.
+
+        ``shared_env`` carries env vars accumulated by earlier generators so
+        the docling-gpu profile stacks onto COMPOSE_PROFILES instead of
+        clobbering the STT/TTS profiles added before it.
+        """
         source_value = self.service_sources.get('DOC_PROCESSOR_SOURCE', 'disabled')
         config = self.get_service_config('doc_processor', source_value)
 
-        env_vars = {}
+        env_vars: Dict[str, str] = dict(shared_env or {})
 
         # Set DOCLING_ENDPOINT with localhost replacement (matching STT/TTS pattern)
         if source_value == 'disabled':
@@ -575,9 +585,8 @@ class ServiceConfig:
         if source_value == 'docling-container-gpu':
             env_vars['DOCLING_GPU_SCALE'] = '1'
             # Activate docling-gpu and doc-gpu profiles to enable building the GPU service
-            current_profiles = self.service_sources.get('COMPOSE_PROFILES', '')
-            new_profiles = 'docling-gpu,doc-gpu' if not current_profiles else f"{current_profiles},docling-gpu,doc-gpu"
-            env_vars['COMPOSE_PROFILES'] = new_profiles
+            self._add_compose_profile(env_vars, 'docling-gpu')
+            self._add_compose_profile(env_vars, 'doc-gpu')
         elif source_value == 'docling-localhost':
             env_vars['DOCLING_GPU_SCALE'] = '0'
         else:  # disabled
@@ -931,14 +940,18 @@ class ServiceConfig:
         """Generate configuration for other services."""
         env_vars = {}
         
-        # N8N configuration
+        # N8N configuration — scale derives from N8N_SOURCE via the manifest
+        # (container → 1, disabled → 0). Reading a pre-existing N8N_SCALE
+        # from .env here made `N8N_SOURCE=disabled` a silent no-op (the key
+        # always exists in .env, so the manifest value was never consulted)
+        # and made the dependency manager's auto-disable sticky forever.
+        # The dependency manager runs AFTER this generator (start.py step
+        # 4.1 vs step 4), so its violation-driven zeroing still wins for
+        # the current run and gets re-evaluated fresh on every later run.
         n8n_source = self.service_sources.get('N8N_SOURCE', 'container')
         n8n_config = self.get_service_config('n8n', n8n_source)
-        
-        # Check if N8N_SCALE was already set (e.g., by dependency manager)
-        current_env = self.config_parser.parse_env_file()
-        n8n_scale = current_env.get('N8N_SCALE', str(n8n_config.get('scale', 1)))
-        
+        n8n_scale = str(n8n_config.get('scale', 1))
+
         env_vars['N8N_SCALE'] = n8n_scale
         env_vars['N8N_WORKER_SCALE'] = n8n_scale  # Worker follows main N8N scale
         env_vars['N8N_INIT_SCALE'] = n8n_scale    # Init follows main N8N scale
