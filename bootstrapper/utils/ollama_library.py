@@ -270,7 +270,7 @@ class OllamaVariant:
     """
     tag: str                          # e.g. "8b", "latest", "27b-coding-mxfp8"
     size_label: str                   # raw size string from upstream: "5.2GB", "523MB"
-    context_label: str                # context window: "40K", "256K"
+    context_label: str                # context window: "40K", "256K", "1M"
     input_modalities: tuple[str, ...] # ("Text",) or ("Text", "Image") or ("Audio",)
     updated: str                      # relative timestamp, "7 months ago"
     # Apple-Silicon-optimised MLX weights are published as a separate
@@ -316,7 +316,7 @@ _VARIANT_BLOCK_RE_TPL = (
 _VARIANT_SUMMARY_RE = re.compile(
     r'<p class="flex text-neutral-500"[^>]*>'
     r'([0-9.]+[GM]?B)\s*·\s*'
-    r'([0-9]+K?)\s+context\s+window\s*·\s*'
+    r'([0-9]+[KM]?)\s+context\s+window\s*·\s*'
     r'([^·<]+?)\s*·\s*'
     r'([^<]+?)</p>',
 )

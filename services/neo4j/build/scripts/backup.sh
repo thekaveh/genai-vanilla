@@ -17,6 +17,11 @@ mkdir -p "${BACKUP_DIR}"
 
 echo "Creating Neo4j database backup to ${BACKUP_FILE}..."
 
+# Restart Neo4j even if the dump fails — under `set -e`, a dump error
+# previously aborted the script BEFORE `neo4j start`, leaving the
+# database stopped.
+trap 'neo4j start' EXIT
+
 # Stop Neo4j service temporarily to ensure consistent backup
 neo4j stop
 
@@ -26,11 +31,12 @@ until ! neo4j status | grep -q "Neo4j is running"; do
   sleep 1
 done
 
-# Perform the backup using neo4j-admin
-neo4j-admin database dump neo4j --to-path="${BACKUP_DIR}" --output-name="backup_${TIMESTAMP}.dump"
-
-# Restart Neo4j service
-neo4j start
+# Perform the backup using neo4j-admin. 5.x `database dump` accepts only
+# --to-path (emitting <database>.dump) or --to-stdout — the old
+# --output-name flag does not exist and failed every backup. Dump to the
+# fixed name, then rename to the timestamped file.
+neo4j-admin database dump neo4j --to-path="${BACKUP_DIR}" --overwrite-destination
+mv "${BACKUP_DIR}/neo4j.dump" "${BACKUP_FILE}"
 
 echo "Backup completed and stored at: ${BACKUP_FILE}"
-echo "Neo4j service restarted."
+echo "Neo4j service restarting (EXIT trap)."

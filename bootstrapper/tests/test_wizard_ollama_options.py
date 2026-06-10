@@ -347,3 +347,20 @@ def test_wizard_upstream_honors_ollama_localhost_port(
     }
     _get_options_provider(env)(_select_localhost())
     assert captured.get("url") == "http://localhost:12345"
+
+
+def test_variant_summary_regex_accepts_m_suffix_context():
+    """ollama.com renders huge-context models as '10M context window' —
+    the K-only regex silently dropped every such variant (llama4 class),
+    collapsing them to coarse sizes."""
+    from utils.ollama_library import _VARIANT_SUMMARY_RE
+
+    html = ('<p class="flex text-neutral-500" x>'
+            '244GB · 10M context window · Text · 4 months ago</p>')
+    m = _VARIANT_SUMMARY_RE.search(html)
+    assert m is not None
+    assert m.group(2) == "10M"
+    html_k = ('<p class="flex text-neutral-500" x>'
+              '4.7GB · 256K context window · Text · 1 year ago</p>')
+    mk = _VARIANT_SUMMARY_RE.search(html_k)
+    assert mk is not None and mk.group(2) == "256K"

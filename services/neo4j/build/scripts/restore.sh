@@ -27,11 +27,12 @@ if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
       sleep 1
     done
     
-    # Get backup filename without path
-    BACKUP_FILENAME=$(basename "${LATEST_BACKUP}")
     
-    # Restore the database
-    neo4j-admin database restore neo4j --from-path="${SNAPSHOT_DIR}" --input-name="${BACKUP_FILENAME}" --force
+    # Restore the database. 5.x community has no `database restore`
+    # subcommand (that pairs with enterprise `backup`); dumps are
+    # restored with `database load`. --from-stdin sidesteps load's
+    # <database>.dump naming requirement for our timestamped files.
+    neo4j-admin database load neo4j --from-stdin --overwrite-destination < "${LATEST_BACKUP}"
     
     # Start Neo4j service
     neo4j start
