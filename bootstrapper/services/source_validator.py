@@ -129,8 +129,11 @@ class SourceValidator:
         Returns:
             bool: True if valid
         """
-        # Clear validation errors for clean state
-        self.validation_errors = []
+        # NOTE: deliberately no validation_errors reset here. The only
+        # caller is the validate_all_sources() loop, which clears the list
+        # once before iterating — a per-item reset wiped every error but
+        # the last item's, so multi-error runs printed "All SOURCE values
+        # are valid" while exiting 1.
 
         # Get service mappings dynamically from YAML
         service_mapping = self.get_service_mapping_from_yaml()
