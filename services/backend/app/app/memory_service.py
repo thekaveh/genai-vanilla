@@ -816,7 +816,7 @@ Extract the facts as JSON:"""
                 "is_active": updated["is_active"],
                 "created_at": updated["created_at"].isoformat(),
                 "updated_at": updated["updated_at"].isoformat(),
-                "metadata": updated["metadata"] or {},
+                "metadata": json.loads(updated["metadata"]) if isinstance(updated["metadata"], str) else (updated["metadata"] or {}),
             }
 
         finally:

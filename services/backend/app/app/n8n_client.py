@@ -22,24 +22,17 @@ class N8nClient:
         await self.aclose()
 
     async def list_workflows(self) -> List[Dict[str, Any]]:
-        """List all workflows"""
+        """List all workflows.
+
+        n8n's public API wraps the list in a ``{"data": [...],
+        "nextCursor": ...}`` envelope — return the inner list (the raw
+        dict failed the route's List[WorkflowResponse] validation).
+        """
         response = await self._client.get(
             f"{self.base_url}/api/v1/workflows", headers=self.headers
         )
         response.raise_for_status()
-        return response.json()
-
-    async def execute_workflow(
-        self, workflow_id: str, data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Execute a workflow by ID"""
-        response = await self._client.post(
-            f"{self.base_url}/api/v1/workflows/{workflow_id}/execute",
-            headers=self.headers,
-            json=data or {},
-        )
-        response.raise_for_status()
-        return response.json()
+        return response.json().get("data", [])
 
     async def get_workflow(self, workflow_id: str) -> Dict[str, Any]:
         """Get a workflow by ID"""
