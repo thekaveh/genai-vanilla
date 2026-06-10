@@ -35,17 +35,18 @@ class GenAIStackStopper:
     def show_usage(self):
         """Display usage information."""
         usage_text = """
-Usage: python stop.py [options]
+Usage: ./stop.sh [options]   (or: python bootstrapper/stop.py)
 
 Options:
   --cold             Remove volumes (data will be lost)
   --clean-hosts      Remove GenAI Stack hosts file entries (requires sudo/admin)
-  --help             Show this help message
+  --help-usage       Show this detailed usage message
+  --help             Show the option summary
 
 Examples:
-  python stop.py                 # Stop all containers, preserve data
-  python stop.py --cold          # Stop all containers and remove all data volumes
-  python stop.py --clean-hosts   # Stop containers and clean up hosts file
+  ./stop.sh                 # Stop all containers, preserve data
+  ./stop.sh --cold          # Stop all containers and remove all data volumes
+  ./stop.sh --clean-hosts   # Stop containers and clean up hosts file
 """
         print(usage_text)
         
@@ -94,8 +95,8 @@ Examples:
                 self.banner.show_status_message("Cold stop completed successfully - all containers stopped and data removed", "success")
             else:
                 self.banner.show_status_message("Some issues occurred during cold stop", "warning")
-                
-            return True  # Continue despite any issues
+
+            return success
                 
         else:
             self.banner.show_status_message("Performing standard stop (preserving volumes)...", "info")
@@ -106,7 +107,7 @@ Examples:
                 return True
             else:
                 self.banner.show_status_message("Some issues occurred while stopping containers", "warning")
-                return True  # Continue despite issues
+                return False
                 
     def cleanup_hosts_entries(self) -> bool:
         """Clean up hosts file entries if requested."""
@@ -114,12 +115,14 @@ Examples:
         
         return self.hosts_manager.cleanup_hosts_entries()
         
-    def show_final_status(self, cold_stop: bool, clean_hosts: bool):
+    def show_final_status(self, cold_stop: bool, clean_hosts: bool, services_ok: bool = True):
         """Display final stop status and next steps."""
         print()
         self.banner.console.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style="bright_white")
-        
-        if cold_stop:
+
+        if not services_ok:
+            self.banner.console.print("⚠️  GenAI Vanilla Stack stop completed with errors — see messages above", style="bold bright_yellow")
+        elif cold_stop:
             self.banner.console.print("🎯 GenAI Vanilla Stack stopped with complete data cleanup", style="bold bright_green")
             self.banner.console.print("   ✅ All containers stopped and removed")
             self.banner.console.print("   ✅ All data volumes removed")
@@ -138,11 +141,11 @@ Examples:
         
         # Show restart instructions
         self.banner.console.print("🔄 To restart the stack, run:", style="bold bright_white")
-        self.banner.console.print("   ./start.py                    # Start with default settings")
-        self.banner.console.print("   ./start.py --base-port 64567  # Start with custom base port")
+        self.banner.console.print("   ./start.sh                    # Start with default settings")
+        self.banner.console.print("   ./start.sh --base-port 64567  # Start with custom base port")
         
         if cold_stop:
-            self.banner.console.print("   ./start.py --cold             # Recommended after cold stop")
+            self.banner.console.print("   ./start.sh --cold             # Recommended after cold stop")
             
         print()
         self.banner.console.print("📚 For more information, check the README.md file", style="bright_white")
@@ -169,18 +172,22 @@ def main(cold, clean_hosts, help_usage):
         # Step 1: Show configuration information
         project_name = stopper.show_configuration_info(cold, clean_hosts)
         
-        # Step 2: Stop Docker services
-        if not stopper.stop_services(cold, project_name):
-            sys.exit(1)
-            
+        # Step 2: Stop Docker services. Keep going on failure so hosts
+        # cleanup and the final status still run, but exit non-zero at the
+        # end — scripts/CI need a truthful exit code for a failed `down`.
+        services_ok = stopper.stop_services(cold, project_name)
+
         # Step 3: Clean up hosts entries if requested
         if clean_hosts:
             if not stopper.cleanup_hosts_entries():
                 # Don't exit on hosts cleanup failure, just continue
                 pass
-                
+
         # Step 4: Show final status
-        stopper.show_final_status(cold, clean_hosts)
+        stopper.show_final_status(cold, clean_hosts, services_ok=services_ok)
+
+        if not services_ok:
+            sys.exit(1)
         
     except KeyboardInterrupt:
         print("\n❌ Stop process interrupted by user")
