@@ -134,10 +134,12 @@ class ServiceConfig:
         # compose interpolation regardless.
         _profiles_now = (env_vars.get('COMPOSE_PROFILES') or '').split(',')
         if 'speaches-gpu' in _profiles_now:
-            env_vars['SPEACHES_IMAGE'] = (
-                (self._resolved_env('SPEACHES_GPU_IMAGE', env_vars) or '').strip()
-                or 'ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda'
-            )
+            # The pin refresher (top of this method) guarantees
+            # SPEACHES_GPU_IMAGE is present from the manifest default;
+            # _resolved_env still lets a user .env pin win.
+            gpu_image = (self._resolved_env('SPEACHES_GPU_IMAGE', env_vars) or '').strip()
+            if gpu_image:
+                env_vars['SPEACHES_IMAGE'] = gpu_image
 
         # Generate Document Processor configuration
         doc_config = self._generate_doc_processor_config(shared_env=env_vars)
@@ -1229,6 +1231,18 @@ class ServiceConfig:
                 if os.environ.get(var):
                     continue
                 env_vars[var] = default
+            # Image pins declared as plain env vars (e.g. the speaches
+            # CUDA build, which is an alternate tag for the same
+            # container rather than an images[] entry) need the same
+            # staleness refresh — without this, a cuda bump in the
+            # manifest left old user pins running forever.
+            for e in getattr(m, 'env', None) or []:
+                name = getattr(e, 'name', None)
+                default = getattr(e, 'default', None)
+                if (name and isinstance(default, str) and default
+                        and name.endswith('_IMAGE')
+                        and not os.environ.get(name)):
+                    env_vars.setdefault(name, default)
         return env_vars
 
     def update_env_file(self, env_vars: Dict[str, str], create_backup: bool = True) -> bool:

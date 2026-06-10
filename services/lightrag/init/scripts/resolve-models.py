@@ -111,6 +111,12 @@ def main() -> None:
     if dim_override.isdigit():
         dim = int(dim_override)
     else:
+        if dim_override:
+            print(
+                f"# WARN LIGHTRAG_EMBEDDING_DIM={dim_override!r} is not an "
+                f"integer; falling back to auto-probe.",
+                file=sys.stderr,
+            )
         dim = resolve_dim(embed)
     # Write the BARE env var names LightRAG reads (`LLM_MODEL`,
     # `EMBEDDING_MODEL`, `EMBEDDING_DIM`) — NOT the `LIGHTRAG_*` prefixed
