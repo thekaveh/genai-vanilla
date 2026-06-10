@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .deps_resolver import DepGraph
+from .deps_resolver import DepGraph, doc_folder_to_manifests
 
 
 def render_section(graph: DepGraph, position: int = 5) -> str:
@@ -26,7 +26,6 @@ def render_section(graph: DepGraph, position: int = 5) -> str:
         # their edges live in the MEMBER manifests, not a service.yml of
         # their own (tts-provider is the exception — it has a virtual
         # manifest — but the member citation is correct there too).
-        from .deps_resolver import doc_folder_to_manifests
         members = ", ".join(
             f"`services/{m}/service.yml`"
             for m in doc_folder_to_manifests(graph.focus)

@@ -74,8 +74,8 @@ Examples:
   
 Cross-platform compatibility:
 - Works identically on Windows, macOS, and Linux
-- No external dependencies (uses Python standard library)
-- Replaces the Bash version for better portability
+- Crypto uses only the Python standard library (CLI surface uses click)
+- Preferred over the .sh sibling for portability (both are kept in sync)
 """
         print(usage_text)
         return
