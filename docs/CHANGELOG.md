@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 12 (1 commit)
+
+- The image-pin refresher now also covers pins declared as plain env
+  vars (`SPEACHES_GPU_IMAGE` would otherwise go stale in user `.env`s
+  on every cuda bump — and the pass-11 fix had duplicated its literal);
+  the two LightRAG/TEI wizard-port test rows that pass 11's docstring
+  bump promised are actually in the table now; a swept-in `.pyc` is
+  untracked and the over-broad `!*` in the bundled-data gitignore
+  scoped; a non-integer `LIGHTRAG_EMBEDDING_DIM` now warns before
+  falling back to auto-probe.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 11 (1 commit)
 
 - **`speaches-container-gpu` actually runs the CUDA image now** — the
