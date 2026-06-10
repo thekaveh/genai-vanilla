@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 19 (1 commit)
+
+- The host-run Docling localhost server loaded `.env` from the wrong
+  directory (three parents instead of five — the load silently
+  no-op'd) and bound the container-mode `DOC_PROCESSOR_PORT` instead of
+  the stack's `DOCLING_LOCALHOST_PORT` contract (it only worked because
+  the fallback happened to match); its README taught the wrong var.
+- multi2vec-clip README: module lists now include the
+  `text2vec-ollama`/`generative-ollama` pair (following the old disable
+  snippet verbatim would have dropped them) and the env story correctly
+  credits compose interpolation, not weaviate-init; the regen tool
+  gained a doc-only boilerplate variant so pointer docs stop citing a
+  `service.yml` they themselves say doesn't exist.
+
 ### Fixed — 2026-06-10 overnight maintenance passes 16-18 (3 commits)
 
 - Hermes context-window guidance replaced a fabricated `ollama
