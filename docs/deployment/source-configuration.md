@@ -371,7 +371,7 @@ HERMES_SOURCE=container
 - **Use case**: Run Hermes as a stack service consumed by Open WebUI, n8n, OpenClaw, etc.
 - **Pros**: Easy setup, isolated environment, available to every consumer without per-service wiring
 - **Cons**: ~2–4 GB RAM, ~5.66 GB image on disk, no GPU required
-- **Requirements**: `HERMES_DEFAULT_MODEL` must reference a model with ≥64K context window (stock Ollama defaults to 4096 — set `OLLAMA_CONTEXT_LENGTH=65536` on the Ollama server, or `/set parameter num_ctx 65536` + `/save` inside `ollama run`; or use a cloud model)
+- **Requirements**: `HERMES_DEFAULT_MODEL` must reference a model with ≥64K context window (stock Ollama context defaults are VRAM-dependent (4k/32k/256k) and usually below 64K — set `OLLAMA_CONTEXT_LENGTH=65536` on the Ollama server, or `/set parameter num_ctx 65536` + `/save <model>` inside `ollama run`; or use a cloud model)
 
 #### 4.6.2 `localhost`
 ```bash

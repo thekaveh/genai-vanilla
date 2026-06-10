@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance passes 16-18 (3 commits)
+
+- Hermes context-window guidance replaced a fabricated `ollama
+  --ctx-size` flag (no such flag upstream) with the real paths:
+  `OLLAMA_CONTEXT_LENGTH` on the server or `/set parameter num_ctx` +
+  `/save <model>` in the REPL; the "defaults to 4096" claim updated to
+  current upstream behavior (VRAM-dependent 4k/32k/256k). Test-suite
+  hygiene: validator tests moved onto the shared env fixture; passes
+  14-15 were zero-finding verification sweeps.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 13 (1 commit)
 
 - The speaches GPU-image rewrite now honors a shell-exported
