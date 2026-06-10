@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 6 (1 commit)
+
+- Pre-launch command summary no longer shows flags from steps the user
+  later hid via Back-navigation (matches what launch actually
+  persists); the SOURCE-override `.env` rewrite is now atomic
+  (tmp + `os.replace` — a crash mid-write used to truncate `.env`);
+  launch-time prune gains a regression test; a migration docstring
+  stopped overstating its STT involvement.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 5 (2 commits)
 
 - **Both seeded n8n research workflows were broken end-to-end**: the
