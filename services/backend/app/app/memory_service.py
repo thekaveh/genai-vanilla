@@ -567,9 +567,9 @@ Extract the facts as JSON:"""
                         # "merge"/"supersede"; the log table stores past
                         # tense. The old guard compared against past-tense
                         # values, so every merge was logged "superseded".
-                        {"merge": "merged", "supersede": "superseded"}.get(
-                            action, "superseded"
-                        ),
+                        {"merge": "merged", "merged": "merged",
+                         "supersede": "superseded",
+                         "superseded": "superseded"}.get(action, "superseded"),
                         source_fact_uuids,
                         keep_fact["id"],  # Already UUID from asyncpg
                         reason,

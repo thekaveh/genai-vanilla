@@ -322,11 +322,28 @@ def test_pulled_library_tag_does_not_duplicate_as_flat_row(
     assert any(o.value == "qwen3.6" for o in opts)
 
 
-def test_wizard_upstream_honors_ollama_localhost_port():
+def test_wizard_upstream_honors_ollama_localhost_port(
+    monkeypatch, library_qwen3_gemma4,
+):
     """The wizard's /api/tags probe must read OLLAMA_LOCALHOST_PORT —
-    the 5th consumer site of the localhost-port symmetry rule."""
-    from wizard.llm_steps import build_ollama_steps  # noqa: F401 (import context)
-    import wizard.llm_steps as llm_steps_mod
-    import inspect
-    src = inspect.getsource(llm_steps_mod)
-    assert 'OLLAMA_LOCALHOST_PORT' in src
+    the 5th consumer site of the localhost-port symmetry rule. Captures
+    the URL the probe actually receives (behavioral, not source-text)."""
+    captured = {}
+
+    def _capturing_pulled(upstream_url, timeout=2.0):
+        captured["url"] = upstream_url
+        return []
+
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_pulled_models", _capturing_pulled,
+    )
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_library_entries",
+        lambda timeout=5.0: library_qwen3_gemma4,
+    )
+    env = {
+        "LLM_PROVIDER_SOURCE": "ollama-localhost",
+        "OLLAMA_LOCALHOST_PORT": "12345",
+    }
+    _get_options_provider(env)(_select_localhost())
+    assert captured.get("url") == "http://localhost:12345"
