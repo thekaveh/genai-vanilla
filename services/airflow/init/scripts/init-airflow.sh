@@ -21,21 +21,20 @@ psql -h supabase-db -U "${SUPABASE_DB_USER}" -d "${SUPABASE_DB_NAME}" -tAc \
        -c "CREATE DATABASE airflow"
 
 echo "==> airflow-init: ensuring airflow role exists"
-# psql :'var' interpolation quotes the password server-side — the
-# previous direct shell interpolation broke CREATE/ALTER ROLE on any
-# password containing a single quote (the only init that built SQL by
-# string-splicing).
+# psql :'var' interpolation quotes the password server-side, avoiding
+# SQL breakage on quoted passwords — but it only works in SCRIPT input
+# (stdin / -f), NOT inside -c strings, so the statements are piped in.
 psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres -tAc \
      "SELECT 1 FROM pg_roles WHERE rolname='${AIRFLOW_DB_USER}'" | grep -q 1 \
-  || psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
-       -v pw="${AIRFLOW_DB_PASSWORD}" \
-       -c "CREATE ROLE ${AIRFLOW_DB_USER} WITH LOGIN PASSWORD :'pw'"
+  || printf "CREATE ROLE %s WITH LOGIN PASSWORD :'pw';\n" "${AIRFLOW_DB_USER}" \
+       | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+              -v pw="${AIRFLOW_DB_PASSWORD}" -v ON_ERROR_STOP=1
 # Re-apply the password every run so that AIRFLOW_DB_PASSWORD rotations
 # in .env are picked up — CREATE ROLE only runs the first time.
 # Idempotent: setting the role's password to its current value is a no-op.
-psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
-     -v pw="${AIRFLOW_DB_PASSWORD}" \
-     -c "ALTER ROLE ${AIRFLOW_DB_USER} WITH PASSWORD :'pw'"
+printf "ALTER ROLE %s WITH PASSWORD :'pw';\n" "${AIRFLOW_DB_USER}" \
+  | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+         -v pw="${AIRFLOW_DB_PASSWORD}" -v ON_ERROR_STOP=1
 psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
      -c "GRANT ALL PRIVILEGES ON DATABASE airflow TO ${AIRFLOW_DB_USER}"
 # Postgres 15+ (the stack ships supabase/postgres:17.x) tightened the
