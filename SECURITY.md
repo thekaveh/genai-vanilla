@@ -1,6 +1,6 @@
 # Security Policy
 
-## Project Posture
+## 1. Project Posture
 
 genai-vanilla is a self-hosted, single-tenant AI infrastructure stack
 intended to run on a developer's local machine or a private homelab
@@ -11,7 +11,7 @@ This posture shapes how we triage Dependabot and CVE alerts:
 vulnerabilities are scored by **(severity × tier × reachability)**, not
 raw CVSS alone.
 
-## Operational Tiers
+## 2. Operational Tiers
 
 | Tier | Manifest examples | Where it runs |
 |------|-------------------|---------------|
@@ -23,7 +23,7 @@ Tier-A vulnerabilities are fast-tracked. Tier-B vulnerabilities are
 documented; users who pick the localhost path own the deployment risk
 on their host.
 
-## Reachability Triage Examples
+## 3. Reachability Triage Examples
 
 - `transformers.Trainer` RCE (CVE-2026-1839, medium): **unreachable**.
   We use `transformers` transitively via easyocr for inference only and
@@ -33,14 +33,14 @@ on their host.
   The bootstrapper makes outbound HTTPS calls (Docker registry, Hugging Face,
   Ollama catalog). Floor-bumped immediately to clear.
 
-## Reporting a Vulnerability
+## 4. Reporting a Vulnerability
 
 This is a personal-project repository. Please open a private security
 advisory via the GitHub repository's **Security** tab → **Report a
 vulnerability**. Do not file public issues for security-sensitive
 findings.
 
-## Remediation Reports
+## 5. Remediation Reports
 
 Historical Dependabot remediation reports were retired from the working
 tree in commit `ebdc9d4` (the `docs/security/` folder used to host them).

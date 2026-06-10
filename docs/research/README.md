@@ -5,7 +5,7 @@ deps + diagrams project. The umbrella plans and specs live under
 [`docs/superpowers/`](../superpowers/) (plans + specs from the 2026-05/06
 feature tracks); the original 2026-05-16 design doc is in the git log.
 
-## Layout
+## 1. Layout
 
 | Path | Purpose |
 |---|---|
@@ -13,7 +13,7 @@ feature tracks); the original 2026-05-16 design doc is in the git log.
 | `candidates/<slug>.md` | One per candidate new service (e.g. `obsidian-mcp.md`, `langfuse.md`). Multiple rows may reference the same candidate. |
 | `integration-matrix.md` | Generated index that aggregates all rows by service, by category, plus a global candidates table. **Do not edit by hand.** Re-generate with `python -m bootstrapper.docs.merge_research`. |
 
-## Row file schema
+## 2. Row file schema
 
 Each `rows/<service>.md` is a markdown file with frontmatter:
 
@@ -45,7 +45,7 @@ _No high-confidence opportunities identified._
 - 800 words total per row file.
 - 5 candidate cross-references per row file.
 
-## Candidate one-pager schema
+## 3. Candidate one-pager schema
 
 Each `candidates/<slug>.md`:
 
@@ -73,7 +73,7 @@ Six required sections:
 
 `## Why now (and why not sooner)` is optional.
 
-## Validation
+## 4. Validation
 
 A schema validator lives at `scripts/validate_research_schema.py`. Run it on
 one file or all:
@@ -85,13 +85,13 @@ python scripts/validate_research_schema.py --all
 
 Exit 0 = valid, 1 = errors (printed with file:line refs).
 
-## Merging
+## 5. Merging
 
 `python -m bootstrapper.docs.merge_research` reads all rows + candidates,
 emits `integration-matrix.md`, and reconciles `referenced-by:` on each
 candidate. Deterministic and idempotent.
 
-## Dispatch pattern (how Phase B was produced)
+## 6. Dispatch pattern (how Phase B was produced)
 
 21 parallel `Explore`-type subagents, one per doc folder, each given a
 programmatically-generated prompt by `bootstrapper.docs.research_subagent_prompt.build_research_prompt(name)`.

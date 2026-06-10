@@ -2,7 +2,7 @@
 
 This guide covers common issues and their solutions when using the GenAI Vanilla Stack.
 
-## .env Migration (LiteLLM rollout)
+## 1. .env Migration (LiteLLM rollout)
 
 If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about missing variables. Apply these changes:
 
@@ -12,7 +12,7 @@ If you're upgrading from a pre-LiteLLM `.env` you may see startup errors about m
 
 The simplest reset is `cp .env.example .env` followed by `./start.sh --cold` — keys are regenerated and every variable is in its current form.
 
-## Session Log {#launch-log}
+## 2. Session Log {#launch-log}
 
 When `./start.sh` runs the Textual TUI, every line is tee'd to a timestamped file — both wizard-time diagnostic events (cloud `/v1/models` fetch failures, Ollama upstream discovery warnings, etc.) and the entire launch phase (build, port verification, `docker compose up`, per-service `logs --tail` on failure):
 
@@ -28,9 +28,9 @@ ls -t /tmp/genai-vanilla-launch-*.log | head -1
 
 Inspect it after a failed launch — it captures everything the log pane showed, plus a few sources the pane filters out (e.g. cloud-fetch fallback warnings: `[warn/openai-fetch] live /v1/models returned 0 models — falling back to catalog (cause: HTTP 401)`). The file persists across reboots until your OS rotates `/tmp`; copy it elsewhere if you need to keep it.
 
-## Quick Fixes
+## 3. Quick Fixes
 
-### Port Conflicts
+### 3.1 Port Conflicts
 ```bash
 # Error: "bind: address already in use"
 ./start.sh --base-port 64000  # Use different port range
@@ -42,7 +42,7 @@ lsof -i :63082
 kill -9 $(lsof -t -i:63082)
 ```
 
-### Memory Issues
+### 3.2 Memory Issues
 ```bash
 # Error: Containers crashing with exit code 137 (OOM kill)
 # Solution: Increase Docker memory allocation
@@ -53,7 +53,7 @@ colima stop
 colima start --memory 12 --cpu 6
 ```
 
-### Access Issues
+### 3.3 Access Issues
 ```bash
 # Can't access *.localhost URLs?
 ./start.sh --setup-hosts  # Configure hosts file
@@ -65,7 +65,7 @@ colima start --memory 12 --cpu 6
 ./stop.sh --cold && ./start.sh --cold
 ```
 
-### Platform Issues
+### 3.4 Platform Issues
 ```bash
 # Windows/WSL issues?
 python3 bootstrapper/start.py --help  # Use Python directly
@@ -74,9 +74,9 @@ python3 bootstrapper/start.py --help  # Use Python directly
 chmod +x start.sh stop.sh
 ```
 
-## Service-Specific Issues
+## 4. Service-Specific Issues
 
-### LLM Issues (LiteLLM gateway + Ollama upstream)
+### 4.1 LLM Issues (LiteLLM gateway + Ollama upstream)
 
 **LiteLLM not responding / consumers can't reach LLMs:**
 ```bash
@@ -113,7 +113,7 @@ Reminder: Ollama no longer has a host port mapping. Reach it via LiteLLM (`http:
 ollama pull qwen3:1.7b  # Smaller model
 ```
 
-### ComfyUI Issues
+### 4.2 ComfyUI Issues
 
 **Models downloading slowly or missing:**
 ```bash
@@ -138,7 +138,7 @@ docker logs genai-comfyui -f
 curl http://localhost:63041  # Direct port access
 ```
 
-### n8n Issues
+### 4.3 n8n Issues
 
 **n8n not accessible:**
 ```bash
@@ -161,7 +161,7 @@ docker logs genai-n8n-worker -f
 docker logs genai-redis -f
 ```
 
-### Database Issues
+### 4.4 Database Issues
 
 **Supabase services not starting:**
 ```bash
@@ -183,7 +183,7 @@ docker exec genai-supabase-db pg_isready
 docker exec genai-backend python -c "import psycopg2; print('DB OK')"
 ```
 
-### Kong Gateway Issues
+### 4.5 Kong Gateway Issues
 
 **404 errors for services:**
 ```bash
@@ -208,9 +208,9 @@ grep -i "N8N_SOURCE" .env
 docker compose ps | grep -E "(comfyui|n8n)"
 ```
 
-## Resource Issues
+## 5. Resource Issues
 
-### Docker Resource Monitoring
+### 5.1 Docker Resource Monitoring
 
 ```bash
 # Check overall resource usage
@@ -224,7 +224,7 @@ docker system prune -f
 docker volume prune -f  # BE CAREFUL - removes unused volumes
 ```
 
-### Memory Optimization
+### 5.2 Memory Optimization
 
 ```bash
 # Disable memory-heavy services
@@ -234,9 +234,9 @@ docker volume prune -f  # BE CAREFUL - removes unused volumes
 ./start.sh --llm-provider-source ollama-localhost --comfyui-source localhost
 ```
 
-## Network Issues
+## 6. Network Issues
 
-### DNS Resolution
+### 6.1 DNS Resolution
 
 ```bash
 # Check hosts file entries
@@ -246,7 +246,7 @@ cat /etc/hosts | grep localhost
 echo "127.0.0.1 n8n.localhost comfyui.localhost search.localhost api.localhost chat.localhost" | sudo tee -a /etc/hosts
 ```
 
-### Firewall Issues
+### 6.2 Firewall Issues
 
 ```bash
 # Check if ports are accessible
@@ -257,9 +257,9 @@ nc -zv localhost 63082
 sudo ufw status  # Ubuntu/Debian
 ```
 
-## Startup Issues
+## 7. Startup Issues
 
-### Service Dependencies
+### 7.1 Service Dependencies
 
 ```bash
 # Some services depend on others - check startup order
@@ -270,7 +270,7 @@ docker logs genai-redis -f      # Many services need Redis
 docker logs genai-supabase-db -f # Backend needs database
 ```
 
-### Environment Issues
+### 7.2 Environment Issues
 
 ```bash
 # Check if .env file exists and is valid
@@ -282,9 +282,9 @@ cp .env.example .env
 ./start.sh --cold  # Regenerate keys
 ```
 
-## Debug Commands
+## 8. Debug Commands
 
-### System Status Check
+### 8.1 System Status Check
 
 ```bash
 # Overall system health
@@ -298,7 +298,7 @@ docker logs genai-ollama --tail=100 -f
 docker logs genai-backend --tail=100 -f
 ```
 
-### Configuration Verification
+### 8.2 Configuration Verification
 
 ```bash
 # Inspect the SOURCE values currently written to .env
@@ -316,7 +316,7 @@ env | grep ^KONG_
 env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE|CLOUD|MINIO)_SOURCE"
 ```
 
-### Network Testing
+### 8.3 Network Testing
 
 ```bash
 # Test internal service connectivity (LLM goes through LiteLLM, not Ollama directly)
@@ -329,9 +329,9 @@ curl http://localhost:63082
 curl -H "Host: n8n.localhost" http://localhost:63000/
 ```
 
-## Getting Help
+## 9. Getting Help
 
-### Log Collection
+### 9.1 Log Collection
 
 When reporting issues, include:
 
@@ -351,7 +351,7 @@ docker compose logs --tail=100 > stack_logs.txt
 cp .env config_backup.env  # Remove sensitive data before sharing
 ```
 
-### Common Support Information
+### 9.2 Common Support Information
 
 1. **Platform**: macOS/Linux/Windows + version
 2. **Docker memory allocation**: Settings → Resources in Docker Desktop
@@ -359,15 +359,15 @@ cp .env config_backup.env  # Remove sensitive data before sharing
 4. **Error messages**: Exact error text and which service
 5. **Steps to reproduce**: What you did before the error occurred
 
-### Community Resources
+### 9.3 Community Resources
 
 - [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues) - Bug reports and feature requests
 - [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions) - Questions and community support
 - [Documentation](../README.md) - Complete documentation index
 
-## Recovery Procedures
+## 10. Recovery Procedures
 
-### Complete Reset
+### 10.1 Complete Reset
 
 ```bash
 # Nuclear option - removes all data
@@ -379,7 +379,7 @@ docker volume prune -f   # BE CAREFUL - removes ALL unused volumes
 ./start.sh --cold --base-port 64000
 ```
 
-### Partial Reset
+### 10.2 Partial Reset
 
 ```bash
 # Reset just environment
@@ -393,7 +393,7 @@ docker volume rm genai-supabase-db-data  # Database only
 docker volume rm genai-n8n-data          # n8n workflows only
 ```
 
-### Backup Before Reset
+### 10.3 Backup Before Reset
 
 ```bash
 # Backup important data before reset
