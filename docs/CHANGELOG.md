@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 11 (1 commit)
+
+- **`speaches-container-gpu` actually runs the CUDA image now** — the
+  compose fragment interpolates `${SPEACHES_IMAGE}` under both
+  profiles, and nothing ever wired `SPEACHES_GPU_IMAGE` in despite
+  three docs claiming "the speaches-gpu profile selects it" (the
+  manifest's own description admitted "not yet wired"). The generator
+  now resolves the winning profile's image; gpu→cpu switches self-heal
+  via the pin refresher.
+- **`LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` /
+  `LIGHTRAG_EMBEDDING_DIM` are honored** — the README told users to set
+  them, but lightrag-init never received nor read them (and its WARN
+  advised overriding via a var nothing consumed). The dim override now
+  defaults to empty = auto-probe (a hardcoded 768 default would have
+  silently bypassed the probe for non-768 models).
+- LightRAG and TEI Reranker `localhost` options gained the inline
+  port widget every other localhost-capable service already had; the
+  cloud-providers registry docstring stopped overclaiming start.py's
+  imports; three never-consumed `COMFYUI_*_PATH` vars removed from the
+  manifest/.env.example.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 9 (1 commit)
 
 - Clearing log filters while the source popup is open no longer gets
