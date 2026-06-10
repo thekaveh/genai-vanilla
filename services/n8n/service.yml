@@ -34,6 +34,10 @@ env:
   - name: N8N_ENCRYPTION_KEY
     default: "your-random-encryption-key"
     secret: true
+  - name: N8N_API_KEY
+    default: ""
+    secret: true
+    description: "n8n public-API key (n8n CE issues these only via the UI: Settings → n8n API). Consumed by the backend's /workflows endpoints; while empty those endpoints return 502/401."
   - name: N8N_AUTH_ENABLED
     default: true
   - name: N8N_HOST

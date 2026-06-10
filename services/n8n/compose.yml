@@ -128,6 +128,21 @@ services:
       QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
+      # Queue mode runs ALL executions on this worker (the stack defaults
+      # to EXECUTIONS_MODE=queue + OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS),
+      # so every workflow-facing var the main container exposes must be
+      # mirrored here or $env.* resolves to empty exactly where the
+      # workflow actually runs. GENERIC_TIMEZONE likewise (n8n docs:
+      # set it on workers too, or Date/Schedule nodes skew).
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
+      DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     volumes:
       - n8n-data:/home/node/.n8n
     networks:

@@ -50,7 +50,10 @@ env:
     description: "Resolved by the bootstrapper from RAY_WORKER_COUNT when source is ray-container-{cpu,gpu}; 0 otherwise."
   - name: RAY_ADDRESS
     auto_managed: true
-    description: "Resolved per source: `ray://ray-head:10001` for container sources, empty for disabled. Consumed by Backend / JupyterHub via runtime_adaptive."
+    description: "Resolved per source: `ray://ray-head:10001` for container sources, empty for disabled. Injected into the backend + jupyterhub containers via their compose environment blocks."
+  - name: RAY_DASHBOARD_URL
+    default: ""
+    description: "Optional override for the Ray dashboard URL the backend's job client uses. Empty = derive from RAY_ADDRESS (http://ray-head:8265)."
 
 depends_on:
   # Display-ordering pin: Ray is genuinely standalone at runtime (ships its

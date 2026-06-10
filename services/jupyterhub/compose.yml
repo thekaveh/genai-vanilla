@@ -43,6 +43,10 @@ services:
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      # Ray — empty when RAY_SOURCE=disabled. Compose injection is the
+      # real seam (runtime_adaptive writes .env only); notebook
+      # 07_ray_cluster reads this to decide whether Ray is enabled.
+      RAY_ADDRESS: ${RAY_ADDRESS:-}
       # Hermes Agent — direct path for `from openai import OpenAI` users.
       # Empty when HERMES_SOURCE=disabled.
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
