@@ -855,14 +855,25 @@ class GenAIStackStarter:
         
     def handle_port_configuration(self, base_port: Optional[int]) -> bool:
         """Handle port configuration and updates."""
-        # Use default base port if not specified (matching original Bash behavior)
+        # No --base-port flag: preserve the BASE_PORT already configured in
+        # .env (e.g. from an earlier --base-port 64000 run) instead of
+        # silently rewriting every *_PORT back to the default layout. This
+        # mirrors the TUI path's fallback in ui/textual/integration.py.
         if base_port is None:
-            base_port = DEFAULT_BASE_PORT
-            
+            current = (self.config_parser.parse_env_file()
+                       .get('BASE_PORT', '') or '').strip()
+            try:
+                base_port = int(current)
+            except ValueError:
+                base_port = DEFAULT_BASE_PORT
+
         # Validate base port
         if not self.port_manager.validate_base_port(base_port):
+            offsets = self.port_manager.port_offsets()
+            max_offset = max(offsets.values()) if offsets else 0
             self.banner.show_status_message(
-                f"Invalid base port: {base_port}. Must be between 1024 and {65535 - 20}",
+                f"Invalid base port: {base_port}. Must be between 1024 and "
+                f"{65535 - max_offset}",
                 "error"
             )
             return False
@@ -1805,8 +1816,9 @@ class GenAIStackStarter:
                    'linear flow with passthrough docker output. Useful for log capture, '
                    'debugging, and terminals that don\'t support the alternate screen buffer.')
 @click.option('--no-port-migrate', is_flag=True, default=False,
-              help='Skip the v0 → v1 port-layout .env rewrite. Still stamps the version '
-                   'sentinel so the migration does not re-prompt.')
+              help='Skip the chained .env migrations (port-layout v1, URL→PORT v2, '
+                   'model-set v3) for this run. Version sentinels are NOT stamped, '
+                   'so the migration re-prompts on the next run.')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
@@ -1997,10 +2009,8 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # before PR #(observability bundle). These options have been removed
         # pending a stack-wide authenticated-remote design; users must
         # switch to `container` or `disabled` (or `none` for LLM_PROVIDER_SOURCE).
-        try:
-            _legacy_env = starter.config_parser.parse_env_file()
-        except Exception:  # noqa: BLE001
-            _legacy_env = {}
+        # Reuses _existing_env parsed above — nothing writes .env in between.
+        _legacy_env = _existing_env
         _LEGACY_EXTERNAL = {
             'COMFYUI_SOURCE':       'external',
             'LLM_PROVIDER_SOURCE':  'ollama-external',
@@ -2034,7 +2044,6 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
         # intent": presence of either means the user is configuring via CLI
         # and the wizard would silently overwrite their input.
-        wizard_ran = False
         no_source_flags = all(v is None for v in source_args.values())
         no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
         no_model_flags = not user_model_selections
@@ -2091,7 +2100,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # the banner / setup_env_file / apply_source_overrides pipeline
         # below so its output stays out of the terminal and ends up
         # inside the log pane.
-        if not wizard_ran and not no_tui:
+        if not no_tui:
             from ui.term_caps import is_tui_capable as _is_tui_capable
             if _is_tui_capable(no_tui_flag=no_tui):
                 # Make sure .env exists so the launch screen can build
@@ -2148,14 +2157,12 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 )
                 sys.exit(rc)
 
-        # Show banner for normal mode (wizard already displayed its own)
-        if not wizard_ran:
-            starter.show_banner()
+        # Linear (--no-tui / non-TTY) flow from here on — the wizard and
+        # CLI-flag TUI branches above both sys.exit() before this point.
+        starter.show_banner()
 
-        # Setup .env file (skipped if wizard already did it)
-        if not wizard_ran:
-            if not starter.setup_env_file(cold_start=cold, base_port=base_port):
-                sys.exit(1)
+        if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+            sys.exit(1)
 
         # Pull in any keys added to .env.example since the user's .env
         # was written (e.g. a worktree merge added a new service like
