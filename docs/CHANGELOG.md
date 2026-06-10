@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 3 (6 commits)
+
+- **CRITICAL (self-caught): the pass-2 airflow quote-safety fix broke
+  airflow-init on every boot** — psql performs `:'var'` interpolation
+  only in script input, never inside `-c` strings, so both role
+  statements errored under `set -e`. Statements now pipe via stdin
+  (quote-safe AND functional; verified empirically against a live
+  Postgres).
+- **Ollama model picker no longer duplicates every pulled model**: the
+  "pulled-but-not-in-library" bucket compared tagged names
+  (`qwen3.6:latest`) against bare library families (`qwen3.6`), so each
+  normal pull also surfaced as a bogus "(local model, not in public
+  library)" row. The picker's `/api/tags` probe also now honors
+  `OLLAMA_LOCALHOST_PORT` (the 5th consumer site of the localhost-port
+  symmetry rule).
+- **`./stop.sh --clean-hosts` no longer deletes the user's own
+  /etc/hosts entries** — removal matched substrings, so a personal
+  `127.0.0.1 my-n8n.localhost` line vanished because it *contains* a
+  stack alias. Now whole-token comparison.
+- **Memory consolidation log recorded every merge as "superseded"** —
+  the action guard compared past-tense values against the LLM
+  contract's present-tense vocabulary.
+- Smaller correctness: migration_v3 no longer drops the user's
+  COMFYUI model-set translation when the old line carried an inline
+  comment; a list-rooted ComfyUI sidecar YAML no longer crashes the
+  wizard/catalog-init (warn + ignore per its never-raises contract);
+  `http.client.HTTPException` (IncompleteRead etc.) is now caught at
+  all six catalog/scrape fetchers; the service.yml schema rejects
+  typo'd keys inside `runtime_sc.<container>.<source>` blocks
+  (previously silently dropped).
+- Refactors (output-verified): the five uniform SPA Kong routes
+  (prometheus/spark-master/spark-history/airflow/zeppelin) collapsed
+  into one data-driven table — generated config byte-identical across
+  4 SOURCE permutations; capture-free helpers hoisted out of the
+  285-line `build_ollama_steps`; four duplicated test env-splice loops
+  replaced by a shared `env_with_overrides` conftest factory.
+- Docs/CI: CONTRIBUTING's CI-gates section now documents all four jobs
+  + the four-seam picker-flag rule; minio image note drops a
+  placeholder CVE id; `.gitignore` sheds two dead personal-scratch
+  entries; kong/comfyui READMEs lose claims invalidated this run.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 2 (7 commits)
 
 - **`storage.objects` was dropped and recreated on EVERY `docker compose
