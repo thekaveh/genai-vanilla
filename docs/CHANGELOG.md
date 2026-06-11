@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 34 (1 commit)
+
+- README long-tail factual sweep (the last seven never-audited service
+  docs): weaviate's ports corrected (63026/63027 — it listed Redis's
+  63022/63023) along with its Kong route and module lists;
+  local-deep-researcher's "no Kong route / no backend API" claims
+  inverted (both exist); redis's database map matched to reality (n8n
+  queue on db 0, JupyterHub on db 3, Kong on default 0); backend's
+  required deps now include litellm and the right Hermes port (8642);
+  ray's shm_size 8gb; spark documents its local S3A-enabled build;
+  openclaw's deep-health command uses the real entrypoint. The full
+  code remainder pool (12 widgets, utils/core internals, wizard
+  sections) was read end-to-end the same pass — clean.
+
 ### Fixed — 2026-06-10 overnight maintenance passes 32-33 (2 commits)
 
 - The dead `WEAVIATE_LITELLM_BASE_URL` chain removed (generated into
