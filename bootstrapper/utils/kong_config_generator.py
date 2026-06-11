@@ -293,7 +293,7 @@ class KongConfigGenerator:
                 "docling.localhost", "docling-api",
                 "DOC_PROCESSOR_SOURCE",
                 lambda _src: "http://docling-gpu:8000/",
-                lambda _src: self._localhost_url("DOCLING_LOCALHOST_PORT", "63021"),
+                lambda _src: self._localhost_url("DOCLING_LOCALHOST_PORT", "63040"),
             ),
             (
                 "research.localhost", "research-api",
@@ -361,9 +361,9 @@ class KongConfigGenerator:
     def _stt_localhost_url(self, source: str) -> Optional[str]:
         """STT host-install URL — engine-specific PORT env var."""
         if source == "parakeet-localhost":
-            return self._localhost_url("PARAKEET_LOCALHOST_PORT", "63022")
+            return self._localhost_url("PARAKEET_LOCALHOST_PORT", "63042")
         if source == "whisper-cpp-localhost":
-            return self._localhost_url("WHISPER_CPP_LOCALHOST_PORT", "63025")
+            return self._localhost_url("WHISPER_CPP_LOCALHOST_PORT", "63042")
         return None
 
     @staticmethod
@@ -381,7 +381,7 @@ class KongConfigGenerator:
     def _tts_localhost_url(self, source: str) -> Optional[str]:
         """TTS host-install URL — engine-specific PORT env var."""
         if source == "chatterbox-localhost":
-            return self._localhost_url("CHATTERBOX_LOCALHOST_PORT", "63027")
+            return self._localhost_url("CHATTERBOX_LOCALHOST_PORT", "63044")
         return None
     
     def get_supabase_services(self) -> List[Dict[str, Any]]:
@@ -746,8 +746,8 @@ class KongConfigGenerator:
 
         # Dynamic URL based on SOURCE
         if source == 'localhost':
-            localhost_url = self._localhost_url('OPENCLAW_LOCALHOST_PORT', '63024')
-            probe_port = urlparse(localhost_url).port or 63024
+            localhost_url = self._localhost_url('OPENCLAW_LOCALHOST_PORT', '63065')
+            probe_port = urlparse(localhost_url).port or 63065
             self.check_localhost_service('localhost', probe_port, 'OpenClaw')
             service['url'] = localhost_url
         else:

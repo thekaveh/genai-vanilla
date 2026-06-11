@@ -64,10 +64,10 @@ On macOS the Homebrew install puts models at
 ## Run the server (OpenAI-compatible)
 
 ```bash
-# Default port matches WHISPER_CPP_LOCALHOST_PORT in .env (63025).
+# Default port matches WHISPER_CPP_LOCALHOST_PORT in .env (63042).
 whisper-server \
   --host 0.0.0.0 \
-  --port 63025 \
+  --port 63042 \
   --model ~/path/to/ggml-large-v3.bin \
   --inference-path /v1/audio/transcriptions
 ```
@@ -82,8 +82,8 @@ Parakeet also expose).
 ./start.sh --stt-provider-source whisper-cpp-localhost
 ```
 
-If you used a port other than 63025, update `.env` (URL is derived inline
-as `http://host.docker.internal:${WHISPER_CPP_LOCALHOST_PORT:-63025}`):
+If you used a port other than 63042, update `.env` (URL is derived inline
+as `http://host.docker.internal:${WHISPER_CPP_LOCALHOST_PORT:-63042}`):
 
 ```bash
 WHISPER_CPP_LOCALHOST_PORT=63041
@@ -93,7 +93,7 @@ WHISPER_CPP_LOCALHOST_PORT=63041
 
 ```bash
 # Record or grab a sample WAV/MP3/M4A
-curl -X POST http://localhost:63025/v1/audio/transcriptions \
+curl -X POST http://localhost:63042/v1/audio/transcriptions \
   -H "Content-Type: multipart/form-data" \
   -F file=@sample.wav \
   -F model=whisper-1

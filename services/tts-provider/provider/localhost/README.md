@@ -48,14 +48,14 @@ The repo's `main.py` is the entry point. Default port is `4123`; override
 with the `PORT` env var.
 
 ```bash
-# Bind on the port the genai-vanilla containers reach you on (63027
+# Bind on the port the genai-vanilla containers reach you on (63044
 # matches the CHATTERBOX_LOCALHOST_PORT default — independent of the
 # container CHATTERBOX_PORT, which is 63045).
-PORT=63027 uv run main.py
+PORT=63044 uv run main.py
 # or, after `source .venv/bin/activate`:
-PORT=63027 python main.py
+PORT=63044 python main.py
 # or directly via uvicorn:
-uvicorn app.main:app --host 0.0.0.0 --port 63027
+uvicorn app.main:app --host 0.0.0.0 --port 63044
 ```
 
 Apple Silicon users get MPS automatically via Chatterbox's
@@ -69,7 +69,7 @@ Then in another terminal point the stack at it:
 ```
 
 Optional: change the host port in `.env` if you used a different one (URL
-is derived inline as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63027}`):
+is derived inline as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63044}`):
 
 ```bash
 CHATTERBOX_LOCALHOST_PORT=9000
@@ -78,9 +78,9 @@ CHATTERBOX_LOCALHOST_PORT=9000
 ## Verify
 
 ```bash
-curl http://localhost:63027/health         # expect {"status":"healthy"}
-curl http://localhost:63027/v1/models      # expect chatterbox-tts-1 in list
-curl -X POST http://localhost:63027/v1/audio/speech \
+curl http://localhost:63044/health         # expect {"status":"healthy"}
+curl http://localhost:63044/v1/models      # expect chatterbox-tts-1 in list
+curl -X POST http://localhost:63044/v1/audio/speech \
   -H 'Content-Type: application/json' \
   -d '{"model":"chatterbox-tts-1","input":"hello world","voice":"alloy"}' \
   --output /tmp/test.wav
@@ -97,12 +97,12 @@ it by name:
 
 ```bash
 # Upload once (multipart). Replace ALICE.wav with any 3–30 sec clean clip.
-curl -X POST http://localhost:63027/voices \
+curl -X POST http://localhost:63044/voices \
   -F "name=alice" \
   -F "file=@ALICE.wav"
 
 # Then call /v1/audio/speech with the registered name:
-curl -X POST http://localhost:63027/v1/audio/speech \
+curl -X POST http://localhost:63044/v1/audio/speech \
   -H 'Content-Type: application/json' \
   -d '{"model":"chatterbox-tts-1","input":"Synthesize in this voice.","voice":"alice"}' \
   --output cloned.wav
@@ -111,7 +111,7 @@ curl -X POST http://localhost:63027/v1/audio/speech \
 **2) Inline upload via multipart form** in the speech call itself:
 
 ```bash
-curl -X POST http://localhost:63027/v1/audio/speech \
+curl -X POST http://localhost:63044/v1/audio/speech \
   -F "input=Synthesize in this voice." \
   -F "model=chatterbox-tts-1" \
   -F "voice_file=@ALICE.wav" \

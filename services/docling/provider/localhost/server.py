@@ -106,8 +106,8 @@ if __name__ == "__main__":
     # DOCLING_LOCALHOST_PORT is the stack's localhost-mode contract (the
     # var Kong / runtime_sc / localhost_validator all probe). The old
     # DOC_PROCESSOR_PORT read is the CONTAINER-mode host-bind var — it
-    # only worked because the fallback happened to be 63021.
-    port = int(os.getenv("DOCLING_LOCALHOST_PORT") or 63021)
+    # only worked because the fallback happened to match the default.
+    port = int(os.getenv("DOCLING_LOCALHOST_PORT") or 63040)
     print(f"🚀 Starting Docling server on port {port}")
     print(f"📄 Device: {os.getenv('DOCLING_DEVICE', 'cpu')}")
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)

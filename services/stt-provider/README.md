@@ -56,7 +56,7 @@ macOS native — fastest path for Apple Silicon:
 # Option A: whisper.cpp (Metal + Core ML / ANE)
 brew install whisper-cpp
 bash $(brew --prefix)/share/whisper-cpp/models/download-ggml-model.sh large-v3
-whisper-server --host 0.0.0.0 --port 63025 \
+whisper-server --host 0.0.0.0 --port 63042 \
   --model "$(brew --prefix)/share/whisper-cpp/models/ggml-large-v3.bin" \
   --inference-path /v1/audio/transcriptions &
 
@@ -64,7 +64,7 @@ whisper-server --host 0.0.0.0 --port 63025 \
 
 # Option B: Parakeet-MLX (highest quality on EN/EU, MLX-native)
 pip install -r services/parakeet/provider/mlx/requirements.txt
-cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022 &
+cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63042 &
 ./start.sh --stt-provider-source parakeet-localhost
 ```
 
@@ -83,8 +83,8 @@ for the whisper.cpp walkthrough and Linux build instructions, or
 | `SPEACHES_STT_MODEL` | `Systran/faster-distil-whisper-large-v3` | HuggingFace repo of the active model. Faster-Whisper accepts any whisper-format checkpoint. |
 | `PARAKEET_MODEL` | `nvidia/parakeet-tdt-0.6b-v3` | Or `…-v2` for English-only (slightly faster). |
 | `PARAKEET_GPU_IMAGE` | `nvcr.io/nvidia/pytorch:25.01-py3` | Base for the Parakeet GPU Dockerfile. |
-| `PARAKEET_LOCALHOST_PORT` | `63022` | Host port where a host-side Parakeet server listens. URL is derived as `http://host.docker.internal:63022`. |
-| `WHISPER_CPP_LOCALHOST_PORT` | `63025` | Host port where a host-side whisper.cpp server listens. URL is derived as `http://host.docker.internal:63025`. |
+| `PARAKEET_LOCALHOST_PORT` | `63042` | Host port where a host-side Parakeet server listens (defaults to the freed `STT_PROVIDER_PORT` slot). URL is derived as `http://host.docker.internal:63042`. |
+| `WHISPER_CPP_LOCALHOST_PORT` | `63042` | Host port where a host-side whisper.cpp server listens (same freed slot as parakeet — the two modes are mutually exclusive). URL is derived as `http://host.docker.internal:63042`. |
 | `HUGGING_FACE_HUB_TOKEN` | (empty) | For gated models. |
 
 ## 5. OpenAI-compatible API

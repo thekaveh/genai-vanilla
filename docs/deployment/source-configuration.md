@@ -342,7 +342,7 @@ npm install -g openclaw
 openclaw onboard
 
 # Start the gateway on the stack default localhost port
-openclaw gateway --port 63024
+openclaw gateway --port 63065
 
 # If your local OpenClaw uses its native/default port 18789 instead, set:
 # OPENCLAW_LOCALHOST_PORT=18789

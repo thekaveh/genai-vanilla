@@ -102,7 +102,7 @@ curl -X POST http://localhost:63040/v1/document/convert \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOCLING_LOCALHOST_PORT` | Local service port. URL is derived as `http://host.docker.internal:${DOCLING_LOCALHOST_PORT}` at compose-render time. | `63021` |
+| `DOCLING_LOCALHOST_PORT` | Local service port (defaults to the freed `DOC_PROCESSOR_PORT` slot). URL is derived as `http://host.docker.internal:${DOCLING_LOCALHOST_PORT}` at compose-render time. | `63040` |
 
 ## 5. API Reference
 
@@ -402,7 +402,7 @@ Connects to Docling running on host machine.
 
 **Best for**: Custom installations, development, CPU-only systems
 
-**Setup**: Run Docling locally on port 63021
+**Setup**: Run Docling locally on port 63040
 
 **Advantages**:
 - Works on any platform (Mac, Linux, Windows)

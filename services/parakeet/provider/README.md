@@ -70,7 +70,7 @@ Parakeet on macOS MLX:
 ```bash
 # Terminal 1 — run from repo root
 pip install -r services/parakeet/provider/mlx/requirements.txt
-cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63022
+cd services/parakeet/provider && python -m uvicorn mlx.api_server:app --host 0.0.0.0 --port 63042
 
 # Terminal 2
 ./start.sh --stt-provider-source parakeet-localhost
@@ -82,7 +82,7 @@ whisper.cpp on macOS (Metal + Core ML):
 # Terminal 1
 brew install whisper-cpp
 bash $(brew --prefix)/share/whisper-cpp/models/download-ggml-model.sh large-v3
-whisper-server --host 0.0.0.0 --port 63025 \
+whisper-server --host 0.0.0.0 --port 63042 \
   --model "$(brew --prefix)/share/whisper-cpp/models/ggml-large-v3.bin" \
   --inference-path /v1/audio/transcriptions
 

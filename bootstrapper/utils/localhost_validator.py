@@ -66,7 +66,7 @@ class LocalhostValidator:
                     'check_type': 'http',
                     'port_env_var': 'PARAKEET_LOCALHOST_PORT',
                     'health_path': '/health',
-                    'default_port': 63022,
+                    'default_port': 63042,
                     'service_name': 'Parakeet STT (host-side)',
                     'hint': 'Start the Parakeet MLX/native server — see services/parakeet/provider/mlx/README.md.',
                 },
@@ -78,7 +78,7 @@ class LocalhostValidator:
                     # unsupported health URL.
                     'check_type': 'tcp',
                     'port_env_var': 'WHISPER_CPP_LOCALHOST_PORT',
-                    'default_port': 63025,
+                    'default_port': 63042,
                     'service_name': 'whisper.cpp STT (host-side)',
                     'hint': 'Start whisper-server — see services/parakeet/provider/whisper-cpp/README.md.',
                 },
@@ -90,7 +90,7 @@ class LocalhostValidator:
                     'check_type': 'http',
                     'port_env_var': 'CHATTERBOX_LOCALHOST_PORT',
                     'health_path': '/health',
-                    'default_port': 63027,
+                    'default_port': 63044,
                     'service_name': 'Chatterbox TTS (host-side)',
                     'hint': 'Start the Chatterbox server — see services/tts-provider/provider/localhost/README.md.',
                 },
@@ -112,14 +112,14 @@ class LocalhostValidator:
             'check_type': 'http',
             'port_env_var': 'DOCLING_LOCALHOST_PORT',
             'service_name': 'Docling Document Processor',
-            'default_port': 63021
+            'default_port': 63040
         },
         'OPENCLAW_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
             'port_env_var': 'OPENCLAW_LOCALHOST_PORT',
             'service_name': 'OpenClaw Gateway',
-            'default_port': 63024
+            'default_port': 63065
         },
         'HERMES_SOURCE': {
             'source_values': ['localhost'],
@@ -235,8 +235,8 @@ class LocalhostValidator:
             # HTTP endpoint validation. Two ways the endpoint URL is built:
             #
             # 1. ``port_env_var`` names a PORT env var (e.g.
-            #    ``WHISPER_CPP_LOCALHOST_PORT=63025`` or
-            #    ``DOCLING_LOCALHOST_PORT=63021``). The probe URL is
+            #    ``WHISPER_CPP_LOCALHOST_PORT=63042`` or
+            #    ``DOCLING_LOCALHOST_PORT=63040``). The probe URL is
             #    ``http://localhost:<port><health_path|/health>``. STT/TTS
             #    use per-source ``LOCALHOST_PORT`` vars because each
             #    localhost variant has its own port; the same var that

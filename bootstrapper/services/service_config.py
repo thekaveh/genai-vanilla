@@ -587,7 +587,7 @@ class ServiceConfig:
         if source_value == 'disabled':
             env_vars['DOCLING_ENDPOINT'] = ''
         else:
-            endpoint = config.get('environment', {}).get('DOCLING_ENDPOINT', 'http://host.docker.internal:63021')
+            endpoint = config.get('environment', {}).get('DOCLING_ENDPOINT', 'http://host.docker.internal:63040')
             # For localhost mode, dynamically replace the port with the user-
             # overridable DOCLING_LOCALHOST_PORT (NOT DOC_PROCESSOR_PORT —
             # that's the container's host-bound port). The wizard writes the
@@ -596,7 +596,7 @@ class ServiceConfig:
             # class — see feedback_localhost_url_override_symmetry.md).
             if source_value == 'docling-localhost':
                 current_env = self.config_parser.parse_env_file()
-                doc_port = current_env.get('DOCLING_LOCALHOST_PORT', '63021')
+                doc_port = current_env.get('DOCLING_LOCALHOST_PORT', '63040')
                 endpoint = f'http://{self.localhost_host}:{doc_port}'
             else:
                 # For container mode, just apply localhost_host replacement
@@ -945,7 +945,7 @@ class ServiceConfig:
             # ignore the wizard's port override — same asymmetric-override
             # class as docling / hermes above.
             current_env = self.config_parser.parse_env_file()
-            openclaw_port = current_env.get('OPENCLAW_LOCALHOST_PORT', '63024')
+            openclaw_port = current_env.get('OPENCLAW_LOCALHOST_PORT', '63065')
             endpoint = f'http://{self.localhost_host}:{openclaw_port}'
             env_vars['OPENCLAW_ENDPOINT'] = endpoint
             env_vars['OPENCLAW_SCALE'] = '0'
