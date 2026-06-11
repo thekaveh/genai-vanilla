@@ -43,7 +43,7 @@ Database-index convention (consumer-built URLs):
 
 **Startup ordering.** Compose-level `depends_on` waits on `supabase-db-init: { condition: service_completed_successfully }`. This is purely a startup ordering hack so Redis starts after the Postgres init is done — there is no functional Postgres dependency.
 
-**Consumers.** From the data-flow graph (§6.2): `litellm` (cache + budget tracking), `lightrag` (KV/doc-status), `open-webui` (WebSocket store), `airflow`, and `prometheus` (redis-exporter scrape) reach Redis at runtime. n8n and Kong consume it via compose env wiring (`QUEUE_BULL_REDIS_*` / `KONG_REDIS_HOST`) — modeled as compose-level wiring. The backend gets `REDIS_URL` injected but no backend code reads it today; Local Deep Researcher is unwired (future pair, §6.4).
+**Consumers.** From the data-flow graph (§6.2): `litellm` (cache + budget tracking), `lightrag` (KV/doc-status), `open-webui` (WebSocket store), `airflow`, and `prometheus` (redis-exporter scrape) reach Redis at runtime. n8n, Kong, and JupyterHub consume it via compose env wiring (`QUEUE_BULL_REDIS_*` / `KONG_REDIS_HOST` / the notebook `REDIS_URL` on db `/3`) — modeled as compose-level wiring. The backend gets `REDIS_URL` injected but no backend code reads it today; Local Deep Researcher is unwired (future pair, §6.4).
 
 **Failure mode.** Every consumer treats Redis as fatal: a Redis outage kills n8n queue execution, drops Open WebUI live updates, breaks LiteLLM caching, and stalls LightRAG's KV layer. There is no fallback in the stack.
 
@@ -155,4 +155,4 @@ To change these today, edit the `command:` line in `services/redis/compose.yml`.
 - [Redis commands reference](https://redis.io/commands/) — the canonical command index, organized by data type.
 - [Redis persistence](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/) — AOF vs RDB trade-offs, useful when tuning the stack's defaults.
 - [BullMQ on Redis](https://docs.bullmq.io/) — n8n's queue layer; explains the `bull:*` key shape.
-- [LiteLLM caching](https://docs.litellm.ai/docs/caching/all_caches) — Redis cache integration LiteLLM uses (see the candidate list above for enabling it).
+- [LiteLLM caching](https://docs.litellm.ai/docs/caching/all_caches) — Redis cache integration LiteLLM uses (already enabled in this stack).

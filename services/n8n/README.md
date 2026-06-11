@@ -60,7 +60,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 **Queue mode flow:**
 
 1. UI/webhook hits `n8n:5678` (web container) → workflow record stored in Supabase Postgres.
-2. Execution is pushed onto BullMQ queue in Redis db `/1`.
+2. Execution is pushed onto BullMQ queue in Redis db `/0` (`QUEUE_BULL_REDIS_DB: 0`).
 3. `n8n-worker` polls Redis, picks up the job, runs the workflow, writes execution history back to Postgres.
 4. UI streams progress via Redis pub/sub back to the web container.
 

@@ -52,7 +52,7 @@ CLIP_INFERENCE_API=
 
 ## 4. Integration notes
 
-The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, or init containers depending on which SOURCE modes are enabled.
+The service participates in the Docker Compose network and may be consumed by the Backend API, JupyterHub, n8n, or init containers depending on which SOURCE modes are enabled (Open WebUI is NOT wired to Weaviate today — see its README §5.4 Future pairs).
 
 Optional consumers should use `WEAVIATE_URL` and perform feature-level readiness checks instead of requiring the Weaviate container as a hard Compose startup dependency. This lets n8n, JupyterHub, and other adaptive services still start when Weaviate is disabled, localhost-backed, or externalized.
 
