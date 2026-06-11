@@ -2,7 +2,7 @@
 
 LangGraph-based multi-step research agent. The user submits a topic, LDR runs a search-summarize-reflect-search loop (default 3 iterations), and returns a Markdown report citing the sources it found. Upstream is [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher); the stack runs it via the LangGraph dev server (`langgraph dev`) listening on port 2024 inside the container, exposed at `LOCAL_DEEP_RESEARCHER_PORT` on the host.
 
-LDR is **completely local** by design — it relies on the stack's LiteLLM gateway (so any registered local Ollama model works) and SearXNG for web search. No outbound API keys required for the default loop. The backend exposes the full surface via `/research/start|status|result|cancel|logs|sessions|health` (typed through `research_client.py`); the LDR endpoint is also reachable directly and via Kong's `research.localhost` alias.
+LDR is **completely local** by design — it relies on the stack's LiteLLM gateway (so any registered local Ollama model works) and SearXNG for web search. No outbound API keys required for the default loop. The backend exposes a typed `/research/start|status|result|cancel|logs|sessions|health` surface (`research_client.py`) — but note the client currently speaks a bespoke `/research/*` + `/health` upstream protocol that the stock `langgraph dev` server does not serve (its real API is `/ok`, `/threads`, `/runs` — see §4), so these backend routes fail upstream until the client is ported to the LangGraph protocol (tracked follow-up). The LDR endpoint itself is reachable directly and via Kong's `research.localhost` alias.
 
 ## 1. Overview
 
@@ -62,7 +62,7 @@ DOCLING_ENDPOINT=...
 
 **LLM gateway.** Every LangGraph node that needs an LLM goes through LiteLLM at `http://litellm:4000/v1/chat/completions`. The model id used at each step is configured in the upstream repo's `init-config.py`; the stack pins it to whatever LiteLLM advertises by default.
 
-**Backend integration.** `services/backend/app/app/research_client.py` targets `http://local-deep-researcher:2024` with a `ResearchRequest`/`ResearchResult` schema, exposed through the backend's `/research/*` routes (sessions persist to `public.research_sessions`).
+**Backend integration.** `services/backend/app/app/research_client.py` targets `http://local-deep-researcher:2024` with a `ResearchRequest`/`ResearchResult` schema, exposed through the backend's `/research/*` routes (sessions persist to `public.research_sessions`). Known gap: the client's upstream paths (`/research/*`, `/health`) don't exist on the LangGraph dev server, so calls 404 and sessions land in FAILED — porting the client to `/threads` + `/runs` is a tracked follow-up.
 
 ## 5. Dependencies & Integrations
 
