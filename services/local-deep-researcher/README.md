@@ -56,7 +56,7 @@ DOCLING_ENDPOINT=...
    - `finalize_summary` — outputs the final Markdown report.
 4. State (running_summary, sources_gathered, loop_count) lives in the LangGraph dev-server's in-memory checkpointer.
 
-**Checkpointer caveat.** The dev-server's default in-memory checkpointer drops thread state on container restart, so resumable research isn't possible today. Redis db `/3` is reserved in the redis manifest for an LDR checkpointer but isn't wired.
+**Checkpointer caveat.** The dev-server's default in-memory checkpointer drops thread state on container restart, so resumable research isn't possible today. A Redis-backed checkpointer is a documented future pair (a fresh db index, e.g. `/4`; `/3` belongs to JupyterHub).
 
 **Search backend.** `LOCAL_DEEP_RESEARCHER_SEARCH_API=searxng` calls `http://searxng:8080/search?q=…&format=json`. SearXNG must have `formats: [json]` enabled (it does, in `services/searxng/config/settings.yml`).
 
@@ -92,7 +92,7 @@ DOCLING_ENDPOINT=...
 
 ### 5.4 Future — Missing pair integrations
 
-- **local-deep-researcher ↔ redis** — *Why:* LDR runs `langgraph dev` with the in-memory checkpointer, so thread state is lost on restart. `services/redis/service.yml` reserves db `/3` for LDR but nothing consumes it. *Mechanism:* swap checkpointer to `langgraph.checkpoint.redis.RedisSaver` pointed at `redis://:${REDIS_PASSWORD}@redis:6379/3`; add `REDIS_URL` to LDR env. *Effort:* small. *Confidence:* medium.
+- **local-deep-researcher ↔ redis** — *Why:* LDR runs `langgraph dev` with the in-memory checkpointer, so thread state is lost on restart. no Redis checkpointer is wired today. *Mechanism:* swap checkpointer to `langgraph.checkpoint.redis.RedisSaver` pointed at a fresh index (`redis://:${REDIS_PASSWORD}@redis:6379/4` — `/3` is JupyterHub's); add `REDIS_URL` to LDR env. *Effort:* small. *Confidence:* medium.
 - **local-deep-researcher ↔ neo4j** — *Why:* each research run yields `sources_gathered` + a `running_summary`. Writing these as `(Topic)-[CITES]->(Source)` triples lets later runs detect overlap and reuse evidence. *Mechanism:* post-`finalize_summary` callback writes Cypher `MERGE` via `bolt://neo4j-graph-db:7687`. *Effort:* medium. *Confidence:* medium.
 - **local-deep-researcher ↔ minio** — *Why:* the final markdown report lives only in `/app/data` inside the container; no other service can consume it. *Mechanism:* on `finalize_summary`, S3 `PutObject` to `${MINIO_ENDPOINT}` bucket `research-reports` keyed by `session_id`. *Effort:* small. *Confidence:* medium.
 - **local-deep-researcher ↔ hermes** — *Why:* Hermes has no path to invoke multi-step web research today. Exposing LDR as a Hermes tool turns "deep research" into a single tool call. *Mechanism:* Hermes custom tool POSTs to `http://local-deep-researcher:2024/threads/{id}/runs/stream` and returns the final summary; configured in `services/hermes/init/templates/config.yaml.tmpl`. *Effort:* medium. *Confidence:* medium.
@@ -111,7 +111,6 @@ DOCLING_ENDPOINT=...
 - **`STRIP_THINKING_TOKENS` toggle** — *Why pursue:* Hermes-style reasoning models leak `<think>` blocks into the report; upstream env var hides them. *Effort:* small.
 - **`FETCH_FULL_PAGE` toggle** — *Why pursue:* hard-coded false in `init-config.py`; not exposed in `service.yml`. *Effort:* small.
 - **LangSmith tracing** — *Why pursue:* `LANGSMITH_API_KEY` ships upstream; superseded if Langfuse lands but useful as a stopgap. *Effort:* small.
-- **LangGraph Studio UI via Kong** — *Why pursue:* `/threads`/`/runs/stream` UI is reachable on port 2024 but has no Kong alias (e.g. `research.localhost`), forcing direct-port access. *Effort:* small.
 
 ## 6. Troubleshooting
 
@@ -165,5 +164,5 @@ Returns `running_summary`, `sources_gathered`, `loop_count`, current node — us
 ## 8. Performance notes
 
 - **Cost per run.** ~5 LLM calls per loop × `LOOPS` loops = 15 calls for the default. Plus one SearXNG call per loop. Local Ollama → free + slow (~30-90s/loop); cloud APIs via LiteLLM → fast + metered.
-- **No streaming back to backend.** The `/runs/stream` SSE channel exists but the planned backend wrapper (`research_client.py`) consumes it synchronously today. Once wired, the backend can fan out events to Open WebUI via Supabase Realtime.
+- **No streaming back to backend.** The `/runs/stream` SSE channel exists but the backend's `research_client.py` consumes it synchronously; fanning events out to Open WebUI via Supabase Realtime remains future work.
 - **Thread state size.** A 3-loop run produces ~30-60 KB of state (summary + sources). The in-memory checkpointer holds the last N threads in process; under load it can grow unbounded — restart cleans it.
