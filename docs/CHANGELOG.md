@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-11 overnight maintenance passes 46-49 (5 commits)
+
+- **Backfill vs migrations (HIGH):** `backfill_missing_env_vars()` no
+  longer pre-seeds keys the migration chain owns. Previously it spliced
+  `BOOTSTRAPPER_PORT_LAYOUT_VERSION` (and migration v2's `*_LOCALHOST_PORT`
+  targets / v3's COMFYUI model vars) from `.env.example` into legacy
+  `.env` files *before* `run_port_migration()` inspected them — stamping
+  the file as already-migrated and silently dropping the user's legacy
+  port and model-set customizations. Six regression tests including an
+  end-to-end legacy-env chain.
+- Dockerfile hygiene: jupyterhub/backend ARG defaults now match the
+  manifests' image pins (CI build-validation previously built a different
+  base than production); coursier pinned to v2.1.24; LDR's psycopg2-binary
+  pinned to the repo-wide 2.9.9.
+- Blank `BOOTSTRAPPER_PORT_LAYOUT_VERSION=` lines now count as unmigrated
+  and are stamped in place (previously: skipped by the digit-only regex
+  and duplicated on stamp).
+- Docs: weaviate module-list truth in source-configuration.md,
+  CONTRIBUTING category table (5/6 rows were missing services) + manifest
+  counts, `ray.localhost` restored to the alias list, openclaw opt-in
+  framing in the redis research row.
+- **Localhost-port collision class (MED):** five `*_LOCALHOST_PORT`
+  defaults were stale pre-migration literals sitting on ports OTHER
+  services now publish (docling/63021=Neo4j Browser, parakeet/63022=Redis,
+  openclaw/63024=Spark UI, whisper-cpp/63025=Spark History,
+  chatterbox/63027=Weaviate gRPC). Re-defaulted onto each family's freed
+  slot (63040/63042/63042/63044/63065) across manifests, wizard wiring,
+  Kong generator, localhost validator, service_config, tests, and docs.
+  Existing `.env` files keep their old values (migration-v4 candidate —
+  see Known follow-ups).
+- Test suite: default-assertions made hermetic (no longer read the live
+  repo `.env`); stale `_KNOWN_NO_CONSUMER` exclusions dropped; new
+  cross-seam guard pins every hardcoded localhost-port fallback literal
+  to `.env.example`. Suite grew 826 → 839.
+
 ### Fixed — 2026-06-11 overnight maintenance passes 40-45 (6 commits)
 
 - Neo4j backup tooling: `auto_restore.sh` / `restore.sh` no longer print
