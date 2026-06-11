@@ -464,7 +464,7 @@ PROMETHEUS_SOURCE=container
 PROMETHEUS_RETENTION_DAYS=7   # 1..365 — wizard prompts inline on the source step
 ```
 - **Use case**: Stack-wide observability — scrapes Kong, LiteLLM, Weaviate, n8n (web + worker), MinIO, Backend, plus the postgres/redis sidecars and cAdvisor/node-exporter. JupyterHub + Hermes scrape jobs were retired (the JupyterHub image is single-user `jupyter/datascience-notebook` with no `/metrics`; the third-party Hermes image likewise has no `/metrics` endpoint)
-- **Pros**: 12 pre-configured scrape jobs, recording-rules folder ready to extend, Kong-aliased UI at `prometheus.localhost`
+- **Pros**: 13 pre-configured scrape jobs, recording-rules folder ready to extend, Kong-aliased UI at `prometheus.localhost`
 - **Cons**: cAdvisor polls every container every 5s and node-exporter polls `/proc` continuously — non-trivial overhead on a laptop
 - **Requirements**: ~500 MB image disk + retention-day-dependent disk for the TSDB volume
 
