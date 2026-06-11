@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-11 overnight maintenance passes 56-62 (7 commits)
+
+- n8n queue mode: the worker now exports metrics too (5 mirrored
+  `N8N_METRICS*` vars + a dedicated `n8n-worker:5678` scrape job) —
+  execution-data counters are written worker-side, so the Grafana panels
+  were blind to them; scrape-target counts updated to 13 across docs.
+- Supabase: documented the auth-less pg-meta host publish
+  (`SUPABASE_META_PORT`, SQL as `supabase_admin`) with a firewall/remove
+  guidance note; submodule guide's `PROJECT_NAME=… ./start.sh` example
+  replaced with the working `.env`-based flow (a shell prefix splits the
+  compose project name from fragment interpolation).
+- README: project tree gained redis/lightrag/tei-reranker entries; the
+  architecture-diagram summary now names the full optional set.
+- Port rewrite: `VAR=63002 ` (trailing whitespace, no comment) was
+  silently skipped by the rewrite regex — fixed + regression test.
+- Dropped the dead `GRAPH_DB_HOST` declaration (zero consumers and its
+  `graph-db` default never matched the real `neo4j-graph-db` hostname).
+- `--setup-hosts` cycles no longer accumulate blank lines in /etc/hosts
+  (boundary normalized; a read failure now aborts instead of risking a
+  truncated hosts file); backend README lists the full route surface
+  (`/workflows`, `/comfyui/*`, `/api/ray/*` were undocumented).
+- Stale-comment sweep: ollama wizard-step docstrings (three-step era),
+  Kong "10 localhost routes" count, and the MinIO console-port docstring
+  (63019, not 63018) refreshed.
+
 ### Fixed — 2026-06-11 overnight maintenance passes 50-55 (5 commits)
 
 - Backend: `cancel_research` now accepts PENDING sessions (the
