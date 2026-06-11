@@ -82,14 +82,10 @@ def _consumer_source_text() -> str:
 # matching name moves OUT of this set and the test below enforces the
 # symmetry.
 _KNOWN_NO_CONSUMER: set[str] = {
-    # Provider-internal services — Open-WebUI talks to the *engine*
-    # directly via AUDIO_*_OPENAI_API_BASE_URL, not via a generic
-    # *_ENDPOINT plumbed through service_config.
-    "PARAKEET_LOCALHOST_PORT",
-    "WHISPER_CPP_LOCALHOST_PORT",
-    "CHATTERBOX_LOCALHOST_PORT",
     # Direct Bolt-protocol connection from a few clients; no
     # auto-generated NEO4J_BOLT_ENDPOINT today.
+    # (PARAKEET/WHISPER_CPP/CHATTERBOX_LOCALHOST_PORT moved out of this
+    # set once STT_ENDPOINT/TTS_ENDPOINT runtime_sc consumers landed.)
     "NEO4J_LOCALHOST_BOLT_PORT",
 }
 
@@ -163,3 +159,72 @@ def test_known_no_consumer_set_doesnt_grow_silently() -> None:
         "should be justified inline — silent growth means the symmetry "
         "test is losing coverage."
     )
+# ─── default-literal agreement across seams (pass 49) ────────────────
+
+def test_localhost_port_default_literals_agree_across_seams():
+    """Every hardcoded *LOCALHOST*PORT fallback (wizard wiring table,
+    Kong generator, LocalhostValidator.SERVICE_CHECKS) must equal the
+    var's value in .env.example. These literals agree today only by
+    manual discipline — this pins them together (the df8f627 re-default
+    touched all four seams at once; a future edit must too)."""
+    import re
+
+    env_text = ENV_EXAMPLE.read_text(encoding="utf-8")
+    env_values = dict(
+        re.findall(r"^([A-Z_]*LOCALHOST[A-Z_]*PORT)=(\d+)$", env_text, re.M)
+    )
+    assert env_values, "no localhost port vars found in .env.example"
+
+    repo = ENV_EXAMPLE.parent
+    mismatches: list[str] = []
+
+    # Seam 1: wizard wiring table (function-local dict — read source).
+    integration_src = (
+        repo / "bootstrapper" / "ui" / "textual" / "integration.py"
+    ).read_text(encoding="utf-8")
+    wiring_pairs = re.findall(
+        r'\("([A-Z_]*LOCALHOST[A-Z_]*PORT)",\s*(\d+)\)', integration_src
+    )
+    assert len(wiring_pairs) >= 5, "wiring-table regex matched nothing — refactor?"
+    for var, default in wiring_pairs:
+        if env_values.get(var) != default:
+            mismatches.append(
+                f"integration.py wiring: {var} fallback {default} != "
+                f".env.example {env_values.get(var)}"
+            )
+
+    # Seam 2: Kong generator fallbacks.
+    kong_src = (
+        repo / "bootstrapper" / "utils" / "kong_config_generator.py"
+    ).read_text(encoding="utf-8")
+    kong_pairs = re.findall(
+        r"_localhost_url\(\s*['\"]([A-Z_]+)['\"],\s*['\"](\d+)['\"]", kong_src
+    )
+    assert len(kong_pairs) >= 5, "kong fallback regex matched nothing — refactor?"
+    for var, default in kong_pairs:
+        if env_values.get(var) != default:
+            mismatches.append(
+                f"kong_config_generator: {var} fallback {default} != "
+                f".env.example {env_values.get(var)}"
+            )
+
+    # Seam 3: LocalhostValidator.SERVICE_CHECKS (class attr — walk it).
+    from utils.localhost_validator import LocalhostValidator
+
+    def _walk(node):
+        if isinstance(node, dict):
+            if "port_env_var" in node and "default_port" in node:
+                yield node["port_env_var"], str(node["default_port"])
+            for v in node.values():
+                yield from _walk(v)
+
+    validator_pairs = list(_walk(LocalhostValidator.SERVICE_CHECKS))
+    assert len(validator_pairs) >= 5, "SERVICE_CHECKS walk found nothing — refactor?"
+    for var, default in validator_pairs:
+        if var in env_values and env_values[var] != default:
+            mismatches.append(
+                f"localhost_validator: {var} default {default} != "
+                f".env.example {env_values[var]}"
+            )
+
+    assert not mismatches, "\n".join(mismatches)
