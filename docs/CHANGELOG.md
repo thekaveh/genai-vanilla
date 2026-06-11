@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance passes 27-31 (5 commits)
+
+- **Weaviate-backed memory inserts/searches 404'd on every call** — the
+  collection's `text2vec-openai.baseURL` carried a `/v1` suffix that
+  Weaviate's openai module joins `/v1/embeddings` onto
+  (`/v1/v1/embeddings`); suffix dropped, and weaviate-init's dead
+  `DEFAULT_OPENAI_BASE_URL` export (same wrong suffix, read by nothing)
+  removed.
+- Parakeet-GPU timestamps read NeMo's real `.timestamp` field (the
+  pass-26 fix used the nonexistent `.timestep`); docling upload
+  handlers gained the same filename guards.
+- /etc/hosts handling is now comment-aware and address-anchored in BOTH
+  directions — a commented-out `# 127.0.0.1 alias` no longer counts as
+  present, and removal spares commented lines and the user's
+  hyphenated lookalikes (regression tests cover both paths).
+- Submodule-usage examples now show Kong's REAL routing (Supabase REST
+  path-routed on the gateway root; everything else host-routed) and
+  the right `SUPABASE_API_PORT`; `.env` rewrites in key_generator and
+  migration_v3 are atomic + mode-preserving (backups included).
+- searxng's trusted-proxy claim now matches limiter.toml; hosts-check
+  and kong-consumer test nits.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 26 (1 commit)
 
 - **Every parakeet-GPU transcription request 500'd** — NeMo's RNNT/TDT
