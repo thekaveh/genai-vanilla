@@ -1384,6 +1384,11 @@ services:
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
       N8N_ENCRYPTION_KEY: your-random-encryption-key
+      N8N_METRICS: 'true'
+      N8N_METRICS_INCLUDE_DEFAULT_METRICS: 'true'
+      N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS: 'true'
+      N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: 'true'
+      N8N_METRICS_PREFIX: n8n_
       NODE_ENV: development
       QUEUE_BULL_REDIS_DB: '0'
       QUEUE_BULL_REDIS_HOST: redis

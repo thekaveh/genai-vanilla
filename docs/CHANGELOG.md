@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-11 overnight maintenance passes 50-55 (6 commits)
+### Fixed — 2026-06-11 overnight maintenance passes 50-55 (5 commits)
 
 - Backend: `cancel_research` now accepts PENDING sessions (the
   insert→RUNNING race window previously left a live background task

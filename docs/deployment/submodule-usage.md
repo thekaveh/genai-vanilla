@@ -543,13 +543,17 @@ git submodule update --init
 You can run multiple instances of genai-vanilla for different projects:
 
 ```bash
-# Project 1
+# Project 1 — set PROJECT_NAME in the infra/.env (a shell-env prefix is NOT
+# read by the bootstrapper: compose would keep project name `genai` while
+# fragment interpolation used the shell value, colliding the two stacks)
 cd ~/project1/infra
-PROJECT_NAME=project1 ./start.sh --base-port 63000
+echo "PROJECT_NAME=project1" >> .env
+./start.sh --base-port 63000
 
 # Project 2
 cd ~/project2/infra
-PROJECT_NAME=project2 ./start.sh --base-port 64000
+echo "PROJECT_NAME=project2" >> .env
+./start.sh --base-port 64000
 ```
 
 Each will have isolated:

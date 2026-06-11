@@ -135,6 +135,14 @@ services:
       QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
+      # Queue mode means execution-data writes happen HERE, not on the
+      # main container — the worker-server serves /metrics when these are
+      # set (scraped as the n8n-worker prometheus job).
+      N8N_METRICS: ${N8N_METRICS:-true}
+      N8N_METRICS_PREFIX: ${N8N_METRICS_PREFIX:-n8n_}
+      N8N_METRICS_INCLUDE_DEFAULT_METRICS: ${N8N_METRICS_INCLUDE_DEFAULT_METRICS:-true}
+      N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: ${N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL:-true}
+      N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS: ${N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS:-true}
       # Queue mode runs ALL executions on this worker (the stack defaults
       # to EXECUTIONS_MODE=queue + OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS),
       # so every workflow-facing var the main container exposes must be
