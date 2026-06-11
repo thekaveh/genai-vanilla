@@ -352,10 +352,21 @@ class WizardScreen(Screen):
             return
         err = event.worker.error
         with contextlib.suppress(Exception):
-            self._write_status(
-                f"❌ {event.worker.name or 'background task'} failed: {err}",
-                style="bold red", source="pipeline",
-            )
+            if self._log_pane is not None:
+                self._write_status(
+                    f"❌ {event.worker.name or 'background task'} failed: {err}",
+                    style="bold red", source="pipeline",
+                )
+            else:
+                # Setup phase: no log pane exists yet, so _write_status
+                # would no-op and the failure vanished silently. Surface
+                # it as a toast instead.
+                self.notify(
+                    str(err),
+                    title=f"{event.worker.name or 'Background task'} failed",
+                    severity="error",
+                    timeout=10,
+                )
 
     # ─── setup phase ─────────────────────────────────────────────────
 
@@ -711,7 +722,10 @@ class WizardScreen(Screen):
         else:
             # Last step is the launch confirm. opt.value is "yes" / "no".
             if opt.value == "yes":
-                self.run_worker(self._transition_to_launch(), exclusive=True)
+                self.run_worker(
+                    self._transition_to_launch(),
+                    exclusive=True, exit_on_error=False,
+                )
             else:
                 # "No — exit without starting" must actually exit
                 # (previously a silent no-op: Enter did nothing and only

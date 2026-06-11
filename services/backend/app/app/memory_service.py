@@ -6,6 +6,7 @@ memory consolidation/deduplication, and user memory summarization.
 Uses Weaviate for vector search with automatic pgvector fallback.
 """
 
+import asyncio
 import os
 import json
 import logging
@@ -36,14 +37,25 @@ class MemoryService:
 
         self.store: Optional[MemoryStore] = None
         self._initialized = False
+        self._init_lock = asyncio.Lock()
 
     async def _ensure_initialized(self):
-        """Lazy initialization of the memory store."""
+        """Lazy initialization of the memory store.
+
+        Locked: concurrent first requests would otherwise double-create
+        the store and run MemoryStore.initialize() twice — and its
+        delete-and-recreate collection heal must never race itself."""
         if self._initialized:
             return
         if not self.enabled:
             return
 
+        async with self._init_lock:
+            if self._initialized:
+                return
+            await self._initialize_locked()
+
+    async def _initialize_locked(self):
         weaviate = self.weaviate_url if self.weaviate_url else None
         self.store = MemoryStore(
             database_url=self.database_url,
