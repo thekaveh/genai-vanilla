@@ -185,6 +185,14 @@ def main(argv: list[str]) -> int:
             d = args.research_root / sub
             if d.is_dir():
                 targets.extend(sorted(p for p in d.glob("*.md") if p.name not in ("README.md", ".gitkeep")))
+        if not targets:
+            # Empty-glob guard: a missing/renamed research root must fail
+            # loudly, not exit 0 having validated nothing.
+            print(
+                f"error: --all found no row/candidate files under {args.research_root}",
+                file=sys.stderr,
+            )
+            return 2
     else:
         if not args.file.exists():
             print(f"error: file not found: {args.file}", file=sys.stderr)
