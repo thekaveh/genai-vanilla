@@ -67,6 +67,8 @@ services:
       N8N_METRICS_PREFIX: ${N8N_METRICS_PREFIX:-n8n_}
       N8N_METRICS_INCLUDE_DEFAULT_METRICS: ${N8N_METRICS_INCLUDE_DEFAULT_METRICS:-true}
       N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: ${N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL:-true}
+      # Default-off upstream; without it the Grafana execution-data panel is permanently "No data".
+      N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS: ${N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS:-true}
       # Hermes Agent — direct path (LiteLLM-routed model is at
       # `hermes-agent`; direct route bypasses the gateway for webhook/dashboard).
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}

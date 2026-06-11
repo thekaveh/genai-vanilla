@@ -1,6 +1,6 @@
 # Apache Zeppelin (Spark-first notebook)
 
-Zeppelin runs as a single container in the stack's `apps` band. The Spark interpreter is pre-configured against the in-stack Spark cluster (master RPC + Spark Connect gRPC + MinIO S3A). The JDBC interpreter ships with credentials in env vars but Zeppelin does not auto-load them — first-time users wire the `postgres` JDBC profile via the UI (Interpreter → JDBC → `default.url` = `${ZEPPELIN_JDBC_POSTGRES_URL}`); see §4 for the one-time setup. Notebooks live in `services/zeppelin/notebooks/`, bind-mounted into the container.
+Zeppelin runs as a single container in the stack's `apps` band. The Spark interpreter is pre-configured against the in-stack Spark cluster (master RPC + Spark Connect gRPC + MinIO S3A). The JDBC interpreter ships with credentials in env vars but Zeppelin does not auto-load them — first-time users create a `postgres` interpreter (group `jdbc`) via the UI — `default.url` = `${ZEPPELIN_JDBC_POSTGRES_URL}`; see §4 for the one-time setup. Notebooks live in `services/zeppelin/notebooks/`, bind-mounted into the container.
 
 ## 1. Overview
 
@@ -37,7 +37,7 @@ ZEPPELIN_PORT=                     # auto-assigned (apps band)
 
 - **Spark** (required) — `%spark` cells need the one-time Spark Connect setup from §1 (`spark.remote = sc://spark-connect:15002` in the Interpreter UI). The image ships no Spark distribution, so the `SPARK_MASTER` / `SPARK_SUBMIT_OPTIONS` env vars in compose only take effect on a spark-submit launch path that requires a user-mounted `SPARK_HOME` — out of the box they are inert.
 - **MinIO** — in Spark Connect mode, `s3a://` credentials come from the **spark-connect server's** own conf (see `services/spark/compose.yml`), so MinIO reads/writes work from `%spark` cells once Connect is configured. (`SPARK_SUBMIT_OPTIONS` would only matter on the user-mounted spark-submit path above.)
-- **Supabase Postgres** — JDBC connection details exposed as env vars (`ZEPPELIN_JDBC_POSTGRES_URL` / `_USER` / `_PASSWORD`). Zeppelin does not auto-bind these to the JDBC interpreter — one-time setup: open Zeppelin → Interpreter → `jdbc` → click `+ Create` and add a `postgres` group with `default.driver=org.postgresql.Driver`, `default.url=jdbc:postgresql://supabase-db:5432/${SUPABASE_DB_NAME}` (copy the exact value from the container's `ZEPPELIN_JDBC_POSTGRES_URL` env — `${SUPABASE_DB_NAME}` defaults to `postgres` but is configurable), `default.user`/`default.password` from the corresponding env vars. Then `%jdbc(postgres) SELECT version()` works. Tracked as a future improvement (bind-mount `conf/interpreter.json` so this is zero-touch).
+- **Supabase Postgres** — JDBC connection details exposed as env vars (`ZEPPELIN_JDBC_POSTGRES_URL` / `_USER` / `_PASSWORD`). Zeppelin does not auto-bind these to the JDBC interpreter — one-time setup: open Zeppelin → Interpreter → `+ Create`, name it `postgres` with interpreter group `jdbc`, and set `default.driver=org.postgresql.Driver`, `default.url=jdbc:postgresql://supabase-db:5432/${SUPABASE_DB_NAME}` (copy the exact value from the container's `ZEPPELIN_JDBC_POSTGRES_URL` env — `${SUPABASE_DB_NAME}` defaults to `postgres` but is configurable), `default.user`/`default.password` from the corresponding env vars. Then `%postgres SELECT version()` works — note the old `%jdbc(postgres)` prefix syntax was removed in Zeppelin 0.12 (the interpreter warns "not supported anymore" and falls back to `default.*`). Tracked as a future improvement (bind-mount `conf/interpreter.json` so this is zero-touch).
 - **LiteLLM** (optional) — Python interpreter can call the LiteLLM gateway via `openai.OpenAI(base_url="http://litellm:4000/v1", api_key=...)`. No pre-configuration ships; users wire it themselves.
 
 ## 5. Starter notebook
@@ -46,7 +46,7 @@ ZEPPELIN_PORT=                     # auto-assigned (apps band)
 1. Spark version check (`sc.version`)
 2. Markdown intro
 3. MinIO round-trip via S3A (`s3a://spark-history/...`)
-4. Postgres JDBC `SELECT version()` against supabase-db (requires the one-time `%jdbc(postgres)` interpreter setup in §4; the cell will error with "Interpreter not properly configured" until you complete it)
+4. Postgres JDBC `SELECT version()` against supabase-db (requires the one-time `postgres` interpreter setup in §4; the cell will error with "Interpreter not properly configured" until you complete it)
 
 Use it as a template for your own notebooks.
 

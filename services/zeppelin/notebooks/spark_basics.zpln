@@ -19,7 +19,7 @@
     },
     {
       "title": "Postgres JDBC read",
-      "text": "%jdbc(postgres)\nSELECT version()",
+      "text": "%postgres\nSELECT version()",
       "user": "anonymous",
       "config": {"editorSetting": {"language": "sql"}}
     }
