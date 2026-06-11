@@ -174,6 +174,11 @@ def apply(env_path: Path) -> None:
     # Backup.
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup = env_path.with_name(f"{env_path.name}.backup.{ts}")
+    backup.touch()
+    # Backup carries the same secrets — clamp to the original mode
+    # before writing (a user-chmod'd 0600 .env must not back up 0644).
+    import os as _os
+    _os.chmod(backup, _os.stat(env_path).st_mode)
     backup.write_text(text, encoding="utf-8")
 
     # Translate COMFYUI_MODEL_SET → catalog CSV.
@@ -198,9 +203,14 @@ def apply(env_path: Path) -> None:
     import os as _os
     tmp = env_path.with_suffix(env_path.suffix + ".tmp")
     original_mode = _os.stat(env_path).st_mode
-    tmp.write_text(new_text, encoding="utf-8")
-    _os.chmod(tmp, original_mode)
-    tmp.replace(env_path)
+    try:
+        # chmod BEFORE writing secrets (no umask-default window).
+        tmp.touch()
+        _os.chmod(tmp, original_mode)
+        tmp.write_text(new_text, encoding="utf-8")
+        tmp.replace(env_path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
     print(
         f"[migration_v3] COMFYUI_MODEL_SET={old_value!r} → "

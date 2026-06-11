@@ -103,7 +103,11 @@ class MemoryStore:
                         # expects an OpenAI-style model name; LiteLLM resolves
                         # the actual provider from its model_list).
                         "model": self.embedding_model.split("/", 1)[-1],
-                        "baseURL": f"{self.litellm_url}/v1",
+                        # No /v1 suffix: Weaviate's openai module joins
+                        # "/v1/embeddings" onto baseURL itself, so a /v1
+                        # here produced /v1/v1/embeddings → 404 on every
+                        # Weaviate-backed memory insert/search.
+                        "baseURL": self.litellm_url,
                         "vectorizeClassName": False,
                     }
                 },

@@ -242,6 +242,7 @@ import requests
 KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 0
 
 # Access Supabase REST through Kong (path-routed)
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")  # from infra/.env
 response = requests.get(f"{KONG_BASE}/rest/v1/your-table",
                         headers={"apikey": SUPABASE_ANON_KEY})
 

@@ -77,3 +77,27 @@ def test_hosts_presence_check_ignores_commented_and_hyphenated_lines(tmp_path):
     assert "n8n.localhost" in missing      # commented ⇒ missing
     assert "api.localhost" in missing      # my-api ≠ api
     assert "chat.localhost" not in missing # multi-host line counts
+
+
+def test_hosts_removal_spares_commented_and_hyphenated_lines(tmp_path):
+    """Removal must delete real stack entries while sparing commented-out
+    lines and the user's own hyphenated lookalikes (mirrors the
+    presence-check semantics)."""
+    from utils.hosts_manager import HostsManager
+
+    hosts = tmp_path / "hosts"
+    hosts.write_text(
+        "# GenAI Stack subdomains\n"
+        "127.0.0.1 n8n.localhost\n"
+        "# 127.0.0.1 chat.localhost\n"
+        "127.0.0.1 my-n8n.localhost\n"
+        "127.0.0.1 unrelated.example\n",
+        encoding="utf-8",
+    )
+    hm = HostsManager()
+    assert hm.remove_hosts_entries_silent(str(hosts)) is True
+    text = hosts.read_text(encoding="utf-8")
+    assert "127.0.0.1 n8n.localhost\n" not in text       # real entry removed
+    assert "# 127.0.0.1 chat.localhost" in text          # comment spared
+    assert "127.0.0.1 my-n8n.localhost" in text          # lookalike spared
+    assert "unrelated.example" in text
