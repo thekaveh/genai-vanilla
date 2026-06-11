@@ -1,7 +1,8 @@
 """
 Docker operations manager for compose commands and Docker availability checking.
 
-Python implementation of Docker functions from start.sh and stop.sh.
+Compose execution layer (start.sh/stop.sh are now thin wrappers that
+delegate here).
 """
 
 import os
@@ -41,7 +42,8 @@ class DockerManager:
     def detect_docker_compose_command(self) -> str:
         """
         Detect available docker compose command.
-        Replicates the detect_docker_compose_cmd() function from start.sh and stop.sh.
+        Detects the available compose command (descended from the legacy
+        shell helper of the same purpose).
         
         Returns:
             str: Either "docker compose" or "docker-compose"
@@ -144,7 +146,8 @@ class DockerManager:
     def execute_compose_command(self, args: List[str], use_env_file: bool = True) -> int:
         """
         Execute a docker compose command with proper error handling.
-        Replicates the execute_compose_cmd() function from start.sh and stop.sh.
+        Builds and runs a compose command (descended from the legacy
+        shell helper of the same purpose).
         
         Args:
             args: List of arguments to pass to docker compose
@@ -418,7 +421,7 @@ class DockerManager:
     def show_container_status(self) -> int:
         """
         Show container status using docker compose ps.
-        Replicates the 'execute_compose_cmd ps' from original start.sh.
+        Compose ps (descended from the legacy shell flow).
         
         Returns:
             int: Return code from the command
@@ -462,7 +465,7 @@ class DockerManager:
     def get_service_port(self, service: str, internal_port: str) -> str:
         """
         Get the actual external port mapped to a service's internal port.
-        Replicates the get_actual_port() function from original start.sh.
+        Resolves the actual published port (descended from the legacy shell flow).
 
         Args:
             service: Service name
@@ -502,7 +505,7 @@ class DockerManager:
     def show_container_logs(self, follow: bool = True) -> int:
         """
         Show container logs using docker compose logs.
-        Replicates the 'execute_compose_cmd logs -f' from original start.sh.
+        Compose logs -f (descended from the legacy shell flow).
 
         Args:
             follow: Whether to follow logs (default True)

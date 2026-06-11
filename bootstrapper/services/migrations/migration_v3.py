@@ -196,7 +196,10 @@ def apply(env_path: Path) -> None:
 
     # Insert / update new vars.
     new_text = _replace_or_append(new_text, "COMFYUI_USER_MODELS", final_user_models)
-    new_text = _replace_or_append(new_text, "COMFYUI_CUSTOM_MODELS_FILE", "/custom-models.yaml")
+    # Append-if-absent only: a user-customized sidecar path must survive
+    # the migration (the docstring contract; overwriting was a bug).
+    if "COMFYUI_CUSTOM_MODELS_FILE" not in parsed:
+        new_text = _replace_or_append(new_text, "COMFYUI_CUSTOM_MODELS_FILE", "/custom-models.yaml")
 
     # Atomic write via tmp + rename, preserving the original mode (a
     # user-chmod'd 0600 .env must not come back umask-default).

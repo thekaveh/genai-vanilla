@@ -44,7 +44,9 @@ _SENTINEL_RE = re.compile(
 # Tolerates http:// or https://, optional trailing path.
 _URL_LINE_RE = re.compile(
     r"""^(?P<key>[A-Z_]+_LOCALHOST_URL)\s*=\s*
-        (?:https?://(?P<host>[^:/\s]+)(?::(?P<port>\d+))?(?P<path>[^\s#]*))?
+        (?P<quote>["']?)
+        (?:https?://(?P<host>[^:/\s"']+)(?::(?P<port>\d+))?(?P<path>[^\s#"']*))?
+        (?P=quote)
         \s*(?P<tail>(?:\#.*)?)\s*$""",
     re.VERBOSE,
 )

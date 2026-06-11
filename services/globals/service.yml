@@ -78,9 +78,9 @@ env:
 
   # Migration sentinels
   - name: BOOTSTRAPPER_PORT_LAYOUT_VERSION
-    default: 1
+    default: 3
     auto_managed: false
-    description: "Sentinel updated by bootstrapper/services/migrations. Missing or <1 triggers port-layout v1 migration on next start."
+    description: "Sentinel updated by bootstrapper/services/migrations. Missing or <N triggers the chained env migrations up to N (v1 port-layout, v2 URL>PORT, v3 COMFYUI model-set). Fresh .env files are already v3-shaped."
 
 depends_on:
   required: []

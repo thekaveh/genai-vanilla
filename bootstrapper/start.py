@@ -949,7 +949,7 @@ class GenAIStackStarter:
         the model-picker feature. Removes the old enum var and any
         preceding comment block.
 
-        When ``no_port_migrate`` is True we skip BOTH rewrites AND skip
+        When ``no_port_migrate`` is True we skip all three migrations AND skip
         the sentinel stamps so the next run re-prompts — matches the
         user intent "skip this run, ask next time."
 
