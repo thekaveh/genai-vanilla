@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-11 overnight maintenance passes 40-45 (6 commits)
+
+- Neo4j backup tooling: `auto_restore.sh` / `restore.sh` no longer print
+  "restored successfully" when `neo4j-admin database load` fails — failures
+  now exit non-zero with a partial-state warning (container startup
+  behavior unchanged); `ollama` pull.sh adds `PGPORT` to its required-env
+  check.
+- Audit scripts: `validate_research_schema.py --all` and the docs-drift
+  SOURCE-matrix check fail loudly when their target globs match nothing
+  instead of passing vacuously.
+- Manifests: dropped Spark's unwired `supabase` data-flow edge (no JDBC
+  driver or env wiring ships — same user-driven rule as Zeppelin's litellm
+  exclusion) and its dead `prometheus` optional dep; documented MinIO's
+  `supabase` entry as ordering-only slot pinning.
+- Textual UI: `ctrl+q` hint relabeled "quit" (setup-phase quit never
+  saved); removed the dead `on_complete` hook and `_refresh_topology`
+  shim; refreshed stale PresentationApp/palette/wizard comments. The
+  `--no-tui` linear flow now clears stale shell-exported `*_PORT` vars
+  before port configuration, matching the TUI pipeline.
+- Backend research surface: documented the `research_client.py` ↔
+  LangGraph protocol mismatch (client targets bespoke `/research/*` +
+  `/health`; `langgraph dev` serves `/ok` + `/threads` + `/runs`) as a
+  known gap in all three claim sites; porting the client is a tracked
+  follow-up.
+- Env migrations: fresh `.env` files now ship sentinel
+  `BOOTSTRAPPER_PORT_LAYOUT_VERSION=3` (no spurious v2+v3 first-run pass
+  with backup-file noise), migration v3 honors its append-if-absent
+  contract for `COMFYUI_CUSTOM_MODELS_FILE`, and migration v2 recognizes
+  quoted URL values.
+
 ### Fixed — 2026-06-10 overnight maintenance passes 35-39 (6 commits)
 
 - Redis README cluster closure: the per-database index map now matches
