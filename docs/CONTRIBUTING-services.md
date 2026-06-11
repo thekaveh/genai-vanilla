@@ -77,7 +77,7 @@ Before you touch any manifest, spend 15–30 minutes with the candidate service'
 
 ### 4.2 Integration discovery — how does this fit our stack?
 
-Once you understand the candidate, scan our existing 25-manifest stack to identify integration points:
+Once you understand the candidate, scan our existing 32-manifest stack to identify integration points:
 
 - **Upstream callers (who in our stack would call this new service).** Run `grep -l "^data_flow:" services/*/service.yml` and skim each service's `data_flow.calls` list. Which existing services would benefit from calling this new one? (E.g., a new vector DB → Backend, n8n, JupyterHub, possibly Hermes Agent.) These become entries in those EXISTING manifests' `data_flow.calls` lists — NOT in your new service's `depends_on`. (See [Decision 5](#9-decision-5--dependencies-depends_onrequired--optional) for why `data_flow.calls` is separate from `depends_on`.)
 - **Downstream callees (what this service calls).** Does the candidate make outbound calls to anything we already run? Most app-tier services touch Supabase (auth/storage), LiteLLM (LLM access), and Redis (caching). These would be entries in YOUR new service's `data_flow.calls`.
@@ -140,12 +140,12 @@ Every manifest declares one of six categories. The category drives two things: t
 
 | Category | Wizard block | Services currently in this category | When to pick |
 |---|---|---|---|
-| `infra` | Infrastructure | Kong, globals | Gateways, project-wide config, observability |
-| `data` | Data | Supabase, Redis, MinIO, Neo4j, Weaviate (+ `multi2vec-clip` as a Weaviate sub-module) | Databases, caches, object storage |
-| `llm` | LLM Core | LiteLLM, Ollama, cloud-providers | LLM gateways / engines |
+| `infra` | Infrastructure | Kong, globals, Prometheus, Grafana, Ray | Gateways, project-wide config, observability |
+| `data` | Data | Supabase, Redis, MinIO, Neo4j, Weaviate (+ `multi2vec-clip` as a Weaviate sub-module), Spark | Databases, caches, object storage |
+| `llm` | LLM Core | LiteLLM, Ollama, cloud-providers, TEI Reranker | LLM gateways / engines |
 | `media` | Media | ComfyUI, parakeet, speaches, chatterbox, docling, searxng, tts-provider | Multimodal AI (image / audio / doc / search) |
-| `agents` | Agents & Workflows | Hermes, n8n, openclaw | Programmable AI agents, workflow runners |
-| `apps` | Apps & UIs | Backend, Open WebUI, JupyterHub, Local Deep Researcher | User-facing UIs |
+| `agents` | Agents & Workflows | Hermes, n8n, openclaw, Airflow, LightRAG | Programmable AI agents, workflow runners |
+| `apps` | Apps & UIs | Backend, Open WebUI, JupyterHub, Local Deep Researcher, Zeppelin | User-facing UIs |
 
 **Effects of the category:**
 - **Wizard placement.** Categories render in fixed order (`infra` → `data` → `llm` → `media` → `agents` → `apps`). Within a category, services follow topological order (driven by `depends_on.required`).
@@ -311,7 +311,7 @@ Two adjacent fields that occasionally apply:
 - **`runtime_adaptive`** — for services like `backend` that adapt their behavior based on which upstream services are enabled. Declares `adapts_to:` (a list of provider keys) and `environment_adaptation:` (env vars conditionally set when those providers are active). See `services/backend/service.yml` for the reference pattern.
 - **`runtime_deps`** — declares optional runtime dependencies (services this one calls only if they're enabled). Drives the info-message shown to the user during the wizard.
 
-Use these only if your service is genuinely adaptive. Today seven manifests declare `runtime_adaptive` (backend, comfyui, hermes, jupyterhub, n8n, ollama, weaviate); backend is the most heavily adaptive and the canonical reference. Don't reach for these fields by default — start with declarative `runtime_sc` and only escalate when the adaptive behavior is non-trivial.
+Use these only if your service is genuinely adaptive. Today eight manifests declare `runtime_adaptive` (backend, comfyui, hermes, jupyterhub, lightrag, n8n, ollama, weaviate); backend is the most heavily adaptive and the canonical reference. Don't reach for these fields by default — start with declarative `runtime_sc` and only escalate when the adaptive behavior is non-trivial.
 
 ## 11. Mechanics — putting it all together
 

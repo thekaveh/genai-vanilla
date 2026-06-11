@@ -43,7 +43,7 @@ sources_consulted:
   - Confidence: medium (mechanism is standard, but no first-class Hermes-Redis integration upstream).
 
 - **redis ↔ openclaw**
-  - Why valuable: Messaging-platform agent gateways need cross-process session state (which channel maps to which agent thread) and dedup of inbound webhook deliveries — both classic Redis use-cases. Openclaw is not currently wired to Redis despite both being always-on infra.
+  - Why valuable: Messaging-platform agent gateways need cross-process session state (which channel maps to which agent thread) and dedup of inbound webhook deliveries — both classic Redis use-cases. Openclaw is not currently wired to Redis (note openclaw is opt-in — `OPENCLAW_SOURCE` defaults to `disabled`).
   - Mechanism sketch: `redis://:${REDIS_PASSWORD}@redis:6379/4` for `openclaw:webhook:dedup` (SETEX with 5-min TTL) and `openclaw:channel:<id>` session hashes.
   - Effort: small
   - Risks / open questions: openclaw's upstream Redis support not yet audited in this session.

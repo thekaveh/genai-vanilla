@@ -34,6 +34,7 @@ Active aliases (every `*-localhost` source also routes through `host.docker.inte
 - `n8n.localhost` → n8n (`N8N_SOURCE != disabled`)
 - `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE` is `ollama-container-*` or `ollama-localhost`)
 - `openclaw.localhost` → OpenClaw gateway (`OPENCLAW_SOURCE != disabled`)
+- `ray.localhost` → Ray dashboard (`RAY_SOURCE != disabled`)
 - `rerank.localhost` → TEI rerank API (`TEI_RERANKER_SOURCE != disabled`)
 - `research.localhost` → Local Deep Researcher (`LOCAL_DEEP_RESEARCHER_SOURCE != disabled`)
 - `search.localhost` → SearxNG (`SEARXNG_SOURCE != disabled`)

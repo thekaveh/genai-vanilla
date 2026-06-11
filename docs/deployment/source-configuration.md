@@ -261,15 +261,15 @@ WEAVIATE_URL=http://weaviate:8080
 - **Cons**: Container resource usage
 - **Requirements**: None
 
-The default stack also enables the optional CLIP vectorizer service. Text vectorization talks to LiteLLM via the `text2vec-openai` module — the OpenAI-compatible URL points at `LITELLM_BASE_URL` and `OPENAI_APIKEY` is set to `LITELLM_MASTER_KEY`. There is no longer a separate `text2vec-ollama` module entry.
+The default stack also enables the optional CLIP vectorizer service. Text vectorization talks to LiteLLM via the `text2vec-openai` module — the OpenAI-compatible URL points at `LITELLM_BASE_URL` and `OPENAI_APIKEY` is set to `LITELLM_MASTER_KEY`. The default module list also keeps `text2vec-ollama` and `generative-ollama` enabled for back-compat with schemas created before the LiteLLM-fronted setup.
 
 ```bash
 MULTI2VEC_CLIP_SOURCE=container-cpu
-WEAVIATE_ENABLE_MODULES=text2vec-openai,multi2vec-clip,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama
 CLIP_INFERENCE_API=http://multi2vec-clip:8080
 ```
 
-If `MULTI2VEC_CLIP_SOURCE=disabled`, remove `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES` (leaving `text2vec-openai,generative-openai`) and set `CLIP_INFERENCE_API=` so Weaviate does not advertise a disabled inference endpoint.
+If `MULTI2VEC_CLIP_SOURCE=disabled`, remove `multi2vec-clip` from `WEAVIATE_ENABLE_MODULES` (leaving `text2vec-openai,text2vec-ollama,generative-openai,generative-ollama`) and set `CLIP_INFERENCE_API=` so Weaviate does not advertise a disabled inference endpoint.
 
 #### 4.3.2 `localhost`
 ```bash
