@@ -45,7 +45,7 @@ Options:
 
 Examples:
   ./stop.sh                 # Stop all containers, preserve data
-  ./stop.sh --cold          # Stop all containers and remove all data volumes
+  ./stop.sh --cold          # Stop containers, remove project volumes, AND run a global `docker system prune -f --volumes` (touches unused images/volumes of OTHER projects too)
   ./stop.sh --clean-hosts   # Stop containers and clean up hosts file
 """
         print(usage_text)
@@ -115,7 +115,7 @@ Examples:
         
         return self.hosts_manager.cleanup_hosts_entries()
         
-    def show_final_status(self, cold_stop: bool, clean_hosts: bool, services_ok: bool = True):
+    def show_final_status(self, cold_stop: bool, clean_hosts: bool, services_ok: bool = True, hosts_ok: bool = True):
         """Display final stop status and next steps."""
         print()
         self.banner.console.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style="bright_white")
@@ -134,7 +134,14 @@ Examples:
             self.banner.console.print("   ✅ Data volumes preserved")
             
         if clean_hosts:
-            self.banner.console.print("   ✅ Hosts file entries cleaned up")
+            if hosts_ok:
+                self.banner.console.print("   ✅ Hosts file entries cleaned up")
+            else:
+                self.banner.console.print(
+                    "   ⚠️  Hosts file cleanup FAILED (needs sudo?) — run "
+                    "./stop.sh --clean-hosts again with privileges",
+                    style="bold bright_yellow",
+                )
             
         self.banner.console.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style="bright_white")
         print()
@@ -178,13 +185,16 @@ def main(cold, clean_hosts, help_usage):
         services_ok = stopper.stop_services(cold, project_name)
 
         # Step 3: Clean up hosts entries if requested
+        hosts_ok = True
         if clean_hosts:
-            if not stopper.cleanup_hosts_entries():
-                # Don't exit on hosts cleanup failure, just continue
-                pass
+            # Don't exit on hosts cleanup failure — but DO tell the truth
+            # about it in the final banner instead of a blanket ✅.
+            hosts_ok = stopper.cleanup_hosts_entries()
 
         # Step 4: Show final status
-        stopper.show_final_status(cold, clean_hosts, services_ok=services_ok)
+        stopper.show_final_status(
+            cold, clean_hosts, services_ok=services_ok, hosts_ok=hosts_ok,
+        )
 
         if not services_ok:
             sys.exit(1)

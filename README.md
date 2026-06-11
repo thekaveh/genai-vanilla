@@ -320,7 +320,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh --llm-provider-source ollama-localhost  # Any configuration flag skips the wizard
 ./start.sh --help            # Show all options
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data
+./stop.sh --cold             # Stop and remove all data (also runs a global docker system prune)
 
 # Port and network
 ./start.sh --base-port 64000  # Custom port range
@@ -368,7 +368,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ```bash
 # Basic stop commands
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data (destructive)
+./stop.sh --cold             # Stop and remove all data (destructive; includes a global docker system prune -f --volumes)
 ./stop.sh --clean-hosts      # Remove *.localhost entries from hosts file
 ./stop.sh --help             # Show all options
 
