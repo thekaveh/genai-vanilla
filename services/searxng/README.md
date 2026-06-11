@@ -54,7 +54,7 @@ Static config at `services/searxng/config/settings.yml` (do not redirect users t
 
 **No per-engine API keys required** for the default set (DuckDuckGo, Bing, Brave, Wikipedia, Stack Exchange, GitHub). Some engines (Google search) need cookies SearXNG manages internally; some (Google Scholar) work without.
 
-**Trusted-proxy concern.** SearXNG's bot detection trusts only configured proxies for `X-Forwarded-For`. The stack uses `botdetection.ip_lists.pass_searxng_org: false` and trusts only the Docker network gateway, so n8n / LDR / backend requests pass through cleanly even when the limiter is later enabled.
+**Trusted-proxy concern.** SearXNG's bot detection trusts only configured proxies for `X-Forwarded-For`. The stack's `config/limiter.toml` sets `botdetection.trusted_proxies` to the three RFC1918 ranges (so any Docker bridge network qualifies) and adds `pass_ip` entries for loopback and the same private ranges, which is how n8n / LDR / backend requests pass through cleanly even when the limiter is later enabled.
 
 **Consumers (data-flow downstream):** Kong, Hermes, n8n, Local Deep Researcher, JupyterHub (SEARXNG_URL in the notebook env), Open WebUI. The data-flow graph doesn't list Open WebUI today because the upstream-supported web-search toggle is wired off — flipping `ENABLE_RAG_WEB_SEARCH=true` and `RAG_WEB_SEARCH_ENGINE=searxng` adds Open WebUI as a runtime caller.
 

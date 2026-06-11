@@ -80,10 +80,18 @@ class HostsManager:
             with open(self.hosts_file_path, 'r', encoding="utf-8") as f:
                 hosts_content = f.read()
 
+            # Whole-token comparison, mirroring remove_hosts_entries_silent:
+            # the old \b-anchored regex false-positived on hyphenated user
+            # entries (`my-n8n.localhost` contains the token-boundary match
+            # for `n8n.localhost`), so --setup-hosts skipped adding the
+            # real alias.
+            present: set = set()
+            for line in hosts_content.splitlines():
+                tokens = line.split()
+                if "127.0.0.1" in tokens:
+                    present.update(tokens)
             for host in self.get_genai_hosts():
-                # Check for line like "127.0.0.1    hostname" with flexible whitespace
-                pattern = rf'^\s*127\.0\.0\.1\s+.*\b{re.escape(host)}\b'
-                if not re.search(pattern, hosts_content, re.MULTILINE):
+                if host not in present:
                     missing.append(host)
 
         except (OSError, UnicodeDecodeError):

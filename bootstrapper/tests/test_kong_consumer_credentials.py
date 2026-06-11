@@ -70,7 +70,7 @@ def test_basic_auth_credentials_are_resolved_from_env(consumers):
     # with a more readable assertion than "expected X, got '${DASH…'".
     for field in ("username", "password"):
         assert "${" not in creds[0][field], (
-            f"basicauth_credentials[{field}!r] contains an un-substituted "
+            f"basicauth_credentials[{field!r}] contains an un-substituted "
             f"${{VAR}} placeholder: {creds[0][field]!r}. Kong's DB-less "
             f"declarative config does NOT interpolate shell-style env "
             f"refs — resolve from .env in the generator instead."
