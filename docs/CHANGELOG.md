@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance passes 35-39 (6 commits)
+
+- Redis README cluster closure: the per-database index map now matches
+  compose reality everywhere (n8n BullMQ on db `/0`, LightRAG + Open WebUI
+  sharing `/2`, JupyterHub on `/3`), Local Deep Researcher research routes
+  documented as existing, and the backend's injected-but-unread `REDIS_URL`
+  framed truthfully across all four cross-referencing READMEs.
+- Backend README intro rewritten from the aspirational "fans out to every
+  data-tier" hub claim to the actual runtime call list (Supabase, Weaviate,
+  LiteLLM, ComfyUI, n8n, Ray, Local Deep Researcher); `adapts_to` list
+  completed with `ray` + `lightrag`.
+- Open WebUI README: removed the false "Weaviate is wired" premise from the
+  hybrid-search future item and corrected the consumer boilerplate (only
+  Kong + its init container consume Open WebUI).
+- Hermes README: example pin `nousresearch/hermes-agent:0.13.0` (a tag that
+  does not exist upstream — the registry publishes only `latest`/`sha-*`)
+  corrected to `latest`; n8n README's bidirectional "agent can call a
+  workflow" claim reduced to the one wired direction.
+- LiteLLM README: "Prompt caching (Redis)" no longer listed as an unused
+  feature (response caching is already enabled stack-wide); future item now
+  points at the genuinely-unused semantic cache + per-key TTL controls.
+- All `redis-cli` doc examples now carry `-a "$REDIS_PASSWORD"`
+  (`requirepass` is on) and use `--scan` instead of `KEYS`.
+
 ### Fixed — 2026-06-10 overnight maintenance pass 34 (1 commit)
 
 - README long-tail factual sweep (the last seven never-audited service
