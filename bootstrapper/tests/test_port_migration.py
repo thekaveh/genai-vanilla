@@ -278,3 +278,27 @@ def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
     repo_env = Path(__file__).resolve().parents[2] / ".env"
     if repo_env.is_file():
         assert repo_env_snapshot == repo_env.read_bytes()
+# ─── blank-sentinel tolerance (pass 47) ─────────────────────────────
+
+def test_blank_sentinel_counts_as_unmigrated(tmp_path):
+    """``BOOTSTRAPPER_PORT_LAYOUT_VERSION=`` (blank) must behave like a
+    missing sentinel — migrations run rather than crash or skip."""
+    from services.migrations.migration_v1 import needs_migration
+    env_path = _write_env(
+        tmp_path, "BOOTSTRAPPER_PORT_LAYOUT_VERSION=\nLITELLM_PORT=63012\n"
+    )
+    assert needs_migration(env_path) is True
+
+
+def test_stamp_replaces_blank_sentinel_in_place(tmp_path):
+    """Stamping over a blank sentinel rewrites that line — no duplicate
+    sentinel lines (previously the blank line failed the digit-only
+    regex and a second line was appended)."""
+    from services.migrations.migration_v1 import stamp_version
+    env_path = _write_env(
+        tmp_path, "BOOTSTRAPPER_PORT_LAYOUT_VERSION=\nLITELLM_PORT=63012\n"
+    )
+    stamp_version(env_path, 1)
+    text = env_path.read_text()
+    assert text.count("BOOTSTRAPPER_PORT_LAYOUT_VERSION") == 1
+    assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=1" in text

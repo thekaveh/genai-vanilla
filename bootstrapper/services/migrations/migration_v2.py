@@ -35,7 +35,7 @@ URL_VAR_TO_PORT_VAR: dict[str, str] = {
 # Tolerant sentinel matcher (mirrors migration_v1 conventions).
 _SENTINEL_RE = re.compile(
     r"""^\s*BOOTSTRAPPER_PORT_LAYOUT_VERSION\s*=\s*
-        (["']?)(\d+)\1
+        (["']?)(\d*)\1
         \s*(?:\#.*)?\s*$""",
     re.VERBOSE,
 )
@@ -60,7 +60,7 @@ def needs_migration(env_path: Path) -> bool:
         m = _SENTINEL_RE.match(line)
         if m:
             try:
-                return int(m.group(2)) < 2
+                return int(m.group(2) or 0) < 2
             except ValueError:
                 return True
     return True

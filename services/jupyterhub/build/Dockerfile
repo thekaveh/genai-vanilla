@@ -1,4 +1,6 @@
-ARG BASE_IMAGE=jupyter/datascience-notebook:latest
+# Default mirrors JUPYTERHUB_IMAGE in service.yml — compose overrides via
+# build.args; CI build-validation builds with this default, so keep in sync.
+ARG BASE_IMAGE=jupyter/datascience-notebook:python-3.11
 FROM ${BASE_IMAGE}
 
 # Auto-populated by buildx (and `docker build` since v20.10) with the
@@ -38,7 +40,7 @@ RUN apt-get update && apt-get install -y \
 # `rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2` at the
 # `cs launch --fork` step. The bootstrap launcher is a thin JAR wrapper that
 # runs on the JVM we already installed above; it works on every arch.
-RUN curl -fL "https://github.com/coursier/coursier/releases/latest/download/coursier" \
+RUN curl -fL "https://github.com/coursier/coursier/releases/download/v2.1.24/coursier" \
       > /usr/local/bin/cs \
  && chmod +x /usr/local/bin/cs
 
