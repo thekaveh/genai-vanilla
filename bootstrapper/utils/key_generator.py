@@ -201,9 +201,19 @@ class KeyGenerator:
                     updated_content += '\n'
                 updated_content += f'{key_name}={key_value}\n'
             
-            # Write updated content back
-            with open(self.env_file_path, 'w', encoding="utf-8") as f:
-                f.write(updated_content)
+            # Atomic, mode-preserving write (tmp + os.replace) — mirrors
+            # SourceOverrideManager; an in-place 'w' truncates the
+            # secrets-bearing .env on a crash mid-write.
+            import os as _os
+            tmp_path = Path(str(self.env_file_path) + '.tmp')
+            try:
+                original_mode = _os.stat(self.env_file_path).st_mode
+                with open(tmp_path, 'w', encoding="utf-8") as f:
+                    _os.chmod(tmp_path, original_mode)
+                    f.write(updated_content)
+                _os.replace(tmp_path, self.env_file_path)
+            finally:
+                tmp_path.unlink(missing_ok=True)
             
             return True
             

@@ -56,3 +56,24 @@ def test_http_probe_blank_port_falls_back_to_default(tmp_path):
     joined = "\n".join(messages)
     assert "localhost:8000" in joined
     assert "localhost:/" not in joined
+
+
+def test_hosts_presence_check_ignores_commented_and_hyphenated_lines(tmp_path):
+    """Presence check: a commented-out `# 127.0.0.1 alias` must NOT count
+    as present, and a user's `my-n8n.localhost` must not satisfy
+    `n8n.localhost` (regressions from passes 29/30)."""
+    from utils.hosts_manager import HostsManager
+
+    hosts = tmp_path / "hosts"
+    hosts.write_text(
+        "# 127.0.0.1 n8n.localhost\n"
+        "127.0.0.1 my-api.localhost\n"
+        "127.0.0.1 chat.localhost extra.localhost\n",
+        encoding="utf-8",
+    )
+    hm = HostsManager()
+    hm.hosts_file_path = hosts
+    missing = hm.check_missing_hosts()
+    assert "n8n.localhost" in missing      # commented ⇒ missing
+    assert "api.localhost" in missing      # my-api ≠ api
+    assert "chat.localhost" not in missing # multi-host line counts

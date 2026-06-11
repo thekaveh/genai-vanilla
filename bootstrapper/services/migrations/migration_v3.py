@@ -193,9 +193,13 @@ def apply(env_path: Path) -> None:
     new_text = _replace_or_append(new_text, "COMFYUI_USER_MODELS", final_user_models)
     new_text = _replace_or_append(new_text, "COMFYUI_CUSTOM_MODELS_FILE", "/custom-models.yaml")
 
-    # Atomic write via tmp + rename.
+    # Atomic write via tmp + rename, preserving the original mode (a
+    # user-chmod'd 0600 .env must not come back umask-default).
+    import os as _os
     tmp = env_path.with_suffix(env_path.suffix + ".tmp")
+    original_mode = _os.stat(env_path).st_mode
     tmp.write_text(new_text, encoding="utf-8")
+    _os.chmod(tmp, original_mode)
     tmp.replace(env_path)
 
     print(

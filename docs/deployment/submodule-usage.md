@@ -241,22 +241,23 @@ import requests
 
 KONG_BASE = "http://localhost:63000"  # default BASE_PORT + 0
 
-# Access Supabase through Kong
-supabase_url = f"{KONG_BASE}/supabase"
-response = requests.get(f"{supabase_url}/rest/v1/your-table")
+# Access Supabase REST through Kong (path-routed)
+response = requests.get(f"{KONG_BASE}/rest/v1/your-table",
+                        headers={"apikey": SUPABASE_ANON_KEY})
 
-# Access N8N through Kong
-n8n_url = f"{KONG_BASE}/n8n"
+# Other services are HOST-routed through Kong, not path-routed:
+n8n_url = "http://n8n.localhost:63000"        # needs --setup-hosts entries
 ```
 
 ```javascript
 // JavaScript example
 const KONG_BASE = "http://localhost:63000";  // default BASE_PORT + 0
 
-// Access services through Kong
-const supabaseUrl = `${KONG_BASE}/supabase`;
-const n8nUrl = `${KONG_BASE}/n8n`;
-const jupyterUrl = `${KONG_BASE}/jupyterhub`;
+// Supabase REST/auth are path-routed on the Kong root:
+const supabaseRest = `${KONG_BASE}/rest/v1/`;
+// Everything else is HOST-routed (requires the *.localhost hosts entries):
+const n8nUrl = "http://n8n.localhost:63000";
+const jupyterUrl = "http://jupyter.localhost:63000";
 ```
 
 ### 6.3 Pattern 3: Direct Port Access
@@ -269,7 +270,7 @@ import os
 # Development configuration
 LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:63030")
 LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")  # equals LITELLM_MASTER_KEY
-SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:63014")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:63015")  # SUPABASE_API_PORT
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:63022")
 ```
 
@@ -287,8 +288,8 @@ services:
     environment:
       # Process data from Weaviate
       WEAVIATE_URL: http://myproject-weaviate:8080
-      # Store results in Supabase
-      SUPABASE_URL: http://myproject-kong-api-gateway:8000/supabase
+      # Store results in Supabase (REST is path-routed on Kong's root)
+      SUPABASE_URL: http://myproject-kong-api-gateway:8000
     volumes:
       - ./data:/data
 ```

@@ -4,7 +4,6 @@ Hosts file management utilities.
 Python implementation of hosts-utils.sh functions.
 """
 
-import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -87,9 +86,13 @@ class HostsManager:
             # real alias.
             present: set = set()
             for line in hosts_content.splitlines():
-                tokens = line.split()
-                if "127.0.0.1" in tokens:
-                    present.update(tokens)
+                # Strip trailing comments and require 127.0.0.1 as the
+                # ADDRESS (first token): a commented-out
+                # `# 127.0.0.1 n8n.localhost` line must not count as
+                # present (it doesn't resolve).
+                tokens = line.split("#", 1)[0].split()
+                if tokens[:1] == ["127.0.0.1"]:
+                    present.update(tokens[1:])
             for host in self.get_genai_hosts():
                 if host not in present:
                     missing.append(host)
@@ -130,9 +133,13 @@ class HostsManager:
                 # entries like `127.0.0.1 my-n8n.localhost` because they
                 # CONTAIN a stack alias.
                 should_skip = False
-                line_tokens = line.split()
+                # Comment-stripped, address-anchored tokens — mirrors the
+                # presence check; a commented-out user line mentioning a
+                # stack alias must not be deleted.
+                effective = line.split("#", 1)[0].split()
+                line_tokens = effective[1:] if effective[:1] == ["127.0.0.1"] else []
                 for host in self.get_genai_hosts():
-                    if "127.0.0.1" in line_tokens and host in line_tokens:
+                    if host in line_tokens:
                         should_skip = True
                         break
                         
