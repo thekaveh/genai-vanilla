@@ -2,10 +2,11 @@
 LLM cluster prompt-step builders for the Textual wizard.
 
 Two consumers in ``bootstrapper/ui/textual/integration.py``:
-  * ``build_ollama_steps(env_vars)`` — three Ollama variant steps
-    (live `/api/tags` multiselect, ``ollama.com/library`` multiselect,
-    free-text "additional to pull"). Only one fires per wizard run,
-    gated by ``LLM_PROVIDER_SOURCE`` via ``skip_if_prev``.
+  * ``build_ollama_steps(env_vars)`` — two steps: a unified models
+    multiselect (container modes show the library catalog; localhost/
+    external show merged [pulled] + [library]) and a free-text
+    "additional to pull" step that fires only for container sources.
+    Gating via ``skip_if_prev`` on ``LLM_PROVIDER_SOURCE``.
   * ``build_cloud_steps(env_vars, warn)`` — three (secret + multiselect)
     pairs for OpenAI / Anthropic / OpenRouter. The multiselect step
     is gated by the secret step's result (clear/empty → skip) and
@@ -236,9 +237,9 @@ def build_ollama_steps(
     env_vars: Dict[str, str],
     warn: Callable[[str], None] | None = None,
 ) -> List[PromptStep]:
-    """Build the three Ollama variant steps. ``skip_if_prev`` predicates
-    on each ensure exactly one fires per wizard run, picked by the
-    selected ``LLM_PROVIDER_SOURCE``.
+    """Build the two Ollama steps (unified models multiselect +
+    container-only free-text "additional to pull"). ``skip_if_prev``
+    predicates gate them on the selected ``LLM_PROVIDER_SOURCE``.
 
     ``warn`` is the same launch-log sink the cloud steps use — passed
     here so live-discovery failures (``/api/tags`` unreachable) get

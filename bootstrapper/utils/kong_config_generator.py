@@ -49,7 +49,7 @@ class KongConfigGenerator:
 
         Returns ``http://host.docker.internal:<port>/`` where <port> is
         the value of ``port_var`` in .env if set, else ``default_port``.
-        Centralized helper so the 10 localhost routes all share one
+        Centralized helper so all the localhost routes share one
         substitution path — drift between them is the bug class memory
         ``feedback_localhost_url_override_symmetry`` warns against.
         """
@@ -898,7 +898,7 @@ class KongConfigGenerator:
 
         Routes ``minio.localhost:${KONG_HTTP_PORT}`` to the MinIO admin
         console on internal port 9001 (host port ``MINIO_CONSOLE_PORT``,
-        default 63018). The S3 API at port 9000 is deliberately NOT
+        default 63019; 63018 is the S3 API ``MINIO_PORT``). The S3 API at port 9000 is deliberately NOT
         aliased — S3 clients use full URLs with explicit ports anyway
         and don't benefit from a friendly hostname.
 

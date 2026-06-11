@@ -184,7 +184,9 @@ class HostsManager:
                 with open(hosts_file_path, encoding="utf-8") as rf:
                     existing = rf.read()
             except OSError:
-                existing = ""
+                # Read failed but a write might still succeed — bailing
+                # beats truncating /etc/hosts down to just our block.
+                return False
             normalized = existing.rstrip("\n")
             with open(hosts_file_path, 'w', encoding="utf-8") as f:
                 if normalized:
