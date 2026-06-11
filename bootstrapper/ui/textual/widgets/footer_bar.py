@@ -33,7 +33,7 @@ DEFAULT_HINTS: list[Hint] = [
     (("↑", "↓"), "navigate"),
     (("↵",), "confirm"),
     (("esc",), "back"),
-    (("ctrl+q",), "quit & save"),
+    (("ctrl+q",), "quit"),
 ]
 
 

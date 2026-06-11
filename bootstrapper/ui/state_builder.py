@@ -32,11 +32,6 @@ def _get_topology() -> Topology:
     return get_topology(_SERVICES_ROOT)
 
 
-def _refresh_topology() -> None:
-    """Test hook — clear the topology cache (back-compat shim)."""
-    invalidate_cache()
-
-
 # Cloud LLM providers — API toggles, NOT services. Single source of
 # truth in utils/cloud_providers.py. They live behind the LiteLLM
 # gateway (no compose service of their own) and render in a dedicated

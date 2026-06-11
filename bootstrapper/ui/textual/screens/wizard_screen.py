@@ -69,7 +69,7 @@ _SETUP_HINTS = [
     # know the chip row is reachable from the keyboard.
     (("f",), "filter"),
     (("esc",), "back"),
-    (("ctrl+q",), "quit & save"),
+    (("ctrl+q",), "quit"),
 ]
 
 _LAUNCH_HINTS = [
@@ -173,7 +173,6 @@ class WizardScreen(Screen):
         brand: BrandInfo | None = None,
         starter=None,
         stack_options_resolver: Callable[[dict[str, str]], tuple[dict, dict]] | None = None,
-        on_complete: Callable[[dict[str, str]], None] | None = None,
         on_base_port_change: Callable[[int, list[ServiceRow]], list[ServiceRow]] | None = None,
         resolve_port_for_service: Callable[[str, str], str] | None = None,
         cloud_apis: list[CloudApiSummary] | None = None,
@@ -187,7 +186,6 @@ class WizardScreen(Screen):
         self._brand = brand or BrandInfo()
         self._starter = starter
         self._stack_options_resolver = stack_options_resolver
-        self._on_complete = on_complete
         # Called when the user confirms a new base port; should return
         # an updated list of ServiceRows with recomputed ports.
         self._on_base_port_change = on_base_port_change
@@ -712,8 +710,6 @@ class WizardScreen(Screen):
             self._load_current_step()
         else:
             # Last step is the launch confirm. opt.value is "yes" / "no".
-            if self._on_complete is not None:
-                self._on_complete(dict(self._selections))
             if opt.value == "yes":
                 self.run_worker(self._transition_to_launch(), exclusive=True)
             else:

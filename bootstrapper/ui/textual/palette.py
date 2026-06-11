@@ -279,10 +279,11 @@ def style_for_source_choice(source: str) -> str:
 # Note on the ``TAG_*`` / ``CAT_*`` distinction:
 #   * ``CAT_*`` — canonical category colors driven by topology. Source of
 #     truth for new code; six categories, drives the leading service-row bar.
-#   * ``TAG_*`` — legacy aliases for option-row badges (see widgets/option_row.py).
-#     Three values happen to coincide with ``CAT_*`` (TAG_INFRA/TAG_DATA/TAG_LLM)
-#     but the two sets serve different taxonomies — TAG_* labels badge content
-#     (CPU/GPU/MLX/embedding/...), CAT_* labels topological category.
+#   * ``TAG_*`` — legacy aliases for option-row badges; only TAG_INFRA and
+#     TAG_DATA are referenced today (widgets/option_row.py), the rest are
+#     kept as palette reserves. The two sets serve different taxonomies —
+#     TAG_* labels badge content (CPU/GPU/MLX/embedding/...), CAT_* labels
+#     topological category.
 from services.topology import CATEGORY_COLORS as _CATEGORY_COLOR
 
 CAT_INFRA  = _CATEGORY_COLOR["infra"]

@@ -2203,7 +2203,11 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not starter.validate_source_configurations():
             sys.exit(1)
         
-        # Step 3: Handle port configuration
+        # Step 3: Handle port configuration. Clear stale shell-exported
+        # *_PORT vars first so they can't shadow the freshly computed
+        # assignments (parity with the TUI pipeline's "Clear stale port
+        # environment" step, which runs unconditionally).
+        starter.unset_port_environment_variables()
         if not starter.handle_port_configuration(base_port):
             sys.exit(1)
         
