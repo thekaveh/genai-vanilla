@@ -107,3 +107,24 @@ def test_validate_base_port_uses_topology_max_offset():
     pm = PortManager(str(real_root))
     assert pm.validate_base_port(65535 - max_offset) is True
     assert pm.validate_base_port(65535 - max_offset + 1) is False
+def test_update_env_ports_rewrites_trailing_whitespace_lines(tmp_path, monkeypatch):
+    """``VAR=63002␣`` (trailing space, no comment) must still be
+    rewritten — the pre-fix regex required a `#` after the spaces and
+    silently no-oped on such lines."""
+    from core.port_manager import PortManager
+    from core.config_parser import DEFAULT_BASE_PORT
+    from services.topology import build_topology
+
+    real_root = _real_root()
+    new_base = DEFAULT_BASE_PORT + 1000
+    topology = build_topology(real_root / "services", base_port=new_base)
+    var, want = next(iter(topology.port_defaults.items()))
+
+    fixture_env = tmp_path / ".env"
+    fixture_env.write_text(
+        f"BASE_PORT={DEFAULT_BASE_PORT}\n{var}=12345 \n"
+    )
+    monkeypatch.setenv("GENAI_ENV_FILE", str(fixture_env))
+    pm = PortManager(str(real_root))
+    assert pm.update_env_ports(new_base, create_backup=False) is True
+    assert f"{var}={want}" in fixture_env.read_text()

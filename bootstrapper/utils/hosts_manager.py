@@ -176,9 +176,19 @@ class HostsManager:
             # Remove existing GenAI entries first (cleanup)
             self.remove_hosts_entries_silent(hosts_file_path)
             
-            # Add new entries
-            with open(hosts_file_path, 'a', encoding="utf-8") as f:
-                f.write("\n")
+            # Add new entries. Normalize the trailing boundary instead of
+            # blindly appending "\n" — repeated --setup-hosts cycles
+            # otherwise accumulate blank lines at EOF (remove never
+            # strips them).
+            try:
+                with open(hosts_file_path, encoding="utf-8") as rf:
+                    existing = rf.read()
+            except OSError:
+                existing = ""
+            normalized = existing.rstrip("\n")
+            with open(hosts_file_path, 'w', encoding="utf-8") as f:
+                if normalized:
+                    f.write(normalized + "\n\n")
                 f.write("# GenAI Stack subdomains (added by start.py)\n")
                 for host in self.get_genai_hosts():
                     f.write(f"127.0.0.1 {host}\n")
