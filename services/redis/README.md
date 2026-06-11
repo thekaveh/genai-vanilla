@@ -2,7 +2,7 @@
 
 Shared cache, queue, and pub/sub broker for the stack. The manifest comment is blunt: Redis is "consumed by half the stack." It has one container, one source variant (`container`), no GPU paths, and no init container. Despite being infrastructure rather than a feature, Redis is the single most cross-cutting service in the project — n8n's queue mode, Kong's rate-limit cache, Open WebUI's WebSocket store, the backend's session/queue layer, and (eventually) Local Deep Researcher's LangGraph checkpointer all share this one instance.
 
-The stack convention partitions Redis by **database index**, not by service. Database `/0` is the default for backend; `/1` is reserved (n8n queue), `/2` for Open WebUI WebSocket, `/3` for Local Deep Researcher checkpoints, `/4` for Kong rate-limit cache. Consumers that need an isolated namespace build their own connection string off `${REDIS_PASSWORD}` and `redis:6379/<db>`.
+The stack convention partitions Redis by **database index**, not by service. As wired today: `/0` carries the backend (`REDIS_URL`), the n8n queue (`QUEUE_BULL_REDIS_DB: 0`), and Kong's rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0); `/2` is shared by Open WebUI's WebSocket store (`OPEN_WEB_UI_REDIS_DB`) and LightRAG's KV/doc-status store (`LIGHTRAG_REDIS_URI`) — different key shapes, no collision in practice, but isolate one of them if you repurpose the db; `/3` is JupyterHub's `REDIS_URL`. Consumers that need an isolated namespace build their own connection string off `${REDIS_PASSWORD}` and `redis:6379/<db>`.
 
 ## 1. Overview
 
