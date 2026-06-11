@@ -75,7 +75,8 @@ async def transcribe_audio(
 
         # NeMo transcription. timestamps=True so the hypothesis carries
         # word/segment timing when requested (NeMo only populates
-        # .timestep when asked at transcribe() time).
+        # .timestamp — note: not "timestep" — when asked at
+        # transcribe() time).
         transcription = model.transcribe(
             [audio_path], timestamps=bool(return_timestamps),
         )
@@ -103,9 +104,11 @@ async def transcribe_audio(
         # Add timestamp information if requested and available
         if return_timestamps:
             try:
-                timestep = getattr(first, 'timestep', None) or {}
-                if timestep:
-                    result["timestamps"] = timestep
+                # NeMo 2.x Hypothesis carries `.timestamp` (a dict with
+                # 'word'/'segment'/... keys) — `.timestep` doesn't exist.
+                timing = getattr(first, 'timestamp', None) or {}
+                if timing:
+                    result["timestamps"] = timing
                     result["has_timestamps"] = True
                 else:
                     result["has_timestamps"] = False

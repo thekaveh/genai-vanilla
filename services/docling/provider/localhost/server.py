@@ -74,7 +74,7 @@ async def convert_document(
     try:
         logger.info(f"Processing: {file.filename}")
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "document.pdf")[1]) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name

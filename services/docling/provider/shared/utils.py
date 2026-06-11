@@ -66,7 +66,7 @@ def chunk_text(text: str, chunk_size: int = 512, chunk_overlap: int = 50) -> Lis
     # `start = end - chunk_overlap` never advance — an infinite loop
     # appending chunks until OOM.
     if chunk_size <= 0:
-        chunk_size = 1000
+        chunk_size = 512  # matches the Form()/processor default
     if chunk_overlap >= chunk_size or chunk_overlap < 0:
         chunk_overlap = 0
     start = 0
