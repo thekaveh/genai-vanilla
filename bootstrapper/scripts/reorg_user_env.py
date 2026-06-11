@@ -127,8 +127,11 @@ def main() -> int:
     if not EXAMPLE_PATH.exists():
         print(f"error: {EXAMPLE_PATH} not found", file=sys.stderr)
         return 1
-    # Backup-or-bust safety: refuse if no .env.bak.* exists.
-    backups = list(REPO_ROOT.glob(".env.bak.*"))
+    # Backup-or-bust safety: refuse if no backup exists ALONGSIDE the
+    # active env file (honors GENAI_ENV_FILE — globbing the repo root
+    # both refused legitimate custom-path backups and let stale
+    # repo-root backups falsely satisfy the check).
+    backups = list(ENV_PATH.parent.glob(ENV_PATH.name + ".bak.*"))
     if not backups and not args.dry_run:
         print(
             "error: no .env.bak.* found alongside .env — back up first:\n"

@@ -54,10 +54,6 @@ env:
   - name: WEAVIATE_OLLAMA_ENDPOINT
     default: "http://ollama:11434"
     description: "User-settable. Mirrors what Weaviate's text2vec-ollama vectorizer hits; matches OLLAMA_ENDPOINT for container source, but the user adjusts manually for ollama-localhost/external (consistent with main's behavior)."
-  - name: WEAVIATE_LITELLM_BASE_URL
-    auto_managed: true
-    default: "http://litellm:4000/v1"
-    description: "Computed by hook from LITELLM_PORT + BASE_PORT."
   - name: WEAVIATE_LITELLM_API_KEY
     auto_managed: true
     secret: true

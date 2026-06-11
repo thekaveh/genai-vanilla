@@ -357,7 +357,6 @@ class ServiceConfig:
         # The base URL goes into per-collection module configs (set by
         # weaviate-init), not into Weaviate's startup env.
         env_file_vars = self.config_parser.parse_env_file()
-        env_vars['WEAVIATE_LITELLM_BASE_URL'] = 'http://litellm:4000/v1'
         env_vars['WEAVIATE_LITELLM_API_KEY'] = env_file_vars.get('LITELLM_MASTER_KEY', '')
 
         # Multi2Vec CLIP is optional. If its service is disabled/scaled to zero,

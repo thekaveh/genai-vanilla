@@ -200,7 +200,6 @@ def apply(env_path: Path) -> None:
 
     # Atomic write via tmp + rename, preserving the original mode (a
     # user-chmod'd 0600 .env must not come back umask-default).
-    import os as _os
     tmp = env_path.with_suffix(env_path.suffix + ".tmp")
     original_mode = _os.stat(env_path).st_mode
     try:
