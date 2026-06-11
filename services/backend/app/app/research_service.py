@@ -321,7 +321,13 @@ class ResearchService:
                 SELECT status FROM public.research_sessions WHERE id = $1
             """, session_id)
             
-            if not status_row or status_row["status"] != ResearchStatus.RUNNING.value:
+            # PENDING is cancellable too: the insert(PENDING)->RUNNING
+            # update races this check, and the background task is already
+            # live in _active_tasks during that window.
+            if not status_row or status_row["status"] not in (
+                ResearchStatus.PENDING.value,
+                ResearchStatus.RUNNING.value,
+            ):
                 return False
             
             # Cancel background task if it exists
