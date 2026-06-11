@@ -194,7 +194,7 @@ docker compose run --rm openclaw-gateway openclaw config get gateway.auth.token
 curl http://localhost:${OPENCLAW_GATEWAY_PORT}/healthz
 
 # Deep health check (requires token)
-docker exec genai-openclaw-gateway node dist/index.js health --token "$OPENCLAW_GATEWAY_TOKEN"
+docker exec genai-openclaw-gateway node openclaw.mjs health --token "$OPENCLAW_GATEWAY_TOKEN"
 ```
 
 ## 9. Source Modes

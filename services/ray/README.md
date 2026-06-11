@@ -36,7 +36,7 @@ Active when `RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}`. Authenticat
 
 **Why two `tmp` volumes:** Ray spills object-store state to `/tmp/ray` per node. Separate volumes for head and workers prevent collision.
 
-**Critical shared memory:** Both containers set `shm_size: 4gb` — Docker's default 64MB causes immediate crash because Ray's Plasma object store needs shared memory. If you see startup failures with "Connection refused" on port 8265 within 60 seconds, check shm size.
+**Critical shared memory:** Both containers set `shm_size: 8gb` — Docker's default 64MB causes immediate crash because Ray's Plasma object store needs shared memory. If you see startup failures with "Connection refused" on port 8265 within 60 seconds, check shm size.
 
 **No external runtime dependencies.** Ray ships its own GCS (Redis-protocol cluster controller) and Plasma (shared-memory object store). The cluster is fully self-contained. The `supabase` + `redis` entries in this manifest's `depends_on.required` are **display-ordering pins** (so Kong wins the alphabetical tie within the infra port-slot block), NOT runtime calls — Ray does not actually talk to either at runtime.
 
@@ -80,7 +80,7 @@ _No high-confidence opportunities identified._
 
 ## 6. Troubleshooting
 
-- **Head container exits immediately with "Bus error" or "/dev/shm too small"** — Docker's default shared-memory size (64MB) is too small. Compose's `shm_size: 4gb` should handle this, but some installs (rootless Podman, older Docker) ignore it. Verify with `docker inspect ${PROJECT_NAME}-ray-head | grep ShmSize`.
+- **Head container exits immediately with "Bus error" or "/dev/shm too small"** — Docker's default shared-memory size (64MB) is too small. Compose's `shm_size: 8gb` should handle this, but some installs (rootless Podman, older Docker) ignore it. Verify with `docker inspect ${PROJECT_NAME}-ray-head | grep ShmSize`.
 - **Workers stuck "starting"** — they `depends_on: ray-head: service_healthy`. The head's `start_period: 60s` allows up to 60s before health checks count. If still stuck after 2 minutes, check the head's healthcheck output: `docker exec ${PROJECT_NAME}-ray-head curl -v http://localhost:8265/api/version`.
 - **`ray.init("ray://localhost:PORT")` from host fails with version mismatch** — your host's `ray` Python package version must match the cluster's image version. Pin `ray>=2.55.1,<2.56` in your host venv to match the image's `rayproject/ray:2.55.1`.
 - **Dashboard unreachable through Kong** — Kong's `ray.localhost` route requires `--setup-hosts` to have run AND basic-auth credentials match `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` in `.env`. The direct port works without these.

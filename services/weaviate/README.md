@@ -1,6 +1,6 @@
 # Weaviate
 
-**Port:** 63022 / 63023
+**Port:** 63026 / 63027
 **SOURCE variable:** `WEAVIATE_SOURCE`
 **SOURCE options:** container, localhost, disabled
 
@@ -12,8 +12,8 @@ Vector database used for semantic search, RAG, embeddings, n8n workflows, Backen
 
 | Path | URL | Notes |
 |---|---|---|
-| Direct | http://localhost:63022 | Works when the service is enabled in container mode and the port is exposed. |
-| Kong | — | Requires `./start.sh --setup-hosts`; only available for services with Kong routes. |
+| Direct | http://localhost:63026 | Works when the service is enabled in container mode and the port is exposed. |
+| Kong | http://weaviate.localhost:63000 | Requires `./start.sh --setup-hosts`; only available for services with Kong routes. |
 
 See the canonical port table at [Ports and Routes](../../docs/deployment/ports-and-routes.md).
 
@@ -38,7 +38,7 @@ The default stack keeps the multimodal CLIP vectorizer enabled:
 
 ```bash
 MULTI2VEC_CLIP_SOURCE=container-cpu
-WEAVIATE_ENABLE_MODULES=text2vec-openai,multi2vec-clip,generative-openai
+WEAVIATE_ENABLE_MODULES=text2vec-openai,text2vec-ollama,multi2vec-clip,generative-openai,generative-ollama
 CLIP_INFERENCE_API=http://multi2vec-clip:8080
 ```
 

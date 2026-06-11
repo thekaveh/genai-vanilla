@@ -48,7 +48,7 @@ WEAVIATE_URL=http://weaviate:8080
 STT_ENDPOINT=...                  # resolved per STT_PROVIDER_SOURCE
 TTS_ENDPOINT=...                  # resolved per TTS_PROVIDER_SOURCE
 DOCLING_ENDPOINT=...              # resolved per DOC_PROCESSOR_SOURCE
-HERMES_ENDPOINT=http://hermes:8000
+HERMES_ENDPOINT=http://hermes:8642
 HERMES_API_KEY=${HERMES_API_KEY}
 NEO4J_URI=bolt://neo4j-graph-db:7687
 NEO4J_USER=${GRAPH_DB_USER}
@@ -74,6 +74,7 @@ Adaptive listing comes from `runtime_adaptive.backend.adapts_to` in `services/ba
 **Required hard dependencies** (from `depends_on.required`):
 - `supabase` — Postgres (LangMem facts, public tables), Auth (JWT), Storage (file uploads ≤50 MB), Realtime (declared via compose).
 - `redis` — session, rate-limit, queue, LangMem consolidation lock.
+- `litellm` — gated `service_healthy` in compose; backend's startup performs first-call probes against the gateway.
 
 **Optional adaptive dependencies** (from `runtime_deps.backend.optional`):
 - `neo4j-graph-db`, `searxng`, `n8n`, `weaviate`, `parakeet`, `speaches`, `chatterbox`, `docling`.

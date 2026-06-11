@@ -2,7 +2,7 @@
 
 LangGraph-based multi-step research agent. The user submits a topic, LDR runs a search-summarize-reflect-search loop (default 3 iterations), and returns a Markdown report citing the sources it found. Upstream is [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher); the stack runs it via the LangGraph dev server (`langgraph dev`) listening on port 2024 inside the container, exposed at `LOCAL_DEEP_RESEARCHER_PORT` on the host.
 
-LDR is **completely local** by design — it relies on the stack's LiteLLM gateway (so any registered local Ollama model works) and SearXNG for web search. No outbound API keys required for the default loop. Backend already ships a typed `research_client.py` Pydantic surface but no FastAPI route exposes it yet; the LDR endpoint is reachable via Kong or the direct port today.
+LDR is **completely local** by design — it relies on the stack's LiteLLM gateway (so any registered local Ollama model works) and SearXNG for web search. No outbound API keys required for the default loop. Backend already ships a typed `research_client.py` Pydantic surface but the backend exposes it via `/research/start|status|result|cancel|logs|sessions|health` yet; the LDR endpoint is reachable via Kong or the direct port today.
 
 ## 1. Overview
 
@@ -13,7 +13,7 @@ Image: `python:3.11-slim` (the build script clones the upstream repo and runs `p
 | Path | URL | Notes |
 |---|---|---|
 | Direct | `http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}` (default `63083`) | LangGraph dev-server REST API. |
-| Kong | — | Manifest defines `alias: research.localhost` but no Kong route is generated today (see Future — Unused features). |
+| Kong | — | Manifest defines `alias: research.localhost` but Kong serves it at `research.localhost` (route generated from LOCAL_DEEP_RESEARCHER_SOURCE) (see Future — Unused features). |
 | LangGraph API | `POST /threads`, `POST /threads/{id}/runs/stream` | Standard LangGraph dev-server endpoints. |
 
 Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.md).
