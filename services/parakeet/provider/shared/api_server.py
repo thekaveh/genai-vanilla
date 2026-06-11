@@ -89,7 +89,7 @@ async def transcribe(
         logger.info(f"Received transcription request: file={file.filename}, language={language}, format={response_format}")
 
         # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "audio.wav")[1]) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
@@ -150,7 +150,7 @@ async def transcribe_advanced(
     try:
         logger.info(f"Received advanced transcription request: file={file.filename}, timestamps={return_timestamps}, word_timestamps={word_timestamps}")
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "audio.wav")[1]) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name

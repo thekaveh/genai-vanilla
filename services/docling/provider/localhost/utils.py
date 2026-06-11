@@ -61,6 +61,14 @@ def chunk_text(text: str, chunk_size: int = 512, chunk_overlap: int = 50) -> Lis
         List of chunk dictionaries with text and metadata
     """
     chunks = []
+    # Clamp caller-supplied values: these arrive as raw Form() ints, and
+    # chunk_overlap >= chunk_size (or chunk_size <= 0) made
+    # `start = end - chunk_overlap` never advance — an infinite loop
+    # appending chunks until OOM.
+    if chunk_size <= 0:
+        chunk_size = 1000
+    if chunk_overlap >= chunk_size or chunk_overlap < 0:
+        chunk_overlap = 0
     start = 0
     chunk_index = 0
 
