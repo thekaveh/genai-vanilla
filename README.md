@@ -141,7 +141,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 The canonical architecture diagram is embedded at the top of this README; the source lives at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg) — hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram) (cyan / emerald / violet / amber / rose / orange palette, JetBrains Mono, layered topological flow). See [`docs/diagrams/README.md`](docs/diagrams/README.md) for update instructions.
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker / Airflow + Spark + Zeppelin / Prometheus + Grafana services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
 
 ## 3. Getting Started
 
@@ -458,6 +458,7 @@ genai-vanilla/
 │   │   ├── init/              # litellm-init Dockerfile + scripts (config.yaml renderer)
 │   │   └── catalog-init/      # llm-catalog-init Dockerfile + scripts (public.llms UPSERT)
 │   ├── ollama/                # ollama + ollama-pull (with pull/ scripts subfolder)
+│   ├── redis/                 # Redis cache/queue substrate (AOF persistence, shared by n8n/Kong/LiteLLM/owui/LightRAG)
 │   ├── weaviate/              # weaviate + multi2vec-clip + weaviate-init
 │   ├── comfyui/               # comfyui + comfyui-init (with init/ scripts subfolder)
 │   ├── n8n/                   # n8n + n8n-worker + n8n-init (with init/ assets, workflows-stage/)
@@ -474,6 +475,8 @@ genai-vanilla/
 │   ├── docling/               # Document processor (with provider/ source code)
 │   ├── searxng/               # SearXNG (with config/ settings.yml)
 │   ├── local-deep-researcher/ # Research agent (with build/ Dockerfile)
+│   ├── lightrag/              # LightRAG graph-RAG server + init (opt-in via LIGHTRAG_SOURCE)
+│   ├── tei-reranker/          # TEI reranker (opt-in via TEI_RERANKER_SOURCE)
 │   ├── openclaw/              # OpenClaw agent gateway + init
 │   ├── kong/                  # Kong API gateway
 │   ├── ray/                   # Ray distributed-compute substrate (head + workers)
