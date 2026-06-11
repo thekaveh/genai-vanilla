@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   decoder returns `List[Hypothesis]` even without `return_hypotheses`,
   and the handler passed the dataclass to `len()`; text is now
   extracted defensively (mirroring the MLX sibling) and timestamps are
-  actually requested at `transcribe()` time so the advanced endpoint
-  stops reporting `has_timestamps: true` with empty data.
+  actually requested at `transcribe()` time and read from NeMo's
+  `.timestamp` field, so the advanced endpoint returns real timing
+  data.
 - Docling chunking clamps caller-supplied `chunk_size`/`chunk_overlap`
   (an overlap ≥ size made the chunk loop never advance — unbounded
   memory growth from one bad form value), in both the shared and
