@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-11 overnight maintenance passes 50-55 (6 commits)
+
+- Backend: `cancel_research` now accepts PENDING sessions (the
+  insert→RUNNING race window previously left a live background task
+  uncancellable); memory-service initialization is lock-guarded so the
+  Weaviate delete-and-recreate collection heal can never race itself.
+- Textual wizard: worker failures during the setup phase surface as
+  error toasts (previously `_write_status` no-op'd with no log pane and
+  the error vanished); the confirm-step launch worker gained the same
+  `exit_on_error=False` handling as the auto-launch path.
+- New validator rule `runtime_sc_missing_variant`: a main runtime_sc
+  slice missing a declared source option is now a CI-blocking lint
+  (previously `get_service_config()` silently returned `{}` and
+  consumers fell back to hardcoded defaults).
+- `stop.sh`: the `--clean-hosts` banner no longer claims success when
+  the hosts-file edit failed (e.g. without sudo); `--cold`'s global
+  `docker system prune -f --volumes` step is now disclosed in `--help`
+  and the README (scoping it is a tracked follow-up).
+- n8n: `N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS=true` wired
+  (compose + runtime_sc + baseline) — the Grafana execution-data panel
+  was permanently "No data" because the flag is default-off upstream.
+- Zeppelin: the seeded note and README used `%jdbc(postgres)` prefix
+  syntax that Zeppelin 0.12 removed; flow rewritten around a dedicated
+  `%postgres` interpreter. OPENCLAW_ENDPOINT documented as a
+  forward-looking hook (no consumer wired today).
+
 ### Fixed — 2026-06-11 overnight maintenance passes 46-49 (5 commits)
 
 - **Backfill vs migrations (HIGH):** `backfill_missing_env_vars()` no
