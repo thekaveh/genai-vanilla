@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance pass 26 (1 commit)
+
+- **Every parakeet-GPU transcription request 500'd** — NeMo's RNNT/TDT
+  decoder returns `List[Hypothesis]` even without `return_hypotheses`,
+  and the handler passed the dataclass to `len()`; text is now
+  extracted defensively (mirroring the MLX sibling) and timestamps are
+  actually requested at `transcribe()` time so the advanced endpoint
+  stops reporting `has_timestamps: true` with empty data.
+- Docling chunking clamps caller-supplied `chunk_size`/`chunk_overlap`
+  (an overlap ≥ size made the chunk loop never advance — unbounded
+  memory growth from one bad form value), in both the shared and
+  localhost copies.
+
 ### Fixed — 2026-06-10 overnight maintenance passes 21-25 (4 commits)
 
 - **Neo4j backup/restore never worked on the shipped 5.19 image** —
