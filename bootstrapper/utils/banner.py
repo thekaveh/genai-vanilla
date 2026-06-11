@@ -18,6 +18,19 @@ class BannerDisplay:
         self.console = Console()
 
 
+
+    def _brand_tagline(self) -> str:
+        """BRAND_TAGLINE from .env, falling back to the stock tagline —
+        same rebranding contract as _brand_credits."""
+        try:
+            from core.config_parser import ConfigParser
+            v = (ConfigParser().parse_env_file().get("BRAND_TAGLINE", "") or "").strip()
+            if v:
+                return v
+        except Exception:  # noqa: BLE001 — banner must never break startup
+            pass
+        return "Modularized Cross-Platform Gen-AI Vanilla Stack"
+
     def _brand_credits(self) -> tuple[str, str, str]:
         """(author, repo_url, license) for the credit lines.
 
@@ -198,8 +211,8 @@ class BannerDisplay:
             centered_line = Align.center(gradient_text)
             self.console.print(centered_line)
 
-        # Add tagline
-        tagline = "🚀 Modularized Cross-Platform Gen-AI Vanilla Stack"
+        # Add tagline — honors BRAND_TAGLINE like the credits below.
+        tagline = f"🚀 {self._brand_tagline()}"
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 
@@ -241,8 +254,8 @@ class BannerDisplay:
             centered_line = Align.center(gradient_text)
             self.console.print(centered_line)
 
-        # Add compact tagline
-        tagline = "🚀 AI Dev Suite"
+        # Add compact tagline (brand-aware; truncated for narrow terms)
+        tagline = f"🚀 {self._brand_tagline()[:40]}"
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 

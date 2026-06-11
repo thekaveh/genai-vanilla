@@ -91,35 +91,31 @@ class MemoryStore:
             )
             if resp.status_code == 200:
                 # Retroactive heal: stacks deployed before the /v1/v1 fix
-                # carry the broken baseURL in the EXISTING class config
-                # (this method early-returns, so the create-path fix
-                # alone never reaches them). Patch it in place.
+                # carry the broken baseURL in the EXISTING class config.
+                # Weaviate 1.27.5 rejects vectorizer moduleConfig updates
+                # via PUT (immutables validation), so the only remediation
+                # is delete + recreate — safe here because the broken
+                # baseURL meant every embedding call 404'd: the class
+                # never held valid vectors.
                 try:
                     existing = resp.json()
                     mod = (existing.get("moduleConfig") or {}).get("text2vec-openai") or {}
                     bad = (mod.get("baseURL") or "").rstrip("/")
                     if bad.endswith("/v1"):
-                        mod["baseURL"] = bad[: -len("/v1")]
-                        existing.setdefault("moduleConfig", {})["text2vec-openai"] = mod
-                        put = await client.put(
-                            f"{self.weaviate_url}/v1/schema/{WEAVIATE_COLLECTION_NAME}",
-                            json=existing,
+                        logger.warning(
+                            "Memory collection carries the broken /v1 baseURL "
+                            "(%s) — deleting and recreating it (it could never "
+                            "store vectors).", bad,
                         )
-                        if put.status_code == 200:
-                            logger.info(
-                                "Healed Memory collection baseURL (%s -> %s)",
-                                bad, mod["baseURL"],
-                            )
-                        else:
-                            logger.warning(
-                                "Memory collection carries a stale /v1 baseURL and "
-                                "auto-heal failed (HTTP %s). Embeddings will 404 — "
-                                "recreate the collection or PUT the schema with "
-                                "baseURL=%s.", put.status_code, mod["baseURL"],
-                            )
+                        await client.delete(
+                            f"{self.weaviate_url}/v1/schema/{WEAVIATE_COLLECTION_NAME}"
+                        )
+                        # fall through to the creation path below
+                    else:
+                        return  # Already exists and healthy
                 except Exception as exc:  # noqa: BLE001 — heal is best-effort
-                    logger.warning("Memory collection baseURL heal check failed: %s", exc)
-                return  # Already exists
+                    logger.warning("Memory collection baseURL check failed: %s", exc)
+                    return  # keep existing class; don't block startup
 
             # Create collection
             schema = {

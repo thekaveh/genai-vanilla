@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-10 overnight maintenance passes 32-33 (2 commits)
+
+- The dead `WEAVIATE_LITELLM_BASE_URL` chain removed (generated into
+  `.env` with the same wrong `/v1` suffix, consumed by nothing,
+  described falsely); stacks deployed before the `/v1/v1` fix get
+  their broken Memory collection deleted and recreated at backend
+  startup (Weaviate 1.27.5 forbids vectorizer-config updates, and the
+  class could never store vectors anyway); reorg_user_env's
+  backup-safety check honors `GENAI_ENV_FILE`; a dead langgraph.json
+  that contradicted the runtime graph registration removed; linear
+  banner taglines now honor `BRAND_TAGLINE`.
+
 ### Fixed — 2026-06-10 overnight maintenance passes 27-31 (5 commits)
 
 - **Weaviate-backed memory inserts/searches 404'd on every call** — the
