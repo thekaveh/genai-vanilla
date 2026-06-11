@@ -1,8 +1,8 @@
 # Redis
 
-Shared cache, queue, and pub/sub broker for the stack. The manifest comment is blunt: Redis is "consumed by half the stack." It has one container, one source variant (`container`), no GPU paths, and no init container. Despite being infrastructure rather than a feature, Redis is the single most cross-cutting service in the project — n8n's queue mode, Kong's rate-limit cache, Open WebUI's WebSocket store, the backend's session/queue layer, and (eventually) Local Deep Researcher's LangGraph checkpointer all share this one instance.
+Shared cache, queue, and pub/sub broker for the stack. The manifest comment is blunt: Redis is "consumed by half the stack." It has one container, one source variant (`container`), no GPU paths, and no init container. Despite being infrastructure rather than a feature, Redis is the single most cross-cutting service in the project — n8n's queue mode, Kong's rate-limit cache, Open WebUI's WebSocket store, LightRAG's KV layer, and JupyterHub notebooks all share this one instance.
 
-The stack convention partitions Redis by **database index**, not by service. As wired today: `/0` carries the backend (`REDIS_URL`), the n8n queue (`QUEUE_BULL_REDIS_DB: 0`), and Kong's rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0); `/2` is shared by Open WebUI's WebSocket store (`OPEN_WEB_UI_REDIS_DB`) and LightRAG's KV/doc-status store (`LIGHTRAG_REDIS_URI`) — different key shapes, no collision in practice, but isolate one of them if you repurpose the db; `/3` is JupyterHub's `REDIS_URL`. Consumers that need an isolated namespace build their own connection string off `${REDIS_PASSWORD}` and `redis:6379/<db>`.
+The stack convention partitions Redis by **database index**, not by service. As wired today: `/0` carries the n8n queue (`QUEUE_BULL_REDIS_DB: 0`), and Kong's rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0); `/2` is shared by Open WebUI's WebSocket store (`OPEN_WEB_UI_REDIS_DB`) and LightRAG's KV/doc-status store (`LIGHTRAG_REDIS_URI`) — different key shapes, no collision in practice, but isolate one of them if you repurpose the db; `/3` is JupyterHub's `REDIS_URL`. Consumers that need an isolated namespace build their own connection string off `${REDIS_PASSWORD}` and `redis:6379/<db>`.
 
 ## 1. Overview
 
@@ -35,7 +35,7 @@ Database-index convention (consumer-built URLs):
 
 | DB | Consumer | Notes |
 |---|---|---|
-| 0 | backend, n8n, kong | backend `REDIS_URL`; n8n queue (`QUEUE_BULL_REDIS_DB: 0`); Kong rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0) |
+| 0 | n8n, kong (backend's `REDIS_URL` is injected but unread) | n8n queue (`QUEUE_BULL_REDIS_DB: 0`); Kong rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0) |
 | 2 | open-webui, lightrag | WebSocket store (`OPEN_WEB_UI_REDIS_DB`) + LightRAG KV/doc-status — disjoint key shapes |
 | 3 | jupyterhub | notebook `REDIS_URL` |
 
@@ -43,9 +43,9 @@ Database-index convention (consumer-built URLs):
 
 **Startup ordering.** Compose-level `depends_on` waits on `supabase-db-init: { condition: service_completed_successfully }`. This is purely a startup ordering hack so Redis starts after the Postgres init is done — there is no functional Postgres dependency.
 
-**Consumers.** From the data-flow graph: `litellm` (cache + budget tracking) and `backend` (session/queue/LangMem locks) call Redis directly today. n8n, Kong, Open WebUI, and Local Deep Researcher consume Redis via their compose `REDIS_URL`/`KONG_REDIS_HOST`/`WEBSOCKET_REDIS_URL` env wiring, which the data-flow model treats as compose-level wiring rather than a runtime call.
+**Consumers.** From the data-flow graph (§6.2): `litellm` (cache + budget tracking), `lightrag` (KV/doc-status), `open-webui` (WebSocket store), `airflow`, and `prometheus` (redis-exporter scrape) reach Redis at runtime. n8n and Kong consume it via compose env wiring (`QUEUE_BULL_REDIS_*` / `KONG_REDIS_HOST`) — modeled as compose-level wiring. The backend gets `REDIS_URL` injected but no backend code reads it today; Local Deep Researcher is unwired (future pair, §6.4).
 
-**Failure mode.** Every consumer treats Redis as fatal: a Redis outage kills n8n queue execution, drops Open WebUI live updates, breaks LiteLLM caching, and stops LangMem consolidation. There is no fallback in the stack.
+**Failure mode.** Every consumer treats Redis as fatal: a Redis outage kills n8n queue execution, drops Open WebUI live updates, breaks LiteLLM caching, and stalls LightRAG's KV layer. There is no fallback in the stack.
 
 **Eviction policy.** Currently unset — Redis runs with the default `noeviction`. For the AOF-only durable use cases (n8n queue, sessions) this is fine; for cache-style consumers (embedding cache, doc-processor cache) it is wrong. See Future — Unused features below.
 
@@ -120,7 +120,7 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 ## 8. Operations
 
-**Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `langmem:` (backend memory locks), `kong:` (rate-limit counters). Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
+**Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `kong:` (rate-limit counters), and LightRAG's `{workspace}_{namespace}:` keys on db `/2`. Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
 
 **Watch traffic live.** `redis-cli MONITOR` dumps every command server-side. Useful when verifying a new consumer is connecting to the right db index. Verbose — turn off as soon as you're done.
 

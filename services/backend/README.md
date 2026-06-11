@@ -6,7 +6,7 @@ The backend is `_SOURCE`-trivial — it has only one variant, `container` — be
 
 ## 1. Overview
 
-Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. The backend ships no test suite — local iteration is "edit + `docker compose up --force-recreate backend`."
+Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. A small pytest suite lives at `app/app/tests/` (Ray client/routes; run in the required CI job); broader local iteration is "edit + `docker compose up --force-recreate backend`."
 
 ## 2. Access
 
@@ -73,7 +73,7 @@ Adaptive listing comes from `runtime_adaptive.backend.adapts_to` in `services/ba
 
 **Required hard dependencies** (from `depends_on.required`):
 - `supabase` — Postgres (LangMem facts, public tables), Auth (JWT), Storage (file uploads ≤50 MB), Realtime (declared via compose).
-- `redis` — session, rate-limit, queue, LangMem consolidation lock.
+- `redis` — declared required (ordering + future use); `REDIS_URL` is injected into the container but no backend code consumes it today.
 - `litellm` — gated `service_healthy` in compose; backend's startup performs first-call probes against the gateway.
 
 **Optional adaptive dependencies** (from `runtime_deps.backend.optional`):
