@@ -170,7 +170,9 @@ class PortManager:
             port_assignments = dict(port_assignments)
             port_assignments['BASE_PORT'] = base_port
             for port_var, new_port in port_assignments.items():
-                pattern = rf'^({re.escape(port_var)}\s*=\s*)([^\s#]*)([ \t]*#.*)?$'
+                # Group 3 must swallow trailing whitespace even without a
+                # comment, or `VAR=63002 ` (trailing space) silently no-ops.
+                pattern = rf'^({re.escape(port_var)}\s*=\s*)([^\s#]*)([ \t]*(?:#.*)?)$'
                 replacement = rf'\g<1>{new_port}\g<3>'
                 updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
 
