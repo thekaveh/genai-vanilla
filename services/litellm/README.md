@@ -248,7 +248,7 @@ curl -s -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -d '{"model":"ollama/nomic-embed-text","input":"hi"}'
 
 # Cache and spend audit
-redis-cli -h localhost -p ${REDIS_PORT} KEYS "litellm*"
+redis-cli -h localhost -p ${REDIS_PORT} -a "$REDIS_PASSWORD" --scan --pattern "litellm*"
 psql -h localhost -p ${SUPABASE_DB_PORT} -U postgres -d litellm -c "SELECT * FROM \"LiteLLM_SpendLogs\" ORDER BY \"startTime\" DESC LIMIT 5;"
 ```
 
@@ -324,6 +324,6 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 
 - **Guardrails** — *Why pursue:* presidio PII redaction, lakera prompt-injection scanning, hide-secrets — all configurable per virtual key. Stack handles user data but has zero LLM-side PII controls today. *Effort:* medium.
 - **Virtual keys + team budgets** — *Why pursue:* the master key is the only credential; consumers all share it. Per-service virtual keys with spend caps would give n8n / jupyterhub / open-webui isolated budgets and revocable creds. *Effort:* small.
-- **Prompt caching (Redis)** — *Why pursue:* LiteLLM can transparently cache prompts in Redis (already deployed) keyed by content hash, slashing cost on repeated tool-call chains common in hermes/n8n flows. *Effort:* small.
+- **Semantic caching + per-key cache controls** — *Why pursue:* basic Redis response caching is already enabled stack-wide; LiteLLM's embedding-similarity semantic cache and per-virtual-key TTL/namespace controls remain unused. *Effort:* small.
 - **`/v1/audio/transcriptions` + `/v1/audio/speech` routing** — *Why pursue:* see pair-integrations above. *Effort:* medium.
 - **Fallback model chains** — *Why pursue:* declare `fallbacks: [{"gpt-5": ["claude-opus", "ollama/qwen3.6"]}]` so a cloud outage degrades gracefully to local Ollama. *Effort:* small.

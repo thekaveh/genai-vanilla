@@ -2,7 +2,7 @@
 
 Workflow automation engine. The stack runs n8n in **queue mode** by default — one `n8n` web/API container plus an `n8n-worker` container that consumes jobs from Redis. A short-lived `n8n-init` container handles first-run setup: installing community nodes (ComfyUI image-to-image, MCP client), importing seeded workflows from `services/n8n/init/workflows/`, and seeding credentials. The result is a fully-wired automation surface that ties LLM (LiteLLM), media (ComfyUI/STT/TTS/Docling/SearXNG), and data (Supabase/Weaviate/MinIO) services together without writing code.
 
-n8n is also the only "agents"-tier service besides Hermes; the two are complementary. n8n is event-driven and visual (cron triggers, webhooks, manual runs); Hermes is conversational and skill-driven. They reach each other through a shared `HERMES_ENDPOINT` env var so a workflow can hand off to an agent and an agent can call a workflow.
+n8n is also the only "agents"-tier service besides Hermes; the two are complementary. n8n is event-driven and visual (cron triggers, webhooks, manual runs); Hermes is conversational and skill-driven. n8n reaches Hermes through a shared `HERMES_ENDPOINT` env var so a workflow can hand off to an agent (the reverse edge — Hermes calling a workflow — isn't wired today; see §4).
 
 ## 1. Overview
 

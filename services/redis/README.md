@@ -53,7 +53,7 @@ Database-index convention (consumer-built URLs):
 
 ## 5. LightRAG KV store
 
-When `LIGHTRAG_SOURCE != disabled` AND `REDIS_SOURCE != disabled`, LightRAG uses Redis `db=2` as its KV and doc-status backend (via `RedisKVStorage`). Use `redis-cli -n 2 KEYS '*'` to inspect.
+When `LIGHTRAG_SOURCE != disabled` AND `REDIS_SOURCE != disabled`, LightRAG uses Redis `db=2` as its KV and doc-status backend (via `RedisKVStorage`). Use `redis-cli -a "$REDIS_PASSWORD" -n 2 --scan --pattern '*'` to inspect.
 
 ## 6. Dependencies & Integrations
 

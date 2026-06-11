@@ -80,7 +80,7 @@ degradation; no failure.
 
 ```bash
 HERMES_SOURCE=container             # container | localhost | disabled
-HERMES_IMAGE=nousresearch/hermes-agent:0.13.0
+HERMES_IMAGE=nousresearch/hermes-agent:latest
 HERMES_API_PORT=63061
 HERMES_DASHBOARD_PORT=63062
 HERMES_DASHBOARD_ENABLED=true
