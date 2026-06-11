@@ -4,9 +4,9 @@ set -e
 echo "ollama-pull: Starting model pull process..."
 
 # Check required env vars
-if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ] || [ -z "$OLLAMA_HOST_URL" ]; then
+if [ -z "$PGHOST" ] || [ -z "$PGPORT" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ] || [ -z "$OLLAMA_HOST_URL" ]; then
   echo "ollama-pull: Error: One or more required environment variables are not set."
-  echo "PGHOST=$PGHOST, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE, OLLAMA_HOST_URL=$OLLAMA_HOST_URL"
+  echo "PGHOST=$PGHOST, PGPORT=$PGPORT, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE, OLLAMA_HOST_URL=$OLLAMA_HOST_URL"
   exit 1
 fi
 

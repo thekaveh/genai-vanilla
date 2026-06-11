@@ -23,9 +23,13 @@ if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
 
   # Restore the database (5.x: `database load`; community ships no
   # `database restore` — see restore.sh).
-  neo4j-admin database load neo4j --from-stdin --overwrite-destination < "${LATEST_BACKUP}"
-
-  echo "Database automatically restored successfully."
+  if neo4j-admin database load neo4j --from-stdin --overwrite-destination < "${LATEST_BACKUP}"; then
+    echo "Database automatically restored successfully."
+  else
+    echo "ERROR: automatic restore from ${LATEST_BACKUP} FAILED (load exited non-zero)." >&2
+    echo "ERROR: the neo4j database may be in a partially-overwritten state; inspect before trusting data." >&2
+    exit 1
+  fi
 else
   echo "No backup file found. Skipping automatic restore."
 fi

@@ -32,13 +32,24 @@ if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
     # subcommand (that pairs with enterprise `backup`); dumps are
     # restored with `database load`. --from-stdin sidesteps load's
     # <database>.dump naming requirement for our timestamped files.
-    neo4j-admin database load neo4j --from-stdin --overwrite-destination < "${LATEST_BACKUP}"
-    
-    # Start Neo4j service
+    if neo4j-admin database load neo4j --from-stdin --overwrite-destination < "${LATEST_BACKUP}"; then
+        restore_ok=1
+    else
+        restore_ok=0
+        echo "ERROR: restore from ${LATEST_BACKUP} FAILED (load exited non-zero)." >&2
+        echo "ERROR: the neo4j database may be in a partially-overwritten state; inspect before trusting data." >&2
+    fi
+
+    # Start Neo4j service (even after a failed load, so the server isn't left stopped)
     neo4j start
-    
-    echo "Database restored successfully."
-    echo "Neo4j service restarted."
+
+    if [ "${restore_ok}" -eq 1 ]; then
+        echo "Database restored successfully."
+        echo "Neo4j service restarted."
+    else
+        echo "Neo4j service restarted WITHOUT a successful restore." >&2
+        exit 1
+    fi
 else
     echo "No backup file found. Skipping restore."
 fi
