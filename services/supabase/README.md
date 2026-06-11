@@ -235,7 +235,6 @@ _No upstream calls._
 |---|---|
 | kong | infra |
 | prometheus | infra |
-| spark | data |
 | litellm | llm |
 | airflow | agents |
 | lightrag | agents |

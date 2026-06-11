@@ -108,6 +108,11 @@ env:
     secret: true
 
 depends_on:
+  # ORDERING-ONLY: the compose fragment has no supabase depends_on and
+  # minio-init only talks to minio. The entry stays because the topology
+  # slot allocator derives port positions from depends_on — dropping it
+  # would renumber later slots and break existing .env files. Treat as
+  # display/slot pinning, not a runtime dependency.
   required:
     - supabase
   optional: []

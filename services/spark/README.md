@@ -46,7 +46,6 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 | Service | Category |
 |---|---|
 | minio | data |
-| supabase | data |
 
 ### 5.2 Current — Downstream (services that call this)
 
