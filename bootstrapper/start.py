@@ -20,6 +20,7 @@ from services.migrations.migration_v1 import (
     stamp_version as _stamp_v1,
 )
 from services.migrations.migration_v2 import (
+    URL_VAR_TO_PORT_VAR as _V2_URL_TO_PORT,
     apply as _apply_v2,
     needs_migration as _needs_v2,
     stamp_version as _stamp_v2,
@@ -398,6 +399,24 @@ class GenAIStackStarter:
                 if not raw_value.split("#", 1)[0].strip():
                     blank_keys.add(key)
 
+        # Keys the migration chain (services/migrations) is about to
+        # write: backfill must NOT seed them from .env.example, or
+        # run_port_migration() — which runs AFTER backfill — finds them
+        # already present and skips the user's legacy values. Concretely:
+        # seeding the sentinel stamps a legacy .env as already-migrated
+        # (every migration silently skips); seeding a *_LOCALHOST_PORT
+        # while the legacy *_LOCALHOST_URL is still in the file makes v2
+        # discard the URL's custom port; seeding the COMFYUI model vars
+        # while COMFYUI_MODEL_SET exists pre-empts v3's translation.
+        migration_owned: set[str] = {"BOOTSTRAPPER_PORT_LAYOUT_VERSION"}
+        for _url_var, _port_var in _V2_URL_TO_PORT.items():
+            if _url_var in existing_keys:
+                migration_owned.add(_port_var)
+        if "COMFYUI_MODEL_SET" in existing_keys:
+            migration_owned.update(
+                {"COMFYUI_USER_MODELS", "COMFYUI_CUSTOM_MODELS_FILE"}
+            )
+
         # Build a lookup of .env.example values so we can fill in BLANK
         # entries (a key exists in .env but with no value) using a
         # non-blank manifest default. This handles the case where the
@@ -419,7 +438,7 @@ class GenAIStackStarter:
         blank_fills = {
             key: example_values[key]
             for key in blank_keys
-            if example_values.get(key)
+            if example_values.get(key) and key not in migration_owned
         }
         if blank_fills:
             new_lines: list[str] = []
@@ -446,7 +465,7 @@ class GenAIStackStarter:
             )
 
         groups = self._parse_env_example_sections(
-            example_text, existing_keys,
+            example_text, existing_keys | migration_owned,
         )
         if not groups:
             return True

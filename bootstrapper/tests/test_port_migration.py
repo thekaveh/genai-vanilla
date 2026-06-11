@@ -260,6 +260,8 @@ def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
     custom_env = tmp_path / "custom.env"
     custom_env.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
     monkeypatch.setenv("GENAI_ENV_FILE", str(custom_env))
+    repo_env = Path(__file__).resolve().parents[2] / ".env"
+    repo_env_snapshot = repo_env.read_bytes() if repo_env.is_file() else b""
 
     from start import GenAIStackStarter
     starter = GenAIStackStarter()
@@ -272,5 +274,7 @@ def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
     # value — the test cares about path resolution (custom env honored)
     # rather than version semantics.
     assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=3" in text
-    # Real repo .env was not touched (verified via path inequality).
-    assert starter.config_parser.env_file_path == custom_env
+    # Real repo .env (if present) was not touched.
+    repo_env = Path(__file__).resolve().parents[2] / ".env"
+    if repo_env.is_file():
+        assert repo_env_snapshot == repo_env.read_bytes()

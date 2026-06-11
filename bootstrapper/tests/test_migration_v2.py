@@ -43,6 +43,17 @@ def test_default_port_url_rewrites_to_port_var(tmp_path):
     )
 
 
+def test_quoted_url_value_is_migrated(tmp_path):
+    """Quoted URL values (parse_env_file is quote-aware) must migrate too."""
+    p = _write_env(tmp_path,
+        'COMFYUI_LOCALHOST_URL="http://host.docker.internal:9999"\n'
+    )
+    apply_v2(p)
+    out = p.read_text()
+    assert "COMFYUI_LOCALHOST_PORT=9999" in out
+    assert out.lstrip().startswith("# COMFYUI_LOCALHOST_URL=")
+
+
 def test_custom_port_preserved(tmp_path):
     """User's customized port survives end-to-end."""
     p = _write_env(tmp_path,

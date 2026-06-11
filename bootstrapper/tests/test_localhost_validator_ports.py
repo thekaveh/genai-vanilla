@@ -39,11 +39,12 @@ def test_tcp_probe_succeeds_with_string_port_from_env(tmp_path):
 
 
 def test_tcp_probe_blank_port_falls_back_to_default(tmp_path):
-    """Blank var must fall back to the default port (and not crash);
-    nothing listens there in the test env, so the probe reports
-    not-accessible with the DEFAULT port in the message."""
+    """Blank var must fall back to the default port (and not crash):
+    the DEFAULT port appears in the probe messages. (Whether something
+    happens to listen on 7687 on the host is irrelevant — accessibility
+    is deliberately not asserted to keep the test machine-independent.)"""
     v = _validator(tmp_path, "NEO4J_LOCALHOST_BOLT_PORT=\n")
-    accessible, messages = v.validate_service(
+    _, messages = v.validate_service(
         "NEO4J_GRAPH_DB_SOURCE", "localhost"
     )
     joined = "\n".join(messages)
