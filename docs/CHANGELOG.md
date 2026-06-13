@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-13 overnight maintenance pass (13 commits, passes 1-37)
+### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
 - **Hermes capability wiring (HIGH):** `service_config.py` now emits
   `TTS_INTERNAL_URL`, `STT_INTERNAL_URL`, `COMFYUI_INTERNAL_URL`, and
@@ -49,13 +49,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   images / volumes belonging to OTHER docker projects on the same host.
 - Textual wizard's first paint now mirrors `state_builder.build_app_state()`
   when `KONG_HTTP_PORT` is blank in `.env`: `_build_steps_and_rows` now
-  uses `'63000'` as the alias-port fallback instead of empty string.
-  Regression test in `test_blank_base_port.py` locks both code paths
-  to the same observable for blank-Kong-port `.env`.
+  uses `'63000'` as the alias-port fallback instead of empty string,
+  so the TUI and `--no-tui` paths render the same alias_port for every
+  Kong-aliased service. Regression test in `test_blank_base_port.py`.
 - Test hygiene: `test_adapts_to_includes_lightrag` now declares
   parametrize `ids=` so pytest failures point at the failing
   (service, container, env-var) tuple by name instead of
   `svc0-container0-expected_env_var0`.
+- Prometheus README §1 reworded "All three lifecycle together" (verbed
+  noun) to "All three share a single lifecycle" — same scaling
+  semantic, cleaner prose.
 
 ### Fixed — 2026-06-11 overnight maintenance passes 56-62 (7 commits)
 
