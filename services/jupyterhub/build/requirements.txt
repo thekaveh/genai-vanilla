@@ -1,6 +1,6 @@
 # GenAI Vanilla Stack - JupyterHub Python Dependencies
 # AI/ML Libraries
-ollama>=0.3.0
+ollama>=0.6.2
 langchain>=0.3.0
 langchain-community>=0.3.0
 # langchain-openai is NOT pulled in by langchain/langchain-community —
