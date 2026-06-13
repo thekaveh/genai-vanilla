@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-13 overnight maintenance pass (5 commits)
+### Fixed — 2026-06-13 overnight maintenance pass (13 commits, passes 1-37)
 
 - **Hermes capability wiring (HIGH):** `service_config.py` now emits
   `TTS_INTERNAL_URL`, `STT_INTERNAL_URL`, `COMFYUI_INTERNAL_URL`, and
@@ -35,6 +35,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chain" but §12 lists five; LICENSE copyright year extended
   `2025` → `2025-2026`. README test-count claim refreshed from
   `800+` to `840+`.
+- README §4.1 service table inflated TEI Reranker's default model id
+  to the namespaced upstream form `mixedbread-ai/mxbai-rerank-base-v1`
+  (bare `mxbai-rerank-base-v1` wouldn't pull from HuggingFace).
+- README + 9 service READMEs + quick-start troubleshooting + the
+  expected-startup-warnings table aligned to the `${PROJECT_NAME}-<svc>`
+  container-name convention. Non-default-`PROJECT_NAME` deployments now
+  have working cut-paste docs throughout. The warning table keeps the
+  literal `genai-` prefix (it documents actual log output) but the new
+  note at §1 tells readers to substitute their own `PROJECT_NAME`.
+- README §6 `./stop.sh --cold` block now warns that the `docker system
+  prune -f --volumes` step is host-wide — it also prunes unused
+  images / volumes belonging to OTHER docker projects on the same host.
+- Textual wizard's first paint now mirrors `state_builder.build_app_state()`
+  when `KONG_HTTP_PORT` is blank in `.env`: `_build_steps_and_rows` now
+  uses `'63000'` as the alias-port fallback instead of empty string.
+  Regression test in `test_blank_base_port.py` locks both code paths
+  to the same observable for blank-Kong-port `.env`.
+- Test hygiene: `test_adapts_to_includes_lightrag` now declares
+  parametrize `ids=` so pytest failures point at the failing
+  (service, container, env-var) tuple by name instead of
+  `svc0-container0-expected_env_var0`.
 
 ### Fixed — 2026-06-11 overnight maintenance passes 56-62 (7 commits)
 
