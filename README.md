@@ -368,11 +368,13 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ```bash
 # Basic stop commands
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data (destructive; includes a global docker system prune -f --volumes)
+./stop.sh --cold             # Stop and remove all data (destructive; includes a global `docker system prune -f --volumes` that ALSO touches unused images/volumes belonging to OTHER docker projects on this host)
 ./stop.sh --clean-hosts      # Remove *.localhost entries from hosts file
 ./stop.sh --help             # Show all options
 
-# The --cold option removes all Docker volumes (data loss).
+# The --cold option removes all Docker volumes (data loss). The `docker
+# system prune -f --volumes` step is host-wide — any unrelated Docker
+# project's dangling volumes / images on the same machine are pruned too.
 # Use with caution — all database data will be permanently deleted.
 ```
 
