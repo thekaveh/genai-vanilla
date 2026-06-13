@@ -29,9 +29,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    depends_on:
-      redis:
-        condition: service_healthy
+    # No depends_on: searxng runs with `valkey.url: false` in
+    # config/settings.yml (no redis/valkey usage) — the old
+    # redis:service_healthy gate was pure startup coupling.
 
 volumes:
   searxng-data:

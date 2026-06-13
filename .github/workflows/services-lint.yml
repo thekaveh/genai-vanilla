@@ -48,15 +48,15 @@ jobs:
     name: Manifest lint + unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
 
       - name: Sync dependencies
         working-directory: bootstrapper
@@ -70,19 +70,29 @@ jobs:
         working-directory: bootstrapper
         run: uv run python -m tools.validate_fragments
 
+      - name: Backend unit tests (ray client/routes)
+        working-directory: services/backend/app/app
+        # The backend suite stubs `ray` in-process, so only main.py's
+        # import closure is needed — NOT the full requirements.txt
+        # (which build-validation already pip-installs in Docker).
+        run: |
+          uv venv .ci-venv
+          VIRTUAL_ENV=$PWD/.ci-venv uv pip install pytest fastapi httpx pydantic asyncpg storage3 prometheus-fastapi-instrumentator python-multipart
+          .ci-venv/bin/python -m pytest tests/ -q
+
   compose-equivalence:
     name: Compose merge + byte-equivalence + source-permutation matrix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
 
       - name: Sync dependencies
         working-directory: bootstrapper
@@ -108,15 +118,15 @@ jobs:
     name: Docs drift + audit scripts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
 
       - name: Sync dependencies
         working-directory: bootstrapper
@@ -151,20 +161,30 @@ jobs:
       - name: Research schema validator
         run: uv run --project bootstrapper python scripts/validate_research_schema.py --all
 
+      - name: Docling localhost-provider lock check
+        working-directory: services/docling/provider/localhost
+        # Host-run provider (no Dockerfile), so build-validation can't
+        # exercise its pins; this catches unsatisfiable bumps and a stale
+        # uv.lock at PR time instead of on a user's machine.
+        run: uv lock --locked
+
   build-validation:
     name: Build-validation (Dockerfile + requirements.txt installability)
     runs-on: ubuntu-latest
     # Catches the Pass 12 / Pass 13 class of bug: unsatisfiable pip pins,
     # nonexistent packages, broken Dockerfile syntax. Compose-shape checks
     # never invoke `docker build`, so a broken requirements.txt sails
-    # through the other gates. This job builds each service that ships a
-    # build: context so `pip install -r requirements.txt` is exercised
-    # against real PyPI metadata.
+    # through the other gates. Builds the four highest-churn contexts
+    # (airflow, spark, jupyterhub, backend) — NOT every build: context;
+    # the GPU images (docling/parakeet) are excluded for runner
+    # size/time, and the small init-container contexts
+    # (open-webui/litellm/comfyui inits, neo4j, local-deep-researcher)
+    # are trivial pip layers that change rarely.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
 
       - name: Build airflow image
         # apache/airflow:3.2.2 + the 9 providers + pyspark[connect]. Catches

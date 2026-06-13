@@ -21,7 +21,9 @@ Key facts:
 - **MCP-native** — first-class client for any MCP server.
 - **64K-context floor** — Hermes preflight-checks the model's context
   window. `HERMES_DEFAULT_MODEL` MUST be a ≥64K-context model. Stock Ollama
-  models default to 4096 — use `--ctx-size 65536` or a cloud model.
+  default contexts are VRAM-dependent (4k/32k/256k) and usually below 64K — set `OLLAMA_CONTEXT_LENGTH=65536` on the
+  Ollama server (or `/set parameter num_ctx 65536` + `/save <model>` inside
+  `ollama run`), or use a cloud model.
 - **Disk footprint** — verified at **~5.66 GB** on `linux/amd64` and
   `linux/arm64` (the image is multi-arch — works on Apple Silicon and
   standard Linux servers). Plan-time estimates put it at 2.6 GB; the
@@ -78,7 +80,7 @@ degradation; no failure.
 
 ```bash
 HERMES_SOURCE=container             # container | localhost | disabled
-HERMES_IMAGE=nousresearch/hermes-agent:0.13.0
+HERMES_IMAGE=nousresearch/hermes-agent:latest
 HERMES_API_PORT=63061
 HERMES_DASHBOARD_PORT=63062
 HERMES_DASHBOARD_ENABLED=true
@@ -154,8 +156,10 @@ for scripted changes.
   override for the OpenAI TTS provider; STT may need a fallback to
   `provider: command` with a `HERMES_LOCAL_STT_COMMAND`-style curl. See the
   comment in `services/hermes/init/templates/config.yaml.tmpl`.
-- **64K context floor** — small Ollama models (default 4096 ctx) will fail
-  Hermes's preflight check. Pull with `ollama run <model> --ctx-size 65536`
+- **64K context floor** — small Ollama models (small default contexts) will fail
+  Hermes's preflight check. Raise it via `OLLAMA_CONTEXT_LENGTH=65536`
+  on the Ollama server, or `/set parameter num_ctx 65536` + `/save <model>`
+  inside `ollama run <model>`
   or pick a cloud model.
 - **Open WebUI model-list cache** — Open WebUI caches the LiteLLM model list
   for 5 minutes (`MODEL_LIST_CACHE_TTL=300`). After first start, `hermes-agent`

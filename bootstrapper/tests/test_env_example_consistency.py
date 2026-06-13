@@ -1,8 +1,10 @@
 """
 Env-example ↔ manifest consistency test.
 
-Tier 2.G1/G2 deliverable: the bootstrapper's hand-maintained `.env.example`
-and the per-service manifests must stay in lockstep. This test asserts:
+Tier 2.G1/G2 deliverable: `.env.example` (auto-generated from manifests by
+services/env_assembler.py; byte-equivalence enforced in
+test_env_assembler.py) and the per-service manifests must stay in
+lockstep on KEY OWNERSHIP. This test asserts:
 
   1. Every UPPER_CASE=... key in `.env.example` is claimed by exactly one
      manifest (either as an `env:` entry, a `sources.var`, or an

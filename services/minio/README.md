@@ -122,7 +122,6 @@ _No upstream calls._
 | prometheus | infra |
 | spark | data |
 | airflow | agents |
-| jupyterhub | apps |
 | zeppelin | apps |
 
 ### 10.3 Architecture diagram

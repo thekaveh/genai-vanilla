@@ -19,15 +19,17 @@ fi
 # is delivered via Weaviate's OPENAI_APIKEY env, populated from
 # LITELLM_MASTER_KEY in docker-compose.yml.
 
+# NOTE: no DEFAULT_OPENAI_BASE_URL export here — Weaviate never read
+# that env var (the per-collection moduleConfig.baseURL set by the
+# backend is the real seam), and the old value carried a wrong /v1
+# suffix on top of being dead.
 if [ -n "$LITELLM_BASE_URL" ]; then
-  export DEFAULT_OPENAI_BASE_URL="$LITELLM_BASE_URL/v1"
-  echo "weaviate: Using LiteLLM endpoint: $LITELLM_BASE_URL"
+  echo "weaviate: LiteLLM endpoint (per-collection baseURL is set by the backend): $LITELLM_BASE_URL"
 else
-  export DEFAULT_OPENAI_BASE_URL="http://litellm:4000/v1"
-  echo "weaviate: Using default LiteLLM endpoint: http://litellm:4000"
+  echo "weaviate: default LiteLLM endpoint: http://litellm:4000"
 fi
 
-echo "weaviate: Configuration applied - embedding model: $LITELLM_EMBEDDING_MODEL, base URL: $DEFAULT_OPENAI_BASE_URL"
+echo "weaviate: init checks done - embedding model: $LITELLM_EMBEDDING_MODEL"
 
 # Execute the original Weaviate command with dynamic configuration
 exec "$@"

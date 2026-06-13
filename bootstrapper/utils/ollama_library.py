@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import re
 import socket
+import http.client
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -201,7 +202,8 @@ def list_library_entries(timeout: float = 5.0) -> list[OllamaLibraryEntry]:
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             html = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError):
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException):
         return []
 
     seen: set[str] = set()
@@ -268,7 +270,7 @@ class OllamaVariant:
     """
     tag: str                          # e.g. "8b", "latest", "27b-coding-mxfp8"
     size_label: str                   # raw size string from upstream: "5.2GB", "523MB"
-    context_label: str                # context window: "40K", "256K"
+    context_label: str                # context window: "40K", "256K", "1M"
     input_modalities: tuple[str, ...] # ("Text",) or ("Text", "Image") or ("Audio",)
     updated: str                      # relative timestamp, "7 months ago"
     # Apple-Silicon-optimised MLX weights are published as a separate
@@ -314,7 +316,7 @@ _VARIANT_BLOCK_RE_TPL = (
 _VARIANT_SUMMARY_RE = re.compile(
     r'<p class="flex text-neutral-500"[^>]*>'
     r'([0-9.]+[GM]?B)\s*·\s*'
-    r'([0-9]+K?)\s+context\s+window\s*·\s*'
+    r'([0-9]+[KM]?)\s+context\s+window\s*·\s*'
     r'([^·<]+?)\s*·\s*'
     r'([^<]+?)</p>',
 )
@@ -349,7 +351,8 @@ def fetch_model_variants(name: str, timeout: float = 5.0) -> list[OllamaVariant]
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             html = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError):
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException):
         return None
 
     block_re = re.compile(

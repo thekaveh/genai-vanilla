@@ -265,3 +265,39 @@ def test_start_py_source_args_dict_includes_every_cli_source_flag() -> None:
         f"This silently drops the flag value at runtime — add the keys to the "
         f"source_args dict so SourceOverrideManager.collect_overrides receives them."
     )
+
+
+def test_every_source_args_key_resolves_in_source_mapping() -> None:
+    """collect_overrides() iterates source_mapping, so a key present in
+    start.py's source_args but missing from
+    SourceOverrideManager.source_mapping is SILENTLY dropped — the flag
+    parses, lands in the dict, and never reaches .env. The flag→dict
+    seam is guarded above; this closes the dict→mapping seam (the
+    audit-C3 bug class)."""
+    import ast
+
+    from utils.source_override_manager import SourceOverrideManager
+
+    start_py = (REPO_ROOT / "bootstrapper" / "start.py").read_text(encoding="utf-8")
+    tree = ast.parse(start_py)
+    source_args_keys: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "source_args"
+            and isinstance(node.value, ast.Dict)
+        ):
+            for k in node.value.keys:
+                if isinstance(k, ast.Constant) and isinstance(k.value, str):
+                    source_args_keys.add(k.value)
+            break
+    assert source_args_keys, "source_args dict literal not found in start.py"
+
+    mgr = SourceOverrideManager(ConfigParser(str(REPO_ROOT)))
+    unmapped = source_args_keys - set(mgr.source_mapping)
+    assert not unmapped, (
+        f"source_args keys with no source_mapping entry (silently dropped "
+        f"by collect_overrides): {sorted(unmapped)}"
+    )

@@ -69,7 +69,10 @@ for entry in \
 }
 EOF
 
-    # 3. Create or update the named policy (idempotent)
+    # 3. Create or update the named policy (idempotent). NOTE: this named
+    # policy is never ATTACHED to anything — the service account below
+    # carries its policy inline (step 4). It's maintained purely so
+    # operators can inspect the per-consumer grants in the MinIO console.
     policy_name="${consumer}-policy"
     if mc admin policy info local "$policy_name" >/dev/null 2>&1; then
         echo "minio-init: updating existing policy '$policy_name'..."
@@ -84,9 +87,15 @@ EOF
         mc admin policy create local "$policy_name" "$policy_file"
     fi
 
-    # 4. Create the service account (idempotent — skip if access key already exists)
+    # 4. Create the service account; on re-runs, refresh its secret +
+    # inline policy so .env rotations and bucket renames actually
+    # propagate (the old skip-if-exists path silently never updated
+    # either).
     if mc admin user svcacct info local "$access" >/dev/null 2>&1; then
-        echo "minio-init: service account '$access' already exists, skipping"
+        echo "minio-init: service account '$access' exists - refreshing secret + policy..."
+        mc admin user svcacct edit local "$access" \
+            --secret-key "$secret" \
+            --policy "$policy_file"
     else
         echo "minio-init: creating service account '$access' for bucket '$bucket'..."
         mc admin user svcacct add local "$MINIO_ROOT_USER" \

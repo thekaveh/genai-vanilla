@@ -4,9 +4,9 @@ set -e
 echo "ollama-pull: Starting model pull process..."
 
 # Check required env vars
-if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ] || [ -z "$OLLAMA_HOST_URL" ]; then
+if [ -z "$PGHOST" ] || [ -z "$PGPORT" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ] || [ -z "$OLLAMA_HOST_URL" ]; then
   echo "ollama-pull: Error: One or more required environment variables are not set."
-  echo "PGHOST=$PGHOST, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE, OLLAMA_HOST_URL=$OLLAMA_HOST_URL"
+  echo "PGHOST=$PGHOST, PGPORT=$PGPORT, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE, OLLAMA_HOST_URL=$OLLAMA_HOST_URL"
   exit 1
 fi
 
@@ -15,8 +15,17 @@ apk add --no-cache curl postgresql-client
 
 echo "ollama-pull: Waiting for Ollama API at $OLLAMA_HOST_URL..."
 sleep 5 # Initial wait
-until curl -s --fail "$OLLAMA_HOST_URL/"; do
-  echo "ollama-pull: Waiting for Ollama API..."
+# Bounded wait (300s, mirroring weaviate/minio/n8n init): ollama has no
+# compose healthcheck and comfyui-init gates on this container completing,
+# so an unbounded loop here used to wedge the whole init chain forever.
+WAITED=0
+until curl -sf --max-time 5 "$OLLAMA_HOST_URL/" > /dev/null; do
+  WAITED=$((WAITED + 5))
+  if [ "$WAITED" -ge 300 ]; then
+    echo "ollama-pull: ERROR - Ollama API not reachable after 300s; giving up." >&2
+    exit 1
+  fi
+  echo "ollama-pull: Waiting for Ollama API... (${WAITED}s)"
   sleep 5
 done
 echo "ollama-pull: Ollama API is available."
@@ -40,13 +49,16 @@ else
       # pull before the manual error-handling below runs, so we explicitly
       # tolerate non-zero exits here and rely on the if-check on $? instead.
       curl_exit_code=0
-      curl_output=$(curl -s -X POST "$OLLAMA_HOST_URL/api/pull" -d "$json_payload" 2>&1) || curl_exit_code=$?
+      curl_output=$(curl -sf -X POST "$OLLAMA_HOST_URL/api/pull" -d "$json_payload" 2>&1) || curl_exit_code=$?
       echo "ollama-pull: Curl exit code: $curl_exit_code"
       echo "ollama-pull: Curl output: $curl_output"
-      # Check if curl succeeded (exit code 0)
-      if [ $curl_exit_code -ne 0 ]; then
-         echo "ollama-pull: ERROR - Failed to pull model $model_clean. See output above."
-         # Optionally exit here if one failure should stop the process: exit 1
+      # /api/pull streams NDJSON and can report failures (bad model name,
+      # registry errors) inside the body with HTTP 200 — check both the
+      # exit code AND the body for an error line, or a typo'd
+      # OLLAMA_USER_MODELS entry "succeeds" silently and only surfaces
+      # as a LiteLLM 404 at request time.
+      if [ $curl_exit_code -ne 0 ] || printf '%s' "$curl_output" | grep -q '"error"'; then
+         echo "ollama-pull: ERROR - Failed to pull model $model_clean. See output above." >&2
       fi
       echo # Newline after each pull attempt output
     fi

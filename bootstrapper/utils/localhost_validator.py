@@ -16,25 +16,32 @@ class LocalhostValidator:
     
     # Service validation configurations
     SERVICE_CHECKS = {
+        # All single-engine services read their *_LOCALHOST_PORT override
+        # (the same var runtime_sc, Kong's _localhost_url, and
+        # service_config read) so a user-set port doesn't produce a false
+        # "not detected" warning — the asymmetric-override class tracked
+        # in feedback_localhost_url_override_symmetry.md.
         'LLM_PROVIDER_SOURCE': {
             'source_values': ['ollama-localhost'],
             'check_type': 'http',
-            'endpoints': ['http://localhost:11434/api/tags'],
+            'port_env_var': 'OLLAMA_LOCALHOST_PORT',
+            'health_path': '/api/tags',
             'service_name': 'Ollama',
             'default_port': 11434
         },
         'COMFYUI_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
-            'endpoints': ['http://localhost:8188/system_stats', 'http://localhost:8000/system_stats'],
+            'port_env_var': 'COMFYUI_LOCALHOST_PORT',
+            'health_path': '/system_stats',
             'service_name': 'ComfyUI',
-            'default_port': 8188,
-            'fallback_ports': [8000]
+            'default_port': 8000
         },
         'WEAVIATE_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
-            'endpoints': ['http://localhost:8080/v1/schema'],
+            'port_env_var': 'WEAVIATE_LOCALHOST_PORT',
+            'health_path': '/v1/schema',
             'service_name': 'Weaviate',
             'default_port': 8080
         },
@@ -42,6 +49,7 @@ class LocalhostValidator:
             'source_values': ['localhost'],
             'check_type': 'tcp',
             'host': 'localhost',
+            'port_env_var': 'NEO4J_LOCALHOST_BOLT_PORT',
             'port': 7687,
             'service_name': 'Neo4j',
             'default_port': 7687
@@ -58,7 +66,7 @@ class LocalhostValidator:
                     'check_type': 'http',
                     'port_env_var': 'PARAKEET_LOCALHOST_PORT',
                     'health_path': '/health',
-                    'default_port': 63022,
+                    'default_port': 63042,
                     'service_name': 'Parakeet STT (host-side)',
                     'hint': 'Start the Parakeet MLX/native server — see services/parakeet/provider/mlx/README.md.',
                 },
@@ -70,7 +78,7 @@ class LocalhostValidator:
                     # unsupported health URL.
                     'check_type': 'tcp',
                     'port_env_var': 'WHISPER_CPP_LOCALHOST_PORT',
-                    'default_port': 63025,
+                    'default_port': 63042,
                     'service_name': 'whisper.cpp STT (host-side)',
                     'hint': 'Start whisper-server — see services/parakeet/provider/whisper-cpp/README.md.',
                 },
@@ -82,7 +90,7 @@ class LocalhostValidator:
                     'check_type': 'http',
                     'port_env_var': 'CHATTERBOX_LOCALHOST_PORT',
                     'health_path': '/health',
-                    'default_port': 63027,
+                    'default_port': 63044,
                     'service_name': 'Chatterbox TTS (host-side)',
                     'hint': 'Start the Chatterbox server — see services/tts-provider/provider/localhost/README.md.',
                 },
@@ -104,14 +112,14 @@ class LocalhostValidator:
             'check_type': 'http',
             'port_env_var': 'DOCLING_LOCALHOST_PORT',
             'service_name': 'Docling Document Processor',
-            'default_port': 63021
+            'default_port': 63040
         },
         'OPENCLAW_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'http',
             'port_env_var': 'OPENCLAW_LOCALHOST_PORT',
             'service_name': 'OpenClaw Gateway',
-            'default_port': 63024
+            'default_port': 63065
         },
         'HERMES_SOURCE': {
             'source_values': ['localhost'],
@@ -227,19 +235,23 @@ class LocalhostValidator:
             # HTTP endpoint validation. Two ways the endpoint URL is built:
             #
             # 1. ``port_env_var`` names a PORT env var (e.g.
-            #    ``WHISPER_CPP_LOCALHOST_PORT=63025`` or
-            #    ``DOCLING_LOCALHOST_PORT=63021``). The probe URL is
+            #    ``WHISPER_CPP_LOCALHOST_PORT=63042`` or
+            #    ``DOCLING_LOCALHOST_PORT=63040``). The probe URL is
             #    ``http://localhost:<port><health_path|/health>``. STT/TTS
             #    use per-source ``LOCALHOST_PORT`` vars because each
             #    localhost variant has its own port; the same var that
             #    compose's runtime_sc and Kong's _localhost_url helper read.
             #
-            # 2. Legacy: ``endpoints`` is a hardcoded list. Preserved for
-            #    single-engine services (ComfyUI, Weaviate, …) so this
-            #    refactor doesn't ripple beyond audio.
+            # 2. ``endpoints`` — a literal URL list. No SERVICE_CHECKS
+            #    entry uses it anymore (every service reads its
+            #    *_LOCALHOST_PORT var); kept as the escape hatch for
+            #    ad-hoc checks.
             if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
-                port = env_vars.get(config['port_env_var'], config['default_port'])
+                # `or default`: dict.get's default only applies when the
+                # key is ABSENT — a present-but-blank var would otherwise
+                # produce http://localhost:/path and a false warning.
+                port = env_vars.get(config['port_env_var']) or config['default_port']
                 endpoints = [f"http://localhost:{port}{config.get('health_path', '/health')}"]
             else:
                 endpoints = config['endpoints']
@@ -262,7 +274,7 @@ class LocalhostValidator:
                 if hint:
                     messages.append(f"   {hint}")
                 elif source_var == 'COMFYUI_SOURCE':
-                    messages.append("   Please start ComfyUI locally with: python main.py --listen --port 8188")
+                    messages.append(f"   Please start ComfyUI locally with: python main.py --listen --port {port}")
                     messages.append("   Or refer to the documentation for installation instructions.")
 
             return accessible, messages
@@ -274,11 +286,18 @@ class LocalhostValidator:
             # check treats as "down").
             if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
-                port = env_vars.get(config['port_env_var'], config['default_port'])
+                port = env_vars.get(config['port_env_var']) or config['default_port']
                 host = 'localhost'
             else:
                 host = config['host']
                 port = config['port']
+
+            # socket.connect_ex needs an int; env reads yield strings and
+            # a str port made the probe raise (swallowed) → always-fail.
+            try:
+                port = int(str(port).strip())
+            except ValueError:
+                port = int(config['default_port'])
 
             accessible = self.check_tcp_port(host, port)
 

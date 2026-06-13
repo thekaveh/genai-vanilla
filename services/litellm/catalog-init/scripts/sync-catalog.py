@@ -29,10 +29,11 @@ Behavior:
            - If LLM_PROVIDER_SOURCE in {none, disabled} → deactivate all.
            - If OLLAMA_USER_MODELS set → activate exactly those rows.
            - OLLAMA_CUSTOM_MODELS rows (not in catalog) → INSERT new
-             rows with sensible defaults and active=true. Only honored
-             for ollama-container-* sources; ignored (with warning)
-             otherwise, because ollama-pull doesn't run for host-side
-             Ollama and the row would be unreachable.
+             rows with sensible defaults and active=true, for ALL
+             ollama sources. Non-container sources get a loud warning:
+             ollama-pull doesn't run host-side, so the operator must
+             `ollama pull` the model themselves or requests to the row
+             404 at LiteLLM.
   5. Exit 0.
 
 Catalog rows that get added/removed in ``llm_catalog.py`` flow through
@@ -156,7 +157,7 @@ def _fetch_ollama_tags(upstream_url: str, timeout: float = 3.0) -> list[str]:
 # content=8/structured_content=5 marks unknown models as "general chat;
 # probably JSON-capable" — enough for routing. vision/embeddings default
 # to 0 because we can't infer from a model ID alone. context_window=0
-# mirrors the OLLAMA_CUSTOM path (line ~321) — we don't fabricate
+# mirrors the OLLAMA_CUSTOM path (see the custom-path INSERT below) — we don't fabricate
 # context limits; LiteLLM uses upstream-provided values at request time.
 LIVE_DEFAULTS: dict[str, dict] = {
     "openai": dict(

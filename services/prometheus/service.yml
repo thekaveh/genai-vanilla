@@ -138,7 +138,10 @@ data_flow:
   # and `jupyterhub` are deferred (no /metrics surface — see prometheus
   # README §4 "Deferred targets") and intentionally omitted here so the
   # auto-generated §5.1 Upstream table reflects what is actually scraped.
-  # Re-add when upstream instrumentation lands.
+  # Re-add when upstream instrumentation lands. `grafana` IS scraped
+  # (job_name: grafana) — listing it here completes the mirror; the
+  # reverse grafana → prometheus edge lives in grafana's manifest
+  # (dashboards query Prometheus), so the diagram shows both arrows.
   calls:
     - kong
     - litellm
@@ -148,3 +151,4 @@ data_flow:
     - minio
     - supabase
     - redis
+    - grafana

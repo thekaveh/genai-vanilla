@@ -102,7 +102,7 @@ curl -X POST http://localhost:63040/v1/document/convert \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DOCLING_LOCALHOST_PORT` | Local service port. URL is derived as `http://host.docker.internal:${DOCLING_LOCALHOST_PORT}` at compose-render time. | `63021` |
+| `DOCLING_LOCALHOST_PORT` | Local service port (defaults to the freed `DOC_PROCESSOR_PORT` slot). URL is derived as `http://host.docker.internal:${DOCLING_LOCALHOST_PORT}` at compose-render time. | `63040` |
 
 ## 5. API Reference
 
@@ -402,7 +402,7 @@ Connects to Docling running on host machine.
 
 **Best for**: Custom installations, development, CPU-only systems
 
-**Setup**: Run Docling locally on port 63021
+**Setup**: Run Docling locally on port 63040
 
 **Advantages**:
 - Works on any platform (Mac, Linux, Windows)
@@ -484,7 +484,7 @@ Identifies and extracts code blocks with syntax preservation.
 
 ## 16. Dependencies & Integrations
 
-> Auto-generated section — the **Current** subsections are derived from `services/doc-processor/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen doc-processor` after manifest changes.
+> Auto-generated section — the **Current** subsections are derived from the member manifests' `data_flow.calls` (`services/docling/service.yml`). Re-run `python -m bootstrapper.docs.regen doc-processor` after changing them.
 
 ### 16.1 Current — Upstream (this service calls)
 

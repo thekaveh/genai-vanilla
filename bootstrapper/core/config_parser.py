@@ -57,9 +57,16 @@ class ConfigParser:
         custom_env_path = os.environ.get('GENAI_ENV_FILE', '').strip()
 
         if custom_env_path:
-            # User specified custom path - resolve and expand
-            resolved_path = Path(custom_env_path).expanduser().resolve()
-            return resolved_path
+            # User specified custom path - expand, then anchor relative
+            # paths at the repo root. Resolving against CWD made the same
+            # command pick different files depending on the launcher:
+            # `./start.sh` runs via `uv run --directory bootstrapper`
+            # (CWD=bootstrapper/) but falls back to system python at the
+            # repo root when uv is absent.
+            expanded = Path(custom_env_path).expanduser()
+            if not expanded.is_absolute():
+                expanded = self.root_dir / expanded
+            return expanded.resolve()
 
         # Default: .env in repository root
         return self.root_dir / ".env"
@@ -122,11 +129,27 @@ class ConfigParser:
                 # Split on first = only
                 if '=' in line:
                     key, value = line.split('=', 1)
-                    # Remove any inline comments
-                    if '#' in value:
-                        value = value.split('#')[0]
-                    # Clean up the value
-                    value = value.strip().strip('"').strip("'")
+                    value = value.strip()
+                    if value[:1] in ('"', "'"):
+                        # Quoted value: take the quoted span verbatim —
+                        # a `#` inside quotes is data, not a comment
+                        # (PASSWORD="ab#cd" used to be read as `ab`).
+                        quote = value[0]
+                        end = value.find(quote, 1)
+                        if end != -1:
+                            value = value[1:end]
+                        else:
+                            # Unterminated quote — legacy cleanup.
+                            value = value.strip('"').strip("'")
+                    else:
+                        # Unquoted: a comment starts only at a hash
+                        # preceded by whitespace (`ab#cd` is a value;
+                        # `abc  # note` carries a comment).
+                        for i, ch in enumerate(value):
+                            if ch == '#' and (i == 0 or value[i - 1] in ' \t'):
+                                value = value[:i]
+                                break
+                        value = value.strip()
                     env_vars[key.strip()] = value
                     
         return env_vars

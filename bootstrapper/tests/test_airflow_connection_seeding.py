@@ -132,7 +132,12 @@ def test_init_script_re_applies_airflow_db_password():
     Postgres still authenticated only the old value.
     """
     body = SCRIPT.read_text(encoding="utf-8")
-    assert "ALTER ROLE ${AIRFLOW_DB_USER} WITH PASSWORD" in body, (
+    # Built via printf + psql stdin so :'pw' interpolation quote-protects
+    # the password (psql -c does NOT interpolate; see init-airflow.sh).
+    # Anchored at line start: the ALTER must run UNCONDITIONALLY (not
+    # inside the ||-guarded CREATE branch) or rotations stop applying.
+    import re as _re
+    assert _re.search(r"(?m)^printf \"ALTER ROLE %s WITH PASSWORD :'pw'", body), (
         "init-airflow.sh must ALTER ROLE the airflow role's password every "
         "run; without this, AIRFLOW_DB_PASSWORD rotations don't take effect."
     )

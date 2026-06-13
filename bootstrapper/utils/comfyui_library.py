@@ -83,6 +83,11 @@ class ComfyUILibraryEntry:
     pulled: bool
     cloud_only: bool = False
     notes: str | None = None  # Optional one-line subtitle for wizard rendering (T15).
+    # Explicit on-disk filename. Needed when the URL path carries none —
+    # civitai download URLs are `/api/download/models/<id>?token=…`, so a
+    # URL-derived name is a bare numeric id with no extension and ComfyUI's
+    # extension-filtered scanner never lists the downloaded file.
+    filename: str | None = None
 
 
 # ── HF + civitai response parsers ──────────────────────────────────────
@@ -294,6 +299,7 @@ def _parse_civitai_response(
             popularity=int(stats.get("downloadCount") or 0),
             source="civitai",
             pulled=False,
+            filename=primary_file.get("name"),
         ))
     return out
 
@@ -304,6 +310,28 @@ def _parse_civitai_response(
 # improves over time via community contributions.
 
 _CURATED_ENTRIES: tuple[dict, ...] = (
+    # ── Checkpoints ────────────────────────────────────────────────────
+    # SD1.5 + SDXL-base live in the CURATED layer (always merged) so the
+    # names migration_v3's COMFYUI_MODEL_SET translation emits and the
+    # filenames the seeded workflows / backend defaults reference
+    # (v1-5-pruned-emaonly.safetensors, sd_xl_base_1.0.safetensors) have
+    # catalog rows regardless of scrape outcome. Previously they existed
+    # only in the both-scrapers-down fallback snapshot, so an upgraded
+    # .env activated nothing and every seeded workflow failed at render.
+    {
+        "name": "v1-5-pruned-emaonly",
+        "family": "SD1.5", "category": "checkpoint", "size_gb": 3.97,
+        "url": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors",
+        "min_vram_gb": 4.0, "cpu_supported": True,
+        "requires_custom_node": (), "popularity": 95,
+    },
+    {
+        "name": "sd_xl_base_1.0",
+        "family": "SDXL", "category": "checkpoint", "size_gb": 6.94,
+        "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
+        "min_vram_gb": 8.0, "cpu_supported": False,
+        "requires_custom_node": (), "popularity": 93,
+    },
     # ── VAE ────────────────────────────────────────────────────────────
     {
         "name": "vae-ft-mse-840000-ema-pruned",
@@ -425,6 +453,7 @@ def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
         pulled=False,
         cloud_only=bool(d.get("cloud_only", False)),
         notes=d.get("notes"),
+        filename=d.get("filename"),
     )
 
 
@@ -665,7 +694,9 @@ def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
     Invalid entries skipped with stderr warnings; never raises for
     malformed YAML (returns empty list). Required: name, category, url.
     Optional: family, size_gb, sha256, requires_custom_node, cpu_supported,
-    min_vram_gb, notes.
+    min_vram_gb, notes, filename (REQUIRED in practice for signed-civitai
+    URLs whose path has no real filename — without it the download lands
+    extension-less and ComfyUI never lists it).
 
     The loader uses `_dict_to_entry` so future schema changes only need
     a single edit point (same path as curated/fallback).
@@ -680,6 +711,14 @@ def load_custom_models(path: str) -> list[ComfyUILibraryEntry]:
               file=_sys.stderr)
         return []
 
+    if not isinstance(raw, dict):
+        # A list-rooted file (models written at top level) used to crash
+        # with AttributeError, contradicting the never-raises contract.
+        shape = "empty file" if raw is None else f"top-level {type(raw).__name__}"
+        print(f"⚠️  custom-models YAML at {path} must have a top-level "
+              f"'models:' mapping; got {shape}. Ignoring file.",
+              file=_sys.stderr)
+        return []
     raw_models = raw.get("models") or []
     out: list[ComfyUILibraryEntry] = []
     for idx, d in enumerate(raw_models):

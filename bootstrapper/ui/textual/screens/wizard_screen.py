@@ -31,6 +31,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import Screen
+from textual.worker import Worker, WorkerState
 
 from ..widgets import (
     BrandInfo,
@@ -68,7 +69,7 @@ _SETUP_HINTS = [
     # know the chip row is reachable from the keyboard.
     (("f",), "filter"),
     (("esc",), "back"),
-    (("ctrl+q",), "quit & save"),
+    (("ctrl+q",), "quit"),
 ]
 
 _LAUNCH_HINTS = [
@@ -78,6 +79,33 @@ _LAUNCH_HINTS = [
     (("i",), "info"),
     (("ctrl+q",), "detach"),
 ]
+
+
+
+def prune_skip_hidden_selections(steps, selections: dict) -> dict:
+    """Return a copy of ``selections`` without commits from steps whose
+    skip-predicate is true.
+
+    A user can visit a step (e.g. the ComfyUI picker), commit, then go
+    Back and disable the owning service — the stale commit would
+    otherwise persist (an empty CSV wiping COMFYUI_USER_MODELS for a
+    now-disabled service). Predicate exceptions mean "don't skip" (keep
+    the commit), mirroring WizardScreen._step_should_skip. Synthetic
+    ``__secondary__:`` keys are never step titles, so they always
+    survive. Module-level so tests bind to the production logic.
+    """
+    pruned = dict(selections)
+    for step in steps:
+        skip = getattr(step, "skip_if_prev", None)
+        if skip is None:
+            continue
+        try:
+            hidden = bool(skip(pruned))
+        except Exception:  # noqa: BLE001 — buggy predicate must not crash launch
+            hidden = False
+        if hidden:
+            pruned.pop(step.title, None)
+    return pruned
 
 
 class WizardScreen(Screen):
@@ -145,7 +173,6 @@ class WizardScreen(Screen):
         brand: BrandInfo | None = None,
         starter=None,
         stack_options_resolver: Callable[[dict[str, str]], tuple[dict, dict]] | None = None,
-        on_complete: Callable[[dict[str, str]], None] | None = None,
         on_base_port_change: Callable[[int, list[ServiceRow]], list[ServiceRow]] | None = None,
         resolve_port_for_service: Callable[[str, str], str] | None = None,
         cloud_apis: list[CloudApiSummary] | None = None,
@@ -159,7 +186,6 @@ class WizardScreen(Screen):
         self._brand = brand or BrandInfo()
         self._starter = starter
         self._stack_options_resolver = stack_options_resolver
-        self._on_complete = on_complete
         # Called when the user confirms a new base port; should return
         # an updated list of ServiceRows with recomputed ports.
         self._on_base_port_change = on_base_port_change
@@ -210,7 +236,6 @@ class WizardScreen(Screen):
 
         self._phase: str = "setup"   # "setup" | "launch"
 
-        from ..widgets.category_legend import CategoryLegend
         self._command_summary = CommandSummary()
         self._service_table = ServiceTable(services)
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
@@ -219,7 +244,6 @@ class WizardScreen(Screen):
         self._cloud_apis_row = CloudApisRow(
             self._cloud_apis, service_table=self._service_table,
         )
-        self._category_legend = CategoryLegend()
         summaries = [
             ServiceSummary(name=r.name, source=r.source, port=r.port,
                            alias=r.alias, pending=r.pending)
@@ -231,9 +255,7 @@ class WizardScreen(Screen):
                 services=summaries,
                 cloud_apis=self._cloud_apis,
             ),
-            # CloudApisRow now renders the category legend on its right
-            # half, so the standalone CategoryLegend widget is no longer
-            # part of the body composition.
+            # CloudApisRow renders the category legend on its right half.
             body_widgets=[self._service_table, self._cloud_apis_row],
             title=f" Stack overview · {len(services)} services ",
         )
@@ -317,6 +339,34 @@ class WizardScreen(Screen):
         # ALWAYS visible regardless of whether the user has reached the
         # base-port step yet.
         self._refresh_command_summary()
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        """Surface failures from exit_on_error=False workers.
+
+        The auto-launch transition (CLI-flag mode) runs with
+        exit_on_error=False; without this, any exception inside it left
+        the worker in ERROR state and the user staring at a permanently
+        empty lower pane with no message anywhere.
+        """
+        if event.state is not WorkerState.ERROR:
+            return
+        err = event.worker.error
+        with contextlib.suppress(Exception):
+            if self._log_pane is not None:
+                self._write_status(
+                    f"❌ {event.worker.name or 'background task'} failed: {err}",
+                    style="bold red", source="pipeline",
+                )
+            else:
+                # Setup phase: no log pane exists yet, so _write_status
+                # would no-op and the failure vanished silently. Surface
+                # it as a toast instead.
+                self.notify(
+                    str(err),
+                    title=f"{event.worker.name or 'Background task'} failed",
+                    severity="error",
+                    timeout=10,
+                )
 
     # ─── setup phase ─────────────────────────────────────────────────
 
@@ -458,7 +508,14 @@ class WizardScreen(Screen):
         generation = self._fetch_generation
         try:
             options = await asyncio.to_thread(provider, sel_snapshot)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            # Surface instead of swallowing: a silent [] here looked like
+            # an empty catalog and (pre-SECRET_KEEP guard) let a single
+            # Enter wipe the user's saved model CSV after a network blip.
+            self._safe_log(
+                f"[warn/options-fetch] {original.title}: {type(exc).__name__}: {exc}",
+                source="wizard", level="warn",
+            )
             options = []
         # Generation drift means action_back ran while we were waiting
         # — the user may have changed the upstream key, so writing our
@@ -664,10 +721,17 @@ class WizardScreen(Screen):
             self._load_current_step()
         else:
             # Last step is the launch confirm. opt.value is "yes" / "no".
-            if self._on_complete is not None:
-                self._on_complete(dict(self._selections))
             if opt.value == "yes":
-                self.run_worker(self._transition_to_launch(), exclusive=True)
+                self.run_worker(
+                    self._transition_to_launch(),
+                    exclusive=True, exit_on_error=False,
+                )
+            else:
+                # "No — exit without starting" must actually exit
+                # (previously a silent no-op: Enter did nothing and only
+                # Esc/Ctrl+Q could leave the screen).
+                self._close_launch_log_tee()
+                self.app.exit()
 
     def _refresh_info_panel(self) -> None:
         """Rebuild the service summaries from self._services and re-emit
@@ -702,6 +766,7 @@ class WizardScreen(Screen):
             SECRET_KEEP+disabled+key path; without this, the overview
             would lag the launch state).
         """
+        from ..widgets.prompt_panel import SECRET_KEEP
         from wizard.llm_steps import cloud_models_title
         title = step.title or ""
         target: CloudApiSummary | None = None
@@ -710,6 +775,11 @@ class WizardScreen(Screen):
                 target = entry
                 break
         if target is None:
+            return
+        if value == SECRET_KEEP:
+            # Degraded multiselect commit (options never loaded) — leave
+            # the overview untouched; _selections_to_args skips the
+            # bucket too, so promoting here would make the overview lie.
             return
         csv = (value or "").strip()
         if csv == "":
@@ -802,8 +872,14 @@ class WizardScreen(Screen):
             cloud_models_title(p.name): p.key for p in CLOUD_PROVIDERS
         }
 
-        # All other steps follow.
-        for step in self._steps:
+        # All other steps follow. Skip-hidden steps are excluded so the
+        # summary matches what the launch-time prune will actually
+        # persist (a stale commit from a step the user later hid via
+        # Back+disable used to render a flag that would never apply).
+        for idx, step in enumerate(self._steps):
+            if (getattr(step, "skip_if_prev", None) is not None
+                    and self._step_should_skip(idx)):
+                continue
             value = self._selections.get(step.title)
             if value is None:
                 continue
@@ -842,6 +918,8 @@ class WizardScreen(Screen):
             # selection count.
             if step.title in cloud_models_titles:
                 provider = cloud_models_titles[step.title]
+                if value == SECRET_KEEP:
+                    continue  # degraded fetch — selection kept, no flag
                 csv = (value or "").strip()
                 if csv == "":
                     flags.append((f"--{provider}-models", "(none — provider disabled)"))
@@ -854,6 +932,8 @@ class WizardScreen(Screen):
             # Ollama models step (single unified [pulled]/[library] view).
             # The custom free-text step has its own flag below.
             if step.title == OLLAMA_MODELS_TITLE:
+                if value == SECRET_KEEP:
+                    continue  # degraded fetch — selection kept, no flag
                 csv = (value or "").strip()
                 if csv == "":
                     continue
@@ -942,8 +1022,10 @@ class WizardScreen(Screen):
         # honor them. Otherwise resolve from the wizard's selections.
         if self._source_args is None or self._stack_options is None:
             if self._stack_options_resolver is not None:
+                # Drop commits from steps whose skip-predicate is true at
+                # LAUNCH time (see prune_skip_hidden_selections).
                 self._source_args, self._stack_options = self._stack_options_resolver(
-                    dict(self._selections)
+                    prune_skip_hidden_selections(self._steps, self._selections)
                 )
             else:
                 self._source_args, self._stack_options = {}, {}
@@ -1227,7 +1309,10 @@ class WizardScreen(Screen):
     async def _run_pipeline_and_stream(self) -> None:
         starter = self._starter
         cold = bool((self._stack_options or {}).get("cold", False))
-        base_port = int((self._stack_options or {}).get("base_port", 63000))
+        from core.config_parser import DEFAULT_BASE_PORT
+        base_port = int(
+            (self._stack_options or {}).get("base_port") or DEFAULT_BASE_PORT
+        )
         setup_hosts = bool((self._stack_options or {}).get("setup_hosts", False))
         skip_hosts = bool((self._stack_options or {}).get("skip_hosts", False))
 
@@ -1441,6 +1526,18 @@ class WizardScreen(Screen):
                 style="bold cyan", source="pipeline",
             )
             await self._run_compose(["logs", "-f"])
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # The pipeline runs in an exit_on_error=False worker: without
+            # this catch, a crash died silently and the UI froze at the
+            # last status line with nothing in the log pane or tee file.
+            import traceback
+            self._write_status(
+                f"❌ launch crashed: {exc}", style="bold red", source="pipeline",
+            )
+            for tb_line in traceback.format_exc().splitlines():
+                self._safe_log(tb_line, source="pipeline", level="error")
         finally:
             starter.banner = original_banner
             try:
@@ -1493,7 +1590,11 @@ class WizardScreen(Screen):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
-        except FileNotFoundError as exc:
+        except (OSError, RuntimeError) as exc:
+            # OSError covers PermissionError etc., not just a missing
+            # binary. (Compose-detection RuntimeErrors raise BEFORE this
+            # try — they surface via the pipeline-level "launch crashed"
+            # handler instead.)
             self._write_status(f"❌ {exc}", style="bold red", source="docker")
             return 1
         try:
@@ -1547,7 +1648,11 @@ class WizardScreen(Screen):
                 stderr=asyncio.subprocess.STDOUT,
                 env=env,
             )
-        except FileNotFoundError as exc:
+        except (OSError, RuntimeError) as exc:
+            # OSError covers PermissionError etc., not just a missing
+            # binary. (Compose-detection RuntimeErrors raise BEFORE this
+            # try — they surface via the pipeline-level "launch crashed"
+            # handler instead.)
             self._write_status(f"❌ {exc}", style="bold red", source="docker")
             return 1
         try:

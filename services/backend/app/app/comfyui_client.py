@@ -138,13 +138,28 @@ class ComfyUIClient:
             return {}
     
     async def cancel_prompt(self, prompt_id: str) -> bool:
-        """Cancel a queued prompt"""
+        """Cancel a prompt: drop it from the pending queue, and interrupt
+        execution only when it is the currently-running prompt.
+
+        ComfyUI's /interrupt ignores any request body and aborts whatever
+        is running — POSTing {"delete": [...]} there cancelled the wrong
+        job for queued prompts. Queue removal is POST /queue.
+        """
         try:
+            queue = await self.get_queue_status()
+            running_ids = {
+                item[1]
+                for item in queue.get("queue_running", [])
+                if isinstance(item, (list, tuple)) and len(item) > 1
+            }
             response = await self.client.post(
-                f"{self.base_url}/interrupt",
+                f"{self.base_url}/queue",
                 json={"delete": [prompt_id]}
             )
             response.raise_for_status()
+            if prompt_id in running_ids:
+                response = await self.client.post(f"{self.base_url}/interrupt")
+                response.raise_for_status()
             return True
             
         except Exception as e:
@@ -160,7 +175,7 @@ class ComfyUIClient:
         steps: int = 20,
         cfg: float = 7.0,
         seed: Optional[int] = None,
-        checkpoint: str = "sd_v1-5_pruned_emaonly.safetensors"
+        checkpoint: str = "v1-5-pruned-emaonly.safetensors"
     ) -> Dict[str, Any]:
         """Generate an image using a simple text-to-image workflow"""
         

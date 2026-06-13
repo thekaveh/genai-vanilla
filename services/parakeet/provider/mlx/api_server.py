@@ -104,7 +104,7 @@ async def transcribe_audio(
     """
     try:
         # Save uploaded file to temp location
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "audio.wav")[1]) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
@@ -169,7 +169,7 @@ async def transcribe_advanced(
     """
     try:
         # Save uploaded file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "audio.wav")[1]) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name

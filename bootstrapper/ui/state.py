@@ -2,7 +2,7 @@
 Data model for the anchored-box presentation.
 
 Pure data — no Rich, no rendering, no I/O. The renderables in info_box.py
-read from these dataclasses; PresentationApp / state_builder mutate them.
+read from these dataclasses; state_builder and the Textual app mutate them.
 Keeping render and state apart makes a future Textual/MVVM port
 straightforward — same data, different rendering engine.
 """
@@ -41,7 +41,7 @@ class CloudApiEntry:
 @dataclass
 class AppState:
     """
-    Top-level state read by the renderables. Mutated by PresentationApp
+    Top-level state read by the renderables. Mutated by the Textual app
     (and through it, by the wizard / starter). Renderables only read.
     """
     # Brand metadata — overridable via .env (BRAND_NAME, BRAND_TAGLINE, …)

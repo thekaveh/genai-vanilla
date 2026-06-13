@@ -4,7 +4,7 @@
 that the Phase B controller passes to an Explore subagent. The prompt:
 
   - names the target doc folder + the manifests it aggregates
-  - lists the other 20 doc folders with category + one-line description
+  - lists the other doc folders with category + one-line description
   - lists the target's current upstream dependencies as a "do not propose
     these" set (the subagent must research GAPS, not re-derive what's wired)
   - cites the strict row-file + candidate schemas
@@ -55,7 +55,7 @@ def _do_not_propose_set(focus: str) -> list[str]:
 
 
 def _other_services_table(focus: str) -> str:
-    """Markdown table of the other 20 doc folders (one row each)."""
+    """Markdown table of the other doc folders (one row each)."""
     topo = get_topology()
     rows_by_folder = {}
     for row in topo.rows:

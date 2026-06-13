@@ -17,7 +17,7 @@ images:
   - var: MINIO_IMAGE
     default: "minio/minio:RELEASE.2025-09-07T16-13-09Z"
     container: minio
-    notes: "Pinned to latest stable Docker Hub tag. Bump when upstream releases a fixed image post-CVE-2025-XXX."
+    notes: "Pinned to latest stable Docker Hub tag. Review upstream security advisories before bumping."
   - var: MINIO_INIT_IMAGE
     default: "minio/mc:RELEASE.2025-08-13T08-35-41Z"
     container: minio-init
@@ -108,6 +108,11 @@ env:
     secret: true
 
 depends_on:
+  # ORDERING-ONLY: the compose fragment has no supabase depends_on and
+  # minio-init only talks to minio. The entry stays because the topology
+  # slot allocator derives port positions from depends_on — dropping it
+  # would renumber later slots and break existing .env files. Treat as
+  # display/slot pinning, not a runtime dependency.
   required:
     - supabase
   optional: []

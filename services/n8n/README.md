@@ -2,7 +2,7 @@
 
 Workflow automation engine. The stack runs n8n in **queue mode** by default — one `n8n` web/API container plus an `n8n-worker` container that consumes jobs from Redis. A short-lived `n8n-init` container handles first-run setup: installing community nodes (ComfyUI image-to-image, MCP client), importing seeded workflows from `services/n8n/init/workflows/`, and seeding credentials. The result is a fully-wired automation surface that ties LLM (LiteLLM), media (ComfyUI/STT/TTS/Docling/SearXNG), and data (Supabase/Weaviate/MinIO) services together without writing code.
 
-n8n is also the only "agents"-tier service besides Hermes; the two are complementary. n8n is event-driven and visual (cron triggers, webhooks, manual runs); Hermes is conversational and skill-driven. They reach each other through a shared `HERMES_ENDPOINT` env var so a workflow can hand off to an agent and an agent can call a workflow.
+n8n is also the only "agents"-tier service besides Hermes; the two are complementary. n8n is event-driven and visual (cron triggers, webhooks, manual runs); Hermes is conversational and skill-driven. n8n reaches Hermes through a shared `HERMES_ENDPOINT` env var so a workflow can hand off to an agent (the reverse edge — Hermes calling a workflow — isn't wired today; see §4).
 
 ## 1. Overview
 
@@ -60,7 +60,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 **Queue mode flow:**
 
 1. UI/webhook hits `n8n:5678` (web container) → workflow record stored in Supabase Postgres.
-2. Execution is pushed onto BullMQ queue in Redis db `/1`.
+2. Execution is pushed onto BullMQ queue in Redis db `/0` (`QUEUE_BULL_REDIS_DB: 0`).
 3. `n8n-worker` polls Redis, picks up the job, runs the workflow, writes execution history back to Postgres.
 4. UI streams progress via Redis pub/sub back to the web container.
 
@@ -75,7 +75,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 
 **Adaptive integrations** (`runtime_adaptive.n8n.adapts_to`): `stt_provider`, `tts_provider`, `doc_processor`. When any of those is `disabled`, the corresponding endpoint env var is set to empty and workflow nodes referencing it surface 502 at run time.
 
-**Hermes wiring.** `HERMES_ENDPOINT` is injected so workflows can call into Hermes via the HTTP Request node. Inverse path (Hermes → n8n) goes through n8n's REST `/workflows/{id}/execute`.
+**Hermes wiring.** `HERMES_ENDPOINT` is injected so workflows can call into Hermes via the HTTP Request node. Inverse path (Hermes → n8n) is webhook-driven: n8n's public REST API has no execute endpoint, so expose a Webhook-trigger workflow and have Hermes POST to its URL.
 
 **Seeded workflows.** `services/n8n/init/workflows/searxng-research-workflow.json` ships as a worked example of the SearXNG → LiteLLM research pattern. More workflows would go here.
 
@@ -114,6 +114,7 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 | prometheus | infra |
 | openclaw | agents |
 | backend | apps |
+| jupyterhub | apps |
 
 ### 6.3 Architecture diagram
 

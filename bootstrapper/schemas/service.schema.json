@@ -218,6 +218,7 @@
         "type": "object",
         "additionalProperties": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "scale": { "type": "integer" },
             "environment": { "type": "object" },

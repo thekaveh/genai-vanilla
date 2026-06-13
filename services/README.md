@@ -11,7 +11,7 @@ a thin `include:` shell that merges every fragment under
 been retired in favour of the per-service manifests. See
 `docs/CONTRIBUTING-services.md` for the full architecture rationale.
 
-## Layout
+## 1. Layout
 
 ```
 services/
@@ -32,7 +32,7 @@ only `service.yml` — no compose fragment because the service has no
 containers of its own; it owns env vars and source toggles that other
 services consume.
 
-## Adding or changing a service
+## 2. Adding or changing a service
 
 1. Edit `services/<name>/service.yml` (the manifest) and/or
    `services/<name>/compose.yml` (the fragment).
@@ -49,23 +49,26 @@ services consume.
    ```bash
    cd bootstrapper && uv run pytest tests/test_env_example_consistency.py
    ```
-   Note: `.env.example` itself is hand-maintained (prose-rich descriptions,
-   commented section headers). Adding new env-affecting vars means editing
-   `.env.example` directly to keep both halves in lock-step. The
-   auto-generator at `bootstrapper/services/env_assembler.py` is reserved
-   for a future cutover (see its module docstring) and `validate_fragments
-   --check-env-example` will only pass once that cutover lands.
+   Note: `.env.example` is AUTO-GENERATED from the manifests' `env:`
+   declarations by `bootstrapper/services/env_assembler.py`. After adding
+   or changing env vars in a `service.yml`, regenerate it:
+   ```bash
+   cd bootstrapper && uv run python -m services.env_assembler
+   ```
+   `tests/test_env_assembler.py` enforces byte-equivalence between the
+   committed file and the assembler's output. Never edit `.env.example`
+   by hand.
 5. New service? Add the fragment's path to the `include:` list in the root
    `docker-compose.yml`. Service order is now derived automatically from
    `depends_on:` topology (see `bootstrapper/services/topology.py`).
 
-## Folder-name rules
+## 3. Folder-name rules
 
 - Lowercase kebab-case (matches the `name:` field in the manifest).
 - Names starting with `_` are reserved (e.g. `_user/`).
 - Names starting with `.` are ignored by the loader.
 
-## Per-service `README.md`
+## 4. Per-service `README.md`
 
 Every non-virtual service family should ship a `README.md` describing the
 containers it owns, the role of any `init/`, `build/`, `provider/`,
@@ -73,18 +76,18 @@ containers it owns, the role of any `init/`, `build/`, `provider/`,
 Virtual services (no containers) don't need one — their `service.yml`
 header comments cover the same ground.
 
-## Subfolder convention
+## 5. Subfolder convention
 
 When a service brings its own source code, init scripts, build context, or
 config files, those live under a named subdirectory inside the service
 folder. The full convention (`app/`, `build/`, `init/`, `catalog-init/`,
 `pull/`, `config/`, `db/`, `provider/`, `extras/`, `workflows-stage/`) is
 documented in
-[`docs/CONTRIBUTING-services.md`](../docs/CONTRIBUTING-services.md#subdirectory-naming-convention).
+[`docs/CONTRIBUTING-services.md`](../docs/CONTRIBUTING-services.md#15-subdirectory-naming-convention).
 
-## `_user/` overlay slot
+## 6. `_user/` overlay slot
 
 Downstream forks consuming this repo as a git submodule can layer extra
 services under `services/_user/<name>/` without touching the upstream tree.
 The folder is gitignored upstream. Full design: see
-[`docs/CONTRIBUTING-services.md`](../docs/CONTRIBUTING-services.md#services_user-overlay-slot-downstream-submodule-consumers).
+[`docs/CONTRIBUTING-services.md`](../docs/CONTRIBUTING-services.md#21-services_user-overlay-slot-downstream-submodule-consumers).

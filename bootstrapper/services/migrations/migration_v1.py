@@ -31,7 +31,7 @@ from typing import Optional
 # checkouts). Group 2 captures the numeric value.
 _SENTINEL_RE = re.compile(
     r"""^\s*BOOTSTRAPPER_PORT_LAYOUT_VERSION\s*=\s*
-        (["']?)(\d+)\1
+        (["']?)(\d*)\1
         \s*(?:\#.*)?\s*$""",
     re.VERBOSE,
 )
@@ -164,7 +164,7 @@ def needs_migration(env_path: Path) -> bool:
         m = _SENTINEL_RE.match(line)
         if m:
             try:
-                return int(m.group(2)) < 1
+                return int(m.group(2) or 0) < 1
             except ValueError:
                 return True
     return True

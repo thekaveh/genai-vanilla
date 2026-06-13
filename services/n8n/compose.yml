@@ -47,6 +47,11 @@ services:
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
       OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS: true
+      # LiteLLM gateway — the seeded research workflow's AI-summary node
+      # reads $env.LITELLM_BASE_URL / $env.LITELLM_API_KEY (previously
+      # undeclared: the node rendered "undefined/v1/chat/completions").
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
       # STT/TTS/DOC endpoints (available for workflows)
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
@@ -62,6 +67,8 @@ services:
       N8N_METRICS_PREFIX: ${N8N_METRICS_PREFIX:-n8n_}
       N8N_METRICS_INCLUDE_DEFAULT_METRICS: ${N8N_METRICS_INCLUDE_DEFAULT_METRICS:-true}
       N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: ${N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL:-true}
+      # Default-off upstream; without it the Grafana execution-data panel is permanently "No data".
+      N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS: ${N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS:-true}
       # Hermes Agent — direct path (LiteLLM-routed model is at
       # `hermes-agent`; direct route bypasses the gateway for webhook/dashboard).
       HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
@@ -128,6 +135,31 @@ services:
       QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
       QUEUE_BULL_REDIS_DB: 0
       QUEUE_HEALTH_CHECK_ACTIVE: true
+      # Queue mode means execution-data writes happen HERE, not on the
+      # main container — the worker-server serves /metrics when these are
+      # set (scraped as the n8n-worker prometheus job).
+      N8N_METRICS: ${N8N_METRICS:-true}
+      N8N_METRICS_PREFIX: ${N8N_METRICS_PREFIX:-n8n_}
+      N8N_METRICS_INCLUDE_DEFAULT_METRICS: ${N8N_METRICS_INCLUDE_DEFAULT_METRICS:-true}
+      N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: ${N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL:-true}
+      N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS: ${N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS:-true}
+      # Queue mode runs ALL executions on this worker (the stack defaults
+      # to EXECUTIONS_MODE=queue + OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS),
+      # so every workflow-facing var the main container exposes must be
+      # mirrored here or $env.* resolves to empty exactly where the
+      # workflow actually runs. GENERIC_TIMEZONE likewise (n8n docs:
+      # set it on workers too, or Date/Schedule nodes skew).
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      STT_ENDPOINT: ${STT_ENDPOINT}
+      TTS_ENDPOINT: ${TTS_ENDPOINT}
+      DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
+      WEAVIATE_URL: ${WEAVIATE_URL:-http://weaviate:8080}
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT:-}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
+      LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     volumes:
       - n8n-data:/home/node/.n8n
     networks:

@@ -16,10 +16,10 @@ from services.migrations.migration_v3 import (
 # ── Translation table ──────────────────────────────────────────────────
 
 @pytest.mark.parametrize("old,expected", [
-    ("minimal", "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned"),
-    ("sd15",    "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned"),
-    ("sdxl",    "sdxl-base-1.0,sdxl-vae"),
-    ("full",    "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned,sdxl-base-1.0,sdxl-vae"),
+    ("minimal", "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned"),
+    ("sd15",    "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned"),
+    ("sdxl",    "sd_xl_base_1.0,sdxl-vae"),
+    ("full",    "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned,sd_xl_base_1.0,sdxl-vae"),
     ("",        ""),
 ])
 def test_translation_table(old, expected):
@@ -77,7 +77,7 @@ def test_migrates_sdxl(tmp_path):
     text = env.read_text()
     assert "COMFYUI_MODEL_SET" not in text
     assert "# choose minimal" not in text   # preceding comment block is stripped
-    assert "COMFYUI_USER_MODELS=sdxl-base-1.0,sdxl-vae" in text
+    assert "COMFYUI_USER_MODELS=sd_xl_base_1.0,sdxl-vae" in text
     assert "COMFYUI_CUSTOM_MODELS_FILE=/custom-models.yaml" in text
     # COMFYUI_CATALOG_CACHE_DIR was retired in the DB-backed pivot — the
     # migration must not (re-)inject it.
@@ -115,7 +115,7 @@ def test_preserves_existing_user_models_via_union(tmp_path):
     apply_v3(env)
     text = env.read_text()
     assert "epiCRealism-XL" in text
-    assert "sd15-pruned-emaonly" in text
+    assert "v1-5-pruned-emaonly" in text
 
 
 def test_handles_crlf_line_endings(tmp_path):
@@ -124,7 +124,7 @@ def test_handles_crlf_line_endings(tmp_path):
     env.write_bytes(b"BOOTSTRAPPER_PORT_LAYOUT_VERSION=2\r\nCOMFYUI_MODEL_SET=minimal\r\n")
     apply_v3(env)
     text = env.read_text()
-    assert "COMFYUI_USER_MODELS=sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned" in text
+    assert "COMFYUI_USER_MODELS=v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned" in text
 
 
 def test_handles_fresh_env_no_old_var(tmp_path):

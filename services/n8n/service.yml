@@ -34,6 +34,10 @@ env:
   - name: N8N_ENCRYPTION_KEY
     default: "your-random-encryption-key"
     secret: true
+  - name: N8N_API_KEY
+    default: ""
+    secret: true
+    description: "n8n public-API key (n8n CE issues these only via the UI: Settings → n8n API). Consumed by the backend's /workflows endpoints; while empty those endpoints return 502/401."
   - name: N8N_AUTH_ENABLED
     default: true
   - name: N8N_HOST
@@ -90,6 +94,8 @@ runtime_sc:
     container:
       scale: 1
       environment:
+        LITELLM_BASE_URL: http://litellm:4000
+        LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
         STT_ENDPOINT: ${STT_ENDPOINT}
         TTS_ENDPOINT: ${TTS_ENDPOINT}
         DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
@@ -97,6 +103,7 @@ runtime_sc:
         N8N_METRICS_PREFIX: 'n8n_'
         N8N_METRICS_INCLUDE_DEFAULT_METRICS: 'true'
         N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: 'true'
+        N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS: 'true'
       deploy: {}
       extra_hosts: []
     disabled:

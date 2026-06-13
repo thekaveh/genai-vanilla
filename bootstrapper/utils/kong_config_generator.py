@@ -11,6 +11,8 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 from urllib.parse import urlparse
 
+from core.config_parser import DEFAULT_BASE_PORT
+
 
 class KongConfigGenerator:
     """Generates dynamic Kong configuration based on SOURCE values."""
@@ -47,7 +49,7 @@ class KongConfigGenerator:
 
         Returns ``http://host.docker.internal:<port>/`` where <port> is
         the value of ``port_var`` in .env if set, else ``default_port``.
-        Centralized helper so the 10 localhost routes all share one
+        Centralized helper so all the localhost routes share one
         substitution path — drift between them is the bug class memory
         ``feedback_localhost_url_override_symmetry`` warns against.
         """
@@ -291,7 +293,7 @@ class KongConfigGenerator:
                 "docling.localhost", "docling-api",
                 "DOC_PROCESSOR_SOURCE",
                 lambda _src: "http://docling-gpu:8000/",
-                lambda _src: self._localhost_url("DOCLING_LOCALHOST_PORT", "63021"),
+                lambda _src: self._localhost_url("DOCLING_LOCALHOST_PORT", "63040"),
             ),
             (
                 "research.localhost", "research-api",
@@ -359,9 +361,9 @@ class KongConfigGenerator:
     def _stt_localhost_url(self, source: str) -> Optional[str]:
         """STT host-install URL — engine-specific PORT env var."""
         if source == "parakeet-localhost":
-            return self._localhost_url("PARAKEET_LOCALHOST_PORT", "63022")
+            return self._localhost_url("PARAKEET_LOCALHOST_PORT", "63042")
         if source == "whisper-cpp-localhost":
-            return self._localhost_url("WHISPER_CPP_LOCALHOST_PORT", "63025")
+            return self._localhost_url("WHISPER_CPP_LOCALHOST_PORT", "63042")
         return None
 
     @staticmethod
@@ -379,7 +381,7 @@ class KongConfigGenerator:
     def _tts_localhost_url(self, source: str) -> Optional[str]:
         """TTS host-install URL — engine-specific PORT env var."""
         if source == "chatterbox-localhost":
-            return self._localhost_url("CHATTERBOX_LOCALHOST_PORT", "63027")
+            return self._localhost_url("CHATTERBOX_LOCALHOST_PORT", "63044")
         return None
     
     def get_supabase_services(self) -> List[Dict[str, Any]]:
@@ -551,7 +553,17 @@ class KongConfigGenerator:
                         'hosts': ['studio.localhost', 'localhost'],
                     }
                 ],
-                'plugins': [{'name': 'cors'}]
+                # basic-auth + ACL, like the /pg/ meta route above and
+                # upstream Supabase's own kong template. The dashboard
+                # ships no auth of its own (SQL-editor-level DB access),
+                # and README/.env document DASHBOARD_USERNAME/PASSWORD as
+                # gating Studio — without these plugins that promise was
+                # false and Studio sat open on the gateway root.
+                'plugins': [
+                    {'name': 'cors'},
+                    {'name': 'basic-auth'},
+                    {'name': 'acl', 'config': {'allow': ['dashboard_user']}}
+                ]
             }
         ]
     
@@ -622,7 +634,15 @@ class KongConfigGenerator:
             'plugins': [
                 {'name': 'cors'},
                 {'name': 'request-transformer', 'config': {
-                    'add': {'headers': ['X-Forwarded-Host: n8n.localhost:${KONG_HTTP_PORT}']}
+                    # Kong DB-less config takes header values literally (no
+                    # env interpolation) — resolve the port at generation
+                    # time or n8n bakes the unexpanded token into webhook
+                    # and editor URLs served via this alias.
+                    'add': {'headers': [
+                        'X-Forwarded-Host: n8n.localhost:'
+                        + (self.get_env_value('KONG_HTTP_PORT')
+                           or str(DEFAULT_BASE_PORT))
+                    ]}
                 }}
             ]
         }
@@ -726,8 +746,8 @@ class KongConfigGenerator:
 
         # Dynamic URL based on SOURCE
         if source == 'localhost':
-            localhost_url = self._localhost_url('OPENCLAW_LOCALHOST_PORT', '63024')
-            probe_port = urlparse(localhost_url).port or 63024
+            localhost_url = self._localhost_url('OPENCLAW_LOCALHOST_PORT', '63065')
+            probe_port = urlparse(localhost_url).port or 63065
             self.check_localhost_service('localhost', probe_port, 'OpenClaw')
             service['url'] = localhost_url
         else:
@@ -878,7 +898,7 @@ class KongConfigGenerator:
 
         Routes ``minio.localhost:${KONG_HTTP_PORT}`` to the MinIO admin
         console on internal port 9001 (host port ``MINIO_CONSOLE_PORT``,
-        default 63018). The S3 API at port 9000 is deliberately NOT
+        default 63019; 63018 is the S3 API ``MINIO_PORT``). The S3 API at port 9000 is deliberately NOT
         aliased — S3 clients use full URLs with explicit ports anyway
         and don't benefit from a friendly hostname.
 
@@ -954,141 +974,69 @@ class KongConfigGenerator:
             ],
         }
 
-    def generate_prometheus_service(self) -> Optional[Dict[str, Any]]:
-        """Kong route for Prometheus UI / API.
+    # ── Uniform SPA-style routes ─────────────────────────────────────
+    # Five services share one exact route shape: gate on SOURCE ==
+    # 'container', route the whole host with preserve_host (SPAs bake
+    # hostnames into redirects/assets — reference_kong_preserve_host)
+    # and CORS only. Data-driven so the next observability-style
+    # service is one row, not a 26-line method.
+    #   (env var, kong service name, upstream url, alias host)
+    _SIMPLE_CONTAINER_ROUTES = [
+        # Prometheus UI/API: internal-network scrape paths mean the data
+        # isn't sensitive behind Kong; pair with Grafana for dashboards.
+        ('PROMETHEUS_SOURCE', 'prometheus', 'http://prometheus:9090/',
+         'prometheus.localhost'),
+        ('SPARK_SOURCE', 'spark-master-ui', 'http://spark-master:8080',
+         'spark.localhost'),
+        ('SPARK_SOURCE', 'spark-history-ui', 'http://spark-history:18080',
+         'spark-history.localhost'),
+        # Airflow: same alias serves the Web UI and the REST API (/api/v2/).
+        ('AIRFLOW_SOURCE', 'airflow', 'http://airflow-webserver:8080',
+         'airflow.localhost'),
+        ('ZEPPELIN_SOURCE', 'zeppelin', 'http://zeppelin:8080',
+         'zeppelin.localhost'),
+    ]
 
-        Internal-network-only scrape paths mean Prom's data isn't sensitive when
-        fronted by Kong on `prometheus.localhost`. No auth — pair with Grafana
-        for the user-facing dashboard surface.
+    def _generate_simple_container_route(
+        self, env_var: str, name: str, url: str, host: str,
+    ) -> Optional[Dict[str, Any]]:
+        """One uniform container-gated SPA route (see table above).
 
-        Gated on `PROMETHEUS_SOURCE=container`. When disabled, no `prometheus`
-        container exists and the route would 502 — so we skip it.
+        When the SOURCE isn't `container`, the upstream container doesn't
+        exist and the route would 502 — return None to skip it.
         """
-        source = self.get_env_value('PROMETHEUS_SOURCE')
-        if source != 'container':
+        if self.get_env_value(env_var) != 'container':
             return None
         return {
-            'name': 'prometheus',
-            'url': 'http://prometheus:9090/',
+            'name': name,
+            'url': url,
             'routes': [
                 {
-                    'name': 'prometheus-all',
+                    'name': f'{name}-all',
                     'strip_path': False,
                     'preserve_host': True,
-                    'hosts': ['prometheus.localhost'],
+                    'hosts': [host],
                 }
             ],
             'plugins': [
                 {'name': 'cors'},
             ],
         }
+
+    def generate_prometheus_service(self) -> Optional[Dict[str, Any]]:
+        return self._generate_simple_container_route(*self._SIMPLE_CONTAINER_ROUTES[0])
 
     def generate_spark_master_service(self) -> Optional[Dict[str, Any]]:
-        """Kong route for the Spark Master Web UI.
-
-        `preserve_host: True` is critical — Spark's Web UI is an SPA that
-        bakes hostnames into redirects/assets. Without `preserve_host`,
-        Kong rewrites Host to `spark-master:8080` and the browser can't
-        resolve it (same lesson as Grafana / n8n / MinIO / Ray).
-
-        Gated on `SPARK_SOURCE=container`. When disabled, no
-        `spark-master` container exists and the route would 502 — so we
-        skip it.
-        """
-        source = self.get_env_value('SPARK_SOURCE')
-        if source != 'container':
-            return None
-        return {
-            'name': 'spark-master-ui',
-            'url': 'http://spark-master:8080',
-            'routes': [
-                {
-                    'name': 'spark-master-ui-all',
-                    'strip_path': False,
-                    'preserve_host': True,
-                    'hosts': ['spark.localhost'],
-                }
-            ],
-            'plugins': [
-                {'name': 'cors'},
-            ],
-        }
+        return self._generate_simple_container_route(*self._SIMPLE_CONTAINER_ROUTES[1])
 
     def generate_spark_history_service(self) -> Optional[Dict[str, Any]]:
-        """Kong route for the Spark History Server UI.
-
-        Same SPA / `preserve_host: True` requirement as the master UI.
-        Gated on `SPARK_SOURCE=container`.
-        """
-        source = self.get_env_value('SPARK_SOURCE')
-        if source != 'container':
-            return None
-        return {
-            'name': 'spark-history-ui',
-            'url': 'http://spark-history:18080',
-            'routes': [
-                {
-                    'name': 'spark-history-ui-all',
-                    'strip_path': False,
-                    'preserve_host': True,
-                    'hosts': ['spark-history.localhost'],
-                }
-            ],
-            'plugins': [
-                {'name': 'cors'},
-            ],
-        }
+        return self._generate_simple_container_route(*self._SIMPLE_CONTAINER_ROUTES[2])
 
     def generate_airflow_service(self) -> Optional[Dict[str, Any]]:
-        """Kong route for the Airflow Web UI + REST API.
-
-        Browser-facing SPA + same alias serves the REST API under /api/v2/.
-        `preserve_host: True` per reference_kong_preserve_host.
-        Gated on `AIRFLOW_SOURCE=container`.
-        """
-        source = self.get_env_value('AIRFLOW_SOURCE')
-        if source != 'container':
-            return None
-        return {
-            'name': 'airflow',
-            'url': 'http://airflow-webserver:8080',
-            'routes': [
-                {
-                    'name': 'airflow-all',
-                    'strip_path': False,
-                    'preserve_host': True,
-                    'hosts': ['airflow.localhost'],
-                }
-            ],
-            'plugins': [
-                {'name': 'cors'},
-            ],
-        }
+        return self._generate_simple_container_route(*self._SIMPLE_CONTAINER_ROUTES[3])
 
     def generate_zeppelin_service(self) -> Optional[Dict[str, Any]]:
-        """Kong route for the Zeppelin notebook UI.
-
-        Browser-facing SPA — needs `preserve_host: True` per
-        reference_kong_preserve_host. Gated on `ZEPPELIN_SOURCE=container`.
-        """
-        source = self.get_env_value('ZEPPELIN_SOURCE')
-        if source != 'container':
-            return None
-        return {
-            'name': 'zeppelin',
-            'url': 'http://zeppelin:8080',
-            'routes': [
-                {
-                    'name': 'zeppelin-all',
-                    'strip_path': False,
-                    'preserve_host': True,
-                    'hosts': ['zeppelin.localhost'],
-                }
-            ],
-            'plugins': [
-                {'name': 'cors'},
-            ],
-        }
+        return self._generate_simple_container_route(*self._SIMPLE_CONTAINER_ROUTES[4])
 
     def generate_grafana_service(self) -> Optional[Dict[str, Any]]:
         """Kong route for Grafana UI.

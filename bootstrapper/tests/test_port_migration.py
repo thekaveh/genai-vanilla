@@ -260,6 +260,8 @@ def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
     custom_env = tmp_path / "custom.env"
     custom_env.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
     monkeypatch.setenv("GENAI_ENV_FILE", str(custom_env))
+    repo_env = Path(__file__).resolve().parents[2] / ".env"
+    repo_env_snapshot = repo_env.read_bytes() if repo_env.is_file() else b""
 
     from start import GenAIStackStarter
     starter = GenAIStackStarter()
@@ -272,5 +274,31 @@ def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
     # value — the test cares about path resolution (custom env honored)
     # rather than version semantics.
     assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=3" in text
-    # Real repo .env was not touched (verified via path inequality).
-    assert starter.config_parser.env_file_path == custom_env
+    # Real repo .env (if present) was not touched.
+    repo_env = Path(__file__).resolve().parents[2] / ".env"
+    if repo_env.is_file():
+        assert repo_env_snapshot == repo_env.read_bytes()
+# ─── blank-sentinel tolerance (pass 47) ─────────────────────────────
+
+def test_blank_sentinel_counts_as_unmigrated(tmp_path):
+    """``BOOTSTRAPPER_PORT_LAYOUT_VERSION=`` (blank) must behave like a
+    missing sentinel — migrations run rather than crash or skip."""
+    from services.migrations.migration_v1 import needs_migration
+    env_path = _write_env(
+        tmp_path, "BOOTSTRAPPER_PORT_LAYOUT_VERSION=\nLITELLM_PORT=63012\n"
+    )
+    assert needs_migration(env_path) is True
+
+
+def test_stamp_replaces_blank_sentinel_in_place(tmp_path):
+    """Stamping over a blank sentinel rewrites that line — no duplicate
+    sentinel lines (previously the blank line failed the digit-only
+    regex and a second line was appended)."""
+    from services.migrations.migration_v1 import stamp_version
+    env_path = _write_env(
+        tmp_path, "BOOTSTRAPPER_PORT_LAYOUT_VERSION=\nLITELLM_PORT=63012\n"
+    )
+    stamp_version(env_path, 1)
+    text = env_path.read_text()
+    assert text.count("BOOTSTRAPPER_PORT_LAYOUT_VERSION") == 1
+    assert "BOOTSTRAPPER_PORT_LAYOUT_VERSION=1" in text

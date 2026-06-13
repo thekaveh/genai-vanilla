@@ -8,7 +8,6 @@ The Neo4j service provides:
 - Graph database for storing and querying relationships
 - Web-based browser interface for data visualization
 - Cypher query language support
-- APOC (Awesome Procedures on Cypher) extensions
 - Automatic backup and restore capabilities
 
 ## 2. Access Information
@@ -54,14 +53,14 @@ docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
 ### 4.4 Important Backup Notes
 
 - By default, data persists in the Docker volume between restarts
-- Backups are incremental and space-efficient
+- Backups are FULL dumps (`neo4j-admin database dump`); the database
+  is stopped for the duration and restarted automatically (EXIT trap)
 - Backup files are timestamped for easy identification
-- Manual backups can be created while the database is running
 
 ## 5. Data Persistence
 
 Neo4j data is stored in Docker named volumes:
-- **Volume Name**: `genai-vanilla_graph_db_data`
+- **Volume Name**: `genai-graph-db-data` (from `${PROJECT_NAME}-graph-db-data`)
 - **Mount Point**: `/data` (inside container)
 - **Backup Location**: `/snapshot` (mounted to host)
 
@@ -80,9 +79,9 @@ GRAPH_DB_PORT=63020            # Bolt protocol (mapped to 7687 inside the contai
 GRAPH_DB_DASHBOARD_PORT=63021  # Browser interface and HTTP API (mapped to 7474)
 
 # Database Settings
-NEO4J_dbms_memory_heap_initial__size=512m
-NEO4J_dbms_memory_heap_max__size=1G
-NEO4J_dbms_memory_pagecache_size=512m
+NEO4J_server_memory_heap_initial__size=512m
+NEO4J_server_memory_heap_max__size=1G
+NEO4J_server_memory_pagecache_size=512m
 ```
 
 ## 7. Usage Examples
@@ -155,12 +154,12 @@ Adjust memory settings based on your data size and available system memory:
 
 ```bash
 # For larger datasets
-NEO4J_dbms_memory_heap_max__size=2G
-NEO4J_dbms_memory_pagecache_size=1G
+NEO4J_server_memory_heap_max__size=2G
+NEO4J_server_memory_pagecache_size=1G
 
 # For smaller datasets or limited memory
-NEO4J_dbms_memory_heap_max__size=512m
-NEO4J_dbms_memory_pagecache_size=256m
+NEO4J_server_memory_heap_max__size=512m
+NEO4J_server_memory_pagecache_size=256m
 ```
 
 ### 10.2 Query Optimization
@@ -192,7 +191,7 @@ CALL db.info()
 MATCH (n) RETURN labels(n), count(n) ORDER BY count(n) DESC
 
 // Check indexes
-CALL db.indexes()
+SHOW INDEXES
 ```
 
 ### 11.3 Cleanup Operations
@@ -287,7 +286,7 @@ docker exec genai-neo4j-graph-db cat /var/lib/neo4j/conf/neo4j.conf
 docker exec -it genai-neo4j-graph-db /usr/local/bin/restore.sh
 
 # If backup is corrupted, reinitialize (data loss)
-docker volume rm genai-vanilla_graph_db_data
+docker volume rm genai-graph-db-data
 docker compose up neo4j-graph-db
 ```
 

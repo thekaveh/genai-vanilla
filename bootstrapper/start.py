@@ -20,6 +20,7 @@ from services.migrations.migration_v1 import (
     stamp_version as _stamp_v1,
 )
 from services.migrations.migration_v2 import (
+    URL_VAR_TO_PORT_VAR as _V2_URL_TO_PORT,
     apply as _apply_v2,
     needs_migration as _needs_v2,
     stamp_version as _stamp_v2,
@@ -398,6 +399,24 @@ class GenAIStackStarter:
                 if not raw_value.split("#", 1)[0].strip():
                     blank_keys.add(key)
 
+        # Keys the migration chain (services/migrations) is about to
+        # write: backfill must NOT seed them from .env.example, or
+        # run_port_migration() — which runs AFTER backfill — finds them
+        # already present and skips the user's legacy values. Concretely:
+        # seeding the sentinel stamps a legacy .env as already-migrated
+        # (every migration silently skips); seeding a *_LOCALHOST_PORT
+        # while the legacy *_LOCALHOST_URL is still in the file makes v2
+        # discard the URL's custom port; seeding the COMFYUI model vars
+        # while COMFYUI_MODEL_SET exists pre-empts v3's translation.
+        migration_owned: set[str] = {"BOOTSTRAPPER_PORT_LAYOUT_VERSION"}
+        for _url_var, _port_var in _V2_URL_TO_PORT.items():
+            if _url_var in existing_keys:
+                migration_owned.add(_port_var)
+        if "COMFYUI_MODEL_SET" in existing_keys:
+            migration_owned.update(
+                {"COMFYUI_USER_MODELS", "COMFYUI_CUSTOM_MODELS_FILE"}
+            )
+
         # Build a lookup of .env.example values so we can fill in BLANK
         # entries (a key exists in .env but with no value) using a
         # non-blank manifest default. This handles the case where the
@@ -419,7 +438,7 @@ class GenAIStackStarter:
         blank_fills = {
             key: example_values[key]
             for key in blank_keys
-            if example_values.get(key)
+            if example_values.get(key) and key not in migration_owned
         }
         if blank_fills:
             new_lines: list[str] = []
@@ -446,7 +465,7 @@ class GenAIStackStarter:
             )
 
         groups = self._parse_env_example_sections(
-            example_text, existing_keys,
+            example_text, existing_keys | migration_owned,
         )
         if not groups:
             return True
@@ -855,14 +874,25 @@ class GenAIStackStarter:
         
     def handle_port_configuration(self, base_port: Optional[int]) -> bool:
         """Handle port configuration and updates."""
-        # Use default base port if not specified (matching original Bash behavior)
+        # No --base-port flag: preserve the BASE_PORT already configured in
+        # .env (e.g. from an earlier --base-port 64000 run) instead of
+        # silently rewriting every *_PORT back to the default layout. This
+        # mirrors the TUI path's fallback in ui/textual/integration.py.
         if base_port is None:
-            base_port = DEFAULT_BASE_PORT
-            
+            current = (self.config_parser.parse_env_file()
+                       .get('BASE_PORT', '') or '').strip()
+            try:
+                base_port = int(current)
+            except ValueError:
+                base_port = DEFAULT_BASE_PORT
+
         # Validate base port
         if not self.port_manager.validate_base_port(base_port):
+            offsets = self.port_manager.port_offsets()
+            max_offset = max(offsets.values()) if offsets else 0
             self.banner.show_status_message(
-                f"Invalid base port: {base_port}. Must be between 1024 and {65535 - 20}",
+                f"Invalid base port: {base_port}. Must be between 1024 and "
+                f"{65535 - max_offset}",
                 "error"
             )
             return False
@@ -938,7 +968,7 @@ class GenAIStackStarter:
         the model-picker feature. Removes the old enum var and any
         preceding comment block.
 
-        When ``no_port_migrate`` is True we skip BOTH rewrites AND skip
+        When ``no_port_migrate`` is True we skip all three migrations AND skip
         the sentinel stamps so the next run re-prompts — matches the
         user intent "skip this run, ask next time."
 
@@ -1695,7 +1725,7 @@ class GenAIStackStarter:
                    'Persists as OLLAMA_CUSTOM_MODELS; ollama-pull fetches them at startup.')
 @click.option('--comfyui-models',
               help='Comma-separated catalog model names to pull for ComfyUI '
-                   '(e.g. "sdxl-base-1.0,sdxl-vae,flux1-dev-Q4_K_S"). '
+                   '(e.g. "sd_xl_base_1.0,sdxl-vae,flux1-dev-Q4_K_S"). '
                    'Overrides wizard selection and existing COMFYUI_USER_MODELS '
                    'in .env. Pass "" to clear. Unknown names skip with warning '
                    '(comfyui-catalog-init logs them).')
@@ -1805,8 +1835,9 @@ class GenAIStackStarter:
                    'linear flow with passthrough docker output. Useful for log capture, '
                    'debugging, and terminals that don\'t support the alternate screen buffer.')
 @click.option('--no-port-migrate', is_flag=True, default=False,
-              help='Skip the v0 → v1 port-layout .env rewrite. Still stamps the version '
-                   'sentinel so the migration does not re-prompt.')
+              help='Skip the chained .env migrations (port-layout v1, URL→PORT v2, '
+                   'model-set v3) for this run. Version sentinels are NOT stamped, '
+                   'so the migration re-prompts on the next run.')
 def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
@@ -1997,10 +2028,8 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # before PR #(observability bundle). These options have been removed
         # pending a stack-wide authenticated-remote design; users must
         # switch to `container` or `disabled` (or `none` for LLM_PROVIDER_SOURCE).
-        try:
-            _legacy_env = starter.config_parser.parse_env_file()
-        except Exception:  # noqa: BLE001
-            _legacy_env = {}
+        # Reuses _existing_env parsed above — nothing writes .env in between.
+        _legacy_env = _existing_env
         _LEGACY_EXTERNAL = {
             'COMFYUI_SOURCE':       'external',
             'LLM_PROVIDER_SOURCE':  'ollama-external',
@@ -2034,7 +2063,6 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
         # intent": presence of either means the user is configuring via CLI
         # and the wizard would silently overwrite their input.
-        wizard_ran = False
         no_source_flags = all(v is None for v in source_args.values())
         no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
         no_model_flags = not user_model_selections
@@ -2091,7 +2119,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # the banner / setup_env_file / apply_source_overrides pipeline
         # below so its output stays out of the terminal and ends up
         # inside the log pane.
-        if not wizard_ran and not no_tui:
+        if not no_tui:
             from ui.term_caps import is_tui_capable as _is_tui_capable
             if _is_tui_capable(no_tui_flag=no_tui):
                 # Make sure .env exists so the launch screen can build
@@ -2148,14 +2176,12 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 )
                 sys.exit(rc)
 
-        # Show banner for normal mode (wizard already displayed its own)
-        if not wizard_ran:
-            starter.show_banner()
+        # Linear (--no-tui / non-TTY) flow from here on — the wizard and
+        # CLI-flag TUI branches above both sys.exit() before this point.
+        starter.show_banner()
 
-        # Setup .env file (skipped if wizard already did it)
-        if not wizard_ran:
-            if not starter.setup_env_file(cold_start=cold, base_port=base_port):
-                sys.exit(1)
+        if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+            sys.exit(1)
 
         # Pull in any keys added to .env.example since the user's .env
         # was written (e.g. a worktree merge added a new service like
@@ -2196,7 +2222,11 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         if not starter.validate_source_configurations():
             sys.exit(1)
         
-        # Step 3: Handle port configuration
+        # Step 3: Handle port configuration. Clear stale shell-exported
+        # *_PORT vars first so they can't shadow the freshly computed
+        # assignments (parity with the TUI pipeline's "Clear stale port
+        # environment" step, which runs unconditionally).
+        starter.unset_port_environment_variables()
         if not starter.handle_port_configuration(base_port):
             sys.exit(1)
         

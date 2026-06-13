@@ -308,7 +308,9 @@ def lightrag_model_entry() -> dict[str, Any] | None:
     earlier `openai/` adapter targeted `<api_base>/chat/completions`, a
     path LightRAG doesn't expose — caused 404 on every query.
     """
-    if os.environ.get("LIGHTRAG_SOURCE", "disabled") == "disabled":
+    # Normalize like HERMES_SOURCE above — a padded/cased value must
+    # not sneak a lightrag model row into /v1/models.
+    if os.environ.get("LIGHTRAG_SOURCE", "disabled").strip().lower() == "disabled":
         return None
     endpoint = os.environ.get("LIGHTRAG_ENDPOINT", "")
     if not endpoint:
@@ -416,7 +418,12 @@ def main() -> int:
             )
         config = render_config(rows)
         write_config(config)
-        print(f"  ↳ wrote {CONFIG_OUT} ({len(rows)} model_list entries)", flush=True)
+        n_entries = len(config.get("model_list", []))
+        print(
+            f"  ↳ wrote {CONFIG_OUT} ({n_entries} model_list entries "
+            f"from {len(rows)} catalog rows)",
+            flush=True,
+        )
     except Exception as exc:
         print(f"❌ litellm-init failed: {exc}", flush=True)
         traceback.print_exc()

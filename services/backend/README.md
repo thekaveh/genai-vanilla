@@ -1,12 +1,12 @@
 # Backend API (FastAPI)
 
-Always-on adaptive FastAPI service that orchestrates the rest of the stack. It is the only "apps"-tier service that explicitly declares itself as a hub: it fans out to every data-tier (Supabase, Redis, Weaviate, Neo4j), every LLM/media surface (LiteLLM, ComfyUI, doc-processor, STT, TTS), and the agent-tier (Hermes, n8n). Health checks, LangMem-backed long-term memory, file uploads, and orchestration endpoints all live here.
+Always-on adaptive FastAPI service that orchestrates the rest of the stack. It is the only "apps"-tier service that explicitly declares itself as a hub: at runtime it calls Supabase (Postgres + Storage), Weaviate, LiteLLM, ComfyUI, n8n, Ray, and Local Deep Researcher; Redis/Neo4j/Hermes env wiring is injected for future use but unconsumed by backend code today (STT/TTS/doc-processor likewise sit behind "future proxy" env). Health checks, LangMem-backed long-term memory, file uploads, and orchestration endpoints all live here.
 
-The backend is `_SOURCE`-trivial — it has only one variant, `container` — because nothing in the design contemplates running FastAPI off-stack or as an external dependency. Instead, the variability lives in *what* the backend talks to: adaptive logic in `runtime_adaptive.backend.adapts_to` flips capabilities on or off based on the active `LLM_PROVIDER_SOURCE`, `WEAVIATE_SOURCE`, `STT_PROVIDER_SOURCE`, `TTS_PROVIDER_SOURCE`, and `DOC_PROCESSOR_SOURCE`.
+The backend is `_SOURCE`-trivial — it has only one variant, `container` — because nothing in the design contemplates running FastAPI off-stack or as an external dependency. Instead, the variability lives in *what* the backend talks to: adaptive logic in `runtime_adaptive.backend.adapts_to` flips capabilities on or off based on the active `LLM_PROVIDER_SOURCE`, `WEAVIATE_SOURCE`, `STT_PROVIDER_SOURCE`, `TTS_PROVIDER_SOURCE`, `DOC_PROCESSOR_SOURCE`, `RAY_SOURCE`, and `LIGHTRAG_SOURCE`.
 
 ## 1. Overview
 
-Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. The backend ships no test suite — local iteration is "edit + `docker compose up --force-recreate backend`."
+Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`, `/workflows`, `/comfyui/*`, `/api/ray/*`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. A small pytest suite lives at `app/app/tests/` (Ray client/routes; run in the required CI job); broader local iteration is "edit + `docker compose up --force-recreate backend`."
 
 ## 2. Access
 
@@ -48,7 +48,7 @@ WEAVIATE_URL=http://weaviate:8080
 STT_ENDPOINT=...                  # resolved per STT_PROVIDER_SOURCE
 TTS_ENDPOINT=...                  # resolved per TTS_PROVIDER_SOURCE
 DOCLING_ENDPOINT=...              # resolved per DOC_PROCESSOR_SOURCE
-HERMES_ENDPOINT=http://hermes:8000
+HERMES_ENDPOINT=http://hermes:8642
 HERMES_API_KEY=${HERMES_API_KEY}
 NEO4J_URI=bolt://neo4j-graph-db:7687
 NEO4J_USER=${GRAPH_DB_USER}
@@ -73,12 +73,13 @@ Adaptive listing comes from `runtime_adaptive.backend.adapts_to` in `services/ba
 
 **Required hard dependencies** (from `depends_on.required`):
 - `supabase` — Postgres (LangMem facts, public tables), Auth (JWT), Storage (file uploads ≤50 MB), Realtime (declared via compose).
-- `redis` — session, rate-limit, queue, LangMem consolidation lock.
+- `redis` — declared required (ordering + future use); `REDIS_URL` is injected into the container but no backend code consumes it today.
+- `litellm` — gated `service_healthy` in compose; backend's startup performs first-call probes against the gateway.
 
 **Optional adaptive dependencies** (from `runtime_deps.backend.optional`):
 - `neo4j-graph-db`, `searxng`, `n8n`, `weaviate`, `parakeet`, `speaches`, `chatterbox`, `docling`.
 
-When any optional service is `disabled`, the corresponding backend feature degrades gracefully — `/storage/upload` returns 503 if Supabase Storage is down, `/research/start` 503s if LDR is disabled.
+When any optional service is `disabled`, the corresponding backend feature degrades gracefully — `/storage/upload` returns 503 if Supabase Storage is down, `/research/start` 503s if LDR is disabled (and currently fails even when LDR is up — `research_client.py` speaks a bespoke `/research/*` protocol the LangGraph dev server doesn't serve; porting to `/threads` + `/runs` is a tracked follow-up).
 
 **Internal network:** all upstream calls use Docker DNS names on `backend-network`. No host-port hops; nothing reaches the host filesystem outside the mounted `./services/backend/app/` source directory.
 
@@ -101,7 +102,6 @@ When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and
 | weaviate | data |
 | litellm | llm |
 | comfyui | media |
-| lightrag | agents |
 | n8n | agents |
 | local-deep-researcher | apps |
 
@@ -111,6 +111,8 @@ When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and
 |---|---|
 | kong | infra |
 | prometheus | infra |
+| jupyterhub | apps |
+| open-webui | apps |
 
 ### 6.3 Architecture diagram
 

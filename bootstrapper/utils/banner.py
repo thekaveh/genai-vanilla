@@ -17,6 +17,45 @@ class BannerDisplay:
     def __init__(self):
         self.console = Console()
 
+
+
+    def _brand_tagline(self) -> str:
+        """BRAND_TAGLINE from .env, falling back to the stock tagline —
+        same rebranding contract as _brand_credits."""
+        try:
+            from core.config_parser import ConfigParser
+            v = (ConfigParser().parse_env_file().get("BRAND_TAGLINE", "") or "").strip()
+            if v:
+                return v
+        except Exception:  # noqa: BLE001 — banner must never break startup
+            pass
+        return "Modularized Cross-Platform Gen-AI Vanilla Stack"
+
+    def _brand_credits(self) -> tuple[str, str, str]:
+        """(author, repo_url, license) for the credit lines.
+
+        Honors the same BRAND_* rebranding knobs the Textual wizard reads
+        (forks rebrand via .env) — the linear --no-tui banner used to
+        hardcode the upstream credits. Best-effort: falls back to the
+        upstream defaults when .env is absent/unreadable.
+        """
+        defaults = (
+            "Developed by Kaveh Razavi",
+            "https://github.com/thekaveh/genai-vanilla",
+            "Apache License 2.0",
+        )
+        try:
+            from core.config_parser import ConfigParser
+            env = ConfigParser().parse_env_file()
+        except Exception:  # noqa: BLE001 — banner must never break startup
+            return defaults
+        author = (env.get("BRAND_AUTHOR", "") or "").strip()
+        return (
+            f"Developed by {author}" if author else defaults[0],
+            (env.get("BRAND_REPO_URL", "") or "").strip() or defaults[1],
+            (env.get("BRAND_LICENSE", "") or "").strip() or defaults[2],
+        )
+
     def get_terminal_width(self) -> int:
         """
         Get the current terminal width.
@@ -172,8 +211,8 @@ class BannerDisplay:
             centered_line = Align.center(gradient_text)
             self.console.print(centered_line)
 
-        # Add tagline
-        tagline = "🚀 Modularized Cross-Platform Gen-AI Vanilla Stack"
+        # Add tagline — honors BRAND_TAGLINE like the credits below.
+        tagline = f"🚀 {self._brand_tagline()}"
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 
@@ -181,15 +220,14 @@ class BannerDisplay:
         self.console.print()  # Empty line
 
         # Credit information with colors matching the original (\e[1;94m = bright blue, \e[1;96m = bright cyan, \e[1;93m = bright yellow)
-        credit_text = Text("Developed by Kaveh Razavi", style="bold bright_blue")
+        author, repo_url, license_name = self._brand_credits()
+        credit_text = Text(author, style="bold bright_blue")
         self.console.print(Align.center(credit_text))
 
-        url_text = Text(
-            "https://github.com/thekaveh/genai-vanilla", style="bold bright_cyan"
-        )
+        url_text = Text(repo_url, style="bold bright_cyan")
         self.console.print(Align.center(url_text))
 
-        license_text = Text("Apache License 2.0", style="bold bright_yellow")
+        license_text = Text(license_name, style="bold bright_yellow")
         self.console.print(Align.center(license_text))
 
         self.console.print()  # Empty line
@@ -216,23 +254,22 @@ class BannerDisplay:
             centered_line = Align.center(gradient_text)
             self.console.print(centered_line)
 
-        # Add compact tagline
-        tagline = "🚀 AI Dev Suite"
+        # Add compact tagline (brand-aware; truncated for narrow terms)
+        tagline = f"🚀 {self._brand_tagline()[:40]}"
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 
         # Add credit information for compact banner (same as full banner)
         self.console.print()  # Empty line
 
-        credit_text = Text("Developed by Kaveh Razavi", style="bold bright_blue")
+        author, repo_url, license_name = self._brand_credits()
+        credit_text = Text(author, style="bold bright_blue")
         self.console.print(Align.center(credit_text))
 
-        url_text = Text(
-            "https://github.com/thekaveh/genai-vanilla", style="bold bright_cyan"
-        )
+        url_text = Text(repo_url, style="bold bright_cyan")
         self.console.print(Align.center(url_text))
 
-        license_text = Text("Apache License 2.0", style="bold bright_yellow")
+        license_text = Text(license_name, style="bold bright_yellow")
         self.console.print(Align.center(license_text))
 
         self.console.print()  # Empty line

@@ -99,4 +99,7 @@ data_flow:
   calls:
     - litellm
     - searxng
+    # init-config.py connects straight to Postgres (psycopg2 over
+    # DATABASE_URL) to read public.llms at startup.
+    - supabase
 

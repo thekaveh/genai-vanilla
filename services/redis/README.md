@@ -1,8 +1,8 @@
 # Redis
 
-Shared cache, queue, and pub/sub broker for the stack. The manifest comment is blunt: Redis is "consumed by half the stack." It has one container, one source variant (`container`), no GPU paths, and no init container. Despite being infrastructure rather than a feature, Redis is the single most cross-cutting service in the project — n8n's queue mode, Kong's rate-limit cache, Open WebUI's WebSocket store, the backend's session/queue layer, and (eventually) Local Deep Researcher's LangGraph checkpointer all share this one instance.
+Shared cache, queue, and pub/sub broker for the stack. The manifest comment is blunt: Redis is "consumed by half the stack." It has one container, one source variant (`container`), no GPU paths, and no init container. Despite being infrastructure rather than a feature, Redis is the single most cross-cutting service in the project — n8n's queue mode, Kong's rate-limit cache, Open WebUI's WebSocket store, LightRAG's KV layer, and JupyterHub notebooks all share this one instance.
 
-The stack convention partitions Redis by **database index**, not by service. Database `/0` is the default for backend; `/1` is reserved (n8n queue), `/2` for Open WebUI WebSocket, `/3` for Local Deep Researcher checkpoints, `/4` for Kong rate-limit cache. Consumers that need an isolated namespace build their own connection string off `${REDIS_PASSWORD}` and `redis:6379/<db>`.
+The stack convention partitions Redis by **database index**, not by service. As wired today: `/0` carries the n8n queue (`QUEUE_BULL_REDIS_DB: 0`), and Kong's rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0); `/2` is shared by Open WebUI's WebSocket store (`OPEN_WEB_UI_REDIS_DB`) and LightRAG's KV/doc-status store (`LIGHTRAG_REDIS_URI`) — different key shapes, no collision in practice, but isolate one of them if you repurpose the db; `/3` is JupyterHub's `REDIS_URL`. Consumers that need an isolated namespace build their own connection string off `${REDIS_PASSWORD}` and `redis:6379/<db>`.
 
 ## 1. Overview
 
@@ -35,19 +35,17 @@ Database-index convention (consumer-built URLs):
 
 | DB | Consumer | Notes |
 |---|---|---|
-| 0 | backend | session/queue |
-| 1 | n8n | queue mode |
-| 2 | open-webui | WebSocket store |
-| 3 | local-deep-researcher | reserved for LangGraph checkpointer (not yet wired) |
-| 4 | kong | rate-limit cache |
+| 0 | n8n, kong (backend's `REDIS_URL` is injected but unread) | n8n queue (`QUEUE_BULL_REDIS_DB: 0`); Kong rate-limit cache (no `KONG_REDIS_DATABASE` set → library default 0) |
+| 2 | open-webui, lightrag | WebSocket store (`OPEN_WEB_UI_REDIS_DB`) + LightRAG KV/doc-status — disjoint key shapes |
+| 3 | jupyterhub | notebook `REDIS_URL` |
 
 ## 4. Architecture & wiring
 
 **Startup ordering.** Compose-level `depends_on` waits on `supabase-db-init: { condition: service_completed_successfully }`. This is purely a startup ordering hack so Redis starts after the Postgres init is done — there is no functional Postgres dependency.
 
-**Consumers.** From the data-flow graph: `litellm` (cache + budget tracking) and `backend` (session/queue/LangMem locks) call Redis directly today. n8n, Kong, Open WebUI, and Local Deep Researcher consume Redis via their compose `REDIS_URL`/`KONG_REDIS_HOST`/`WEBSOCKET_REDIS_URL` env wiring, which the data-flow model treats as compose-level wiring rather than a runtime call.
+**Consumers.** From the data-flow graph (§6.2): `litellm` (cache + budget tracking), `lightrag` (KV/doc-status), `open-webui` (WebSocket store), `airflow`, and `prometheus` (redis-exporter scrape) reach Redis at runtime. n8n, Kong, and JupyterHub consume it via compose env wiring (`QUEUE_BULL_REDIS_*` / `KONG_REDIS_HOST` / the notebook `REDIS_URL` on db `/3`) — modeled as compose-level wiring. The backend gets `REDIS_URL` injected but no backend code reads it today; Local Deep Researcher is unwired (future pair, §6.4).
 
-**Failure mode.** Every consumer treats Redis as fatal: a Redis outage kills n8n queue execution, drops Open WebUI live updates, breaks LiteLLM caching, and stops LangMem consolidation. There is no fallback in the stack.
+**Failure mode.** Every consumer treats Redis as fatal: a Redis outage kills n8n queue execution, drops Open WebUI live updates, breaks LiteLLM caching, and stalls LightRAG's KV layer. There is no fallback in the stack.
 
 **Eviction policy.** Currently unset — Redis runs with the default `noeviction`. For the AOF-only durable use cases (n8n queue, sessions) this is fine; for cache-style consumers (embedding cache, doc-processor cache) it is wrong. See Future — Unused features below.
 
@@ -55,7 +53,7 @@ Database-index convention (consumer-built URLs):
 
 ## 5. LightRAG KV store
 
-When `LIGHTRAG_SOURCE != disabled` AND `REDIS_SOURCE != disabled`, LightRAG uses Redis `db=2` as its KV and doc-status backend (via `RedisKVStorage`). Use `redis-cli -n 2 KEYS '*'` to inspect.
+When `LIGHTRAG_SOURCE != disabled` AND `REDIS_SOURCE != disabled`, LightRAG uses Redis `db=2` as its KV and doc-status backend (via `RedisKVStorage`). Use `redis-cli -a "$REDIS_PASSWORD" -n 2 --scan --pattern '*'` to inspect.
 
 ## 6. Dependencies & Integrations
 
@@ -73,6 +71,7 @@ _No upstream calls._
 | litellm | llm |
 | airflow | agents |
 | lightrag | agents |
+| open-webui | apps |
 
 ### 6.3 Architecture diagram
 
@@ -83,7 +82,7 @@ _No upstream calls._
 ### 6.4 Future — Missing pair integrations
 
 - **redis ↔ comfyui** — *Why:* ComfyUI's compose declares `depends_on: redis` (startup ordering only) but the container receives no `REDIS_URL`. A real link would let n8n/backend enqueue generation jobs to a Redis list/stream and read `progress`/`executed` events back via a sidecar publisher, replacing the per-caller websocket pattern. *Mechanism:* ComfyUI custom node + `redis-py` writing `XADD comfyui:events` on progress; producers `BLPOP comfyui:jobs` from a tiny worker that calls `/prompt`. *Effort:* medium. *Confidence:* medium.
-- **redis ↔ local-deep-researcher** — *Why:* the manifest comment in `services/redis/service.yml` already reserves db `/3` for LDR, but its compose has no `REDIS_URL`. LangGraph's Redis checkpointer would let long-running research runs survive container restarts and let backend stream node-by-node progress. *Mechanism:* `redis://:${REDIS_PASSWORD}@redis:6379/3` consumed by `langgraph.checkpoint.redis.RedisSaver`; `PUBSUB` channel `ldr:run:<id>` for progress. *Effort:* small. *Confidence:* high.
+- **redis ↔ local-deep-researcher** — *Why:* LDR's compose has no `REDIS_URL` today (db `/3` is currently JupyterHub's; an LDR checkpointer would take a fresh index, e.g. `/4`). LangGraph's Redis checkpointer would let long-running research runs survive container restarts and let backend stream node-by-node progress. *Mechanism:* `redis://:${REDIS_PASSWORD}@redis:6379/4` consumed by `langgraph.checkpoint.redis.RedisSaver`; `PUBSUB` channel `ldr:run:<id>` for progress. *Effort:* small. *Confidence:* high.
 - **redis ↔ hermes** — *Why:* Hermes has no shared state between requests; conversation memory, tool-call rate-limits, and per-user budget counters live in process. *Mechanism:* Hermes custom skill reads/writes `hermes:session:<id>` hashes and `hermes:ratelimit:<user>` counters via `redis-py`. *Effort:* small. *Confidence:* medium.
 - **redis ↔ doc-processor** — *Why:* document parsing is expensive and idempotent on file SHA. A Redis cache keyed on `sha256(file)` lets repeat ingests (common during n8n flow iteration) short-circuit; a Redis stream broadcasts `doc:parsed` events to backend + weaviate ingest. *Mechanism:* cache: `SETEX doc:parsed:<sha> 86400 <json>`; event bus: `XADD doc:events`. *Effort:* small. *Confidence:* medium.
 - **redis ↔ weaviate** — *Why:* embedding generation dominates ingest latency; a content-hash → vector cache cuts repeat-ingest cost dramatically and de-duplicates concurrent embeddings across n8n/backend. *Mechanism:* `GET emb:<model>:<sha>` before calling Weaviate's vectorizer; `SETEX` on miss. Lives behind a tiny helper in backend. *Effort:* medium. *Confidence:* medium.
@@ -105,7 +104,7 @@ _No upstream calls._
 
 **`NOAUTH Authentication required`.** Consumer's `REDIS_URL` is missing the password segment. Inspect with `docker exec <project>-backend env | grep REDIS_URL`. Expected shape: `redis://:${REDIS_PASSWORD}@redis:6379/<db>` — note the leading colon before the password (no username).
 
-**n8n `EXECUTIONS_MODE=queue` workflows hang.** Check `docker logs <project>-redis` for connection errors from n8n. n8n's queue mode requires Redis on db `/1`; if the password rotated without restarting n8n, its workers retry forever.
+**n8n `EXECUTIONS_MODE=queue` workflows hang.** Check `docker logs <project>-redis` for connection errors from n8n. n8n's queue mode uses Redis db `/0` (`QUEUE_BULL_REDIS_DB: 0`); if the password rotated without restarting n8n, its workers retry forever.
 
 **Memory pressure.** With no `maxmemory` set, Redis grows until the container's memory limit kills it. For now, monitor with `docker exec <project>-redis redis-cli -a "$REDIS_PASSWORD" INFO memory` and bounce the container if needed. Set `maxmemory` + `maxmemory-policy allkeys-lru` if growth becomes load-bearing.
 
@@ -121,7 +120,7 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 ## 8. Operations
 
-**Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `langmem:` (backend memory locks), `kong:` (rate-limit counters). Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
+**Inspect keys by namespace.** Consumers use unstructured key names today; useful prefixes to scan are `bull:` (n8n queue), `litellm:` (caching/budget), `kong:` (rate-limit counters), and LightRAG's `{workspace}_{namespace}:` keys on db `/2`. Scan with `redis-cli --scan --pattern 'bull:*'` — never `KEYS` on a busy instance.
 
 **Watch traffic live.** `redis-cli MONITOR` dumps every command server-side. Useful when verifying a new consumer is connecting to the right db index. Verbose — turn off as soon as you're done.
 
@@ -156,4 +155,4 @@ To change these today, edit the `command:` line in `services/redis/compose.yml`.
 - [Redis commands reference](https://redis.io/commands/) — the canonical command index, organized by data type.
 - [Redis persistence](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/) — AOF vs RDB trade-offs, useful when tuning the stack's defaults.
 - [BullMQ on Redis](https://docs.bullmq.io/) — n8n's queue layer; explains the `bull:*` key shape.
-- [LiteLLM caching](https://docs.litellm.ai/docs/caching/all_caches) — Redis cache integration LiteLLM uses (see the candidate list above for enabling it).
+- [LiteLLM caching](https://docs.litellm.ai/docs/caching/all_caches) — Redis cache integration LiteLLM uses (already enabled in this stack).

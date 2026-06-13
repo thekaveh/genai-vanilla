@@ -47,8 +47,15 @@ if [ -n "${LIGHTRAG_NEO4J_URI:-}" ]; then
   echo "[lightrag-init] running Neo4j migrations..."
   # Use Neo4j's HTTP transaction endpoint directly (cypher-shell is not in
   # alpine main; bundling it would inflate the init image significantly).
-  cypher_payload=$(jq -Rn --rawfile q /scripts/migrate-neo4j.cypher \
-                  '{statements: [{statement: $q}]}')
+  # The endpoint takes exactly ONE Cypher statement per statements[] entry
+  # — the previous single-entry payload was a guaranteed syntax error that
+  # Neo4j reports with HTTP 200 + a populated errors[] array, so the
+  # per-statement split AND the errors[] check below are both load-bearing.
+  cypher_payload=$(grep -v '^//' /scripts/migrate-neo4j.cypher | jq -Rs '
+    split(";")
+    | map(gsub("[[:space:]]+"; " ") | gsub("^ | $"; ""))
+    | map(select(length > 0))
+    | {statements: map({statement: .})}')
   http_status=$(curl -fs --max-time 30 -o /tmp/neo4j-resp.json -w '%{http_code}' \
     -u "${LIGHTRAG_NEO4J_USERNAME}:${LIGHTRAG_NEO4J_PASSWORD}" \
     -H 'Content-Type: application/json' \
@@ -57,8 +64,8 @@ if [ -n "${LIGHTRAG_NEO4J_URI:-}" ]; then
       echo "[lightrag-init] WARN: Neo4j migration HTTP call failed (curl exit $?)" >&2
       echo "[lightrag-init] response: $(cat /tmp/neo4j-resp.json 2>/dev/null)" >&2
     }
-  if [ "$http_status" = "200" ]; then
-    echo "[lightrag-init] Neo4j migration: OK"
+  if [ "$http_status" = "200" ] && jq -e '.errors == []' /tmp/neo4j-resp.json >/dev/null 2>&1; then
+    echo "[lightrag-init] Neo4j migration: OK ($(jq -r '.results | length' /tmp/neo4j-resp.json) statements)"
   else
     echo "[lightrag-init] WARN: Neo4j migration returned HTTP $http_status" >&2
     echo "[lightrag-init] response: $(cat /tmp/neo4j-resp.json 2>/dev/null)" >&2

@@ -36,7 +36,7 @@ Documentation index for the GenAI Vanilla Stack.
 - [Grafana](../services/grafana/README.md) — observability dashboards + unified alerting on top of Prometheus (opt-in via `GRAFANA_SOURCE`)
 - [Apache Spark](../services/spark/README.md) — standalone Spark cluster (5-container family: master + workers + history + Spark Connect gRPC sidecar + minio/mc bucket init) for batch / SQL / DataFrame workloads (opt-in via `SPARK_SOURCE`)
 - [Apache Zeppelin](../services/zeppelin/README.md) — Spark-first notebook UI; Spark interpreter pre-configured, JDBC interpreter requires a one-time UI setup (opt-in via `ZEPPELIN_SOURCE`; gated on Spark)
-- [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
+- [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + dag-processor + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
 - [TEI Reranker](../services/tei-reranker/README.md) — Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift
 
 ### 1.3 Deployment guides
@@ -54,9 +54,13 @@ Documentation index for the GenAI Vanilla Stack.
 - The top-level diagram itself lives at [diagrams/architecture.svg](diagrams/architecture.svg) (embedded in the project README) and [diagrams/architecture.html](diagrams/architecture.html) (standalone view)
 
 ### 1.6 Cross-service research (Phase B corpus)
+- [Research corpus guide](research/README.md) — layout, authoring rules, and the schema the validator enforces
 - [Integration matrix](research/integration-matrix.md) — auto-generated index linking every service to its candidate integrations
 - [Per-service rows](research/rows/) — missing-pair integrations, candidate new services, per-service feature gaps
 - [Candidate one-pagers](research/candidates/) — design notes per candidate service
+
+### 1.7 Feature-track plans and specs
+- [superpowers/plans](superpowers/plans/) + [superpowers/specs](superpowers/specs/) — point-in-time implementation plans and specs for the larger 2026-05/06 feature tracks (consult when archaeology on a past track is needed; CHANGELOG entries link the relevant ones)
 
 ## 2. Related documentation
 

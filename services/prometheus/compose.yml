@@ -37,6 +37,11 @@ services:
     command:
       - --path.procfs=/host/proc
       - --path.sysfs=/host/sys
+      # Without --path.rootfs the filesystem collector statfs'd the
+      # CONTAINER fs — node_filesystem_* (consumed by the
+      # containers-and-host dashboard) reported the overlay mount, not
+      # the host disks the /:/rootfs:ro bind exists to expose.
+      - --path.rootfs=/rootfs
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     ports:
       - "${NODE_EXPORTER_PORT}:9100"

@@ -29,7 +29,7 @@ Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted cha
 
 ## 4. Integration notes
 
-The service participates in the Docker Compose network and may be consumed by the Backend API, Open WebUI, JupyterHub, n8n, Weaviate, or init containers depending on which SOURCE modes are enabled.
+The service participates in the Docker Compose network; its only downstream consumer is the Kong gateway (browser routing) plus its own `open-webui-init` container — see §5.2.
 
 When [Hermes Agent](../hermes/README.md) is enabled (`HERMES_SOURCE != disabled`), it appears in the model dropdown as `hermes-agent` via the LiteLLM gateway — no per-WebUI wiring required. The model-list cache TTL is 5 minutes (`OPEN_WEB_UI_MODEL_CACHE_TTL=300`) so a newly-enabled Hermes can take that long to appear in the dropdown; set the TTL to `0` during development.
 
@@ -43,13 +43,14 @@ If a dependency is disabled, adaptive services should degrade where supported. S
 
 | Service | Category |
 |---|---|
-| weaviate | data |
+| redis | data |
+| supabase | data |
 | litellm | llm |
 | comfyui | media |
 | doc-processor | media |
-| searxng | media |
 | stt-provider | media |
 | tts-provider | media |
+| backend | apps |
 | local-deep-researcher | apps |
 
 ### 5.2 Current — Downstream (services that call this)
@@ -82,7 +83,7 @@ If a dependency is disabled, adaptive services should degrade where supported. S
 
 - **OIDC / SSO via Supabase Auth** — *Why pursue:* Supabase GoTrue is already running and Open WebUI supports generic OAuth/OIDC, so a single login could unify Open WebUI, n8n, and JupyterHub identity. *Effort:* medium.
 - **Native MCP client** — *Why pursue:* Open WebUI now ships a built-in MCP client; wiring it to stack-local MCP servers (filesystem, git) gives chat real tool surfaces without per-tool Python glue. *Effort:* small.
-- **Hybrid BM25 + vector reranking** — *Why pursue:* Weaviate is wired but Open WebUI's built-in hybrid search and cross-encoder reranker are off, leaving knowledge-base recall worse than it needs to be. *Effort:* small.
+- **Hybrid BM25 + vector reranking** — *Why pursue:* Open WebUI's built-in hybrid search and cross-encoder reranker are off, leaving knowledge-base recall worse than it needs to be. *Effort:* small.
 - **Channels / multi-user workspaces** — *Why pursue:* Channels turn the WebUI into a team space with `@model` mentions and pair naturally with the Supabase auth gap above. *Effort:* medium.
 - **Notes with agentic access** — *Why pursue:* The built-in rich-text notes editor that LLMs can read and write replaces ad-hoc scratchpads with zero new infrastructure. *Effort:* small.
 

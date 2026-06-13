@@ -11,8 +11,14 @@ This test locks that posture in CI so a future contributor can't
 re-introduce a floating tag silently.
 
 ARG-defaulted FROMs (e.g. `FROM ${BASE_IMAGE}`) are exempt because the
-ARG itself is overridden by compose at build time and resolves to a
-fully-qualified tag from `.env.example` / `services/<svc>/service.yml`.
+ARG is the user-facing override knob (compose injects `*_IMAGE` from
+.env at build time) — pin policy for those lives with the var defaults,
+not the Dockerfile. NOTE the honest caveat: several `*_IMAGE` defaults
+in `.env.example` currently float (`BACKEND_IMAGE=python:3.12`,
+`LOCAL_DEEP_RESEARCHER_IMAGE` / `OPEN_WEB_UI_INIT_IMAGE=python:3.11-slim`,
+`JUPYTERHUB_IMAGE=jupyter/datascience-notebook:python-3.11`). That is a
+known, deliberate posture (kept loose for arch portability), not
+something this guard verifies — tightening them is a product decision.
 """
 from __future__ import annotations
 

@@ -72,6 +72,11 @@ class LogPane(RichLog):
         self._subtitle = subtitle
         self._buffer_cap = buffer
         self._records: list[_LogRecord] = []
+        # Sources already announced via _on_new_source. A set lookup keeps
+        # the hot per-line path O(1) — scanning _records was O(buffer)
+        # per streamed line (10k records × `compose logs -f` of 30+
+        # services, all on the UI event loop).
+        self._seen_sources: set[str] = set()
         self._level_filter: str = "all"
         self._disabled_sources: set[str] = set()
         self._on_new_source = None
@@ -103,8 +108,9 @@ class LogPane(RichLog):
             source
             and source not in self._disabled_sources
             and self._on_new_source is not None
-            and not any(r.source == source for r in self._records)
+            and source not in self._seen_sources
         ):
+            self._seen_sources.add(source)
             self._on_new_source(source)
         self._records.append(rec)
         if len(self._records) > self._buffer_cap:
@@ -120,8 +126,9 @@ class LogPane(RichLog):
             source
             and source not in self._disabled_sources
             and self._on_new_source is not None
-            and not any(r.source == source for r in self._records)
+            and source not in self._seen_sources
         ):
+            self._seen_sources.add(source)
             self._on_new_source(source)
         self._records.append(rec)
         if len(self._records) > self._buffer_cap:

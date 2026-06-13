@@ -1,4 +1,4 @@
--- 06-functions.sql
+-- 07-functions.sql
 -- Create custom functions
 
 -- Create health check function (safe to re-run)

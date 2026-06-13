@@ -35,7 +35,7 @@ JUPYTERHUB_SOURCE=disabled
 
 - **Pre-installed AI Libraries**: OpenAI SDK (pointed at LiteLLM), LangChain, LlamaIndex, Transformers
 - **Database Clients**: Weaviate, Neo4j, PostgreSQL, Redis, Supabase
-- **Sample Notebooks**: 7 ready-to-use notebooks demonstrating service integration
+- **Sample Notebooks**: 9 ready-to-use notebooks demonstrating service integration
 - **Persistent Storage**: All notebooks saved in Docker volumes
 - **Environment Variables**: Auto-configured connections to all services
 - **Multi-kernel runtime**: Python 3 (default) plus **Scala 2.13** and **Scala 3** kernels via Almond. Pick one from JupyterLab's launcher or VS Code's kernel picker. See §11.
@@ -352,12 +352,15 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 | Service | Category |
 |---|---|
 | ray | infra |
-| minio | data |
 | neo4j | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
+| comfyui | media |
+| searxng | media |
 | hermes | agents |
+| n8n | agents |
+| backend | apps |
 
 ### 15.2 Current — Downstream (services that call this)
 

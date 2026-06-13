@@ -50,6 +50,13 @@ scrape_configs:
     static_configs:
       - targets: ['n8n:5678']
 
+  # Queue mode offloads executions to the worker, whose worker-server
+  # exposes its own /metrics — without this job the execution-data
+  # counters (written worker-side) are invisible.
+  - job_name: n8n-worker
+    static_configs:
+      - targets: ['n8n-worker:5678']
+
   # JupyterHub (the folder/service name is historical; the image we ship is
   # actually single-user `jupyter/datascience-notebook`, not real JupyterHub).
   # Single-user Jupyter Server has no built-in /metrics surface; adding one

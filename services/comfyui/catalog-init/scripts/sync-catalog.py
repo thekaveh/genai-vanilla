@@ -197,7 +197,9 @@ def _entry_row(entry, default_active: bool):
     return (
         entry.name,
         entry.category,
-        _filename_from_url(entry.url),
+        # Prefer the catalog-declared filename (civitai URLs carry no
+        # usable path component — see ComfyUILibraryEntry.filename).
+        getattr(entry, "filename", None) or _filename_from_url(entry.url),
         entry.url,
         float(entry.size_gb) if entry.size_gb is not None else None,
         entry.notes or "",
@@ -307,6 +309,23 @@ def apply_user_models_selection(
                 f"skipping: {', '.join(missing)}",
                 file=sys.stderr,
                 flush=True,
+            )
+
+        # Activation below is NAME-keyed while uniqueness is (name, type):
+        # a name that exists under two types would toggle both rows.
+        # No catalog/sidecar name collides across types today — warn
+        # loudly if that ever changes so the selection format can grow
+        # a type qualifier before this becomes a real bug.
+        cur.execute(
+            "SELECT name FROM public.comfyui_models "
+            "GROUP BY name HAVING count(DISTINCT type) > 1;"
+        )
+        collisions = [r[0] for r in cur.fetchall()]
+        if collisions:
+            print(
+                "⚠️  comfyui-catalog: name(s) present under multiple types "
+                f"(activation toggles all of them): {', '.join(collisions)}",
+                file=sys.stderr, flush=True,
             )
 
         # Activate the matched-known subset.

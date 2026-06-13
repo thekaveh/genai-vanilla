@@ -25,7 +25,7 @@ Filtering rationale per provider:
   a display name.
 * **OpenRouter** — already clean and rich (``id``, ``name``,
   ``description``, ``context_length``). We cap at 50 to keep the
-  picker usable; sort by curated priority then alphabetical.
+  picker usable; sort alphabetically.
 
 Maintenance cadence
 -------------------
@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import re
 import socket
+import http.client
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -181,7 +182,8 @@ def list_openai_models(api_key: str, timeout: float = 5.0,
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError) as exc:
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException) as exc:
         _emit(on_warn, f"[warn/openai-fetch] live /v1/models failed — falling back to catalog (cause: {_format_url_error(exc)})")
         return []
     try:
@@ -223,7 +225,8 @@ def list_anthropic_models(api_key: str, timeout: float = 5.0,
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError) as exc:
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException) as exc:
         _emit(on_warn, f"[warn/anthropic-fetch] live /v1/models failed — falling back to catalog (cause: {_format_url_error(exc)})")
         return []
     try:
@@ -270,7 +273,8 @@ def list_openrouter_models(timeout: float = 5.0, cap: int = 50,
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError) as exc:
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException) as exc:
         _emit(on_warn, f"[warn/openrouter-fetch] live /api/v1/models failed — falling back to catalog (cause: {_format_url_error(exc)})")
         return []
     try:

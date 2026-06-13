@@ -56,6 +56,18 @@ EXPECTED_HOST_ROUTES = {
     # /spend/* (usage telemetry) — Kong routes the entire surface, not
     # just the dashboard path.
     "litellm.localhost": "http://litellm:4000/",
+    # Remaining default-on routes (previously unlisted — regressions in
+    # these 8 hosts passed this script silently):
+    "studio.localhost": "http://supabase-studio:3000/",
+    "localhost": "http://supabase-studio:3000/",
+    "graph.localhost": "http://neo4j-graph-db:7474/",
+    "weaviate.localhost": "http://weaviate:8080/",
+    "ollama.localhost": "http://ollama:11434/",
+    "research.localhost": "http://local-deep-researcher:2024/",
+    # STT/TTS both default to speaches (speaches-container-cpu serves
+    # both roles on its single port).
+    "stt.localhost": "http://speaches:8000/",
+    "tts.localhost": "http://speaches:8000/",
     # MinIO admin console (port 9001). Default-on (MINIO_SOURCE=container).
     # The S3 API at port 9000 is deliberately NOT aliased — S3 clients
     # use full URLs with explicit ports anyway and don't benefit from a
@@ -79,10 +91,13 @@ EXPECTED_HOST_ROUTES = {
     # Regression coverage at default-env lives here (absence is correct);
     # opt-in route shape is locked by bootstrapper/tests/test_kong_alias_routes.py.
     # If a default ever flips, add the matching entries:
-    #   "spark.localhost": "http://spark-master:8080/",
-    #   "spark-history.localhost": "http://spark-history:18080/",
-    #   "zeppelin.localhost": "http://zeppelin:8080/",
-    #   "airflow.localhost": "http://airflow-webserver:8080/",
+    #   "spark.localhost": "http://spark-master:8080",
+    #   "spark-history.localhost": "http://spark-history:18080",
+    #   "zeppelin.localhost": "http://zeppelin:8080",
+    #   "airflow.localhost": "http://airflow-webserver:8080",
+    # (no trailing slash — matches the generator's emitted URLs for
+    # these four; copy-pasting a trailing-slash form would fail the
+    # equality check.)
     #
     # rerank.localhost is NOT listed here. .env.example defaults
     # TEI_RERANKER_SOURCE=disabled; the generator only emits the reranker

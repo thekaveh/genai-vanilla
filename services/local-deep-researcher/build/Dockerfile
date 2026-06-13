@@ -12,10 +12,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for faster Python package management
-RUN pip install uv
+RUN pip install --no-cache-dir uv
 
 # Install additional dependencies for our custom integration scripts
-RUN uv pip install --system psycopg2-binary
+RUN uv pip install --system psycopg2-binary==2.9.9
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/config /app/repo

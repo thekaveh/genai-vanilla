@@ -2,7 +2,7 @@
 
 LangGraph-based multi-step research agent. The user submits a topic, LDR runs a search-summarize-reflect-search loop (default 3 iterations), and returns a Markdown report citing the sources it found. Upstream is [langchain-ai/local-deep-researcher](https://github.com/langchain-ai/local-deep-researcher); the stack runs it via the LangGraph dev server (`langgraph dev`) listening on port 2024 inside the container, exposed at `LOCAL_DEEP_RESEARCHER_PORT` on the host.
 
-LDR is **completely local** by design — it relies on the stack's LiteLLM gateway (so any registered local Ollama model works) and SearXNG for web search. No outbound API keys required for the default loop. Backend already ships a typed `research_client.py` Pydantic surface but no FastAPI route exposes it yet; the LDR endpoint is reachable via Kong or the direct port today.
+LDR is **completely local** by design — it relies on the stack's LiteLLM gateway (so any registered local Ollama model works) and SearXNG for web search. No outbound API keys required for the default loop. The backend exposes a typed `/research/start|status|result|cancel|logs|sessions|health` surface (`research_client.py`) — but note the client currently speaks a bespoke `/research/*` + `/health` upstream protocol that the stock `langgraph dev` server does not serve (its real API is `/ok`, `/threads`, `/runs`; §4 shows the threads/runs mechanism), so these backend routes fail upstream until the client is ported to the LangGraph protocol (tracked follow-up). The LDR endpoint itself is reachable directly and via Kong's `research.localhost` alias.
 
 ## 1. Overview
 
@@ -13,7 +13,7 @@ Image: `python:3.11-slim` (the build script clones the upstream repo and runs `p
 | Path | URL | Notes |
 |---|---|---|
 | Direct | `http://localhost:${LOCAL_DEEP_RESEARCHER_PORT}` (default `63083`) | LangGraph dev-server REST API. |
-| Kong | — | Manifest defines `alias: research.localhost` but no Kong route is generated today (see Future — Unused features). |
+| Kong | `http://research.localhost:63000` | Route generated from `LOCAL_DEEP_RESEARCHER_SOURCE` (needs the `--setup-hosts` entries). |
 | LangGraph API | `POST /threads`, `POST /threads/{id}/runs/stream` | Standard LangGraph dev-server endpoints. |
 
 Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.md).
@@ -56,13 +56,13 @@ DOCLING_ENDPOINT=...
    - `finalize_summary` — outputs the final Markdown report.
 4. State (running_summary, sources_gathered, loop_count) lives in the LangGraph dev-server's in-memory checkpointer.
 
-**Checkpointer caveat.** The dev-server's default in-memory checkpointer drops thread state on container restart, so resumable research isn't possible today. Redis db `/3` is reserved in the redis manifest for an LDR checkpointer but isn't wired.
+**Checkpointer caveat.** The dev-server's default in-memory checkpointer drops thread state on container restart, so resumable research isn't possible today. A Redis-backed checkpointer is a documented future pair (a fresh db index, e.g. `/4`; `/3` belongs to JupyterHub).
 
 **Search backend.** `LOCAL_DEEP_RESEARCHER_SEARCH_API=searxng` calls `http://searxng:8080/search?q=…&format=json`. SearXNG must have `formats: [json]` enabled (it does, in `services/searxng/config/settings.yml`).
 
 **LLM gateway.** Every LangGraph node that needs an LLM goes through LiteLLM at `http://litellm:4000/v1/chat/completions`. The model id used at each step is configured in the upstream repo's `init-config.py`; the stack pins it to whatever LiteLLM advertises by default.
 
-**Backend integration (half-implemented).** `services/backend/app/app/research_client.py` already targets `http://local-deep-researcher:2024` with a `ResearchRequest`/`ResearchResult` schema, but no backend route exposes it. The hookup is one of the high-confidence future integrations.
+**Backend integration.** `services/backend/app/app/research_client.py` targets `http://local-deep-researcher:2024` with a `ResearchRequest`/`ResearchResult` schema, exposed through the backend's `/research/*` routes (sessions persist to `public.research_sessions`). Known gap: the client's upstream paths (`/research/*`, `/health`) don't exist on the LangGraph dev server, so calls 404 and sessions land in FAILED — porting the client to `/threads` + `/runs` is a tracked follow-up.
 
 ## 5. Dependencies & Integrations
 
@@ -72,6 +72,7 @@ DOCLING_ENDPOINT=...
 
 | Service | Category |
 |---|---|
+| supabase | data |
 | litellm | llm |
 | searxng | media |
 
@@ -91,8 +92,7 @@ DOCLING_ENDPOINT=...
 
 ### 5.4 Future — Missing pair integrations
 
-- **local-deep-researcher ↔ backend** — *Why:* `services/backend/app/app/research_client.py` already targets `http://local-deep-researcher:2024` with a `ResearchRequest`/`ResearchResult` surface, but no backend route exposes it. Wiring closes a half-implemented API. *Mechanism:* backend FastAPI route → LangGraph `POST /threads/{id}/runs` on `http://local-deep-researcher:2024`; persist `ResearchResult` rows in supabase `public.research_sessions`. *Effort:* small. *Confidence:* high.
-- **local-deep-researcher ↔ redis** — *Why:* LDR runs `langgraph dev` with the in-memory checkpointer, so thread state is lost on restart. `services/redis/service.yml` reserves db `/3` for LDR but nothing consumes it. *Mechanism:* swap checkpointer to `langgraph.checkpoint.redis.RedisSaver` pointed at `redis://:${REDIS_PASSWORD}@redis:6379/3`; add `REDIS_URL` to LDR env. *Effort:* small. *Confidence:* medium.
+- **local-deep-researcher ↔ redis** — *Why:* LDR runs `langgraph dev` with the in-memory checkpointer, so thread state is lost on restart; no Redis checkpointer is wired today. *Mechanism:* swap checkpointer to `langgraph.checkpoint.redis.RedisSaver` pointed at a fresh index (`redis://:${REDIS_PASSWORD}@redis:6379/4` — `/3` is JupyterHub's); add `REDIS_URL` to LDR env. *Effort:* small. *Confidence:* medium.
 - **local-deep-researcher ↔ neo4j** — *Why:* each research run yields `sources_gathered` + a `running_summary`. Writing these as `(Topic)-[CITES]->(Source)` triples lets later runs detect overlap and reuse evidence. *Mechanism:* post-`finalize_summary` callback writes Cypher `MERGE` via `bolt://neo4j-graph-db:7687`. *Effort:* medium. *Confidence:* medium.
 - **local-deep-researcher ↔ minio** — *Why:* the final markdown report lives only in `/app/data` inside the container; no other service can consume it. *Mechanism:* on `finalize_summary`, S3 `PutObject` to `${MINIO_ENDPOINT}` bucket `research-reports` keyed by `session_id`. *Effort:* small. *Confidence:* medium.
 - **local-deep-researcher ↔ hermes** — *Why:* Hermes has no path to invoke multi-step web research today. Exposing LDR as a Hermes tool turns "deep research" into a single tool call. *Mechanism:* Hermes custom tool POSTs to `http://local-deep-researcher:2024/threads/{id}/runs/stream` and returns the final summary; configured in `services/hermes/init/templates/config.yaml.tmpl`. *Effort:* medium. *Confidence:* medium.
@@ -111,7 +111,6 @@ DOCLING_ENDPOINT=...
 - **`STRIP_THINKING_TOKENS` toggle** — *Why pursue:* Hermes-style reasoning models leak `<think>` blocks into the report; upstream env var hides them. *Effort:* small.
 - **`FETCH_FULL_PAGE` toggle** — *Why pursue:* hard-coded false in `init-config.py`; not exposed in `service.yml`. *Effort:* small.
 - **LangSmith tracing** — *Why pursue:* `LANGSMITH_API_KEY` ships upstream; superseded if Langfuse lands but useful as a stopgap. *Effort:* small.
-- **LangGraph Studio UI via Kong** — *Why pursue:* `/threads`/`/runs/stream` UI is reachable on port 2024 but has no Kong alias (e.g. `research.localhost`), forcing direct-port access. *Effort:* small.
 
 ## 6. Troubleshooting
 
@@ -123,7 +122,7 @@ DOCLING_ENDPOINT=...
 
 **State lost on restart.** Expected — see the in-memory checkpointer note above. The fix is the Redis-checkpointer integration listed under Future.
 
-**Kong route 404 for `research.localhost`.** No Kong route is generated for LDR today despite the manifest defining the alias; access via the direct port until the Kong-route generator picks it up.
+**Kong route 404 for `research.localhost`.** The route IS generated when `LOCAL_DEEP_RESEARCHER_SOURCE=container`; a 404 here usually means the `*.localhost` hosts entries are missing (`./start.sh --setup-hosts`) or the service is disabled.
 
 ```bash
 docker compose ps local-deep-researcher
@@ -165,5 +164,5 @@ Returns `running_summary`, `sources_gathered`, `loop_count`, current node — us
 ## 8. Performance notes
 
 - **Cost per run.** ~5 LLM calls per loop × `LOOPS` loops = 15 calls for the default. Plus one SearXNG call per loop. Local Ollama → free + slow (~30-90s/loop); cloud APIs via LiteLLM → fast + metered.
-- **No streaming back to backend.** The `/runs/stream` SSE channel exists but the planned backend wrapper (`research_client.py`) consumes it synchronously today. Once wired, the backend can fan out events to Open WebUI via Supabase Realtime.
+- **No streaming back to backend.** The `/runs/stream` SSE channel exists but the backend's `research_client.py` consumes it synchronously; fanning events out to Open WebUI via Supabase Realtime remains future work.
 - **Thread state size.** A 3-loop run produces ~30-60 KB of state (summary + sources). The in-memory checkpointer holds the last N threads in process; under load it can grow unbounded — restart cleans it.

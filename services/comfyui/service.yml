@@ -58,12 +58,6 @@ env:
     default: "comfyui-images"
   - name: COMFYUI_MODELS_PATH
     default: "/opt/ComfyUI/models"
-  - name: COMFYUI_OUTPUT_PATH
-    default: "/opt/ComfyUI/output"
-  - name: COMFYUI_INPUT_PATH
-    default: "/opt/ComfyUI/input"
-  - name: COMFYUI_CUSTOM_NODES_PATH
-    default: "/opt/ComfyUI/custom_nodes"
   - name: COMFYUI_LOCAL_MODELS_PATH
     default: "~/Documents/ComfyUI/models"
   - name: COMFYUI_USER_MODELS
@@ -84,9 +78,6 @@ env:
     description: "Resolved per COMFYUI_SOURCE. Consumed by backend, open-webui, n8n, jupyterhub."
   - name: COMFYUI_DEPLOY_RESOURCES
     default: "~"
-  - name: IS_LOCAL_COMFYUI
-    auto_managed: true
-    description: "True when COMFYUI_SOURCE=localhost."
 
 
 depends_on:
@@ -123,29 +114,27 @@ runtime_sc:
   comfyui:
     container-cpu:
       scale: 1
+      # NOTE: no COMFYUI_ARGS / AUTO_UPDATE here — service_config reads
+      # only COMFYUI_ENDPOINT from this block; the container's args come
+      # verbatim from .env's COMFYUI_ARGS / COMFYUI_AUTO_UPDATE (README
+      # §3). Per-source values listed here were never applied.
       environment:
-        COMFYUI_ARGS: --listen --cpu
         COMFYUI_ENDPOINT: http://comfyui:18188
-        AUTO_UPDATE: 'false'
         WEB_ENABLE_AUTH: 'false'
         ENABLE_QUICKTUNNEL: 'false'
         SERVERLESS: 'false'
-        IS_LOCAL_COMFYUI: 'false'
         COMFYUI_LOCAL_MODELS_PATH: ./empty
       deploy: {}
       extra_hosts: []
     container-gpu:
       scale: 1
       environment:
-        COMFYUI_ARGS: --listen --force-fp16
         COMFYUI_ENDPOINT: http://comfyui:18188
-        AUTO_UPDATE: 'true'
         NVIDIA_VISIBLE_DEVICES: all
         NVIDIA_DRIVER_CAPABILITIES: compute,utility
         WEB_ENABLE_AUTH: 'false'
         ENABLE_QUICKTUNNEL: 'false'
         SERVERLESS: 'false'
-        IS_LOCAL_COMFYUI: 'false'
         COMFYUI_LOCAL_MODELS_PATH: ./empty
       deploy:
         resources:
@@ -163,7 +152,6 @@ runtime_sc:
       scale: 0
       environment:
         COMFYUI_ENDPOINT: http://host.docker.internal:${COMFYUI_LOCALHOST_PORT:-8000}
-        IS_LOCAL_COMFYUI: 'true'
         COMFYUI_LOCAL_MODELS_PATH: ${COMFYUI_LOCAL_MODELS_PATH:-~/Documents/ComfyUI/models}
       deploy: {}
       extra_hosts:
@@ -172,7 +160,6 @@ runtime_sc:
       scale: 0
       environment:
         COMFYUI_ENDPOINT: http://comfyui:18188
-        IS_LOCAL_COMFYUI: 'false'
       deploy: {}
       extra_hosts: []
   comfyui-init:
@@ -201,8 +188,10 @@ runtime_sc:
 runtime_adaptive:
   comfyui-init:
     adapts_to: comfyui
-    environment_adaptation:
-      COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT}
+    # (no environment_adaptation: the old COMFYUI_HOST_URL entry was a
+    # dead promise — download_models.sh reads only PG vars +
+    # COMFYUI_MODELS_PATH, and compose never injected it.)
+    environment_adaptation: {}
     extra_hosts_adaptation: inherit from comfyui
 
 data_flow:

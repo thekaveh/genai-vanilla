@@ -49,7 +49,7 @@ Chatterbox on host (macOS native via MPS / Linux):
 # Terminal 1 — install from git (no PyPI package):
 git clone https://github.com/travisvn/chatterbox-tts-api
 cd chatterbox-tts-api && uv sync
-PORT=63027 uv run main.py
+PORT=63044 uv run main.py
 
 # Terminal 2
 ./start.sh --tts-provider-source chatterbox-localhost

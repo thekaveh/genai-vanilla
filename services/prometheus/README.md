@@ -42,7 +42,7 @@ The bootstrapper's `_generate_prometheus_config()` hook writes all five scale va
 
 ## 4. Scrape targets
 
-12 targets ship in `config/prometheus.yml`:
+13 targets ship in `config/prometheus.yml`:
 
 | Job | Target | Notes |
 |---|---|---|
@@ -54,6 +54,7 @@ The bootstrapper's `_generate_prometheus_config()` hook writes all five scale va
 | `litellm` | `litellm:4000` | Per-model tokens / cost / latency / errors (requires `callbacks: [prometheus]` in LiteLLM config) |
 | `weaviate` | `weaviate:2112` | Requires `PROMETHEUS_MONITORING_ENABLED=true` on Weaviate |
 | `n8n` | `n8n:5678` | Requires `N8N_METRICS=true` |
+| `n8n-worker` | `n8n-worker:5678` | Queue mode runs executions worker-side — execution-data counters live here |
 | `minio` | `minio:9000/minio/v2/metrics/cluster` | Requires `MINIO_PROMETHEUS_AUTH_TYPE=public` |
 | `backend` | `backend:8000/metrics` | `prometheus-fastapi-instrumentator` middleware |
 | `postgres-exporter` | `postgres-exporter:9187` | Sidecar embedded in Supabase family; scales 1↔0 with `PROMETHEUS_SOURCE` |
@@ -71,6 +72,7 @@ Ollama is **deliberately not scraped** — LiteLLM is its gateway and emits per-
 
 | Service | Category |
 |---|---|
+| grafana ↔ | infra |
 | kong | infra |
 | minio | data |
 | redis | data |
@@ -84,7 +86,7 @@ Ollama is **deliberately not scraped** — LiteLLM is its gateway and emits per-
 
 | Service | Category |
 |---|---|
-| grafana | infra |
+| grafana ↔ | infra |
 
 ### 5.3 Architecture diagram
 

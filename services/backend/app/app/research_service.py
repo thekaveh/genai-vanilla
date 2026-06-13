@@ -321,7 +321,13 @@ class ResearchService:
                 SELECT status FROM public.research_sessions WHERE id = $1
             """, session_id)
             
-            if not status_row or status_row["status"] != ResearchStatus.RUNNING.value:
+            # PENDING is cancellable too: the insert(PENDING)->RUNNING
+            # update races this check, and the background task is already
+            # live in _active_tasks during that window.
+            if not status_row or status_row["status"] not in (
+                ResearchStatus.PENDING.value,
+                ResearchStatus.RUNNING.value,
+            ):
                 return False
             
             # Cancel background task if it exists
@@ -381,8 +387,12 @@ class ResearchService:
         # Test database connection
         try:
             conn = await self._get_db_connection()
-            await conn.fetchval("SELECT 1")
-            await conn.close()
+            try:
+                await conn.fetchval("SELECT 1")
+            finally:
+                # close in finally — a probe failure post-connect used to
+                # leak the connection (every other site closes in finally).
+                await conn.close()
             results["database"] = "healthy"
         except Exception as e:
             results["database"] = f"unhealthy: {str(e)}"

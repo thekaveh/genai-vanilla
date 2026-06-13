@@ -13,13 +13,18 @@ services:
       - sh
       - -c
       - |
-        apk add --no-cache jq > /dev/null 2>&1
+        set -e
+        apk add --no-cache jq > /dev/null
         CONFIG=/home/node/.openclaw/openclaw.json
         PATCH='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
-        if [ -f "$$CONFIG" ]; then
+        # Write via tmp + mv on BOTH branches: `> "$$CONFIG"` truncates
+        # the target before jq runs, so a missing/failed jq used to
+        # leave a 0-byte config the gateway chokes on (and re-runs
+        # could not self-heal — jq errors on the empty file).
+        if [ -s "$$CONFIG" ]; then
           jq --argjson patch "$$PATCH" '. * $$patch' "$$CONFIG" > "$$CONFIG.tmp" && mv "$$CONFIG.tmp" "$$CONFIG"
         else
-          echo "$$PATCH" | jq . > "$$CONFIG"
+          echo "$$PATCH" | jq . > "$$CONFIG.tmp" && mv "$$CONFIG.tmp" "$$CONFIG"
         fi
         chown -R 1000:1000 /home/node/.openclaw
     networks:

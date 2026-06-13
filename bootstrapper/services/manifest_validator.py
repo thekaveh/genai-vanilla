@@ -56,6 +56,7 @@ class ValidationIssue:
     #   duplicate_alias            — rows[].alias value claimed by more than one manifest
     #   category_overflow          — *_PORT count in a category exceeds that category's block size
     #   engine_orphan              — engine-only manifest (no rows, not virtual) unreferenced by any source variant id
+    #   runtime_sc_missing_variant — a main runtime_sc slice lacks an entry for a declared source option
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ def validate_manifests(
     issues.extend(_check_alias_uniqueness(manifests))
     issues.extend(_check_category_overflow(manifests))
     issues.extend(_check_engine_orphans(manifests))
+    issues.extend(_check_runtime_sc_source_coverage(manifests))
     if services_root is not None:
         issues.extend(_check_fragment_containers(manifests, services_root))
 
@@ -335,13 +337,14 @@ def _check_per_manifest_contract(manifests: list[Manifest]) -> list[ValidationIs
                 )
             )
 
-        # 2. Every runtime_sc.<key>.<source>.environment key must be declared
-        # in this manifest's env[] OR in some other manifest's env[]. The
-        # latter is OK because runtime values cross service boundaries
-        # (e.g. ollama's runtime_sc writes LITELLM_OLLAMA_UPSTREAM, which is
-        # owned by litellm's manifest). This rule catches typo'd env vars.
-        # Note: collected across ALL manifests, so cross-manifest writes are
-        # allowed as long as some manifest declares the var.
+        # 2. (intentionally no check) runtime_sc.<container>.<source>
+        # .environment blocks routinely carry container-INTERNAL keys
+        # (AIRFLOW__*, GF_*, weaviate module config, ~80 across the repo)
+        # that are deliberately NOT declared in any manifest's env[] —
+        # they never surface in .env. A "must be declared" rule here
+        # would force all of them into .env.example. Typo protection for
+        # the user-facing subset comes from the env-example consistency
+        # and localhost-port symmetry tests instead.
 
         # 3. Every export name must be either a declared env var OR produced
         # by this manifest's runtime_sc.
@@ -483,4 +486,53 @@ def _check_engine_orphans(manifests: list[Manifest]) -> list[ValidationIssue]:
                     f"Add a source option whose id begins with '{m.name}' to its parent manifest."
                 ),
             ))
+    return issues
+def _check_runtime_sc_source_coverage(
+    manifests: list[Manifest],
+) -> list[ValidationIssue]:
+    """Main runtime_sc slices must cover every declared source option.
+
+    A typo'd or forgotten variant key is otherwise silent:
+    ``get_service_config()`` returns ``{}`` for it and consumers fall
+    back to hardcoded defaults. The main slice is the one named after
+    ``sources.var`` (sans ``_SOURCE``, underscore or hyphen form) or the
+    family; multi-container families with no single main slice (airflow,
+    ray, spark) treat every slice speaking the pure sources vocabulary
+    as a per-container main slice. Init slices that use their own
+    ``container/disabled`` vocabulary — or intentionally omit
+    ``localhost`` because service_config handles it imperatively — are
+    out of scope by construction.
+    """
+    issues: list[ValidationIssue] = []
+    for m in manifests:
+        if not m.sources or not m.runtime_sc:
+            continue
+        if not m.sources.var.endswith("_SOURCE"):
+            continue
+        opts = {o.id for o in m.sources.options}
+        stem = m.sources.var[: -len("_SOURCE")].lower()
+        main_names = {stem, stem.replace("_", "-"), m.name}
+        targets = [n for n in m.runtime_sc if n in main_names]
+        if not targets:
+            targets = [
+                n
+                for n, d in m.runtime_sc.items()
+                if isinstance(d, dict) and set(d) and set(d) & opts and set(d) <= opts
+            ]
+        for n in targets:
+            d = m.runtime_sc.get(n)
+            if not isinstance(d, dict):
+                continue
+            for opt in sorted(opts - set(d.keys())):
+                issues.append(
+                    ValidationIssue(
+                        kind="runtime_sc_missing_variant",
+                        manifest=m.name,
+                        message=(
+                            f"runtime_sc['{n}'] has no entry for source "
+                            f"option '{opt}' — get_service_config() would "
+                            f"silently return {{}} for that variant"
+                        ),
+                    )
+                )
     return issues

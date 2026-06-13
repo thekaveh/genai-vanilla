@@ -24,9 +24,11 @@ Idempotency rules (see ``write_config``):
     model_list) → ALWAYS preserved, even with ``force=True``. The
     previous run's real config survives a re-run that hasn't yet
     completed a docker compose up.
-  • Missing / stub / corrupt file + ``force=False`` → preserved.
-  • Missing / stub / corrupt file + ``force=True`` → overwritten with
-    a fresh stub. ``start.py`` calls with force=True at every launch.
+  • Missing file → always written (nothing exists to preserve; the
+    ``force`` flag is irrelevant on this path).
+  • Stub / corrupt file + ``force=False`` → preserved.
+  • Stub / corrupt file + ``force=True`` → overwritten with a fresh
+    stub. ``start.py`` calls with force=True at every launch.
 """
 
 from pathlib import Path

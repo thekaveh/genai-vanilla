@@ -42,6 +42,15 @@ env:
   - name: BRAND_REPO_URL
     default: "https://github.com/thekaveh/genai-vanilla"
 
+  - name: COMPOSE_PROFILES
+    auto_managed: true
+    default: ""
+    description: |
+      Docker Compose profile activation list. Rebuilt from scratch on every
+      ./start.sh run from the active STT/TTS/doc-processor sources
+      (speaches-cpu/-gpu, parakeet-gpu, chatterbox-gpu, docling-gpu/doc-gpu).
+      Do not edit by hand — the bootstrapper owns this value.
+
   # GPU + production-tuning vars — system-wide knobs not owned by any one
   # service. NVIDIA_VISIBLE_DEVICES is read by every GPU-aware container
   # (parakeet, speaches, chatterbox, docling). PROD_ENV_* are deploy.resources
@@ -69,9 +78,9 @@ env:
 
   # Migration sentinels
   - name: BOOTSTRAPPER_PORT_LAYOUT_VERSION
-    default: 1
+    default: 3
     auto_managed: false
-    description: "Sentinel updated by bootstrapper/services/migrations. Missing or <1 triggers port-layout v1 migration on next start."
+    description: "Sentinel updated by bootstrapper/services/migrations. Missing or <N triggers the chained env migrations up to N (v1 port-layout, v2 URL>PORT, v3 COMFYUI model-set). Fresh .env files are already v3-shaped."
 
 depends_on:
   required: []

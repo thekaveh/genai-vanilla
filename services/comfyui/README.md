@@ -25,12 +25,12 @@ Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.
 COMFYUI_SOURCE=container-cpu                # container-cpu | container-gpu | localhost | disabled
 COMFYUI_PORT=63041                          # computed by topology.py
 COMFYUI_BASE_URL=http://comfyui:18188       # in-container default
-COMFYUI_ARGS=--listen                       # bootstrapper injects --cpu or --force-fp16 per source
+COMFYUI_ARGS=--listen                       # static — passed verbatim; add --cpu (CPU) or --force-fp16 (GPU) yourself (compose default when unset: --listen --cpu)
 COMFYUI_PLATFORM=linux/amd64
 COMFYUI_USER_MODELS=                         # comma-separated catalog names; set by the wizard
 COMFYUI_UPLOAD_TO_SUPABASE=true
 COMFYUI_STORAGE_BUCKET=comfyui-images
-COMFYUI_AUTO_UPDATE=false                   # GPU variant flips this to true upstream
+COMFYUI_AUTO_UPDATE=false                   # passed straight through as the container's AUTO_UPDATE; not source-dependent
 ```
 
 Localhost overrides:
@@ -44,7 +44,6 @@ Auto-managed (do not edit manually):
 
 ```bash
 COMFYUI_ENDPOINT=...                        # what backend/n8n/jupyterhub/open-webui consume
-IS_LOCAL_COMFYUI=true|false
 COMFYUI_SCALE / COMFYUI_INIT_SCALE
 ```
 
@@ -78,6 +77,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 | hermes | agents |
 | n8n | agents |
 | backend | apps |
+| jupyterhub | apps |
 | open-webui | apps |
 
 ### 5.3 Architecture diagram
@@ -183,6 +183,6 @@ curl http://localhost:${COMFYUI_PORT}/history/abc-123
 ## 8. Performance notes
 
 - **CPU mode is slow.** A 512×512 SD 1.5 generation takes ~30-90s on CPU; the same on a modest GPU takes 2-5s. Use CPU mode for testing workflows, not for production.
-- **GPU FP16.** The GPU variant injects `--force-fp16` automatically; halves VRAM usage with negligible quality impact for most SD/SDXL workloads.
+- **GPU FP16.** Add `--force-fp16` to `COMFYUI_ARGS` in `.env` when running the GPU variant; halves VRAM usage with negligible quality impact for most SD/SDXL workloads.
 - **Model loading dominates first-run latency.** Each checkpoint is ~2-7 GB; the first workflow using a model pays a 5-30s load cost as ComfyUI maps it into memory. Subsequent runs reuse the cached model.
 - **No batching today.** ComfyUI processes one workflow at a time; concurrent requests queue. For high throughput, add replicas (out of scope for the default stack).

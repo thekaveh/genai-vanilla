@@ -8,6 +8,10 @@ values, producing a tidy .env that matches the template's section
 ordering. Keys the user has but .env.example doesn't are preserved
 under a ``# User-only keys`` trailer at the bottom.
 
+This is a MANUAL operational tool — nothing in CI, the bootstrapper,
+or the docs invokes it; run it yourself when an old .env has accreted
+trailers. Honors GENAI_ENV_FILE like the rest of the stack.
+
 Usage:
     python bootstrapper/scripts/reorg_user_env.py [--dry-run]
 
@@ -17,13 +21,23 @@ You did back up first — right?
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_PATH = REPO_ROOT / ".env"
+# Honor GENAI_ENV_FILE like every other .env consumer (start.py,
+# config_parser, docker_manager, key_generator) — a custom-env-file user
+# running this cleanup would otherwise reorganize the wrong file.
+# Relative paths anchor at the repo root, matching ConfigParser.
+_custom = os.environ.get("GENAI_ENV_FILE", "").strip()
+if _custom:
+    _p = Path(_custom).expanduser()
+    ENV_PATH = (_p if _p.is_absolute() else REPO_ROOT / _p).resolve()
+else:
+    ENV_PATH = REPO_ROOT / ".env"
 EXAMPLE_PATH = REPO_ROOT / ".env.example"
 
 # `KEY=value` with optional inline comment. We deliberately don't strip
@@ -113,8 +127,11 @@ def main() -> int:
     if not EXAMPLE_PATH.exists():
         print(f"error: {EXAMPLE_PATH} not found", file=sys.stderr)
         return 1
-    # Backup-or-bust safety: refuse if no .env.bak.* exists.
-    backups = list(REPO_ROOT.glob(".env.bak.*"))
+    # Backup-or-bust safety: refuse if no backup exists ALONGSIDE the
+    # active env file (honors GENAI_ENV_FILE — globbing the repo root
+    # both refused legitimate custom-path backups and let stale
+    # repo-root backups falsely satisfy the check).
+    backups = list(ENV_PATH.parent.glob(ENV_PATH.name + ".bak.*"))
     if not backups and not args.dry_run:
         print(
             "error: no .env.bak.* found alongside .env — back up first:\n"

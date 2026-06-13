@@ -7,6 +7,639 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-11 overnight maintenance passes 56-62 (7 commits)
+
+- n8n queue mode: the worker now exports metrics too (5 mirrored
+  `N8N_METRICS*` vars + a dedicated `n8n-worker:5678` scrape job) —
+  execution-data counters are written worker-side, so the Grafana panels
+  were blind to them; scrape-target counts updated to 13 across docs.
+- Supabase: documented the auth-less pg-meta host publish
+  (`SUPABASE_META_PORT`, SQL as `supabase_admin`) with a firewall/remove
+  guidance note; submodule guide's `PROJECT_NAME=… ./start.sh` example
+  replaced with the working `.env`-based flow (a shell prefix splits the
+  compose project name from fragment interpolation).
+- README: project tree gained redis/lightrag/tei-reranker entries; the
+  architecture-diagram summary now names the full optional set.
+- Port rewrite: `VAR=63002 ` (trailing whitespace, no comment) was
+  silently skipped by the rewrite regex — fixed + regression test.
+- Dropped the dead `GRAPH_DB_HOST` declaration (zero consumers and its
+  `graph-db` default never matched the real `neo4j-graph-db` hostname).
+- `--setup-hosts` cycles no longer accumulate blank lines in /etc/hosts
+  (boundary normalized; a read failure now aborts instead of risking a
+  truncated hosts file); backend README lists the full route surface
+  (`/workflows`, `/comfyui/*`, `/api/ray/*` were undocumented).
+- Stale-comment sweep: ollama wizard-step docstrings (three-step era),
+  Kong "10 localhost routes" count, and the MinIO console-port docstring
+  (63019, not 63018) refreshed.
+
+### Fixed — 2026-06-11 overnight maintenance passes 50-55 (5 commits)
+
+- Backend: `cancel_research` now accepts PENDING sessions (the
+  insert→RUNNING race window previously left a live background task
+  uncancellable); memory-service initialization is lock-guarded so the
+  Weaviate delete-and-recreate collection heal can never race itself.
+- Textual wizard: worker failures during the setup phase surface as
+  error toasts (previously `_write_status` no-op'd with no log pane and
+  the error vanished); the confirm-step launch worker gained the same
+  `exit_on_error=False` handling as the auto-launch path.
+- New validator rule `runtime_sc_missing_variant`: a main runtime_sc
+  slice missing a declared source option is now a CI-blocking lint
+  (previously `get_service_config()` silently returned `{}` and
+  consumers fell back to hardcoded defaults).
+- `stop.sh`: the `--clean-hosts` banner no longer claims success when
+  the hosts-file edit failed (e.g. without sudo); `--cold`'s global
+  `docker system prune -f --volumes` step is now disclosed in `--help`
+  and the README (scoping it is a tracked follow-up).
+- n8n: `N8N_METRICS_INCLUDE_EXECUTION_DATA_METRICS=true` wired
+  (compose + runtime_sc + baseline) — the Grafana execution-data panel
+  was permanently "No data" because the flag is default-off upstream.
+- Zeppelin: the seeded note and README used `%jdbc(postgres)` prefix
+  syntax that Zeppelin 0.12 removed; flow rewritten around a dedicated
+  `%postgres` interpreter. OPENCLAW_ENDPOINT documented as a
+  forward-looking hook (no consumer wired today).
+
+### Fixed — 2026-06-11 overnight maintenance passes 46-49 (5 commits)
+
+- **Backfill vs migrations (HIGH):** `backfill_missing_env_vars()` no
+  longer pre-seeds keys the migration chain owns. Previously it spliced
+  `BOOTSTRAPPER_PORT_LAYOUT_VERSION` (and migration v2's `*_LOCALHOST_PORT`
+  targets / v3's COMFYUI model vars) from `.env.example` into legacy
+  `.env` files *before* `run_port_migration()` inspected them — stamping
+  the file as already-migrated and silently dropping the user's legacy
+  port and model-set customizations. Six regression tests including an
+  end-to-end legacy-env chain.
+- Dockerfile hygiene: jupyterhub/backend ARG defaults now match the
+  manifests' image pins (CI build-validation previously built a different
+  base than production); coursier pinned to v2.1.24; LDR's psycopg2-binary
+  pinned to the repo-wide 2.9.9.
+- Blank `BOOTSTRAPPER_PORT_LAYOUT_VERSION=` lines now count as unmigrated
+  and are stamped in place (previously: skipped by the digit-only regex
+  and duplicated on stamp).
+- Docs: weaviate module-list truth in source-configuration.md,
+  CONTRIBUTING category table (5/6 rows were missing services) + manifest
+  counts, `ray.localhost` restored to the alias list, openclaw opt-in
+  framing in the redis research row.
+- **Localhost-port collision class (MED):** five `*_LOCALHOST_PORT`
+  defaults were stale pre-migration literals sitting on ports OTHER
+  services now publish (docling/63021=Neo4j Browser, parakeet/63022=Redis,
+  openclaw/63024=Spark UI, whisper-cpp/63025=Spark History,
+  chatterbox/63027=Weaviate gRPC). Re-defaulted onto each family's freed
+  slot (63040/63042/63042/63044/63065) across manifests, wizard wiring,
+  Kong generator, localhost validator, service_config, tests, and docs.
+  Existing `.env` files keep their old values (migration-v4 candidate —
+  see Known follow-ups).
+- Test suite: default-assertions made hermetic (no longer read the live
+  repo `.env`); stale `_KNOWN_NO_CONSUMER` exclusions dropped; new
+  cross-seam guard pins every hardcoded localhost-port fallback literal
+  to `.env.example`. Suite grew 826 → 839.
+
+### Fixed — 2026-06-11 overnight maintenance passes 40-45 (6 commits)
+
+- Neo4j backup tooling: `auto_restore.sh` / `restore.sh` no longer print
+  "restored successfully" when `neo4j-admin database load` fails — failures
+  now exit non-zero with a partial-state warning (container startup
+  behavior unchanged); `ollama` pull.sh adds `PGPORT` to its required-env
+  check.
+- Audit scripts: `validate_research_schema.py --all` and the docs-drift
+  SOURCE-matrix check fail loudly when their target globs match nothing
+  instead of passing vacuously.
+- Manifests: dropped Spark's unwired `supabase` data-flow edge (no JDBC
+  driver or env wiring ships — same user-driven rule as Zeppelin's litellm
+  exclusion) and its dead `prometheus` optional dep; documented MinIO's
+  `supabase` entry as ordering-only slot pinning.
+- Textual UI: `ctrl+q` hint relabeled "quit" (setup-phase quit never
+  saved); removed the dead `on_complete` hook and `_refresh_topology`
+  shim; refreshed stale PresentationApp/palette/wizard comments. The
+  `--no-tui` linear flow now clears stale shell-exported `*_PORT` vars
+  before port configuration, matching the TUI pipeline.
+- Backend research surface: documented the `research_client.py` ↔
+  LangGraph protocol mismatch (client targets bespoke `/research/*` +
+  `/health`; `langgraph dev` serves `/ok` + `/threads` + `/runs`) as a
+  known gap in all three claim sites; porting the client is a tracked
+  follow-up.
+- Env migrations: fresh `.env` files now ship sentinel
+  `BOOTSTRAPPER_PORT_LAYOUT_VERSION=3` (no spurious v2+v3 first-run pass
+  with backup-file noise), migration v3 honors its append-if-absent
+  contract for `COMFYUI_CUSTOM_MODELS_FILE`, and migration v2 recognizes
+  quoted URL values.
+
+### Fixed — 2026-06-10 overnight maintenance passes 35-39 (6 commits)
+
+- Redis README cluster closure: the per-database index map now matches
+  compose reality everywhere (n8n BullMQ on db `/0`, LightRAG + Open WebUI
+  sharing `/2`, JupyterHub on `/3`), Local Deep Researcher research routes
+  documented as existing, and the backend's injected-but-unread `REDIS_URL`
+  framed truthfully across all four cross-referencing READMEs.
+- Backend README intro rewritten from the aspirational "fans out to every
+  data-tier" hub claim to the actual runtime call list (Supabase, Weaviate,
+  LiteLLM, ComfyUI, n8n, Ray, Local Deep Researcher); `adapts_to` list
+  completed with `ray` + `lightrag`.
+- Open WebUI README: removed the false "Weaviate is wired" premise from the
+  hybrid-search future item and corrected the consumer boilerplate (only
+  Kong + its init container consume Open WebUI).
+- Hermes README: example pin `nousresearch/hermes-agent:0.13.0` (a tag that
+  does not exist upstream — the registry publishes only `latest`/`sha-*`)
+  corrected to `latest`; n8n README's bidirectional "agent can call a
+  workflow" claim reduced to the one wired direction.
+- LiteLLM README: "Prompt caching (Redis)" no longer listed as an unused
+  feature (response caching is already enabled stack-wide); future item now
+  points at the genuinely-unused semantic cache + per-key TTL controls.
+- All `redis-cli` doc examples now carry `-a "$REDIS_PASSWORD"`
+  (`requirepass` is on) and use `--scan` instead of `KEYS`.
+
+### Fixed — 2026-06-10 overnight maintenance pass 34 (1 commit)
+
+- README long-tail factual sweep (the last seven never-audited service
+  docs): weaviate's ports corrected (63026/63027 — it listed Redis's
+  63022/63023) along with its Kong route and module lists;
+  local-deep-researcher's "no Kong route / no backend API" claims
+  inverted (both exist); redis's database map matched to reality (n8n
+  queue on db 0, JupyterHub on db 3, Kong on default 0); backend's
+  required deps now include litellm and the right Hermes port (8642);
+  ray's shm_size 8gb; spark documents its local S3A-enabled build;
+  openclaw's deep-health command uses the real entrypoint. The full
+  code remainder pool (12 widgets, utils/core internals, wizard
+  sections) was read end-to-end the same pass — clean.
+
+### Fixed — 2026-06-10 overnight maintenance passes 32-33 (2 commits)
+
+- The dead `WEAVIATE_LITELLM_BASE_URL` chain removed (generated into
+  `.env` with the same wrong `/v1` suffix, consumed by nothing,
+  described falsely); stacks deployed before the `/v1/v1` fix get
+  their broken Memory collection deleted and recreated at backend
+  startup (Weaviate 1.27.5 forbids vectorizer-config updates, and the
+  class could never store vectors anyway); reorg_user_env's
+  backup-safety check honors `GENAI_ENV_FILE`; a dead langgraph.json
+  that contradicted the runtime graph registration removed; linear
+  banner taglines now honor `BRAND_TAGLINE`.
+
+### Fixed — 2026-06-10 overnight maintenance passes 27-31 (5 commits)
+
+- **Weaviate-backed memory inserts/searches 404'd on every call** — the
+  collection's `text2vec-openai.baseURL` carried a `/v1` suffix that
+  Weaviate's openai module joins `/v1/embeddings` onto
+  (`/v1/v1/embeddings`); suffix dropped, and weaviate-init's dead
+  `DEFAULT_OPENAI_BASE_URL` export (same wrong suffix, read by nothing)
+  removed.
+- Parakeet-GPU timestamps read NeMo's real `.timestamp` field (the
+  pass-26 fix used the nonexistent `.timestep`); docling upload
+  handlers gained the same filename guards.
+- /etc/hosts handling is now comment-aware and address-anchored in BOTH
+  directions — a commented-out `# 127.0.0.1 alias` no longer counts as
+  present, and removal spares commented lines and the user's
+  hyphenated lookalikes (regression tests cover both paths).
+- Submodule-usage examples now show Kong's REAL routing (Supabase REST
+  path-routed on the gateway root; everything else host-routed) and
+  the right `SUPABASE_API_PORT`; `.env` rewrites in key_generator and
+  migration_v3 are atomic + mode-preserving (backups included).
+- searxng's trusted-proxy claim now matches limiter.toml; hosts-check
+  and kong-consumer test nits.
+
+### Fixed — 2026-06-10 overnight maintenance pass 26 (1 commit)
+
+- **Every parakeet-GPU transcription request 500'd** — NeMo's RNNT/TDT
+  decoder returns `List[Hypothesis]` even without `return_hypotheses`,
+  and the handler passed the dataclass to `len()`; text is now
+  extracted defensively (mirroring the MLX sibling) and timestamps are
+  actually requested at `transcribe()` time and read from NeMo's
+  `.timestamp` field, so the advanced endpoint returns real timing
+  data.
+- Docling chunking clamps caller-supplied `chunk_size`/`chunk_overlap`
+  (an overlap ≥ size made the chunk loop never advance — unbounded
+  memory growth from one bad form value), in both the shared and
+  localhost copies.
+
+### Fixed — 2026-06-10 overnight maintenance passes 21-25 (4 commits)
+
+- **Neo4j backup/restore never worked on the shipped 5.19 image** —
+  `database dump --output-name` doesn't exist (every backup failed AND
+  `set -e` aborted before `neo4j start`, leaving the DB stopped), and
+  community editions have no `database restore` subcommand at all. The
+  scripts now dump via `--to-path` + rename, restore via `database load
+  --from-stdin`, and restart Neo4j through an EXIT trap even on
+  failure; the README's 4.x-isms (NEO4J_dbms_memory_*, `db.indexes()`,
+  "incremental backups", wrong volume name, phantom APOC) corrected.
+- node-exporter now passes `--path.rootfs=/rootfs` — without it the
+  filesystem metrics the containers-and-host dashboard graphs described
+  the exporter's own overlay mount, not the host disks the bind exists
+  to expose.
+- The ollama.com variant scraper accepts `M`-suffixed context windows
+  (`10M context window` rows — the llama4 class — were silently
+  dropped to coarse sizes).
+- Earlier in this span: a health-probe DB connection leak closed
+  (close-in-finally), the silently-no-op'd keys help-text edit landed
+  for real, and the whole resource-close pattern class was exhaustively
+  swept (23 sites verified safe).
+
+### Fixed — 2026-06-10 overnight maintenance pass 20 (1 commit)
+
+- The regen tool's doc-only boilerplate variant now also covers
+  AGGREGATE folders: stt-provider / doc-processor READMEs stopped
+  citing a `service.yml` they don't have (they now point at the member
+  manifests that actually carry the edges); `services/comfyui/empty/`
+  is committed so container-mode runs stop creating it root-owned at
+  runtime; an airflow troubleshooting bullet stopped referencing the
+  `OpenAIOperator` class the same README explains doesn't exist.
+
+### Fixed — 2026-06-10 overnight maintenance pass 19 (1 commit)
+
+- The host-run Docling localhost server loaded `.env` from the wrong
+  directory (three parents instead of five — the load silently
+  no-op'd) and bound the container-mode `DOC_PROCESSOR_PORT` instead of
+  the stack's `DOCLING_LOCALHOST_PORT` contract (it only worked because
+  the fallback happened to match); its README taught the wrong var.
+- multi2vec-clip README: module lists now include the
+  `text2vec-ollama`/`generative-ollama` pair (following the old disable
+  snippet verbatim would have dropped them) and the env story correctly
+  credits compose interpolation, not weaviate-init; the regen tool
+  gained a doc-only boilerplate variant so pointer docs stop citing a
+  `service.yml` they themselves say doesn't exist.
+
+### Fixed — 2026-06-10 overnight maintenance passes 16-18 (3 commits)
+
+- Hermes context-window guidance replaced a fabricated `ollama
+  --ctx-size` flag (no such flag upstream) with the real paths:
+  `OLLAMA_CONTEXT_LENGTH` on the server or `/set parameter num_ctx` +
+  `/save <model>` in the REPL; the "defaults to 4096" claim updated to
+  current upstream behavior (VRAM-dependent 4k/32k/256k). Test-suite
+  hygiene: validator tests moved onto the shared env fixture; passes
+  14-15 were zero-finding verification sweeps.
+
+### Fixed — 2026-06-10 overnight maintenance pass 13 (1 commit)
+
+- The speaches GPU-image rewrite now honors a shell-exported
+  `SPEACHES_GPU_IMAGE` (the pin refresher's documented override path) —
+  pass 12's version consulted only `.env`, losing exported pins and, in
+  the no-.env-line case, silently falling back to the CPU image again.
+
+### Fixed — 2026-06-10 overnight maintenance pass 12 (1 commit)
+
+- The image-pin refresher now also covers pins declared as plain env
+  vars (`SPEACHES_GPU_IMAGE` would otherwise go stale in user `.env`s
+  on every cuda bump — and the pass-11 fix had duplicated its literal);
+  the two LightRAG/TEI wizard-port test rows that pass 11's docstring
+  bump promised are actually in the table now; a swept-in `.pyc` is
+  untracked and the over-broad `!*` in the bundled-data gitignore
+  scoped; a non-integer `LIGHTRAG_EMBEDDING_DIM` now warns before
+  falling back to auto-probe.
+
+### Fixed — 2026-06-10 overnight maintenance pass 11 (1 commit)
+
+- **`speaches-container-gpu` actually runs the CUDA image now** — the
+  compose fragment interpolates `${SPEACHES_IMAGE}` under both
+  profiles, and nothing ever wired `SPEACHES_GPU_IMAGE` in despite
+  three docs claiming "the speaches-gpu profile selects it" (the
+  manifest's own description admitted "not yet wired"). The generator
+  now resolves the winning profile's image; gpu→cpu switches self-heal
+  via the pin refresher.
+- **`LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` /
+  `LIGHTRAG_EMBEDDING_DIM` are honored** — the README told users to set
+  them, but lightrag-init never received nor read them (and its WARN
+  advised overriding via a var nothing consumed). The dim override now
+  defaults to empty = auto-probe (a hardcoded 768 default would have
+  silently bypassed the probe for non-768 models).
+- LightRAG and TEI Reranker `localhost` options gained the inline
+  port widget every other localhost-capable service already had; the
+  cloud-providers registry docstring stopped overclaiming start.py's
+  imports; three never-consumed `COMFYUI_*_PATH` vars removed from the
+  manifest/.env.example.
+
+### Fixed — 2026-06-10 overnight maintenance pass 9 (1 commit)
+
+- Clearing log filters while the source popup is open no longer gets
+  silently reverted by the popup's stale snapshot on dismiss; one
+  garbled docstring from pass 8 rewritten whole; hermes config template
+  comment now cites the `ollama/`-prefixed id LiteLLM actually
+  publishes.
+
+### Fixed — 2026-06-10 overnight maintenance pass 8 (1 commit)
+
+- The atomic `.env` write clamps the tmp file's mode BEFORE secrets are
+  written (no umask-default window beside a 0600 `.env`); two LiteLLM
+  docstrings corrected to match actual behavior (a missing config stub
+  is always written; non-container custom Ollama models are registered
+  with a warning, not ignored).
+
+### Fixed — 2026-06-10 overnight maintenance pass 7 (1 commit)
+
+- The `--no-tui` banner now honors the `BRAND_*` rebranding knobs (it
+  hardcoded the upstream credits while the Textual wizard rebranded);
+  the atomic `.env` write preserves the file's mode, cleans up its tmp
+  sibling on failure, and `.env.tmp` is gitignored; the launch-time
+  skip-prune moved to a module-level helper so its regression test
+  binds to production code instead of an inline replica.
+
+### Fixed — 2026-06-10 overnight maintenance pass 6 (1 commit)
+
+- Pre-launch command summary no longer shows flags from steps the user
+  later hid via Back-navigation (matches what launch actually
+  persists); the SOURCE-override `.env` rewrite is now atomic
+  (tmp + `os.replace` — a crash mid-write used to truncate `.env`);
+  launch-time prune gains a regression test; a migration docstring
+  stopped overstating its STT involvement.
+
+### Fixed — 2026-06-10 overnight maintenance pass 5 (2 commits)
+
+- **Both seeded n8n research workflows were broken end-to-end**: the
+  weekly scheduler sent `user_id: "system_scheduler"` (backend casts to
+  UUID → 500 on every run, forever); the SearXNG research workflow's
+  model-lookup compared the integer `content` column to a boolean (no
+  such Postgres operator → node always errored) and its AI-summary node
+  read `$env.LITELLM_BASE_URL` / `LITELLM_API_KEY`, which were never in
+  the n8n containers' env (URL rendered "undefined/…"). All three
+  fixed; the LiteLLM vars are now injected into n8n AND n8n-worker
+  (queue mode) with the runtime_sc dual-write.
+- Curated OpenRouter id corrected to `anthropic/claude-sonnet-4.6`
+  (OpenRouter serves the dot form; the hyphen form is Anthropic-direct
+  only — verified against the live models API).
+- A stale picker commit no longer persists after Back-navigating and
+  disabling the owning service (skip-hidden steps are pruned at
+  launch).
+- `services/docling/provider/localhost/requirements.txt` removed — it
+  duplicated pyproject+uv.lock (the actual install path), and
+  Dependabot bumps to it alone would silently re-drift the pins the
+  lock-gate can't see.
+- redis fragment header no longer claims the fragment is unreferenced.
+
+### Fixed — 2026-06-10 overnight maintenance pass 4 (2 commits)
+
+- **`--base-port` runs now persist `BASE_PORT` itself** — the port
+  rewriter updated every `*_PORT` but never the anchor, so the very
+  next flagless run (which preserves `.env`'s `BASE_PORT` since pass 1)
+  read the stale 63000 and silently reverted the whole custom layout.
+- **Upgrading an old `.env` with `COMFYUI_MODEL_SET` now activates real
+  models** — migration_v3 translated to catalog-phantom names
+  (`sd15-pruned-emaonly` / `sdxl-base-1.0` exist nowhere), so
+  catalog-init activated only the VAEs and every seeded workflow failed
+  at render. The SD1.5/SDXL-base checkpoints now live in the curated
+  catalog layer (present regardless of scrape outcome) and the
+  translation emits their real names.
+- ComfyUI `[pulled]` badges now also match the catalog `filename`
+  column (civitai/sidecar downloads were never recognized on re-runs);
+  an explicit deselect-all in the ComfyUI picker now clears
+  `COMFYUI_USER_MODELS` like the Ollama picker; the consolidation-log
+  tense map accepts both tense forms; the dead per-source
+  `COMFYUI_ARGS`/`AUTO_UPDATE` keys left in `runtime_sc` are gone;
+  `DASHBOARD_PASSWORD`'s `.env.example` description now documents the
+  auto-rotation; Studio auth nuance documented (Kong route gated,
+  direct port open).
+
+### Fixed — 2026-06-10 overnight maintenance pass 3 (5 commits)
+
+- **CRITICAL (self-caught): the pass-2 airflow quote-safety fix broke
+  airflow-init on every boot** — psql performs `:'var'` interpolation
+  only in script input, never inside `-c` strings, so both role
+  statements errored under `set -e`. Statements now pipe via stdin
+  (quote-safe AND functional; verified empirically against a live
+  Postgres).
+- **Ollama model picker no longer duplicates every pulled model**: the
+  "pulled-but-not-in-library" bucket compared tagged names
+  (`qwen3.6:latest`) against bare library families (`qwen3.6`), so each
+  normal pull also surfaced as a bogus "(local model, not in public
+  library)" row. The picker's `/api/tags` probe also now honors
+  `OLLAMA_LOCALHOST_PORT` (the 5th consumer site of the localhost-port
+  symmetry rule).
+- **`./stop.sh --clean-hosts` no longer deletes the user's own
+  /etc/hosts entries** — removal matched substrings, so a personal
+  `127.0.0.1 my-n8n.localhost` line vanished because it *contains* a
+  stack alias. Now whole-token comparison.
+- **Memory consolidation log recorded every merge as "superseded"** —
+  the action guard compared past-tense values against the LLM
+  contract's present-tense vocabulary.
+- Smaller correctness: migration_v3 no longer drops the user's
+  COMFYUI model-set translation when the old line carried an inline
+  comment; a list-rooted ComfyUI sidecar YAML no longer crashes the
+  wizard/catalog-init (warn + ignore per its never-raises contract);
+  `http.client.HTTPException` (IncompleteRead etc.) is now caught at
+  all six catalog/scrape fetchers; the service.yml schema rejects
+  typo'd keys inside `runtime_sc.<container>.<source>` blocks
+  (previously silently dropped).
+- Refactors (output-verified): the five uniform SPA Kong routes
+  (prometheus/spark-master/spark-history/airflow/zeppelin) collapsed
+  into one data-driven table — generated config byte-identical across
+  4 SOURCE permutations; capture-free helpers hoisted out of the
+  285-line `build_ollama_steps`; four duplicated test env-splice loops
+  replaced by a shared `env_with_overrides` conftest factory.
+- Docs/CI: CONTRIBUTING's CI-gates section now documents all four jobs
+  + the four-seam picker-flag rule; minio image note drops a
+  placeholder CVE id; `.gitignore` sheds two dead personal-scratch
+  entries; kong/comfyui READMEs lose claims invalidated this run.
+
+### Fixed — 2026-06-10 overnight maintenance pass 2 (6 commits)
+
+- **`storage.objects` was dropped and recreated on EVERY `docker compose
+  up`** (04-storage.sql) — all Supabase Storage object metadata (ComfyUI
+  uploads included) silently vanished on each restart, and storage-api's
+  own migration ledger stayed marked applied so its later columns never
+  came back. Now `CREATE TABLE IF NOT EXISTS` like every sibling table.
+- **Grafana dashboards re-verified against the PINNED upstream versions**
+  (the previous fix validated against upstream master): kong.json's four
+  panels all used Kong 2.x metric names that don't exist in kong:3.9.0
+  (`kong_http_requests_total` / `kong_request_latency_ms_bucket` /
+  `kong_bandwidth_bytes{direction}` now); both Weaviate app-tier panels
+  used master-only `weaviate_module_*` metrics absent from 1.27.5
+  (unprefixed `requests_total{api}` / `queries_durations_ms_bucket`);
+  the n8n uptime fix had replaced a correct prefixed name with an
+  unprefixed one (`n8n_process_start_time_seconds` is right —
+  prom-client default metrics ARE prefixed); litellm failed-requests
+  grouped by labels that don't exist (`requested_model` /
+  `exception_class` now). Datasource provisioning gains an explicit
+  `uid: Prometheus` matching every panel ref; `GF_SERVER_ROOT_URL` now
+  carries the Kong port.
+- **Supabase Studio is now actually behind the documented credential
+  gate**: the Kong dashboard route shipped with only CORS — no
+  basic-auth, no ACL — while README/.env promised
+  `DASHBOARD_USERNAME`/`DASHBOARD_PASSWORD` protection (the consumer +
+  auto-rotated password existed; the route just never used them).
+- **Pass-1 regressions caught by an adversarial diff review and fixed**:
+  the localhost-validator port conversion fed a string port into
+  `socket.connect_ex` (Neo4j probe always failed even with a live
+  listener) and used blank-value-unsafe `dict.get`; `GET /workflows`
+  would have flipped its wire format to camelCase (validation-only
+  aliases now); a degraded model-fetch's KEEP sentinel leaked into the
+  command summary and could wrongly flip a cloud provider's overview
+  state.
+- **local-deep-researcher could be configured against model ids LiteLLM
+  never serves** — its init prefixed every provider (`openai/gpt-…`,
+  `openrouter/openrouter/…`); only Ollama rows carry a prefixed alias.
+  Same family: LightRAG's default-chat fallback picked the first
+  /v1/models entry, which is typically an embeddings-only route — now
+  filters out embedding/agent/self entries.
+- **Six seeded workflows/tools referenced checkpoint filenames the
+  download pipeline never produces** (`sd_v1-5_pruned_emaonly` vs the
+  catalog's `v1-5-pruned-emaonly`, `sdxl_base_1.0` vs `sd_xl_base_1.0`)
+  — every seeded ComfyUI workflow failed at render even with the model
+  installed. Civitai catalog entries also gain a real `filename` (their
+  download URLs have none, so files landed extension-less where ComfyUI
+  never lists them).
+- **LightRAG's Neo4j migration never applied while logging OK** — the
+  whole multi-statement cypher file went up as a single tx statement
+  (guaranteed syntax error) and Neo4j reports errors inside an HTTP 200
+  body the script never read. Now split per-statement + errors[] gate.
+  Its pgvector meta table also gains the PK that made `ON CONFLICT DO
+  NOTHING` a no-op (one new row per boot, with self-heal for existing
+  installs).
+- **CI hardening**: backend's pytest suite now runs in the required
+  `Manifest lint + unit tests` check (it previously ran nowhere); the
+  docling localhost provider gets a `uv lock --locked` gate (no
+  Dockerfile → build-validation can't see its pins); all GitHub Actions
+  are SHA-pinned; `check_doc_links.py` now validates `#anchor`
+  fragments against GitHub heading slugs (and immediately caught a dead
+  `{#launch-log}` kramdown anchor GitHub never supported);
+  `check-kong-routes.py` now covers all 17 default-emitted hosts (was
+  9). hermes-init's model dedup no longer hides direct-API cloud
+  entries when OpenRouter twins exist; ollama-pull's wait is bounded
+  and pull errors inside HTTP-200 NDJSON are surfaced; n8n
+  community-package checks parse n8n's `{"data": …}` envelope;
+  memory-table RLS policies now actually scope to `service_role`
+  (`USING (true)` + default-privilege grants had left authenticated
+  PostgREST callers full CRUD on all memories).
+- **Init hardening + dead-chain removals** (same commit as the CI
+  gates): airflow-init's role statements switched to quote-safe psql
+  `:'pw'` interpolation (NOTE: this introduced the regression pass 3's
+  first bullet fixes — `-c` strings don't interpolate); openclaw's
+  inline config patcher got `set -e` + tmp-file writes (a missing jq
+  used to truncate openclaw.json to 0 bytes); db-init-runner's DB wait
+  is bounded (300s); minio-init now refreshes service-account secrets +
+  policies on re-runs (rotations used to silently never propagate); the
+  dead `IS_LOCAL_COMFYUI` chain, unread `WEBUI_ADMIN_*` container env,
+  and two never-called legacy methods in the research streaming tool
+  were removed.
+- Docs: zeppelin README no longer claims `%spark` works without the
+  Spark-Connect setup (the image ships no Spark distro) and its starter
+  notebook uses `spark.version` (no `sc` under Connect); comfyui README
+  stops claiming the bootstrapper injects `--force-fp16`/`AUTO_UPDATE`
+  per source (all static via `.env`); searxng's "Redis is wired"
+  claims corrected everywhere (`valkey.url: false`, dependency is
+  slot-pinning only); n8n README's Hermes→n8n inverse path is
+  webhook-based (no execute endpoint exists); ROADMAP counts corrected
+  to 32 families / 62 containers.
+
+### Fixed — 2026-06-10 overnight maintenance pass 1 (18 commits)
+
+- **`N8N_SOURCE=disabled` never disabled n8n.** `N8N_SCALE` was read from
+  `.env` with the manifest value as a mere dict-default; the key always
+  exists, so the source was never consulted and n8n/n8n-worker/n8n-init
+  all started anyway. Scale now derives from the manifest per source,
+  and the dependency manager's auto-disable now zeroes worker/init
+  scales too (it previously left both running against a dead main) and
+  no longer sticks after the violated dependency is re-enabled.
+- **`DOC_PROCESSOR_SOURCE=docling-container-gpu` wiped the
+  speaches/parakeet/chatterbox compose profiles** — the doc-processor
+  generator rebuilt `COMPOSE_PROFILES` from a dict that never contains
+  that key instead of stacking onto the shared tally, so enabling
+  Docling-GPU silently excluded the active STT/TTS containers. The
+  pipeline now owns `COMPOSE_PROFILES` end-to-end (seeded empty each
+  run, so stale profiles from since-disabled sources also clear) and
+  the var is declared auto-managed in the globals manifest.
+- **`GENAI_ENV_FILE` was half-wired**: all four `docker compose` argv
+  builders hardcoded `--env-file=.env` (compose silently ran against
+  the wrong file), `KeyGenerator` wrote generated secrets to the
+  repo-root `.env`, and a relative path resolved against CWD (differs
+  between the uv launcher and the system-python fallback). All seams
+  now honor the resolved path.
+- **Multiple invalid `*_SOURCE` values reported "✅ All SOURCE values
+  are valid" while exiting 1** — the per-value validator reset the
+  shared error list on every call, so only the last variable's errors
+  survived.
+- **Kong's n8n route emitted a literal `${KONG_HTTP_PORT}` into
+  `X-Forwarded-Host`** (Kong DB-less config does no env interpolation),
+  so n8n baked the unexpanded token into webhook/editor URLs served via
+  `n8n.localhost`. The port is now resolved at generation time.
+- **`./start.sh --no-tui` (and any non-TTY run) silently reset a custom
+  port layout** — the linear flow fell straight to base port 63000
+  instead of preserving the `BASE_PORT` already configured in `.env`,
+  rewriting every `*_PORT` and leaving `.env` self-inconsistent. It now
+  mirrors the TUI's read-from-.env fallback.
+- **Wizard (TUI) fixes**: the ComfyUI model picker now honors the source
+  you just selected instead of the stale pre-wizard `.env` value (it
+  used to hide after enabling ComfyUI, and show for a just-disabled
+  one); "No — exit without starting" on the final confirm actually
+  exits (was a silent no-op); launch-phase crashes surface in the log
+  pane instead of freezing the UI silently; a failed model-catalog
+  fetch no longer lets a single Enter wipe your saved
+  `OLLAMA_USER_MODELS` CSV; ComfyUI filter chips no longer desync from
+  the row filter on `f`-cycling; the `[pulled]` badge scan now resolves
+  the real `<project>-comfyui-models` volume mountpoint via
+  `docker volume inspect` instead of scanning a host path that never
+  exists.
+- **Backend API**: `/storage/upload` called storage3 methods that don't
+  exist (every upload 500'd — now uses the per-bucket `from_()` API);
+  `GET /workflows` returned n8n's `{data: …}` envelope raw (failed
+  response validation — now unwrapped, with camelCase timestamp
+  aliases); `POST /workflows/{id}/execute` removed (n8n's public API
+  v1 has no such endpoint — the route could never succeed);
+  `/comfyui/cancel/{id}` now deletes queued prompts via `POST /queue`
+  and only interrupts when the prompt is actually running (it used to
+  abort whatever was running); plus 400/404 correctness on
+  research-session listing, ComfyUI model CRUD, and image fetch, and
+  JSONB metadata decoding on memory update. `N8N_API_KEY` is now a
+  declared (empty-by-default) env var passed to the backend — n8n CE
+  only issues keys via its UI, and the `/workflows` endpoints 401
+  without one.
+- **`RAY_ADDRESS` never reached any container** — declared only in
+  `runtime_adaptive` (which writes `.env`, not container env), so every
+  `/api/ray/*` backend route 503'd and notebook 07 reported "Ray is
+  disabled" even with Ray enabled. Now injected via the backend and
+  jupyterhub compose environment blocks (+ `RAY_DASHBOARD_URL`
+  declared).
+- **n8n queue-mode workers were missing every workflow-facing env var**
+  (`STT_ENDPOINT`, `TTS_ENDPOINT`, `DOCLING_ENDPOINT`, `WEAVIATE_URL`,
+  Hermes/LightRAG endpoints, `GENERIC_TIMEZONE`) — and the stack
+  defaults to queue mode, so `$env.*` resolved empty exactly where
+  workflows actually execute. Mirrored into the worker block.
+- **JupyterHub notebooks**: 02_langchain_rag crashed at cell 1
+  (`langchain-openai` was never installed — now pinned, plus an
+  explicit `openai` pin that was previously only transitive);
+  00_environment_check's PostgreSQL probe always printed ❌ under
+  SQLAlchemy 2.x (raw-string `execute` — now `text()`), its "Ollama"
+  probe actually hit LiteLLM with an endpoint LiteLLM doesn't serve,
+  and its HTTP checker treated 404/500 responses as ✅.
+- **`stop.sh` always exited 0** even when `docker compose down` failed
+  (undetectable to scripts/CI) and told users to restart with a
+  nonexistent `./start.py`.
+- **Security**: docling 2.93.0 → 2.94.0 (CVE-2026-47214, 3 high
+  alerts) + starlette 1.0.0 → 1.2.1 in the docling localhost-provider
+  lock; 3 phantom Dependabot alerts on the retired
+  `tts-provider/localhost/` path dismissed as `not_used`.
+- **`.env` parsing is now quote-aware**: `PASSWORD="ab#cd"` was
+  silently read as `ab` (any `#` truncated the value); quoted hashes
+  are data, and unquoted hashes only start a comment after whitespace.
+- **Localhost-port override symmetry completed**: the localhost
+  validator now reads `OLLAMA_LOCALHOST_PORT` / `COMFYUI_LOCALHOST_PORT`
+  / `WEAVIATE_LOCALHOST_PORT` / `NEO4J_LOCALHOST_BOLT_PORT` like every
+  other consumer, instead of probing hardcoded ports and warning
+  falsely on overridden setups.
+- searxng's compose no longer gates startup on redis (`valkey.url:
+  false` — pure coupling; the manifest keeps a slot-pinning entry).
+
+### Changed — 2026-06-10 overnight maintenance pass 1
+
+- `data_flow.calls` corrected across five manifests (and all per-service
+  README §Deps tables + diagrams regenerated): local-deep-researcher
+  +supabase (its init reads `public.llms` over psycopg2); jupyterhub
+  now mirrors the env surface its notebooks actually use (+comfyui,
+  +n8n, +backend, +searxng; −minio which had no env and no notebook);
+  open-webui now models its real edges (+supabase app DB, +redis
+  websocket manager, +backend extras tools; −weaviate and −searxng,
+  which have no wiring today and stay documented as Future pairs);
+  backend −lightrag (env passed but unread); prometheus +grafana
+  (the scrape job existed, the mirror didn't).
+- Documentation: hierarchical numbered headings enforced across 10
+  guides (CONTRIBUTING-services, troubleshooting, the four deployment
+  docs, diagrams/research/services READMEs, SECURITY) with anchors
+  rewritten; fabricated `admin@example.com / changeme123` credentials
+  replaced with the real auth story (Kong basic-auth + auto-rotated
+  `DASHBOARD_PASSWORD`; n8n first-visit owner setup); `.env.example`
+  provenance corrected everywhere (it is generated from manifests —
+  never hand-edit); supabase README per-service ports fixed (5
+  off-by-one entries); troubleshooting volume names fixed
+  (`genai-supabase-db-data`, not `genai-vanilla_supabase_db_data`);
+  source-matrix rows added for `RAY/AIRFLOW/SPARK/ZEPPELIN_SOURCE`;
+  wizard-guide "5a" heading renumbered into a clean 1–18 sequence;
+  docs hub now links the research-corpus guide and superpowers
+  plans/specs; test counts updated to 800+.
+
 ### Fixed — Critical bugs caught by the 2026-06-08 overnight audit
 
 - **`services/open-webui/init/scripts/register-tools.py:create_admin_user`

@@ -105,7 +105,7 @@ runtime_sc:
     chatterbox-localhost:
       scale: 0
       environment:
-        TTS_ENDPOINT: http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63027}
+        TTS_ENDPOINT: http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT:-63044}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway

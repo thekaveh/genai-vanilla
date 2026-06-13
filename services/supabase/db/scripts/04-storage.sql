@@ -13,24 +13,24 @@ CREATE TABLE IF NOT EXISTS storage.buckets (
     avif_autodetection boolean default false
 );
 
--- Create storage.objects table
-DO $$ BEGIN
-    -- Drop the table if it exists to ensure clean recreation
-    DROP TABLE IF EXISTS storage.objects;
-    
-    -- Create the table with all columns including the generated column
-    CREATE TABLE storage.objects (
-        id uuid primary key default gen_random_uuid(),
-        bucket_id text references storage.buckets(id),
-        name text,
-        owner uuid references auth.users,
-        created_at timestamptz default now(),
-        updated_at timestamptz default now(),
-        last_accessed_at timestamptz default now(),
-        metadata jsonb,
-        path_tokens text[] generated always as (string_to_array(name, '/')) stored
-    );
-END $$;
+-- Create storage.objects table.
+-- IF NOT EXISTS, like every other table in these scripts: supabase-db-init
+-- re-runs all scripts on EVERY `docker compose up`, and the previous
+-- DROP-and-recreate wiped all object metadata (ComfyUI uploads, anything
+-- via supabase-storage) on every restart — worse, storage-api's own
+-- migrations stayed marked applied in storage.migrations, so columns it
+-- had added never came back after the wipe.
+CREATE TABLE IF NOT EXISTS storage.objects (
+    id uuid primary key default gen_random_uuid(),
+    bucket_id text references storage.buckets(id),
+    name text,
+    owner uuid references auth.users,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now(),
+    last_accessed_at timestamptz default now(),
+    metadata jsonb,
+    path_tokens text[] generated always as (string_to_array(name, '/')) stored
+);
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS bname ON storage.buckets (name);

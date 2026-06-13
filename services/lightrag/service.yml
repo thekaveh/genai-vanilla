@@ -69,7 +69,8 @@ env:
     default: ""
     description: "Empty = lightrag-init resolves from LITELLM_EMBEDDING_MODEL."
   - name: LIGHTRAG_EMBEDDING_DIM
-    default: 768
+    default: ""
+    description: "Empty = auto (lightrag-init probes the embedding model's true dimension). Set ONLY to force a value — a wrong dim writes a mismatched PGVector index and every insert fails."
   - name: LIGHTRAG_VLM_PROCESS_ENABLE
     default: "true"
   - name: LIGHTRAG_KV_STORAGE

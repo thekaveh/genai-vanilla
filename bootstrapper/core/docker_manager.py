@@ -1,7 +1,8 @@
 """
 Docker operations manager for compose commands and Docker availability checking.
 
-Python implementation of Docker functions from start.sh and stop.sh.
+Compose execution layer (start.sh/stop.sh are now thin wrappers that
+delegate here).
 """
 
 import os
@@ -41,7 +42,8 @@ class DockerManager:
     def detect_docker_compose_command(self) -> str:
         """
         Detect available docker compose command.
-        Replicates the detect_docker_compose_cmd() function from start.sh and stop.sh.
+        Detects the available compose command (descended from the legacy
+        shell helper of the same purpose).
         
         Returns:
             str: Either "docker compose" or "docker-compose"
@@ -54,27 +56,29 @@ class DockerManager:
             
         # Check if docker is available
         try:
-            subprocess.run(['docker', '--version'], 
-                         capture_output=True, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
+            subprocess.run(['docker', '--version'],
+                         capture_output=True, check=True, timeout=10)
+        except (subprocess.CalledProcessError, FileNotFoundError,
+                subprocess.TimeoutExpired):
             raise RuntimeError("Docker is not installed or not in PATH")
         
         # Check if 'docker compose' (newer) works
         try:
-            result = subprocess.run(['docker', 'compose', 'version'], 
-                                  capture_output=True, check=True)
+            result = subprocess.run(['docker', 'compose', 'version'],
+                                  capture_output=True, check=True, timeout=10)
             self._compose_cmd = "docker compose"
             return self._compose_cmd
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             pass
         
         # Check if 'docker-compose' (legacy) works
         try:
-            subprocess.run(['docker-compose', '--version'], 
-                         capture_output=True, check=True)
+            subprocess.run(['docker-compose', '--version'],
+                         capture_output=True, check=True, timeout=10)
             self._compose_cmd = "docker-compose"
             return self._compose_cmd
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, FileNotFoundError,
+                subprocess.TimeoutExpired):
             pass
             
         raise RuntimeError("Neither 'docker compose' nor 'docker-compose' command is available")
@@ -142,7 +146,8 @@ class DockerManager:
     def execute_compose_command(self, args: List[str], use_env_file: bool = True) -> int:
         """
         Execute a docker compose command with proper error handling.
-        Replicates the execute_compose_cmd() function from start.sh and stop.sh.
+        Builds and runs a compose command (descended from the legacy
+        shell helper of the same purpose).
         
         Args:
             args: List of arguments to pass to docker compose
@@ -162,7 +167,9 @@ class DockerManager:
 
         # Add --env-file if .env exists and use_env_file is True
         if use_env_file and self.config_parser.env_file_exists():
-            full_cmd.extend(['--env-file=.env'])
+            # Use the resolved path (honors GENAI_ENV_FILE) — hardcoding .env
+            # silently ignored custom env files at the compose seam.
+            full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
 
         full_cmd.extend(args)
 
@@ -256,7 +263,8 @@ class DockerManager:
             subprocess.run(
                 ['docker', 'network', 'rm', network_name],
                 capture_output=True,
-                check=False
+                check=False,
+                timeout=10,
             )
             # Return True even if network doesn't exist (exit code 1)
             return True
@@ -413,7 +421,7 @@ class DockerManager:
     def show_container_status(self) -> int:
         """
         Show container status using docker compose ps.
-        Replicates the 'execute_compose_cmd ps' from original start.sh.
+        Compose ps (descended from the legacy shell flow).
         
         Returns:
             int: Return code from the command
@@ -436,7 +444,7 @@ class DockerManager:
             project_name = self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
-                cmd.append('--env-file=.env')
+                cmd.append(f'--env-file={self.config_parser.env_file_path}')
             cmd.extend(['ps', '-q'])
 
             result = subprocess.run(
@@ -447,6 +455,7 @@ class DockerManager:
                 check=False,
                 encoding="utf-8",
                 errors="replace",
+                timeout=10,
             )
 
             return result.returncode == 0 and bool(result.stdout.strip())
@@ -456,7 +465,7 @@ class DockerManager:
     def get_service_port(self, service: str, internal_port: str) -> str:
         """
         Get the actual external port mapped to a service's internal port.
-        Replicates the get_actual_port() function from original start.sh.
+        Resolves the actual published port (descended from the legacy shell flow).
 
         Args:
             service: Service name
@@ -470,7 +479,7 @@ class DockerManager:
             project_name = self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
-                cmd.append('--env-file=.env')
+                cmd.append(f'--env-file={self.config_parser.env_file_path}')
             cmd.extend(['port', service, internal_port])
 
             result = subprocess.run(
@@ -481,6 +490,7 @@ class DockerManager:
                 check=False,
                 encoding="utf-8",
                 errors="replace",
+                timeout=10,
             )
             
             if result.returncode == 0 and result.stdout.strip():
@@ -495,7 +505,7 @@ class DockerManager:
     def show_container_logs(self, follow: bool = True) -> int:
         """
         Show container logs using docker compose logs.
-        Replicates the 'execute_compose_cmd logs -f' from original start.sh.
+        Compose logs -f (descended from the legacy shell flow).
 
         Args:
             follow: Whether to follow logs (default True)
@@ -538,7 +548,9 @@ class DockerManager:
         project_name = self.config_parser.get_project_name()
         full_cmd.extend(['-p', project_name])
         if use_env_file and self.config_parser.env_file_exists():
-            full_cmd.extend(['--env-file=.env'])
+            # Use the resolved path (honors GENAI_ENV_FILE) — hardcoding .env
+            # silently ignored custom env files at the compose seam.
+            full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
         full_cmd.extend(args)
         return full_cmd
 

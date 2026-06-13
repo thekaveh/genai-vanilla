@@ -104,11 +104,11 @@ def test_localhost_source_routes_via_host_docker_internal():
         "WEAVIATE_SOURCE=localhost\n"
         "LLM_PROVIDER_SOURCE=ollama-localhost\n"
         "DOC_PROCESSOR_SOURCE=docling-localhost\n"
-        "DOCLING_LOCALHOST_PORT=63021\n"
+        "DOCLING_LOCALHOST_PORT=63040\n"
         "STT_PROVIDER_SOURCE=parakeet-localhost\n"
-        "PARAKEET_LOCALHOST_PORT=63022\n"
+        "PARAKEET_LOCALHOST_PORT=63042\n"
         "TTS_PROVIDER_SOURCE=chatterbox-localhost\n"
-        "CHATTERBOX_LOCALHOST_PORT=63027\n"
+        "CHATTERBOX_LOCALHOST_PORT=63044\n"
     )
     by_host = _hosts_to_service(config)
     # Every alias still resolves.
@@ -117,9 +117,9 @@ def test_localhost_source_routes_via_host_docker_internal():
         "weaviate.localhost": "http://host.docker.internal:8080/",
         "ollama.localhost":   "http://host.docker.internal:11434/",
         # docling-localhost default port from manifest fallback
-        "docling.localhost":  "http://host.docker.internal:63021/",
-        "stt.localhost":      "http://host.docker.internal:63022/",
-        "tts.localhost":      "http://host.docker.internal:63027/",
+        "docling.localhost":  "http://host.docker.internal:63040/",
+        "stt.localhost":      "http://host.docker.internal:63042/",
+        "tts.localhost":      "http://host.docker.internal:63044/",
     }
     by_host_with_url = {
         host: svc
@@ -443,3 +443,33 @@ def test_kong_localhost_route_reads_port_var(
         f"host.docker.internal:{expected_port} (matching {env_var}). "
         f"Got services: {[(s['name'], s.get('url')) for s in cfg['services']]}"
     )
+
+
+def test_n8n_forwarded_host_header_has_resolved_port():
+    """Kong DB-less config performs no env interpolation: the n8n
+    X-Forwarded-Host header must carry the literal resolved port, never
+    an unexpanded ``${KONG_HTTP_PORT}`` token (n8n bakes this header into
+    webhook/editor URLs)."""
+    config = _generate("N8N_SOURCE=container\nKONG_HTTP_PORT=64000\n")
+    n8n_services = [s for s in config["services"] if s["name"] == "n8n-api"]
+    assert n8n_services, "n8n-api service missing from Kong config"
+    headers = []
+    for plugin in n8n_services[0].get("plugins", []):
+        if plugin.get("name") == "request-transformer":
+            headers = plugin["config"]["add"]["headers"]
+    assert headers == ["X-Forwarded-Host: n8n.localhost:64000"], headers
+    assert not any("${" in h for h in headers)
+
+
+def test_dashboard_route_is_basic_auth_gated():
+    """Supabase Studio has no auth of its own; the Kong dashboard
+    service must carry basic-auth + the dashboard_user ACL (the
+    documented DASHBOARD_USERNAME/PASSWORD gate). Regression: it shipped
+    with only CORS, leaving the SQL editor open on the gateway root."""
+    config = _generate("")
+    dash = [s for s in config["services"] if s["name"] == "dashboard"]
+    assert dash, "dashboard service missing"
+    plugin_names = {p["name"] for p in dash[0].get("plugins", [])}
+    assert "basic-auth" in plugin_names
+    acl = [p for p in dash[0]["plugins"] if p["name"] == "acl"]
+    assert acl and acl[0]["config"]["allow"] == ["dashboard_user"]

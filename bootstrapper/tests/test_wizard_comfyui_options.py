@@ -327,3 +327,21 @@ def test_family_parent_first_badge_is_lowercase_group_for_filter_match():
     # row's primary text and any badge would be visual noise.
     assert "Pi" in parent.label
     assert "2 variants" in parent.label
+
+
+@pytest.mark.parametrize("env_source,selected_source,expected_skip", [
+    # User enables ComfyUI in the wizard while .env still says disabled:
+    # the picker MUST show (regression: env was consulted first, so the
+    # user never saw the model picker for the service they just enabled).
+    ("disabled", "container-gpu", False),
+    # User disables ComfyUI in the wizard while .env still says container:
+    # the picker MUST skip (regression: it showed, and wrote
+    # COMFYUI_USER_MODELS for a disabled service).
+    ("container-cpu", "disabled", True),
+])
+def test_skip_predicate_prefers_live_selection_over_stale_env(
+    env_source, selected_source, expected_skip,
+):
+    step = _picker_step(env_vars={"COMFYUI_SOURCE": env_source})
+    sel = {"ComfyUI  ·  source": selected_source}
+    assert step.skip_if_prev(sel) is expected_skip

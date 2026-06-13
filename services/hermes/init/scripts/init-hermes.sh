@@ -164,8 +164,11 @@ export LIGHTRAG_API_KEY="${LIGHTRAG_API_KEY:-}"
 #   2. Dedupe ``ollama/X`` vs bare ``X`` pairs. LiteLLM emits both
 #      as a convenience for callers that hard-code one form or the
 #      other; in the Hermes picker they look like the same model
-#      listed twice. We keep the prefixed form (canonical) and
-#      drop the bare alias when its prefixed twin exists.
+#      listed twice. We keep the prefixed form (canonical) and drop
+#      the bare alias ONLY when its ``ollama/``-prefixed twin exists —
+#      other prefixed lookalikes (``openrouter/openai/gpt-5`` vs the
+#      direct-API ``gpt-5``) are different upstreams, not aliases,
+#      and both stay.
 #
 # We then pin this filtered list via ``discover_models: false`` +
 # ``models: [...]`` in providers.litellm. Tradeoff: new models pulled
@@ -183,7 +186,12 @@ if [[ -n "${models_json:-}" ]]; then
         | select(
             (contains("/"))
             or
-            (($all | any(. != $current and endswith("/" + $current))) | not)
+            # Only the ollama dual-alias counts as a twin of a bare id.
+            # The old endswith("/"+id) check also matched OpenRouter
+            # forms (openrouter/openai/gpt-5 vs gpt-5) and silently
+            # dropped the DIRECT-API entry — a different upstream with
+            # different keys/billing, not an alias.
+            (($all | any(. == ("ollama/" + $current))) | not)
           )
       )
     | .[]

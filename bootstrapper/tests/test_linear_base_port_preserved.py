@@ -1,0 +1,77 @@
+"""Linear-flow port handling must preserve a previously configured BASE_PORT.
+
+Regression guard: handle_port_configuration(None) used to fall straight to
+DEFAULT_BASE_PORT, so any `--no-tui` / non-TTY run silently rewrote every
+*_PORT in .env back to the 63000 layout for users who had configured a
+custom base port (and left BASE_PORT itself inconsistent with the rewritten
+ports). The TUI path already read BASE_PORT from .env; the linear path now
+mirrors it.
+"""
+from __future__ import annotations
+
+from core.config_parser import DEFAULT_BASE_PORT
+from start import GenAIStackStarter
+
+
+def _starter_with_env(tmp_path, monkeypatch, env_text: str):
+    env = tmp_path / ".env"
+    env.write_text(env_text, encoding="utf-8")
+    starter = GenAIStackStarter()
+    starter.config_parser.env_file_path = env
+    monkeypatch.setattr(starter.port_manager, "get_port_conflicts", lambda bp: {})
+    captured = {}
+
+    def _capture(bp):
+        captured["base_port"] = bp
+        return True
+
+    monkeypatch.setattr(starter.port_manager, "update_env_ports", _capture)
+    return starter, captured
+
+
+def test_none_base_port_preserves_env_value(tmp_path, monkeypatch):
+    starter, captured = _starter_with_env(tmp_path, monkeypatch, "BASE_PORT=64000\n")
+    assert starter.handle_port_configuration(None) is True
+    assert captured["base_port"] == 64000
+
+
+def test_none_base_port_falls_back_to_default_when_blank(tmp_path, monkeypatch):
+    starter, captured = _starter_with_env(tmp_path, monkeypatch, "BASE_PORT=\n")
+    assert starter.handle_port_configuration(None) is True
+    assert captured["base_port"] == DEFAULT_BASE_PORT
+
+
+def test_explicit_flag_still_wins(tmp_path, monkeypatch):
+    starter, captured = _starter_with_env(tmp_path, monkeypatch, "BASE_PORT=64000\n")
+    assert starter.handle_port_configuration(65000) is True
+    assert captured["base_port"] == 65000
+
+
+def test_update_env_ports_persists_base_port_itself(tmp_path, monkeypatch):
+    """A --base-port run must rewrite BASE_PORT in .env, or the next
+    flagless run (which preserves .env's BASE_PORT) reads the STALE
+    anchor and silently reverts every *_PORT to the old layout —
+    exactly the motivating case of the preserve fix."""
+    from start import GenAIStackStarter
+
+    env = tmp_path / ".env"
+    env.write_text("BASE_PORT=63000\nKONG_HTTP_PORT=63000\n", encoding="utf-8")
+    starter = GenAIStackStarter()
+    starter.config_parser.env_file_path = env
+    starter.port_manager.config_parser = starter.config_parser
+    monkeypatch.setattr(starter.port_manager, "get_port_conflicts", lambda bp: {})
+    # Point the port manager's writer at the tmp env file.
+    if hasattr(starter.port_manager, "env_file_path"):
+        starter.port_manager.env_file_path = env
+    assert starter.handle_port_configuration(64000) is True
+    text = env.read_text(encoding="utf-8")
+    assert "BASE_PORT=64000" in text, text
+    assert "KONG_HTTP_PORT=64000" in text, text
+    # And the follow-up flagless run now resolves the NEW anchor.
+    captured = {}
+    monkeypatch.setattr(
+        starter.port_manager, "update_env_ports",
+        lambda bp: captured.setdefault("bp", bp) or True,
+    )
+    assert starter.handle_port_configuration(None) is True
+    assert captured["bp"] == 64000

@@ -27,6 +27,11 @@ services:
       ZEPPELIN_PORT: "8080"
       ZEPPELIN_LOG_DIR: /logs
       ZEPPELIN_NOTEBOOK_DIR: /notebook
+      # SPARK_MASTER / SPARK_SUBMIT_OPTIONS apply only on the
+      # spark-submit launch path, which needs a user-mounted SPARK_HOME
+      # (the image ships no Spark distro). Kept for that opt-in path;
+      # the supported out-of-the-box route is Spark Connect via the
+      # interpreter UI (README §1).
       SPARK_MASTER: spark://spark-master:7077
       # NOTE: Zeppelin's Spark interpreter does NOT read SPARK_CONNECT_URL
       # — `SparkInterpreterLauncher` only honors SPARK_MASTER. Users who

@@ -1,6 +1,6 @@
 """End-to-end tests for the localhost-port-override wizard wiring.
 
-For each of the 10 localhost-capable services, the source step has
+For each of the 12 localhost-capable services, the source step has
 the matching localhost option(s) carrying a SecondaryNumberInput with
 the correct env_var, default, min/max, unit_suffix='port'."""
 
@@ -14,27 +14,35 @@ import pytest
 # (service display name, localhost option value, expected env var, expected default port)
 LOCALHOST_WIRING = [
     ("ComfyUI",            "localhost",            "COMFYUI_LOCALHOST_PORT",     "8000"),
-    ("Document Processor", "docling-localhost",    "DOCLING_LOCALHOST_PORT",     "63021"),
+    ("Document Processor", "docling-localhost",    "DOCLING_LOCALHOST_PORT",     "63040"),
     ("Hermes Agent",       "localhost",            "HERMES_LOCALHOST_PORT",      "63028"),
-    ("OpenClaw",           "localhost",            "OPENCLAW_LOCALHOST_PORT",    "63024"),
+    ("OpenClaw",           "localhost",            "OPENCLAW_LOCALHOST_PORT",    "63065"),
     ("LLM Engine",         "ollama-localhost",     "OLLAMA_LOCALHOST_PORT",      "11434"),
     ("Neo4j Graph DB",     "localhost",            "NEO4J_LOCALHOST_BOLT_PORT",  "7687"),
     ("Weaviate",           "localhost",            "WEAVIATE_LOCALHOST_PORT",    "8080"),
-    ("STT Provider",       "parakeet-localhost",   "PARAKEET_LOCALHOST_PORT",    "63022"),
-    ("STT Provider",       "whisper-cpp-localhost","WHISPER_CPP_LOCALHOST_PORT", "63025"),
-    ("TTS Provider",       "chatterbox-localhost", "CHATTERBOX_LOCALHOST_PORT",  "63027"),
+    ("STT Provider",       "parakeet-localhost",   "PARAKEET_LOCALHOST_PORT",    "63042"),
+    ("STT Provider",       "whisper-cpp-localhost","WHISPER_CPP_LOCALHOST_PORT", "63042"),
+    ("TTS Provider",       "chatterbox-localhost", "CHATTERBOX_LOCALHOST_PORT",  "63044"),
+    ("LightRAG",           "localhost",            "LIGHTRAG_LOCALHOST_PORT",    "63068"),
+    ("TEI Reranker",       "localhost",            "TEI_RERANKER_LOCALHOST_PORT","63031"),
 ]
 
 
-def _wizard_steps():
-    """Build the wizard's prompt steps via _build_steps_and_rows for the
-    current repo state."""
+def _wizard_steps(env_file: Path | None = None):
+    """Build the wizard's prompt steps via _build_steps_and_rows.
+
+    ``env_file=None`` uses the repo state (whatever .env the developer
+    has); pass an explicit (e.g. empty tmp) file to make assertions
+    about DEFAULTS hermetic — the live repo .env legitimately overrides
+    wiring-table defaults, so default-assertions must not read it."""
     from core.config_parser import ConfigParser
     from ui.textual.integration import _build_steps_and_rows
     from utils.hosts_manager import HostsManager
 
     repo_root = Path(__file__).resolve().parent.parent.parent
     cp = ConfigParser(str(repo_root))
+    if env_file is not None:
+        cp.env_file_path = env_file
     cp.parse_env_file()
     hm = HostsManager()
     steps, _rows, _info, _bp, _state, _cloud = _build_steps_and_rows(cp, hm)
@@ -46,7 +54,11 @@ def test_localhost_option_carries_secondary_number(display, option_value, env_va
     """For each (service, localhost option), the matching PromptOption
     on its source step carries a SecondaryNumberInput pointing at the
     expected env_var with the expected default."""
-    steps = _wizard_steps()
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        empty_env = Path(td) / ".env"
+        empty_env.write_text("")
+        steps = _wizard_steps(env_file=empty_env)
     source_step = next(
         (s for s in steps if s.service_name == display and "source" in s.title.lower()),
         None,

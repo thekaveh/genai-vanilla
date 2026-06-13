@@ -35,7 +35,7 @@ URL_VAR_TO_PORT_VAR: dict[str, str] = {
 # Tolerant sentinel matcher (mirrors migration_v1 conventions).
 _SENTINEL_RE = re.compile(
     r"""^\s*BOOTSTRAPPER_PORT_LAYOUT_VERSION\s*=\s*
-        (["']?)(\d+)\1
+        (["']?)(\d*)\1
         \s*(?:\#.*)?\s*$""",
     re.VERBOSE,
 )
@@ -44,7 +44,9 @@ _SENTINEL_RE = re.compile(
 # Tolerates http:// or https://, optional trailing path.
 _URL_LINE_RE = re.compile(
     r"""^(?P<key>[A-Z_]+_LOCALHOST_URL)\s*=\s*
-        (?:https?://(?P<host>[^:/\s]+)(?::(?P<port>\d+))?(?P<path>[^\s#]*))?
+        (?P<quote>["']?)
+        (?:https?://(?P<host>[^:/\s"']+)(?::(?P<port>\d+))?(?P<path>[^\s#"']*))?
+        (?P=quote)
         \s*(?P<tail>(?:\#.*)?)\s*$""",
     re.VERBOSE,
 )
@@ -58,7 +60,7 @@ def needs_migration(env_path: Path) -> bool:
         m = _SENTINEL_RE.match(line)
         if m:
             try:
-                return int(m.group(2)) < 2
+                return int(m.group(2) or 0) < 2
             except ValueError:
                 return True
     return True

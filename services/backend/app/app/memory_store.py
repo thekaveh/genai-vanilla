@@ -90,7 +90,32 @@ class MemoryStore:
                 f"{self.weaviate_url}/v1/schema/{WEAVIATE_COLLECTION_NAME}"
             )
             if resp.status_code == 200:
-                return  # Already exists
+                # Retroactive heal: stacks deployed before the /v1/v1 fix
+                # carry the broken baseURL in the EXISTING class config.
+                # Weaviate 1.27.5 rejects vectorizer moduleConfig updates
+                # via PUT (immutables validation), so the only remediation
+                # is delete + recreate — safe here because the broken
+                # baseURL meant every embedding call 404'd: the class
+                # never held valid vectors.
+                try:
+                    existing = resp.json()
+                    mod = (existing.get("moduleConfig") or {}).get("text2vec-openai") or {}
+                    bad = (mod.get("baseURL") or "").rstrip("/")
+                    if bad.endswith("/v1"):
+                        logger.warning(
+                            "Memory collection carries the broken /v1 baseURL "
+                            "(%s) — deleting and recreating it (it could never "
+                            "store vectors).", bad,
+                        )
+                        await client.delete(
+                            f"{self.weaviate_url}/v1/schema/{WEAVIATE_COLLECTION_NAME}"
+                        )
+                        # fall through to the creation path below
+                    else:
+                        return  # Already exists and healthy
+                except Exception as exc:  # noqa: BLE001 — heal is best-effort
+                    logger.warning("Memory collection baseURL check failed: %s", exc)
+                    return  # keep existing class; don't block startup
 
             # Create collection
             schema = {
@@ -103,7 +128,11 @@ class MemoryStore:
                         # expects an OpenAI-style model name; LiteLLM resolves
                         # the actual provider from its model_list).
                         "model": self.embedding_model.split("/", 1)[-1],
-                        "baseURL": f"{self.litellm_url}/v1",
+                        # No /v1 suffix: Weaviate's openai module joins
+                        # "/v1/embeddings" onto baseURL itself, so a /v1
+                        # here produced /v1/v1/embeddings → 404 on every
+                        # Weaviate-backed memory insert/search.
+                        "baseURL": self.litellm_url,
                         "vectorizeClassName": False,
                     }
                 },

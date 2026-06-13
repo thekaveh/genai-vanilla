@@ -294,3 +294,73 @@ def test_options_carry_enough_info_for_pre_check_seeding(
         f"Pre-check seeding would miss: "
         f"{sorted(expected_seeded - seeded)}"
     )
+
+
+def test_pulled_library_tag_does_not_duplicate_as_flat_row(
+    monkeypatch, library_qwen3_gemma4,
+):
+    """A pulled TAG of a library family (qwen3.6:latest vs library key
+    qwen3.6) must merge into the family row, not also appear as a bogus
+    flat '(local model, not in public library)' row. Regression: the
+    bucket-1 filter compared the tagged name against bare family keys,
+    so every normal pull duplicated."""
+    host_tags = ["qwen3.6:latest"]
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_pulled_models", _stub_pulled(host_tags),
+    )
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_library_entries",
+        lambda timeout=5.0: library_qwen3_gemma4,
+    )
+    env = {"LLM_PROVIDER_SOURCE": "ollama-localhost"}
+    opts = _get_options_provider(env)(_select_localhost())
+    flat_dupes = [o for o in opts if o.value == "qwen3.6:latest"]
+    assert flat_dupes == [], (
+        f"tagged pull of a library family must not produce a flat row: "
+        f"{[o.label for o in flat_dupes]}"
+    )
+    assert any(o.value == "qwen3.6" for o in opts)
+
+
+def test_wizard_upstream_honors_ollama_localhost_port(
+    monkeypatch, library_qwen3_gemma4,
+):
+    """The wizard's /api/tags probe must read OLLAMA_LOCALHOST_PORT —
+    the 5th consumer site of the localhost-port symmetry rule. Captures
+    the URL the probe actually receives (behavioral, not source-text)."""
+    captured = {}
+
+    def _capturing_pulled(upstream_url, timeout=2.0):
+        captured["url"] = upstream_url
+        return []
+
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_pulled_models", _capturing_pulled,
+    )
+    monkeypatch.setattr(
+        "wizard.llm_steps.list_library_entries",
+        lambda timeout=5.0: library_qwen3_gemma4,
+    )
+    env = {
+        "LLM_PROVIDER_SOURCE": "ollama-localhost",
+        "OLLAMA_LOCALHOST_PORT": "12345",
+    }
+    _get_options_provider(env)(_select_localhost())
+    assert captured.get("url") == "http://localhost:12345"
+
+
+def test_variant_summary_regex_accepts_m_suffix_context():
+    """ollama.com renders huge-context models as '10M context window' —
+    the K-only regex silently dropped every such variant (llama4 class),
+    collapsing them to coarse sizes."""
+    from utils.ollama_library import _VARIANT_SUMMARY_RE
+
+    html = ('<p class="flex text-neutral-500" x>'
+            '244GB · 10M context window · Text · 4 months ago</p>')
+    m = _VARIANT_SUMMARY_RE.search(html)
+    assert m is not None
+    assert m.group(2) == "10M"
+    html_k = ('<p class="flex text-neutral-500" x>'
+              '4.7GB · 256K context window · Text · 1 year ago</p>')
+    mk = _VARIANT_SUMMARY_RE.search(html_k)
+    assert mk is not None and mk.group(2) == "256K"

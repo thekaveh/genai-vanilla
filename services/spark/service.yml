@@ -56,7 +56,6 @@ depends_on:
     - minio
   optional:
     - supabase
-    - prometheus
 
 rows:
   - display_name: "Apache Spark"
@@ -141,6 +140,10 @@ data_flow:
   # Convention: focus.data_flow.calls = what FOCUS calls (upstream).
   # Kong routes traffic TO Spark; that's Kong's outbound lane, not Spark's.
   # Same for the other in-stack services routed via *.localhost aliases.
+  # NOTE: supabase is intentionally absent here even though the README
+  # describes JDBC reads from inside jobs — the image ships no Postgres
+  # JDBC driver and compose injects no SUPABASE_* vars, so the call is
+  # user-driven, not part of the runtime topology (same rule as
+  # zeppelin's litellm exclusion).
   calls:
-    - supabase   # JDBC reads (user-driven)
     - minio      # s3a:// history + user data

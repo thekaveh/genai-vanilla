@@ -73,14 +73,25 @@ async def transcribe_audio(
         # Transcribe using NeMo
         logger.info(f"Transcribing audio file: {audio_path}")
 
-        # NeMo transcription
-        transcription = model.transcribe([audio_path])
+        # NeMo transcription. timestamps=True so the hypothesis carries
+        # word/segment timing when requested (NeMo only populates
+        # .timestamp — note: not "timestep" — when asked at
+        # transcribe() time).
+        transcription = model.transcribe(
+            [audio_path], timestamps=bool(return_timestamps),
+        )
 
-        # Extract text result
-        if isinstance(transcription, list):
-            text = transcription[0]
+        # Extract text result. For RNNT/TDT models NeMo returns
+        # List[Hypothesis] EVEN without return_hypotheses — indexing
+        # used to hand a Hypothesis dataclass to len() and 500 every
+        # request. Mirror the mlx sibling's defensive extraction.
+        first = transcription[0] if isinstance(transcription, list) else transcription
+        if hasattr(first, 'text'):
+            text = first.text
+        elif isinstance(first, str):
+            text = first
         else:
-            text = str(transcription)
+            text = str(first)
 
         logger.info(f"Transcription complete: {len(text)} characters")
 
@@ -92,15 +103,12 @@ async def transcribe_audio(
 
         # Add timestamp information if requested and available
         if return_timestamps:
-            # Parakeet-TDT supports word-level timestamps
             try:
-                # Get timestamps from model if available
-                timestamps_result = model.transcribe(
-                    [audio_path],
-                    return_hypotheses=True
-                )
-                if hasattr(timestamps_result[0], 'timestep'):
-                    result["timestamps"] = timestamps_result[0].timestep
+                # NeMo 2.x Hypothesis carries `.timestamp` (a dict with
+                # 'word'/'segment'/... keys) — `.timestep` doesn't exist.
+                timing = getattr(first, 'timestamp', None) or {}
+                if timing:
+                    result["timestamps"] = timing
                     result["has_timestamps"] = True
                 else:
                     result["has_timestamps"] = False

@@ -16,18 +16,20 @@ if [ -n "${LATEST_BACKUP}" ] && [ -f "${LATEST_BACKUP}" ]; then
   echo "Found backup file: ${LATEST_BACKUP}"
   echo "Automatically restoring Neo4j database from backup..."
 
-  # Get backup filename without path
-  BACKUP_FILENAME=$(basename "${LATEST_BACKUP}")
-
   # Note: this script runs from docker-entrypoint-wrapper.sh BEFORE the
   # neo4j server is started, so no `neo4j stop` dance is needed here.
   # (Earlier revisions guarded with `if neo4j status | grep -q running`,
   # but the check was unreachable in this execution path.)
 
-  # Restore the database
-  neo4j-admin database restore neo4j --from-path="/snapshot" --input-name="${BACKUP_FILENAME}" --force
-
-  echo "Database automatically restored successfully."
+  # Restore the database (5.x: `database load`; community ships no
+  # `database restore` — see restore.sh).
+  if neo4j-admin database load neo4j --from-stdin --overwrite-destination < "${LATEST_BACKUP}"; then
+    echo "Database automatically restored successfully."
+  else
+    echo "ERROR: automatic restore from ${LATEST_BACKUP} FAILED (load exited non-zero)." >&2
+    echo "ERROR: the neo4j database may be in a partially-overwritten state; inspect before trusting data." >&2
+    exit 1
+  fi
 else
   echo "No backup file found. Skipping automatic restore."
 fi

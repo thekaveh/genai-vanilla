@@ -6,6 +6,7 @@ memory consolidation/deduplication, and user memory summarization.
 Uses Weaviate for vector search with automatic pgvector fallback.
 """
 
+import asyncio
 import os
 import json
 import logging
@@ -36,14 +37,25 @@ class MemoryService:
 
         self.store: Optional[MemoryStore] = None
         self._initialized = False
+        self._init_lock = asyncio.Lock()
 
     async def _ensure_initialized(self):
-        """Lazy initialization of the memory store."""
+        """Lazy initialization of the memory store.
+
+        Locked: concurrent first requests would otherwise double-create
+        the store and run MemoryStore.initialize() twice — and its
+        delete-and-recreate collection heal must never race itself."""
         if self._initialized:
             return
         if not self.enabled:
             return
 
+        async with self._init_lock:
+            if self._initialized:
+                return
+            await self._initialize_locked()
+
+    async def _initialize_locked(self):
         weaviate = self.weaviate_url if self.weaviate_url else None
         self.store = MemoryStore(
             database_url=self.database_url,
@@ -563,7 +575,13 @@ Extract the facts as JSON:"""
                         VALUES ($1, $2, $3, $4, $5)
                         """,
                         uid,
-                        action if action in ("merged", "superseded") else "superseded",
+                        # The LLM contract (above) emits present-tense
+                        # "merge"/"supersede"; the log table stores past
+                        # tense. The old guard compared against past-tense
+                        # values, so every merge was logged "superseded".
+                        {"merge": "merged", "merged": "merged",
+                         "supersede": "superseded",
+                         "superseded": "superseded"}.get(action, "superseded"),
                         source_fact_uuids,
                         keep_fact["id"],  # Already UUID from asyncpg
                         reason,
@@ -816,7 +834,7 @@ Extract the facts as JSON:"""
                 "is_active": updated["is_active"],
                 "created_at": updated["created_at"].isoformat(),
                 "updated_at": updated["updated_at"].isoformat(),
-                "metadata": updated["metadata"] or {},
+                "metadata": json.loads(updated["metadata"]) if isinstance(updated["metadata"], str) else (updated["metadata"] or {}),
             }
 
         finally:

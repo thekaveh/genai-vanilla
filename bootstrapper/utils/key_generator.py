@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import Optional, Dict
 
+from core.config_parser import ConfigParser
+
 
 def _cli_safe_token_urlsafe(nbytes: int) -> str:
     """secrets.token_urlsafe() with a guard: never return a value whose
@@ -78,8 +80,12 @@ class KeyGenerator:
             self.root_dir = Path(__file__).resolve().parent.parent.parent
         else:
             self.root_dir = Path(root_dir)
-            
-        self.env_file_path = self.root_dir / ".env"
+
+        # Resolve through ConfigParser so GENAI_ENV_FILE is honored —
+        # hardcoding root/.env wrote every generated secret to the wrong
+        # file when a custom env path was in use (SupabaseKeyGenerator
+        # already resolves this way).
+        self.env_file_path = ConfigParser(str(self.root_dir)).env_file_path
     
     def generate_n8n_encryption_key(self) -> str:
         """
@@ -130,23 +136,21 @@ class KeyGenerator:
         """
         if not self.env_file_path.exists():
             return None
-            
+
         try:
-            with open(self.env_file_path, 'r', encoding="utf-8") as f:
-                content = f.read()
-            
-            # Look for line like "KEY_NAME=value"
-            pattern = rf'^{re.escape(key_name)}=(.*)$'
-            match = re.search(pattern, content, re.MULTILINE)
-            
-            if match:
-                value = match.group(1).strip().strip('"').strip("'")
-                return value if value else None
-            
+            # Delegate to ConfigParser so quote / inline-comment semantics
+            # stay identical to every other .env reader. The old local
+            # regex captured the whole rest-of-line: a blank value with an
+            # inline comment (`KEY=   # note`) read back as "# note", and
+            # inline comments stayed inside values — both broke the
+            # rotate-when-absent placeholder comparisons.
+            cp = ConfigParser(str(self.root_dir))
+            cp.env_file_path = self.env_file_path
+            value = cp.parse_env_file().get(key_name, '')
         except Exception:
-            pass
-            
-        return None
+            return None
+
+        return value if value else None
     
     def update_env_key(self, key_name: str, key_value: str, create_backup: bool = False) -> bool:
         """
@@ -180,9 +184,16 @@ class KeyGenerator:
             # Check if key already exists
             pattern = rf'^{re.escape(key_name)}=.*$'
             if re.search(pattern, content, re.MULTILINE):
-                # Replace existing key
+                # Replace existing key. Lambda form so re.sub doesn't
+                # interpret backslash sequences in the value (same guard
+                # as SourceOverrideManager.update_env_file) — current
+                # generators emit [A-Za-z0-9_-] only, but keep the seam
+                # corruption-proof for future value shapes.
                 replacement = f'{key_name}={key_value}'
-                updated_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+                updated_content = re.sub(
+                    pattern, lambda _m, r=replacement: r, content,
+                    flags=re.MULTILINE,
+                )
             else:
                 # Add new key at the end
                 updated_content = content
@@ -190,9 +201,19 @@ class KeyGenerator:
                     updated_content += '\n'
                 updated_content += f'{key_name}={key_value}\n'
             
-            # Write updated content back
-            with open(self.env_file_path, 'w', encoding="utf-8") as f:
-                f.write(updated_content)
+            # Atomic, mode-preserving write (tmp + os.replace) — mirrors
+            # SourceOverrideManager; an in-place 'w' truncates the
+            # secrets-bearing .env on a crash mid-write.
+            import os as _os
+            tmp_path = Path(str(self.env_file_path) + '.tmp')
+            try:
+                original_mode = _os.stat(self.env_file_path).st_mode
+                with open(tmp_path, 'w', encoding="utf-8") as f:
+                    _os.chmod(tmp_path, original_mode)
+                    f.write(updated_content)
+                _os.replace(tmp_path, self.env_file_path)
+            finally:
+                tmp_path.unlink(missing_ok=True)
             
             return True
             

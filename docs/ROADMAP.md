@@ -4,7 +4,7 @@ This document outlines future development plans and enhancements for the GenAI V
 
 ## Current status
 
-The stack now orchestrates ~40 services / ~85 containers across AI inference, workflow automation, data science, distributed compute (Ray, Spark), DAG orchestration (Airflow), notebook UIs (JupyterHub, Zeppelin), observability (Prometheus + Grafana), document processing, speech, and the Supabase ecosystem. An additional set of candidate services is tracked across the Tier 1/2/3 sections below, including labelled sub-sections for the **3D / game-generation**, **financial / trading-AI**, and **RAG-enhancement** strategic tracks. Architectural milestones to date:
+The stack now orchestrates 32 service families (29 containerized + 3 virtual) / 62 declared containers across AI inference, workflow automation, data science, distributed compute (Ray, Spark), DAG orchestration (Airflow), notebook UIs (JupyterHub, Zeppelin), observability (Prometheus + Grafana), document processing, speech, and the Supabase ecosystem. An additional set of candidate services is tracked across the Tier 1/2/3 sections below, including labelled sub-sections for the **3D / game-generation**, **financial / trading-AI**, and **RAG-enhancement** strategic tracks. Architectural milestones to date:
 - Dynamic Kong API Gateway configuration
 - Python cross-platform bootstrapping with CLI SOURCE overrides
 - Service integration spanning Ollama, ComfyUI, n8n, Open WebUI, SearxNG, Supabase, Neo4j, OpenClaw, Weaviate, JupyterHub, and more
@@ -107,7 +107,7 @@ The stack now orchestrates ~40 services / ~85 containers across AI inference, wo
 
 _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 
-**Per-service configuration modularization** — ✅ delivered (Phases A–E, May 2026)
+**Per-service configuration modularization** — ✅ delivered (Phases A–E, May 2026; fragment/container counts below are as of that milestone)
 - Compose: 1,425-line monolithic `docker-compose.yml` → 55-line thin `include:`-shell that pulls in `services/<name>/compose.yml` fragments (one per service family — supabase, redis, minio, neo4j, litellm, ollama, weaviate, comfyui, n8n, open-webui, backend, searxng, jupyterhub, parakeet, speaches, chatterbox, docling, openclaw, hermes, local-deep-researcher, kong, plus virtual cloud-providers, tts-provider, and globals manifests).
 - Manifests: `services/<name>/service.yml` is the single source of truth for env vars (with auto_managed/secret flags), source variants, image refs, and dependencies. JSON-schema-validated. Bootstrapper runtime data lives under per-manifest `runtime_sc:`/`runtime_adaptive:`/`runtime_deps:` blocks; `bootstrapper/services/sc_synthesizer.py` reassembles the dict that `ConfigParser.load_yaml_config()` returns.
 - Safety nets: `bootstrapper/services/manifest_validator.py` (cross-manifest checks), `tools/validate_fragments.py` CLI lint with `--check-env-example`, and `tests/test_fragment_equivalence.py` (golden `rendered_config_baseline.yml` diff — byte-equivalence proven across the 36-container stack).
@@ -116,7 +116,7 @@ _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 **Monitoring stack (Prometheus + Grafana)** — *Shipped 2026-05-31 (observability bundle); JupyterHub + Hermes scrape jobs subsequently removed as unreachable.*
 - ✅ Prometheus scraper + TSDB with bundled node-exporter (host metrics) and cAdvisor (container metrics), bundled as `services/prometheus/`.
 - ✅ Grafana with 7 pre-provisioned dashboards (stack overview, LiteLLM, Kong, Postgres+Redis, Containers+Host, n8n, app-tier) — `services/grafana/`.
-- ✅ 12 scrape targets — Kong, LiteLLM, Weaviate, n8n, MinIO, Backend, Prom+Grafana self, node-exporter, cAdvisor, plus postgres-exporter and redis-exporter sidecars. (JupyterHub + Hermes scrape jobs were removed as unreachable post-ship — JupyterHub ships single-user, no `/metrics`; the upstream Hermes image has no exporter. See `services/prometheus/README.md` §4 and the CHANGELOG entry.)
+- ✅ 13 scrape targets — Kong, LiteLLM, Weaviate, n8n + n8n-worker, MinIO, Backend, Prom+Grafana self, node-exporter, cAdvisor, plus postgres-exporter and redis-exporter sidecars. (JupyterHub + Hermes scrape jobs were removed as unreachable post-ship — JupyterHub ships single-user, no `/metrics`; the upstream Hermes image has no exporter. See `services/prometheus/README.md` §4 and the CHANGELOG entry.)
 - ✅ Unified Grafana alerting enabled (no separate Alertmanager); contact points / rules to be added by users.
 - ⏳ Future: Loki (logs) + Tempo (traces) + OpenTelemetry collector for the full observability triangle.
 
@@ -274,6 +274,8 @@ Consumed by (services that would call OpenBao):
 ---
 
 ### Tier 2: planned candidates
+
+> Entries marked ✅ shipped (e.g. Hermes) have landed in the stack; their write-ups stay here for the original evaluation context.
 
 #### Cross-cutting infrastructure
 
@@ -600,6 +602,8 @@ named volume). Supabase is not in Hermes's dependency set.
 ---
 
 ### Tier 3: future candidates
+
+> Entries marked ✅ shipped (e.g. Airflow, Spark) have landed in the stack; their write-ups stay here for the original evaluation context.
 
 Tier 3 is organized into four named sub-sections so the use-case tracks are scannable at a glance: **General-purpose** (horizontal candidates), **3D / game-generation track**, **Financial / trading-AI track**, and **Real-time / collaboration**.
 

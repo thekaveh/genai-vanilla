@@ -65,11 +65,11 @@ env:
   - name: PARAKEET_GPU_COMPUTE_TYPE
     default: float16
   - name: PARAKEET_LOCALHOST_PORT
-    default: "63022"
-    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63022."
+    default: "63042"
+    description: "Host port for the localhost source variant (defaults to the freed STT_PROVIDER_PORT slot). URL is derived at compose-render time as http://host.docker.internal:63042."
   - name: WHISPER_CPP_LOCALHOST_PORT
-    default: "63025"
-    description: "Host port for the localhost source variant. URL is derived at compose-render time as http://host.docker.internal:63025."
+    default: "63042"
+    description: "Host port for the localhost source variant (defaults to the freed STT_PROVIDER_PORT slot, same as parakeet — the two modes are mutually exclusive). URL is derived at compose-render time as http://host.docker.internal:63042."
   - name: HUGGING_FACE_HUB_TOKEN
     default: ""
     secret: true
@@ -152,14 +152,14 @@ runtime_sc:
     parakeet-localhost:
       scale: 0
       environment:
-        STT_ENDPOINT: http://host.docker.internal:${PARAKEET_LOCALHOST_PORT:-63022}
+        STT_ENDPOINT: http://host.docker.internal:${PARAKEET_LOCALHOST_PORT:-63042}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway
     whisper-cpp-localhost:
       scale: 0
       environment:
-        STT_ENDPOINT: http://host.docker.internal:${WHISPER_CPP_LOCALHOST_PORT:-63025}
+        STT_ENDPOINT: http://host.docker.internal:${WHISPER_CPP_LOCALHOST_PORT:-63042}
       deploy: {}
       extra_hosts:
       - host.docker.internal:host-gateway

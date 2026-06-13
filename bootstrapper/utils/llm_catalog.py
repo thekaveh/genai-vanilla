@@ -215,7 +215,7 @@ CLOUD_CATALOG: List[CatalogEntry] = [
         badges=["router"],
     ),
     CatalogEntry(
-        provider="openrouter", name="openrouter/anthropic/claude-sonnet-4-6",
+        provider="openrouter", name="openrouter/anthropic/claude-sonnet-4.6",
         content=9, structured_content=9, vision=9,
         context_window=1000000,
         description="Claude Sonnet 4.6 via OpenRouter (alternative billing)",

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from storage3 import SyncStorageClient as StorageClient
 from typing import Optional, cast, Dict, Any, List
 from contextlib import asynccontextmanager
@@ -143,32 +143,23 @@ research_service = ResearchService()
 memory_service = MemoryService()
 
 
-class WorkflowExecuteRequest(BaseModel):
-    """Request model for executing a workflow"""
-
-    data: Optional[Dict[str, Any]] = None
-
 
 class WorkflowResponse(BaseModel):
-    """Response model for workflow operations"""
+    """Response model for workflow operations.
+
+    n8n's public API emits camelCase timestamps — validation aliases map
+    them in while serialization keeps the snake_case response surface
+    (FastAPI serializes by alias by default, so a plain `alias=` would
+    have flipped the wire format to camelCase)."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     id: str
     name: str
     active: bool
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: Optional[str] = Field(default=None, validation_alias="createdAt")
+    updated_at: Optional[str] = Field(default=None, validation_alias="updatedAt")
 
-
-class WorkflowExecutionResponse(BaseModel):
-    """Response model for workflow execution"""
-
-    id: str
-    finished: bool
-    mode: str
-    status: str
-    started_at: str
-    workflow_id: str
-    data: Optional[Dict[str, Any]] = None
 
 
 @app.get("/workflows", response_model=List[WorkflowResponse])
@@ -207,28 +198,6 @@ async def get_workflow(workflow_id: str):
         )
 
 
-@app.post("/workflows/{workflow_id}/execute", response_model=WorkflowExecutionResponse)
-async def execute_n8n_workflow(workflow_id: str, request: WorkflowExecuteRequest):
-    """Execute a specific n8n workflow by ID"""
-    try:
-        execution = await n8n_client.execute_workflow(workflow_id, request.data)
-        return execution
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Workflow with ID {workflow_id} not found",
-            )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to execute workflow: {str(e)}",
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to execute workflow: {str(e)}",
-        )
-
 
 @app.post("/storage/upload", response_model=StorageResponse)
 async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
@@ -245,9 +214,11 @@ async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
         # Read file content
         content = await file.read()
 
-        # Upload to storage
-        result = storage_client.upload(
-            bucket=bucket,
+        # Upload to storage. storage3 exposes upload/get_public_url on
+        # the per-bucket proxy (from_), not on the client itself — the
+        # old client-level calls raised AttributeError on every request.
+        bucket_ref = storage_client.from_(bucket)
+        bucket_ref.upload(
             path=filename,
             file=content,
             file_options={"content-type": file.content_type}
@@ -256,9 +227,11 @@ async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
         )
 
         # Get public URL
-        url = storage_client.get_public_url(bucket, filename)
+        url = bucket_ref.get_public_url(filename)
 
         return StorageResponse(bucket=bucket, path=filename, url=url)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
@@ -425,6 +398,8 @@ async def list_research_sessions(
     offset: int = 0
 ):
     """List research sessions"""
+    if user_id is not None:
+        _validate_uuid_param(user_id, "user_id")
     try:
         sessions = await research_service.list_user_sessions(
             user_id=user_id,
@@ -467,7 +442,7 @@ class ComfyUIGenerateRequest(BaseModel):
     steps: int = 20
     cfg: float = 7.0
     seed: Optional[int] = None
-    checkpoint: Optional[str] = "sd_v1-5_pruned_emaonly.safetensors"
+    checkpoint: Optional[str] = "v1-5-pruned-emaonly.safetensors"
     wait_for_completion: bool = True
 
 
@@ -708,6 +683,16 @@ async def get_generated_image(filename: str, subfolder: str = "", folder_type: s
                 media_type=content_type,
                 headers={"Content-Disposition": f"inline; filename={filename}"}
             )
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Image {filename} not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get image: {str(e)}"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -813,6 +798,7 @@ async def add_comfyui_model(request: ComfyUIModelRequest):
 @app.put("/comfyui/db/models/{model_id}")
 async def update_comfyui_model(model_id: str, request: ComfyUIModelRequest):
     """Update a ComfyUI model in database"""
+    _validate_uuid_param(model_id, "model_id")
     try:
         async with _db_conn() as conn:
             # Update model
@@ -859,6 +845,7 @@ async def update_comfyui_model(model_id: str, request: ComfyUIModelRequest):
 @app.delete("/comfyui/db/models/{model_id}")
 async def delete_comfyui_model(model_id: str):
     """Delete a ComfyUI model from database"""
+    _validate_uuid_param(model_id, "model_id")
     try:
         async with _db_conn() as conn:
             # Delete model

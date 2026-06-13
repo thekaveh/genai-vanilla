@@ -451,3 +451,28 @@ def test_category_overflow_fires_when_block_exceeded():
     assert len(overflows) == 1
     assert "infra" in overflows[0].message
     assert str(infra_block) in overflows[0].message
+# ─── runtime_sc source coverage (pass 53) ────────────────────────────
+
+def test_main_slice_missing_variant_flagged(write_manifest, full_manifest_dict, services_root):
+    """A sources option with no main-slice runtime_sc entry is flagged —
+    get_service_config() would silently return {} for it."""
+    m = full_manifest_dict("ollama")
+    m["sources"]["options"].append({"id": "ollama-container-gpu", "label": "GPU"})
+    # NOTE: runtime_sc.llm_provider deliberately NOT extended.
+    write_manifest("ollama", m)
+    from services.manifests import load_manifests
+    from services.manifest_validator import validate_manifests
+    issues = validate_manifests(load_manifests(services_root))
+    hits = [i for i in issues if i.kind == "runtime_sc_missing_variant"]
+    assert any(
+        i.manifest == "ollama" and "ollama-container-gpu" in i.message
+        for i in hits
+    ), [(*hh,) for hh in [(i.kind, i.manifest, i.message) for i in issues]]
+
+
+def test_main_slice_full_coverage_clean(write_manifest, full_manifest_dict, services_root):
+    write_manifest("ollama", full_manifest_dict("ollama"))
+    from services.manifests import load_manifests
+    from services.manifest_validator import validate_manifests
+    issues = validate_manifests(load_manifests(services_root))
+    assert not [i for i in issues if i.kind == "runtime_sc_missing_variant"]

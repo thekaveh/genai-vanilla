@@ -38,8 +38,8 @@ git clone https://github.com/thekaveh/genai-vanilla && cd genai-vanilla
 # MinIO Console:         http://minio.localhost:63000
 
 # Default credentials:
-# Supabase Studio: admin@example.com / changeme123
-# n8n:             admin@example.com / changeme123
+# Supabase Studio: kong_admin / DASHBOARD_PASSWORD (auto-generated into .env on first launch)
+# n8n:             owner account created in the web UI on first visit
 ```
 
 The default configuration runs the full stack on CPU: chat UI, workflow automation, vector database, and privacy search.
@@ -71,7 +71,7 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 ./start.sh --llm-provider-source none --cloud-openai-source enabled --openai-api-key sk-... --comfyui-source disabled
 
 # Observability bundle (Prometheus + Grafana + node-exporter + cAdvisor + per-service exporters)
-# Off by default; opt in to scrape Kong, LiteLLM, Weaviate, n8n, JupyterHub, MinIO, Backend,
+# Off by default; opt in to scrape Kong, LiteLLM, Weaviate, n8n, MinIO, Backend,
 # Postgres, and Redis. 7 starter dashboards in the "GenAI Vanilla" Grafana folder.
 # Grafana admin password is auto-generated on first run (see .env after launch).
 ./start.sh --prometheus-source container --grafana-source container
@@ -126,7 +126,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 - **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
 - **Always-on core**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
-- **Opt-in**: Ray (distributed compute) and the LLM/Media/Agents tiers are activated via SOURCE flags or the interactive wizard
+- **Opt-in**: Ray, OpenClaw, Airflow, Spark, Zeppelin, LightRAG, TEI Reranker, and the observability bundle (Prometheus + Grafana) ship disabled; everything is switchable per service via SOURCE flags or the interactive wizard
 
 ### 2.2 Key features
 
@@ -141,7 +141,7 @@ GenAI Vanilla Stack is a customizable multi-service architecture for AI applicat
 
 The canonical architecture diagram is embedded at the top of this README; the source lives at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg) — hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram) (cyan / emerald / violet / amber / rose / orange palette, JetBrains Mono, layered topological flow). See [`docs/diagrams/README.md`](docs/diagrams/README.md) for update instructions.
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
+The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker / Airflow + Spark + Zeppelin / Prometheus + Grafana services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
 
 ## 3. Getting Started
 
@@ -209,7 +209,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **JupyterHub** (`JUPYTERHUB_SOURCE=container|disabled`) — data science IDE
 
 **Observability bundle (opt-in, disabled by default):**
-- **Prometheus** (`PROMETHEUS_SOURCE=container|disabled`) — metrics scraper + TSDB bundled with `node-exporter` and `cAdvisor`. When enabled, 12 scrape jobs cover Kong, LiteLLM, Weaviate, n8n, MinIO, Backend, Postgres (via `postgres-exporter` sidecar in the Supabase family), and Redis (via `redis-exporter` sidecar in the Redis family), plus four self / infrastructure targets (prometheus, grafana, node-exporter, cAdvisor). JupyterHub and Hermes are deferred — see `services/prometheus/README.md` §4. Retention is user-configurable via `--prometheus-retention-days` (default 7).
+- **Prometheus** (`PROMETHEUS_SOURCE=container|disabled`) — metrics scraper + TSDB bundled with `node-exporter` and `cAdvisor`. When enabled, 13 scrape jobs cover Kong, LiteLLM, Weaviate, n8n (web + worker), MinIO, Backend, Postgres (via `postgres-exporter` sidecar in the Supabase family), and Redis (via `redis-exporter` sidecar in the Redis family), plus four self / infrastructure targets (prometheus, grafana, node-exporter, cAdvisor). JupyterHub and Hermes are deferred — see `services/prometheus/README.md` §4. Retention is user-configurable via `--prometheus-retention-days` (default 7).
 - **Grafana** (`GRAFANA_SOURCE=container|disabled`) — dashboards + unified alerting UI on top of Prometheus. Pre-provisions the Prometheus datasource and 7 starter dashboards (stack overview, LiteLLM, Kong, Postgres+Redis, Containers+Host, n8n, app-tier). Admin login is auto-generated on first bootstrap (`GRAFANA_ADMIN_USERNAME` / `GRAFANA_ADMIN_PASSWORD` in `.env`).
 
 <!-- TOPOLOGY:BEGIN -->
@@ -264,12 +264,12 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | Service | Direct URL | Kong URL | Purpose | Auth required |
 |---------|------------|----------|---------|---------------|
 | **Open WebUI** | http://localhost:63082 | http://chat.localhost:63000 | AI chat interface | Create account |
-| **n8n** | http://localhost:63064 | http://n8n.localhost:63000 | Workflow automation | admin@example.com |
-| **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | admin@example.com |
+| **n8n** | http://localhost:63064 | http://n8n.localhost:63000 | Workflow automation | Owner setup on first visit |
+| **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | Kong route: `kong_admin` / `DASHBOARD_PASSWORD` from `.env` (direct port is ungated) |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
 | **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs genai-jupyterhub`) |
-| **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | neo4j / password |
+| **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | `neo4j` / `GRAPH_DB_PASSWORD` from `.env` |
 | **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
 | **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants resolved via `*_LOCALHOST_PORT`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
@@ -281,7 +281,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Apache Spark** | http://localhost:${SPARK_MASTER_UI_PORT} | http://spark.localhost:63000 | Standalone Spark cluster for batch / SQL / DataFrame work. Spark Connect on `:15002`. Disabled by default; opt-in via `--spark-source container --spark-workers N`. | None |
 | **Apache Zeppelin** | http://localhost:${ZEPPELIN_PORT} | http://zeppelin.localhost:63000 | Spark-first notebook UI. Spark interpreter pre-configured (master + Spark Connect + S3A); JDBC interpreter ships with credentials in env vars but needs a one-time UI-driven `postgres` profile setup. Requires Spark (gated). Disabled by default. | None |
 | **Apache Airflow** | http://localhost:${AIRFLOW_PORT} | http://airflow.localhost:63000 | Code-defined DAG orchestrator. LocalExecutor + AI/ML SDK with LiteLLM-wired LLM operators. Disabled by default. | `admin` / auto-generated `AIRFLOW_ADMIN_PASSWORD` |
-| **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 12 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
+| **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 13 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
 | **Grafana** | http://localhost:63008 | http://grafana.localhost:63000 | Observability dashboards + unified alerting on top of Prometheus. Disabled by default; opt-in via `--grafana-source container`. 7 starter dashboards ship pre-provisioned. | `admin` / auto-generated `GRAFANA_ADMIN_PASSWORD` (first-run) |
 | **LightRAG** | `http://lightrag.localhost:${KONG_HTTP_PORT}` (WebUI), `http://localhost:${LIGHTRAG_API_PORT}/webui` | http://lightrag.localhost:63000 | Graph-augmented RAG server. KG + vector + multimodal ingestion. Disabled by default. | None |
 | **TEI Reranker** | `http://localhost:${TEI_RERANKER_PORT}/rerank` (API only) | http://rerank.localhost:63000 | Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift. Disabled by default. | None |
@@ -317,10 +317,10 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh                    # Launches step-by-step configuration wizard
 
 # Direct commands (skip wizard)
-./start.sh --llm-provider-source ollama-localhost  # Any flag skips wizard
+./start.sh --llm-provider-source ollama-localhost  # Any configuration flag skips the wizard
 ./start.sh --help            # Show all options
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data
+./stop.sh --cold             # Stop and remove all data (also runs a global docker system prune)
 
 # Port and network
 ./start.sh --base-port 64000  # Custom port range
@@ -368,7 +368,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ```bash
 # Basic stop commands
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data (destructive)
+./stop.sh --cold             # Stop and remove all data (destructive; includes a global docker system prune -f --volumes)
 ./stop.sh --clean-hosts      # Remove *.localhost entries from hosts file
 ./stop.sh --help             # Show all options
 
@@ -443,7 +443,7 @@ genai-vanilla/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
 │   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
 │   ├── schemas/               # JSON Schemas for service.yml manifests
-│   ├── tests/                 # ~390 tests (loader, validator, byte-equiv, source-permutation, hooks)
+│   ├── tests/                 # 800+ tests (loader, validator, byte-equiv, source-permutation, hooks)
 │   ├── tools/                 # validate_fragments CLI lint
 │   └── start.py / stop.py     # Entry points
 ├── services/                  # One folder per service family — single source of truth
@@ -458,6 +458,7 @@ genai-vanilla/
 │   │   ├── init/              # litellm-init Dockerfile + scripts (config.yaml renderer)
 │   │   └── catalog-init/      # llm-catalog-init Dockerfile + scripts (public.llms UPSERT)
 │   ├── ollama/                # ollama + ollama-pull (with pull/ scripts subfolder)
+│   ├── redis/                 # Redis cache/queue substrate (AOF persistence, shared by n8n/Kong/LiteLLM/owui/LightRAG)
 │   ├── weaviate/              # weaviate + multi2vec-clip + weaviate-init
 │   ├── comfyui/               # comfyui + comfyui-init (with init/ scripts subfolder)
 │   ├── n8n/                   # n8n + n8n-worker + n8n-init (with init/ assets, workflows-stage/)
@@ -474,6 +475,8 @@ genai-vanilla/
 │   ├── docling/               # Document processor (with provider/ source code)
 │   ├── searxng/               # SearXNG (with config/ settings.yml)
 │   ├── local-deep-researcher/ # Research agent (with build/ Dockerfile)
+│   ├── lightrag/              # LightRAG graph-RAG server + init (opt-in via LIGHTRAG_SOURCE)
+│   ├── tei-reranker/          # TEI reranker (opt-in via TEI_RERANKER_SOURCE)
 │   ├── openclaw/              # OpenClaw agent gateway + init
 │   ├── kong/                  # Kong API gateway
 │   ├── ray/                   # Ray distributed-compute substrate (head + workers)
@@ -491,8 +494,8 @@ genai-vanilla/
 │   ├── CONTRIBUTING-services.md  # How to add a new service to the modular layout
 │   └── …
 ├── scripts/                   # Top-level utility scripts (e.g. migration helpers)
-├── docker-compose.yml         # ~55-line thin shell — include: list pulling each fragment
-├── .env.example               # Configuration template (hand-maintained; kept in sync with manifests by tests)
+├── docker-compose.yml         # ~70-line thin shell — include: list pulling each fragment
+├── .env.example               # Configuration template (auto-generated from manifests via env_assembler; byte-equivalence enforced by tests)
 ├── start.sh / stop.sh         # Entry points
 └── .github/workflows/         # CI: services-lint (validator, byte-equiv, source-permutation)
 ```

@@ -29,7 +29,7 @@ _SENTINEL = "BOOTSTRAPPER_PORT_LAYOUT_VERSION"
 # Tolerant sentinel matcher (mirrors migration_v1 / migration_v2 conventions).
 _SENTINEL_RE = re.compile(
     r"""^\s*BOOTSTRAPPER_PORT_LAYOUT_VERSION\s*=\s*
-        (["']?)(\d+)\1
+        (["']?)(\d*)\1
         \s*(?:\#.*)?\s*$""",
     re.VERBOSE,
 )
@@ -37,11 +37,15 @@ _SENTINEL_RE = re.compile(
 _OLD_VAR = "COMFYUI_MODEL_SET"
 
 # Translation table: enum value → CSV of catalog names.
+# Names must match CATALOG rows (curated layer — always merged), or
+# comfyui-catalog-init activates nothing and the translated selection is
+# a silent no-op. The earlier sd15-pruned-emaonly / sdxl-base-1.0
+# spellings existed nowhere in the catalog.
 _TRANSLATION: dict[str, str] = {
-    "minimal": "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
-    "sd15":    "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
-    "sdxl":    "sdxl-base-1.0,sdxl-vae",
-    "full":    "sd15-pruned-emaonly,vae-ft-mse-840000-ema-pruned,sdxl-base-1.0,sdxl-vae",
+    "minimal": "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
+    "sd15":    "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned",
+    "sdxl":    "sd_xl_base_1.0,sdxl-vae",
+    "full":    "v1-5-pruned-emaonly,vae-ft-mse-840000-ema-pruned,sd_xl_base_1.0,sdxl-vae",
     "":        "",
 }
 
@@ -69,7 +73,12 @@ def _parse_env(text: str) -> dict[str, str]:
             continue
         if "=" in line:
             k, _, v = line.partition("=")
-            result[k.strip()] = v.strip()
+            # Strip inline comments like migration_v1 does — without this,
+            # `COMFYUI_MODEL_SET=sdxl  # note` parsed as "sdxl  # note",
+            # missed the translation table, and silently dropped the
+            # user's model selection.
+            v, _, _ = v.partition("#")
+            result[k.strip()] = v.strip().strip('"').strip("'")
     return result
 
 
@@ -132,7 +141,7 @@ def needs_migration(env_path: Path) -> bool:
         m = _SENTINEL_RE.match(line)
         if m:
             try:
-                return int(m.group(2)) < 3
+                return int(m.group(2) or 0) < 3
             except ValueError:
                 return True
     return True
@@ -165,6 +174,11 @@ def apply(env_path: Path) -> None:
     # Backup.
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     backup = env_path.with_name(f"{env_path.name}.backup.{ts}")
+    backup.touch()
+    # Backup carries the same secrets — clamp to the original mode
+    # before writing (a user-chmod'd 0600 .env must not back up 0644).
+    import os as _os
+    _os.chmod(backup, _os.stat(env_path).st_mode)
     backup.write_text(text, encoding="utf-8")
 
     # Translate COMFYUI_MODEL_SET → catalog CSV.
@@ -182,12 +196,23 @@ def apply(env_path: Path) -> None:
 
     # Insert / update new vars.
     new_text = _replace_or_append(new_text, "COMFYUI_USER_MODELS", final_user_models)
-    new_text = _replace_or_append(new_text, "COMFYUI_CUSTOM_MODELS_FILE", "/custom-models.yaml")
+    # Append-if-absent only: a user-customized sidecar path must survive
+    # the migration (the docstring contract; overwriting was a bug).
+    if "COMFYUI_CUSTOM_MODELS_FILE" not in parsed:
+        new_text = _replace_or_append(new_text, "COMFYUI_CUSTOM_MODELS_FILE", "/custom-models.yaml")
 
-    # Atomic write via tmp + rename.
+    # Atomic write via tmp + rename, preserving the original mode (a
+    # user-chmod'd 0600 .env must not come back umask-default).
     tmp = env_path.with_suffix(env_path.suffix + ".tmp")
-    tmp.write_text(new_text, encoding="utf-8")
-    tmp.replace(env_path)
+    original_mode = _os.stat(env_path).st_mode
+    try:
+        # chmod BEFORE writing secrets (no umask-default window).
+        tmp.touch()
+        _os.chmod(tmp, original_mode)
+        tmp.write_text(new_text, encoding="utf-8")
+        tmp.replace(env_path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
     print(
         f"[migration_v3] COMFYUI_MODEL_SET={old_value!r} → "

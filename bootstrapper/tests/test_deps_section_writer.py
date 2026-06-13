@@ -57,3 +57,19 @@ def test_section_emits_empty_table_placeholder():
     text = render_section(g)
     assert "_No upstream calls._" in text
     assert "_No downstream consumers._" in text
+
+
+def test_aggregate_doc_folder_boilerplate_cites_member_manifests():
+    """Aggregate doc-only folders (stt-provider, doc-processor) must not
+    cite a service.yml they don't have — the boilerplate points at the
+    member manifests that actually carry the edges."""
+    from docs.deps_resolver import build_doc_graph
+    from docs.deps_section_writer import render_section
+    from pathlib import Path
+
+    services_root = Path(__file__).resolve().parents[2] / "services"
+    graph = build_doc_graph("stt-provider", services_root)
+    text = render_section(graph, position=5)
+    assert "services/stt-provider/service.yml" not in text
+    assert "services/parakeet/service.yml" in text
+    assert "services/speaches/service.yml" in text

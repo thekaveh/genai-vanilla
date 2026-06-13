@@ -4,7 +4,6 @@ Hosts file management utilities.
 Python implementation of hosts-utils.sh functions.
 """
 
-import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -80,10 +79,22 @@ class HostsManager:
             with open(self.hosts_file_path, 'r', encoding="utf-8") as f:
                 hosts_content = f.read()
 
+            # Whole-token comparison, mirroring remove_hosts_entries_silent:
+            # the old \b-anchored regex false-positived on hyphenated user
+            # entries (`my-n8n.localhost` contains the token-boundary match
+            # for `n8n.localhost`), so --setup-hosts skipped adding the
+            # real alias.
+            present: set = set()
+            for line in hosts_content.splitlines():
+                # Strip trailing comments and require 127.0.0.1 as the
+                # ADDRESS (first token): a commented-out
+                # `# 127.0.0.1 n8n.localhost` line must not count as
+                # present (it doesn't resolve).
+                tokens = line.split("#", 1)[0].split()
+                if tokens[:1] == ["127.0.0.1"]:
+                    present.update(tokens[1:])
             for host in self.get_genai_hosts():
-                # Check for line like "127.0.0.1    hostname" with flexible whitespace
-                pattern = rf'^\s*127\.0\.0\.1\s+.*\b{re.escape(host)}\b'
-                if not re.search(pattern, hosts_content, re.MULTILINE):
+                if host not in present:
                     missing.append(host)
 
         except (OSError, UnicodeDecodeError):
@@ -117,10 +128,18 @@ class HostsManager:
                 if "# GenAI Stack subdomains" in line:
                     continue
                     
-                # Skip any line with GenAI hostnames
+                # Skip any line with GenAI hostnames. Whole-token
+                # comparison — a substring check deleted the user's own
+                # entries like `127.0.0.1 my-n8n.localhost` because they
+                # CONTAIN a stack alias.
                 should_skip = False
+                # Comment-stripped, address-anchored tokens — mirrors the
+                # presence check; a commented-out user line mentioning a
+                # stack alias must not be deleted.
+                effective = line.split("#", 1)[0].split()
+                line_tokens = effective[1:] if effective[:1] == ["127.0.0.1"] else []
                 for host in self.get_genai_hosts():
-                    if f"127.0.0.1" in line and host in line:
+                    if host in line_tokens:
                         should_skip = True
                         break
                         
@@ -157,9 +176,21 @@ class HostsManager:
             # Remove existing GenAI entries first (cleanup)
             self.remove_hosts_entries_silent(hosts_file_path)
             
-            # Add new entries
-            with open(hosts_file_path, 'a', encoding="utf-8") as f:
-                f.write("\n")
+            # Add new entries. Normalize the trailing boundary instead of
+            # blindly appending "\n" — repeated --setup-hosts cycles
+            # otherwise accumulate blank lines at EOF (remove never
+            # strips them).
+            try:
+                with open(hosts_file_path, encoding="utf-8") as rf:
+                    existing = rf.read()
+            except OSError:
+                # Read failed but a write might still succeed — bailing
+                # beats truncating /etc/hosts down to just our block.
+                return False
+            normalized = existing.rstrip("\n")
+            with open(hosts_file_path, 'w', encoding="utf-8") as f:
+                if normalized:
+                    f.write(normalized + "\n\n")
                 f.write("# GenAI Stack subdomains (added by start.py)\n")
                 for host in self.get_genai_hosts():
                     f.write(f"127.0.0.1 {host}\n")

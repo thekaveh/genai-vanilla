@@ -98,7 +98,12 @@ def check_source_matrix():
     env = (ROOT / '.env.example').read_text(encoding="utf-8", errors='ignore')
     guide = (ROOT / 'docs/deployment/source-configuration.md').read_text(encoding="utf-8", errors='ignore')
     missing = []
-    for var in sorted(set(re.findall(r'^([A-Z0-9_]+_SOURCE)=', env, re.M))):
+    source_vars = sorted(set(re.findall(r'^([A-Z0-9_]+_SOURCE)=', env, re.M)))
+    if not source_vars:
+        # Empty-match guard: zero *_SOURCE vars means the pattern or the
+        # file is broken, not that the matrix is in sync.
+        return ['.env.example: no *_SOURCE= variables matched — check pattern/file']
+    for var in source_vars:
         if var not in guide:
             missing.append(f'docs/deployment/source-configuration.md: missing {var}')
     return missing

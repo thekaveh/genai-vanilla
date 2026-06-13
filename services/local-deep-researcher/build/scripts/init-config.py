@@ -67,15 +67,22 @@ def initialize_config():
 
         result = cursor.fetchone()
 
-        # All LLM access goes through the LiteLLM gateway. The DB stores bare
-        # model names per provider; we prefix with the provider name to form a
-        # LiteLLM model identifier (e.g. "ollama/qwen3.6:latest").
+        # All LLM access goes through the LiteLLM gateway. litellm-init
+        # registers cloud rows under their BARE catalog names (openrouter
+        # names already carry their own prefix) and only Ollama rows get
+        # the dual "ollama/{name}" alias — same convention as the
+        # backend's memory_service. Prefixing every provider produced
+        # ids LiteLLM never serves ("openai/gpt-…" 400s;
+        # "openrouter/openrouter/…" double-prefixes).
         litellm_base_url = os.getenv("LITELLM_BASE_URL", "http://litellm:4000")
         litellm_api_key = os.getenv("LITELLM_API_KEY", "")
 
         if result:
             provider, model_name = result
-            litellm_model = f"{provider}/{model_name}"
+            if provider == "ollama":
+                litellm_model = f"ollama/{model_name}"
+            else:
+                litellm_model = model_name
             print(f"Found active LLM: {litellm_model}")
 
             # Create configuration for Local Deep Researcher.

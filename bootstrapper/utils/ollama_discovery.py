@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import socket
+import http.client
 import urllib.error
 import urllib.request
 
@@ -35,7 +36,8 @@ def list_pulled_models(upstream_url: str, timeout: float = 2.0) -> list[str]:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8", errors="replace")
-    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError):
+    except (urllib.error.URLError, socket.timeout, ConnectionError, OSError,
+            http.client.HTTPException):
         return []
     try:
         data = json.loads(body)

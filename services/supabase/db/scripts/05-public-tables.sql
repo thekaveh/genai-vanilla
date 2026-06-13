@@ -1,4 +1,4 @@
--- 04-public-tables.sql
+-- 05-public-tables.sql
 -- Create custom public tables
 
 CREATE TABLE IF NOT EXISTS public.users (

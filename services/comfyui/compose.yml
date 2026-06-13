@@ -17,8 +17,8 @@ services:
     environment:
       PGHOST: supabase-db
       PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME:-postgres}
-      PGUSER: postgres
+      PGDATABASE: ${SUPABASE_DB_NAME}
+      PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       COMFYUI_USER_MODELS: ${COMFYUI_USER_MODELS:-}
       COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml
@@ -57,8 +57,6 @@ services:
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       COMFYUI_MODELS_PATH: /models
-      COMFYUI_HOST_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
-      IS_LOCAL_COMFYUI: ${IS_LOCAL_COMFYUI:-false}
     volumes:
       - ./init/scripts:/scripts
       - comfyui-models:/models
