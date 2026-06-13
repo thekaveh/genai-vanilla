@@ -29,7 +29,7 @@ langchain-core>=0.1.22
 langchain-community>=0.0.24
 langchain-openai>=0.0.8
 langchain-groq>=0.1.5
-groq>=0.4.0
+groq>=1.4.0
 langgraph>=0.0.15
 transformers>=4.39.3
 
