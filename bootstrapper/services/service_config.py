@@ -1180,15 +1180,49 @@ class ServiceConfig:
             env_vars['LIGHTRAG_NEO4J_PASSWORD'] = ''
             env_vars['LIGHTRAG_REDIS_URI'] = ''
 
-        # Hermes-init consumes LightRAG when both hermes and lightrag are enabled.
-        # LIGHTRAG_INTERNAL_URL is read by init-hermes.sh and rendered into config.yaml
-        # as a rag_query tool block when non-empty.
-        lightrag_endpoint = parent_vars.get('LIGHTRAG_ENDPOINT', '')
+        # Hermes-init capability wiring. Each *_INTERNAL_URL is read by
+        # init-hermes.sh and rendered into config.yaml as a tool/skill block
+        # — empty values cause init-hermes.sh's strip_block to omit the
+        # capability (per services/hermes/service.yml::runtime_adaptive
+        # .hermes-init.failure_mode). The contract here mirrors the env
+        # declarations at services/hermes/service.yml lines 169-173; missing
+        # an emission silently disables the capability with no warning.
         hermes_source = sources.get('HERMES_SOURCE', 'container')
-        if hermes_source == 'container' and lightrag_endpoint:
+        hermes_container_up = (hermes_source == 'container')
+
+        lightrag_endpoint = parent_vars.get('LIGHTRAG_ENDPOINT', '')
+        if hermes_container_up and lightrag_endpoint:
             env_vars['LIGHTRAG_INTERNAL_URL'] = lightrag_endpoint
         else:
             env_vars.setdefault('LIGHTRAG_INTERNAL_URL', '')
+
+        tts_endpoint_for_hermes = parent_vars.get('TTS_ENDPOINT', '')
+        if hermes_container_up and tts_endpoint_for_hermes:
+            env_vars['TTS_INTERNAL_URL'] = tts_endpoint_for_hermes
+        else:
+            env_vars.setdefault('TTS_INTERNAL_URL', '')
+
+        stt_endpoint_for_hermes = parent_vars.get('STT_ENDPOINT', '')
+        if hermes_container_up and stt_endpoint_for_hermes:
+            env_vars['STT_INTERNAL_URL'] = stt_endpoint_for_hermes
+        else:
+            env_vars.setdefault('STT_INTERNAL_URL', '')
+
+        comfyui_endpoint_for_hermes = parent_vars.get('COMFYUI_ENDPOINT', '')
+        comfyui_source = sources.get('COMFYUI_SOURCE', 'disabled')
+        if hermes_container_up and comfyui_source != 'disabled' and comfyui_endpoint_for_hermes:
+            env_vars['COMFYUI_INTERNAL_URL'] = comfyui_endpoint_for_hermes
+        else:
+            env_vars.setdefault('COMFYUI_INTERNAL_URL', '')
+
+        searxng_source = sources.get('SEARXNG_SOURCE', 'container')
+        if hermes_container_up and searxng_source != 'disabled':
+            # SEARXNG_INTERNAL_URL is a fixed in-network address (no
+            # SEARXNG_ENDPOINT exists) — the literal mirrors what the
+            # manifest's environment_adaptation declares.
+            env_vars['SEARXNG_INTERNAL_URL'] = 'http://searxng:8080'
+        else:
+            env_vars.setdefault('SEARXNG_INTERNAL_URL', '')
 
         # Local Deep Researcher - check SOURCE variable
         researcher_source = sources.get('LOCAL_DEEP_RESEARCHER_SOURCE', 'container')

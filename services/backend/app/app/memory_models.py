@@ -110,7 +110,7 @@ class MemoryFact(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
-    metadata: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class MemoryExtractResponse(BaseModel):

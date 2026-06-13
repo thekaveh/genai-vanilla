@@ -62,3 +62,40 @@ def test_wizard_build_handles_blank_base_port(tmp_path):
     )
     assert current_base_port == DEFAULT_BASE_PORT
     assert steps and rows
+
+
+def test_wizard_build_handles_blank_kong_http_port(tmp_path):
+    """When ``KONG_HTTP_PORT`` is blank in .env, the wizard's first paint
+    must show alias_port=63000 for every Kong-routed service, matching
+    the linear ``state_builder.build_app_state()`` fallback.
+
+    Without this guard, _build_steps_and_rows()'s old empty-string
+    fallback rendered alias_port='' while the linear path showed
+    '63000' — same data, two different first paints depending on
+    whether the user hit the TUI or the --no-tui path."""
+    import shutil
+    from pathlib import Path
+
+    from core.config_parser import ConfigParser
+    from ui.textual.integration import _build_steps_and_rows
+    from utils.hosts_manager import HostsManager
+
+    repo_root = Path(__file__).resolve().parents[2]
+    env = tmp_path / ".env"
+    shutil.copy(repo_root / ".env.example", env)
+    text = env.read_text(encoding="utf-8").replace(
+        "KONG_HTTP_PORT=63000", "KONG_HTTP_PORT="
+    )
+    env.write_text(text, encoding="utf-8")
+
+    cp = ConfigParser(str(repo_root))
+    cp.env_file_path = env
+    _, rows, *_ = _build_steps_and_rows(cp, HostsManager())
+
+    aliased = [r for r in rows if r.alias]
+    assert aliased, "expected at least one Kong-aliased row in the wizard"
+    for r in aliased:
+        assert r.alias_port == "63000", (
+            f"row {r.name!r} has alias_port={r.alias_port!r}; "
+            f"expected '63000' (KONG_HTTP_PORT fallback)"
+        )

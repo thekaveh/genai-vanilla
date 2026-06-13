@@ -147,7 +147,7 @@ docker compose ps ollama
 docker compose logs -f ollama
 
 # Verify LiteLLM can reach Ollama (from inside the network)
-docker exec genai-litellm curl -s http://ollama:11434/api/tags
+docker exec ${PROJECT_NAME}-litellm curl -s http://ollama:11434/api/tags
 ```
 
 For general startup and routing issues, see [Troubleshooting](../../docs/quick-start/troubleshooting.md). For LiteLLM-specific debugging (model registration, virtual keys, spend logs), see [LiteLLM Gateway](../litellm/README.md).

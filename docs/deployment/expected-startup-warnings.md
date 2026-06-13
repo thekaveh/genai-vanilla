@@ -4,6 +4,8 @@ The first ~60 seconds after `./start.sh` produce a handful of warnings and one-s
 
 If you see a warning *not* on this list, that's a real signal — start there.
 
+> **Note on container names.** The `Service` column shows the container as it appears in `docker ps` / `docker logs` on a default-`PROJECT_NAME` stack (`genai-…`). If you set `PROJECT_NAME` in `.env`, substitute that prefix in place of `genai-` when grepping logs.
+
 ## 1. Inventory
 
 ### 1.1 Library-internal / image-baked deprecations (no action from us)

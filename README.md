@@ -197,7 +197,7 @@ The stack uses **SOURCE variables** to control how services are deployed.
 - **ComfyUI** (`COMFYUI_SOURCE=localhost`) — use local ComfyUI; the bootstrapper resolves `host.docker.internal:${COMFYUI_LOCALHOST_PORT}` (default `8000`; override to `8188` or whatever port your host install uses)
 - **Weaviate** (`WEAVIATE_SOURCE=localhost`) — use local Weaviate instance
 - **OpenClaw** (`OPENCLAW_SOURCE=localhost`) — use local OpenClaw installation
-- **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes; the bootstrapper resolves `host.docker.internal:${HERMES_LOCALHOST_PORT}` (default `63028`); useful when Hermes should drive your real shell, browser, or microphone
+- **Hermes Agent** (`HERMES_SOURCE=localhost`) — use a host-installed Hermes; the bootstrapper resolves `host.docker.internal:${HERMES_LOCALHOST_PORT}` (default `63028`) for the API and `host.docker.internal:${HERMES_LOCALHOST_DASHBOARD_PORT}` (default `63029`) for the dashboard; useful when Hermes should drive your real shell, browser, or microphone
 - **LightRAG** (`LIGHTRAG_SOURCE=localhost`) — use a host-installed LightRAG; the bootstrapper resolves `host.docker.internal:${LIGHTRAG_LOCALHOST_PORT}` (default `63068`)
 - **TEI Reranker** (`TEI_RERANKER_SOURCE=localhost`) — use a host-installed TEI Reranker; the bootstrapper resolves `host.docker.internal:${TEI_RERANKER_LOCALHOST_PORT}` (default `63031`)
 
@@ -268,7 +268,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Supabase Studio** | http://localhost:63017 | http://studio.localhost:63000 | Database management | Kong route: `kong_admin` / `DASHBOARD_PASSWORD` from `.env` (direct port is ungated) |
 | **ComfyUI** | http://localhost:63041 | http://comfyui.localhost:63000 | Image generation | None |
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
-| **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs genai-jupyterhub`) |
+| **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs ${PROJECT_NAME}-jupyterhub`) |
 | **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | `neo4j` / `GRAPH_DB_PASSWORD` from `.env` |
 | **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
@@ -284,7 +284,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 13 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
 | **Grafana** | http://localhost:63008 | http://grafana.localhost:63000 | Observability dashboards + unified alerting on top of Prometheus. Disabled by default; opt-in via `--grafana-source container`. 7 starter dashboards ship pre-provisioned. | `admin` / auto-generated `GRAFANA_ADMIN_PASSWORD` (first-run) |
 | **LightRAG** | `http://lightrag.localhost:${KONG_HTTP_PORT}` (WebUI), `http://localhost:${LIGHTRAG_API_PORT}/webui` | http://lightrag.localhost:63000 | Graph-augmented RAG server. KG + vector + multimodal ingestion. Disabled by default. | None |
-| **TEI Reranker** | `http://localhost:${TEI_RERANKER_PORT}/rerank` (API only) | http://rerank.localhost:63000 | Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift. Disabled by default. | None |
+| **TEI Reranker** | `http://localhost:${TEI_RERANKER_PORT}/rerank` (API only) | http://rerank.localhost:63000 | Cross-encoder reranker (default `mixedbread-ai/mxbai-rerank-base-v1`) for RAG quality lift. Disabled by default. | None |
 
 ### 4.2 Database layer
 - **PostgreSQL (Supabase)** — primary database with auth, storage, realtime
@@ -368,11 +368,13 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ```bash
 # Basic stop commands
 ./stop.sh                    # Stop services, keep data
-./stop.sh --cold             # Stop and remove all data (destructive; includes a global docker system prune -f --volumes)
+./stop.sh --cold             # Stop and remove all data (destructive; includes a global `docker system prune -f --volumes` that ALSO touches unused images/volumes belonging to OTHER docker projects on this host)
 ./stop.sh --clean-hosts      # Remove *.localhost entries from hosts file
 ./stop.sh --help             # Show all options
 
-# The --cold option removes all Docker volumes (data loss).
+# The --cold option removes all Docker volumes (data loss). The `docker
+# system prune -f --volumes` step is host-wide — any unrelated Docker
+# project's dangling volumes / images on the same machine are pruned too.
 # Use with caution — all database data will be permanently deleted.
 ```
 
@@ -443,7 +445,7 @@ genai-vanilla/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
 │   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
 │   ├── schemas/               # JSON Schemas for service.yml manifests
-│   ├── tests/                 # 800+ tests (loader, validator, byte-equiv, source-permutation, hooks)
+│   ├── tests/                 # 840+ tests (loader, validator, byte-equiv, source-permutation, hooks)
 │   ├── tools/                 # validate_fragments CLI lint
 │   └── start.py / stop.py     # Entry points
 ├── services/                  # One folder per service family — single source of truth
@@ -525,8 +527,8 @@ lsof -i :63000               # Check what's using port
 **Service health:**
 ```bash
 docker compose ps              # Check service status
-docker logs genai-litellm -f   # Check LLM gateway logs
-docker logs genai-ollama -f    # Check Ollama upstream logs (if enabled)
+docker logs ${PROJECT_NAME}-litellm -f   # Check LLM gateway logs
+docker logs ${PROJECT_NAME}-ollama -f    # Check Ollama upstream logs (if enabled)
 ```
 
 ### 8.2 Detailed troubleshooting

@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
+
+- **Hermes capability wiring (HIGH):** `service_config.py` now emits
+  `TTS_INTERNAL_URL`, `STT_INTERNAL_URL`, `COMFYUI_INTERNAL_URL`, and
+  `SEARXNG_INTERNAL_URL` whenever Hermes is in container mode and the
+  respective provider source is enabled. Until now only
+  `LIGHTRAG_INTERNAL_URL` was wired; the other four fell through the
+  compose `${VAR:-}` fallback to empty, and `init-hermes.sh`'s
+  `strip_block` silently omitted the TTS / STT / image-generation /
+  web-search capability blocks from `config.yaml`. Hermes ran without
+  those capabilities even when their upstream providers were on. Five
+  new regression tests in `test_hermes_n8n_backend_adapts_to_lightrag.py`
+  (4 enabled-emit + 1 disabled-blank) lock the contract in.
+- README localhost-source docs surface the Hermes dashboard port
+  (`HERMES_LOCALHOST_DASHBOARD_PORT=63029`) alongside the API port —
+  previously only the API was documented despite Kong's
+  `hermes.localhost` route fronting the dashboard.
+- Dependabot ignore list adds `apache-airflow-providers-apache-spark`
+  (PR #47 was closed unmerged because the 6.0.0 bump dropped the bundled
+  `pyspark` dependency). Without the ignore entry the doomed bump
+  retries on every weekly cadence.
+- Pydantic hygiene: `MemoryFact.metadata` now uses
+  `Field(default_factory=dict)` instead of the bare `{}` literal,
+  matching the project's preferred convention.
+- `CONTRIBUTING-services.md` TL;DR said "four-command regen + lint
+  chain" but §12 lists five; LICENSE copyright year extended
+  `2025` → `2025-2026`. README test-count claim refreshed from
+  `800+` to `840+`.
+- README §4.1 service table inflated TEI Reranker's default model id
+  to the namespaced upstream form `mixedbread-ai/mxbai-rerank-base-v1`
+  (bare `mxbai-rerank-base-v1` wouldn't pull from HuggingFace).
+- README + 9 service READMEs + quick-start troubleshooting + the
+  expected-startup-warnings table aligned to the `${PROJECT_NAME}-<svc>`
+  container-name convention. Non-default-`PROJECT_NAME` deployments now
+  have working cut-paste docs throughout. The warning table keeps the
+  literal `genai-` prefix (it documents actual log output) but the new
+  note at §1 tells readers to substitute their own `PROJECT_NAME`.
+- README §6 `./stop.sh --cold` block now warns that the `docker system
+  prune -f --volumes` step is host-wide — it also prunes unused
+  images / volumes belonging to OTHER docker projects on the same host.
+- Textual wizard's first paint now mirrors `state_builder.build_app_state()`
+  when `KONG_HTTP_PORT` is blank in `.env`: `_build_steps_and_rows` now
+  uses `'63000'` as the alias-port fallback instead of empty string,
+  so the TUI and `--no-tui` paths render the same alias_port for every
+  Kong-aliased service. Regression test in `test_blank_base_port.py`.
+- Test hygiene: `test_adapts_to_includes_lightrag` now declares
+  parametrize `ids=` so pytest failures point at the failing
+  (service, container, env-var) tuple by name instead of
+  `svc0-container0-expected_env_var0`.
+- Prometheus README §1 reworded "All three lifecycle together" (verbed
+  noun) to "All three share a single lifecycle" — same scaling
+  semantic, cleaner prose.
+
 ### Fixed — 2026-06-11 overnight maintenance passes 56-62 (7 commits)
 
 - n8n queue mode: the worker now exports metrics too (5 mirrored

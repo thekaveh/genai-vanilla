@@ -58,6 +58,14 @@ updates:
       - dependency-name: "torch-cluster"
       - dependency-name: "torch-spline-conv"
       - dependency-name: "torch_geometric"
+      # apache-airflow-providers-apache-spark 6.0.0 dropped the bundled
+      # pyspark dependency from the default install (now requires the
+      # `[pyspark]` extra). A bare bump silently breaks the sample DAG's
+      # Spark Connect smoke step. PR #47 (2026-06-05) was opened against
+      # >=5.4.0 -> >=6.0.2 and closed unmerged for exactly this reason.
+      # Bump only when coordinated with a corresponding `[pyspark]` extra
+      # update in services/airflow/build/requirements.txt.
+      - dependency-name: "apache-airflow-providers-apache-spark"
     commit-message:
       prefix: "deps"
       include: "scope"

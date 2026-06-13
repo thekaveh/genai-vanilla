@@ -206,13 +206,13 @@ Docker network and does not need the host publish).
 psql -h localhost -p ${SUPABASE_DB_PORT} -U supabase_admin -d postgres
 
 # Using Docker
-docker exec -it genai-supabase-db psql -U supabase_admin -d postgres
+docker exec -it ${PROJECT_NAME}-supabase-db psql -U supabase_admin -d postgres
 ```
 
 ### 7.2 Check Service Health
 ```bash
 # Database
-docker exec genai-supabase-db pg_isready
+docker exec ${PROJECT_NAME}-supabase-db pg_isready
 
 # Services
 curl http://localhost:${SUPABASE_API_PORT}/health
@@ -221,10 +221,10 @@ curl http://localhost:${SUPABASE_AUTH_PORT}/health
 
 ### 7.3 View Logs
 ```bash
-docker logs genai-supabase-db -f
-docker logs genai-supabase-auth -f
-docker logs genai-supabase-api -f
-docker logs genai-supabase-studio -f
+docker logs ${PROJECT_NAME}-supabase-db -f
+docker logs ${PROJECT_NAME}-supabase-auth -f
+docker logs ${PROJECT_NAME}-supabase-api -f
+docker logs ${PROJECT_NAME}-supabase-studio -f
 ```
 
 ## 8. LightRAG schema

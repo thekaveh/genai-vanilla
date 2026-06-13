@@ -89,7 +89,7 @@ NEO4J_server_memory_pagecache_size=512m
 ### 7.1 Connect via Cypher Shell
 ```bash
 # Connect using Docker
-docker exec -it genai-neo4j-graph-db cypher-shell -u neo4j -p ${GRAPH_DB_PASSWORD}
+docker exec -it ${PROJECT_NAME}-neo4j-graph-db cypher-shell -u neo4j -p ${GRAPH_DB_PASSWORD}
 
 # Sample queries
 MATCH (n) RETURN count(n);  // Count all nodes
@@ -173,13 +173,13 @@ NEO4J_server_memory_pagecache_size=256m
 ### 11.1 Health Checks
 ```bash
 # Check container status
-docker logs genai-neo4j-graph-db -f
+docker logs ${PROJECT_NAME}-neo4j-graph-db -f
 
 # Test HTTP endpoint
 curl http://localhost:63021/
 
 # Check Bolt connection
-docker exec genai-neo4j-graph-db cypher-shell -u neo4j -p password "RETURN 'Connection OK'"
+docker exec ${PROJECT_NAME}-neo4j-graph-db cypher-shell -u neo4j -p password "RETURN 'Connection OK'"
 ```
 
 ### 11.2 Database Statistics
@@ -271,19 +271,19 @@ _No upstream calls._
 ### 14.2 Debug Commands
 ```bash
 # View detailed logs
-docker logs genai-neo4j-graph-db --tail=100 -f
+docker logs ${PROJECT_NAME}-neo4j-graph-db --tail=100 -f
 
 # Check resource usage
-docker stats genai-neo4j-graph-db
+docker stats ${PROJECT_NAME}-neo4j-graph-db
 
 # Verify configuration
-docker exec genai-neo4j-graph-db cat /var/lib/neo4j/conf/neo4j.conf
+docker exec ${PROJECT_NAME}-neo4j-graph-db cat /var/lib/neo4j/conf/neo4j.conf
 ```
 
 ### 14.3 Recovery Procedures
 ```bash
 # If database is corrupted, restore from backup
-docker exec -it genai-neo4j-graph-db /usr/local/bin/restore.sh
+docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
 
 # If backup is corrupted, reinitialize (data loss)
 docker volume rm genai-graph-db-data

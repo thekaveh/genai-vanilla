@@ -560,7 +560,7 @@ _No upstream calls._
 **Problem**: docling-gpu fails to start
 
 **Solution**:
-1. Check logs: `docker logs genai-docling-gpu`
+1. Check logs: `docker logs ${PROJECT_NAME}-docling-gpu`
 2. Verify SOURCE setting matches your hardware
 3. Ensure Docker has sufficient resources allocated
 4. Check GPU drivers and CUDA version

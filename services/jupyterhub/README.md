@@ -60,7 +60,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 
 - **No token set**: Auto-generated token shown in logs
 - **Custom token**: Set `JUPYTERHUB_TOKEN` in `.env`
-- **View token**: `docker logs genai-jupyterhub | grep token`
+- **View token**: `docker logs ${PROJECT_NAME}-jupyterhub | grep token`
 
 ## 5. Sample Notebooks
 
@@ -183,7 +183,7 @@ VS Code's Jupyter extension can use this container as the **remote kernel** for 
    grep '^JUPYTERHUB_TOKEN=' .env
 
    # Otherwise (default), grep the auto-generated value out of the logs:
-   docker logs genai-jupyterhub 2>&1 | grep -oE 'token=[a-f0-9]+' | tail -1
+   docker logs ${PROJECT_NAME}-jupyterhub 2>&1 | grep -oE 'token=[a-f0-9]+' | tail -1
    ```
    Treat the token like a password. It changes every restart unless you pin it in `.env`.
 
@@ -253,11 +253,11 @@ Net effect: the three flags reach `jupyter lab` exactly as if they were in a con
 
 ### 10.5 Troubleshooting
 
-- **Token rejected.** Re-read `.env`; check the variable hasn't been hand-rotated. `docker logs genai-jupyterhub | grep -i token` shows the value the container actually started with.
-- **Kernel starts but cells hang.** WebSocket upgrade failure — confirm the three `--ServerApp.*` flags are present in `docker inspect genai-jupyterhub --format='{{json .Config.Cmd}}'`. If the compose file was edited but the container wasn't rebuilt, run `./stop.sh && ./start.sh`.
+- **Token rejected.** Re-read `.env`; check the variable hasn't been hand-rotated. `docker logs ${PROJECT_NAME}-jupyterhub | grep -i token` shows the value the container actually started with.
+- **Kernel starts but cells hang.** WebSocket upgrade failure — confirm the three `--ServerApp.*` flags are present in `docker inspect ${PROJECT_NAME}-jupyterhub --format='{{json .Config.Cmd}}'`. If the compose file was edited but the container wasn't rebuilt, run `./stop.sh && ./start.sh`.
 - **CORS error in VS Code's developer console.** `JUPYTER_ALLOW_ORIGIN` was tightened past what VS Code uses. Set it to `*` temporarily; the Jupyter token is still required for any kernel operation.
 - **"Address already in use" on 63081.** `./start.sh --base-port 64000` to relocate the whole stack.
-- **Scala 2.13 / Scala 3 missing from the kernel picker.** The running image predates the Almond layer in `services/jupyterhub/build/Dockerfile`. Rebuild with `docker compose up jupyterhub --build --no-deps -d` (no full-stack restart needed). Confirm via `docker exec genai-jupyterhub jupyter kernelspec list` — both `scala213` and `scala3` should appear alongside `python3`. See §11 for full kernel-install details.
+- **Scala 2.13 / Scala 3 missing from the kernel picker.** The running image predates the Almond layer in `services/jupyterhub/build/Dockerfile`. Rebuild with `docker compose up jupyterhub --build --no-deps -d` (no full-stack restart needed). Confirm via `docker exec ${PROJECT_NAME}-jupyterhub jupyter kernelspec list` — both `scala213` and `scala3` should appear alongside `python3`. See §11 for full kernel-install details.
 - **Server connects but no kernels listed.** Look at the URL VS Code stored — it must include `/?token=<value>`. If you pasted the URL without the token, VS Code thinks it's connected but every kernel request 403s. `Jupyter: Specify Jupyter Server for Connections` → re-enter the URL with the token suffix.
 - **Cell output appears in the wrong notebook.** VS Code occasionally caches a stale kernel binding when you switch between two notebooks on the same server. Right-click the notebook tab → `Restart Kernel` resets the binding.
 
@@ -294,7 +294,7 @@ This container ships **three kernels**:
 **To verify the kernels are actually installed in the running container:**
 
 ```bash
-docker exec genai-jupyterhub jupyter kernelspec list
+docker exec ${PROJECT_NAME}-jupyterhub jupyter kernelspec list
 ```
 
 You should see `scala213` and `scala3` alongside `python3` (and `ir`, `julia-1.9` from the upstream image). If only `ir` / `julia-1.9` / `python3` appear, the container was built before the Scala layer was added — rebuild with the args at the top of the Dockerfile baked in:
@@ -308,7 +308,7 @@ docker compose up jupyterhub --build --no-deps -d
 **Smoke-test a Scala cell** without opening JupyterLab — useful in CI / cold-start verification:
 
 ```bash
-docker exec genai-jupyterhub bash -lc \
+docker exec ${PROJECT_NAME}-jupyterhub bash -lc \
   "echo 'val x = (1 to 5).map(_ * 2).sum; println(s\"sum=\$x\")' | jupyter run --kernel=scala3 /dev/stdin"
 ```
 
@@ -339,7 +339,7 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 
 ## 14. Support
 
-- **Logs**: `docker logs genai-jupyterhub`
+- **Logs**: `docker logs ${PROJECT_NAME}-jupyterhub`
 - **Issues**: [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues)
 - **Docs**: [Full Documentation](../../README.md)
 
@@ -406,14 +406,14 @@ docker ps | grep jupyterhub
 
 **View logs:**
 ```bash
-docker logs genai-jupyterhub
+docker logs ${PROJECT_NAME}-jupyterhub
 ```
 
 ### 16.2 Token Not Working
 
 **Get current token:**
 ```bash
-docker logs genai-jupyterhub | grep "token="
+docker logs ${PROJECT_NAME}-jupyterhub | grep "token="
 ```
 
 **Set permanent token:**

@@ -20,7 +20,7 @@ A maintainer who already understands the stack can land a new service in under a
 - [ ] **Write `services/<name>/compose.yml`** (only if folder flavor = container) → [Mechanics](#11-mechanics--putting-it-all-together)
 - [ ] **Add the `include:` line to `docker-compose.yml`** (only if you wrote a compose fragment)
 - [ ] **Register CLI key in `source_mapping`** → [Mechanics — source_override_manager registration](#114-bootstrapperutilssource_override_managerpy--register-the-cli-key). Without this the wizard silently skips your service.
-- [ ] **Run the four-command regen + lint chain** → [After you save the files](#12-after-you-save-the-files--regen--lint-commands-in-order)
+- [ ] **Run the five-command regen + lint chain** → [After you save the files](#12-after-you-save-the-files--regen--lint-commands-in-order)
 - [ ] **Update audit-script allowlists** if your service has hard deps → [Audit-script + CI implications](#13-audit-script--ci-implications)
 - [ ] **Commit and push.** CI gates the change (three jobs: manifest-lint+pytest, compose-equivalence+permutation matrix, docs-drift+audit-scripts).
 
