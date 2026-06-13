@@ -179,7 +179,7 @@ curl -s -X POST http://localhost:63030/v1/chat/completions \
 ### 9.1 Expected startup noise (cosmetic, self-resolves in milliseconds)
 
 The very first time the `litellm` container reaches the database after a
-cold boot, the `genai-supabase-db` log will emit a burst of
+cold boot, the `${PROJECT_NAME}-supabase-db` log will emit a burst of
 `relation "<…>" does not exist at character 15` errors against the
 `litellm` database. They look alarming but they are benign:
 
@@ -208,7 +208,7 @@ the errors never recur.
 
 ```bash
 # All 8 views present in the litellm DB:
-docker exec -e PGPASSWORD="$SUPABASE_DB_PASSWORD" genai-supabase-db \
+docker exec -e PGPASSWORD="$SUPABASE_DB_PASSWORD" ${PROJECT_NAME}-supabase-db \
   psql -U supabase_admin -d litellm -tAc "
     SELECT count(*) FROM pg_views WHERE schemaname='public' AND viewname IN
       ('LiteLLM_VerificationTokenView','MonthlyGlobalSpend','Last30dKeysBySpend',
@@ -217,11 +217,11 @@ docker exec -e PGPASSWORD="$SUPABASE_DB_PASSWORD" genai-supabase-db \
 # Expect: 8
 
 # All errors are clustered in a single sub-second window at startup:
-docker logs genai-supabase-db 2>&1 | grep "ERROR.*does not exist" | awk '{print $2}' | sort -u
+docker logs ${PROJECT_NAME}-supabase-db 2>&1 | grep "ERROR.*does not exist" | awk '{print $2}' | sort -u
 # Expect: one timestamp, all within ~50 ms
 
 # After that window, no new ones appear:
-docker logs --since 1m genai-supabase-db 2>&1 | grep -c "ERROR.*does not exist"
+docker logs --since 1m ${PROJECT_NAME}-supabase-db 2>&1 | grep -c "ERROR.*does not exist"
 # Expect: 0
 ```
 

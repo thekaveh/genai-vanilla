@@ -58,7 +58,7 @@ Open `http://localhost:${OPENCLAW_GATEWAY_PORT}` (default 63065) or `http://open
 
 **Step 4: Run onboarding**
 ```bash
-docker exec -it genai-openclaw-gateway openclaw onboard
+docker exec -it ${PROJECT_NAME}-openclaw-gateway openclaw onboard
 ```
 
 **Note:**
@@ -170,16 +170,16 @@ Run OpenClaw CLI commands inside the container:
 
 ```bash
 # Run onboarding
-docker exec -it genai-openclaw-gateway openclaw onboard
+docker exec -it ${PROJECT_NAME}-openclaw-gateway openclaw onboard
 
 # Configure settings (e.g. point OpenClaw at LiteLLM)
-docker exec -it genai-openclaw-gateway openclaw config set models.providers.openai.baseUrl "http://litellm:4000/v1"
+docker exec -it ${PROJECT_NAME}-openclaw-gateway openclaw config set models.providers.openai.baseUrl "http://litellm:4000/v1"
 
 # Check health
-docker exec -it genai-openclaw-gateway openclaw doctor
+docker exec -it ${PROJECT_NAME}-openclaw-gateway openclaw doctor
 
 # View gateway status
-docker exec -it genai-openclaw-gateway openclaw gateway probe
+docker exec -it ${PROJECT_NAME}-openclaw-gateway openclaw gateway probe
 ```
 
 Or use docker compose run for one-off commands:
@@ -194,7 +194,7 @@ docker compose run --rm openclaw-gateway openclaw config get gateway.auth.token
 curl http://localhost:${OPENCLAW_GATEWAY_PORT}/healthz
 
 # Deep health check (requires token)
-docker exec genai-openclaw-gateway node openclaw.mjs health --token "$OPENCLAW_GATEWAY_TOKEN"
+docker exec ${PROJECT_NAME}-openclaw-gateway node openclaw.mjs health --token "$OPENCLAW_GATEWAY_TOKEN"
 ```
 
 ## 9. Source Modes
@@ -301,15 +301,15 @@ No OpenClaw agent (default).
 
 **Solution**:
 1. The `openclaw-init` container should fix this automatically on startup
-2. If it persists, manually fix: `docker run --rm -v genai-openclaw-config:/data alpine chown -R 1000:1000 /data`
-3. Restart the gateway: `docker restart genai-openclaw-gateway`
+2. If it persists, manually fix: `docker run --rm -v ${PROJECT_NAME}-openclaw-config:/data alpine chown -R 1000:1000 /data`
+3. Restart the gateway: `docker restart ${PROJECT_NAME}-openclaw-gateway`
 
 ### 13.2 Gateway Won't Start
 
 **Problem**: OpenClaw container fails to start
 
 **Solution**:
-1. Check logs: `docker logs genai-openclaw-gateway`
+1. Check logs: `docker logs ${PROJECT_NAME}-openclaw-gateway`
 2. Verify image is available: `docker pull ghcr.io/openclaw/openclaw:latest`
 3. Ensure ports 63065/63066 (the canonical gateway/bridge slots — overridable via `OPENCLAW_GATEWAY_PORT` / `OPENCLAW_BRIDGE_PORT`) are not in use
 4. Check Docker has sufficient memory (2GB+ recommended)
@@ -321,7 +321,7 @@ No OpenClaw agent (default).
 **Solution**:
 1. Verify LiteLLM is healthy: `curl http://localhost:63030/health/liveliness`
 2. List the models LiteLLM has registered: `curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63030/v1/models`
-3. Run inside the container: `docker exec genai-openclaw-gateway openclaw config get models.providers.openai`
+3. Run inside the container: `docker exec ${PROJECT_NAME}-openclaw-gateway openclaw config get models.providers.openai`
 4. Confirm `LITELLM_BASE_URL` and `LITELLM_API_KEY` are present in the OpenClaw container environment
 5. If you specifically need Ollama models, ensure `LLM_PROVIDER_SOURCE` is set to one of the `ollama-*` values (not `none`) so LiteLLM has an Ollama upstream to forward to
 

@@ -156,7 +156,7 @@ Kong supports WebSocket connections for real-time services:
 cat volumes/api/kong-dynamic.yml
 
 # View Kong logs
-docker logs genai-kong-api-gateway -f
+docker logs ${PROJECT_NAME}-kong-api-gateway -f
 
 # Test Kong routing end-to-end (proxies SearXNG's /healthz through Kong;
 # the bare-localhost root now serves the basic-auth-gated Studio route)
@@ -166,7 +166,7 @@ curl -H 'Host: search.localhost' http://localhost:63000/healthz
 ### 10.2 Verify Routes
 ```bash
 # List all configured routes
-docker exec genai-kong-api-gateway kong config -c /kong.yml dump
+docker exec ${PROJECT_NAME}-kong-api-gateway kong config -c /kong.yml dump
 
 # Test specific routes
 curl -H "Host: comfyui.localhost" http://localhost:63000/
@@ -300,8 +300,8 @@ For more information on Kong's role in the overall architecture, see the system 
 docker compose ps | grep kong
 
 # View detailed Kong configuration
-docker exec genai-kong-api-gateway cat /kong.yml
+docker exec ${PROJECT_NAME}-kong-api-gateway cat /kong.yml
 
 # Test internal Kong admin API
-docker exec genai-kong-api-gateway curl http://localhost:8001/status
+docker exec ${PROJECT_NAME}-kong-api-gateway curl http://localhost:8001/status
 ```
