@@ -1,5 +1,5 @@
 apache-airflow-providers-apache-spark>=5.4.0
-apache-airflow-providers-amazon>=9.29.0
+apache-airflow-providers-amazon>=9.30.0
 apache-airflow-providers-postgres>=6.7.1
 apache-airflow-providers-redis>=4.4.5
 # apache-airflow 3.x already requires common-sql as a direct core
@@ -7,14 +7,14 @@ apache-airflow-providers-redis>=4.4.5
 # practice. Kept as a belt-and-suspenders explicit dep so a future
 # requirements.txt review doesn't conclude common-sql is unused when
 # the sample DAG imports SQLExecuteQueryOperator from it.
-apache-airflow-providers-common-sql>=2.0.0
+apache-airflow-providers-common-sql>=2.0.1
 apache-airflow-providers-weaviate>=3.3.4
 # Latest stable on PyPI is 3.11.x; v4 line never released. Earlier `>=4.1.0`
 # pin was unsatisfiable — same shipping-class bug as openai>=2.0.0.
 apache-airflow-providers-neo4j>=3.11.5
 # Latest stable on PyPI is 1.7.x; v2.0.0 doesn't exist (the earlier
 # >=2.0.0 pin was unsatisfiable — pip install failed; image wouldn't build).
-apache-airflow-providers-openai>=1.7.4
+apache-airflow-providers-openai>=1.7.5
 # NOTE: apache-airflow-providers-langchain is NOT a published Apache
 # package (PyPI 404). The commented LangChainOperator example in the
 # sample DAG uses langchain-openai + langchain-core directly — those
