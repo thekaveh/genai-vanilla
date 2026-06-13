@@ -14,7 +14,7 @@ apache-airflow-providers-weaviate>=3.3.4
 apache-airflow-providers-neo4j>=3.11.5
 # Latest stable on PyPI is 1.7.x; v2.0.0 doesn't exist (the earlier
 # >=2.0.0 pin was unsatisfiable — pip install failed; image wouldn't build).
-apache-airflow-providers-openai>=1.7.4
+apache-airflow-providers-openai>=1.7.5
 # NOTE: apache-airflow-providers-langchain is NOT a published Apache
 # package (PyPI 404). The commented LangChainOperator example in the
 # sample DAG uses langchain-openai + langchain-core directly — those
