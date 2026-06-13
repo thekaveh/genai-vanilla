@@ -87,16 +87,16 @@ curl http://localhost:63030/health/liveliness
 curl -H "Authorization: Bearer $LITELLM_MASTER_KEY" http://localhost:63030/v1/models
 
 # Inspect LiteLLM logs
-docker logs genai-litellm -f
+docker logs ${PROJECT_NAME}-litellm -f
 ```
 
 **Ollama models not downloading:**
 ```bash
 # Check the ollama-pull init container
-docker logs genai-ollama-pull -f
+docker logs ${PROJECT_NAME}-ollama-pull -f
 
 # Or the Ollama container itself
-docker logs genai-ollama -f
+docker logs ${PROJECT_NAME}-ollama -f
 
 # For localhost setup, pre-download on the host:
 ollama serve &
@@ -120,13 +120,13 @@ ollama pull qwen3:1.7b  # Smaller model
 # Catalog-init UPSERTs the curated catalog + flips active=true for the
 # names in COMFYUI_USER_MODELS. If models you picked never show up, check
 # this log first — typo'd names get warned here.
-docker logs genai-comfyui-catalog-init
+docker logs ${PROJECT_NAME}-comfyui-catalog-init
 
 # Check ComfyUI init progress (downloads each active row via psql + wget)
-docker logs genai-comfyui-init -f
+docker logs ${PROJECT_NAME}-comfyui-init -f
 
 # Check ComfyUI service status
-docker logs genai-comfyui -f
+docker logs ${PROJECT_NAME}-comfyui -f
 ```
 
 **Can't access ComfyUI interface:**
@@ -143,7 +143,7 @@ curl http://localhost:63041  # Direct port access
 **n8n not accessible:**
 ```bash
 # Check n8n service status
-docker logs genai-n8n -f
+docker logs ${PROJECT_NAME}-n8n -f
 
 # Try direct access
 curl http://localhost:63064
@@ -155,10 +155,10 @@ curl -H "Host: n8n.localhost" http://localhost:63000/
 **Workflow execution fails:**
 ```bash
 # Check n8n worker logs
-docker logs genai-n8n-worker -f
+docker logs ${PROJECT_NAME}-n8n-worker -f
 
 # Check Redis connection
-docker logs genai-redis -f
+docker logs ${PROJECT_NAME}-redis -f
 ```
 
 ### 4.4 Database Issues
@@ -166,21 +166,21 @@ docker logs genai-redis -f
 **Supabase services not starting:**
 ```bash
 # Check individual service logs
-docker logs genai-supabase-db -f
-docker logs genai-supabase-auth -f
-docker logs genai-supabase-api -f
+docker logs ${PROJECT_NAME}-supabase-db -f
+docker logs ${PROJECT_NAME}-supabase-auth -f
+docker logs ${PROJECT_NAME}-supabase-api -f
 
 # Check if database initialization completed
-docker logs genai-supabase-db-init -f
+docker logs ${PROJECT_NAME}-supabase-db-init -f
 ```
 
 **Database connection errors:**
 ```bash
 # Verify database is running
-docker exec genai-supabase-db pg_isready
+docker exec ${PROJECT_NAME}-supabase-db pg_isready
 
 # Check connection from another service
-docker exec genai-backend python -c "import psycopg2; print('DB OK')"
+docker exec ${PROJECT_NAME}-backend python -c "import psycopg2; print('DB OK')"
 ```
 
 ### 4.5 Kong Gateway Issues
@@ -192,7 +192,7 @@ docker exec genai-backend python -c "import psycopg2; print('DB OK')"
 cat bootstrapper/utils/kong_config_generator.py
 
 # Verify Kong is running
-docker logs genai-kong-api-gateway -f
+docker logs ${PROJECT_NAME}-kong-api-gateway -f
 
 # Test Kong routing end-to-end (proxies SearXNG's /healthz through Kong)
 curl -H 'Host: search.localhost' http://localhost:63000/healthz
@@ -266,8 +266,8 @@ sudo ufw status  # Ubuntu/Debian
 docker compose ps
 
 # If services are failing, check dependency services first
-docker logs genai-redis -f      # Many services need Redis
-docker logs genai-supabase-db -f # Backend needs database
+docker logs ${PROJECT_NAME}-redis -f      # Many services need Redis
+docker logs ${PROJECT_NAME}-supabase-db -f # Backend needs database
 ```
 
 ### 7.2 Environment Issues
@@ -294,8 +294,8 @@ docker compose ps
 docker compose logs --tail=50
 
 # Specific service investigation
-docker logs genai-ollama --tail=100 -f
-docker logs genai-backend --tail=100 -f
+docker logs ${PROJECT_NAME}-ollama --tail=100 -f
+docker logs ${PROJECT_NAME}-backend --tail=100 -f
 ```
 
 ### 8.2 Configuration Verification
@@ -320,9 +320,9 @@ env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE|CLOUD|MINIO)_SOURCE"
 
 ```bash
 # Test internal service connectivity (LLM goes through LiteLLM, not Ollama directly)
-docker exec genai-backend curl http://genai-litellm:4000/health/liveliness
-docker exec genai-litellm curl http://genai-ollama:11434/api/tags
-docker exec genai-kong-api-gateway curl http://genai-supabase-api:3000/health
+docker exec ${PROJECT_NAME}-backend curl http://${PROJECT_NAME}-litellm:4000/health/liveliness
+docker exec ${PROJECT_NAME}-litellm curl http://${PROJECT_NAME}-ollama:11434/api/tags
+docker exec ${PROJECT_NAME}-kong-api-gateway curl http://${PROJECT_NAME}-supabase-api:3000/health
 
 # Test external access
 curl http://localhost:63082
@@ -389,8 +389,8 @@ cp .env.example .env
 ./start.sh --cold  # Regenerate keys only
 
 # Reset specific service data
-docker volume rm genai-supabase-db-data  # Database only
-docker volume rm genai-n8n-data          # n8n workflows only
+docker volume rm ${PROJECT_NAME}-supabase-db-data  # Database only
+docker volume rm ${PROJECT_NAME}-n8n-data          # n8n workflows only
 ```
 
 ### 10.3 Backup Before Reset
@@ -398,8 +398,8 @@ docker volume rm genai-n8n-data          # n8n workflows only
 ```bash
 # Backup important data before reset
 mkdir -p backup/$(date +%Y%m%d_%H%M%S)
-docker run --rm -v genai-supabase-db-data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/supabase_db
-docker run --rm -v genai-n8n-data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/n8n
+docker run --rm -v ${PROJECT_NAME}-supabase-db-data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/supabase_db
+docker run --rm -v ${PROJECT_NAME}-n8n-data:/data -v $(pwd)/backup/$(date +%Y%m%d_%H%M%S):/backup alpine cp -r /data /backup/n8n
 ```
 
 Remember: Most issues can be resolved without losing data. Try targeted solutions before doing a complete reset!
