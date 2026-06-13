@@ -412,8 +412,10 @@ def _build_steps_and_rows(config_parser, hosts_manager):
 
     # Kong's listener port — every Kong-routed alias URL uses this port
     # (virtual-host routing on a single listener), not the upstream
-    # service's own port.
-    kong_port = env_vars.get("KONG_HTTP_PORT", "").strip()
+    # service's own port. Mirror state_builder.build_app_state()'s
+    # `"63000"` fallback so the wizard's first paint matches the linear
+    # state-builder path when KONG_HTTP_PORT is blank in .env.
+    kong_port = (env_vars.get("KONG_HTTP_PORT", "") or "63000").strip()
     # Set of display names whose source the user CAN configure. Used
     # to drive the lock-icon column in the overview — services not in
     # this set are always-on infrastructure.
