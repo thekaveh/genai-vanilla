@@ -29,7 +29,7 @@ apache-airflow-providers-openai>=1.7.5
 # 3.6.0 (Airflow 3.2.2 constraint file) — 2.x had breaking internal API
 # changes vs the 3.x line and could silently regress under a constrained
 # resolver run.
-apache-airflow-providers-fab>=3.6.4,<4
+apache-airflow-providers-fab>=3.6.5,<4
 psycopg2-binary>=2.9.12
 # Required by the sample DAG's Spark Connect smoke step (`from pyspark.sql
 # import SparkSession; .builder.remote(...)`). The [connect] extra pulls
