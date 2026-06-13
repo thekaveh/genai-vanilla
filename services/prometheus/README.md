@@ -1,6 +1,6 @@
 # Prometheus (metrics scraper + TSDB)
 
-Prometheus runs as a family of three containers in the stack's `infra` band: the main `prometheus` server, `node-exporter` for host-level metrics, and `cadvisor` for per-container metrics. All three lifecycle together — `PROMETHEUS_SOURCE` is a single toggle that scales them as a unit.
+Prometheus runs as a family of three containers in the stack's `infra` band: the main `prometheus` server, `node-exporter` for host-level metrics, and `cadvisor` for per-container metrics. All three share a single lifecycle — `PROMETHEUS_SOURCE` is one toggle that scales them as a unit.
 
 ## 1. Overview
 
