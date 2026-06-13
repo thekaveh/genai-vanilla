@@ -26,11 +26,15 @@ def _sc(env_path: Path) -> ServiceConfig:
 
 # --- Declarative checks ---
 
-@pytest.mark.parametrize("svc,container,expected_env_var", [
-    ("hermes", "hermes-init", "LIGHTRAG_INTERNAL_URL"),
-    ("n8n", "n8n", "LIGHTRAG_ENDPOINT"),
-    ("backend", "backend", "LIGHTRAG_ENDPOINT"),
-])
+@pytest.mark.parametrize(
+    "svc,container,expected_env_var",
+    [
+        ("hermes", "hermes-init", "LIGHTRAG_INTERNAL_URL"),
+        ("n8n", "n8n", "LIGHTRAG_ENDPOINT"),
+        ("backend", "backend", "LIGHTRAG_ENDPOINT"),
+    ],
+    ids=lambda item: item if isinstance(item, str) else None,
+)
 def test_adapts_to_includes_lightrag(svc, container, expected_env_var):
     data = _load_yaml(svc)
     block = data["runtime_adaptive"][container]
