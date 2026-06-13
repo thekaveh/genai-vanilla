@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-13 overnight maintenance pass (5 commits)
+
+- **Hermes capability wiring (HIGH):** `service_config.py` now emits
+  `TTS_INTERNAL_URL`, `STT_INTERNAL_URL`, `COMFYUI_INTERNAL_URL`, and
+  `SEARXNG_INTERNAL_URL` whenever Hermes is in container mode and the
+  respective provider source is enabled. Until now only
+  `LIGHTRAG_INTERNAL_URL` was wired; the other four fell through the
+  compose `${VAR:-}` fallback to empty, and `init-hermes.sh`'s
+  `strip_block` silently omitted the TTS / STT / image-generation /
+  web-search capability blocks from `config.yaml`. Hermes ran without
+  those capabilities even when their upstream providers were on. Five
+  new regression tests in `test_hermes_n8n_backend_adapts_to_lightrag.py`
+  (4 enabled-emit + 1 disabled-blank) lock the contract in.
+- README localhost-source docs surface the Hermes dashboard port
+  (`HERMES_LOCALHOST_DASHBOARD_PORT=63029`) alongside the API port —
+  previously only the API was documented despite Kong's
+  `hermes.localhost` route fronting the dashboard.
+- Dependabot ignore list adds `apache-airflow-providers-apache-spark`
+  (PR #47 was closed unmerged because the 6.0.0 bump dropped the bundled
+  `pyspark` dependency). Without the ignore entry the doomed bump
+  retries on every weekly cadence.
+- Pydantic hygiene: `MemoryFact.metadata` now uses
+  `Field(default_factory=dict)` instead of the bare `{}` literal,
+  matching the project's preferred convention.
+- `CONTRIBUTING-services.md` TL;DR said "four-command regen + lint
+  chain" but §12 lists five; LICENSE copyright year extended
+  `2025` → `2025-2026`. README test-count claim refreshed from
+  `800+` to `840+`.
+
 ### Fixed — 2026-06-11 overnight maintenance passes 56-62 (7 commits)
 
 - n8n queue mode: the worker now exports metrics too (5 mirrored
