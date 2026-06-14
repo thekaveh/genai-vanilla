@@ -123,6 +123,75 @@ def test_predicate_normalizes_runtime_sc_divergence():
     assert skip_neo({PICKER_STEP_TITLE: "data-eng"}) is False
 
 
+def test_predicate_normalizes_virtual_manifest_aliases():
+    """ServiceDiscovery surfaces stt-provider's svc.key as 'stt_provider'
+    (underscore). The predicate must normalize to 'stt-provider' before
+    looking it up in track.services. Same for tts_provider, doc_processor,
+    llm_provider."""
+    reg = load_tracks()
+    # stt_provider IS in gen-ai-eng, must NOT be skipped
+    skip_stt = _make_track_skip(
+        "stt_provider", always_on=reg.always_on, overridden=frozenset(),
+        registry=reg,
+    )
+    assert skip_stt({PICKER_STEP_TITLE: "gen-ai-eng"}) is False
+    # tts_provider IS in gen-ai-creative, must NOT be skipped
+    skip_tts = _make_track_skip(
+        "tts_provider", always_on=reg.always_on, overridden=frozenset(),
+        registry=reg,
+    )
+    assert skip_tts({PICKER_STEP_TITLE: "gen-ai-creative"}) is False
+    # doc_processor IS in gen-ai-rag, must NOT be skipped
+    skip_doc = _make_track_skip(
+        "doc_processor", always_on=reg.always_on, overridden=frozenset(),
+        registry=reg,
+    )
+    assert skip_doc({PICKER_STEP_TITLE: "gen-ai-rag"}) is False
+    # llm_provider is always-on, must NEVER be skipped
+    skip_llm = _make_track_skip(
+        "llm_provider", always_on=reg.always_on, overridden=frozenset(),
+        registry=reg,
+    )
+    assert skip_llm({PICKER_STEP_TITLE: "ml-eng"}) is False
+
+
+def test_predicate_normalizes_overridden_set_folder_form():
+    """C1 regression guard: start.py provides overridden_services in
+    folder-form (e.g., 'stt-provider', 'spark', 'ray'). The predicate
+    receives svc.key in wizard-form ('stt_provider', 'spark-master',
+    'ray-head'). Override re-enable must normalize the svc.key before
+    the override-set check — otherwise the user's CLI flag is silently
+    dropped for these 6 services."""
+    reg = load_tracks()
+    # User passes --spark-source container with --track gen-ai-rag
+    # (spark is NOT in gen-ai-rag). Override should re-enable.
+    skip = _make_track_skip(
+        "spark-master",
+        always_on=reg.always_on,
+        overridden=frozenset({"spark"}),   # folder form, as start.py produces
+        registry=reg,
+    )
+    assert skip({PICKER_STEP_TITLE: "gen-ai-rag"}) is False, (
+        "spark override must re-enable wizard step despite svc.key/folder mismatch"
+    )
+    # Same for ray-head/ray
+    skip = _make_track_skip(
+        "ray-head",
+        always_on=reg.always_on,
+        overridden=frozenset({"ray"}),
+        registry=reg,
+    )
+    assert skip({PICKER_STEP_TITLE: "gen-ai-rag"}) is False
+    # Same for stt_provider/stt-provider
+    skip = _make_track_skip(
+        "stt_provider",
+        always_on=reg.always_on,
+        overridden=frozenset({"stt-provider"}),
+        registry=reg,
+    )
+    assert skip({PICKER_STEP_TITLE: "ml-eng"}) is False
+
+
 def test_predicate_missing_selection_does_not_skip():
     """Before the user has visited the picker, the predicate must
     return False (don't pre-emptively skip)."""

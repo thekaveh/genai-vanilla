@@ -136,6 +136,18 @@ def test_normalize_service_key_runtime_sc_divergence():
     assert normalize_service_key("open-web-ui") == "open-webui"
 
 
+def test_normalize_service_key_virtual_manifests():
+    """Click flag names use underscores; ServiceDiscovery surfaces those
+    services with underscore svc.keys (`stt_provider`, `tts_provider`,
+    `doc_processor`, `llm_provider`). The alias map normalizes them to
+    their hyphen folder names. Without these aliases, the wizard would
+    incorrectly skip these services for every track that includes them."""
+    assert normalize_service_key("llm_provider") == "llm-provider"
+    assert normalize_service_key("stt_provider") == "stt-provider"
+    assert normalize_service_key("tts_provider") == "tts-provider"
+    assert normalize_service_key("doc_processor") == "doc-processor"
+
+
 # ─── compute_always_on ──────────────────────────────────────────────
 
 def test_compute_always_on_returns_canonical_set():
