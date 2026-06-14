@@ -20,6 +20,18 @@ from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator
 
+__all__ = [
+    "Track",
+    "TrackRegistry",
+    "TracksLoadError",
+    "UnknownTrackServiceError",
+    "load_tracks",
+    "compute_always_on",
+    "is_in_track",
+    "normalize_service_key",
+    "format_track_list",
+]
+
 
 # ────────────────────────────────────────────────────────────────────
 # Paths

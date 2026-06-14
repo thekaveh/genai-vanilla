@@ -1,17 +1,26 @@
 # Per-track configurable-service membership.
 #
-# The always-on tier (locked manifests + LLM Engine + Prometheus + Grafana
-# + cloud-provider keys) is implicit and applies to every track — it is
-# NOT enumerated here. Adding a new always-on cloud provider in
-# bootstrapper/utils/cloud_providers.py automatically extends the implicit
-# set via compute_always_on(); tracks.yml stays unchanged.
+# The always-on tier — locked manifests + LLM Engine + Prometheus + Grafana
+# + cloud-provider keys — is implicit and applies to every track. It is
+# NOT enumerated here. Cloud-provider toggles (cloud_openai, etc.) never
+# reach the track-skip predicate because they're collected via dedicated
+# secret-input steps, not as regular wizard sources. LLM Engine, Prometheus,
+# and Grafana are listed in tracks.py::compute_always_on() as the
+# canonical "asked in every track" set.
 #
 # `services: "*"` is the "all" sentinel — no filtering is applied.
 #
 # Service entries use the folder name under services/<name>/ (e.g. `spark`,
-# `ray`, `airflow`). The wizard normalizes multi-container family heads
-# (`ray-head`, `spark-master`, `airflow-webserver`) back to folder names
-# via tracks.py::_FAMILY_KEY_ALIASES before lookup.
+# `ray`, `airflow`). The wizard normalizes wizard svc.keys back to folder
+# names via tracks.py::_FAMILY_KEY_ALIASES before lookup. Two classes of
+# divergence are aliased today:
+#   1. Multi-container family heads (`ray-head`, `spark-master`,
+#      `airflow-webserver`) — wizard discovery surfaces these because they
+#      are the head container's runtime_sc key.
+#   2. Single-container runtime_sc divergences (`neo4j-graph-db`,
+#      `open-web-ui`) plus underscore-form virtual-manifest keys
+#      (`llm_provider`, `stt_provider`, `tts_provider`, `doc_processor`).
+# See `tracks.py::_FAMILY_KEY_ALIASES` for the canonical map.
 tracks:
   - key: gen-ai-rag
     display_name: Generative AI · RAG

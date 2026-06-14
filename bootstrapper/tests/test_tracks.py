@@ -38,13 +38,13 @@ def test_load_tracks_explicit_path(tmp_path: Path):
     p = tmp_path / "t.yml"
     p.write_text(yaml.safe_dump({
         "tracks": [
-            {"key": "x", "display_name": "X", "description": "desc",
+            {"key": "xt", "display_name": "X", "description": "desc",
              "services": ["weaviate"]},
         ]
     }))
     reg = load_tracks(p)
     assert len(reg.tracks) == 1
-    assert reg.tracks[0].key == "x"
+    assert reg.tracks[0].key == "xt"
     assert reg.tracks[0].services == frozenset({"weaviate"})
 
 
@@ -95,7 +95,7 @@ def test_load_tracks_unknown_service_raises(tmp_path: Path):
     p = tmp_path / "t.yml"
     p.write_text(yaml.safe_dump({
         "tracks": [
-            {"key": "x", "display_name": "X", "description": "d",
+            {"key": "xt", "display_name": "X", "description": "d",
              "services": ["nonexistent-service"]},
         ]
     }))
