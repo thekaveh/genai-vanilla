@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-14 overnight maintenance pass (5 commits, passes 1-8)
+### Fixed — 2026-06-14 overnight maintenance pass (8 commits, passes 1-11)
 
 - **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
   pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
@@ -37,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now annotates `config_parser: Any` (was a bare untyped param on a public API,
   inconsistent with the module's otherwise-strict typing). Import added; no
   behavior change.
+- **Duplicate-track-key guard:** the runtime reject at `tracks.py:205-206` was
+  untested. `test_load_tracks_duplicate_key_raises` locks it. The schema
+  (`bootstrapper/schemas/tracks.schema.json`) also gains `uniqueItems: true`
+  on the tracks array — catches exact-copy-paste duplicates one rung earlier,
+  before the runtime guard runs.
+- **`_run.sh` missing-Python error:** the dispatcher used to print
+  *"Using system Python (install uv for better dependency management)"* and
+  then `exec python3 …`, so an environment without `python3` got an unhelpful
+  shell-level "command not found" right after a message that implied `uv`
+  would fix things. New branch explicitly `command -v python3` checks before
+  the exec, exits 127 with install pointers for both `uv` and `python3`.
 
 ### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
