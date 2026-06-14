@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-14 overnight maintenance pass (8 commits, passes 1-11)
+### Fixed — 2026-06-14 overnight maintenance pass (9 commits, passes 1-17)
 
 - **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
   pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shell-level "command not found" right after a message that implied `uv`
   would fix things. New branch explicitly `command -v python3` checks before
   the exec, exits 127 with install pointers for both `uv` and `python3`.
+- **`open-webui/init` python pin alignment:** the init-tier Dockerfiles for
+  `litellm/init` and `comfyui/catalog-init` both pin to `python:3.12.7-slim`
+  for reproducibility, but `open-webui/init` was on the floating `3.12-slim`
+  tag and silently rolled forward. Pin aligned, comment refreshed (it
+  previously claimed parity that wasn't actually there).
 
 ### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
