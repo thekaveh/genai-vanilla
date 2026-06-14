@@ -364,12 +364,14 @@ class ServiceTable(Widget):
         # blue. "Changed from default" is a transient state that the
         # wizard's command preview already surfaces; the source column
         # is reserved for steady-state semantics.)
-        # off-track rows additionally append "(off-track)" so the
-        # exclusion is unambiguous in the live overview.
+        # off-track rows render as "disabled (off-track)" per spec §5.2 #5:
+        # their effective fate is disabled regardless of the actual source
+        # value stored in .env. The actual source is preserved in r.source;
+        # only the visual label changes.
         source_style = P.style_for_source_choice(r.source)
         source_label = r.source or "—"
         if r.off_track:
-            source_label = f"{source_label} (off-track)"
+            source_label = "disabled (off-track)"
             source_style = f"dim {source_style}"
         slot.append(_fit(source_label, source_w), style=source_style)
         slot.append(sep)

@@ -58,8 +58,9 @@ def test_off_track_flag_emits_warning():
     )
     # The warning fires when --track is set AND any off-track --*-source
     # flag is passed. The warning check runs BEFORE --list-tracks exits.
-    assert "comfyui" in r.stderr.lower(), (
-        f"warning text missing; stderr={r.stderr!r}"
+    # The warning must use the display name ("ComfyUI") not the folder key.
+    assert "ComfyUI" in r.stderr, (
+        f"warning text must use display name 'ComfyUI'; stderr={r.stderr!r}"
     )
     assert "gen-ai-rag" in r.stderr
 

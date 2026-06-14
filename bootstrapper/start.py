@@ -1342,15 +1342,18 @@ class GenAIStackStarter:
             self.banner.show_status_message("All services started successfully", "success")
             return True
             
-    def show_pre_launch_summary(self) -> bool:
+    def show_pre_launch_summary(self, *, track: str | None = None) -> bool:
         """
         Display the combined configuration summary table with access URLs
         and hosted endpoints, then prompt for confirmation.
 
+        ``track`` — forwarded to ``build_pre_launch_summary_table`` so the
+        ``Track: <display_name>`` banner line is emitted when a track is active.
+
         Returns:
             bool: True if user confirms, False to cancel.
         """
-        table = self.build_pre_launch_summary_table()
+        table = self.build_pre_launch_summary_table(track=track)
         self.banner.console.print(table)
         self.banner.console.print()
         from rich.text import Text as _Text
@@ -1377,12 +1380,16 @@ class GenAIStackStarter:
             return response in ('', 'y', 'yes')
         return True  # non-TTY: auto-confirm
 
-    def build_pre_launch_summary_table(self):
+    def build_pre_launch_summary_table(self, *, track: str | None = None):
         """
         Build the configuration summary as a Rich Table renderable —
         used by the --no-tui / non-TTY linear flow (`show_pre_launch_summary`).
         The Textual wizard renders its own info-box and never reaches this
         table.
+
+        ``track`` — the active track key (e.g. ``"gen-ai-rag"``), or None
+        when no track was selected. When set, a ``Track: <display_name>``
+        line is prepended above the services table per spec §5.2 #7.
         """
         from rich.table import Table
         from rich.text import Text
@@ -1530,6 +1537,24 @@ class GenAIStackStarter:
             expand=True,
         )
 
+        # Track banner line (spec §5.2 #7): when a track was active,
+        # prepend a "Track: <display_name>" line above the services table.
+        track_line: list = []
+        if track:
+            _track_label = track
+            try:
+                from tracks import load_tracks as _lt_sum
+                _reg_sum = _lt_sum()
+                _t_sum = _reg_sum.by_key.get(track)
+                if _t_sum:
+                    _track_label = _t_sum.display_name
+            except Exception:  # noqa: BLE001
+                pass
+            track_line = [Text.from_markup(
+                f"[bold bright_white]Track:[/bold bright_white] "
+                f"[color(75)]{_track_label}[/color(75)]"
+            )]
+
         # Port-collision warnings — informational only (warn-don't-block).
         # When two rows resolve to the same host port (e.g. the user
         # picked ollama-localhost on Kong's port), surface that here so
@@ -1541,8 +1566,8 @@ class GenAIStackStarter:
                 Text.from_markup(f"[yellow]{msg}[/yellow]")
                 for msg in warning_lines
             ]
-            return Group(table, cloud_panel, *warning_texts)
-        return Group(table, cloud_panel)
+            return Group(*track_line, table, cloud_panel, *warning_texts)
+        return Group(*track_line, table, cloud_panel)
 
     @staticmethod
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
@@ -1922,11 +1947,24 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                         _track_w, svc_key, always_on=_reg_w.always_on,
                     ):
                         continue
+                    # Look up display name from topology rows for nicer
+                    # warning text; fall back to svc_key if no match.
+                    derived_var = svc_key.upper().replace("-", "_") + "_SOURCE"
+                    display = svc_key
+                    try:
+                        from services.topology import get_topology as _gt
+                        _topo = _gt()
+                        for _r in _topo.rows:
+                            if _r.source_var == derived_var:
+                                display = _r.display_name
+                                break
+                    except Exception:  # noqa: BLE001
+                        pass
                     print(
                         f"[warn] --{cli_key.replace('_', '-')} "
                         f"{value} overrides the {track} track, "
-                        f"which excludes {svc_key}. Enabling "
-                        f"{svc_key} anyway.",
+                        f"which excludes {display}. Enabling "
+                        f"{display} anyway.",
                         file=sys.stderr,
                     )
 
@@ -2487,7 +2525,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         # flow runs only for --no-tui / non-TTY contexts: show the
         # Rich-Table summary, prompt for confirm, then stream docker
         # output via TTY passthrough.
-        if not starter.show_pre_launch_summary():
+        if not starter.show_pre_launch_summary(track=track):
             starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
             sys.exit(0)
         if not starter.start_docker_services(cold_start=cold):
