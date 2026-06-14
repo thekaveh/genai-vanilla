@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-14 overnight maintenance pass (5 commits, passes 1-8)
+
+- **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
+  pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
+  Dependabot's previous group bump to groq 1.4.0 silently broke the backend
+  docker build (langchain-groq couldn't resolve). Without an ignore entry the
+  doomed bump retries every weekly cadence; PR #87 only fixed the pin, not the
+  retry loop.
+- **Dependabot ignore: 7 Airflow providers:** PR #87 relaxed
+  `apache-airflow-providers-{amazon,postgres,redis,common-sql,neo4j,openai,fab}`
+  back to the floors listed in upstream Airflow `constraints-3.2.2/constraints-3.12.txt`.
+  Each weekly Dependabot bump above those floors produces a PR that can't be
+  installed against the constraints file — same shape as PR #47 (spark provider).
+  Lift each entry when the Airflow version itself bumps.
+- **`stop.sh` sudo guard:** `stop.sh` also shells through `bootstrapper/_run.sh`,
+  so `sudo ./stop.sh` would write root-owned files into the same `.venv` /
+  `__pycache__` paths PR #87's `start.sh` guard was added to prevent. Mirror
+  guard now refuses to run as root with the same exit-2 message and pointer
+  at `docs/TROUBLESHOOTING.md` for recovery.
+- **Tracks seam-parity test:** `test_tracks.py::test_every_track_service_resolves_via_source_override_manager`
+  asserts every service listed in `bootstrapper/tracks.yml` has a matching
+  entry in `SourceOverrideManager.source_mapping` (after `normalize_service_key`
+  folding for family aliases / runtime_sc divergences). Without this guard a
+  future tracks.yml edit could add a service without a CLI seam, silently
+  leaking it into every restricted track. Same shipping-class risk as
+  `project_post_merge_env_staleness.md` class A, one rung up the tree.
+- **Typing hygiene:** `compute_always_on(config_parser)` in `bootstrapper/tracks.py`
+  now annotates `config_parser: Any` (was a bare untyped param on a public API,
+  inconsistent with the module's otherwise-strict typing). Import added; no
+  behavior change.
+
 ### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
 - **Hermes capability wiring (HIGH):** `service_config.py` now emits
