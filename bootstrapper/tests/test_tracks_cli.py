@@ -45,3 +45,40 @@ def test_track_unknown_exits_two():
     assert "unknown track" in r.stderr.lower()
     # Lists available tracks in the error message so the user can self-correct.
     assert "gen-ai-rag" in r.stderr
+
+
+def test_off_track_flag_emits_warning():
+    """--track gen-ai-rag --comfyui-source container-gpu must emit
+    a stderr warning since comfyui is excluded from gen-ai-rag.
+    Combined with --list-tracks so the wizard never launches."""
+    r = _run(
+        "--track", "gen-ai-rag",
+        "--comfyui-source", "container-gpu",
+        "--list-tracks",
+    )
+    # The warning fires when --track is set AND any off-track --*-source
+    # flag is passed. The warning check runs BEFORE --list-tracks exits.
+    assert "comfyui" in r.stderr.lower(), (
+        f"warning text missing; stderr={r.stderr!r}"
+    )
+    assert "gen-ai-rag" in r.stderr
+
+
+def test_all_track_suppresses_warning():
+    """--track all + any --*-source flag → no warning (all includes
+    everything)."""
+    r = _run(
+        "--track", "all",
+        "--comfyui-source", "container-gpu",
+        "--list-tracks",
+    )
+    assert "overrides the all track" not in r.stderr.lower()
+
+
+def test_no_track_suppresses_warning():
+    """Bare --comfyui-source with no --track → no warning."""
+    r = _run(
+        "--comfyui-source", "container-gpu",
+        "--list-tracks",
+    )
+    assert "overrides the" not in r.stderr.lower()

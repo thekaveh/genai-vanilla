@@ -1868,6 +1868,68 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
 
+    # ─── Track override warnings ─────────────────────────────────────
+    # Fires when --track is set AND any explicit --*-source flag picks
+    # a service that's out-of-track. Runs BEFORE --list-tracks early
+    # exit so the warning surfaces even when the user listed tracks.
+    if track is not None:
+        try:
+            from tracks import load_tracks as _load_tracks_for_warn
+            from tracks import is_in_track as _is_in_track_for_warn
+            _reg_w = _load_tracks_for_warn()
+        except Exception:  # noqa: BLE001
+            _reg_w = None
+        if _reg_w is not None:
+            _track_w = _reg_w.by_key.get(track)
+            if _track_w is not None and _track_w.services is not None:
+                # Map of Click kwarg → value, restricted to the
+                # source-style flags. Cloud provider toggles
+                # (cloud_openai_source, ...) are intentionally absent —
+                # cloud keys are always-on and never reach the track
+                # skip predicate, so a --cloud-openai-source flag should
+                # never emit a track warning.
+                _flag_values = {
+                    'llm_provider_source': llm_provider_source,
+                    'comfyui_source': comfyui_source,
+                    'weaviate_source': weaviate_source,
+                    'minio_source': minio_source,
+                    'n8n_source': n8n_source,
+                    'searxng_source': searxng_source,
+                    'jupyterhub_source': jupyterhub_source,
+                    'open_web_ui_source': open_web_ui_source,
+                    'local_deep_researcher_source': local_deep_researcher_source,
+                    'stt_provider_source': stt_provider_source,
+                    'tts_provider_source': tts_provider_source,
+                    'doc_processor_source': doc_processor_source,
+                    'openclaw_source': openclaw_source,
+                    'hermes_source': hermes_source,
+                    'lightrag_source': lightrag_source,
+                    'tei_reranker_source': tei_reranker_source,
+                    'neo4j_graph_db_source': neo4j_graph_db_source,
+                    'multi2vec_clip_source': multi2vec_clip_source,
+                    'ray_source': ray_source,
+                    'prometheus_source': prometheus_source,
+                    'grafana_source': grafana_source,
+                    'spark_source': spark_source,
+                    'zeppelin_source': zeppelin_source,
+                    'airflow_source': airflow_source,
+                }
+                for cli_key, value in _flag_values.items():
+                    if value is None:
+                        continue
+                    svc_key = cli_key.removesuffix("_source").replace("_", "-")
+                    if _is_in_track_for_warn(
+                        _track_w, svc_key, always_on=_reg_w.always_on,
+                    ):
+                        continue
+                    print(
+                        f"[warn] --{cli_key.replace('_', '-')} "
+                        f"{value} overrides the {track} track, "
+                        f"which excludes {svc_key}. Enabling "
+                        f"{svc_key} anyway.",
+                        file=sys.stderr,
+                    )
+
     # --list-tracks is side-effect-free and runs before any other init
     # (no Supabase key gen, no env migration). Exits 0.
     if list_tracks:
@@ -2060,6 +2122,46 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             if not 1 <= spark_workers <= 8:
                 raise click.UsageError("--spark-workers must be in 1-8")
             user_model_selections['SPARK_WORKER_COUNT'] = str(spark_workers)
+
+        # ─── Track override-set + force-disable synthesis ────────────
+        # Two outcomes:
+        #   1. `overridden_services`: the set of off-track svc.keys that
+        #      were explicitly enabled via a CLI flag. Threaded into the
+        #      wizard step builder so their prompts re-appear.
+        #   2. Mirror _selections_to_args (TUI wizard path): force-disable
+        #      every off-track configurable service in source_args so
+        #      --no-tui and run_launch_flow honor the track without going
+        #      through the wizard. Overridden services keep their
+        #      CLI-supplied value (flag wins).
+        overridden_services: set = set()
+        if track is not None:
+            try:
+                from tracks import load_tracks as _ld
+                from tracks import is_in_track as _ii
+                _rg2 = _ld()
+            except Exception:  # noqa: BLE001
+                _rg2 = None
+            if _rg2 is not None:
+                _t2 = _rg2.by_key.get(track)
+                if _t2 is not None and _t2.services is not None:
+                    # 'all' track → services is None → no synthesis, no
+                    # overrides to track. Same source_args as today.
+                    for cli_key in list(source_args.keys()):
+                        if cli_key.startswith("cloud_"):
+                            continue  # cloud keys are always-on
+                        svc_key = cli_key.removesuffix("_source").replace("_", "-")
+                        is_in = _ii(
+                            _t2, svc_key, always_on=_rg2.always_on,
+                        )
+                        if is_in:
+                            continue
+                        # Off-track service. If the user passed a CLI flag
+                        # for it (non-None), record the override; otherwise
+                        # force-disable.
+                        if source_args.get(cli_key) is not None:
+                            overridden_services.add(svc_key)
+                        else:
+                            source_args[cli_key] = "disabled"
 
         # Detect legacy `external` source values left in .env from versions
         # before PR #(observability bundle). These options have been removed
