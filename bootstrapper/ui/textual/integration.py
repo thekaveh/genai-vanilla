@@ -607,6 +607,34 @@ def _selections_to_args(
         if v is None: continue
         source_args[svc.key.replace("-", "_") + "_source"] = v
 
+    # ─── Force-disable off-track services ────────────────────────────
+    # When a track is selected, every source-configurable service that
+    # is out-of-track AND not explicitly overridden gets *_SOURCE=disabled
+    # force-written here. Their wizard step was skipped (track skip
+    # predicate hid it), so the inner loop above didn't touch source_args
+    # for them. Without this pass, .env would silently retain the user's
+    # prior choice for an off-track service — defeating the track's
+    # "force-disable" semantic.
+    track_key = selections.get(PICKER_STEP_TITLE)
+    if track_key:
+        try:
+            from tracks import load_tracks, is_in_track
+            _reg = load_tracks()
+            _track = _reg.by_key.get(track_key)
+            if _track is not None and _track.services is not None:
+                # "all" track → _track.services is None → no force-disable.
+                for svc in services_info:
+                    if is_in_track(_track, svc.key, always_on=_reg.always_on):
+                        continue
+                    cli_key = svc.key.replace("-", "_") + "_source"
+                    # Only synthesize if the user didn't visit the step
+                    # (override path stays untouched).
+                    if cli_key not in source_args:
+                        source_args[cli_key] = "disabled"
+        except Exception:  # noqa: BLE001
+            # Track-registry load failure must not block the wizard.
+            pass
+
     # ─── Cloud-provider selections ───────────────────────────────────
     # Each provider has up to two wizard outputs:
     #   • Secret step  → API key (or SECRET_KEEP / SECRET_CLEAR sentinel)
