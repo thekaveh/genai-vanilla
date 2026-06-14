@@ -1014,6 +1014,7 @@ def run_launch_flow(
             configurable=r.configurable,
             category=r.category,
             pending=False,  # launch-flow rows are fully resolved before display
+            off_track=r.off_track,
         ))
 
     # `state.services` already arrives in canonical topology order; the
