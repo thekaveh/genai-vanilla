@@ -116,7 +116,11 @@ For agentic-app engineering:
 ./start.sh --track gen-ai-eng
 ```
 
-Other tracks: `gen-ai-creative`, `ml-eng`, `data-eng`. Run `./start.sh --list-tracks` to see service membership for each. Use `--track all` for the full wizard (every configurable service).
+Other tracks: `gen-ai-creative`, `ml-eng`, `data-eng`. Run `./start.sh --list-tracks` to see service membership for each.
+
+Omit `--track` entirely to get the full interactive wizard (with the
+track picker as step 1). Pass `--track all` to skip the picker and
+prompt for every configurable service.
 
 ## Table of contents
 
