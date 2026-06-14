@@ -810,6 +810,21 @@ def run_setup_flow(
 
     state_holder = {"interrupted": False, "exit_code": 0}
 
+    # Derive track display name for the InfoPanel banner. Only relevant
+    # when --track was passed on the CLI; in wizard mode the picker step
+    # resolves the selection live, but the banner is populated here from
+    # the CLI arg so the panel shows the right label before the wizard
+    # starts (and persists through _refresh_info_panel calls).
+    _track_display_name: str | None = None
+    if track:
+        try:
+            from tracks import load_tracks as _lt
+            _reg = _lt()
+            _t = _reg.by_key.get(track)
+            _track_display_name = _t.display_name if _t else None
+        except Exception:  # noqa: BLE001
+            pass
+
     # Snapshot env vars at wizard-build time so the cloud auto-promotion
     # logic in _selections_to_args has the .env state to compare against.
     _env_snapshot = config_parser.parse_env_file()
@@ -863,6 +878,7 @@ def run_setup_flow(
                 prefilled_selections=(
                     {PICKER_STEP_TITLE: track} if track else None
                 ),
+                track_display_name=_track_display_name,
             ))
 
         def action_interrupt(self) -> None:
@@ -990,6 +1006,17 @@ def run_launch_flow(
             new_base, current_rows, config_parser, port_offsets,
         )
 
+    # Derive track display name for the InfoPanel banner.
+    _track_display_name: str | None = None
+    if track:
+        try:
+            from tracks import load_tracks as _lt
+            _reg = _lt()
+            _t = _reg.by_key.get(track)
+            _track_display_name = _t.display_name if _t else None
+        except Exception:  # noqa: BLE001
+            pass
+
     state_holder = {"interrupted": False, "exit_code": 0}
 
     class _LaunchApp(App):
@@ -1018,6 +1045,7 @@ def run_launch_flow(
                 prefilled_selections=(
                     {PICKER_STEP_TITLE: track} if track else None
                 ),
+                track_display_name=_track_display_name,
             ))
 
         def action_interrupt(self) -> None:

@@ -180,6 +180,7 @@ class WizardScreen(Screen):
         prefilled_source_args: dict | None = None,
         prefilled_stack_options: dict | None = None,
         prefilled_selections: dict | None = None,
+        track_display_name: str | None = None,
     ) -> None:
         super().__init__()
         self._steps = steps
@@ -209,6 +210,10 @@ class WizardScreen(Screen):
             self._stack_options = dict(prefilled_stack_options)
         else:
             self._stack_options = None
+        # Track display name — shown as "Track: <name>" banner in the
+        # InfoPanel footer when a track was selected via --track or the
+        # picker step.
+        self._track_display_name: str | None = track_display_name
 
         self._step_index = 0
         self._selections: dict[str, str] = dict(prefilled_selections or {})
@@ -255,6 +260,7 @@ class WizardScreen(Screen):
                 brand=self._brand,
                 services=summaries,
                 cloud_apis=self._cloud_apis,
+                track_label=self._track_display_name,
             ),
             # CloudApisRow renders the category legend on its right half.
             body_widgets=[self._service_table, self._cloud_apis_row],
@@ -753,6 +759,7 @@ class WizardScreen(Screen):
                 brand=self._brand,
                 services=summaries,
                 cloud_apis=self._cloud_apis,
+                track_label=self._track_display_name,
             )
         )
 
