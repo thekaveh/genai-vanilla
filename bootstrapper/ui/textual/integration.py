@@ -175,6 +175,7 @@ def recompute_ports_for_base(
             configurable=r.configurable,
             category=r.category,
             pending=r.pending,
+            off_track=r.off_track,
         ))
     # Preserve the canonical input order — `current_rows` arrives in
     # category/topology order from `_build_steps_and_rows`, and changing
@@ -538,7 +539,33 @@ def _build_steps_and_rows(
         for i, s in enumerate(steps)
     ]
 
-    state = build_app_state(config_parser, hosts_manager)
+    # Build the off-track display-name set for visual dimming in the
+    # right-pane service table.  Only populated when a --track was supplied
+    # via the CLI (track_key is not None) AND the registry loaded.
+    # Override-enabled services are excluded from off-track marking because
+    # the user explicitly re-enabled them.
+    _off_track_display_names: frozenset[str] = frozenset()
+    if _track_registry is not None and track_key:
+        _track_obj = _track_registry.by_key.get(track_key)
+        if _track_obj is not None and _track_obj.services is not None:
+            from tracks import is_in_track as _iit
+            _off_track_display_names = frozenset(
+                svc.display_name for svc in services_info
+                if (not _iit(_track_obj, svc.key, always_on=_always_on))
+                and svc.key not in _overridden
+            )
+
+    def _in_track_display(display_name: str) -> bool:
+        return display_name not in _off_track_display_names
+
+    state = build_app_state(
+        config_parser, hosts_manager,
+        in_track=(
+            _in_track_display
+            if (track_key and _track_registry is not None)
+            else None
+        ),
+    )
     # Build the parallel CloudApiSummary list — same data the overview
     # box renders, derived from .env via state_builder.all_cloud_apis().
     from .widgets.info_box import CloudApiSummary as _CloudApiSummary
@@ -573,6 +600,7 @@ def _build_steps_and_rows(
             configurable=(s.name in configurable_names),
             category=s.category,
             pending=(s.name in configurable_names),  # locked rows start not-pending
+            off_track=s.off_track,
         )
         for s in sorted_services
     ]

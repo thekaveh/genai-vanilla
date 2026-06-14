@@ -12,7 +12,7 @@ picks a new SOURCE for a service.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from core.config_parser import ConfigParser
 from ui.state import AppState, CloudApiEntry, ServiceEntry
@@ -133,8 +133,18 @@ def _brand_field(env: dict, env_var: str, fallback: str) -> str:
 def build_app_state(
     config_parser: ConfigParser,
     hosts_manager=None,  # noqa: ARG001  # kept for back-compat with start.py / integration.py callers
+    *,
+    in_track: "Callable[[str], bool] | None" = None,
 ) -> AppState:
-    """Build a fresh AppState snapshot from .env + per-service manifests."""
+    """Build a fresh AppState snapshot from .env + per-service manifests.
+
+    ``in_track`` is an optional predicate that receives a service display name
+    and returns True when the service is included in the active track.  When
+    provided (i.e. when a ``--track`` was selected), any service for which the
+    predicate returns False will have its ``ServiceEntry.off_track`` flag set to
+    True — driving the dim/annotation rendering in the service table.  Pass
+    ``None`` (the default) to disable off-track marking entirely.
+    """
     env = config_parser.parse_env_file()
     service_sources = config_parser.parse_service_sources()
 
@@ -152,6 +162,9 @@ def build_app_state(
     services = []
     for r in _get_topology().rows:
         source = service_sources.get(r.source_var, env.get(r.source_var, "container"))
+        # off_track: only mark when the caller supplied an in_track predicate
+        # (i.e. a track is active) AND the predicate says this service is out.
+        is_off = (in_track is not None) and (not in_track(r.display_name))
         services.append(ServiceEntry(
             name=r.display_name,
             port=resolve_port(r.display_name, source, r.port_var, env),
@@ -159,6 +172,7 @@ def build_app_state(
             alias=r.alias,
             category=r.category,
             pending=False,  # initial state; wizard sets True for unanswered rows
+            off_track=is_off,
         ))
 
     cloud_apis = []
