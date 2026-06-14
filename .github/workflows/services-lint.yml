@@ -77,7 +77,10 @@ jobs:
         # (which build-validation already pip-installs in Docker).
         run: |
           uv venv .ci-venv
-          VIRTUAL_ENV=$PWD/.ci-venv uv pip install pytest fastapi httpx pydantic asyncpg storage3 prometheus-fastapi-instrumentator python-multipart
+          # fastapi pin mirrors services/backend/app/app/requirements.txt:
+          # >=0.136 pulls starlette 1.x, whose `_IncludedRouter` breaks
+          # prometheus-fastapi-instrumentator's route iterator (PR #88).
+          VIRTUAL_ENV=$PWD/.ci-venv uv pip install pytest 'fastapi<0.137' httpx pydantic asyncpg storage3 prometheus-fastapi-instrumentator python-multipart
           .ci-venv/bin/python -m pytest tests/ -q
 
   compose-equivalence:
