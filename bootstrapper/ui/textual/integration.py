@@ -88,6 +88,55 @@ def _option_hint(opt: str) -> str:
     return ""
 
 
+# Stable title for the new track-picker step (inserted at index 0 by
+# _build_steps_and_rows). Used as the selections-dict key by every
+# downstream skip predicate.
+PICKER_STEP_TITLE = "Track  ·  pick your profile"
+
+
+def _make_track_skip(
+    service_key: str,
+    *,
+    always_on: frozenset[str],
+    overridden: frozenset[str],
+):
+    """Build a ``skip_if_prev`` callable for a per-service PromptStep.
+
+    Returns True (skip) when:
+        service is NOT in always_on,
+        AND the picker-selected track exists and EXCLUDES the service
+            (i.e. track.services is a finite set and doesn't list it),
+        AND service is NOT in the override set.
+
+    Fail-open semantics: if no picker selection has been made yet, or
+    the selection doesn't resolve to a known track, return False. A
+    buggy predicate must never eat user prompts.
+    """
+    from tracks import load_tracks, is_in_track
+
+    # Load once at factory time; the registry is process-lifetime
+    # immutable so it's safe to close over.
+    try:
+        _registry = load_tracks()
+    except Exception:  # noqa: BLE001
+        _registry = None
+
+    def _skip(selections: dict) -> bool:
+        if _registry is None:
+            return False
+        track_key = selections.get(PICKER_STEP_TITLE)
+        if not track_key:
+            return False
+        track = _registry.by_key.get(track_key)
+        if track is None:
+            return False
+        if service_key in overridden:
+            return False
+        return not is_in_track(track, service_key, always_on=always_on)
+
+    return _skip
+
+
 def recompute_ports_for_base(
     new_base: int,
     current_rows,
@@ -134,7 +183,13 @@ def recompute_ports_for_base(
     return new_rows
 
 
-def _build_steps_and_rows(config_parser, hosts_manager):
+def _build_steps_and_rows(
+    config_parser,
+    hosts_manager,
+    *,
+    track_key: str | None = None,
+    overridden_services: frozenset[str] | None = None,
+):
     """Build the wizard steps + service rows from real config."""
     from wizard.service_discovery import ServiceDiscovery
     from ui.state_builder import build_app_state
@@ -173,6 +228,65 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # rewrite each step's ``step_total`` once the list is complete
     # below — so the inline values seeded here never reach the UI.
     total = 0  # placeholder; rewritten below after the dynamic splice
+
+    # Load track registry once; reused for the picker step + per-service
+    # skip predicates.
+    from tracks import load_tracks, compute_always_on
+    try:
+        _track_registry = load_tracks()
+    except Exception:  # noqa: BLE001
+        # If the registry is unloadable, fall back to no track-picker
+        # (behaviour matches the pre-tracks wizard). Surface the error
+        # via the existing wizard warning sink so the user can see why.
+        _track_registry = None
+        _wizard_warn("tracks.yml failed to load; track-picker disabled.")
+
+    _always_on = compute_always_on(config_parser)
+    _overridden = overridden_services or frozenset()
+
+    # Picker step (only shown if the registry loaded). When --track was
+    # passed via the CLI (track_key != None), we still add the picker
+    # but it auto-skips because skip_if_prev returns True — the
+    # selection is already pinned via prefilled_selections (added in
+    # Task 11) so the per-service predicates can read it.
+    if _track_registry is not None:
+        picker_options = []
+        for t in _track_registry.tracks:
+            if t.services is None:
+                svc_hint = "every configurable service"
+            else:
+                svc_hint = " + ".join(sorted(t.services))
+            picker_options.append(PromptOption(
+                value=t.key,
+                label=t.display_name,
+                hint=svc_hint,
+                badges=[],
+            ))
+        # Default highlight: the CLI-passed track if present and valid,
+        # else the first entry.
+        if track_key and track_key in _track_registry.by_key:
+            picker_default = track_key
+        else:
+            picker_default = _track_registry.tracks[0].key
+        steps.append(PromptStep(
+            title=PICKER_STEP_TITLE,
+            step_index=1, step_total=total,
+            heading="Which profile fits what you're building?",
+            subtitle=(
+                "Always-on for every track: LLM Engine + Prometheus + "
+                "Grafana + cloud-provider keys."
+            ),
+            options=picker_options,
+            default_value=picker_default,
+            service_name="",
+            # Skip the picker entirely when --track was set on the CLI —
+            # the selection is already pinned and the user shouldn't
+            # have to re-confirm.
+            skip_if_prev=(
+                (lambda sel, _tk=track_key: bool(_tk))
+                if track_key else None
+            ),
+        ))
 
     # Base port is asked FIRST so all subsequent service-port displays
     # reflect the chosen base port immediately.
@@ -325,6 +439,14 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             service_key=svc.key,
             # secondary_number REMOVED from PromptStep — config is now
             # on individual PromptOption entries above.
+            skip_if_prev=(
+                _make_track_skip(
+                    svc.key,
+                    always_on=_always_on,
+                    overridden=_overridden,
+                )
+                if _track_registry is not None else None
+            ),
         ))
         # Splice the entire LLM cluster RIGHT AFTER the LLM Engine
         # source step: Ollama variants, then cloud-provider key+model
