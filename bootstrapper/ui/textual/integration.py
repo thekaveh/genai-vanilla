@@ -486,8 +486,32 @@ def _build_steps_and_rows(
         # step. The step's skip_if_prev guard fires when COMFYUI_SOURCE is
         # not container-cpu / container-gpu (localhost, external, disabled),
         # so only container users see the model picker.
+        # Each sub-step's skip_if_prev is combined (OR) with the track-skip
+        # predicate so off-track ComfyUI doesn't surface via .env fallback
+        # (regression guard for audit finding R1).
         if svc.display_name == "ComfyUI":
-            steps.extend(build_comfyui_steps(env_vars, _wizard_warn))
+            _comfyui_substeps = build_comfyui_steps(env_vars, _wizard_warn)
+            if _track_registry is not None:
+                from dataclasses import replace as _dc_replace
+                _track_skip_comfyui = _make_track_skip(
+                    svc.key,
+                    always_on=_always_on,
+                    overridden=_overridden,
+                    registry=_track_registry,
+                )
+                for _sub in _comfyui_substeps:
+                    _sub_skip = getattr(_sub, "skip_if_prev", None)
+                    if _sub_skip is None:
+                        _combined = _track_skip_comfyui
+                    else:
+                        def _combined(_sel, _a=_sub_skip, _b=_track_skip_comfyui):
+                            try:
+                                return bool(_a(_sel)) or bool(_b(_sel))
+                            except Exception:  # noqa: BLE001
+                                return False
+                    steps.append(_dc_replace(_sub, skip_if_prev=_combined))
+            else:
+                steps.extend(_comfyui_substeps)
 
     steps.append(PromptStep(
         title="Cold start  ·  rebuild", step_index=len(services_info) + 2,

@@ -277,3 +277,39 @@ def test_track_membership_matrix(track_key: str):
             f"expected in_track={is_in_expected} but predicate "
             f"says skip={is_skipped}"
         )
+
+
+def test_comfyui_substep_respects_track_skip():
+    """ComfyUI sub-steps (model picker) must be skipped when ComfyUI
+    itself is off-track, even if .env's COMFYUI_SOURCE is non-disabled
+    from a previous run. Regression guard for audit finding R1 (partially
+    unmitigated risk: ComfyUI sub-step skip_if_prev didn't compose with
+    the track-skip predicate)."""
+    from ui.textual.integration import _build_steps_and_rows, PICKER_STEP_TITLE
+    from core.config_parser import ConfigParser
+    from utils.hosts_manager import HostsManager
+    cp = ConfigParser()
+    steps, _, _, _, _, _ = _build_steps_and_rows(
+        cp, HostsManager(),
+        track_key="data-eng",  # excludes ComfyUI
+        overridden_services=frozenset(),
+    )
+    # Find any step whose title mentions "ComfyUI" and that has a non-None
+    # skip_if_prev. With the fix, calling that predicate against a
+    # data-eng selection MUST return True (skip) — even if env values
+    # would otherwise allow the sub-step to fire.
+    comfyui_steps = [
+        s for s in steps
+        if "ComfyUI" in (getattr(s, "title", "") or "")
+        or "comfyui" in (getattr(s, "title", "") or "").lower()
+    ]
+    selections_data_eng = {PICKER_STEP_TITLE: "data-eng"}
+    for s in comfyui_steps:
+        skip = getattr(s, "skip_if_prev", None)
+        if skip is None:
+            continue
+        assert skip(selections_data_eng) is True, (
+            f"ComfyUI step {getattr(s, 'title', '?')!r} did not respect "
+            f"data-eng track-skip; sub-step skip predicate is leaking ComfyUI "
+            f"prompts for off-track runs."
+        )
