@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-14 overnight maintenance pass (16 commits, passes 1-28)
+### Fixed — 2026-06-14 overnight maintenance pass (18 commits, passes 1-42)
 
 - **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
   pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
@@ -71,6 +71,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   walks every `services/*/init/scripts/*.py` AST and asserts either
   `sys.stdout.reconfigure(line_buffering=True)` at module top *or*
   `flush=True` on every `print()` call. Test suite grew 902 → 906.
+- **Doc-only folder skip guard:** `test_doc_only_folders_are_skipped_by_real_manifest_load`
+  pins `services/{stt-provider, doc-processor, multi2vec-clip}/` —
+  the three aggregator folders that ship README + diagrams but no
+  `service.yml` — against the real `load_manifests()` output. A future
+  `_is_service_dir` refactor that started loading them as manifests
+  would break this real-repo test instead of slipping through (the
+  existing synthetic-folder tests cover the predicate in isolation but
+  don't pin it to the actual on-disk layout).
+
+Stopped at 10 consecutive zero-issue passes (passes 33-42); no
+MAX_PASSES cap hit. Test suite at 907 passed + 3 skipped; all 6
+audit scripts and the docs-drift gate exit 0.
 
 ### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
