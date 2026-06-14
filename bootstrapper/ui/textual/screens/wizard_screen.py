@@ -678,6 +678,24 @@ class WizardScreen(Screen):
         # Empty list when the step has no eligible rows.
         for env_var, value in self._prompt.secondary_values():
             self._selections[f"__secondary__:{env_var}"] = value
+        # Track picker: when the user commits the track-picker step,
+        # resolve the picked key to a display_name and update the
+        # InfoPanel banner. Without this, the banner only appears in
+        # CLI mode (--track gen-ai-rag); picker-mode selections never
+        # refresh self._track_display_name from None.
+        try:
+            from .. import integration as _int_mod
+            if step.title == _int_mod.PICKER_STEP_TITLE:
+                from tracks import load_tracks as _lt
+                _reg = _lt()
+                _t = _reg.by_key.get(opt.value)
+                self._track_display_name = (
+                    _t.display_name if _t is not None else None
+                )
+                self._refresh_info_panel()
+        except Exception:  # noqa: BLE001
+            # A bad track lookup must not block the wizard from advancing.
+            pass
         # Cloud secret step: live-update the Cloud APIs row in the
         # overview to reflect the user's choice.
         if step.kind == "secret" and self._cloud_apis:
