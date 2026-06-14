@@ -80,10 +80,12 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 
 ### 1.3 Troubleshooting tips
 
+- **Don't prefix with `sudo`.** The wizard runs as your user; only `--setup-hosts` needs root, and it handles that internally. Running the whole script under sudo creates root-owned files that block future non-sudo runs. See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for recovery.
 - **Port conflicts?** → `./start.sh --base-port 64000`
 - **Out of memory?** → Increase Docker memory to 10GB+
 - **Can't access *.localhost?** → Run `./start.sh --setup-hosts`
 - **Want fresh start?** → `./stop.sh --cold && ./start.sh --cold`
+- **Other startup errors?** → See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
 ### 1.4 Interactive setup wizard
 
