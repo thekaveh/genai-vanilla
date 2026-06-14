@@ -114,11 +114,11 @@ def _make_track_skip(
     selection doesn't resolve to a known track, or `registry` is None,
     return False. A buggy predicate must never eat user prompts.
 
-    Note: ``overridden`` keys must match wizard svc.keys (e.g. ``ray-head``,
-    ``neo4j-graph-db``) — not folder names. ``is_in_track`` normalizes
-    its own service_key arg internally.
+    Note: ``overridden`` keys use the folder/normalized form produced by
+    ``start.py`` (e.g. ``ray``, ``stt-provider``) — not wizard svc.keys.
+    We normalize ``service_key`` here before the check so both forms agree.
     """
-    from tracks import is_in_track
+    from tracks import is_in_track, normalize_service_key as _norm
 
     def _skip(selections: dict) -> bool:
         if registry is None:
@@ -129,7 +129,7 @@ def _make_track_skip(
         track = registry.by_key.get(track_key)
         if track is None:
             return False
-        if service_key in overridden:
+        if _norm(service_key) in overridden:
             return False
         return not is_in_track(track, service_key, always_on=always_on)
 
@@ -548,11 +548,11 @@ def _build_steps_and_rows(
     if _track_registry is not None and track_key:
         _track_obj = _track_registry.by_key.get(track_key)
         if _track_obj is not None and _track_obj.services is not None:
-            from tracks import is_in_track as _iit
+            from tracks import is_in_track as _iit, normalize_service_key as _norm
             _off_track_display_names = frozenset(
                 svc.display_name for svc in services_info
                 if (not _iit(_track_obj, svc.key, always_on=_always_on))
-                and svc.key not in _overridden
+                and _norm(svc.key) not in _overridden
             )
 
     def _in_track_display(display_name: str) -> bool:
