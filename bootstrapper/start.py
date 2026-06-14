@@ -1687,6 +1687,15 @@ class GenAIStackStarter:
 @click.option('--cold', is_flag=True, help='Perform cold start with cleanup')
 @click.option('--setup-hosts', is_flag=True, help='Setup hosts file entries (requires admin/sudo)')
 @click.option('--skip-hosts', is_flag=True, help='Skip hosts file checks and setup')
+@click.option('--track', type=str, default=None,
+              help='Pre-select a wizard profile (track) — gen-ai-rag, '
+                   'gen-ai-eng, gen-ai-creative, ml-eng, data-eng, all. '
+                   'Skips the wizard track-picker. In-track services are '
+                   'prompted as usual; out-of-track services are disabled. '
+                   'Use --list-tracks to see members.')
+@click.option('--list-tracks', is_flag=True,
+              help='Print the available tracks and their service '
+                   'membership, then exit.')
 @click.option('--llm-provider-source',
               type=click.Choice(['ollama-container-cpu', 'ollama-container-gpu', 'ollama-localhost',
                                 'none'], case_sensitive=False),
@@ -1838,7 +1847,7 @@ class GenAIStackStarter:
               help='Skip the chained .env migrations (port-layout v1, URL→PORT v2, '
                    'model-set v3) for this run. Version sentinels are NOT stamped, '
                    'so the migration re-prompts on the next run.')
-def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
+def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
          openai_models, anthropic_models, openrouter_models,
@@ -1858,6 +1867,34 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          airflow_source,
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
+
+    # --list-tracks is side-effect-free and runs before any other init
+    # (no Supabase key gen, no env migration). Exits 0.
+    if list_tracks:
+        from tracks import load_tracks, format_track_list
+        try:
+            reg = load_tracks()
+        except Exception as e:  # noqa: BLE001 — surface load errors to stderr
+            print(f"Error loading tracks.yml: {e}", file=sys.stderr)
+            sys.exit(2)
+        print(format_track_list(reg))
+        sys.exit(0)
+
+    # Validate --track before doing anything else.
+    if track is not None:
+        from tracks import load_tracks
+        try:
+            _track_registry = load_tracks()
+        except Exception as e:  # noqa: BLE001
+            print(f"Error loading tracks.yml: {e}", file=sys.stderr)
+            sys.exit(2)
+        if track not in _track_registry.by_key:
+            valid = ", ".join(t.key for t in _track_registry.tracks)
+            print(
+                f"Error: unknown track '{track}'. Available: {valid}.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
     starter = GenAIStackStarter()
 
