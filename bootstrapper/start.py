@@ -2262,6 +2262,63 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                 )
                 sys.exit(rc)
 
+            # No-TUI track prompt (spec §6.2 / §8.6): we're in will_run_wizard
+            # mode but is_tui_capable returned False (--no-tui flag or non-TTY
+            # terminal). The Textual picker won't fire, so ask on stdin instead.
+            # Defaults to gen-ai-rag (first entry in tracks.yml) if the user
+            # just hits Enter or if stdin is non-interactive (CI / pipe).
+            # This block is a no-op when --track was already supplied.
+            if track is None:
+                from tracks import load_tracks as _lt
+                from tracks import format_track_list as _ftl
+                try:
+                    _reg = _lt()
+                except Exception:  # noqa: BLE001
+                    _reg = None
+                if _reg is not None:
+                    print(_ftl(_reg), file=sys.stderr)
+                    print(
+                        "Pick a track (Enter for default 'gen-ai-rag'): ",
+                        end="", file=sys.stderr, flush=True,
+                    )
+                    if sys.stdin.isatty():
+                        selected = input().strip()
+                    else:
+                        selected = ""
+                        print("(non-interactive stdin — using default)",
+                              file=sys.stderr)
+                    if not selected:
+                        selected = _reg.tracks[0].key  # gen-ai-rag
+                    if selected not in _reg.by_key:
+                        print(
+                            f"Warning: unknown track '{selected}', "
+                            f"using default 'gen-ai-rag'.",
+                            file=sys.stderr,
+                        )
+                        selected = _reg.tracks[0].key
+                    track = selected
+                    # Apply force-disable synthesis for the selected track,
+                    # mirroring the existing block (which only ran when track
+                    # was non-None on entry). off-track services that the user
+                    # didn't explicitly flag get force-disabled in source_args.
+                    try:
+                        from tracks import is_in_track as _ii
+                        _t2 = _reg.by_key.get(track)
+                        _ao = _reg.always_on
+                        if _t2 is not None and _t2.services is not None:
+                            for cli_key in list(source_args.keys()):
+                                if cli_key.startswith("cloud_"):
+                                    continue
+                                svc_key = cli_key.removesuffix("_source").replace("_", "-")
+                                if _ii(_t2, svc_key, always_on=_ao):
+                                    continue
+                                if source_args.get(cli_key) is not None:
+                                    overridden_services.add(svc_key)
+                                else:
+                                    source_args[cli_key] = "disabled"
+                    except Exception:  # noqa: BLE001
+                        pass
+
         # CLI-flag mode + TUI capable: skip the wizard but still use the
         # Textual launch screen, pre-loaded with the user's CLI args.
         # Falls through to the linear stdout flow only when --no-tui or
