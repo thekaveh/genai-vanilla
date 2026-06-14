@@ -130,3 +130,85 @@ def test_init_script_no_duplicate_keyword_args(script_path: Path) -> None:
         f"{script_path.relative_to(REPO_ROOT)} has duplicate kwargs:\n"
         + "\n".join(violations)
     )
+
+
+@pytest.mark.parametrize(
+    "script_path",
+    _discover_init_scripts(),
+    ids=lambda p: str(p.relative_to(REPO_ROOT)),
+)
+def test_init_script_stdout_is_line_buffered(script_path: Path) -> None:
+    """Init-container stdout is pipe-attached to ``docker logs``, so
+    Python defaults to *block*-buffered output. A script that crashes or
+    is killed mid-run with un-flushed lines in the buffer drops them
+    silently — same blind-spot class as the PR #67 SyntaxError that hid
+    behind ``register-tools.py`` for 24 hours.
+
+    Every init script must opt into line-buffered stdout. Two equivalent
+    patterns are accepted:
+
+    - Module-level ``sys.stdout.reconfigure(line_buffering=True)`` —
+      preferred for scripts with many ``print()`` sites
+      (open-webui/init/register-*.py, lightrag/init/resolve-models.py).
+    - Per-call ``flush=True`` on *every* ``print()`` — used by
+      litellm/init/scripts/init.py and the catalog-init siblings.
+
+    Either is fine; mixing isn't, and bare ``print()`` calls with
+    neither guard are the bug this test catches.
+    """
+    tree = ast.parse(script_path.read_text(encoding="utf-8"))
+
+    # Detection 1: module-level `sys.stdout.reconfigure(line_buffering=True)`.
+    has_reconfigure = False
+    for node in tree.body:
+        if not isinstance(node, ast.Expr):
+            continue
+        call = node.value
+        if not isinstance(call, ast.Call):
+            continue
+        # Match `sys.stdout.reconfigure(...)` — Attribute chain ending in
+        # reconfigure, called with line_buffering=True somewhere in kwargs.
+        func = call.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "reconfigure"):
+            continue
+        inner = func.value
+        if not (isinstance(inner, ast.Attribute) and inner.attr == "stdout"):
+            continue
+        if not any(
+            k.arg == "line_buffering"
+            and isinstance(k.value, ast.Constant)
+            and k.value.value is True
+            for k in call.keywords
+        ):
+            continue
+        has_reconfigure = True
+        break
+    if has_reconfigure:
+        return
+
+    # Detection 2: every `print(...)` call carries `flush=True`.
+    bare_prints: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "print":
+            pass
+        elif isinstance(func, ast.Attribute) and func.attr == "print":
+            pass
+        else:
+            continue
+        if not any(
+            k.arg == "flush"
+            and isinstance(k.value, ast.Constant)
+            and k.value.value is True
+            for k in node.keywords
+        ):
+            bare_prints.append(f"  line {node.lineno}: print() without flush=True")
+    assert not bare_prints, (
+        f"{script_path.relative_to(REPO_ROOT)} has bare print() calls and no "
+        f"`sys.stdout.reconfigure(line_buffering=True)` at module top:\n"
+        + "\n".join(bare_prints)
+        + "\n\nPick one: add the reconfigure line near the imports, OR add "
+        "flush=True to every print() in this script."
+    )

@@ -4,6 +4,13 @@ import json
 import time
 import sys
 
+# Force line-buffered stdout so init-container progress prints reach
+# `docker logs` immediately — mirrors the open-webui/init and
+# lightrag/init scripts. Without this, the script's 16 print sites
+# would be block-buffered and a crash mid-run would silently drop the
+# progress trail.
+sys.stdout.reconfigure(line_buffering=True)
+
 # Import psycopg2 with better error handling
 try:
     import psycopg2
