@@ -10,6 +10,13 @@ import jwt
 import requests
 import psycopg2
 
+# Force line-buffered stdout so the init container's progress prints
+# reach `docker logs` immediately even when stdout is pipe-attached
+# (block-buffered by default). Mirrors the per-print `flush=True` the
+# litellm-init / lightrag-init scripts use, applied once at the
+# module level instead of every print site.
+sys.stdout.reconfigure(line_buffering=True)
+
 
 WEBUI_URL = os.environ["WEBUI_URL"]
 WEBUI_SECRET_KEY = os.environ["WEBUI_SECRET_KEY"]
