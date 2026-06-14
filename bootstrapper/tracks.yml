@@ -1,0 +1,47 @@
+# Per-track configurable-service membership.
+#
+# The always-on tier (locked manifests + LLM Engine + Prometheus + Grafana
+# + cloud-provider keys) is implicit and applies to every track — it is
+# NOT enumerated here. Adding a new always-on cloud provider in
+# bootstrapper/utils/cloud_providers.py automatically extends the implicit
+# set via compute_always_on(); tracks.yml stays unchanged.
+#
+# `services: "*"` is the "all" sentinel — no filtering is applied.
+#
+# Service entries use the folder name under services/<name>/ (e.g. `spark`,
+# `ray`, `airflow`). The wizard normalizes multi-container family heads
+# (`ray-head`, `spark-master`, `airflow-webserver`) back to folder names
+# via tracks.py::_FAMILY_KEY_ALIASES before lookup.
+tracks:
+  - key: gen-ai-rag
+    display_name: Generative AI · RAG
+    description: Retrieval-augmented generation — vectors, graph, reranker, doc ingest, web search.
+    services: [open-webui, weaviate, neo4j-graph-db, lightrag, doc-processor,
+               tei-reranker, searxng, local-deep-researcher]
+
+  - key: gen-ai-eng
+    display_name: Generative AI · Engineering
+    description: Agentic apps + workflows with voice, vision, and search.
+    services: [open-webui, n8n, hermes, openclaw, jupyterhub, comfyui,
+               stt-provider, tts-provider, searxng, local-deep-researcher]
+
+  - key: gen-ai-creative
+    display_name: Generative AI · Creative
+    description: Multimodal generation — image, voice, vision, doc.
+    services: [open-webui, comfyui, stt-provider, tts-provider,
+               multi2vec-clip, doc-processor]
+
+  - key: ml-eng
+    display_name: ML Engineering
+    description: Distributed training/inference + notebooks + experiment storage.
+    services: [spark, ray, jupyterhub, zeppelin, open-webui, minio, tei-reranker]
+
+  - key: data-eng
+    display_name: Data Engineering
+    description: Batch + lakehouse + graph + vector with orchestration.
+    services: [spark, airflow, jupyterhub, zeppelin, minio, weaviate, neo4j-graph-db]
+
+  - key: all
+    display_name: All / Custom
+    description: Every configurable service — full wizard, no filtering.
+    services: "*"
