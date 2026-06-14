@@ -256,10 +256,18 @@ def _build_steps_and_rows(
                 svc_hint = "every configurable service"
             else:
                 svc_hint = " + ".join(sorted(t.services))
+            # Fold the per-track description into the hint so the user
+            # sees BOTH the one-liner intent AND the service list per
+            # option. PromptOption has no separate `description` field —
+            # hint is the only per-option slot beneath the label.
+            if t.description:
+                hint_text = f"{t.description}  ({svc_hint})"
+            else:
+                hint_text = svc_hint
             picker_options.append(PromptOption(
                 value=t.key,
                 label=t.display_name,
-                hint=svc_hint,
+                hint=hint_text,
                 badges=[],
             ))
         # Default highlight: the CLI-passed track if present and valid,
