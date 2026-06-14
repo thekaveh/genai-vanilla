@@ -16,7 +16,7 @@ tracks:
   - key: gen-ai-rag
     display_name: Generative AI · RAG
     description: Retrieval-augmented generation — vectors, graph, reranker, doc ingest, web search.
-    services: [open-webui, weaviate, neo4j-graph-db, lightrag, doc-processor,
+    services: [open-webui, weaviate, neo4j, lightrag, doc-processor,
                tei-reranker, searxng, local-deep-researcher]
 
   - key: gen-ai-eng
@@ -39,7 +39,7 @@ tracks:
   - key: data-eng
     display_name: Data Engineering
     description: Batch + lakehouse + graph + vector with orchestration.
-    services: [spark, airflow, jupyterhub, zeppelin, minio, weaviate, neo4j-graph-db]
+    services: [spark, airflow, jupyterhub, zeppelin, minio, weaviate, neo4j]
 
   - key: all
     display_name: All / Custom
