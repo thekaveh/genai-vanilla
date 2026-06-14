@@ -2123,6 +2123,26 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                 raise click.UsageError("--spark-workers must be in 1-8")
             user_model_selections['SPARK_WORKER_COUNT'] = str(spark_workers)
 
+        # Determine if wizard mode — only when NO flags are provided at all.
+        # Both the model-list flags (--openai-models / --ollama-models / etc.)
+        # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
+        # intent": presence of either means the user is configuring via CLI
+        # and the wizard would silently overwrite their input.
+        # NOTE: this must be computed BEFORE the track synthesis block so that
+        # `--track <key>` alone (no --*-source flags) still routes to the wizard.
+        # The synthesis block only writes "disabled" into source_args for
+        # non-wizard paths; the wizard handles off-track disabling itself via
+        # _selections_to_args (Task 9).
+        no_source_flags = all(v is None for v in source_args.values())
+        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
+        no_model_flags = not user_model_selections
+        no_key_flags = not cloud_api_keys
+        will_run_wizard = (
+            no_source_flags and no_stack_flags
+            and no_model_flags and no_key_flags
+            and sys.stdin.isatty()
+        )
+
         # ─── Track override-set + force-disable synthesis ────────────
         # Two outcomes:
         #   1. `overridden_services`: the set of off-track svc.keys that
@@ -2133,6 +2153,10 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         #      --no-tui and run_launch_flow honor the track without going
         #      through the wizard. Overridden services keep their
         #      CLI-supplied value (flag wins).
+        #      Guard: skip the force-disable writes in wizard mode —
+        #      the wizard's _selections_to_args already handles them, and
+        #      writing "disabled" here would incorrectly cause the wizard to
+        #      be skipped (source_args would look non-empty).
         overridden_services: set = set()
         if track is not None:
             try:
@@ -2157,10 +2181,10 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                             continue
                         # Off-track service. If the user passed a CLI flag
                         # for it (non-None), record the override; otherwise
-                        # force-disable.
+                        # force-disable (non-wizard paths only).
                         if source_args.get(cli_key) is not None:
                             overridden_services.add(svc_key)
-                        else:
+                        elif not will_run_wizard:
                             source_args[cli_key] = "disabled"
 
         # Detect legacy `external` source values left in .env from versions
@@ -2196,21 +2220,6 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                 starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
                 starter.banner.console.print("  [bright_white]Please restart with:[/bright_white] [bright_cyan]sudo ./start.sh --setup-hosts[/bright_cyan]")
                 sys.exit(1)
-
-        # Determine if wizard mode — only when NO flags are provided at all.
-        # Both the model-list flags (--openai-models / --ollama-models / etc.)
-        # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
-        # intent": presence of either means the user is configuring via CLI
-        # and the wizard would silently overwrite their input.
-        no_source_flags = all(v is None for v in source_args.values())
-        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
-        no_model_flags = not user_model_selections
-        no_key_flags = not cloud_api_keys
-        will_run_wizard = (
-            no_source_flags and no_stack_flags
-            and no_model_flags and no_key_flags
-            and sys.stdin.isatty()
-        )
 
         # Check dependencies early — silently in wizard mode (wizard clears screen)
         if not will_run_wizard:
