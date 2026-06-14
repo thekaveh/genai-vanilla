@@ -92,6 +92,26 @@ def test_load_tracks_schema_violation_bad_key_pattern(tmp_path: Path):
         load_tracks(p)
 
 
+def test_load_tracks_duplicate_key_raises(tmp_path: Path):
+    """Two tracks with the same `key` must reject — tracks.py builds a
+    `by_key` map and ``--track <key>`` would otherwise silently resolve
+    to whichever entry sorts last. Defense in depth: the schema's
+    `uniqueItems: true` catches an exact copy-paste, the runtime guard
+    catches same-key + different display_name/description/services.
+    """
+    p = tmp_path / "t.yml"
+    p.write_text(yaml.safe_dump({
+        "tracks": [
+            {"key": "foo", "display_name": "First", "description": "d",
+             "services": ["weaviate"]},
+            {"key": "foo", "display_name": "Second", "description": "d",
+             "services": ["neo4j-graph-db"]},
+        ]
+    }))
+    with pytest.raises(Exception, match="duplicate"):
+        load_tracks(p)
+
+
 def test_load_tracks_unknown_service_raises(tmp_path: Path):
     """Cross-check: a service that doesn't exist as services/<name>/ rejects."""
     p = tmp_path / "t.yml"
