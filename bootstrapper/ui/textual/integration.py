@@ -88,9 +88,10 @@ def _option_hint(opt: str) -> str:
     return ""
 
 
-# Stable title for the new track-picker step (inserted at index 0 by
-# _build_steps_and_rows). Used as the selections-dict key by every
-# downstream skip predicate.
+# Stable title for the new track-picker step. Inserted at index 0 by
+# _build_steps_and_rows WHEN the tracks.yml registry loads successfully;
+# when the registry is unloadable the picker is suppressed entirely.
+# Used as the selections-dict key by every downstream skip predicate.
 PICKER_STEP_TITLE = "Track  ·  pick your profile"
 
 
@@ -99,6 +100,7 @@ def _make_track_skip(
     *,
     always_on: frozenset[str],
     overridden: frozenset[str],
+    registry,
 ):
     """Build a ``skip_if_prev`` callable for a per-service PromptStep.
 
@@ -108,26 +110,23 @@ def _make_track_skip(
             (i.e. track.services is a finite set and doesn't list it),
         AND service is NOT in the override set.
 
-    Fail-open semantics: if no picker selection has been made yet, or
-    the selection doesn't resolve to a known track, return False. A
-    buggy predicate must never eat user prompts.
-    """
-    from tracks import load_tracks, is_in_track
+    Fail-open semantics: if no picker selection has been made yet, the
+    selection doesn't resolve to a known track, or `registry` is None,
+    return False. A buggy predicate must never eat user prompts.
 
-    # Load once at factory time; the registry is process-lifetime
-    # immutable so it's safe to close over.
-    try:
-        _registry = load_tracks()
-    except Exception:  # noqa: BLE001
-        _registry = None
+    Note: ``overridden`` keys must match wizard svc.keys (e.g. ``ray-head``,
+    ``neo4j-graph-db``) — not folder names. ``is_in_track`` normalizes
+    its own service_key arg internally.
+    """
+    from tracks import is_in_track
 
     def _skip(selections: dict) -> bool:
-        if _registry is None:
+        if registry is None:
             return False
         track_key = selections.get(PICKER_STEP_TITLE)
         if not track_key:
             return False
-        track = _registry.by_key.get(track_key)
+        track = registry.by_key.get(track_key)
         if track is None:
             return False
         if service_key in overridden:
@@ -231,17 +230,21 @@ def _build_steps_and_rows(
 
     # Load track registry once; reused for the picker step + per-service
     # skip predicates.
-    from tracks import load_tracks, compute_always_on
+    from tracks import load_tracks
     try:
         _track_registry = load_tracks()
     except Exception:  # noqa: BLE001
-        # If the registry is unloadable, fall back to no track-picker
-        # (behaviour matches the pre-tracks wizard). Surface the error
-        # via the existing wizard warning sink so the user can see why.
         _track_registry = None
         _wizard_warn("tracks.yml failed to load; track-picker disabled.")
 
-    _always_on = compute_always_on(config_parser)
+    # Prefer the registry-cached value; fall back to a hardcoded set so
+    # the per-service loop below can still attach predicates if the
+    # registry failed to load (predicates short-circuit to False with
+    # registry=None anyway, so the always_on value is moot there).
+    if _track_registry is not None:
+        _always_on = _track_registry.always_on
+    else:
+        _always_on = frozenset({"llm-provider", "prometheus", "grafana"})
     _overridden = overridden_services or frozenset()
 
     # Picker step (only shown if the registry loaded). When --track was
@@ -260,6 +263,9 @@ def _build_steps_and_rows(
             # sees BOTH the one-liner intent AND the service list per
             # option. PromptOption has no separate `description` field —
             # hint is the only per-option slot beneath the label.
+            # description is non-empty per the JSON schema (minLength: 1),
+            # so the else branch is belt-and-suspenders. Kept defensive
+            # in case a future schema relaxation makes description optional.
             if t.description:
                 hint_text = f"{t.description}  ({svc_hint})"
             else:
@@ -452,6 +458,7 @@ def _build_steps_and_rows(
                     svc.key,
                     always_on=_always_on,
                     overridden=_overridden,
+                    registry=_track_registry,
                 )
                 if _track_registry is not None else None
             ),

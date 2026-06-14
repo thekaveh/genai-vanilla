@@ -21,6 +21,7 @@ def test_make_track_skip_returns_callable():
         "comfyui",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert callable(skip)
 
@@ -32,6 +33,7 @@ def test_predicate_skips_off_track_service():
         "comfyui",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip({PICKER_STEP_TITLE: "gen-ai-rag"}) is True
 
@@ -43,6 +45,7 @@ def test_predicate_does_not_skip_in_track_service():
         "weaviate",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip({PICKER_STEP_TITLE: "gen-ai-rag"}) is False
 
@@ -54,6 +57,7 @@ def test_predicate_does_not_skip_always_on_service():
         "llm-provider",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     for t in reg.tracks:
         assert skip({PICKER_STEP_TITLE: t.key}) is False, \
@@ -68,6 +72,7 @@ def test_predicate_does_not_skip_overridden_service():
         "comfyui",
         always_on=reg.always_on,
         overridden=frozenset({"comfyui"}),
+        registry=reg,
     )
     assert skip({PICKER_STEP_TITLE: "gen-ai-rag"}) is False
 
@@ -78,6 +83,7 @@ def test_predicate_handles_all_sentinel():
     for svc_key in ("comfyui", "spark", "ray-head", "weaviate"):
         skip = _make_track_skip(
             svc_key, always_on=reg.always_on, overridden=frozenset(),
+            registry=reg,
         )
         assert skip({PICKER_STEP_TITLE: "all"}) is False
 
@@ -90,6 +96,7 @@ def test_predicate_normalizes_family_aliases():
         "ray-head",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip({PICKER_STEP_TITLE: "ml-eng"}) is False
 
@@ -103,6 +110,7 @@ def test_predicate_normalizes_runtime_sc_divergence():
         "open-web-ui",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip_owui({PICKER_STEP_TITLE: "gen-ai-rag"}) is False
     # neo4j-graph-db is in data-eng (which lists 'neo4j' in YAML).
@@ -110,6 +118,7 @@ def test_predicate_normalizes_runtime_sc_divergence():
         "neo4j-graph-db",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip_neo({PICKER_STEP_TITLE: "data-eng"}) is False
 
@@ -122,6 +131,7 @@ def test_predicate_missing_selection_does_not_skip():
         "comfyui",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip({}) is False
 
@@ -134,6 +144,7 @@ def test_predicate_unknown_track_does_not_skip():
         "comfyui",
         always_on=reg.always_on,
         overridden=frozenset(),
+        registry=reg,
     )
     assert skip({PICKER_STEP_TITLE: "bogus-track"}) is False
 
@@ -188,6 +199,7 @@ def test_track_membership_matrix(track_key: str):
     for svc in ALL_DISCOVERED:
         skip = _make_track_skip(
             svc, always_on=reg.always_on, overridden=frozenset(),
+            registry=reg,
         )
         is_skipped = skip({PICKER_STEP_TITLE: track_key})
         is_in_expected = svc in expected
