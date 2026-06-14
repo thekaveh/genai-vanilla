@@ -74,6 +74,21 @@ updates:
       # langchain-groq window; bump only when langchain-groq releases a
       # version that accepts groq>=1.x. See PR #87.
       - dependency-name: "groq"
+      # Six Airflow providers (relaxed in PR #87 to match upstream
+      # constraints-3.2.2). Each pin floor matches the version listed in
+      # constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_MAJOR_MINOR}.txt;
+      # Dependabot bumping above that floor produces a doomed PR because
+      # `pip install --constraint <constraints-3.2.2>` can't satisfy the
+      # new requirement. Apache-spark is already covered above (PR #47);
+      # the rest are tracked here until the Airflow version bumps and the
+      # constraint floors move with it.
+      - dependency-name: "apache-airflow-providers-amazon"
+      - dependency-name: "apache-airflow-providers-postgres"
+      - dependency-name: "apache-airflow-providers-redis"
+      - dependency-name: "apache-airflow-providers-common-sql"
+      - dependency-name: "apache-airflow-providers-neo4j"
+      - dependency-name: "apache-airflow-providers-openai"
+      - dependency-name: "apache-airflow-providers-fab"
     commit-message:
       prefix: "deps"
       include: "scope"
