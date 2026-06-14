@@ -95,6 +95,21 @@ def _option_hint(opt: str) -> str:
 PICKER_STEP_TITLE = "Track  ·  pick your profile"
 
 
+def _resolve_track_display_name(track: str | None) -> str | None:
+    """Look up a track's display_name from the registry; None if no
+    track set or lookup fails. Used by both run_setup_flow and
+    run_launch_flow to populate the InfoPanel banner."""
+    if not track:
+        return None
+    try:
+        from tracks import load_tracks as _lt
+        _reg = _lt()
+        _t = _reg.by_key.get(track)
+        return _t.display_name if _t else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _make_track_skip(
     service_key: str,
     *,
@@ -867,15 +882,7 @@ def run_setup_flow(
     # resolves the selection live, but the banner is populated here from
     # the CLI arg so the panel shows the right label before the wizard
     # starts (and persists through _refresh_info_panel calls).
-    _track_display_name: str | None = None
-    if track:
-        try:
-            from tracks import load_tracks as _lt
-            _reg = _lt()
-            _t = _reg.by_key.get(track)
-            _track_display_name = _t.display_name if _t else None
-        except Exception:  # noqa: BLE001
-            pass
+    _track_display_name = _resolve_track_display_name(track)
 
     # Snapshot env vars at wizard-build time so the cloud auto-promotion
     # logic in _selections_to_args has the .env state to compare against.
@@ -1060,15 +1067,7 @@ def run_launch_flow(
         )
 
     # Derive track display name for the InfoPanel banner.
-    _track_display_name: str | None = None
-    if track:
-        try:
-            from tracks import load_tracks as _lt
-            _reg = _lt()
-            _t = _reg.by_key.get(track)
-            _track_display_name = _t.display_name if _t else None
-        except Exception:  # noqa: BLE001
-            pass
+    _track_display_name = _resolve_track_display_name(track)
 
     state_holder = {"interrupted": False, "exit_code": 0}
 

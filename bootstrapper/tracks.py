@@ -128,6 +128,12 @@ def normalize_service_key(key: str) -> str:
 
 _validator_singleton: Draft202012Validator | None = None
 
+# Cached registry — populated by load_tracks() on first call when no
+# explicit path is given. The schema validator is already cached;
+# this avoids re-reading + re-parsing tracks.yml on every helper call
+# from the wizard hot path (~6 calls per --track invocation).
+_REGISTRY_CACHE: "TrackRegistry | None" = None
+
 
 def _get_validator() -> Draft202012Validator:
     global _validator_singleton
@@ -164,7 +170,15 @@ def load_tracks(path: Path | None = None) -> TrackRegistry:
     Path defaults to ``bootstrapper/tracks.yml``. Raises
     ``TracksLoadError`` (and subclasses) on schema / cross-validation
     failure.
+
+    The result is cached in ``_REGISTRY_CACHE`` when called without an
+    explicit path (the production hot path). Tests that pass a ``tmp_path``
+    always bypass the cache and re-parse — so the cache never affects
+    test isolation.
     """
+    global _REGISTRY_CACHE
+    if path is None and _REGISTRY_CACHE is not None:
+        return _REGISTRY_CACHE
     p = Path(path) if path is not None else _DEFAULT_TRACKS_PATH
     try:
         raw = yaml.safe_load(p.read_text(encoding="utf-8"))
@@ -229,11 +243,14 @@ def load_tracks(path: Path | None = None) -> TrackRegistry:
     # the registry is self-contained without requiring a ConfigParser.
     always_on = frozenset({"llm-provider", "prometheus", "grafana"})
 
-    return TrackRegistry(
+    registry = TrackRegistry(
         tracks=tracks_tuple,
         by_key=by_key,
         always_on=always_on,
     )
+    if path is None:
+        _REGISTRY_CACHE = registry
+    return registry
 
 
 # ────────────────────────────────────────────────────────────────────
