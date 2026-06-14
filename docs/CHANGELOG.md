@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-14 overnight maintenance pass (9 commits, passes 1-17)
+### Fixed — 2026-06-14 overnight maintenance pass (12 commits, passes 1-22)
 
 - **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
   pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
