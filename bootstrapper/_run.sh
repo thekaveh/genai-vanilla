@@ -28,7 +28,16 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 if command -v uv >/dev/null 2>&1; then
     echo "📦 Using uv for dependency management..."
     exec uv run --directory "$SELF_DIR" "$SCRIPT_REL" "$@"
-else
+elif command -v python3 >/dev/null 2>&1; then
     echo "📦 Using system Python (install uv for better dependency management)..."
     exec python3 "$SELF_DIR/$SCRIPT_REL" "$@"
+else
+    echo "❌ Neither 'uv' nor 'python3' was found on PATH." >&2
+    echo "" >&2
+    echo "  Install one of:" >&2
+    echo "    • uv (recommended):  https://github.com/astral-sh/uv" >&2
+    echo "    • Python 3.10+:      https://www.python.org/downloads/" >&2
+    echo "" >&2
+    echo "  Then re-run the script that invoked this dispatcher." >&2
+    exit 127
 fi
