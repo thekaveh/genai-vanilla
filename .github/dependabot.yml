@@ -89,6 +89,13 @@ updates:
       - dependency-name: "apache-airflow-providers-neo4j"
       - dependency-name: "apache-airflow-providers-openai"
       - dependency-name: "apache-airflow-providers-fab"
+      # fastapi >=0.136 pulls starlette 1.x, whose new internal
+      # `_IncludedRouter` class trips prometheus-fastapi-instrumentator
+      # (its routing iterator assumes every router has a `.path` attr).
+      # Hold the floor below 0.136 until the upstream instrumentator
+      # ships a fix. See PR #88 CI failure on fastapi 0.137.0 +
+      # starlette 1.3.1 + prometheus-fastapi-instrumentator 8.0.0.
+      - dependency-name: "fastapi"
     commit-message:
       prefix: "deps"
       include: "scope"
