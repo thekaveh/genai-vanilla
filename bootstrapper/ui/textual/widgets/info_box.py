@@ -88,19 +88,29 @@ class InfoBoxState:
     # Cloud LLM provider toggles — rendered in their own sub-block
     # below the service grid, NOT counted as services.
     cloud_apis: list[CloudApiSummary] = field(default_factory=list)
+    # Optional track banner — set when --track was passed or the
+    # picker step resolved to a known track.
+    track_label: str | None = None
 
 
 class InfoBoxFooter(Static):
-    """Service-count summary line: 14 container · 2 local · 1 gpu · 2 off."""
+    """Service-count summary line + optional track banner.
+
+    Renders:
+      Track: <display_name>          ← only when track_label is set
+      14 container · 2 local · 1 gpu · 2 off
+    """
 
     def __init__(
         self,
         services: list[ServiceSummary] | None = None,
         cloud_apis: list[CloudApiSummary] | None = None,
+        track_label: str | None = None,
     ) -> None:
         super().__init__(classes="info-footer")
         self._services: list[ServiceSummary] = list(services or [])
         self._cloud_apis: list[CloudApiSummary] = list(cloud_apis or [])
+        self._track_label: str | None = track_label
 
     def set_services(self, services: Iterable[ServiceSummary]) -> None:
         self._services = list(services)
@@ -108,6 +118,10 @@ class InfoBoxFooter(Static):
 
     def set_cloud_apis(self, cloud_apis: Iterable[CloudApiSummary]) -> None:
         self._cloud_apis = list(cloud_apis)
+        self.refresh()
+
+    def set_track_label(self, track_label: str | None) -> None:
+        self._track_label = track_label
         self.refresh()
 
     def _counts(self) -> tuple[int, int, int, int, int]:
@@ -126,6 +140,12 @@ class InfoBoxFooter(Static):
         return pending, container, local, gpu, off
 
     def render(self) -> Text:
+        out = Text()
+        # Track banner — shown above the count line when a track is active.
+        if self._track_label:
+            out.append("Track: ", style=f"bold {P.ACCENT}")
+            out.append(self._track_label, style=P.TEXT)
+            out.append("\n")
         pending, container, local, gpu, off = self._counts()
         line = Text()
         if pending:
@@ -160,7 +180,8 @@ class InfoBoxFooter(Static):
                 line.append(f"{cloud_missing} missing key", style=P.WARN)
             line.append("  ·  ", style=P.TEXT_FAINT)
             line.append(f"{cloud_off} off", style=P.TEXT_MUTED)
-        return line
+        out.append(line)
+        return out
 
 
 class CloudApisRow(Static):
@@ -297,7 +318,10 @@ class InfoPanel(Container):
         self.state = state or InfoBoxState()
         self._body_widgets = list(body_widgets or [])
         self._body = Container(*self._body_widgets, classes="info-body")
-        self._footer = InfoBoxFooter(self.state.services, self.state.cloud_apis)
+        self._footer = InfoBoxFooter(
+            self.state.services, self.state.cloud_apis,
+            track_label=self.state.track_label,
+        )
         self._title = title
 
     def on_mount(self) -> None:
@@ -314,6 +338,7 @@ class InfoPanel(Container):
         self.state = state
         self._footer.set_services(state.services)
         self._footer.set_cloud_apis(state.cloud_apis)
+        self._footer.set_track_label(state.track_label)
         # Propagate to any CloudApisRow in the body so the visible row
         # tracks the footer count. Without this, a caller passing a
         # fresh ``state.cloud_apis`` got an updated footer over a stale

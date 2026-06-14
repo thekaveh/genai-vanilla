@@ -102,6 +102,26 @@ The wizard covers all configurable services, base port selection, cold start opt
 
 > For users who prefer CLI flags, all options remain available. See [Command Line Interface](#51-command-line-interface) or the [Interactive Setup Wizard Guide](docs/quick-start/interactive-setup-wizard.md).
 
+### 1.5 Quickstart by track
+
+For RAG-focused work:
+
+```bash
+./start.sh --track gen-ai-rag
+```
+
+For agentic-app engineering:
+
+```bash
+./start.sh --track gen-ai-eng
+```
+
+Other tracks: `gen-ai-creative`, `ml-eng`, `data-eng`. Run `./start.sh --list-tracks` to see service membership for each.
+
+Omit `--track` entirely to get the full interactive wizard (with the
+track picker as step 1). Pass `--track all` to skip the picker and
+prompt for every configurable service.
+
 ## Table of contents
 
 - [Quick Start](#1-quick-start)

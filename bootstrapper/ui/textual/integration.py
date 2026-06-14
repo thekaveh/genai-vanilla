@@ -88,6 +88,69 @@ def _option_hint(opt: str) -> str:
     return ""
 
 
+# Stable title for the new track-picker step. Inserted at index 0 by
+# _build_steps_and_rows WHEN the tracks.yml registry loads successfully;
+# when the registry is unloadable the picker is suppressed entirely.
+# Used as the selections-dict key by every downstream skip predicate.
+PICKER_STEP_TITLE = "Track  ·  pick your profile"
+
+
+def _resolve_track_display_name(track: str | None) -> str | None:
+    """Look up a track's display_name from the registry; None if no
+    track set or lookup fails. Used by both run_setup_flow and
+    run_launch_flow to populate the InfoPanel banner."""
+    if not track:
+        return None
+    try:
+        from tracks import load_tracks as _lt
+        _reg = _lt()
+        _t = _reg.by_key.get(track)
+        return _t.display_name if _t else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _make_track_skip(
+    service_key: str,
+    *,
+    always_on: frozenset[str],
+    overridden: frozenset[str],
+    registry,
+):
+    """Build a ``skip_if_prev`` callable for a per-service PromptStep.
+
+    Returns True (skip) when:
+        service is NOT in always_on,
+        AND the picker-selected track exists and EXCLUDES the service
+            (i.e. track.services is a finite set and doesn't list it),
+        AND service is NOT in the override set.
+
+    Fail-open semantics: if no picker selection has been made yet, the
+    selection doesn't resolve to a known track, or `registry` is None,
+    return False. A buggy predicate must never eat user prompts.
+
+    Note: ``overridden`` keys use the folder/normalized form produced by
+    ``start.py`` (e.g. ``ray``, ``stt-provider``) — not wizard svc.keys.
+    We normalize ``service_key`` here before the check so both forms agree.
+    """
+    from tracks import is_in_track, normalize_service_key as _norm
+
+    def _skip(selections: dict) -> bool:
+        if registry is None:
+            return False
+        track_key = selections.get(PICKER_STEP_TITLE)
+        if not track_key:
+            return False
+        track = registry.by_key.get(track_key)
+        if track is None:
+            return False
+        if _norm(service_key) in overridden:
+            return False
+        return not is_in_track(track, service_key, always_on=always_on)
+
+    return _skip
+
+
 def recompute_ports_for_base(
     new_base: int,
     current_rows,
@@ -127,6 +190,7 @@ def recompute_ports_for_base(
             configurable=r.configurable,
             category=r.category,
             pending=r.pending,
+            off_track=r.off_track,
         ))
     # Preserve the canonical input order — `current_rows` arrives in
     # category/topology order from `_build_steps_and_rows`, and changing
@@ -134,7 +198,13 @@ def recompute_ports_for_base(
     return new_rows
 
 
-def _build_steps_and_rows(config_parser, hosts_manager):
+def _build_steps_and_rows(
+    config_parser,
+    hosts_manager,
+    *,
+    track_key: str | None = None,
+    overridden_services: frozenset[str] | None = None,
+):
     """Build the wizard steps + service rows from real config."""
     from wizard.service_discovery import ServiceDiscovery
     from ui.state_builder import build_app_state
@@ -173,6 +243,80 @@ def _build_steps_and_rows(config_parser, hosts_manager):
     # rewrite each step's ``step_total`` once the list is complete
     # below — so the inline values seeded here never reach the UI.
     total = 0  # placeholder; rewritten below after the dynamic splice
+
+    # Load track registry once; reused for the picker step + per-service
+    # skip predicates.
+    from tracks import load_tracks
+    try:
+        _track_registry = load_tracks()
+    except Exception:  # noqa: BLE001
+        _track_registry = None
+        _wizard_warn("tracks.yml failed to load; track-picker disabled.")
+
+    # Prefer the registry-cached value; fall back to a hardcoded set so
+    # the per-service loop below can still attach predicates if the
+    # registry failed to load (predicates short-circuit to False with
+    # registry=None anyway, so the always_on value is moot there).
+    if _track_registry is not None:
+        _always_on = _track_registry.always_on
+    else:
+        _always_on = frozenset({"llm-provider", "prometheus", "grafana"})
+    _overridden = overridden_services or frozenset()
+
+    # Picker step (only shown if the registry loaded). When --track was
+    # passed via the CLI (track_key != None), we still add the picker
+    # but it auto-skips because skip_if_prev returns True — the
+    # selection is already pinned via prefilled_selections (added in
+    # Task 11) so the per-service predicates can read it.
+    if _track_registry is not None:
+        picker_options = []
+        for t in _track_registry.tracks:
+            if t.services is None:
+                svc_hint = "every configurable service"
+            else:
+                svc_hint = " + ".join(sorted(t.services))
+            # Fold the per-track description into the hint so the user
+            # sees BOTH the one-liner intent AND the service list per
+            # option. PromptOption has no separate `description` field —
+            # hint is the only per-option slot beneath the label.
+            # description is non-empty per the JSON schema (minLength: 1),
+            # so the else branch is belt-and-suspenders. Kept defensive
+            # in case a future schema relaxation makes description optional.
+            if t.description:
+                hint_text = f"{t.description}  ({svc_hint})"
+            else:
+                hint_text = svc_hint
+            picker_options.append(PromptOption(
+                value=t.key,
+                label=t.display_name,
+                hint=hint_text,
+                badges=[],
+            ))
+        # Default highlight: the CLI-passed track if present and valid,
+        # else the first entry.
+        if track_key and track_key in _track_registry.by_key:
+            picker_default = track_key
+        else:
+            picker_default = _track_registry.tracks[0].key
+        steps.append(PromptStep(
+            title=PICKER_STEP_TITLE,
+            step_index=1, step_total=total,
+            heading="Which profile fits what you're building?",
+            subtitle=(
+                "Always-on for every track: LLM Engine + Prometheus + "
+                "Grafana + cloud-provider keys."
+            ),
+            options=picker_options,
+            default_value=picker_default,
+            service_name="",
+            # Skip the picker entirely when --track was set on the CLI —
+            # the selection is already pinned and the user shouldn't
+            # have to re-confirm.
+            skip_if_prev=(
+                (lambda sel, _tk=track_key: bool(_tk))
+                if track_key else None
+            ),
+        ))
 
     # Base port is asked FIRST so all subsequent service-port displays
     # reflect the chosen base port immediately.
@@ -325,6 +469,15 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             service_key=svc.key,
             # secondary_number REMOVED from PromptStep — config is now
             # on individual PromptOption entries above.
+            skip_if_prev=(
+                _make_track_skip(
+                    svc.key,
+                    always_on=_always_on,
+                    overridden=_overridden,
+                    registry=_track_registry,
+                )
+                if _track_registry is not None else None
+            ),
         ))
         # Splice the entire LLM cluster RIGHT AFTER the LLM Engine
         # source step: Ollama variants, then cloud-provider key+model
@@ -348,8 +501,32 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         # step. The step's skip_if_prev guard fires when COMFYUI_SOURCE is
         # not container-cpu / container-gpu (localhost, external, disabled),
         # so only container users see the model picker.
+        # Each sub-step's skip_if_prev is combined (OR) with the track-skip
+        # predicate so off-track ComfyUI doesn't surface via .env fallback
+        # (regression guard for audit finding R1).
         if svc.display_name == "ComfyUI":
-            steps.extend(build_comfyui_steps(env_vars, _wizard_warn))
+            _comfyui_substeps = build_comfyui_steps(env_vars, _wizard_warn)
+            if _track_registry is not None:
+                from dataclasses import replace as _dc_replace
+                _track_skip_comfyui = _make_track_skip(
+                    svc.key,
+                    always_on=_always_on,
+                    overridden=_overridden,
+                    registry=_track_registry,
+                )
+                for _sub in _comfyui_substeps:
+                    _sub_skip = getattr(_sub, "skip_if_prev", None)
+                    if _sub_skip is None:
+                        _combined = _track_skip_comfyui
+                    else:
+                        def _combined(_sel, _a=_sub_skip, _b=_track_skip_comfyui):
+                            try:
+                                return bool(_a(_sel)) or bool(_b(_sel))
+                            except Exception:  # noqa: BLE001
+                                return False
+                    steps.append(_dc_replace(_sub, skip_if_prev=_combined))
+            else:
+                steps.extend(_comfyui_substeps)
 
     steps.append(PromptStep(
         title="Cold start  ·  rebuild", step_index=len(services_info) + 2,
@@ -401,7 +578,33 @@ def _build_steps_and_rows(config_parser, hosts_manager):
         for i, s in enumerate(steps)
     ]
 
-    state = build_app_state(config_parser, hosts_manager)
+    # Build the off-track display-name set for visual dimming in the
+    # right-pane service table.  Only populated when a --track was supplied
+    # via the CLI (track_key is not None) AND the registry loaded.
+    # Override-enabled services are excluded from off-track marking because
+    # the user explicitly re-enabled them.
+    _off_track_display_names: frozenset[str] = frozenset()
+    if _track_registry is not None and track_key:
+        _track_obj = _track_registry.by_key.get(track_key)
+        if _track_obj is not None and _track_obj.services is not None:
+            from tracks import is_in_track as _iit, normalize_service_key as _norm
+            _off_track_display_names = frozenset(
+                svc.display_name for svc in services_info
+                if (not _iit(_track_obj, svc.key, always_on=_always_on))
+                and _norm(svc.key) not in _overridden
+            )
+
+    def _in_track_display(display_name: str) -> bool:
+        return display_name not in _off_track_display_names
+
+    state = build_app_state(
+        config_parser, hosts_manager,
+        in_track=(
+            _in_track_display
+            if (track_key and _track_registry is not None)
+            else None
+        ),
+    )
     # Build the parallel CloudApiSummary list — same data the overview
     # box renders, derived from .env via state_builder.all_cloud_apis().
     from .widgets.info_box import CloudApiSummary as _CloudApiSummary
@@ -436,6 +639,7 @@ def _build_steps_and_rows(config_parser, hosts_manager):
             configurable=(s.name in configurable_names),
             category=s.category,
             pending=(s.name in configurable_names),  # locked rows start not-pending
+            off_track=s.off_track,
         )
         for s in sorted_services
     ]
@@ -469,6 +673,34 @@ def _selections_to_args(
         v = selections.get(f"{svc.display_name}  ·  source")
         if v is None: continue
         source_args[svc.key.replace("-", "_") + "_source"] = v
+
+    # ─── Force-disable off-track services ────────────────────────────
+    # When a track is selected, every source-configurable service that
+    # is out-of-track AND not explicitly overridden gets *_SOURCE=disabled
+    # force-written here. Their wizard step was skipped (track skip
+    # predicate hid it), so the inner loop above didn't touch source_args
+    # for them. Without this pass, .env would silently retain the user's
+    # prior choice for an off-track service — defeating the track's
+    # "force-disable" semantic.
+    track_key = selections.get(PICKER_STEP_TITLE)
+    if track_key:
+        try:
+            from tracks import load_tracks, is_in_track
+            _reg = load_tracks()
+            _track = _reg.by_key.get(track_key)
+            if _track is not None and _track.services is not None:
+                # "all" track → _track.services is None → no force-disable.
+                for svc in services_info:
+                    if is_in_track(_track, svc.key, always_on=_reg.always_on):
+                        continue
+                    cli_key = svc.key.replace("-", "_") + "_source"
+                    # Only synthesize if the user didn't visit the step
+                    # (override path stays untouched).
+                    if cli_key not in source_args:
+                        source_args[cli_key] = "disabled"
+        except Exception:  # noqa: BLE001
+            # Track-registry load failure must not block the wizard.
+            pass
 
     # ─── Cloud-provider selections ───────────────────────────────────
     # Each provider has up to two wizard outputs:
@@ -609,6 +841,8 @@ def run_setup_flow(
     config_parser, hosts_manager, *,
     starter=None,
     no_port_migrate: bool = False,
+    track: str | None = None,
+    overridden_services: frozenset[str] | None = None,
 ) -> int:
     """Run wizard + pipeline + docker compose all in ONE Textual screen.
 
@@ -625,7 +859,11 @@ def run_setup_flow(
         starter.run_port_migration(no_port_migrate)
 
     steps, rows, services_info, current_base_port, state, cloud_summaries = (
-        _build_steps_and_rows(config_parser, hosts_manager)
+        _build_steps_and_rows(
+            config_parser, hosts_manager,
+            track_key=track,
+            overridden_services=overridden_services or frozenset(),
+        )
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "GenAI Vanilla",
@@ -638,6 +876,13 @@ def run_setup_flow(
     )
 
     state_holder = {"interrupted": False, "exit_code": 0}
+
+    # Derive track display name for the InfoPanel banner. Only relevant
+    # when --track was passed on the CLI; in wizard mode the picker step
+    # resolves the selection live, but the banner is populated here from
+    # the CLI arg so the panel shows the right label before the wizard
+    # starts (and persists through _refresh_info_panel calls).
+    _track_display_name = _resolve_track_display_name(track)
 
     # Snapshot env vars at wizard-build time so the cloud auto-promotion
     # logic in _selections_to_args has the .env state to compare against.
@@ -689,6 +934,10 @@ def run_setup_flow(
                 on_base_port_change=_recompute_ports,
                 resolve_port_for_service=_resolve_port_for_service,
                 cloud_apis=cloud_summaries,
+                prefilled_selections=(
+                    {PICKER_STEP_TITLE: track} if track else None
+                ),
+                track_display_name=_track_display_name,
             ))
 
         def action_interrupt(self) -> None:
@@ -708,6 +957,8 @@ def run_launch_flow(
     source_args: dict,
     stack_options: dict,
     no_port_migrate: bool = False,
+    track: str | None = None,
+    overridden_services: frozenset[str] | None = None,
 ) -> int:
     """Push the same Textual launch screen the wizard transitions to,
     but pre-loaded with CLI args — no wizard prompts in between.
@@ -732,7 +983,11 @@ def run_launch_flow(
     _pm = PortManager(str(config_parser.root_dir))
 
     _, rows, services_info, current_base_port, state, cloud_summaries = (
-        _build_steps_and_rows(config_parser, hosts_manager)
+        _build_steps_and_rows(
+            config_parser, hosts_manager,
+            track_key=track,
+            overridden_services=overridden_services or frozenset(),
+        )
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "GenAI Vanilla",
@@ -790,6 +1045,7 @@ def run_launch_flow(
             configurable=r.configurable,
             category=r.category,
             pending=False,  # launch-flow rows are fully resolved before display
+            off_track=r.off_track,
         ))
 
     # `state.services` already arrives in canonical topology order; the
@@ -809,6 +1065,9 @@ def run_launch_flow(
         return recompute_ports_for_base(
             new_base, current_rows, config_parser, port_offsets,
         )
+
+    # Derive track display name for the InfoPanel banner.
+    _track_display_name = _resolve_track_display_name(track)
 
     state_holder = {"interrupted": False, "exit_code": 0}
 
@@ -835,6 +1094,10 @@ def run_launch_flow(
                 prefilled_source_args=dict(source_args),
                 prefilled_stack_options=dict(stack_options,
                                              base_port=base_port),
+                prefilled_selections=(
+                    {PICKER_STEP_TITLE: track} if track else None
+                ),
+                track_display_name=_track_display_name,
             ))
 
         def action_interrupt(self) -> None:

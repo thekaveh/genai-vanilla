@@ -1342,15 +1342,18 @@ class GenAIStackStarter:
             self.banner.show_status_message("All services started successfully", "success")
             return True
             
-    def show_pre_launch_summary(self) -> bool:
+    def show_pre_launch_summary(self, *, track: str | None = None) -> bool:
         """
         Display the combined configuration summary table with access URLs
         and hosted endpoints, then prompt for confirmation.
 
+        ``track`` — forwarded to ``build_pre_launch_summary_table`` so the
+        ``Track: <display_name>`` banner line is emitted when a track is active.
+
         Returns:
             bool: True if user confirms, False to cancel.
         """
-        table = self.build_pre_launch_summary_table()
+        table = self.build_pre_launch_summary_table(track=track)
         self.banner.console.print(table)
         self.banner.console.print()
         from rich.text import Text as _Text
@@ -1377,12 +1380,16 @@ class GenAIStackStarter:
             return response in ('', 'y', 'yes')
         return True  # non-TTY: auto-confirm
 
-    def build_pre_launch_summary_table(self):
+    def build_pre_launch_summary_table(self, *, track: str | None = None):
         """
         Build the configuration summary as a Rich Table renderable —
         used by the --no-tui / non-TTY linear flow (`show_pre_launch_summary`).
         The Textual wizard renders its own info-box and never reaches this
         table.
+
+        ``track`` — the active track key (e.g. ``"gen-ai-rag"``), or None
+        when no track was selected. When set, a ``Track: <display_name>``
+        line is prepended above the services table per spec §5.2 #7.
         """
         from rich.table import Table
         from rich.text import Text
@@ -1530,6 +1537,24 @@ class GenAIStackStarter:
             expand=True,
         )
 
+        # Track banner line (spec §5.2 #7): when a track was active,
+        # prepend a "Track: <display_name>" line above the services table.
+        track_line: list = []
+        if track:
+            _track_label = track
+            try:
+                from tracks import load_tracks as _lt_sum
+                _reg_sum = _lt_sum()
+                _t_sum = _reg_sum.by_key.get(track)
+                if _t_sum:
+                    _track_label = _t_sum.display_name
+            except Exception:  # noqa: BLE001
+                pass
+            track_line = [Text.from_markup(
+                f"[bold bright_white]Track:[/bold bright_white] "
+                f"[color(75)]{_track_label}[/color(75)]"
+            )]
+
         # Port-collision warnings — informational only (warn-don't-block).
         # When two rows resolve to the same host port (e.g. the user
         # picked ollama-localhost on Kong's port), surface that here so
@@ -1541,8 +1566,8 @@ class GenAIStackStarter:
                 Text.from_markup(f"[yellow]{msg}[/yellow]")
                 for msg in warning_lines
             ]
-            return Group(table, cloud_panel, *warning_texts)
-        return Group(table, cloud_panel)
+            return Group(*track_line, table, cloud_panel, *warning_texts)
+        return Group(*track_line, table, cloud_panel)
 
     @staticmethod
     def _get_localhost_port(service_name: str, env_vars: dict) -> str:
@@ -1687,6 +1712,15 @@ class GenAIStackStarter:
 @click.option('--cold', is_flag=True, help='Perform cold start with cleanup')
 @click.option('--setup-hosts', is_flag=True, help='Setup hosts file entries (requires admin/sudo)')
 @click.option('--skip-hosts', is_flag=True, help='Skip hosts file checks and setup')
+@click.option('--track', type=str, default=None,
+              help='Pre-select a wizard profile (track) — gen-ai-rag, '
+                   'gen-ai-eng, gen-ai-creative, ml-eng, data-eng, all. '
+                   'Skips the wizard track-picker. In-track services are '
+                   'prompted as usual; out-of-track services are disabled. '
+                   'Use --list-tracks to see members.')
+@click.option('--list-tracks', is_flag=True,
+              help='Print the available tracks and their service '
+                   'membership, then exit.')
 @click.option('--llm-provider-source',
               type=click.Choice(['ollama-container-cpu', 'ollama-container-gpu', 'ollama-localhost',
                                 'none'], case_sensitive=False),
@@ -1838,7 +1872,7 @@ class GenAIStackStarter:
               help='Skip the chained .env migrations (port-layout v1, URL→PORT v2, '
                    'model-set v3) for this run. Version sentinels are NOT stamped, '
                    'so the migration re-prompts on the next run.')
-def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
+def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
          openai_models, anthropic_models, openrouter_models,
@@ -1858,6 +1892,109 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
          airflow_source,
          no_tui, no_port_migrate):
     """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
+
+    # ─── Track override warnings ─────────────────────────────────────
+    # Fires when --track is set AND any explicit --*-source flag picks
+    # a service that's out-of-track. Runs BEFORE --list-tracks early
+    # exit so the warning surfaces even when the user listed tracks.
+    if track is not None:
+        try:
+            from tracks import load_tracks as _load_tracks_for_warn
+            from tracks import is_in_track as _is_in_track_for_warn
+            _reg_w = _load_tracks_for_warn()
+        except Exception:  # noqa: BLE001
+            _reg_w = None
+        if _reg_w is not None:
+            _track_w = _reg_w.by_key.get(track)
+            if _track_w is not None and _track_w.services is not None:
+                # Map of Click kwarg → value, restricted to the
+                # source-style flags. Cloud provider toggles
+                # (cloud_openai_source, ...) are intentionally absent —
+                # cloud keys are always-on and never reach the track
+                # skip predicate, so a --cloud-openai-source flag should
+                # never emit a track warning.
+                _flag_values = {
+                    'llm_provider_source': llm_provider_source,
+                    'comfyui_source': comfyui_source,
+                    'weaviate_source': weaviate_source,
+                    'minio_source': minio_source,
+                    'n8n_source': n8n_source,
+                    'searxng_source': searxng_source,
+                    'jupyterhub_source': jupyterhub_source,
+                    'open_web_ui_source': open_web_ui_source,
+                    'local_deep_researcher_source': local_deep_researcher_source,
+                    'stt_provider_source': stt_provider_source,
+                    'tts_provider_source': tts_provider_source,
+                    'doc_processor_source': doc_processor_source,
+                    'openclaw_source': openclaw_source,
+                    'hermes_source': hermes_source,
+                    'lightrag_source': lightrag_source,
+                    'tei_reranker_source': tei_reranker_source,
+                    'neo4j_graph_db_source': neo4j_graph_db_source,
+                    'multi2vec_clip_source': multi2vec_clip_source,
+                    'ray_source': ray_source,
+                    'prometheus_source': prometheus_source,
+                    'grafana_source': grafana_source,
+                    'spark_source': spark_source,
+                    'zeppelin_source': zeppelin_source,
+                    'airflow_source': airflow_source,
+                }
+                for cli_key, value in _flag_values.items():
+                    if value is None:
+                        continue
+                    svc_key = cli_key.removesuffix("_source").replace("_", "-")
+                    if _is_in_track_for_warn(
+                        _track_w, svc_key, always_on=_reg_w.always_on,
+                    ):
+                        continue
+                    # Look up display name from topology rows for nicer
+                    # warning text; fall back to svc_key if no match.
+                    derived_var = svc_key.upper().replace("-", "_") + "_SOURCE"
+                    display = svc_key
+                    try:
+                        from services.topology import get_topology as _gt
+                        _topo = _gt()
+                        for _r in _topo.rows:
+                            if _r.source_var == derived_var:
+                                display = _r.display_name
+                                break
+                    except Exception:  # noqa: BLE001
+                        pass
+                    print(
+                        f"[warn] --{cli_key.replace('_', '-')} "
+                        f"{value} overrides the {track} track, "
+                        f"which excludes {display}. Enabling "
+                        f"{display} anyway.",
+                        file=sys.stderr,
+                    )
+
+    # --list-tracks is side-effect-free and runs before any other init
+    # (no Supabase key gen, no env migration). Exits 0.
+    if list_tracks:
+        from tracks import load_tracks, format_track_list
+        try:
+            reg = load_tracks()
+        except Exception as e:  # noqa: BLE001 — surface load errors to stderr
+            print(f"Error loading tracks.yml: {e}", file=sys.stderr)
+            sys.exit(2)
+        print(format_track_list(reg))
+        sys.exit(0)
+
+    # Validate --track before doing anything else.
+    if track is not None:
+        from tracks import load_tracks
+        try:
+            _track_registry = load_tracks()
+        except Exception as e:  # noqa: BLE001
+            print(f"Error loading tracks.yml: {e}", file=sys.stderr)
+            sys.exit(2)
+        if track not in _track_registry.by_key:
+            valid = ", ".join(t.key for t in _track_registry.tracks)
+            print(
+                f"Error: unknown track '{track}'. Available: {valid}.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
     starter = GenAIStackStarter()
 
@@ -2024,6 +2161,70 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 raise click.UsageError("--spark-workers must be in 1-8")
             user_model_selections['SPARK_WORKER_COUNT'] = str(spark_workers)
 
+        # Determine if wizard mode — only when NO flags are provided at all.
+        # Both the model-list flags (--openai-models / --ollama-models / etc.)
+        # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
+        # intent": presence of either means the user is configuring via CLI
+        # and the wizard would silently overwrite their input.
+        # NOTE: this must be computed BEFORE the track synthesis block so that
+        # `--track <key>` alone (no --*-source flags) still routes to the wizard.
+        # The synthesis block only writes "disabled" into source_args for
+        # non-wizard paths; the wizard handles off-track disabling itself via
+        # _selections_to_args (Task 9).
+        no_source_flags = all(v is None for v in source_args.values())
+        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
+        no_model_flags = not user_model_selections
+        no_key_flags = not cloud_api_keys
+        will_run_wizard = (
+            no_source_flags and no_stack_flags
+            and no_model_flags and no_key_flags
+            and sys.stdin.isatty()
+        )
+
+        # ─── Track override-set + force-disable synthesis ────────────
+        # Two outcomes:
+        #   1. `overridden_services`: the set of off-track svc.keys that
+        #      were explicitly enabled via a CLI flag. Threaded into the
+        #      wizard step builder so their prompts re-appear.
+        #   2. Mirror _selections_to_args (TUI wizard path): force-disable
+        #      every off-track configurable service in source_args so
+        #      --no-tui and run_launch_flow honor the track without going
+        #      through the wizard. Overridden services keep their
+        #      CLI-supplied value (flag wins).
+        #      Guard: skip the force-disable writes in wizard mode —
+        #      the wizard's _selections_to_args already handles them, and
+        #      writing "disabled" here would incorrectly cause the wizard to
+        #      be skipped (source_args would look non-empty).
+        overridden_services: set = set()
+        if track is not None:
+            try:
+                from tracks import load_tracks as _ld
+                from tracks import is_in_track as _ii
+                _rg2 = _ld()
+            except Exception:  # noqa: BLE001
+                _rg2 = None
+            if _rg2 is not None:
+                _t2 = _rg2.by_key.get(track)
+                if _t2 is not None and _t2.services is not None:
+                    # 'all' track → services is None → no synthesis, no
+                    # overrides to track. Same source_args as today.
+                    for cli_key in list(source_args.keys()):
+                        if cli_key.startswith("cloud_"):
+                            continue  # cloud keys are always-on
+                        svc_key = cli_key.removesuffix("_source").replace("_", "-")
+                        is_in = _ii(
+                            _t2, svc_key, always_on=_rg2.always_on,
+                        )
+                        if is_in:
+                            continue
+                        # Off-track service. If the user passed a CLI flag
+                        # for it (non-None), record the override; otherwise
+                        # force-disable (non-wizard paths only).
+                        if source_args.get(cli_key) is not None:
+                            overridden_services.add(svc_key)
+                        elif not will_run_wizard:
+                            source_args[cli_key] = "disabled"
+
         # Detect legacy `external` source values left in .env from versions
         # before PR #(observability bundle). These options have been removed
         # pending a stack-wide authenticated-remote design; users must
@@ -2057,21 +2258,6 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                 starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
                 starter.banner.console.print("  [bright_white]Please restart with:[/bright_white] [bright_cyan]sudo ./start.sh --setup-hosts[/bright_cyan]")
                 sys.exit(1)
-
-        # Determine if wizard mode — only when NO flags are provided at all.
-        # Both the model-list flags (--openai-models / --ollama-models / etc.)
-        # and the cloud-key flags (--openai-api-key / etc.) count as "non-wizard
-        # intent": presence of either means the user is configuring via CLI
-        # and the wizard would silently overwrite their input.
-        no_source_flags = all(v is None for v in source_args.values())
-        no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
-        no_model_flags = not user_model_selections
-        no_key_flags = not cloud_api_keys
-        will_run_wizard = (
-            no_source_flags and no_stack_flags
-            and no_model_flags and no_key_flags
-            and sys.stdin.isatty()
-        )
 
         # Check dependencies early — silently in wizard mode (wizard clears screen)
         if not will_run_wizard:
@@ -2109,8 +2295,67 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     starter.config_parser, starter.hosts_manager,
                     starter=starter,
                     no_port_migrate=no_port_migrate,
+                    track=track,
+                    overridden_services=frozenset(overridden_services),
                 )
                 sys.exit(rc)
+
+            # No-TUI track prompt (spec §6.2 / §8.6): we're in will_run_wizard
+            # mode but is_tui_capable returned False (--no-tui flag or non-TTY
+            # terminal). The Textual picker won't fire, so ask on stdin instead.
+            # Defaults to gen-ai-rag (first entry in tracks.yml) if the user
+            # just hits Enter or if stdin is non-interactive (CI / pipe).
+            # This block is a no-op when --track was already supplied.
+            if track is None:
+                from tracks import load_tracks as _lt
+                from tracks import format_track_list as _ftl
+                try:
+                    _reg = _lt()
+                except Exception:  # noqa: BLE001
+                    _reg = None
+                if _reg is not None:
+                    print(_ftl(_reg), file=sys.stderr)
+                    print(
+                        "Pick a track (Enter for default 'gen-ai-rag'): ",
+                        end="", file=sys.stderr, flush=True,
+                    )
+                    if sys.stdin.isatty():
+                        selected = input().strip()
+                    else:
+                        selected = ""
+                        print("(non-interactive stdin — using default)",
+                              file=sys.stderr)
+                    if not selected:
+                        selected = _reg.tracks[0].key  # gen-ai-rag
+                    if selected not in _reg.by_key:
+                        print(
+                            f"Warning: unknown track '{selected}', "
+                            f"using default 'gen-ai-rag'.",
+                            file=sys.stderr,
+                        )
+                        selected = _reg.tracks[0].key
+                    track = selected
+                    # Apply force-disable synthesis for the selected track,
+                    # mirroring the existing block (which only ran when track
+                    # was non-None on entry). off-track services that the user
+                    # didn't explicitly flag get force-disabled in source_args.
+                    try:
+                        from tracks import is_in_track as _ii
+                        _t2 = _reg.by_key.get(track)
+                        _ao = _reg.always_on
+                        if _t2 is not None and _t2.services is not None:
+                            for cli_key in list(source_args.keys()):
+                                if cli_key.startswith("cloud_"):
+                                    continue
+                                svc_key = cli_key.removesuffix("_source").replace("_", "-")
+                                if _ii(_t2, svc_key, always_on=_ao):
+                                    continue
+                                if source_args.get(cli_key) is not None:
+                                    overridden_services.add(svc_key)
+                                else:
+                                    source_args[cli_key] = "disabled"
+                    except Exception:  # noqa: BLE001
+                        pass
 
         # CLI-flag mode + TUI capable: skip the wizard but still use the
         # Textual launch screen, pre-loaded with the user's CLI args.
@@ -2173,6 +2418,8 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
                     source_args=source_args,
                     stack_options=stack_options,
                     no_port_migrate=no_port_migrate,
+                    track=track,
+                    overridden_services=frozenset(overridden_services),
                 )
                 sys.exit(rc)
 
@@ -2278,7 +2525,7 @@ def main(base_port, cold, setup_hosts, skip_hosts, llm_provider_source,
         # flow runs only for --no-tui / non-TTY contexts: show the
         # Rich-Table summary, prompt for confirm, then stream docker
         # output via TTY passthrough.
-        if not starter.show_pre_launch_summary():
+        if not starter.show_pre_launch_summary(track=track):
             starter.banner.console.print("\n  [color(245)]Launch cancelled.[/color(245)]")
             sys.exit(0)
         if not starter.start_docker_services(cold_start=cold):

@@ -1,0 +1,56 @@
+# Per-track configurable-service membership.
+#
+# The always-on tier — locked manifests + LLM Engine + Prometheus + Grafana
+# + cloud-provider keys — is implicit and applies to every track. It is
+# NOT enumerated here. Cloud-provider toggles (cloud_openai, etc.) never
+# reach the track-skip predicate because they're collected via dedicated
+# secret-input steps, not as regular wizard sources. LLM Engine, Prometheus,
+# and Grafana are listed in tracks.py::compute_always_on() as the
+# canonical "asked in every track" set.
+#
+# `services: "*"` is the "all" sentinel — no filtering is applied.
+#
+# Service entries use the folder name under services/<name>/ (e.g. `spark`,
+# `ray`, `airflow`). The wizard normalizes wizard svc.keys back to folder
+# names via tracks.py::_FAMILY_KEY_ALIASES before lookup. Two classes of
+# divergence are aliased today:
+#   1. Multi-container family heads (`ray-head`, `spark-master`,
+#      `airflow-webserver`) — wizard discovery surfaces these because they
+#      are the head container's runtime_sc key.
+#   2. Single-container runtime_sc divergences (`neo4j-graph-db`,
+#      `open-web-ui`) plus underscore-form virtual-manifest keys
+#      (`llm_provider`, `stt_provider`, `tts_provider`, `doc_processor`).
+# See `tracks.py::_FAMILY_KEY_ALIASES` for the canonical map.
+tracks:
+  - key: gen-ai-rag
+    display_name: Generative AI · RAG
+    description: Retrieval-augmented generation — vectors, graph, reranker, doc ingest, web search.
+    services: [open-webui, weaviate, neo4j, lightrag, doc-processor,
+               tei-reranker, searxng, local-deep-researcher]
+
+  - key: gen-ai-eng
+    display_name: Generative AI · Engineering
+    description: Agentic apps + workflows with voice, vision, and search.
+    services: [open-webui, n8n, hermes, openclaw, jupyterhub, comfyui,
+               stt-provider, tts-provider, searxng, local-deep-researcher]
+
+  - key: gen-ai-creative
+    display_name: Generative AI · Creative
+    description: Multimodal generation — image, voice, vision, doc.
+    services: [open-webui, comfyui, stt-provider, tts-provider,
+               multi2vec-clip, doc-processor]
+
+  - key: ml-eng
+    display_name: ML Engineering
+    description: Distributed training/inference + notebooks + experiment storage.
+    services: [spark, ray, jupyterhub, zeppelin, open-webui, minio, tei-reranker]
+
+  - key: data-eng
+    display_name: Data Engineering
+    description: Batch + lakehouse + graph + vector with orchestration.
+    services: [spark, airflow, jupyterhub, zeppelin, minio, weaviate, neo4j]
+
+  - key: all
+    display_name: All / Custom
+    description: Every configurable service — full wizard, no filtering.
+    services: "*"

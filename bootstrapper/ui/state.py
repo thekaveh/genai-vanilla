@@ -20,6 +20,7 @@ class ServiceEntry:
     alias: Optional[str] = None # hostname alias (e.g. "chat.localhost") — shown in alias column
     category: str = ""          # drives bar color in the box
     pending: bool = False       # drives pending rendering
+    off_track: bool = False     # True when a track is active and this service is excluded
 
 
 @dataclass

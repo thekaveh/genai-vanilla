@@ -56,6 +56,7 @@ class ServiceRow:
     configurable: bool = True
     category: str = ""        # drives leading bar color (Task 5.4 uses this)
     pending: bool = False     # drives pending-state rendering
+    off_track: bool = False   # True when a track is active and this service is excluded
 
     @property
     def is_changed(self) -> bool:
@@ -291,6 +292,10 @@ class ServiceTable(Widget):
             slot.append(" " * total)
             return slot
         bar_color = P.style_for_category(r.category)
+        # off-track rows get the category bar dimmed and are otherwise
+        # rendered with muted/faint styling throughout this method.
+        if r.off_track:
+            bar_color = f"dim {bar_color}"
         slot.append(P.ARROW_RIGHT if is_cursor else " ",
                     style=f"bold {P.ACCENT}" if is_cursor else P.TEXT_FAINT)
         slot.append(" ")
@@ -320,7 +325,10 @@ class ServiceTable(Widget):
             slot.append(sep)
             slot.append(_fit("—", alias_w), style=P.TEXT_FAINT)
             return slot
-        slot.append(P.DOT_RUNNING, style=P.style_for_source_choice(r.source))
+        dot_style = P.style_for_source_choice(r.source)
+        if r.off_track:
+            dot_style = f"dim {dot_style}"
+        slot.append(P.DOT_RUNNING, style=dot_style)
         slot.append("  ")
         # 1) Lock status — 🔒 for always-on services whose source can't
         # be picked in the wizard; blank for configurable services so
@@ -334,10 +342,14 @@ class ServiceTable(Widget):
         port = _port_label(r) if not is_disabled else ""
         port_text = port or "—"
         port_color = P.ACCENT if port else P.TEXT_FAINT
+        if r.off_track:
+            port_color = f"dim {port_color}"
         slot.append(_fit(port_text, port_w), style=port_color)
         slot.append(sep)
         # 3) Name
-        name_color = P.TEXT_MUTED if is_disabled else (P.ACCENT if is_cursor else P.TEXT)
+        name_color = P.TEXT_MUTED if (is_disabled or r.off_track) else (
+            P.ACCENT if is_cursor else P.TEXT
+        )
         slot.append(_fit(r.name, name_w),
                     style=f"bold {name_color}" if is_cursor else name_color)
         slot.append(sep)
@@ -352,8 +364,15 @@ class ServiceTable(Widget):
         # blue. "Changed from default" is a transient state that the
         # wizard's command preview already surfaces; the source column
         # is reserved for steady-state semantics.)
+        # off-track rows render as "disabled (off-track)" per spec §5.2 #5:
+        # their effective fate is disabled regardless of the actual source
+        # value stored in .env. The actual source is preserved in r.source;
+        # only the visual label changes.
         source_style = P.style_for_source_choice(r.source)
         source_label = r.source or "—"
+        if r.off_track:
+            source_label = "disabled (off-track)"
+            source_style = f"dim {source_style}"
         slot.append(_fit(source_label, source_w), style=source_style)
         slot.append(sep)
         # 6) Full clickable alias URL — uses Kong listener port for
@@ -361,6 +380,8 @@ class ServiceTable(Widget):
         url = _alias_url(r) if not is_disabled else ""
         url_text = url or "—"
         url_color = P.INFO if url else P.TEXT_FAINT
+        if r.off_track:
+            url_color = f"dim {url_color}"
         slot.append(_fit(url_text, alias_w), style=url_color)
         return slot
 

@@ -179,6 +179,8 @@ class WizardScreen(Screen):
         auto_launch: bool = False,
         prefilled_source_args: dict | None = None,
         prefilled_stack_options: dict | None = None,
+        prefilled_selections: dict | None = None,
+        track_display_name: str | None = None,
     ) -> None:
         super().__init__()
         self._steps = steps
@@ -208,9 +210,13 @@ class WizardScreen(Screen):
             self._stack_options = dict(prefilled_stack_options)
         else:
             self._stack_options = None
+        # Track display name — shown as "Track: <name>" banner in the
+        # InfoPanel footer when a track was selected via --track or the
+        # picker step.
+        self._track_display_name: str | None = track_display_name
 
         self._step_index = 0
-        self._selections: dict[str, str] = {}
+        self._selections: dict[str, str] = dict(prefilled_selections or {})
         # Frozen defaults snapshot — used to compute "N changed from
         # defaults" correctly (only count selections that DIFFER from
         # their step's default_value).
@@ -254,6 +260,7 @@ class WizardScreen(Screen):
                 brand=self._brand,
                 services=summaries,
                 cloud_apis=self._cloud_apis,
+                track_label=self._track_display_name,
             ),
             # CloudApisRow renders the category legend on its right half.
             body_widgets=[self._service_table, self._cloud_apis_row],
@@ -671,6 +678,24 @@ class WizardScreen(Screen):
         # Empty list when the step has no eligible rows.
         for env_var, value in self._prompt.secondary_values():
             self._selections[f"__secondary__:{env_var}"] = value
+        # Track picker: when the user commits the track-picker step,
+        # resolve the picked key to a display_name and update the
+        # InfoPanel banner. Without this, the banner only appears in
+        # CLI mode (--track gen-ai-rag); picker-mode selections never
+        # refresh self._track_display_name from None.
+        try:
+            from .. import integration as _int_mod
+            if step.title == _int_mod.PICKER_STEP_TITLE:
+                from tracks import load_tracks as _lt
+                _reg = _lt()
+                _t = _reg.by_key.get(opt.value)
+                self._track_display_name = (
+                    _t.display_name if _t is not None else None
+                )
+                self._refresh_info_panel()
+        except Exception:  # noqa: BLE001
+            # A bad track lookup must not block the wizard from advancing.
+            pass
         # Cloud secret step: live-update the Cloud APIs row in the
         # overview to reflect the user's choice.
         if step.kind == "secret" and self._cloud_apis:
@@ -752,6 +777,7 @@ class WizardScreen(Screen):
                 brand=self._brand,
                 services=summaries,
                 cloud_apis=self._cloud_apis,
+                track_label=self._track_display_name,
             )
         )
 
