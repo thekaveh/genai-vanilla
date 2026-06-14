@@ -774,6 +774,8 @@ def run_setup_flow(
     config_parser, hosts_manager, *,
     starter=None,
     no_port_migrate: bool = False,
+    track: str | None = None,
+    overridden_services: frozenset[str] | None = None,
 ) -> int:
     """Run wizard + pipeline + docker compose all in ONE Textual screen.
 
@@ -790,7 +792,11 @@ def run_setup_flow(
         starter.run_port_migration(no_port_migrate)
 
     steps, rows, services_info, current_base_port, state, cloud_summaries = (
-        _build_steps_and_rows(config_parser, hosts_manager)
+        _build_steps_and_rows(
+            config_parser, hosts_manager,
+            track_key=track,
+            overridden_services=overridden_services or frozenset(),
+        )
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "GenAI Vanilla",
@@ -854,6 +860,9 @@ def run_setup_flow(
                 on_base_port_change=_recompute_ports,
                 resolve_port_for_service=_resolve_port_for_service,
                 cloud_apis=cloud_summaries,
+                prefilled_selections=(
+                    {PICKER_STEP_TITLE: track} if track else None
+                ),
             ))
 
         def action_interrupt(self) -> None:
@@ -873,6 +882,8 @@ def run_launch_flow(
     source_args: dict,
     stack_options: dict,
     no_port_migrate: bool = False,
+    track: str | None = None,
+    overridden_services: frozenset[str] | None = None,
 ) -> int:
     """Push the same Textual launch screen the wizard transitions to,
     but pre-loaded with CLI args — no wizard prompts in between.
@@ -897,7 +908,11 @@ def run_launch_flow(
     _pm = PortManager(str(config_parser.root_dir))
 
     _, rows, services_info, current_base_port, state, cloud_summaries = (
-        _build_steps_and_rows(config_parser, hosts_manager)
+        _build_steps_and_rows(
+            config_parser, hosts_manager,
+            track_key=track,
+            overridden_services=overridden_services or frozenset(),
+        )
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "GenAI Vanilla",
@@ -1000,6 +1015,9 @@ def run_launch_flow(
                 prefilled_source_args=dict(source_args),
                 prefilled_stack_options=dict(stack_options,
                                              base_port=base_port),
+                prefilled_selections=(
+                    {PICKER_STEP_TITLE: track} if track else None
+                ),
             ))
 
         def action_interrupt(self) -> None:

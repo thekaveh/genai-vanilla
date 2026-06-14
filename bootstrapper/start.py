@@ -2248,6 +2248,8 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     starter.config_parser, starter.hosts_manager,
                     starter=starter,
                     no_port_migrate=no_port_migrate,
+                    track=track,
+                    overridden_services=frozenset(overridden_services),
                 )
                 sys.exit(rc)
 
@@ -2312,6 +2314,8 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     source_args=source_args,
                     stack_options=stack_options,
                     no_port_migrate=no_port_migrate,
+                    track=track,
+                    overridden_services=frozenset(overridden_services),
                 )
                 sys.exit(rc)
 

@@ -179,6 +179,7 @@ class WizardScreen(Screen):
         auto_launch: bool = False,
         prefilled_source_args: dict | None = None,
         prefilled_stack_options: dict | None = None,
+        prefilled_selections: dict | None = None,
     ) -> None:
         super().__init__()
         self._steps = steps
@@ -210,7 +211,7 @@ class WizardScreen(Screen):
             self._stack_options = None
 
         self._step_index = 0
-        self._selections: dict[str, str] = {}
+        self._selections: dict[str, str] = dict(prefilled_selections or {})
         # Frozen defaults snapshot — used to compute "N changed from
         # defaults" correctly (only count selections that DIFFER from
         # their step's default_value).
