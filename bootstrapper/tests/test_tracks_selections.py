@@ -94,10 +94,16 @@ def test_always_on_service_not_force_disabled():
 
 def test_no_picker_selection_no_synthesis():
     """If the picker step itself was skipped (e.g. no track), nothing
-    is force-disabled."""
+    is force-disabled. User's explicit selection on a service step is
+    still passed through."""
     services_info = [_svc("comfyui", "ComfyUI")]
-    selections = {}  # no picker, no service step
+    selections = {"ComfyUI  ·  source": "container"}  # no picker, but service step visited
     source_args, _ = _selections_to_args(
         selections, services_info, current_base_port=63000, env_vars={},
     )
-    assert "comfyui_source" not in source_args
+    assert source_args.get("comfyui_source") == "container", (
+        "Service-step value must be preserved when no picker selection"
+    )
+    assert len(source_args) == 1, (
+        f"No extra synthesis writes expected; got {source_args!r}"
+    )
