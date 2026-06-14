@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — 2026-06-14 overnight maintenance pass (12 commits, passes 1-22)
+### Fixed — 2026-06-14 overnight maintenance pass (16 commits, passes 1-28)
 
 - **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
   pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
@@ -53,6 +53,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for reproducibility, but `open-webui/init` was on the floating `3.12-slim`
   tag and silently rolled forward. Pin aligned, comment refreshed (it
   previously claimed parity that wasn't actually there).
+- **Init-script stdout is now line-buffered (HIGH):** `open-webui/init`'s
+  `register-tools.py` (20 print sites) and `register-functions.py` (13),
+  `lightrag/init`'s `resolve-models.py` (6), and
+  `local-deep-researcher/build`'s `init-config.py` (16) all printed
+  without `flush=True`. In init containers stdout is pipe-attached and
+  block-buffered by default — a script that crashes or is killed
+  mid-run drops its progress trail silently, the same blind-spot class
+  as the PR #67 `register-tools.py` SyntaxError that hid for 24 hours.
+  Each script now runs `sys.stdout.reconfigure(line_buffering=True)`
+  at the top (mirrors the `flush=True`-everywhere pattern litellm-init
+  already used). `lightrag/init`'s `resolve-models.py` was the most
+  load-bearing — its KEY=VALUE output is sourced by the shell, and a
+  silently-truncated emit produced an empty `EMBEDDING_MODEL` at
+  runtime.
+- **New buffering guard:** `test_init_script_stdout_is_line_buffered`
+  walks every `services/*/init/scripts/*.py` AST and asserts either
+  `sys.stdout.reconfigure(line_buffering=True)` at module top *or*
+  `flush=True` on every `print()` call. Test suite grew 902 → 906.
 
 ### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
