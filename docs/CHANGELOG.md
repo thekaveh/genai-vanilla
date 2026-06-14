@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-14 overnight maintenance pass (18 commits, passes 1-42)
+
+- **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`
+  pin `groq>=0.30.0,<1` keeps groq inside the `langchain-groq>=0.1.5` window —
+  Dependabot's previous group bump to groq 1.4.0 silently broke the backend
+  docker build (langchain-groq couldn't resolve). Without an ignore entry the
+  doomed bump retries every weekly cadence; PR #87 only fixed the pin, not the
+  retry loop.
+- **Dependabot ignore: 7 Airflow providers:** PR #87 relaxed
+  `apache-airflow-providers-{amazon,postgres,redis,common-sql,neo4j,openai,fab}`
+  back to the floors listed in upstream Airflow `constraints-3.2.2/constraints-3.12.txt`.
+  Each weekly Dependabot bump above those floors produces a PR that can't be
+  installed against the constraints file — same shape as PR #47 (spark provider).
+  Lift each entry when the Airflow version itself bumps.
+- **`stop.sh` sudo guard:** `stop.sh` also shells through `bootstrapper/_run.sh`,
+  so `sudo ./stop.sh` would write root-owned files into the same `.venv` /
+  `__pycache__` paths PR #87's `start.sh` guard was added to prevent. Mirror
+  guard now refuses to run as root with the same exit-2 message and pointer
+  at `docs/TROUBLESHOOTING.md` for recovery.
+- **Tracks seam-parity test:** `test_tracks.py::test_every_track_service_resolves_via_source_override_manager`
+  asserts every service listed in `bootstrapper/tracks.yml` has a matching
+  entry in `SourceOverrideManager.source_mapping` (after `normalize_service_key`
+  folding for family aliases / runtime_sc divergences). Without this guard a
+  future tracks.yml edit could add a service without a CLI seam, silently
+  leaking it into every restricted track. Same shipping-class risk as
+  `project_post_merge_env_staleness.md` class A, one rung up the tree.
+- **Typing hygiene:** `compute_always_on(config_parser)` in `bootstrapper/tracks.py`
+  now annotates `config_parser: Any` (was a bare untyped param on a public API,
+  inconsistent with the module's otherwise-strict typing). Import added; no
+  behavior change.
+- **Duplicate-track-key guard:** the runtime reject at `tracks.py:205-206` was
+  untested. `test_load_tracks_duplicate_key_raises` locks it. The schema
+  (`bootstrapper/schemas/tracks.schema.json`) also gains `uniqueItems: true`
+  on the tracks array — catches exact-copy-paste duplicates one rung earlier,
+  before the runtime guard runs.
+- **`_run.sh` missing-Python error:** the dispatcher used to print
+  *"Using system Python (install uv for better dependency management)"* and
+  then `exec python3 …`, so an environment without `python3` got an unhelpful
+  shell-level "command not found" right after a message that implied `uv`
+  would fix things. New branch explicitly `command -v python3` checks before
+  the exec, exits 127 with install pointers for both `uv` and `python3`.
+- **`open-webui/init` python pin alignment:** the init-tier Dockerfiles for
+  `litellm/init` and `comfyui/catalog-init` both pin to `python:3.12.7-slim`
+  for reproducibility, but `open-webui/init` was on the floating `3.12-slim`
+  tag and silently rolled forward. Pin aligned, comment refreshed (it
+  previously claimed parity that wasn't actually there).
+- **Init-script stdout is now line-buffered (HIGH):** `open-webui/init`'s
+  `register-tools.py` (20 print sites) and `register-functions.py` (13),
+  `lightrag/init`'s `resolve-models.py` (6), and
+  `local-deep-researcher/build`'s `init-config.py` (16) all printed
+  without `flush=True`. In init containers stdout is pipe-attached and
+  block-buffered by default — a script that crashes or is killed
+  mid-run drops its progress trail silently, the same blind-spot class
+  as the PR #67 `register-tools.py` SyntaxError that hid for 24 hours.
+  Each script now runs `sys.stdout.reconfigure(line_buffering=True)`
+  at the top (mirrors the `flush=True`-everywhere pattern litellm-init
+  already used). `lightrag/init`'s `resolve-models.py` was the most
+  load-bearing — its KEY=VALUE output is sourced by the shell, and a
+  silently-truncated emit produced an empty `EMBEDDING_MODEL` at
+  runtime.
+- **New buffering guard:** `test_init_script_stdout_is_line_buffered`
+  walks every `services/*/init/scripts/*.py` AST and asserts either
+  `sys.stdout.reconfigure(line_buffering=True)` at module top *or*
+  `flush=True` on every `print()` call. Test suite grew 902 → 906.
+- **Doc-only folder skip guard:** `test_doc_only_folders_are_skipped_by_real_manifest_load`
+  pins `services/{stt-provider, doc-processor, multi2vec-clip}/` —
+  the three aggregator folders that ship README + diagrams but no
+  `service.yml` — against the real `load_manifests()` output. A future
+  `_is_service_dir` refactor that started loading them as manifests
+  would break this real-repo test instead of slipping through (the
+  existing synthetic-folder tests cover the predicate in isolation but
+  don't pin it to the actual on-disk layout).
+
+Stopped at 10 consecutive zero-issue passes (passes 33-42); no
+MAX_PASSES cap hit. Test suite at 907 passed + 3 skipped; all 6
+audit scripts and the docs-drift gate exit 0.
+
 ### Fixed — 2026-06-13 overnight maintenance pass (15 commits, passes 1-50)
 
 - **Hermes capability wiring (HIGH):** `service_config.py` now emits

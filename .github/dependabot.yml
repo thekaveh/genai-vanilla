@@ -66,6 +66,36 @@ updates:
       # Bump only when coordinated with a corresponding `[pyspark]` extra
       # update in services/airflow/build/requirements.txt.
       - dependency-name: "apache-airflow-providers-apache-spark"
+      # `groq` is coupled to `langchain-groq>=0.1.5`, which transitively
+      # constrains `groq>=0.30.0,<1`. A Dependabot group PR (early 2026-06)
+      # bumped groq alone to 1.4.0 and silently broke the backend's docker
+      # build because langchain-groq could no longer resolve. The pin in
+      # services/backend/app/app/requirements.txt holds groq inside the
+      # langchain-groq window; bump only when langchain-groq releases a
+      # version that accepts groq>=1.x. See PR #87.
+      - dependency-name: "groq"
+      # Six Airflow providers (relaxed in PR #87 to match upstream
+      # constraints-3.2.2). Each pin floor matches the version listed in
+      # constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_MAJOR_MINOR}.txt;
+      # Dependabot bumping above that floor produces a doomed PR because
+      # `pip install --constraint <constraints-3.2.2>` can't satisfy the
+      # new requirement. Apache-spark is already covered above (PR #47);
+      # the rest are tracked here until the Airflow version bumps and the
+      # constraint floors move with it.
+      - dependency-name: "apache-airflow-providers-amazon"
+      - dependency-name: "apache-airflow-providers-postgres"
+      - dependency-name: "apache-airflow-providers-redis"
+      - dependency-name: "apache-airflow-providers-common-sql"
+      - dependency-name: "apache-airflow-providers-neo4j"
+      - dependency-name: "apache-airflow-providers-openai"
+      - dependency-name: "apache-airflow-providers-fab"
+      # fastapi >=0.136 pulls starlette 1.x, whose new internal
+      # `_IncludedRouter` class trips prometheus-fastapi-instrumentator
+      # (its routing iterator assumes every router has a `.path` attr).
+      # Hold the floor below 0.136 until the upstream instrumentator
+      # ships a fix. See PR #88 CI failure on fastapi 0.137.0 +
+      # starlette 1.3.1 + prometheus-fastapi-instrumentator 8.0.0.
+      - dependency-name: "fastapi"
     commit-message:
       prefix: "deps"
       include: "scope"

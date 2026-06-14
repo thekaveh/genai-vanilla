@@ -13,6 +13,14 @@ import sys
 import urllib.error
 import urllib.request
 
+# Force line-buffered stdout. The shell that invokes this script consumes
+# the KEY=VALUE output below; if Python's block-buffer holds the lines and
+# the script crashes between print() and a normal exit (or is killed by
+# the init container's `set -e`), the shell sees partial / empty output
+# and the resolved model names silently flip to '' at runtime. Same
+# pattern as the open-webui init scripts.
+sys.stdout.reconfigure(line_buffering=True)
+
 LITELLM_URL = "http://litellm:4000/v1/models"
 MASTER_KEY = os.environ.get("LITELLM_MASTER_KEY", "")
 

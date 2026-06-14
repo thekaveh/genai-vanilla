@@ -92,6 +92,26 @@ def test_load_tracks_schema_violation_bad_key_pattern(tmp_path: Path):
         load_tracks(p)
 
 
+def test_load_tracks_duplicate_key_raises(tmp_path: Path):
+    """Two tracks with the same `key` must reject — tracks.py builds a
+    `by_key` map and ``--track <key>`` would otherwise silently resolve
+    to whichever entry sorts last. Defense in depth: the schema's
+    `uniqueItems: true` catches an exact copy-paste, the runtime guard
+    catches same-key + different display_name/description/services.
+    """
+    p = tmp_path / "t.yml"
+    p.write_text(yaml.safe_dump({
+        "tracks": [
+            {"key": "foo", "display_name": "First", "description": "d",
+             "services": ["weaviate"]},
+            {"key": "foo", "display_name": "Second", "description": "d",
+             "services": ["neo4j-graph-db"]},
+        ]
+    }))
+    with pytest.raises(Exception, match="duplicate"):
+        load_tracks(p)
+
+
 def test_load_tracks_unknown_service_raises(tmp_path: Path):
     """Cross-check: a service that doesn't exist as services/<name>/ rejects."""
     p = tmp_path / "t.yml"
@@ -218,3 +238,53 @@ def test_format_track_list_contains_every_track():
     for t in reg.tracks:
         assert t.key in out
         assert t.display_name in out
+
+
+# ─── Seam parity: tracks.yml ↔ source_override_manager.source_mapping ─
+
+def test_every_track_service_resolves_via_source_override_manager():
+    """Every service listed in tracks.yml must have a corresponding
+    `source_mapping` entry in `SourceOverrideManager` — otherwise the
+    off-track-disable synthesis in `start.py` (which iterates
+    `source_args.keys()` and writes `*_SOURCE=disabled` for off-track
+    entries) silently fails to disable that service, breaking the
+    track promise (e.g. "gen-ai-rag excludes ComfyUI").
+
+    Without this guard, a future tracks.yml edit that adds a new
+    service without a matching CLI/source_mapping seam would compile
+    cleanly, ship green CI, and leak the off-track service into
+    every track-restricted launch. Same shipping-class risk as
+    project_post_merge_env_staleness.md class A.
+    """
+    from core.config_parser import ConfigParser
+    from utils.source_override_manager import SourceOverrideManager
+
+    reg = load_tracks()
+    track_services: set[str] = set()
+    for t in reg.tracks:
+        if t.services is None:  # "all" sentinel
+            continue
+        track_services.update(t.services)
+
+    # Build the set of services that `source_mapping` can target,
+    # normalising each CLI key the same way start.py's track-disable
+    # synthesis does (`cli_key.removesuffix("_source").replace("_", "-")`)
+    # and then folding through `normalize_service_key` (family /
+    # virtual-manifest aliases).
+    mgr = SourceOverrideManager(ConfigParser())
+    resolvable: set[str] = set()
+    for cli_key in mgr.source_mapping:
+        svc_key = cli_key.removesuffix("_source").replace("_", "-")
+        resolvable.add(normalize_service_key(svc_key))
+
+    # Always-on services don't need a track-disable seam (they're never
+    # force-disabled).
+    missing = track_services - resolvable - reg.always_on
+    assert not missing, (
+        f"tracks.yml lists services with no source_mapping seam: "
+        f"{sorted(missing)}. Add them to bootstrapper/utils/"
+        f"source_override_manager.py::SourceOverrideManager.source_mapping "
+        f"(plus the matching Click @option, _flag_values entry, and "
+        f"wizard collector lambda — see project memory "
+        f"project_cli_source_flag_three_seams.md)."
+    )

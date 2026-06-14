@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator
@@ -257,7 +258,7 @@ def load_tracks(path: Path | None = None) -> TrackRegistry:
 # Always-on tier
 # ────────────────────────────────────────────────────────────────────
 
-def compute_always_on(config_parser) -> frozenset[str]:  # noqa: ARG001
+def compute_always_on(config_parser: Any) -> frozenset[str]:  # noqa: ARG001
     """Returns the set of wizard-step ``service_key``s that must NEVER be
     skipped by a track-skip predicate.
 

@@ -441,3 +441,41 @@ def test_airflow_manifest_loads():
     assert "spark" in a.depends_on.optional
     assert "weaviate" in a.depends_on.optional
     assert "neo4j" in a.depends_on.optional
+
+
+def test_doc_only_folders_are_skipped_by_real_manifest_load():
+    """Three folders under services/ ship documentation only (README +
+    architecture diagrams) and intentionally have no service.yml:
+    stt-provider, doc-processor, multi2vec-clip. The loader's
+    `_is_service_dir` predicate gates on `service.yml` existence so
+    they're never loaded as manifests; they appear in other services'
+    `data_flow.calls` as aggregator names and the regen / topology
+    layers handle that aliasing separately. See project memory
+    `project_doc_only_service_folders.md`.
+
+    Synthetic-folder tests above (test_load_manifests*) cover the
+    predicate in isolation. This test pins the contract against the
+    actual repo layout so a future refactor of `_is_service_dir` can't
+    accidentally load them without a real-repo failure.
+    """
+    from services.manifests import load_manifests
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    services_root = repo_root / "services"
+
+    # Sanity: the folders exist (they ship README + architecture.svg).
+    for name in ("stt-provider", "doc-processor", "multi2vec-clip"):
+        assert (services_root / name).is_dir(), (
+            f"services/{name}/ should exist as a doc-only folder; "
+            f"if you renamed or removed it, update this test "
+            f"(and project_doc_only_service_folders.md memory)."
+        )
+
+    manifests = load_manifests(services_root)
+    loaded_names = {m.name for m in manifests}
+    for name in ("stt-provider", "doc-processor", "multi2vec-clip"):
+        assert name not in loaded_names, (
+            f"services/{name}/ has no service.yml and must not appear "
+            f"in load_manifests() output, but it did. Check that "
+            f"_is_service_dir still gates on service.yml existence."
+        )
