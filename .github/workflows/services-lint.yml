@@ -161,6 +161,9 @@ jobs:
       - name: Research schema validator
         run: uv run --project bootstrapper python scripts/validate_research_schema.py --all
 
+      - name: Track-membership audit
+        run: uv run --project bootstrapper python scripts/check-track-membership.py
+
       - name: Docling localhost-provider lock check
         working-directory: services/docling/provider/localhost
         # Host-run provider (no Dockerfile), so build-validation can't

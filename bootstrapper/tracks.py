@@ -93,6 +93,13 @@ _FAMILY_KEY_ALIASES: dict[str, str] = {
     "airflow-webserver": "airflow",
     "neo4j-graph-db": "neo4j",
     "open-web-ui": "open-webui",
+    # Virtual-manifest services: Click CLI param names use underscores
+    # (e.g. ``llm_provider`` from ``--llm-provider-source``), but
+    # tracks.yml and always_on use the folder/hyphenated form.
+    "llm_provider": "llm-provider",
+    "stt_provider": "stt-provider",
+    "tts_provider": "tts-provider",
+    "doc_processor": "doc-processor",
 }
 
 
