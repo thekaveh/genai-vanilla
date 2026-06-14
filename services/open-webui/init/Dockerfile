@@ -3,10 +3,13 @@
 # wheels (musl/alpine incompatible). Python-slim avoids the apk + build-deps
 # gymnastics. Override via OPEN_WEB_UI_INIT_IMAGE in .env if needed.
 #
-# 3.12-slim matches every other init container in the stack (litellm/init,
-# comfyui/catalog-init, local-deep-researcher/build); psycopg2-binary 2.9.9
-# ships cp312 wheels so the original 3.11 pin was no longer load-bearing.
-ARG BASE_IMAGE=python:3.12-slim
+# Pin matches the python:3.12.7-slim already used by litellm/init and
+# comfyui/catalog-init. The previous default was `python:3.12-slim` — a
+# floating patch tag that silently rolled forward, leaving the three
+# init containers out of step (litellm/init explicitly pinned 3.12.7
+# for the same reproducibility reason). psycopg2-binary 2.9.9 ships
+# cp312 wheels so the original 3.11 pin was no longer load-bearing.
+ARG BASE_IMAGE=python:3.12.7-slim
 FROM ${BASE_IMAGE}
 
 WORKDIR /app
