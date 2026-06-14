@@ -66,6 +66,14 @@ updates:
       # Bump only when coordinated with a corresponding `[pyspark]` extra
       # update in services/airflow/build/requirements.txt.
       - dependency-name: "apache-airflow-providers-apache-spark"
+      # `groq` is coupled to `langchain-groq>=0.1.5`, which transitively
+      # constrains `groq>=0.30.0,<1`. A Dependabot group PR (early 2026-06)
+      # bumped groq alone to 1.4.0 and silently broke the backend's docker
+      # build because langchain-groq could no longer resolve. The pin in
+      # services/backend/app/app/requirements.txt holds groq inside the
+      # langchain-groq window; bump only when langchain-groq releases a
+      # version that accepts groq>=1.x. See PR #87.
+      - dependency-name: "groq"
     commit-message:
       prefix: "deps"
       include: "scope"
