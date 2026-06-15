@@ -32,6 +32,16 @@ CREATE TABLE IF NOT EXISTS storage.objects (
     path_tokens text[] generated always as (string_to_array(name, '/')) stored
 );
 
+-- Backfill path_tokens onto pre-existing storage.objects tables.
+-- The CREATE TABLE IF NOT EXISTS above preserves the original schema
+-- when the table already exists, so any column added there never
+-- reaches existing supabase-db-data volumes without an explicit
+-- ALTER. ADD COLUMN IF NOT EXISTS is itself idempotent — no effect
+-- on fresh creates where the column is already present.
+ALTER TABLE storage.objects
+    ADD COLUMN IF NOT EXISTS path_tokens text[]
+        GENERATED ALWAYS AS (string_to_array(name, '/')) STORED;
+
 -- Create indexes
 CREATE INDEX IF NOT EXISTS bname ON storage.buckets (name);
 CREATE INDEX IF NOT EXISTS owner ON storage.buckets (owner);
