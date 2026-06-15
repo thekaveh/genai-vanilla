@@ -130,12 +130,19 @@ runtime_adaptive:
     - tts_provider
     - doc_processor
     - lightrag
+    - hermes
     environment_adaptation:
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
       LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT}
       LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY}
+      # n8n + n8n-worker compose blocks inject these (services/n8n/
+      # compose.yml lines ~75-77 / ~138-141). Declaring them here keeps
+      # the auto-generated diagram and §N.x dependency tables in sync
+      # with the actual runtime wiring; n8n-worker mirrors n8n.
+      HERMES_ENDPOINT: ${HERMES_ENDPOINT}
+      HERMES_API_KEY: ${HERMES_API_KEY}
     extra_hosts_adaptation: inherit from stt_provider, tts_provider, doc_processor
 
 runtime_deps:

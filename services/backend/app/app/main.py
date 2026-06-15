@@ -75,7 +75,14 @@ app = FastAPI(
 # Scraped by the observability bundle's Prometheus at backend:8000/metrics.
 # Always on; the endpoint sits unscraped when PROMETHEUS_SOURCE=disabled.
 from prometheus_fastapi_instrumentator import Instrumentator  # noqa: E402
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+# excluded_handlers keeps /metrics and /health out of the request
+# histogram (self-referential series + healthcheck noise pollute
+# rate() queries). should_group_status_codes folds 2xx/3xx/4xx/5xx
+# into class buckets, bounding the status_code label cardinality.
+Instrumentator(
+    excluded_handlers=["/metrics", "/health"],
+    should_group_status_codes=True,
+).instrument(app).expose(app, endpoint="/metrics")
 
 # Add CORS middleware
 app.add_middleware(
