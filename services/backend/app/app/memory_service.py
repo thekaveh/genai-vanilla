@@ -456,12 +456,20 @@ Extract the facts as JSON:"""
         self._check_enabled()
         await self._ensure_initialized()
 
-        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
-        try:
-            # Get users to consolidate
-            if user_id:
-                user_ids = [user_id]
-            else:
+        # The LLM call below (per-user) can take up to 60s; holding a
+        # single conn across that pins one Postgres slot per concurrent
+        # user request and starves the connection pool under any real
+        # consolidate fan-out. Release the conn between DB-bound blocks
+        # and re-acquire after the LLM round-trip; semantics are
+        # preserved because asyncpg Records are detached and `facts` is
+        # indexed by integer position.
+
+        # Resolve user list under a brief connection.
+        if user_id:
+            user_ids = [user_id]
+        else:
+            conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
+            try:
                 rows = await conn.fetch(
                     """
                     SELECT DISTINCT user_id FROM public.memory_facts
@@ -469,14 +477,20 @@ Extract the facts as JSON:"""
                     """
                 )
                 user_ids = [row["user_id"] for row in rows]
+            finally:
+                await conn.close()
 
-            total_reviewed = 0
-            total_merged = 0
-            total_superseded = 0
-            total_expired = 0
+        total_reviewed = 0
+        total_merged = 0
+        total_superseded = 0
+        total_expired = 0
 
-            for uid in user_ids:
-                # Get all active facts for this user
+        for uid in user_ids:
+            # Fetch facts under a brief connection; release before the
+            # LLM call so the connection slot is free during the round-
+            # trip (up to 60s per user).
+            conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
+            try:
                 facts = await conn.fetch(
                     """
                     SELECT id, content, fact_type, confidence, namespace,
@@ -487,49 +501,53 @@ Extract the facts as JSON:"""
                     """,
                     uid,
                 )
+            finally:
+                await conn.close()
 
-                total_reviewed += len(facts)
+            total_reviewed += len(facts)
 
-                if len(facts) < 2:
-                    continue
+            if len(facts) < 2:
+                continue
 
-                # Use LLM to identify duplicates and contradictions
-                facts_text = "\n".join(
-                    f"[{i}] ({row['fact_type']}) {row['content']}"
-                    for i, row in enumerate(facts)
+            # Use LLM to identify duplicates and contradictions
+            facts_text = "\n".join(
+                f"[{i}] ({row['fact_type']}) {row['content']}"
+                for i, row in enumerate(facts)
+            )
+
+            try:
+                model = await self._get_extraction_model()
+                consolidation_prompt = (
+                    "Review these memory facts and identify:\n"
+                    "1. Duplicates (same information, different wording)\n"
+                    "2. Contradictions (newer fact supersedes older one)\n"
+                    "3. Facts that can be merged into one\n\n"
+                    f"Facts:\n{facts_text}\n\n"
+                    "Return a JSON array of actions. Each action:\n"
+                    '{"action": "merge"|"supersede", '
+                    '"source_indices": [int, int], '
+                    '"keep_index": int, '
+                    '"reason": "string"}\n'
+                    "If no consolidation needed, return []."
                 )
+                response_text = await self._litellm_complete(
+                    model=model,
+                    prompt=consolidation_prompt,
+                    json_mode=True,
+                    timeout=60.0,
+                ) or "[]"
+                actions = json.loads(response_text)
+                if isinstance(actions, dict) and "actions" in actions:
+                    actions = actions["actions"]
+                if not isinstance(actions, list):
+                    actions = []
+            except Exception as e:
+                logger.warning(f"Consolidation LLM call failed for user {uid}: {e}")
+                continue
 
-                try:
-                    model = await self._get_extraction_model()
-                    consolidation_prompt = (
-                        "Review these memory facts and identify:\n"
-                        "1. Duplicates (same information, different wording)\n"
-                        "2. Contradictions (newer fact supersedes older one)\n"
-                        "3. Facts that can be merged into one\n\n"
-                        f"Facts:\n{facts_text}\n\n"
-                        "Return a JSON array of actions. Each action:\n"
-                        '{"action": "merge"|"supersede", '
-                        '"source_indices": [int, int], '
-                        '"keep_index": int, '
-                        '"reason": "string"}\n'
-                        "If no consolidation needed, return []."
-                    )
-                    response_text = await self._litellm_complete(
-                        model=model,
-                        prompt=consolidation_prompt,
-                        json_mode=True,
-                        timeout=60.0,
-                    ) or "[]"
-                    actions = json.loads(response_text)
-                    if isinstance(actions, dict) and "actions" in actions:
-                        actions = actions["actions"]
-                    if not isinstance(actions, list):
-                        actions = []
-                except Exception as e:
-                    logger.warning(f"Consolidation LLM call failed for user {uid}: {e}")
-                    continue
-
-                # Apply consolidation actions
+            # Apply consolidation actions under a fresh connection.
+            conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
+            try:
                 for action_data in actions:
                     action = action_data.get("action", "")
                     source_indices = action_data.get("source_indices", [])
@@ -621,17 +639,16 @@ Extract the facts as JSON:"""
                             row["id"],  # Already UUID from asyncpg
                         )
                         total_expired += 1
+            finally:
+                await conn.close()
 
-            return {
-                "user_id": user_id,
-                "facts_reviewed": total_reviewed,
-                "facts_merged": total_merged,
-                "facts_superseded": total_superseded,
-                "facts_expired": total_expired,
-            }
-
-        finally:
-            await conn.close()
+        return {
+            "user_id": user_id,
+            "facts_reviewed": total_reviewed,
+            "facts_merged": total_merged,
+            "facts_superseded": total_superseded,
+            "facts_expired": total_expired,
+        }
 
     async def summarize(
         self, user_id: str, namespace: str = "default"
