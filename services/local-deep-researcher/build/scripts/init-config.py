@@ -131,13 +131,30 @@ DATABASE_URL={database_url}
             print(f"Search API: {config['search_api']}")
 
         else:
-            print("WARNING: No active content LLMs found in database")
-            print("Creating fallback configuration")
+            # No active content LLM in public.llms. Fall through to
+            # LITELLM_DEFAULT_MODEL if the operator set one (matches the
+            # backend's memory_service resolution order); otherwise exit
+            # non-zero. The previous hardcoded ``ollama/qwen3.6:latest``
+            # fallback was unroutable in cloud-only setups (Ollama
+            # disabled) AND wasn't a real Ollama model id — every
+            # research call 400'd through LiteLLM with a silent
+            # misconfiguration. Loud failure here surfaces the problem
+            # at compose-up time, before the first /research request.
+            default_model = os.getenv("LITELLM_DEFAULT_MODEL", "").strip()
+            if not default_model:
+                print(
+                    "ERROR: No active content row in public.llms and "
+                    "LITELLM_DEFAULT_MODEL is unset. Activate at least one "
+                    "row with content > 0 in public.llms (via the wizard or "
+                    "by editing the catalog), or set LITELLM_DEFAULT_MODEL "
+                    "to a model id LiteLLM serves."
+                )
+                sys.exit(1)
 
-            fallback_model = "ollama/qwen3.6:latest"
+            print(f"No active content LLM in DB; using LITELLM_DEFAULT_MODEL={default_model}")
             fallback_config = {
                 "llm_provider": "openai",
-                "local_llm": fallback_model,
+                "local_llm": default_model,
                 "litellm_base_url": litellm_base_url,
                 "search_api": os.getenv("SEARCH_API", "duckduckgo"),
                 "max_web_research_loops": int(os.getenv("MAX_WEB_RESEARCH_LOOPS", "3")),
@@ -149,7 +166,7 @@ DATABASE_URL={database_url}
                 json.dump(fallback_config, f, indent=2)
 
             env_content = f"""LLM_PROVIDER=openai
-LOCAL_LLM={fallback_model}
+LOCAL_LLM={default_model}
 OPENAI_API_BASE={litellm_base_url}/v1
 OPENAI_API_KEY={litellm_api_key}
 LITELLM_BASE_URL={litellm_base_url}

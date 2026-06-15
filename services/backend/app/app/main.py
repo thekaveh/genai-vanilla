@@ -36,6 +36,12 @@ def _validate_uuid_param(value: str, name: str = "parameter"):
 # Get project name from environment
 PROJECT_NAME = os.getenv("PROJECT_NAME", "GenAI Vanilla Stack")
 
+# Maximum body size for /storage/upload, in bytes. Default 100 MiB matches
+# Supabase Storage's default object cap; operators can override via env.
+# Without this guard `file.read()` will buffer arbitrarily large uploads
+# into memory and OOM the worker.
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
+
 
 @asynccontextmanager
 async def _db_conn():
@@ -211,8 +217,24 @@ async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
             )
         filename = cast(str, file.filename)
 
-        # Read file content
-        content = await file.read()
+        # Read file content in bounded chunks so an oversized upload fails
+        # cleanly with 413 instead of OOMing the worker. UploadFile's
+        # SpooledTemporaryFile is iterated, not materialized whole.
+        chunks: List[bytes] = []
+        total = 0
+        chunk_size = 1024 * 1024  # 1 MiB
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File exceeds maximum upload size of {MAX_UPLOAD_BYTES} bytes",
+                )
+            chunks.append(chunk)
+        content = b"".join(chunks)
 
         # Upload to storage. storage3 exposes upload/get_public_url on
         # the per-bucket proxy (from_), not on the client itself — the
