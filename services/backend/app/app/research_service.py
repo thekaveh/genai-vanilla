@@ -1,5 +1,6 @@
 import asyncio
 import asyncpg
+import logging
 import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
@@ -15,6 +16,31 @@ from research_client import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
+def _log_task_exception(session_id: str):
+    """Build an add_done_callback that surfaces silent task crashes.
+
+    asyncio swallows exceptions raised before ``create_task``'s coroutine
+    catches them; without this hook the research background task would
+    die quietly, leaving the DB row in PENDING and the operator with no
+    diagnostic trail.
+    """
+    def _callback(task: "asyncio.Task[Any]") -> None:
+        try:
+            exc = task.exception()
+        except asyncio.CancelledError:
+            return
+        if exc is not None:
+            logger.error(
+                "research bg task crashed (session_id=%s)",
+                session_id,
+                exc_info=exc,
+            )
+    return _callback
+
+
 class ResearchService:
     """Service for managing research operations with database persistence"""
 
@@ -27,8 +53,14 @@ class ResearchService:
         self._active_tasks = {}  # Track background tasks
 
     async def _get_db_connection(self):
-        """Get database connection"""
-        return await asyncpg.connect(self.db_url)
+        """Get database connection.
+
+        timeout/command_timeout bound the connect phase and per-query
+        budget. Defaults are 60s connect + None command_timeout, which
+        let a hung Postgres bouncer or stuck migration pin a uvicorn
+        worker indefinitely.
+        """
+        return await asyncpg.connect(self.db_url, timeout=10, command_timeout=30)
 
     async def start_research(
         self, 
@@ -60,10 +92,14 @@ class ResearchService:
         finally:
             await conn.close()
 
-        # Start background research task
+        # Start background research task. add_done_callback surfaces any
+        # exception raised before _run_research_background's outer try
+        # block (e.g. asyncpg pool reset) which asyncio would otherwise
+        # swallow silently — the session would then sit in PENDING forever.
         task = asyncio.create_task(
             self._run_research_background(session_id, query, max_loops, search_api, user_id)
         )
+        task.add_done_callback(_log_task_exception(session_id))
         self._active_tasks[session_id] = task
 
         return {

@@ -526,7 +526,7 @@ is advisory):
 
 | Job | What it catches |
 |---|---|
-| **Manifest lint + unit tests** | `validate_fragments` lint + 800+ pytest tests + the backend's own pytest suite (`services/backend/app/app/tests/`). Catches: manifest schema violations, dependency cycles, env-example drift, category overflow, backend route regressions. |
+| **Manifest lint + unit tests** | `validate_fragments` lint + 900+ pytest tests + the backend's own pytest suite (`services/backend/app/app/tests/`). Catches: manifest schema violations, dependency cycles, env-example drift, category overflow, backend route regressions. |
 | **Compose merge + byte-equivalence + source-permutation matrix** | Renders `docker compose config` for the merged fragment list + verifies it matches the golden baseline + tests every source variant of every service. Catches: compose-syntax errors, source-permutation regressions. |
 | **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links` — incl. `#anchor` fragment validation, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`) + a `uv lock --locked` gate for the docling localhost provider. Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken links/anchors, research-schema violations, stale provider locks. |
 | **Build-validation** (non-required) | `docker buildx build` for the four highest-churn build contexts (airflow, spark, jupyterhub, backend). Catches: unsatisfiable pip pins, broken Dockerfiles. |

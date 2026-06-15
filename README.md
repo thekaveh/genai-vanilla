@@ -467,7 +467,7 @@ genai-vanilla/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
 │   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
 │   ├── schemas/               # JSON Schemas for service.yml manifests
-│   ├── tests/                 # 840+ tests (loader, validator, byte-equiv, source-permutation, hooks)
+│   ├── tests/                 # 900+ tests (loader, validator, byte-equiv, source-permutation, hooks)
 │   ├── tools/                 # validate_fragments CLI lint
 │   └── start.py / stop.py     # Entry points
 ├── services/                  # One folder per service family — single source of truth

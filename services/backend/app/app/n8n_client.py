@@ -10,7 +10,15 @@ class N8nClient:
         self.base_url = base_url or os.getenv("N8N_BASE_URL", "http://n8n:5678")
         self.api_key = api_key or os.getenv("N8N_API_KEY", "")
         self.headers = {"X-N8N-API-KEY": self.api_key} if self.api_key else {}
-        self._client = httpx.AsyncClient(timeout=60.0)
+        # httpx's single ``timeout=60.0`` applies the same budget to
+        # every phase (connect, read, write, pool). A half-open TCP
+        # socket then waits the full 60s on connect before failing —
+        # which holds a uvicorn worker through every n8n-down call.
+        # connect=5 fails fast; read=30 covers n8n's slowest workflow
+        # list endpoint.
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
+        )
 
     async def aclose(self) -> None:
         await self._client.aclose()

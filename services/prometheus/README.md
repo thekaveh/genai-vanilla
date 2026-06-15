@@ -73,7 +73,7 @@ Ollama is **deliberately not scraped** — LiteLLM is its gateway and emits per-
 | Service | Category |
 |---|---|
 | grafana ↔ | infra |
-| kong | infra |
+| kong ↔ | infra |
 | minio | data |
 | redis | data |
 | supabase | data |
@@ -87,6 +87,7 @@ Ollama is **deliberately not scraped** — LiteLLM is its gateway and emits per-
 | Service | Category |
 |---|---|
 | grafana ↔ | infra |
+| kong ↔ | infra |
 
 ### 5.3 Architecture diagram
 

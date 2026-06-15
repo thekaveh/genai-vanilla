@@ -69,6 +69,7 @@ All dashboards reference the `Prometheus` datasource by name (UID = `Prometheus`
 
 | Service | Category |
 |---|---|
+| kong | infra |
 | prometheus ↔ | infra |
 
 ### 5.3 Architecture diagram

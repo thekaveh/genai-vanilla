@@ -15,7 +15,13 @@ class ComfyUIClient:
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = base_url or os.getenv("COMFYUI_BASE_URL", "http://comfyui:18188")
         self.base_url = self.base_url.rstrip('/')
-        self.client = httpx.AsyncClient(timeout=60.0)
+        # connect=5 fails fast on a down ComfyUI (single budget=60 would
+        # wait the full minute before reporting unhealthy); read=60 keeps
+        # the long budget for image-generation HTTP rounds that legitimately
+        # take that long.
+        self.client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0)
+        )
         
     async def __aenter__(self):
         return self
