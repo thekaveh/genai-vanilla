@@ -95,6 +95,7 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 
 | Service | Category |
 |---|---|
+| redis | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |

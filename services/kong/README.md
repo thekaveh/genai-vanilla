@@ -217,6 +217,9 @@ For more information on Kong's role in the overall architecture, see the system 
 
 | Service | Category |
 |---|---|
+| grafana | infra |
+| prometheus ↔ | infra |
+| ray | infra |
 | minio | data |
 | neo4j | data |
 | spark | data |
@@ -245,7 +248,7 @@ For more information on Kong's role in the overall architecture, see the system 
 
 | Service | Category |
 |---|---|
-| prometheus | infra |
+| prometheus ↔ | infra |
 
 ### 13.3 Architecture diagram
 

@@ -156,6 +156,10 @@ runtime_deps:
 data_flow:
   calls:
     - supabase
+    # BullMQ queue + session store. n8n runs in EXECUTIONS_MODE=queue
+    # with QUEUE_BULL_REDIS_HOST=redis (and n8n-worker mirrors the same
+    # block) — a hard runtime call edge, not just an enablement flag.
+    - redis
     - weaviate
     - comfyui
     - doc-processor

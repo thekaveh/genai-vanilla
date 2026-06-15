@@ -71,6 +71,7 @@ _No upstream calls._
 | litellm | llm |
 | airflow | agents |
 | lightrag | agents |
+| n8n | agents |
 | open-webui | apps |
 
 ### 6.3 Architecture diagram
