@@ -293,7 +293,7 @@ class MemoryStore:
     async def _store_pgvector(self, fact_id: str, content: str):
         """Store embedding in pgvector column."""
         embedding = await self._generate_embedding(content)
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             await conn.execute(
                 "UPDATE public.memory_facts SET embedding = $1 WHERE id = $2",
@@ -397,7 +397,7 @@ class MemoryStore:
     ) -> List[Dict[str, Any]]:
         """Search pgvector for similar memories using cosine similarity."""
         embedding = await self._generate_embedding(query)
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             rows = await conn.fetch(
                 """

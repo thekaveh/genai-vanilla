@@ -53,7 +53,11 @@ async def _db_conn():
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         raise HTTPException(status_code=500, detail="DATABASE_URL not configured")
-    conn = await asyncpg.connect(database_url)
+    # timeout = connect-phase budget (default 60s would hold a uvicorn
+    # worker through a stale Postgres bouncer); command_timeout = per-
+    # query budget (default None = no limit, hung query takes the worker
+    # forever). 30s comfortably covers every query in this codebase.
+    conn = await asyncpg.connect(database_url, timeout=10, command_timeout=30)
     try:
         yield conn
     finally:

@@ -98,7 +98,7 @@ class MemoryService:
         if default_model:
             return default_model
         try:
-            conn = await asyncpg.connect(self.database_url)
+            conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
             try:
                 row = await conn.fetchrow(
                     """
@@ -187,7 +187,7 @@ class MemoryService:
         session_uuid = uuid4()
         session_id = str(session_uuid)
         conv_uuid = _to_uuid(conversation_id)
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
 
         try:
             # Create extraction session
@@ -389,7 +389,7 @@ Extract the facts as JSON:"""
         )
 
         # Fetch full fact records from PostgreSQL
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             memories = []
             for result in similar:
@@ -456,7 +456,7 @@ Extract the facts as JSON:"""
         self._check_enabled()
         await self._ensure_initialized()
 
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             # Get users to consolidate
             if user_id:
@@ -640,7 +640,7 @@ Extract the facts as JSON:"""
         self._check_enabled()
         await self._ensure_initialized()
 
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             facts = await conn.fetch(
                 """
@@ -710,7 +710,7 @@ Extract the facts as JSON:"""
         """List all memories for a user."""
         self._check_enabled()
 
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             rows = await conn.fetch(
                 """
@@ -768,7 +768,7 @@ Extract the facts as JSON:"""
         await self._ensure_initialized()
 
         memory_uuid = _to_uuid(memory_id)
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             # Check if fact exists
             row = await conn.fetchrow(
@@ -846,7 +846,7 @@ Extract the facts as JSON:"""
         await self._ensure_initialized()
 
         memory_uuid = _to_uuid(memory_id)
-        conn = await asyncpg.connect(self.database_url)
+        conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
         try:
             row = await conn.fetchrow(
                 "SELECT weaviate_id FROM public.memory_facts WHERE id = $1",
@@ -891,7 +891,7 @@ Extract the facts as JSON:"""
         try:
             await self._ensure_initialized()
 
-            conn = await asyncpg.connect(self.database_url)
+            conn = await asyncpg.connect(self.database_url, timeout=10, command_timeout=30)
             try:
                 count = await conn.fetchval(
                     "SELECT COUNT(*) FROM public.memory_facts WHERE is_active = true"

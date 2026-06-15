@@ -83,8 +83,11 @@ jobs:
           # project_ci_inline_install_bypass memory). fastapi<0.137 cap:
           # >=0.136 pulls starlette 1.x, whose `_IncludedRouter` breaks
           # prometheus-fastapi-instrumentator's route iterator (PR #88).
+          # pytest-asyncio omitted intentionally — backend tests in
+          # services/backend/app/app/tests/ contain no asyncio markers
+          # (Ray client + routes are tested with httpx + sync stubs).
           VIRTUAL_ENV=$PWD/.ci-venv uv pip install \
-            'pytest>=7.0.0' \
+            'pytest>=9.1.0' \
             'fastapi>=0.110.0,<0.137' \
             'httpx>=0.27.0' \
             'pydantic>=2.6.0' \
