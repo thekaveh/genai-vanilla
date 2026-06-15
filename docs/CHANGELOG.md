@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — 2026-06-15
+
+- **supabase-db-init: `storage.objects.path_tokens` backfill (CRITICAL, PR #105):**
+  `services/supabase/db/scripts/04-storage.sql` switched to
+  `CREATE TABLE IF NOT EXISTS storage.objects (…, path_tokens text[] GENERATED
+  ALWAYS AS …)` to stop wiping data on every boot, but the `IF NOT EXISTS`
+  guard meant volumes created before the `path_tokens` column was added kept
+  their old shape — the new column never landed and the next-line GIN-index
+  `CREATE INDEX … (path_tokens)` crashed `supabase-db-init` with exit 3, taking
+  the whole stack down at `./start.sh`. Now pairs the CREATE with an idempotent
+  `ALTER TABLE … ADD COLUMN IF NOT EXISTS path_tokens text[] GENERATED ALWAYS
+  AS …`; no-op on fresh installs, backfills the column on existing volumes
+  before the index attempt.
+- **supabase-db-init: `public.llms` schema-drift backfill:** same class as
+  PR #105. The CREATE statement in `05-public-tables.sql` accreted 5 new
+  columns (`description`, `size_gb`, `context_window`, `api_key`,
+  `api_endpoint`) across 2025-07-06 and 2025-08-24, plus type-changed 4 others
+  (`vision`/`content`/`structured_content`/`embeddings`: boolean → integer for
+  the confidence-gradient rework). Pre-mid-2025 volumes never received any of
+  it. `05a-public-tables-migrations.sql` now appends idempotent
+  `ADD COLUMN IF NOT EXISTS` for the 5 new columns and an
+  `information_schema`-guarded `ALTER COLUMN TYPE integer USING
+  (CASE WHEN col THEN 1 ELSE 0 END)` for the 4 boolean columns (legacy true→1,
+  false→0). Without this, `llm-catalog-init`'s UPSERT writes (e.g.
+  `content=8, structured_content=5`) hard-failed on every old volume.
+- **supabase-db-init: `public.memory_facts` / `memory_sessions` /
+  `memory_consolidation_log` `user_id` schema-drift backfill:** commit
+  6e33a48 (2026-04-27) changed `user_id` from `VARCHAR(255) REFERENCES
+  public."user"(id)` → `UUID REFERENCES public.users(id)`. The old Open WebUI
+  legacy table `public."user"` no longer exists in supabase-db, leaving the FK
+  dangling on volumes created in the 12-day window before that commit. Every
+  memory write from `memory_store.py::_to_uuid` failed silently. New
+  `10a-langmem-migrations.sql` detects the legacy VARCHAR shape via
+  `information_schema`, drops the dangling FK, ALTERs the column to `uuid`,
+  re-attaches the FK to `public.users(id)`; idempotent on already-migrated
+  installs.
+- **`SupabaseKeyGenerator.update_env_file` atomic write:** the method used a
+  non-atomic `open('w') + write()` for the most security-critical secrets in
+  the stack (`SUPABASE_JWT_SECRET`, `ANON_KEY`, `SERVICE_KEY`). A crash or
+  SIGTERM mid-write truncated `.env` and there was no recovery path short of
+  regeneration. Switched to the tmp + `os.replace` + `chmod` pattern already
+  used by `KeyGenerator.update_env_key` and `SourceOverrideManager`.
+- **`/storage/upload` bounded buffering:** the backend handler called
+  `await file.read()` with no size limit, buffering arbitrarily large uploads
+  into RAM and OOMing the worker on a single multi-GB POST. Now reads in 1 MiB
+  chunks bounded by `MAX_UPLOAD_BYTES` (default 100 MiB, override via env);
+  fails cleanly with HTTP 413 when exceeded.
+- **Local Deep Researcher fallback hardening:**
+  `services/local-deep-researcher/build/scripts/init-config.py` wrote
+  `local_llm = "ollama/qwen3.6:latest"` when `public.llms` had no active
+  content row — unroutable in cloud-only setups (Ollama disabled) AND not a
+  real Ollama model id. PR #88 had already removed the same anti-pattern from
+  `memory_service`; this was the second site. Now mirrors the memory_service
+  resolution order: `LITELLM_DEFAULT_MODEL` if set, else exit non-zero with a
+  clear pointer telling the operator to activate a content row or set the env
+  var. Surfaces misconfiguration at compose-up instead of at first /research
+  request.
+
+### Changed — 2026-06-15
+
+- **Backend hot-reload via `uvicorn[standard] --reload` (PR #104):** the
+  backend `Dockerfile` CMD now passes `--reload`; `services/backend/app/app/
+  requirements.txt` swaps bare `uvicorn>=0.27.0` → `uvicorn[standard]>=0.27.0`
+  so `watchfiles` (reload-watcher), `uvloop`, `httptools`, and `websockets`
+  ship by default. The compose fragment already bind-mounted `./app/app:/app`,
+  so host-side edits to backend code are picked up without a
+  `docker compose build backend` — only `requirements.txt` changes need a
+  full rebuild now.
+- **JupyterHub `thekaveh-nnx[lm]==0.2.0` restored (PR #104):** the
+  `nnx-pytorch` package was renamed to `thekaveh-nnx`; the old distribution is
+  deprecated. The `[lm]` extra pulls the language-model deps the 28-of-29
+  ml-lab notebooks that `import nnx` need. Pin verified upstream on PyPI.
+- **README + CONTRIBUTING test-count refresh:** README's project-structure
+  comment and `docs/CONTRIBUTING-services.md`'s CI-table row both bumped to
+  `900+` (suite is at 907 + 3 skipped).
+- **`services/backend/README.md` dev-loop note:** §1 now reflects PR #104's
+  hot-reload behavior (edit-in-place via the bind-mount; rebuild only for
+  `requirements.txt` changes) instead of the stale "edit + force-recreate"
+  guidance.
+
 ### Fixed — 2026-06-14 overnight maintenance pass (18 commits, passes 1-42)
 
 - **Dependabot ignore: `groq` (HIGH):** the `services/backend/app/app/requirements.txt`

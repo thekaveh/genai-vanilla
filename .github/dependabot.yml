@@ -89,6 +89,15 @@ updates:
       - dependency-name: "apache-airflow-providers-neo4j"
       - dependency-name: "apache-airflow-providers-openai"
       - dependency-name: "apache-airflow-providers-fab"
+      - dependency-name: "apache-airflow-providers-weaviate"
+      # pyspark is exact-pinned to the Spark image tag (currently 4.1.2)
+      # in services/airflow/build/requirements.txt. The Spark Connect
+      # protocol couples client and server tightly — bumping pyspark
+      # above the server's version produces a protobuf/gRPC skew that
+      # breaks every DAG cell with an opaque deserialization error. Bump
+      # only in lockstep with services/spark/service.yml::images.default
+      # (the SPARK_IMAGE pin).
+      - dependency-name: "pyspark"
       # fastapi >=0.136 pulls starlette 1.x, whose new internal
       # `_IncludedRouter` class trips prometheus-fastapi-instrumentator
       # (its routing iterator assumes every router has a `.path` attr).

@@ -6,7 +6,7 @@ The backend is `_SOURCE`-trivial — it has only one variant, `container` — be
 
 ## 1. Overview
 
-Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`, `/workflows`, `/comfyui/*`, `/api/ray/*`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. A small pytest suite lives at `app/app/tests/` (Ray client/routes; run in the required CI job); broader local iteration is "edit + `docker compose up --force-recreate backend`."
+Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`, `/workflows`, `/comfyui/*`, `/api/ray/*`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. A small pytest suite lives at `app/app/tests/` (Ray client/routes; run in the required CI job); local iteration is edit-in-place — the compose fragment bind-mounts `./app/app` onto `/app` and `uvicorn[standard] --reload` (via `watchfiles`) hot-reloads on every source edit. Only requirements.txt changes need a `docker compose up --force-recreate backend`.
 
 ## 2. Access
 
