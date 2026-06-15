@@ -35,6 +35,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 # Expose API port
 EXPOSE 8000
 
-# Run the application with dynamic configuration
+# Run the application with dynamic configuration.
+# --reload hot-reloads on edits — the compose fragment bind-mounts
+# ./app/app onto /app, so host-side edits are picked up without a
+# rebuild. uvicorn[standard] in requirements.txt brings watchfiles.
 ENTRYPOINT ["/usr/local/bin/configure-backend.sh"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

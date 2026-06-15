@@ -68,10 +68,10 @@ kaleido>=0.2.1
 ray[client]>=2.55.1,<2.56
 
 # ml-lab runtime support — see https://github.com/thekaveh/ml-lab
-# `nnx-pytorch` is intentionally OMITTED for now (the 28 of 29 ml-lab notebooks
-# that `import nnx` will not run until it's restored). The supporting libraries
-# below stay so the non-nnx notebooks (and any future nnx-free additions) keep
-# working without a rebuild.
+# The package was previously published as `nnx-pytorch`; that distribution
+# is deprecated. `thekaveh-nnx` is the renamed successor. The [lm] extra
+# pulls language-model deps used by the ml-lab notebooks that `import nnx`.
+thekaveh-nnx[lm]==0.2.0
 python-louvain  # `community` module — community_detection-karate notebook
 nltk  # SentimentIntensityAnalyzer — sentiment_classification-vader notebook (vader_lexicon downloaded in Dockerfile)
 spacy  # tokenizer + lemmatizer — text_classification-agnews + sentiment_classification-vader (en_core_web_sm downloaded in Dockerfile)
