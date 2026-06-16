@@ -6,6 +6,7 @@ Python implementation of configuration parsing from start.sh and stop.sh.
 
 import os
 import re
+import sys
 from typing import Dict, Optional, Any
 from pathlib import Path
 
@@ -16,8 +17,38 @@ from pathlib import Path
 DEFAULT_BASE_PORT = 63000
 
 
+# Module-level flag: GENAI_ENV_FILE deprecation warning fires once
+# per process, not once per ConfigParser instance.
+_DEPRECATION_WARNED = False
+
+
+def _read_custom_env_file_var() -> str:
+    """Return the custom .env path from ATLAS_ENV_FILE, or the deprecated
+    GENAI_ENV_FILE alias.
+
+    When only GENAI_ENV_FILE is set, emits a one-shot stderr warning
+    pointing the user at the new name. ATLAS_ENV_FILE takes precedence
+    if both are set.
+    """
+    primary = os.environ.get('ATLAS_ENV_FILE', '').strip()
+    if primary:
+        return primary
+    legacy = os.environ.get('GENAI_ENV_FILE', '').strip()
+    if legacy:
+        global _DEPRECATION_WARNED
+        if not _DEPRECATION_WARNED:
+            print(
+                "WARNING: GENAI_ENV_FILE is deprecated; "
+                "use ATLAS_ENV_FILE instead.",
+                file=sys.stderr,
+            )
+            _DEPRECATION_WARNED = True
+        return legacy
+    return ''
+
+
 class ConfigParser:
-    """Configuration parser for GenAI Stack."""
+    """Configuration parser for Atlas."""
     
     def __init__(self, root_dir: Optional[str] = None):
         """
@@ -36,15 +67,20 @@ class ConfigParser:
         # .env.example always lives in repository root
         self.env_example_path = self.root_dir / ".env.example"
 
-        # .env path can be customized via GENAI_ENV_FILE environment variable
+        # .env path can be customized via ATLAS_ENV_FILE environment
+        # variable. GENAI_ENV_FILE is honored as a deprecated alias
+        # (stderr warning fires once per process).
         self.env_file_path = self._resolve_env_file_path()
 
         self.service_sources = {}
 
     def _resolve_env_file_path(self) -> Path:
         """
-        Resolve .env file path from GENAI_ENV_FILE environment variable.
+        Resolve .env file path from ATLAS_ENV_FILE environment variable.
         Falls back to default .env in repository root if not set.
+
+        Honors GENAI_ENV_FILE as a deprecated alias when ATLAS_ENV_FILE
+        is unset; emits a stderr warning the first time a process reads it.
 
         This allows users to specify custom .env file locations, useful for:
         - CI/CD pipelines with secret injection
@@ -54,7 +90,7 @@ class ConfigParser:
         Returns:
             Path: Resolved .env file path
         """
-        custom_env_path = os.environ.get('GENAI_ENV_FILE', '').strip()
+        custom_env_path = _read_custom_env_file_var()
 
         if custom_env_path:
             # User specified custom path - expand, then anchor relative
@@ -82,12 +118,13 @@ class ConfigParser:
 
     def is_using_custom_env_file(self) -> bool:
         """
-        Check if using a custom env file path via GENAI_ENV_FILE.
+        Check if using a custom env file path via ATLAS_ENV_FILE
+        (or its deprecated alias GENAI_ENV_FILE).
 
         Returns:
-            bool: True if GENAI_ENV_FILE is set
+            bool: True if either env var is set
         """
-        return bool(os.environ.get('GENAI_ENV_FILE'))
+        return bool(_read_custom_env_file_var())
         
     def load_yaml_config(self) -> Dict[str, Any]:
         """

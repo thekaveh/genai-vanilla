@@ -285,7 +285,8 @@ class GenAIStackStarter:
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None) -> bool:
         """
         Setup .env file from .env.example if needed.
-        Supports custom .env file paths via GENAI_ENV_FILE environment variable.
+        Supports custom .env file paths via ATLAS_ENV_FILE environment variable
+        (and the deprecated GENAI_ENV_FILE alias).
         Replicates the .env setup logic from the original start.sh.
 
         Args:
@@ -295,7 +296,7 @@ class GenAIStackStarter:
         Returns:
             bool: True if successful
         """
-        # Use config_parser paths which respect GENAI_ENV_FILE
+        # Use config_parser paths which respect ATLAS_ENV_FILE
         env_file_path = self.config_parser.env_file_path
         env_example_path = self.config_parser.env_example_path
 
@@ -952,7 +953,7 @@ class GenAIStackStarter:
         Idempotent. Each step is gated by its own ``_needs_*`` predicate
         so re-running is safe and stamping is independent. Reads
         ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the active env file
-        (honors ``GENAI_ENV_FILE``).
+        (honors ``ATLAS_ENV_FILE``).
 
         v1: rewrites every port var whose current value matches the v0
         default to the topology-derived v1 default. User-customized

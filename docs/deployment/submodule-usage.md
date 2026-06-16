@@ -156,7 +156,7 @@ This allows multiple projects to use genai-vanilla simultaneously without confli
 
 ### 5.2 Custom Environment File Location (Advanced)
 
-If you prefer to manage your infrastructure configuration from the parent project, you can use the `GENAI_ENV_FILE` environment variable:
+If you prefer to manage your infrastructure configuration from the parent project, you can use the `ATLAS_ENV_FILE` environment variable (the legacy name `GENAI_ENV_FILE` is still honored as a deprecated alias with a one-shot stderr warning):
 
 ```bash
 # Parent project structure
@@ -165,10 +165,10 @@ myproject/
 │   ├── dev.env      # Development infrastructure config
 │   ├── prod.env     # Production infrastructure config
 │   └── test.env
-└── infra/           # genai-vanilla submodule
+└── infra/           # atlas submodule
 
 # Start with custom config location
-GENAI_ENV_FILE=../config/prod.env ./infra/start.sh
+ATLAS_ENV_FILE=../config/prod.env ./infra/start.sh
 ```
 
 This is useful for:

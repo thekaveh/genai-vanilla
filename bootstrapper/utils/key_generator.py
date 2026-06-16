@@ -81,7 +81,7 @@ class KeyGenerator:
         else:
             self.root_dir = Path(root_dir)
 
-        # Resolve through ConfigParser so GENAI_ENV_FILE is honored —
+        # Resolve through ConfigParser so ATLAS_ENV_FILE is honored —
         # hardcoding root/.env wrote every generated secret to the wrong
         # file when a custom env path was in use (SupabaseKeyGenerator
         # already resolves this way).

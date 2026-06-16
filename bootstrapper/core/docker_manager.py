@@ -167,7 +167,7 @@ class DockerManager:
 
         # Add --env-file if .env exists and use_env_file is True
         if use_env_file and self.config_parser.env_file_exists():
-            # Use the resolved path (honors GENAI_ENV_FILE) — hardcoding .env
+            # Use the resolved path (honors ATLAS_ENV_FILE) — hardcoding .env
             # silently ignored custom env files at the compose seam.
             full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
 
@@ -548,7 +548,7 @@ class DockerManager:
         project_name = self.config_parser.get_project_name()
         full_cmd.extend(['-p', project_name])
         if use_env_file and self.config_parser.env_file_exists():
-            # Use the resolved path (honors GENAI_ENV_FILE) — hardcoding .env
+            # Use the resolved path (honors ATLAS_ENV_FILE) — hardcoding .env
             # silently ignored custom env files at the compose seam.
             full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
         full_cmd.extend(args)
