@@ -4,7 +4,7 @@ port (e.g. typing 64000 for ollama-localhost when Kong is also at
 block launch — just informs.
 
 The pre-launch summary builder lives at
-``bootstrapper/start.py::GenAIStackStarter.build_pre_launch_summary_table``
+``bootstrapper/start.py::AtlasStarter.build_pre_launch_summary_table``
 (a method that reads env_vars from self.config_parser and returns a
 Rich ``Group(table, cloud_panel, *warnings)``). The collision logic
 itself is factored into a module-level free function
@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 from rich.console import Console
 
-from start import _detect_port_collisions, GenAIStackStarter
+from start import _detect_port_collisions, AtlasStarter
 
 
 def _make_service(name, source, port):
@@ -172,7 +172,7 @@ def test_builder_includes_warning_when_collision_present(monkeypatch):
     LLM Engine in ollama-localhost mode) onto the same host port via a
     monkeypatched env, render the builder, confirm the yellow
     collision warning appears in the rendered output."""
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
 
     # Build a synthetic env that pins KONG_HTTP_PORT and the LLM
     # Engine's localhost endpoint var (LITELLM_OLLAMA_UPSTREAM — the

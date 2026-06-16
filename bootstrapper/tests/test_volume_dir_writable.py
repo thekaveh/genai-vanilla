@@ -21,9 +21,9 @@ def _make_starter(tmp_path: Path):
     (tmp_path / ".env").write_text("BASE_PORT=63000\n")
     (tmp_path / ".env.example").write_text("BASE_PORT=63000\n")
     (tmp_path / "docker-compose.yml").write_text("services: {}\n")
-    from start import GenAIStackStarter
+    from start import AtlasStarter
 
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
     starter.config_parser.root_dir = tmp_path
     starter.config_parser.env_file_path = tmp_path / ".env"
     starter.config_parser.env_example_path = tmp_path / ".env.example"

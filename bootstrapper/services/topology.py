@@ -12,7 +12,7 @@ the canonical source):
   * bootstrapper/wizard/service_discovery.py::SERVICE_DESCRIPTIONS
   * bootstrapper/wizard/service_discovery.py::LOCKED_SERVICES
   * bootstrapper/utils/endpoint_vars.py::LOCALHOST_ENDPOINT_VARS
-  * bootstrapper/utils/hosts_manager.py::HostsManager.GENAI_HOSTS
+  * bootstrapper/utils/hosts_manager.py::HostsManager.get_atlas_hosts
 
 Every downstream consumer imports Topology from here.
 """

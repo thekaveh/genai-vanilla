@@ -112,7 +112,7 @@ def _detect_port_collisions(rows) -> list[str]:
     `rows` is an iterable of ``(name, port_val)`` tuples — the same
     shape the pre-launch summary builder already accumulates as it
     iterates services. Kept as a module-level free function so it can
-    be unit-tested without instantiating ``GenAIStackStarter``.
+    be unit-tested without instantiating ``AtlasStarter``.
 
     The warnings are purely informational — launch still proceeds.
     Compose-up would otherwise fail with an opaque "address already in
@@ -139,7 +139,7 @@ def _detect_port_collisions(rows) -> list[str]:
     return warnings
 
 
-class GenAIStackStarter:
+class AtlasStarter:
     """Main class for starting the GenAI Stack."""
     
     def __init__(self):
@@ -1411,7 +1411,7 @@ class GenAIStackStarter:
         hosts_present = set()
         try:
             existing_missing = self.hosts_manager.check_missing_hosts()
-            all_hosts = self.hosts_manager.get_genai_hosts()
+            all_hosts = self.hosts_manager.get_atlas_hosts()
             hosts_present = set(all_hosts) - set(existing_missing)
         except Exception:
             pass
@@ -1997,7 +1997,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             )
             sys.exit(2)
 
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
 
     try:
         # Cloud LLM provider keys passed via CLI flags. Persisting to

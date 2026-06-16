@@ -10,13 +10,13 @@ mirrors it.
 from __future__ import annotations
 
 from core.config_parser import DEFAULT_BASE_PORT
-from start import GenAIStackStarter
+from start import AtlasStarter
 
 
 def _starter_with_env(tmp_path, monkeypatch, env_text: str):
     env = tmp_path / ".env"
     env.write_text(env_text, encoding="utf-8")
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
     starter.config_parser.env_file_path = env
     monkeypatch.setattr(starter.port_manager, "get_port_conflicts", lambda bp: {})
     captured = {}
@@ -52,11 +52,11 @@ def test_update_env_ports_persists_base_port_itself(tmp_path, monkeypatch):
     flagless run (which preserves .env's BASE_PORT) reads the STALE
     anchor and silently reverts every *_PORT to the old layout —
     exactly the motivating case of the preserve fix."""
-    from start import GenAIStackStarter
+    from start import AtlasStarter
 
     env = tmp_path / ".env"
     env.write_text("BASE_PORT=63000\nKONG_HTTP_PORT=63000\n", encoding="utf-8")
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
     starter.config_parser.env_file_path = env
     starter.port_manager.config_parser = starter.config_parser
     monkeypatch.setattr(starter.port_manager, "get_port_conflicts", lambda bp: {})

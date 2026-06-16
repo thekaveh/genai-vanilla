@@ -15,7 +15,7 @@ class HostsManager:
     """Manages hosts file entries for GenAI Stack services."""
 
     @classmethod
-    def _genai_hosts_from_topology(cls) -> List[str]:
+    def _atlas_hosts_from_topology(cls) -> List[str]:
         """Derived once per process from Topology.aliases. Returns a fresh
         copy on each call.
 
@@ -52,15 +52,15 @@ class HostsManager:
                 pass
         print(message)
         
-    def get_genai_hosts(self) -> List[str]:
+    def get_atlas_hosts(self) -> List[str]:
         """
         Get the list of GenAI Stack hostnames.
-        Replicates the get_genai_hosts() function from hosts-utils.sh.
+        Replicates the get_atlas_hosts() function from hosts-utils.sh.
         
         Returns:
             list: List of GenAI hostnames
         """
-        return self._genai_hosts_from_topology()
+        return self._atlas_hosts_from_topology()
     
     def check_missing_hosts(self) -> List[str]:
         """
@@ -71,7 +71,7 @@ class HostsManager:
             list: List of missing hostnames
         """
         if not self.hosts_file_path or not Path(self.hosts_file_path).exists():
-            return self.get_genai_hosts()  # All are missing if no hosts file
+            return self.get_atlas_hosts()  # All are missing if no hosts file
             
         missing = []
         
@@ -93,7 +93,7 @@ class HostsManager:
                 tokens = line.split("#", 1)[0].split()
                 if tokens[:1] == ["127.0.0.1"]:
                     present.update(tokens[1:])
-            for host in self.get_genai_hosts():
+            for host in self.get_atlas_hosts():
                 if host not in present:
                     missing.append(host)
 
@@ -102,7 +102,7 @@ class HostsManager:
             # "all entries missing". Narrow to filesystem/encoding
             # errors so a future bug (e.g. malformed regex pattern)
             # surfaces loudly instead of being silently absorbed.
-            return self.get_genai_hosts()
+            return self.get_atlas_hosts()
             
         return missing
     
@@ -138,7 +138,7 @@ class HostsManager:
                 # stack alias must not be deleted.
                 effective = line.split("#", 1)[0].split()
                 line_tokens = effective[1:] if effective[:1] == ["127.0.0.1"] else []
-                for host in self.get_genai_hosts():
+                for host in self.get_atlas_hosts():
                     if host in line_tokens:
                         should_skip = True
                         break
@@ -192,7 +192,7 @@ class HostsManager:
                 if normalized:
                     f.write(normalized + "\n\n")
                 f.write("# GenAI Stack subdomains (added by start.py)\n")
-                for host in self.get_genai_hosts():
+                for host in self.get_atlas_hosts():
                     f.write(f"127.0.0.1 {host}\n")
                     
             return True
@@ -273,7 +273,7 @@ class HostsManager:
         if not missing:
             self._log("  • ✅ All GenAI hosts entries already exist", "success")
             self._log("  • Available aliases:", "info")
-            for host in self.get_genai_hosts():
+            for host in self.get_atlas_hosts():
                 self._log(f"    - http://{host}", "info")
             return True
 
@@ -283,7 +283,7 @@ class HostsManager:
         if self.add_hosts_entries(self.hosts_file_path):
             self._log("  • ✅ Hosts entries added successfully", "success")
             self._log("  • You can now access services via:", "info")
-            for host in self.get_genai_hosts():
+            for host in self.get_atlas_hosts():
                 self._log(f"    - http://{host}", "info")
             return True
         else:
@@ -315,7 +315,7 @@ class HostsManager:
                 self._log("    Please run with sudo (Linux/macOS) or as Administrator (Windows)", "error")
 
             self._log("    Or manually remove these entries from hosts file:", "info")
-            for host in self.get_genai_hosts():
+            for host in self.get_atlas_hosts():
                 self._log(f"    127.0.0.1 {host}", "info")
             return False
 
@@ -324,7 +324,7 @@ class HostsManager:
         if self.remove_hosts_entries(self.hosts_file_path):
             self._log("  • ✅ Hosts entries removed successfully", "success")
             self._log("    The following entries were removed:", "info")
-            for host in self.get_genai_hosts():
+            for host in self.get_atlas_hosts():
                 self._log(f"    127.0.0.1 {host}", "info")
             return True
         else:

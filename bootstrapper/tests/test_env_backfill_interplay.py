@@ -27,14 +27,14 @@ sys.path.insert(0, str(REPO_ROOT / "bootstrapper"))
 
 
 def _make_starter_against(tmp_path: Path):
-    """Create a GenAIStackStarter that reads/writes a tmp_path .env / .env.example."""
-    from start import GenAIStackStarter
+    """Create a AtlasStarter that reads/writes a tmp_path .env / .env.example."""
+    from start import AtlasStarter
     # The starter constructs its own ConfigParser, which derives env paths
     # from CWD (root_dir). The simplest way to redirect: chdir.
     # We don't, because we want the source .env.example template to come
     # from the real repo. Instead, redirect the paths explicitly after
     # construction.
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
     starter.config_parser.env_file_path = tmp_path / ".env"
     starter.config_parser.env_example_path = tmp_path / ".env.example"
     return starter

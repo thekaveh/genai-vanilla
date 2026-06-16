@@ -19,7 +19,7 @@ from core.config_parser import ConfigParser
 from core.docker_manager import DockerManager
 
 
-class GenAIStackStopper:
+class AtlasStopper:
     """Main class for stopping the GenAI Stack."""
     
     def __init__(self):
@@ -165,7 +165,7 @@ Examples:
 def main(cold, clean_hosts, help_usage):
     """Stop the GenAI Vanilla Stack - Cross-platform AI development environment."""
     
-    stopper = GenAIStackStopper()
+    stopper = AtlasStopper()
     
     if help_usage:
         stopper.show_usage()
