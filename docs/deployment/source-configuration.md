@@ -20,7 +20,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `CLOUD_OPENAI_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles OpenAI as a LiteLLM upstream. Requires `OPENAI_API_KEY`. |
 | `CLOUD_ANTHROPIC_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles Anthropic as a LiteLLM upstream. Requires `ANTHROPIC_API_KEY`. |
 | `CLOUD_OPENROUTER_SOURCE` | `disabled` | `enabled`, `disabled` | User-facing | Toggles OpenRouter as a LiteLLM upstream. Requires `OPENROUTER_API_KEY`. |
-| `LITELLM_SOURCE` | `container` | `container` | Infrastructure / always-on | LiteLLM gateway. Always on; not user-disableable. |
+| `LITELLM_SOURCE` | `container` | `container` | Infra / always-on | LiteLLM gateway. Always on; not user-disableable. |
 | `COMFYUI_SOURCE` | `container-cpu` | `container-cpu`, `container-gpu`, `localhost`, `disabled` | User-facing | Image generation service. |
 | `PROMETHEUS_SOURCE` | `disabled` | `container`, `disabled` | User-facing optional | Observability scraper + TSDB. Bundles node-exporter and cAdvisor; gates postgres-exporter / redis-exporter sidecars. |
 | `GRAFANA_SOURCE` | `disabled` | `container`, `disabled` | User-facing optional | Observability dashboards + unified alerting. Pre-provisions the Prometheus datasource and 7 starter dashboards. |
@@ -44,16 +44,16 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `LOCAL_DEEP_RESEARCHER_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Local research/orchestration service. |
 | `OPEN_WEB_UI_SOURCE` | `container` | `container`, `disabled` | Adaptive application | Main chat UI; adapts to LLM provider. |
 | `BACKEND_SOURCE` | `container` | `container` | Adaptive core | Always-on Backend API; not disableable in this remediation track. |
-| `REDIS_SOURCE` | `container` | `container` | Infrastructure | Cache/session/queue service. |
-| `KONG_API_GATEWAY_SOURCE` | `container` | `container` | Infrastructure | API gateway and friendly host routing. |
-| `NEO4J_GRAPH_DB_SOURCE` | `container` | `container`, `localhost`, `disabled` | Infrastructure / user-facing data | Graph database. |
-| `SUPABASE_DB_SOURCE` | `container` | `container` | Infrastructure | PostgreSQL database. |
-| `SUPABASE_META_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase metadata service. |
-| `SUPABASE_STORAGE_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase storage service. |
-| `SUPABASE_AUTH_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase auth service. |
-| `SUPABASE_API_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase REST API. |
-| `SUPABASE_REALTIME_SOURCE` | `container` | `container`, `disabled` | Infrastructure | Supabase realtime service. |
-| `SUPABASE_STUDIO_SOURCE` | `container` | `container`, `disabled` | Infrastructure UI | Supabase admin UI. |
+| `REDIS_SOURCE` | `container` | `container` | Infra | Cache/session/queue service. |
+| `KONG_API_GATEWAY_SOURCE` | `container` | `container` | Infra | API gateway and friendly host routing. |
+| `NEO4J_GRAPH_DB_SOURCE` | `container` | `container`, `localhost`, `disabled` | Infra / user-facing data | Graph database. |
+| `SUPABASE_DB_SOURCE` | `container` | `container` | Infra | PostgreSQL database. |
+| `SUPABASE_META_SOURCE` | `container` | `container`, `disabled` | Infra | Supabase metadata service. |
+| `SUPABASE_STORAGE_SOURCE` | `container` | `container`, `disabled` | Infra | Supabase storage service. |
+| `SUPABASE_AUTH_SOURCE` | `container` | `container`, `disabled` | Infra | Supabase auth service. |
+| `SUPABASE_API_SOURCE` | `container` | `container`, `disabled` | Infra | Supabase REST API. |
+| `SUPABASE_REALTIME_SOURCE` | `container` | `container`, `disabled` | Infra | Supabase realtime service. |
+| `SUPABASE_STUDIO_SOURCE` | `container` | `container`, `disabled` | Infra UI | Supabase admin UI. |
 | `WEAVIATE_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Weaviate schemas/config. |
 | `MINIO_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes MinIO buckets, IAM policies, and service accounts. |
 | `COMFYUI_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes ComfyUI assets/config. |

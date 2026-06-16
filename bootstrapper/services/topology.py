@@ -37,7 +37,7 @@ CATEGORY_ORDER: tuple[str, ...] = (
 # legend widgets, README generator, dot generator, and the pre-launch
 # Rich summary all consume this dict instead of redefining the mapping.
 CATEGORY_LABELS: dict[str, str] = {
-    "infra":  "Infrastructure",
+    "infra":  "Infra",
     "data":   "Data",
     "llm":    "LLM Core",
     "media":  "Media",

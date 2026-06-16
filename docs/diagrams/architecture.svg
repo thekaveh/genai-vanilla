@@ -120,10 +120,10 @@
     <text x="950" y="151" fill="#94a3b8" font-size="9" text-anchor="middle">./start.sh wizard</text>
   </g>
 
-  <!-- ─────────────────  INFRASTRUCTURE / KONG  ───────────────── -->
+  <!-- ─────────────────  INFRA / KONG  ───────────────── -->
   <g>
     <rect x="60" y="180" width="1280" height="92" rx="10" fill="none" stroke="#fb7185" stroke-width="1" stroke-dasharray="6,4" opacity="0.6"/>
-    <text x="76" y="198" fill="#fb7185" font-size="10" font-weight="600" letter-spacing="2">INFRASTRUCTURE — API GATEWAY</text>
+    <text x="76" y="198" fill="#fb7185" font-size="10" font-weight="600" letter-spacing="2">INFRA — API GATEWAY</text>
 
     <rect x="400" y="208" width="600" height="50" rx="6" fill="#0f172a"/>
     <rect x="400" y="208" width="600" height="50" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>

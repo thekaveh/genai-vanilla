@@ -140,7 +140,7 @@ Every manifest declares one of six categories. The category drives two things: t
 
 | Category | Wizard block | Services currently in this category | When to pick |
 |---|---|---|---|
-| `infra` | Infrastructure | Kong, globals, Prometheus, Grafana, Ray | Gateways, project-wide config, observability |
+| `infra` | Infra | Kong, globals, Prometheus, Grafana, Ray | Gateways, project-wide config, observability |
 | `data` | Data | Supabase, Redis, MinIO, Neo4j, Weaviate (+ `multi2vec-clip` as a Weaviate sub-module), Spark | Databases, caches, object storage |
 | `llm` | LLM Core | LiteLLM, Ollama, cloud-providers, TEI Reranker | LLM gateways / engines |
 | `media` | Media | ComfyUI, parakeet, speaches, chatterbox, docling, searxng, tts-provider | Multimodal AI (image / audio / doc / search) |
