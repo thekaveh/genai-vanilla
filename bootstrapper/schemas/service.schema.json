@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://genai-vanilla/schemas/service.schema.json",
+  "$id": "https://atlas/schemas/service.schema.json",
   "title": "Service Manifest",
   "description": "Schema for services/<name>/service.yml. Each file is the single source of truth for one service family — what previously lived split across docker-compose.yml, .env.example, and bootstrapper/service-configs.yml.",
   "type": "object",

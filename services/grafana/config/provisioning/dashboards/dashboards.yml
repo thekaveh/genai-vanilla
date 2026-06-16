@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: 'genai-vanilla'
+  - name: 'atlas'
     orgId: 1
-    folder: 'GenAI Vanilla'
+    folder: 'Atlas'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30

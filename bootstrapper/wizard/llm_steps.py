@@ -243,7 +243,7 @@ def build_ollama_steps(
 
     ``warn`` is the same launch-log sink the cloud steps use — passed
     here so live-discovery failures (``/api/tags`` unreachable) get
-    persisted to ``/tmp/genai-vanilla-launch-*.log`` instead of
+    persisted to ``/tmp/atlas-launch-*.log`` instead of
     silently producing an empty multiselect.
     """
     _warn = warn or (lambda _msg: None)

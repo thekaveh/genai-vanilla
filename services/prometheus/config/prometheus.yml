@@ -1,4 +1,4 @@
-# Static scrape config for the GenAI Vanilla stack. Targets that resolve
+# Static scrape config for the Atlas stack. Targets that resolve
 # to services currently `disabled` simply report UP=0 — cleaner than
 # templating this file based on enabled services (which would need an
 # init container at boot).
@@ -7,7 +7,7 @@ global:
   scrape_interval: 30s
   scrape_timeout: 10s
   external_labels:
-    stack: genai-vanilla
+    stack: atlas
 
 rule_files:
   - /etc/prometheus/rules/*.yml

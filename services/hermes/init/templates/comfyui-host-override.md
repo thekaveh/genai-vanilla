@@ -8,7 +8,7 @@ priority: 100
 # ComfyUI host override
 
 The bundled `creative-comfyui` skill defaults to `http://127.0.0.1:8188`,
-which doesn't exist inside this container. The genai-vanilla stack runs
+which doesn't exist inside this container. The atlas stack runs
 ComfyUI as a sibling service on the Docker network — reachable at the
 URL below.
 

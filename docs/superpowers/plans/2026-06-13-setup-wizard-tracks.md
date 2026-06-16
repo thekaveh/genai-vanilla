@@ -135,7 +135,7 @@ git commit -m "feat(tracks): add tracks.yml registry"
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://genai-vanilla/schemas/tracks.schema.json",
+  "$id": "https://atlas/schemas/tracks.schema.json",
   "title": "Tracks Registry",
   "description": "Schema for bootstrapper/tracks.yml — predefined wizard profiles that curate a subset of source-configurable services for a given user role.",
   "type": "object",

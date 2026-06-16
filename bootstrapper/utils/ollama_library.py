@@ -196,7 +196,7 @@ def list_library_entries(timeout: float = 5.0) -> list[OllamaLibraryEntry]:
                 # Ollama's library page is server-rendered; a regular
                 # browser UA gets the same HTML. Setting one avoids
                 # potential gating on missing UAs.
-                "User-Agent": "genai-vanilla-bootstrapper/1.0 (+wizard catalog fetch)",
+                "User-Agent": "atlas-bootstrapper/1.0 (+wizard catalog fetch)",
                 "Accept": "text/html",
             },
         )
@@ -345,7 +345,7 @@ def fetch_model_variants(name: str, timeout: float = 5.0) -> list[OllamaVariant]
         req = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "genai-vanilla-bootstrapper/1.0 (+wizard catalog fetch)",
+                "User-Agent": "atlas-bootstrapper/1.0 (+wizard catalog fetch)",
                 "Accept": "text/html",
             },
         )

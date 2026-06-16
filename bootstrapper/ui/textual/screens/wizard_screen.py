@@ -1094,7 +1094,7 @@ class WizardScreen(Screen):
     # ─── launch-log tee ──────────────────────────────────────────────
 
     def _open_launch_log_tee(self, *, announce_in_pane: bool = True) -> None:
-        """Open ``/tmp/genai-vanilla-launch-<ts>.log`` for the duration
+        """Open ``/tmp/atlas-launch-<ts>.log`` for the duration
         of the wizard. _write_status / _safe_log mirror their output
         into this file so a user who quits the wizard still has a
         record of what happened (cloud /v1/models fetch failures during
@@ -1107,7 +1107,7 @@ class WizardScreen(Screen):
         import datetime
         from pathlib import Path
         ts = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
-        path = Path(f"/tmp/genai-vanilla-launch-{ts}.log")
+        path = Path(f"/tmp/atlas-launch-{ts}.log")
         try:
             self._launch_log_path = path
             self._launch_log_fh = open(path, "w", buffering=1, encoding="utf-8")  # line-buffered
@@ -1516,7 +1516,7 @@ class WizardScreen(Screen):
                                    style="bold red", source="pipeline")
                 await self._capture_failure_compose_logs()
                 self._write_status(
-                    f"📝 see {self._launch_log_path or '/tmp/genai-vanilla-launch-*.log'} "
+                    f"📝 see {self._launch_log_path or '/tmp/atlas-launch-*.log'} "
                     "for full output",
                     style="bold yellow", source="pipeline",
                 )
@@ -1661,7 +1661,7 @@ class WizardScreen(Screen):
         )
         env = {**os.environ, "BUILDKIT_PROGRESS": "plain"}
         # Route through _safe_log so every compose line lands in the
-        # launch-log tee (/tmp/genai-vanilla-launch-*.log). Direct
+        # launch-log tee (/tmp/atlas-launch-*.log). Direct
         # _log_pane.write_* calls bypassed the tee — image-pull errors
         # from compose up never reached the file.
         self._safe_log("$ " + " ".join(full_cmd), source="docker", level="dim")
