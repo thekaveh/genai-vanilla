@@ -866,7 +866,7 @@ def run_setup_flow(
         )
     )
     brand = BrandInfo(
-        name=getattr(state, "brand_name", None) or "GenAI Vanilla",
+        name=getattr(state, "brand_name", None) or "Atlas",
         tagline=getattr(state, "tagline", None) or "Gen-AI Development Suite",
         creator=getattr(state, "creator", None) or "",
         creator_email=getattr(state, "creator_email", None) or "",
@@ -926,7 +926,7 @@ def run_setup_flow(
         BINDINGS = [Binding("ctrl+c", "interrupt", "Quit", priority=True)]
 
         def on_mount(self) -> None:
-            self.title = f"{brand.name or 'GenAI Vanilla'} — Setup"
+            self.title = f"{brand.name or 'Atlas'} — Setup"
             self.push_screen(WizardScreen(
                 steps=steps, services=rows, brand=brand,
                 starter=starter,
@@ -990,7 +990,7 @@ def run_launch_flow(
         )
     )
     brand = BrandInfo(
-        name=getattr(state, "brand_name", None) or "GenAI Vanilla",
+        name=getattr(state, "brand_name", None) or "Atlas",
         tagline=getattr(state, "tagline", None) or "Gen-AI Development Suite",
         creator=getattr(state, "creator", None) or "",
         creator_email=getattr(state, "creator_email", None) or "",
@@ -1080,7 +1080,7 @@ def run_launch_flow(
         BINDINGS = [Binding("ctrl+c", "interrupt", "Quit", priority=True)]
 
         def on_mount(self) -> None:
-            self.title = f"{brand.name or 'GenAI Vanilla'} — Launch"
+            self.title = f"{brand.name or 'Atlas'} — Launch"
             # ``steps=[]`` is fine because auto_launch=True bypasses
             # the wizard entirely; the prompt panel is composed but
             # immediately removed by the launch transition.

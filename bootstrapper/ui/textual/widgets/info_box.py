@@ -4,7 +4,7 @@ InfoPanel — bordered, brand-titled info panel anchoring the wizard screen.
 Mockup 003 layout:
 
     ┌─────────────────────────────────────────────────────────────────┐
-    │ GENAI VANILLA                Kaveh · Apache-2.0 · github.com/.. │
+    │ ATLAS                        Kaveh · Apache-2.0 · github.com/.. │
     │                                                                 │
     │ █  ⌕  Filter services...                                        │
     │ █  ▸ ● supabase-db   INFRA  supabase.localhost  :63010 …        │

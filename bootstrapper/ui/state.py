@@ -51,13 +51,13 @@ class AppState:
     # ``services/globals/service.yml`` so a user who blanks out a value in
     # `.env` sees the same canonical strings the manifest-shipped default
     # would have produced. Both layers consume the same source of truth.
-    brand_name: str = "GenAI Vanilla Stack"
+    brand_name: str = "Atlas"
     tagline: str = "An opinionated, modular, source-configurable AI stack."
     version: str = "0.1.0"
     creator: str = "Kaveh Razavi"
     creator_email: str = "kaveh.razavi@gmail.com"
     license: str = "Apache License 2.0"
-    repo_url: str = "https://github.com/thekaveh/genai-vanilla"
+    repo_url: str = "https://github.com/thekaveh/atlas"
 
     # Services grid — ordered as the user should see them.
     services: List[ServiceEntry] = field(default_factory=list)

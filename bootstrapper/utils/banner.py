@@ -41,7 +41,7 @@ class BannerDisplay:
         """
         defaults = (
             "Developed by Kaveh Razavi",
-            "https://github.com/thekaveh/genai-vanilla",
+            "https://github.com/thekaveh/atlas",
             "Apache License 2.0",
         )
         try:
