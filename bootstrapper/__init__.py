@@ -1,7 +1,7 @@
 """
-GenAI Vanilla Stack Bootstrapper
+Atlas Bootstrapper
 
-Cross-platform Python implementation of the GenAI Stack startup and management scripts.
+Cross-platform Python implementation of the Atlas startup and management scripts.
 """
 
 __version__ = "1.0.0"

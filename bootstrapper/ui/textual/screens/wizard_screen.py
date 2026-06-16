@@ -1111,7 +1111,7 @@ class WizardScreen(Screen):
         try:
             self._launch_log_path = path
             self._launch_log_fh = open(path, "w", buffering=1, encoding="utf-8")  # line-buffered
-            self._launch_log_fh.write(f"# genai-vanilla session log — started {ts}\n")
+            self._launch_log_fh.write(f"# atlas session log — started {ts}\n")
             self._launch_log_fh.flush()
             if announce_in_pane and self._log_pane is not None:
                 self._log_pane.write_log(

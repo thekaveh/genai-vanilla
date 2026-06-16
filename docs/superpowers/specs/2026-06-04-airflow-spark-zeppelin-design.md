@@ -9,7 +9,7 @@
 
 ## 1. Summary
 
-This spec adds three new services to the `genai-vanilla` stack as a single
+This spec adds three new services to the `atlas` stack as a single
 coordinated change set:
 
 - **Apache Spark 4.1.2** — standalone-mode cluster (1 master + N workers + history

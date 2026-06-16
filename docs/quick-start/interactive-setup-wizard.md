@@ -1,6 +1,6 @@
 # Interactive Setup Wizard
 
-The GenAI Vanilla Stack includes an interactive Textual TUI wizard that guides you through configuring all services step by step. It launches automatically when you run `./start.sh` with no arguments.
+The Atlas includes an interactive Textual TUI wizard that guides you through configuring all services step by step. It launches automatically when you run `./start.sh` with no arguments.
 
 ## 1. Quick Start
 
@@ -266,7 +266,7 @@ After confirmation, the wizard transitions in-place from prompts to the launch p
 - The brand panel and pre-launch summary stay **pinned** at the top — they never move while logs flow.
 - Below them, a bordered **Logs** pane streams `docker compose` build / up / port-verify / `logs -f` output, line-by-line.
 - Per-service container names (e.g. `genai-supabase-db`, `genai-ollama-pull`) are **color-coded** based on `bootstrapper/ui/textual/palette.py::SOURCE_COLORS`. Unknown service names get a stable hue from a small md5-based palette so every service in the stack remains visually distinguishable.
-- The full launch-phase output is also tee'd to `/tmp/genai-vanilla-launch-<timestamp>.log` for post-mortem inspection. See [Troubleshooting](troubleshooting.md#2-session-log).
+- The full launch-phase output is also tee'd to `/tmp/atlas-launch-<timestamp>.log` for post-mortem inspection. See [Troubleshooting](troubleshooting.md#2-session-log).
 - Press `Ctrl+Q` to detach cleanly from the wizard UI. `Ctrl+C` sends SIGINT — fine after services are up (already-detached compose containers keep running) but during the launch pipeline it may interrupt a compose step mid-flight, leaving the stack in a partial state. Either way, services that have finished starting keep running; resume log streaming with `docker compose logs -f <service>`.
 
 ## 10. Navigation
@@ -312,16 +312,16 @@ Python ≥ 3.10 is required (see `bootstrapper/pyproject.toml`). The wizard auto
 
 ## 15. Brand Customization
 
-The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the GenAI Vanilla project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
+The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the Atlas project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
 
 ```
-BRAND_NAME=GenAI Vanilla Stack
+BRAND_NAME=Atlas
 BRAND_TAGLINE=An opinionated, modular, source-configurable AI stack.
 BRAND_VERSION=0.1.0
 BRAND_AUTHOR=Kaveh Razavi
 BRAND_AUTHOR_EMAIL=kaveh.razavi@gmail.com
 BRAND_LICENSE=Apache License 2.0
-BRAND_REPO_URL=https://github.com/thekaveh/genai-vanilla
+BRAND_REPO_URL=https://github.com/thekaveh/atlas
 ```
 
 Empty values fall back to the canonical defaults (encoded in `bootstrapper/ui/state.py::AppState`). See `.env.example` for the latest documented block.

@@ -1,6 +1,6 @@
-# JupyterHub - GenAI Vanilla Stack
+# JupyterHub - Atlas
 
-Interactive data science IDE with pre-configured access to all GenAI Vanilla Stack services.
+Interactive data science IDE with pre-configured access to all Atlas services.
 
 ## Overview
 
@@ -246,10 +246,10 @@ Avoid direct `docker-compose.yml` edits for normal operation; local compose edit
 
 - [Jupyter Lab Documentation](https://jupyterlab.readthedocs.io/)
 - [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
-- [GenAI Vanilla Stack Docs](../../../docs/README.md)
+- [Atlas Docs](../../../docs/README.md)
 
 ## Support
 
-- GitHub Issues: [Report bugs](https://github.com/thekaveh/genai-vanilla/issues)
+- GitHub Issues: [Report bugs](https://github.com/thekaveh/atlas/issues)
 - Documentation: [Full docs](../../../docs/README.md)
 - Logs: `docker logs genai-jupyterhub`

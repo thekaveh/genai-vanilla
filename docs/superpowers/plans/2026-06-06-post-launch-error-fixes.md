@@ -109,7 +109,7 @@ But the image `genai-backend:latest` was built on 2026-05-15, **before** the imp
 **Fix:** Rebuild backend image.
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose -p genai build --no-cache backend
 docker compose -p genai up -d backend
 ```

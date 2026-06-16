@@ -1,4 +1,4 @@
-# GenAI Vanilla Stack - JupyterHub Python Dependencies
+# Atlas - JupyterHub Python Dependencies
 # AI/ML Libraries
 ollama>=0.6.2
 langchain>=0.3.0

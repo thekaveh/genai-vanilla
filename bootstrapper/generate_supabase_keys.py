@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenAI Vanilla Stack - Supabase Key Generator
+Atlas - Supabase Key Generator
 
 Python implementation of generate_supabase_keys.sh with full feature parity.
 Cross-platform utility for generating Supabase JWT secrets and tokens.
@@ -80,7 +80,7 @@ Cross-platform compatibility:
         print(usage_text)
         return
     
-    print("🔐 GenAI Vanilla Stack - Supabase Key Generator")
+    print("🔐 Atlas - Supabase Key Generator")
     print("=" * 50)
     
     try:

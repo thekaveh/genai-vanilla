@@ -29,7 +29,7 @@ class BannerDisplay:
                 return v
         except Exception:  # noqa: BLE001 — banner must never break startup
             pass
-        return "Modularized Cross-Platform Gen-AI Vanilla Stack"
+        return "Modularized Cross-Platform Atlas Stack"
 
     def _brand_credits(self) -> tuple[str, str, str]:
         """(author, repo_url, license) for the credit lines.
@@ -308,7 +308,7 @@ class BannerDisplay:
         self.console.print(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
-        self.console.print("🎯 GenAI Vanilla Stack - Service Status")
+        self.console.print("🎯 Atlas - Service Status")
         self.console.print(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )

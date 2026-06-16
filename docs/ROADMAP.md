@@ -1,6 +1,6 @@
-# GenAI Vanilla Stack Roadmap
+# Atlas Roadmap
 
-This document outlines future development plans and enhancements for the GenAI Vanilla Stack.
+This document outlines future development plans and enhancements for the Atlas.
 
 ## Current status
 
@@ -1402,7 +1402,7 @@ Community input on roadmap priorities is welcome:
 - **Contribute code**: help implement roadmap features
 - **Improve documentation**: help document new capabilities
 
-**Join the conversation**: [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions)
+**Join the conversation**: [GitHub Discussions](https://github.com/thekaveh/atlas/discussions)
 
 ---
 

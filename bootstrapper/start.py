@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenAI Vanilla Stack - Start Script
+Atlas - Start Script
 
 Python implementation of start.sh with full feature parity.
 Cross-platform startup script for the GenAI development environment.
@@ -140,7 +140,7 @@ def _detect_port_collisions(rows) -> list[str]:
 
 
 class AtlasStarter:
-    """Main class for starting the GenAI Stack."""
+    """Main class for starting the Atlas."""
     
     def __init__(self):
         # Set root directory first
@@ -1333,7 +1333,7 @@ class AtlasStarter:
             result = self.docker_manager.execute_compose_command(['up', '-d', '--force-recreate'])
             
         else:
-            self.banner.show_status_message("Starting GenAI Vanilla Stack services...", "info")
+            self.banner.show_status_message("Starting Atlas services...", "info")
             result = self.docker_manager.start_services(detached=True)
         
         if result != 0:
@@ -1892,7 +1892,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          zeppelin_source,
          airflow_source,
          no_tui, no_port_migrate):
-    """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
+    """Start the Atlas - Cross-platform AI development environment."""
 
     # ─── Track override warnings ─────────────────────────────────────
     # Fires when --track is set AND any explicit --*-source flag picks

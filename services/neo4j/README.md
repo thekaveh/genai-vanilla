@@ -1,6 +1,6 @@
 # Neo4j Graph Database
 
-Neo4j provides graph database capabilities for the GenAI Vanilla Stack, enabling relationship modeling and graph-based queries.
+Neo4j provides graph database capabilities for the Atlas, enabling relationship modeling and graph-based queries.
 
 ## 1. Overview
 

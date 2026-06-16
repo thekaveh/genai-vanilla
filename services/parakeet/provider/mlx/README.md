@@ -106,7 +106,7 @@ Advanced endpoint with timestamps
 - M2 Ultra: 3-hour podcast → 1 minute transcription
 - M1: 1-hour audio → 36 seconds transcription
 
-## Integration with GenAI Stack
+## Integration with Atlas
 
 The stack automatically uses this server when configured with:
 ```bash

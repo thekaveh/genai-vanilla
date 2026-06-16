@@ -30,7 +30,7 @@ Debugging a request that flows kong → litellm → ollama → backend → supab
 medium — Loki itself is one compose service plus Promtail (or Docker driver config) per source container. The Kong `http-log` plugin needs one route-level config block. No code changes to consumers — log shipping is sidecar-level.
 
 ## Risks & open questions
-- AGPL-3.0 license — operators shipping commercial forks of genai-vanilla may prefer an MIT/Apache alternative (VictoriaLogs, ClickHouse + Vector). Document the license choice.
+- AGPL-3.0 license — operators shipping commercial forks of atlas may prefer an MIT/Apache alternative (VictoriaLogs, ClickHouse + Vector). Document the license choice.
 - Disk growth: even with compression, Ollama generation logs are verbose. Default retention should be 7 days for dev.
 - Without a paired Grafana, LogQL is only accessible via CLI/API — the proposal probably needs to bundle Grafana as a UI (or defer to a follow-up candidate).
 - `http-log` plugin doubles every request's egress traffic; on a constrained host this can interfere with model-streaming throughput.

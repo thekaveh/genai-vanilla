@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenAI Vanilla Stack - Stop Script
+Atlas - Stop Script
 
 Python implementation of stop.sh with full feature parity.
 Cross-platform stop script for the GenAI development environment.
@@ -20,7 +20,7 @@ from core.docker_manager import DockerManager
 
 
 class AtlasStopper:
-    """Main class for stopping the GenAI Stack."""
+    """Main class for stopping the Atlas."""
     
     def __init__(self):
         # Set root directory first
@@ -39,7 +39,7 @@ Usage: ./stop.sh [options]   (or: python bootstrapper/stop.py)
 
 Options:
   --cold             Remove volumes (data will be lost)
-  --clean-hosts      Remove GenAI Stack hosts file entries (requires sudo/admin)
+  --clean-hosts      Remove Atlas hosts file entries (requires sudo/admin)
   --help-usage       Show this detailed usage message
   --help             Show the option summary
 
@@ -121,15 +121,15 @@ Examples:
         self.banner.console.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", style="bright_white")
 
         if not services_ok:
-            self.banner.console.print("⚠️  GenAI Vanilla Stack stop completed with errors — see messages above", style="bold bright_yellow")
+            self.banner.console.print("⚠️  Atlas stop completed with errors — see messages above", style="bold bright_yellow")
         elif cold_stop:
-            self.banner.console.print("🎯 GenAI Vanilla Stack stopped with complete data cleanup", style="bold bright_green")
+            self.banner.console.print("🎯 Atlas stopped with complete data cleanup", style="bold bright_green")
             self.banner.console.print("   ✅ All containers stopped and removed")
             self.banner.console.print("   ✅ All data volumes removed")
             self.banner.console.print("   ✅ Project networks cleaned up")
             self.banner.console.print("   ✅ Docker system pruned")
         else:
-            self.banner.console.print("🎯 GenAI Vanilla Stack stopped successfully", style="bold bright_green")
+            self.banner.console.print("🎯 Atlas stopped successfully", style="bold bright_green")
             self.banner.console.print("   ✅ All containers stopped and removed")
             self.banner.console.print("   ✅ Data volumes preserved")
             
@@ -160,10 +160,10 @@ Examples:
 
 @click.command()
 @click.option('--cold', is_flag=True, help='Remove volumes (data will be lost)')
-@click.option('--clean-hosts', is_flag=True, help='Remove GenAI Stack hosts file entries (requires sudo/admin)')
+@click.option('--clean-hosts', is_flag=True, help='Remove Atlas hosts file entries (requires sudo/admin)')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 def main(cold, clean_hosts, help_usage):
-    """Stop the GenAI Vanilla Stack - Cross-platform AI development environment."""
+    """Stop the Atlas - Cross-platform AI development environment."""
     
     stopper = AtlasStopper()
     
@@ -172,7 +172,7 @@ def main(cold, clean_hosts, help_usage):
         return
     
     # Show initial message
-    stopper.banner.show_status_message("Stopping GenAI Vanilla Stack...", "info")
+    stopper.banner.show_status_message("Stopping Atlas...", "info")
     print()
     
     try:

@@ -12,7 +12,7 @@ from utils.system import detect_os, is_elevated, get_hosts_file_path
 
 
 class HostsManager:
-    """Manages hosts file entries for GenAI Stack services."""
+    """Manages hosts file entries for Atlas services."""
 
     @classmethod
     def _atlas_hosts_from_topology(cls) -> List[str]:
@@ -54,7 +54,7 @@ class HostsManager:
         
     def get_atlas_hosts(self) -> List[str]:
         """
-        Get the list of GenAI Stack hostnames.
+        Get the list of Atlas hostnames.
         Replicates the get_atlas_hosts() function from hosts-utils.sh.
         
         Returns:
@@ -125,7 +125,7 @@ class HostsManager:
             filtered_lines = []
             for line in lines:
                 # Skip the comment line
-                if "# GenAI Stack subdomains" in line:
+                if "# Atlas subdomains" in line:
                     continue
                     
                 # Skip any line with GenAI hostnames. Whole-token
@@ -191,7 +191,7 @@ class HostsManager:
             with open(hosts_file_path, 'w', encoding="utf-8") as f:
                 if normalized:
                     f.write(normalized + "\n\n")
-                f.write("# GenAI Stack subdomains (added by start.py)\n")
+                f.write("# Atlas subdomains (added by start.py)\n")
                 for host in self.get_atlas_hosts():
                     f.write(f"127.0.0.1 {host}\n")
                     
@@ -264,7 +264,7 @@ class HostsManager:
                 self._log("    Please run with sudo (Linux/macOS) or as Administrator (Windows)", "error")
             return False
 
-        self._log("  • Setting up GenAI Stack hosts entries...", "info")
+        self._log("  • Setting up Atlas hosts entries...", "info")
         self._log(f"  • Hosts file: {self.hosts_file_path}", "info")
 
         # Check which entries are missing first
@@ -319,7 +319,7 @@ class HostsManager:
                 self._log(f"    127.0.0.1 {host}", "info")
             return False
 
-        self._log("  • Removing GenAI Stack hosts file entries...", "info")
+        self._log("  • Removing Atlas hosts file entries...", "info")
 
         if self.remove_hosts_entries(self.hosts_file_path):
             self._log("  • ✅ Hosts entries removed successfully", "success")

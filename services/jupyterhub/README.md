@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-JupyterHub provides an interactive Jupyter Lab environment pre-configured with access to all GenAI Vanilla Stack services. It's designed for data scientists and AI engineers to experiment, prototype, and develop AI applications.
+JupyterHub provides an interactive Jupyter Lab environment pre-configured with access to all Atlas services. It's designed for data scientists and AI engineers to experiment, prototype, and develop AI applications.
 
 ## 2. Quick Start
 
@@ -194,7 +194,7 @@ VS Code's Jupyter extension can use this container as the **remote kernel** for 
 3. Paste one of these URLs (substitute the actual token):
    - Direct port: `http://localhost:63081/?token=<JUPYTERHUB_TOKEN>`
    - Kong-aliased (after `./start.sh --setup-hosts`): `http://jupyter.localhost:63000/?token=<JUPYTERHUB_TOKEN>`
-4. When VS Code prompts to **remember the server**, give it a name (e.g. `genai-vanilla`). The server now appears in every future kernel-picker.
+4. When VS Code prompts to **remember the server**, give it a name (e.g. `atlas`). The server now appears in every future kernel-picker.
 5. VS Code then asks which **kernel** to use on that server. Pick **Python 3 (ipykernel)**, **Scala 2.13**, or **Scala 3** depending on the notebook.
 
 ### 10.3 What's pre-configured on the stack side
@@ -267,7 +267,7 @@ Reference screenshots for each step of the connect flow live under `services/jup
 
 - `01-vscode-select-existing-server.png` — VS Code's `Select Another Kernel` → `Existing Jupyter Server` dialog
 - `02-vscode-enter-server-url.png` — the URL-entry prompt with the token suffix highlighted
-- `03-vscode-server-name-prompt.png` — the friendly-name prompt (`genai-vanilla` is a good default)
+- `03-vscode-server-name-prompt.png` — the friendly-name prompt (`atlas` is a good default)
 - `04-vscode-kernel-picker.png` — the kernel-selection list showing `Python 3 (ipykernel)`, `Scala 2.13`, `Scala 3`
 
 If you're following the docs to set up VS Code for the first time and one of these screenshots no longer matches your VS Code version, open an issue — the Jupyter extension's dialog text changes occasionally. _Screenshots are stored as PNGs in the repo so they survive offline reads of this README; capture them on your own machine if the directory is empty after a fresh clone (see §10.7)._
@@ -335,12 +335,12 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 - [Almond — Scala kernel for Jupyter](https://almond.sh/)
 - [VS Code Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter)
 - [Sample Notebooks](./build/notebooks/)
-- [GenAI Stack Docs](../../README.md)
+- [Atlas Docs](../../README.md)
 
 ## 14. Support
 
 - **Logs**: `docker logs ${PROJECT_NAME}-jupyterhub`
-- **Issues**: [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues)
+- **Issues**: [GitHub Issues](https://github.com/thekaveh/atlas/issues)
 - **Docs**: [Full Documentation](../../README.md)
 
 ## 15. Dependencies & Integrations

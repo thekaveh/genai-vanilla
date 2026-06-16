@@ -1,3 +1,3 @@
 """
-Service management and configuration logic for the GenAI Stack.
+Service management and configuration logic for the Atlas.
 """

@@ -1,6 +1,6 @@
-# GenAI Vanilla Stack Documentation
+# Atlas Documentation
 
-Documentation index for the GenAI Vanilla Stack.
+Documentation index for the Atlas.
 
 ## 1. Documentation structure
 

@@ -88,7 +88,7 @@ def test_hosts_removal_spares_commented_and_hyphenated_lines(tmp_path):
 
     hosts = tmp_path / "hosts"
     hosts.write_text(
-        "# GenAI Stack subdomains\n"
+        "# Atlas subdomains\n"
         "127.0.0.1 n8n.localhost\n"
         "# 127.0.0.1 chat.localhost\n"
         "127.0.0.1 my-n8n.localhost\n"

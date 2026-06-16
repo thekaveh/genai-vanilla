@@ -1,5 +1,5 @@
 """
-Encryption key generation utilities for GenAI Stack services.
+Encryption key generation utilities for Atlas services.
 
 Generates N8N_ENCRYPTION_KEY and SEARXNG_SECRET for secure operation.
 """
@@ -38,7 +38,7 @@ def _cli_safe_token_urlsafe(nbytes: int) -> str:
 
 
 class KeyGenerator:
-    """Generates and manages encryption keys for GenAI Stack services."""
+    """Generates and manages encryption keys for Atlas services."""
 
     MINIO_CONSUMERS = ("COMFYUI", "BACKEND", "N8N", "JUPYTER", "DOCLING")
 
