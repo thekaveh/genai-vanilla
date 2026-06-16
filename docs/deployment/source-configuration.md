@@ -732,7 +732,7 @@ curl http://localhost:8000/           # ComfyUI default localhost URL
 curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_PORT to 8188
 
 # Check service logs
-docker logs genai-backend -f
+docker logs atlas-backend -f
 ```
 
 **Port conflicts**:
@@ -762,9 +762,9 @@ env | grep ^KONG_
 env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE)_SOURCE"
 
 # Test service connectivity (LLM goes via LiteLLM, not Ollama directly)
-docker exec genai-backend curl http://genai-litellm:4000/health/liveliness
-docker exec genai-litellm curl http://genai-ollama:11434/api/tags
-docker exec genai-kong-api-gateway curl http://genai-comfyui:18188/
+docker exec atlas-backend curl http://atlas-litellm:4000/health/liveliness
+docker exec atlas-litellm curl http://atlas-ollama:11434/api/tags
+docker exec atlas-kong-api-gateway curl http://atlas-comfyui:18188/
 
 # Monitor resource usage
 docker stats

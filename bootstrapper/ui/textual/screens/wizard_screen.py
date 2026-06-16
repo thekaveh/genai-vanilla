@@ -324,7 +324,7 @@ class WizardScreen(Screen):
         # stripped to its bare form (``supabase-db`` instead of
         # ``<project>-supabase-db``). Doing it here, before any worker
         # runs, eliminates the timing window in which the default
-        # ``"genai-"`` prefix could leak through and produce both
+        # ``"atlas-"`` prefix could leak through and produce both
         # stripped + unstripped chips.
         if self._starter is not None:
             try:
@@ -1758,8 +1758,8 @@ def _classify_compose_line(line: str) -> tuple[str, str]:
 
     Three common shapes:
       * ``service-1  | message`` — from ``compose logs -f``
-      * ``Container genai-svc-1  Created`` — from ``compose up/down``
-      * ``Network genai-network  Created`` — from ``compose up/down``
+      * ``Container atlas-svc-1  Created`` — from ``compose up/down``
+      * ``Network atlas-network  Created`` — from ``compose up/down``
 
     Level is sniffed from common keywords (ERROR/WARN/etc).
     """

@@ -2639,7 +2639,7 @@ curl -fsS -H "Authorization: Bearer $TOKEN" \
 - [ ] **Step 4: Confirm seeded Connections in Airflow**
 
 ```bash
-docker exec genai-airflow-webserver airflow connections list
+docker exec atlas-airflow-webserver airflow connections list
 ```
 
 Expected: `spark_default`, `minio_default`, `litellm_default`, `postgres_supabase`, `weaviate_default`, `neo4j_default`, `redis_default` all listed.
@@ -2676,7 +2676,7 @@ Implements the spec at \`docs/superpowers/specs/2026-06-04-airflow-spark-zeppeli
 - [x] \`scripts/check-docs-drift.py\` — PASS
 - [x] \`docs.regen --all --check\` — zero drift
 - [x] All 3 services boot via \`./start.sh --spark-source container --spark-workers 2 --zeppelin-source container --airflow-source container\`
-- [x] \`docker exec genai-airflow-webserver airflow connections list\` shows all 7 seeded Connections.
+- [x] \`docker exec atlas-airflow-webserver airflow connections list\` shows all 7 seeded Connections.
 EOF
 )"
 ```

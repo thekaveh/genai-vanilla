@@ -64,7 +64,7 @@ def test_handle_port_configuration_with_default_base_does_not_clobber_topology(
     fixture_env.write_text("".join(env_lines))
     original = fixture_env.read_text()
 
-    monkeypatch.setenv("GENAI_ENV_FILE", str(fixture_env))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(fixture_env))
     pm = PortManager(str(real_root))
     assert pm.update_env_ports(DEFAULT_BASE_PORT, create_backup=False) is True
     assert fixture_env.read_text() == original
@@ -87,7 +87,7 @@ def test_update_env_ports_preserves_inline_comments(tmp_path, monkeypatch):
         f"BASE_PORT={DEFAULT_BASE_PORT}\n"
         f"LITELLM_PORT={litellm}  # custom label\n"
     )
-    monkeypatch.setenv("GENAI_ENV_FILE", str(fixture_env))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(fixture_env))
     pm = PortManager(str(real_root))
     assert pm.update_env_ports(DEFAULT_BASE_PORT, create_backup=False) is True
     assert "LITELLM_PORT" in fixture_env.read_text()
@@ -124,7 +124,7 @@ def test_update_env_ports_rewrites_trailing_whitespace_lines(tmp_path, monkeypat
     fixture_env.write_text(
         f"BASE_PORT={DEFAULT_BASE_PORT}\n{var}=12345 \n"
     )
-    monkeypatch.setenv("GENAI_ENV_FILE", str(fixture_env))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(fixture_env))
     pm = PortManager(str(real_root))
     assert pm.update_env_ports(new_base, create_backup=False) is True
     assert f"{var}={want}" in fixture_env.read_text()

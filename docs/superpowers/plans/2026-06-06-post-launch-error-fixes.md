@@ -104,7 +104,7 @@ Implementation:
 ```
 prometheus-fastapi-instrumentator>=7.0.0
 ```
-But the image `genai-backend:latest` was built on 2026-05-15, **before** the import was added (`main.py:67`). Docker has been reusing the stale image.
+But the image `atlas-backend:latest` was built on 2026-05-15, **before** the import was added (`main.py:67`). Docker has been reusing the stale image.
 
 **Fix:** Rebuild backend image.
 
@@ -161,7 +161,7 @@ Update `bootstrapper/utils/key_generator.py::generate_missing_keys` (gated on `L
    ```
 2. In `services/lightrag/compose.yml::services.lightrag`, ensure the working dir is `/app/data/` OR add `env_file: /app/data/.env`. Inspect LightRAG's Dockerfile to confirm its WORKDIR; if `/app`, add a symlink or env_file directive.
 
-Verify with `docker exec genai-lightrag env | grep LIGHTRAG_LLM_MODEL` after boot — should show the resolved model.
+Verify with `docker exec atlas-lightrag env | grep LIGHTRAG_LLM_MODEL` after boot — should show the resolved model.
 
 ### #7 postgres-exporter Postgres 18 schema mismatch
 

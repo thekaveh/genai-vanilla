@@ -1,6 +1,6 @@
 # Atlas
 
-A flexible, modular GenAI project boilerplate with customizable services.
+An opinionated, modular Atlas boilerplate with customizable services.
 
 [![Atlas — interactive setup wizard streaming the launch phase, with the ASCII brand banner pinned at the top of the terminal](./docs/screenshots/wizard-running.png)](./docs/screenshots/wizard-running.png)
 

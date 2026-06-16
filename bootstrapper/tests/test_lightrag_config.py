@@ -8,7 +8,7 @@ from services.service_config import ServiceConfig
 
 
 _BASE_ENV = {
-    "PROJECT_NAME": "genai",
+    "PROJECT_NAME": "atlas",
     "LIGHTRAG_LOCALHOST_PORT": "63068",
 }
 

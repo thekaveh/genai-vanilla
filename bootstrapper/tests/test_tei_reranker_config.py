@@ -8,7 +8,7 @@ from services.service_config import ServiceConfig
 
 
 _BASE_ENV = {
-    "PROJECT_NAME": "genai",
+    "PROJECT_NAME": "atlas",
     "TEI_RERANKER_LOCALHOST_PORT": "63031",
     "TEI_RERANKER_CPU_IMAGE": "ghcr.io/huggingface/text-embeddings-inference:cpu-1.9",
     "TEI_RERANKER_CPU_ARM64_IMAGE": "ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest",

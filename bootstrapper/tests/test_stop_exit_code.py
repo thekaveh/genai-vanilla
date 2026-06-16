@@ -21,18 +21,18 @@ def _stopper_with_stop_result(monkeypatch, rc: int):
 
 def test_stop_services_returns_false_on_compose_failure(monkeypatch):
     stopper = _stopper_with_stop_result(monkeypatch, rc=1)
-    assert stopper.stop_services(cold_stop=False, project_name="genai") is False
+    assert stopper.stop_services(cold_stop=False, project_name="atlas") is False
 
 
 def test_stop_services_returns_true_on_success(monkeypatch):
     stopper = _stopper_with_stop_result(monkeypatch, rc=0)
-    assert stopper.stop_services(cold_stop=False, project_name="genai") is True
+    assert stopper.stop_services(cold_stop=False, project_name="atlas") is True
 
 
 def test_main_exits_nonzero_when_stop_fails(monkeypatch):
     monkeypatch.setattr(
         stop_module.AtlasStopper, "show_configuration_info",
-        lambda self, cold, clean: "genai",
+        lambda self, cold, clean: "atlas",
     )
     monkeypatch.setattr(
         stop_module.AtlasStopper, "stop_services",
@@ -45,7 +45,7 @@ def test_main_exits_nonzero_when_stop_fails(monkeypatch):
 def test_main_exits_zero_when_stop_succeeds(monkeypatch):
     monkeypatch.setattr(
         stop_module.AtlasStopper, "show_configuration_info",
-        lambda self, cold, clean: "genai",
+        lambda self, cold, clean: "atlas",
     )
     monkeypatch.setattr(
         stop_module.AtlasStopper, "stop_services",

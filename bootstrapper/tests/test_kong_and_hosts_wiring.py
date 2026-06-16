@@ -113,7 +113,7 @@ def test_get_adaptive_services_includes_litellm(gen_with_all_enabled):
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def test_hosts_manager_genai_hosts_unique():
+def test_hosts_manager_atlas_hosts_unique():
     """No duplicate entries in the topology-derived hosts list."""
     hosts = HostsManager._atlas_hosts_from_topology()
     assert len(hosts) == len(set(hosts)), f"duplicate host in topology hosts: {hosts}"

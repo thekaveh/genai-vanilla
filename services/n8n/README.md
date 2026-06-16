@@ -145,7 +145,7 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 
 ## 7. Troubleshooting
 
-**`Command start not found` restart loop.** Almost always corruption in the `genai-n8n-data` volume after a partial cold-start. Surgical fix: `docker volume rm <project>-n8n-data` (without `./stop.sh --cold`). On next `./start.sh`, n8n re-initializes from scratch.
+**`Command start not found` restart loop.** Almost always corruption in the `atlas-n8n-data` volume after a partial cold-start. Surgical fix: `docker volume rm <project>-n8n-data` (without `./stop.sh --cold`). On next `./start.sh`, n8n re-initializes from scratch.
 
 **Init container exits with `EACCES` writing nodes.** The community-package install needs the node-modules dir writable. Check `docker logs <project>-n8n-init`; typically a remnant from an earlier failed run. `docker volume rm <project>-n8n-data` clears it.
 

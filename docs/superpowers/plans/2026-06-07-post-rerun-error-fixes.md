@@ -71,7 +71,7 @@ Files to change:
 2. **Model swap** #1 — biggest unlock; restores rerank functionality.
 3. **Config fix** #3 — eliminates the embedding_model workspace-isolation warning; latent issue today but real before scale-out.
 4. **Baseline refresh** + tests.
-5. **Verify**: tear down `genai-tei-reranker` + `genai-lightrag`, recreate, observe healthy + Ready logs.
+5. **Verify**: tear down `atlas-tei-reranker` + `atlas-lightrag`, recreate, observe healthy + Ready logs.
 6. **Commit + PR**.
 
 ## 4. Test plan

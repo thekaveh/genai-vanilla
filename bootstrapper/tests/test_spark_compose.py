@@ -17,7 +17,7 @@ def test_spark_fragment_renders():
         [
             "docker", "compose",
             "--env-file", str(REPO_ROOT / ".env.example"),
-            "-p", "genai",
+            "-p", "atlas",
             "-f", str(REPO_ROOT / "docker-compose.yml"),
             "config", "-q",
         ],
@@ -31,7 +31,7 @@ def test_spark_fragment_renders():
         [
             "docker", "compose",
             "--env-file", str(REPO_ROOT / ".env.example"),
-            "-p", "genai",
+            "-p", "atlas",
             "-f", str(REPO_ROOT / "docker-compose.yml"),
             "config", "--services",
         ],

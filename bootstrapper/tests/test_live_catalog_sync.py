@@ -187,7 +187,7 @@ def test_every_host_ollama_model_is_published_by_litellm():
         f"model. Missing: {sorted(missing)}.\n\n"
         f"This usually means OLLAMA_AUTO_IMPORT_LOCAL_MODELS=false in "
         f".env, or llm-catalog-init couldn't reach the host's /api/tags "
-        f"at boot (check `docker logs genai-llm-catalog-init`).\n\n"
+        f"at boot (check `docker logs atlas-llm-catalog-init`).\n\n"
         f"Host /api/tags returned: {sorted(host_tags)}\n"
         f"LiteLLM /v1/models returned: {sorted(litellm_set)}"
     )

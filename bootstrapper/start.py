@@ -3,7 +3,7 @@
 Atlas - Start Script
 
 Python implementation of start.sh with full feature parity.
-Cross-platform startup script for the GenAI development environment.
+Cross-platform startup script for the Atlas development environment.
 """
 
 import re
@@ -1768,7 +1768,7 @@ class AtlasStarter:
               type=click.Path(exists=False, dir_okay=False),
               help='Path to a sidecar custom-models.yaml. Default: '
                    'services/comfyui/custom-models.yaml. Override to point at '
-                   'a file outside the repo (e.g. /etc/genai/my-models.yaml).')
+                   'a file outside the repo (e.g. /etc/atlas/my-models.yaml).')
 @click.option('--comfyui-source',
               type=click.Choice(['container-cpu', 'container-gpu', 'localhost',
                                 'disabled'], case_sensitive=False),

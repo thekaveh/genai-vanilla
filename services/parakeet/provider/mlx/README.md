@@ -8,7 +8,7 @@ This server wraps the official [parakeet-mlx](https://github.com/senstella/parak
 
 **Why not use parakeet-mlx CLI directly?**
 - `parakeet-mlx` is a batch transcription tool (processes files, outputs results)
-- The GenAI stack needs a persistent web server with REST API endpoints
+- The Atlas stack needs a persistent web server with REST API endpoints
 - Our services (n8n, open-web-ui, backend, etc.) expect OpenAI-compatible `/v1/audio/transcriptions` endpoint
 
 ## Quick Start

@@ -21,7 +21,7 @@ from .. import palette as P
 
 
 # Compose v2 with ``--ansi=never`` emits lines like
-#   ``genai-litellm                | <body>``
+#   ``atlas-litellm                | <body>``
 # A trailing run of spaces pads the prefix so the ``|`` aligns across
 # services. We split on the first ``|`` after a leading whitespace so
 # we can color the service-name prefix per-source without disturbing

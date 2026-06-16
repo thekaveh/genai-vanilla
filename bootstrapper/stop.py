@@ -3,7 +3,7 @@
 Atlas - Stop Script
 
 Python implementation of stop.sh with full feature parity.
-Cross-platform stop script for the GenAI development environment.
+Cross-platform stop script for the Atlas development environment.
 """
 
 import sys
