@@ -70,6 +70,32 @@ wheels = [
 ]
 
 [[package]]
+name = "atlas-doc-processor-localhost"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "docling" },
+    { name = "fastapi" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "python-multipart" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "docling", specifier = "==2.102.1" },
+    { name = "fastapi", specifier = ">=0.115.6" },
+    { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "python-multipart", specifier = ">=0.0.27" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
+]
+
+[package.metadata.requires-dev]
+dev = []
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -556,32 +582,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/d5/8d/1c51c094345df128c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/0c/043d5e551459da400957a1395e0febbf771446ff34291afcbe3d8be2a279/fsspec-2026.4.0-py3-none-any.whl", hash = "sha256:11ef7bb35dab8a394fde6e608221d5cf3e8499401c249bebaeaad760a1a8dec2", size = 203402, upload-time = "2026-04-29T20:42:36.842Z" },
 ]
-
-[[package]]
-name = "genai-doc-processor-localhost"
-version = "1.0.0"
-source = { editable = "." }
-dependencies = [
-    { name = "docling" },
-    { name = "fastapi" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-    { name = "python-multipart" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "docling", specifier = "==2.102.1" },
-    { name = "fastapi", specifier = ">=0.115.6" },
-    { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "python-dotenv", specifier = ">=1.2.2" },
-    { name = "python-multipart", specifier = ">=0.0.27" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
-]
-
-[package.metadata.requires-dev]
-dev = []
 
 [[package]]
 name = "h11"

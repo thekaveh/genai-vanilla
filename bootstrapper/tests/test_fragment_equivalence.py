@@ -181,7 +181,7 @@ def _build_test_env() -> Path:
 
 def _render(compose_file: Path) -> dict:
     env_file = _build_test_env()
-    # -p genai matches the runtime invocation (./start.sh passes the project
+    # -p atlas matches the runtime invocation (./start.sh passes the project
     # name from .env). Without it, the rendered `name:` field defaults to the
     # parent directory, which causes baseline drift when the worktree is on a
     # different path than where the baseline was captured.
@@ -192,7 +192,7 @@ def _render(compose_file: Path) -> dict:
             "--env-file",
             str(env_file),
             "-p",
-            "genai",
+            "atlas",
             "-f",
             str(compose_file),
             "config",

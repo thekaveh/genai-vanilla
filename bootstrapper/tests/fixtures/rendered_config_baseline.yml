@@ -1,8 +1,8 @@
-name: genai
+name: atlas
 networks:
   backend-network:
     driver: bridge
-    name: genai-network
+    name: atlas-network
 services:
   airflow-dag-processor:
     build:
@@ -13,7 +13,7 @@ services:
     command:
     - airflow
     - dag-processor
-    container_name: genai-airflow-dag-processor
+    container_name: atlas-airflow-dag-processor
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -37,7 +37,7 @@ services:
       - CMD-SHELL
       - airflow jobs check --job-type DagProcessorJob --hostname "$$(hostname)"
       timeout: 10s
-    image: genai-airflow:local
+    image: atlas-airflow:local
     networks:
       backend-network: null
     restart: unless-stopped
@@ -59,7 +59,7 @@ services:
     command:
     - bash
     - /scripts/init-airflow.sh
-    container_name: genai-airflow-init
+    container_name: atlas-airflow-init
     depends_on:
       supabase-db:
         condition: service_healthy
@@ -90,7 +90,7 @@ services:
       SUPABASE_DB_PASSWORD: password
       SUPABASE_DB_USER: supabase_admin
       WEAVIATE_SOURCE: container
-    image: genai-airflow:local
+    image: atlas-airflow:local
     networks:
       backend-network: null
     volumes:
@@ -112,7 +112,7 @@ services:
     command:
     - airflow
     - scheduler
-    container_name: genai-airflow-scheduler
+    container_name: atlas-airflow-scheduler
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -136,7 +136,7 @@ services:
       - CMD-SHELL
       - airflow jobs check --job-type SchedulerJob --hostname "$$(hostname)"
       timeout: 10s
-    image: genai-airflow:local
+    image: atlas-airflow:local
     networks:
       backend-network: null
     restart: unless-stopped
@@ -158,7 +158,7 @@ services:
     command:
     - airflow
     - api-server
-    container_name: genai-airflow-webserver
+    container_name: atlas-airflow-webserver
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -184,7 +184,7 @@ services:
       - -fsS
       - http://localhost:8080/api/v2/monitor/health
       timeout: 10s
-    image: genai-airflow:local
+    image: atlas-airflow:local
     networks:
       backend-network: null
     ports:
@@ -208,7 +208,7 @@ services:
         BASE_IMAGE: python:3.12
       context: '{REPO_ROOT}/services/backend/app'
       dockerfile: Dockerfile
-    container_name: genai-backend
+    container_name: atlas-backend
     depends_on:
       kong-api-gateway:
         condition: service_started
@@ -259,7 +259,7 @@ services:
       NEO4J_PASSWORD: neo4j_password
       NEO4J_URI: bolt://neo4j-graph-db:7687
       NEO4J_USER: neo4j
-      PROJECT_NAME: genai
+      PROJECT_NAME: atlas
       RAY_ADDRESS: ''
       RAY_DASHBOARD_URL: ''
       REDIS_URL: redis://:redis_password@redis:6379/0
@@ -293,7 +293,7 @@ services:
       type: volume
       volume: {}
   cadvisor:
-    container_name: genai-cadvisor
+    container_name: atlas-cadvisor
     deploy:
       replicas: 0
     image: gcr.io/cadvisor/cadvisor:v0.49.1
@@ -332,7 +332,7 @@ services:
       target: /dev/disk
       type: bind
   comfyui:
-    container_name: genai-comfyui
+    container_name: atlas-comfyui
     depends_on:
       redis:
         condition: service_started
@@ -369,9 +369,9 @@ services:
       timeout: 10s
     image: ghcr.io/ai-dock/comfyui:v2-cpu-22.04-v0.2.7
     labels:
-      com.genai.category: ai
-      com.genai.dependencies: litellm,supabase-storage
-      com.genai.service: image-generation
+      com.atlas.category: ai
+      com.atlas.dependencies: litellm,supabase-storage
+      com.atlas.service: image-generation
     networks:
       backend-network: null
     platform: linux/amd64
@@ -406,7 +406,7 @@ services:
     build:
       context: '{REPO_ROOT}/services/comfyui/catalog-init'
       dockerfile: Dockerfile
-    container_name: genai-comfyui-catalog-init
+    container_name: atlas-comfyui-catalog-init
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
@@ -441,7 +441,7 @@ services:
       target: /catalog
       type: bind
   comfyui-init:
-    container_name: genai-comfyui-init
+    container_name: atlas-comfyui-init
     depends_on:
       comfyui-catalog-init:
         condition: service_completed_successfully
@@ -479,7 +479,7 @@ services:
       type: volume
       volume: {}
   grafana:
-    container_name: genai-grafana
+    container_name: atlas-grafana
     depends_on:
       prometheus:
         condition: service_healthy
@@ -529,7 +529,7 @@ services:
     command:
     - gateway
     - run
-    container_name: genai-hermes
+    container_name: atlas-hermes
     depends_on:
       hermes-init:
         condition: service_completed_successfully
@@ -571,9 +571,9 @@ services:
       timeout: 10s
     image: nousresearch/hermes-agent:latest
     labels:
-      com.genai.agent: hermes
-      com.genai.category: ai
-      com.genai.service: ai-agent
+      com.atlas.agent: hermes
+      com.atlas.category: ai
+      com.atlas.service: ai-agent
     networks:
       backend-network: null
     ports:
@@ -592,7 +592,7 @@ services:
       type: volume
       volume: {}
   hermes-init:
-    container_name: genai-hermes-init
+    container_name: atlas-hermes-init
     depends_on:
       litellm:
         condition: service_healthy
@@ -617,9 +617,9 @@ services:
       TTS_INTERNAL_URL: ''
     image: alpine:latest
     labels:
-      com.genai.agent: hermes
-      com.genai.category: ai
-      com.genai.service: hermes-init
+      com.atlas.agent: hermes
+      com.atlas.category: ai
+      com.atlas.service: hermes-init
     networks:
       backend-network: null
     restart: 'no'
@@ -649,7 +649,7 @@ services:
     - --ServerApp.allow_origin=*
     - --ServerApp.allow_remote_access=True
     - --ServerApp.disable_check_xsrf=False
-    container_name: genai-jupyterhub
+    container_name: atlas-jupyterhub
     depends_on:
       litellm:
         condition: service_healthy
@@ -701,9 +701,9 @@ services:
       - http://localhost:8888/api
       timeout: 10s
     labels:
-      com.genai.category: application
-      com.genai.service: jupyterhub
-      com.genai.tier: app
+      com.atlas.category: application
+      com.atlas.service: jupyterhub
+      com.atlas.tier: app
     networks:
       backend-network: null
     ports:
@@ -728,7 +728,7 @@ services:
       type: volume
       volume: {}
   kong-api-gateway:
-    container_name: genai-kong-api-gateway
+    container_name: atlas-kong-api-gateway
     depends_on:
       redis:
         condition: service_started
@@ -809,7 +809,7 @@ services:
       target: /home/kong/kong.yml
       type: bind
   lightrag:
-    container_name: genai-lightrag
+    container_name: atlas-lightrag
     depends_on:
       lightrag-init:
         condition: service_completed_successfully
@@ -890,7 +890,7 @@ services:
       type: volume
       volume: {}
   lightrag-init:
-    container_name: genai-lightrag-init
+    container_name: atlas-lightrag-init
     depends_on:
       litellm:
         condition: service_healthy
@@ -936,7 +936,7 @@ services:
     - '4000'
     - --num_workers
     - '4'
-    container_name: genai-litellm
+    container_name: atlas-litellm
     depends_on:
       litellm-init:
         condition: service_completed_successfully
@@ -996,7 +996,7 @@ services:
     build:
       context: '{REPO_ROOT}/services/litellm/init'
       dockerfile: Dockerfile
-    container_name: genai-litellm-init
+    container_name: atlas-litellm-init
     depends_on:
       llm-catalog-init:
         condition: service_completed_successfully
@@ -1042,7 +1042,7 @@ services:
     build:
       context: '{REPO_ROOT}/services/litellm/catalog-init'
       dockerfile: Dockerfile
-    container_name: genai-llm-catalog-init
+    container_name: atlas-llm-catalog-init
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
@@ -1089,7 +1089,7 @@ services:
         BASE_IMAGE: python:3.11-slim
       context: '{REPO_ROOT}/services/local-deep-researcher/build'
       dockerfile: Dockerfile
-    container_name: genai-local-deep-researcher
+    container_name: atlas-local-deep-researcher
     depends_on:
       litellm:
         condition: service_healthy
@@ -1135,7 +1135,7 @@ services:
     - /data
     - --console-address
     - :9001
-    container_name: genai-minio
+    container_name: atlas-minio
     deploy:
       replicas: 1
     environment:
@@ -1173,7 +1173,7 @@ services:
       type: volume
       volume: {}
   minio-init:
-    container_name: genai-minio-init
+    container_name: atlas-minio-init
     depends_on:
       minio:
         condition: service_healthy
@@ -1212,7 +1212,7 @@ services:
       target: /scripts
       type: bind
   multi2vec-clip:
-    container_name: genai-multi2vec-clip
+    container_name: atlas-multi2vec-clip
     depends_on:
       supabase-db:
         condition: service_healthy
@@ -1226,7 +1226,7 @@ services:
       backend-network: null
     restart: unless-stopped
   n8n:
-    container_name: genai-n8n
+    container_name: atlas-n8n
     depends_on:
       litellm:
         condition: service_healthy
@@ -1313,7 +1313,7 @@ services:
       type: volume
       volume: {}
   n8n-init:
-    container_name: genai-n8n-init
+    container_name: atlas-n8n-init
     depends_on:
       litellm:
         condition: service_healthy
@@ -1349,7 +1349,7 @@ services:
   n8n-worker:
     command:
     - worker
-    container_name: genai-n8n-worker
+    container_name: atlas-n8n-worker
     depends_on:
       litellm:
         condition: service_healthy
@@ -1413,7 +1413,7 @@ services:
         BASE_IMAGE: neo4j:5.19.0
       context: '{REPO_ROOT}/services/neo4j/build'
       dockerfile: Dockerfile
-    container_name: genai-neo4j-graph-db
+    container_name: atlas-neo4j-graph-db
     deploy:
       replicas: 1
     environment:
@@ -1453,7 +1453,7 @@ services:
     - --path.sysfs=/host/sys
     - --path.rootfs=/rootfs
     - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
-    container_name: genai-node-exporter
+    container_name: atlas-node-exporter
     deploy:
       replicas: 0
     image: prom/node-exporter:v1.8.2
@@ -1482,7 +1482,7 @@ services:
       target: /rootfs
       type: bind
   ollama:
-    container_name: genai-ollama
+    container_name: atlas-ollama
     deploy:
       replicas: 1
     environment:
@@ -1497,7 +1497,7 @@ services:
       type: volume
       volume: {}
   ollama-pull:
-    container_name: genai-ollama-pull
+    container_name: atlas-ollama-pull
     depends_on:
       llm-catalog-init:
         condition: service_completed_successfully
@@ -1532,7 +1532,7 @@ services:
       target: /scripts
       type: bind
   open-web-ui:
-    container_name: genai-open-web-ui
+    container_name: atlas-open-web-ui
     depends_on:
       litellm:
         condition: service_healthy
@@ -1572,7 +1572,7 @@ services:
       OPENAI_API_BASE_URLS: http://litellm:4000/v1
       OPENAI_API_KEYS: ''
       REDIS_KEY_PREFIX: openwebui
-      USER_AGENT: GenAI-Vanilla/Open-WebUI
+      USER_AGENT: Atlas/Open-WebUI
       WEBSOCKET_MANAGER: redis
       WEBSOCKET_REDIS_URL: redis://:redis_password@redis:6379/2
       WEBUI_SECRET_KEY: secret
@@ -1606,7 +1606,7 @@ services:
         BASE_IMAGE: python:3.12-slim
       context: '{REPO_ROOT}/services/open-webui/init'
       dockerfile: Dockerfile
-    container_name: genai-open-webui-init
+    container_name: atlas-open-webui-init
     depends_on:
       open-web-ui:
         condition: service_started
@@ -1647,7 +1647,7 @@ services:
     - --allow-unconfigured
     - --bind
     - lan
-    container_name: genai-openclaw-gateway
+    container_name: atlas-openclaw-gateway
     depends_on:
       litellm:
         condition: service_healthy
@@ -1681,9 +1681,9 @@ services:
       timeout: 10s
     image: ghcr.io/openclaw/openclaw:latest
     labels:
-      com.genai.agent: openclaw
-      com.genai.category: ai
-      com.genai.service: ai-agent
+      com.atlas.agent: openclaw
+      com.atlas.category: ai
+      com.atlas.service: ai-agent
     networks:
       backend-network: null
     ports:
@@ -1706,7 +1706,7 @@ services:
       type: volume
       volume: {}
   openclaw-init:
-    container_name: genai-openclaw-init
+    container_name: atlas-openclaw-init
     deploy:
       replicas: 0
     entrypoint:
@@ -1735,7 +1735,7 @@ services:
       type: volume
       volume: {}
   postgres-exporter:
-    container_name: genai-postgres-exporter
+    container_name: atlas-postgres-exporter
     depends_on:
       supabase-db:
         condition: service_healthy
@@ -1773,7 +1773,7 @@ services:
     - --web.console.libraries=/usr/share/prometheus/console_libraries
     - --web.console.templates=/usr/share/prometheus/consoles
     - --web.enable-lifecycle
-    container_name: genai-prometheus
+    container_name: atlas-prometheus
     deploy:
       replicas: 0
     healthcheck:
@@ -1817,7 +1817,7 @@ services:
     - -c
     - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port\
       \ 10001 \\\n  --dashboard-port 8265 \\\n  --block\n"
-    container_name: genai-ray-head
+    container_name: atlas-ray-head
     deploy:
       replicas: 0
     healthcheck:
@@ -1872,7 +1872,7 @@ services:
     - 'yes'
     - --requirepass
     - redis_password
-    container_name: genai-redis
+    container_name: atlas-redis
     healthcheck:
       interval: 30s
       retries: 3
@@ -1899,7 +1899,7 @@ services:
       type: volume
       volume: {}
   redis-exporter:
-    container_name: genai-redis-exporter
+    container_name: atlas-redis-exporter
     depends_on:
       redis:
         condition: service_healthy
@@ -1930,7 +1930,7 @@ services:
       target: 9121
     restart: unless-stopped
   searxng:
-    container_name: genai-searxng
+    container_name: atlas-searxng
     deploy:
       replicas: 1
     environment:
@@ -1994,7 +1994,7 @@ services:
     - spark.eventLog.enabled=true
     - --conf
     - spark.eventLog.dir=s3a://spark-history/
-    container_name: genai-spark-connect
+    container_name: atlas-spark-connect
     depends_on:
       spark-init:
         condition: service_completed_successfully
@@ -2004,7 +2004,7 @@ services:
         required: true
     deploy:
       replicas: 0
-    image: genai-spark:local
+    image: atlas-spark:local
     networks:
       backend-network: null
     restart: unless-stopped
@@ -2017,7 +2017,7 @@ services:
     command:
     - /opt/spark/bin/spark-class
     - org.apache.spark.deploy.history.HistoryServer
-    container_name: genai-spark-history
+    container_name: atlas-spark-history
     depends_on:
       spark-init:
         condition: service_completed_successfully
@@ -2028,7 +2028,7 @@ services:
       SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
         -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key=
         -Dspark.hadoop.fs.s3a.path.style.access=true
-    image: genai-spark:local
+    image: atlas-spark:local
     networks:
       backend-network: null
     ports:
@@ -2041,7 +2041,7 @@ services:
     command:
     - "mc alias set minio http://minio:9000 minioadmin \nmc mb --ignore-existing minio/spark-history\n\
       echo \"spark-init: spark-history bucket ready\"\n"
-    container_name: genai-spark-init
+    container_name: atlas-spark-init
     depends_on:
       minio-init:
         condition: service_completed_successfully
@@ -2069,7 +2069,7 @@ services:
     - '7077'
     - --webui-port
     - '8080'
-    container_name: genai-spark-master
+    container_name: atlas-spark-master
     deploy:
       replicas: 0
     environment:
@@ -2084,7 +2084,7 @@ services:
       - -fsS
       - http://localhost:8080/
       timeout: 10s
-    image: genai-spark:local
+    image: atlas-spark:local
     networks:
       backend-network: null
     ports:
@@ -2111,12 +2111,12 @@ services:
         required: true
     deploy:
       replicas: 0
-    image: genai-spark:local
+    image: atlas-spark:local
     networks:
       backend-network: null
     restart: unless-stopped
   supabase-api:
-    container_name: genai-supabase-api
+    container_name: atlas-supabase-api
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
@@ -2137,7 +2137,7 @@ services:
       target: 3000
     restart: unless-stopped
   supabase-auth:
-    container_name: genai-supabase-auth
+    container_name: atlas-supabase-auth
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
@@ -2174,7 +2174,7 @@ services:
       target: 9999
     restart: unless-stopped
   supabase-db:
-    container_name: genai-supabase-db
+    container_name: atlas-supabase-db
     environment:
       POSTGRES_DB: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
@@ -2206,7 +2206,7 @@ services:
       target: /snapshot
       type: bind
   supabase-db-init:
-    container_name: genai-supabase-db-init
+    container_name: atlas-supabase-db-init
     depends_on:
       supabase-db:
         condition: service_healthy
@@ -2228,7 +2228,7 @@ services:
       target: /scripts
       type: bind
   supabase-meta:
-    container_name: genai-supabase-meta
+    container_name: atlas-supabase-meta
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
@@ -2250,7 +2250,7 @@ services:
       target: 8080
     restart: unless-stopped
   supabase-realtime:
-    container_name: genai-supabase-realtime
+    container_name: atlas-supabase-realtime
     depends_on:
       supabase-api:
         condition: service_started
@@ -2291,7 +2291,7 @@ services:
       target: 4000
     restart: unless-stopped
   supabase-storage:
-    container_name: genai-supabase-storage
+    container_name: atlas-supabase-storage
     depends_on:
       supabase-db-init:
         condition: service_completed_successfully
@@ -2326,7 +2326,7 @@ services:
       type: volume
       volume: {}
   supabase-studio:
-    container_name: genai-supabase-studio
+    container_name: atlas-supabase-studio
     depends_on:
       kong-api-gateway:
         condition: service_started
@@ -2352,7 +2352,7 @@ services:
     environment:
       AUTH_JWT_SECRET: ''
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
-      DEFAULT_ORGANIZATION_NAME: genai
+      DEFAULT_ORGANIZATION_NAME: atlas
       HOSTNAME: 0.0.0.0
       POSTGRES_PASSWORD: password
       STUDIO_PG_META_URL: http://supabase-meta:8080
@@ -2383,7 +2383,7 @@ services:
     - --revision=main
     - --max-client-batch-size=32
     - --port=80
-    container_name: genai-tei-reranker
+    container_name: atlas-tei-reranker
     deploy:
       replicas: 0
       resources:
@@ -2420,7 +2420,7 @@ services:
       type: volume
       volume: {}
   weaviate:
-    container_name: genai-weaviate
+    container_name: atlas-weaviate
     depends_on:
       litellm:
         condition: service_healthy
@@ -2495,7 +2495,7 @@ services:
       target: /scripts
       type: bind
   weaviate-init:
-    container_name: genai-weaviate-init
+    container_name: atlas-weaviate-init
     depends_on:
       litellm:
         condition: service_healthy
@@ -2531,7 +2531,7 @@ services:
       type: volume
       volume: {}
   zeppelin:
-    container_name: genai-zeppelin
+    container_name: atlas-zeppelin
     depends_on:
       spark-init:
         condition: service_completed_successfully
@@ -2584,83 +2584,83 @@ services:
 volumes:
   airflow-logs:
     driver: local
-    name: genai-airflow-logs
+    name: atlas-airflow-logs
   backend-data:
     driver: local
-    name: genai-backend-data
+    name: atlas-backend-data
   comfyui-custom-nodes:
     driver: local
-    name: genai-comfyui-custom-nodes
+    name: atlas-comfyui-custom-nodes
   comfyui-input:
     driver: local
-    name: genai-comfyui-input
+    name: atlas-comfyui-input
   comfyui-models:
     driver: local
-    name: genai-comfyui-models
+    name: atlas-comfyui-models
   comfyui-output:
     driver: local
-    name: genai-comfyui-output
+    name: atlas-comfyui-output
   grafana-data:
     driver: local
-    name: genai-grafana-data
+    name: atlas-grafana-data
   graph-db-data:
     driver: local
-    name: genai-graph-db-data
+    name: atlas-graph-db-data
   hermes-data:
     driver: local
-    name: genai-hermes-data
+    name: atlas-hermes-data
   jupyterhub-data:
     driver: local
-    name: genai-jupyterhub-data
+    name: atlas-jupyterhub-data
   lightrag-data:
-    name: genai-lightrag-data
+    name: atlas-lightrag-data
   llm-provider-data:
     driver: local
-    name: genai-llm-provider-data
+    name: atlas-llm-provider-data
   local-deep-researcher-data:
     driver: local
-    name: genai-local-deep-researcher-data
+    name: atlas-local-deep-researcher-data
   local-deep-researcher-repo:
     driver: local
-    name: genai-local-deep-researcher-repo
+    name: atlas-local-deep-researcher-repo
   minio-data:
     driver: local
-    name: genai-minio-data
+    name: atlas-minio-data
   n8n-data:
     driver: local
-    name: genai-n8n-data
+    name: atlas-n8n-data
   open-web-ui-data:
     driver: local
-    name: genai-open-web-ui-data
+    name: atlas-open-web-ui-data
   openclaw-config:
     driver: local
-    name: genai-openclaw-config
+    name: atlas-openclaw-config
   openclaw-workspace:
     driver: local
-    name: genai-openclaw-workspace
+    name: atlas-openclaw-workspace
   prometheus-data:
     driver: local
-    name: genai-prometheus-data
+    name: atlas-prometheus-data
   redis-data:
     driver: local
-    name: genai-redis-data
+    name: atlas-redis-data
   searxng-data:
     driver: local
-    name: genai-searxng-data
+    name: atlas-searxng-data
   supabase-db-data:
     driver: local
-    name: genai-supabase-db-data
+    name: atlas-supabase-db-data
   supabase-storage-data:
     driver: local
-    name: genai-supabase-storage-data
+    name: atlas-supabase-storage-data
   tei-reranker-data:
-    name: genai-tei-reranker-data
+    name: atlas-tei-reranker-data
   weaviate-data:
     driver: local
-    name: genai-weaviate-data
+    name: atlas-weaviate-data
   weaviate-shared-config:
     driver: local
-    name: genai-weaviate-shared-config
+    name: atlas-weaviate-shared-config
   zeppelin-logs:
     driver: local
-    name: genai-zeppelin-logs
+    name: atlas-zeppelin-logs
