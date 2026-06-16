@@ -34,7 +34,7 @@ def _validate_uuid_param(value: str, name: str = "parameter"):
         )
 
 # Get project name from environment
-PROJECT_NAME = os.getenv("PROJECT_NAME", "GenAI Vanilla Stack")
+PROJECT_NAME = os.getenv("PROJECT_NAME", "atlas")
 
 # Maximum body size for /storage/upload, in bytes. Default 100 MiB matches
 # Supabase Storage's default object cap; operators can override via env.

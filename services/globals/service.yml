@@ -13,7 +13,7 @@ containers: []
 
 env:
   - name: PROJECT_NAME
-    default: genai
+    default: atlas
     description: "Project identifier. Used as container/volume/network name prefix."
   - name: BASE_PORT
     default: 63000

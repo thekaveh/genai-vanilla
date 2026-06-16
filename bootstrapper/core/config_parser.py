@@ -202,10 +202,10 @@ class ConfigParser:
         Get the project name from .env file.
         
         Returns:
-            str: Project name, defaults to 'genai' if not found
+            str: Project name, defaults to 'atlas' if not found
         """
         env_vars = self.parse_env_file()
-        return env_vars.get('PROJECT_NAME', 'genai')
+        return env_vars.get('PROJECT_NAME', 'atlas')
     
     def env_file_exists(self) -> bool:
         """

@@ -159,7 +159,7 @@ def test_tier_member_matching_a_real_container_is_clean(
             "category": "infra",
             "virtual": True,
             "containers": [],
-            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+            "env": [{"name": "PROJECT_NAME", "default": "atlas"}],
             "runtime_dependency_tiers": {
                 "data_tier": ["redis"],
             },
@@ -183,7 +183,7 @@ def test_dangling_tier_member_flagged(
             "category": "infra",
             "virtual": True,
             "containers": [],
-            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+            "env": [{"name": "PROJECT_NAME", "default": "atlas"}],
             "runtime_dependency_tiers": {
                 "core_services": ["redis", "xtts"],
             },
@@ -270,7 +270,7 @@ def test_virtual_manifest_with_fragment_flagged(services_root, write_manifest):
             "category": "infra",
             "virtual": True,
             "containers": [],
-            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+            "env": [{"name": "PROJECT_NAME", "default": "atlas"}],
         },
     )
     (services_root / "globals" / "compose.yml").write_text("services: {}\n")
@@ -290,7 +290,7 @@ def test_virtual_manifest_without_fragment_clean(services_root, write_manifest):
             "category": "infra",
             "virtual": True,
             "containers": [],
-            "env": [{"name": "PROJECT_NAME", "default": "genai"}],
+            "env": [{"name": "PROJECT_NAME", "default": "atlas"}],
         },
     )
     issues = validate_manifests(

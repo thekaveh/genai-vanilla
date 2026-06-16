@@ -1705,7 +1705,7 @@ class WizardScreen(Screen):
 # ``set_project_prefix()`` from the actual ConfigParser.get_project_name()
 # value, so containers like ``<project_name>-supabase-db-1`` are stripped
 # down to ``supabase-db`` regardless of how the user named their stack.
-_PROJECT_PREFIX = "genai-"
+_PROJECT_PREFIX = "atlas-"
 
 
 def set_project_prefix(project_name: str) -> None:
