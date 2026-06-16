@@ -241,10 +241,10 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 | Category | Service | Default port | Alias |
 |---|---|---:|---|
-| Infrastructure | Kong API Gateway | 63000 | — |
-| Infrastructure | Ray | 63002 | ray.localhost |
-| Infrastructure | Prometheus | 63005 | prometheus.localhost |
-| Infrastructure | Grafana | 63008 | grafana.localhost |
+| Infra | Kong API Gateway | 63000 | — |
+| Infra | Ray | 63002 | ray.localhost |
+| Infra | Prometheus | 63005 | prometheus.localhost |
+| Infra | Grafana | 63008 | grafana.localhost |
 | Data | Supabase DB | 63010 | — |
 | Data | Supabase Meta | 63012 | — |
 | Data | Supabase Storage | 63013 | — |

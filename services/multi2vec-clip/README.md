@@ -14,7 +14,7 @@ Image: `semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32` (th
 |---|---|---|
 | Direct | — | No host port. Internal-only by design. |
 | Internal | `http://multi2vec-clip:8080/vectorize` | What Weaviate (and future consumers) call. |
-| Kong | — | Infrastructure module; no Kong route. |
+| Kong | — | Infra module; no Kong route. |
 | Meta | `GET http://multi2vec-clip:8080/meta` | Returns model config; useful as a health probe. |
 
 Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.md).
