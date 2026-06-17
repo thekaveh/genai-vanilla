@@ -57,6 +57,12 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          # Pin uv so CI is deterministic. With no version, setup-uv installs
+          # the latest uv at run time, whose resolver/lock semantics can shift
+          # under us and silently flip a `uv lock --locked` check. Bump
+          # deliberately; keep in sync with the Dockerfile `uv==` pins.
+          version: "0.11.19"
 
       - name: Sync dependencies
         working-directory: bootstrapper
@@ -110,6 +116,12 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          # Pin uv so CI is deterministic. With no version, setup-uv installs
+          # the latest uv at run time, whose resolver/lock semantics can shift
+          # under us and silently flip a `uv lock --locked` check. Bump
+          # deliberately; keep in sync with the Dockerfile `uv==` pins.
+          version: "0.11.19"
 
       - name: Sync dependencies
         working-directory: bootstrapper
@@ -144,6 +156,12 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          # Pin uv so CI is deterministic. With no version, setup-uv installs
+          # the latest uv at run time, whose resolver/lock semantics can shift
+          # under us and silently flip a `uv lock --locked` check. Bump
+          # deliberately; keep in sync with the Dockerfile `uv==` pins.
+          version: "0.11.19"
 
       - name: Sync dependencies
         working-directory: bootstrapper
