@@ -7,9 +7,9 @@ and enforces them during service startup, ensuring required dependencies
 are available.
 """
 
-import re
 from typing import Dict, List, Optional
 from core.config_parser import ConfigParser
+from utils.source_override_manager import SourceOverrideManager
 
 
 class DependencyManager:
@@ -201,27 +201,18 @@ class DependencyManager:
                 # (start.py step 4 vs 4.1), so zeroing only N8N_SCALE would
                 # leave n8n-worker and n8n-init running against a dead main.
                 scale_vars_to_update = ['N8N_SCALE', 'N8N_WORKER_SCALE', 'N8N_INIT_SCALE']
-                
-                env_file_path = self.config_parser.env_file_path
-                try:
-                    with open(env_file_path, 'r', encoding="utf-8") as f:
-                        content = f.read()
-                    
-                    updated_content = content
-                    
-                    # Update all related N8N scale variables to 0
-                    for scale_var in scale_vars_to_update:
-                        pattern = rf'^{scale_var}=.*$'
-                        replacement = f'{scale_var}=0'
-                        updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
-                    
-                    with open(env_file_path, 'w', encoding="utf-8") as f:
-                        f.write(updated_content)
-                    
+
+                # Route through SourceOverrideManager's atomic, mode-preserving
+                # writer (tmp + os.replace) instead of an in-place open(...,'w'):
+                # a crash mid-write must not truncate the secrets-bearing .env,
+                # and a user-chmod'd 0600 .env must keep its mode. This matches
+                # every other .env writer in the codebase.
+                if SourceOverrideManager(self.config_parser).update_env_file(
+                    {scale_var: '0' for scale_var in scale_vars_to_update}
+                ):
                     disabled_services.append(service_name)
-                    
-                except OSError as e:
-                    print(f"❌ Failed to disable {service_name}: {e}")
+                else:
+                    print(f"❌ Failed to disable {service_name}")
             
             else:
                 # Single source of truth (class-level _SCALE_VAR_MAPPING)
@@ -229,23 +220,13 @@ class DependencyManager:
                 # same way they do in get_service_scale.
                 scale_var = self._SCALE_VAR_MAPPING.get(service_name)
                 if scale_var:
-                    env_file_path = self.config_parser.env_file_path
-                    try:
-                        with open(env_file_path, 'r', encoding="utf-8") as f:
-                            content = f.read()
-                        
-                        # Update scale to 0
-                        pattern = rf'^{scale_var}=.*$'
-                        replacement = f'{scale_var}=0'
-                        updated_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
-                        
-                        with open(env_file_path, 'w', encoding="utf-8") as f:
-                            f.write(updated_content)
-                        
+                    # Same atomic, mode-preserving writer as the N8N branch above.
+                    if SourceOverrideManager(self.config_parser).update_env_file(
+                        {scale_var: '0'}
+                    ):
                         disabled_services.append(service_name)
-
-                    except OSError as e:
-                        print(f"❌ Failed to disable {service_name}: {e}")
+                    else:
+                        print(f"❌ Failed to disable {service_name}")
                     
         return disabled_services
         

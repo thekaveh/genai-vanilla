@@ -222,7 +222,13 @@ class SourceValidator:
     def validate_scale_values(self) -> bool:
         """
         Validate all scale values from .env file.
-        
+
+        Precondition: call AFTER ``validate_all_sources()`` (which resets
+        ``self.validation_errors``). This method intentionally *appends*
+        rather than resets, so source-config and scale errors surface
+        together; it relies on the caller having reset the error list via
+        the preceding sources pass.
+
         Returns:
             bool: True if all scale values are valid
         """
