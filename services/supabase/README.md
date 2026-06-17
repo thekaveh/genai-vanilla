@@ -1,6 +1,6 @@
 # Supabase Ecosystem
 
-Supabase provides the core database infrastructure for the GenAI Vanilla Stack, including PostgreSQL database, authentication, storage, realtime subscriptions, and a management dashboard.
+Supabase provides the core database infrastructure for the Atlas, including PostgreSQL database, authentication, storage, realtime subscriptions, and a management dashboard.
 
 ## 1. Overview
 

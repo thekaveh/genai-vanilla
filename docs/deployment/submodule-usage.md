@@ -1,6 +1,6 @@
-# Using genai-vanilla as a Git Submodule
+# Using atlas as a Git Submodule
 
-This guide explains how to use the genai-vanilla stack as a git submodule in your project, allowing you to build on top of it as an infrastructure foundation while maintaining the ability to contribute back to the project.
+This guide explains how to use the atlas stack as a git submodule in your project, allowing you to build on top of it as an infrastructure foundation while maintaining the ability to contribute back to the project.
 
 ## 1. Table of Contents
 
@@ -18,9 +18,9 @@ This guide explains how to use the genai-vanilla stack as a git submodule in you
 
 ## 2. Quick Start
 
-### 2.1 Add genai-vanilla as a Submodule
+### 2.1 Add atlas as a Submodule
 
-In your project root, add genai-vanilla as a submodule in an `infra/` directory:
+In your project root, add atlas as a submodule in an `infra/` directory:
 
 ```bash
 # Add the submodule (replace with your repository URL)
@@ -47,7 +47,7 @@ vim .env
 **Critical Configuration:**
 ```bash
 # In infra/.env
-PROJECT_NAME=myproject  # Change from 'genai' to your project name
+PROJECT_NAME=myproject  # Change from 'atlas' to your project name
 ```
 
 ### 2.3 Start the Infrastructure
@@ -73,12 +73,12 @@ See the startup output for the complete port mapping of all services.
 
 ## 3. Why Use as a Submodule?
 
-Using genai-vanilla as a git submodule provides these capabilities:
+Using atlas as a git submodule provides these capabilities:
 
 - Separation of infrastructure code from application code
 - Ability to pull upstream improvements while maintaining local configurations
 - Project-specific environment settings tracked in parent repository
-- Standard git workflow for contributing improvements back to genai-vanilla
+- Standard git workflow for contributing improvements back to atlas
 - Multiple independent instances with isolated Docker resources (networks, volumes, containers)
 - Infrastructure version pinning to specific commits or tags
 
@@ -94,7 +94,7 @@ myproject/
 │   ├── backend/
 │   ├── frontend/
 │   └── ...
-├── infra/                   # genai-vanilla submodule
+├── infra/                   # atlas submodule
 │   ├── .git -> ../.git/modules/infra
 │   ├── .env                 # Your custom configuration (gitignored)
 │   ├── .env.example
@@ -152,11 +152,11 @@ Results in:
 - Container: `myproject-supabase-db`
 - Volume: `myproject-supabase-db-data`
 
-This allows multiple projects to use genai-vanilla simultaneously without conflicts.
+This allows multiple projects to use atlas simultaneously without conflicts.
 
 ### 5.2 Custom Environment File Location (Advanced)
 
-If you prefer to manage your infrastructure configuration from the parent project, you can use the `GENAI_ENV_FILE` environment variable:
+If you prefer to manage your infrastructure configuration from the parent project, you can use the `ATLAS_ENV_FILE` environment variable (the legacy name `GENAI_ENV_FILE` is still honored as a deprecated alias with a one-shot stderr warning):
 
 ```bash
 # Parent project structure
@@ -165,10 +165,10 @@ myproject/
 │   ├── dev.env      # Development infrastructure config
 │   ├── prod.env     # Production infrastructure config
 │   └── test.env
-└── infra/           # genai-vanilla submodule
+└── infra/           # atlas submodule
 
 # Start with custom config location
-GENAI_ENV_FILE=../config/prod.env ./infra/start.sh
+ATLAS_ENV_FILE=../config/prod.env ./infra/start.sh
 ```
 
 This is useful for:
@@ -192,13 +192,13 @@ BASE_PORT=64000
 
 ### 6.1 Pattern 1: Docker Network Integration
 
-Connect your application services to the genai-vanilla network.
+Connect your application services to the atlas network.
 
 **Parent docker-compose.yml:**
 
 ```yaml
 networks:
-  # Connect to genai-vanilla network
+  # Connect to atlas network
   infra-network:
     external: true
     name: myproject-network  # Must match PROJECT_NAME in infra/.env
@@ -333,14 +333,14 @@ echo "All services stopped!"
 
 ## 7. Contributing Back
 
-When using genai-vanilla as a submodule, you can contribute improvements back to the project using the standard git workflow.
+When using atlas as a submodule, you can contribute improvements back to the project using the standard git workflow.
 
 ### 7.1 Contribution Workflow
 
 #### 7.1.1 Create a Fork
 
 ```bash
-# Fork the genai-vanilla repository to your account on GitHub
+# Fork the atlas repository to your account on GitHub
 # Then add your fork as a remote (replace with your fork URL)
 
 cd infra
@@ -377,7 +377,7 @@ git push fork feature/my-improvement
 #### 7.1.5 Create Pull Request
 
 - Go to GitHub and create a PR from your fork's branch
-- Target the original genai-vanilla repository's `main` branch
+- Target the original atlas repository's `main` branch
 - Describe your changes and their benefits
 
 #### 7.1.6 Update Submodule After Merge
@@ -392,7 +392,7 @@ git pull origin main
 # Update parent repository to track new commit
 cd ..
 git add infra
-git commit -m "Update genai-vanilla submodule to latest version"
+git commit -m "Update atlas submodule to latest version"
 ```
 
 ### 7.2 Local Customizations vs. Contributions
@@ -540,11 +540,11 @@ git submodule update --init
 
 ### 9.1 Running Multiple Infrastructure Stacks
 
-You can run multiple instances of genai-vanilla for different projects:
+You can run multiple instances of atlas for different projects:
 
 ```bash
 # Project 1 — set PROJECT_NAME in the infra/.env (a shell-env prefix is NOT
-# read by the bootstrapper: compose would keep project name `genai` while
+# read by the bootstrapper: compose would keep project name `atlas` while
 # fragment interpolation used the shell value, colliding the two stacks)
 cd ~/project1/infra
 echo "PROJECT_NAME=project1" >> .env
@@ -649,7 +649,7 @@ DOC_PROCESSOR_SOURCE=disabled
 
 ## 11. Additional Resources
 
-- [Main genai-vanilla README](../../README.md)
+- [Main atlas README](../../README.md)
 - [Source Configuration](source-configuration.md)
 - [Git Submodules Documentation](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
 
@@ -663,4 +663,4 @@ If you encounter issues:
 
 ---
 
-*This guide is part of the genai-vanilla documentation. For updates and improvements, please contribute back to the project!*
+*This guide is part of the atlas documentation. For updates and improvements, please contribute back to the project!*

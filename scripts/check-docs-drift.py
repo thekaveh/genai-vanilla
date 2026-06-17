@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local documentation drift checks for GenAI Vanilla.
+"""Local documentation drift checks for Atlas.
 
 Default scope excludes:
   * historical audit/plan files

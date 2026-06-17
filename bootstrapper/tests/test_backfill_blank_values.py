@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 def _make_starter(tmp_path: Path, env_body: str, example_body: str):
-    """Build a GenAIStackStarter pointing at a synthetic tmp_path repo.
+    """Build a AtlasStarter pointing at a synthetic tmp_path repo.
 
     The starter caches its env paths via ConfigParser at construction;
     we patch them post-construction to point at tmp_path so tests
@@ -25,9 +25,9 @@ def _make_starter(tmp_path: Path, env_body: str, example_body: str):
     """
     (tmp_path / ".env").write_text(env_body)
     (tmp_path / ".env.example").write_text(example_body)
-    from start import GenAIStackStarter
+    from start import AtlasStarter
 
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
     starter.config_parser.root_dir = tmp_path
     starter.config_parser.env_file_path = tmp_path / ".env"
     starter.config_parser.env_example_path = tmp_path / ".env.example"

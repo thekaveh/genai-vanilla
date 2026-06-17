@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide covers common issues and their solutions when using the GenAI Vanilla Stack.
+This guide covers common issues and their solutions when using the Atlas.
 
 ## 1. .env Migration (LiteLLM rollout)
 
@@ -17,13 +17,13 @@ The simplest reset is `cp .env.example .env` followed by `./start.sh --cold` —
 When `./start.sh` runs the Textual TUI, every line is tee'd to a timestamped file — both wizard-time diagnostic events (cloud `/v1/models` fetch failures, Ollama upstream discovery warnings, etc.) and the entire launch phase (build, port verification, `docker compose up`, per-service `logs --tail` on failure):
 
 ```
-/tmp/genai-vanilla-launch-<YYYYMMDDTHHMMSS>.log
+/tmp/atlas-launch-<YYYYMMDDTHHMMSS>.log
 ```
 
 The most recent log is always:
 
 ```bash
-ls -t /tmp/genai-vanilla-launch-*.log | head -1
+ls -t /tmp/atlas-launch-*.log | head -1
 ```
 
 Inspect it after a failed launch — it captures everything the log pane showed, plus a few sources the pane filters out (e.g. cloud-fetch fallback warnings: `[warn/openai-fetch] live /v1/models returned 0 models — falling back to catalog (cause: HTTP 401)`). The file persists across reboots until your OS rotates `/tmp`; copy it elsewhere if you need to keep it.
@@ -361,8 +361,8 @@ cp .env config_backup.env  # Remove sensitive data before sharing
 
 ### 9.3 Community Resources
 
-- [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues) - Bug reports and feature requests
-- [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions) - Questions and community support
+- [GitHub Issues](https://github.com/thekaveh/atlas/issues) - Bug reports and feature requests
+- [GitHub Discussions](https://github.com/thekaveh/atlas/discussions) - Questions and community support
 - [Documentation](../README.md) - Complete documentation index
 
 ## 10. Recovery Procedures

@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 #
-# GenAI Vanilla Stack - Stop Script Wrapper
+# Atlas - Stop Script Wrapper
 #
 # This is a thin wrapper that calls the Python implementation for full cross-platform compatibility.
 #

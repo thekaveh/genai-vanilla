@@ -119,7 +119,7 @@ def _resolve_models_volume_root(env_vars: Dict[str, str]) -> Path | None:
     (Docker Desktop keeps it inside the VM) — callers then skip the
     [pulled] badges instead of scanning a path that can never match.
     """
-    project = (env_vars.get("PROJECT_NAME", "genai") or "genai").strip()
+    project = (env_vars.get("PROJECT_NAME", "atlas") or "atlas").strip()
     volume_name = f"{project}-comfyui-models"
     try:
         out = subprocess.run(

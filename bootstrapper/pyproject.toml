@@ -1,7 +1,7 @@
 [project]
-name = "genai-bootstrapper"
+name = "atlas-bootstrapper"
 version = "1.0.0"
-description = "GenAI Vanilla Stack bootstrapper - cross-platform startup and management scripts"
+description = "Atlas bootstrapper - cross-platform startup and management scripts"
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",           # YAML parsing (replaces yq)

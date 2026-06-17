@@ -228,7 +228,7 @@
   "id": "searxng-research-workflow",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "genai-vanilla-stack"
+    "instanceId": "atlas"
   },
   "tags": [
     "searxng",

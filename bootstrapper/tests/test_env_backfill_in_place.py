@@ -27,11 +27,11 @@ Two bugs were observed live on PR #35's first user launch:
 """
 from __future__ import annotations
 
-from start import GenAIStackStarter
+from start import AtlasStarter
 
 
 # Use the static method directly — no Starter setup needed.
-_splice = GenAIStackStarter._splice_backfill_in_place
+_splice = AtlasStarter._splice_backfill_in_place
 
 
 def _build_groups(section_to_entries):

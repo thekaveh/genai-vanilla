@@ -1,26 +1,38 @@
-"""GENAI_ENV_FILE must be honored at every seam, not just validation.
+"""ATLAS_ENV_FILE must be honored at every seam, not just validation.
 
 Regression guards for the half-wired custom-env-path feature:
 - docker compose argv used to hardcode `--env-file=.env` at all four
   construction sites, so compose silently ran against the repo-root .env
   (or failed) while the bootstrapper validated/migrated the custom file.
 - KeyGenerator wrote generated secrets to repo-root .env regardless.
-- A relative GENAI_ENV_FILE resolved against CWD, which differs between
+- A relative ATLAS_ENV_FILE resolved against CWD, which differs between
   the uv launcher (bootstrapper/) and the system-python fallback (root).
+- GENAI_ENV_FILE is honored as a deprecated alias (stderr warning fires
+  once per process); these tests also pin the alias behavior.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+import core.config_parser as config_parser_module
 from core.config_parser import ConfigParser
 from core.docker_manager import DockerManager
 from utils.key_generator import KeyGenerator
 
 
+@pytest.fixture(autouse=True)
+def _reset_deprecation_warned(monkeypatch):
+    """Reset the module-level deprecation guard between tests so the
+    one-shot stderr warning is testable in isolation."""
+    monkeypatch.setattr(config_parser_module, "_DEPRECATION_WARNED", False)
+
+
 def _custom_env(tmp_path, monkeypatch) -> Path:
     env = tmp_path / "custom.env"
-    env.write_text("PROJECT_NAME=genai\n", encoding="utf-8")
-    monkeypatch.setenv("GENAI_ENV_FILE", str(env))
+    env.write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
     return env
 
 
@@ -34,6 +46,7 @@ def test_build_compose_command_uses_resolved_env_file(tmp_path, monkeypatch):
 
 
 def test_build_compose_command_default_env_file_is_root_anchored(monkeypatch):
+    monkeypatch.delenv("ATLAS_ENV_FILE", raising=False)
     monkeypatch.delenv("GENAI_ENV_FILE", raising=False)
     dm = DockerManager()
     monkeypatch.setattr(dm, "detect_docker_compose_command", lambda: "docker compose")
@@ -49,9 +62,9 @@ def test_key_generator_targets_custom_env_file(tmp_path, monkeypatch):
     assert kg.env_file_path == env
 
 
-def test_relative_genai_env_file_anchors_at_root_dir(tmp_path, monkeypatch):
+def test_relative_atlas_env_file_anchors_at_root_dir(tmp_path, monkeypatch):
     (tmp_path / "rel.env").write_text("", encoding="utf-8")
-    monkeypatch.setenv("GENAI_ENV_FILE", "rel.env")
+    monkeypatch.setenv("ATLAS_ENV_FILE", "rel.env")
     cp = ConfigParser(str(tmp_path))
     assert cp.env_file_path == (tmp_path / "rel.env").resolve()
 
@@ -66,7 +79,7 @@ def test_update_env_file_preserves_backslashes_in_values(tmp_path, monkeypatch):
 
     env = tmp_path / ".env"
     env.write_text("SOME_SECRET=old\n", encoding="utf-8")
-    monkeypatch.setenv("GENAI_ENV_FILE", str(env))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
     mgr = SourceOverrideManager(ConfigParser())
     tricky = r"abc\1def\g<name>\\end"
     assert mgr.update_env_file({"SOME_SECRET": tricky}) is True
@@ -86,10 +99,40 @@ def test_parse_env_file_quote_and_hash_semantics(tmp_path, monkeypatch):
         "PLAIN=simple\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("GENAI_ENV_FILE", str(env))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
     parsed = ConfigParser().parse_env_file()
     assert parsed["QUOTED"] == "ab#cd"
     assert parsed["SINGLE"] == "x#y"
     assert parsed["UNQUOTED_HASH"] == "ab#cd"
     assert parsed["WITH_COMMENT"] == "value"
     assert parsed["PLAIN"] == "simple"
+
+
+def test_genai_env_file_deprecated_alias_resolves_and_warns(tmp_path, monkeypatch, capsys):
+    """Setting only GENAI_ENV_FILE (the deprecated alias) still resolves
+    the custom path AND emits a stderr deprecation warning once per
+    process."""
+    env = tmp_path / "legacy.env"
+    env.write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    monkeypatch.delenv("ATLAS_ENV_FILE", raising=False)
+    monkeypatch.setenv("GENAI_ENV_FILE", str(env))
+    cp = ConfigParser(str(tmp_path))
+    assert cp.env_file_path == env.resolve()
+    captured = capsys.readouterr()
+    assert "GENAI_ENV_FILE is deprecated" in captured.err
+    assert "ATLAS_ENV_FILE" in captured.err
+
+
+def test_atlas_env_file_takes_precedence_over_genai_alias(tmp_path, monkeypatch, capsys):
+    """When both env vars are set, ATLAS_ENV_FILE wins and the
+    deprecation warning does NOT fire (the legacy alias is never read)."""
+    atlas_env = tmp_path / "atlas.env"
+    legacy_env = tmp_path / "legacy.env"
+    atlas_env.write_text("", encoding="utf-8")
+    legacy_env.write_text("", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(atlas_env))
+    monkeypatch.setenv("GENAI_ENV_FILE", str(legacy_env))
+    cp = ConfigParser(str(tmp_path))
+    assert cp.env_file_path == atlas_env.resolve()
+    captured = capsys.readouterr()
+    assert "deprecated" not in captured.err

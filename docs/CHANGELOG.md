@@ -1,11 +1,99 @@
 # Changelog
 
-All notable changes to the GenAI Vanilla Stack will be documented in this file.
+All notable changes to Atlas (formerly GenAI Vanilla Stack) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Changed — 2026-06-16 — Project renamed: GenAI Vanilla → Atlas
+
+This release renames the project end-to-end. Every variant of the old
+name (`GenAI Vanilla`, `GenAI Vanilla Stack`, `genai-vanilla`,
+`genai-*` container prefix, `GENAI_ENV_FILE` env var, `GenAIStack*`
+Python classes) flips to **Atlas** / **atlas**. The hand-drawn block-
+art title in the Textual TUI and the linear (`--no-tui`) banner was
+also hand-redrawn as **ATLAS** while preserving the existing color
+gradients (`#74A6F4 → #0A1A55` vertical on the TUI; 15-color
+`color(17) → color(195)` horizontal on the linear full banner).
+
+User-visible changes that need action:
+
+- **Container prefix flipped `genai-* → atlas-*`.** `PROJECT_NAME` default
+  is now `atlas`, so every `${PROJECT_NAME}-<svc>` template across 33
+  services renders as `atlas-<svc>`. Old containers and volumes named
+  `genai-*` are orphaned on the next pull. To migrate:
+    * Easiest path — accept fresh state: `./stop.sh --cold` then
+      `./start.sh`.
+    * Preserve existing data — rename volumes per service:
+      ```bash
+      for svc in supabase-db n8n-data jupyterhub-data weaviate-data redis-data ...; do
+        docker volume create atlas-$svc
+        docker run --rm \
+          -v genai-$svc:/from \
+          -v atlas-$svc:/to \
+          alpine cp -a /from/. /to/
+      done
+      ```
+    * Then `./start.sh` boots against the new atlas-prefixed volumes.
+
+- **`GENAI_ENV_FILE` env var renamed to `ATLAS_ENV_FILE`.** The old name
+  is still honored as a deprecated alias with a one-shot stderr warning
+  per process; it will be removed in a future major release. Submodule
+  users should flip the variable name in their wrapper scripts.
+
+- **Grafana folder name changed `'genai-vanilla' / 'GenAI Vanilla' →
+  'atlas' / 'Atlas'`.** Existing Grafana volumes will see the 7 starter
+  dashboards appear under a NEW empty "Atlas" folder, while the old
+  "GenAI Vanilla" folder is left behind with the previous dashboards
+  inside (until you manually move or delete them).
+
+- **GitHub repo URL flipped to `github.com/thekaveh/atlas`** in 18
+  places (BRAND_REPO_URL default, README clone instruction, Open WebUI
+  tool author_urls, etc.). Until the GitHub repo is renamed on the
+  remote, these links 404; GitHub auto-forwards old→new for many
+  months after a rename, so timing is non-urgent.
+
+- **Python class + method names: `GenAIStackStarter → AtlasStarter`,
+  `GenAIStackStopper → AtlasStopper`, `HostsManager.get_genai_hosts →
+  get_atlas_hosts`** (and the private `_genai_hosts_from_topology`
+  variant). Anyone importing these from a parent project must flip the
+  identifier.
+
+- **Python package names flipped**: `bootstrapper/pyproject.toml`
+  `genai-bootstrapper → atlas-bootstrapper`;
+  `services/docling/provider/localhost/pyproject.toml`
+  `genai-doc-processor-localhost → atlas-doc-processor-localhost`. Both
+  `uv.lock` files regenerated.
+
+- **Launch log path template**: `/tmp/genai-vanilla-launch-*.log →
+  /tmp/atlas-launch-*.log`. Old log files survive but new launches
+  write to the new path.
+
+- **JupyterHub Neo4j MERGE node**: notebook
+  `03_neo4j_graphs.ipynb` creates a graph node named `'Atlas'` on next
+  run. Existing graphs from prior runs still carry the
+  `'GenAI Vanilla Stack'` node; merge with a one-shot cypher:
+  ```cypher
+  MATCH (s:System {name: 'GenAI Vanilla Stack'}) SET s.name = 'Atlas'
+  ```
+
+Internals (no operator action required):
+- Block art `_LOGO_ROWS` in `block_logo.py` redrawn; `_GRADIENT` and
+  render pipeline unchanged. Linear `get_ascii_art_full()` is now a
+  single 6-row ATLAS strip; the 15-color gradient applies per-character.
+- `BRAND_NAME` default in `services/globals/service.yml` →
+  `"Atlas"`; `.env.example` regenerated.
+- Architecture HTML template `<title>` flips `(genai-vanilla)` →
+  `(atlas)`; 33 `services/*/architecture.html` regenerated.
+- JSON Schema `$id` URLs `https://genai-vanilla/schemas/...` →
+  `https://atlas/schemas/...` (internal identifiers; never resolved
+  over HTTP).
+- Test baseline `bootstrapper/tests/fixtures/rendered_config_baseline.yml`
+  regenerated to reflect the new `atlas-*` container/volume/network names.
+- Historical CHANGELOG entries below this section deliberately preserved
+  (they describe the project as it was named at the time).
 
 ### Fixed — 2026-06-15
 

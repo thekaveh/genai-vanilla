@@ -10,7 +10,7 @@ under a ``# User-only keys`` trailer at the bottom.
 
 This is a MANUAL operational tool — nothing in CI, the bootstrapper,
 or the docs invokes it; run it yourself when an old .env has accreted
-trailers. Honors GENAI_ENV_FILE like the rest of the stack.
+trailers. Honors ATLAS_ENV_FILE (deprecated: GENAI_ENV_FILE) like the rest of the stack.
 
 Usage:
     python bootstrapper/scripts/reorg_user_env.py [--dry-run]
@@ -28,11 +28,17 @@ from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-# Honor GENAI_ENV_FILE like every other .env consumer (start.py,
-# config_parser, docker_manager, key_generator) — a custom-env-file user
-# running this cleanup would otherwise reorganize the wrong file.
-# Relative paths anchor at the repo root, matching ConfigParser.
-_custom = os.environ.get("GENAI_ENV_FILE", "").strip()
+# Honor ATLAS_ENV_FILE (deprecated alias: GENAI_ENV_FILE) like every
+# other .env consumer (start.py, config_parser, docker_manager,
+# key_generator) — a custom-env-file user running this cleanup would
+# otherwise reorganize the wrong file. Relative paths anchor at the
+# repo root, matching ConfigParser._resolve_env_file_path. We can't
+# import ConfigParser here without dragging the rest of the package
+# in, so this mirrors the same alias logic locally.
+_custom = (
+    os.environ.get("ATLAS_ENV_FILE", "").strip()
+    or os.environ.get("GENAI_ENV_FILE", "").strip()
+)
 if _custom:
     _p = Path(_custom).expanduser()
     ENV_PATH = (_p if _p.is_absolute() else REPO_ROOT / _p).resolve()
@@ -128,7 +134,7 @@ def main() -> int:
         print(f"error: {EXAMPLE_PATH} not found", file=sys.stderr)
         return 1
     # Backup-or-bust safety: refuse if no backup exists ALONGSIDE the
-    # active env file (honors GENAI_ENV_FILE — globbing the repo root
+    # active env file (honors ATLAS_ENV_FILE — globbing the repo root
     # both refused legitimate custom-path backups and let stale
     # repo-root backups falsely satisfy the check).
     backups = list(ENV_PATH.parent.glob(ENV_PATH.name + ".bak.*"))

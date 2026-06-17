@@ -147,10 +147,10 @@ def test_run_port_migration_skip_does_not_stamp(tmp_path, monkeypatch):
     env_path = tmp_path / ".env"
     env_path.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
 
-    monkeypatch.setenv("GENAI_ENV_FILE", str(env_path))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env_path))
     # Build a starter; tear down anything that hits the network.
-    from start import GenAIStackStarter
-    starter = GenAIStackStarter()
+    from start import AtlasStarter
+    starter = AtlasStarter()
     # Override env path so we don't touch the real repo .env.
     starter.config_parser.env_file_path = env_path
 
@@ -170,10 +170,10 @@ def test_run_port_migration_normal_run_stamps_and_rewrites(tmp_path, monkeypatch
 
     env_path = tmp_path / ".env"
     env_path.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
-    monkeypatch.setenv("GENAI_ENV_FILE", str(env_path))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env_path))
 
-    from start import GenAIStackStarter
-    starter = GenAIStackStarter()
+    from start import AtlasStarter
+    starter = AtlasStarter()
     starter.config_parser.env_file_path = env_path
 
     assert needs_migration(env_path) is True
@@ -252,19 +252,19 @@ def test_apply_writes_backup_before_overwrite(tmp_path):
     assert env_path.read_text() != original
 
 
-# ─── I15 regression — GENAI_ENV_FILE override honored ───────────────
+# ─── I15 regression — ATLAS_ENV_FILE override honored ───────────────
 
-def test_run_port_migration_honors_genai_env_file(tmp_path, monkeypatch):
+def test_run_port_migration_honors_atlas_env_file(tmp_path, monkeypatch):
     """The helper must operate on ``self.config_parser.env_file_path``
-    (which honors GENAI_ENV_FILE), not a hardcoded ``../.env``."""
+    (which honors ATLAS_ENV_FILE), not a hardcoded ``../.env``."""
     custom_env = tmp_path / "custom.env"
     custom_env.write_text("BASE_PORT=63000\nLITELLM_PORT=63012\n")
-    monkeypatch.setenv("GENAI_ENV_FILE", str(custom_env))
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(custom_env))
     repo_env = Path(__file__).resolve().parents[2] / ".env"
     repo_env_snapshot = repo_env.read_bytes() if repo_env.is_file() else b""
 
-    from start import GenAIStackStarter
-    starter = GenAIStackStarter()
+    from start import AtlasStarter
+    starter = AtlasStarter()
     # Re-resolve since env var was set after construction in some flows.
     starter.config_parser.env_file_path = custom_env
 

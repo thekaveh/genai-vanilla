@@ -28,9 +28,9 @@ EXAMPLE = (
 def _make_starter(tmp_path: Path, env_body: str, example_body: str = EXAMPLE):
     (tmp_path / ".env").write_text(env_body)
     (tmp_path / ".env.example").write_text(example_body)
-    from start import GenAIStackStarter
+    from start import AtlasStarter
 
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
     # root_dir stays at the real repo so migration v1 can load topology;
     # only the env paths point at tmp_path.
     starter.config_parser.env_file_path = tmp_path / ".env"

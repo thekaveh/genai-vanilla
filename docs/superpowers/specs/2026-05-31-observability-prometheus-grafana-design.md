@@ -590,9 +590,9 @@ When `PROMETHEUS_SOURCE=disabled` and `GRAFANA_SOURCE=container`, the `PROMETHEU
 ```yaml
 apiVersion: 1
 providers:
-  - name: 'genai-vanilla'
+  - name: 'atlas'
     orgId: 1
-    folder: 'GenAI Vanilla'
+    folder: 'Atlas'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
@@ -889,7 +889,7 @@ global:
   scrape_interval: 30s
   scrape_timeout: 10s
   external_labels:
-    stack: genai-vanilla
+    stack: atlas
 
 scrape_configs:
   - job_name: prometheus
@@ -1213,7 +1213,7 @@ curl -fsS http://localhost:64004/-/healthy    # Prometheus on infra offset 4
 curl -fsS http://prometheus.localhost/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
 # 14 targets — those whose source is `container` show health=up; those `disabled` show health=down
 # Then visit http://grafana.localhost, log in with GRAFANA_ADMIN_USERNAME / GRAFANA_ADMIN_PASSWORD,
-# verify Prometheus datasource is connected and 7 dashboards appear in the "GenAI Vanilla" folder.
+# verify Prometheus datasource is connected and 7 dashboards appear in the "Atlas" folder.
 ```
 
 ## 15. Risks + open questions

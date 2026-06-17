@@ -17,7 +17,7 @@ from core.config_parser import ConfigParser, DEFAULT_BASE_PORT
 
 
 class PortManager:
-    """Manages port validation and assignment for GenAI Stack services."""
+    """Manages port validation and assignment for Atlas services."""
 
     def __init__(self, root_dir: Optional[str] = None):
         """

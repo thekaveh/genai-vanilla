@@ -1,1 +1,1 @@
-"""Interactive Setup Wizard for GenAI Vanilla Stack."""
+"""Interactive Setup Wizard for Atlas."""

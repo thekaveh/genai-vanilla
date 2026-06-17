@@ -15,7 +15,7 @@ def test_zeppelin_fragment_renders():
         [
             "docker", "compose",
             "--env-file", str(REPO_ROOT / ".env.example"),
-            "-p", "genai",
+            "-p", "atlas",
             "-f", str(REPO_ROOT / "docker-compose.yml"),
             "config", "--services",
         ],

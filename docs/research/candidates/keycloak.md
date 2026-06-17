@@ -18,7 +18,7 @@ Self-hosted OpenID Connect / OAuth2 / SAML identity provider that replaces the s
 The stack currently has at least six independent credential surfaces — Supabase GoTrue (users), Kong dashboard basic-auth, JupyterHub PAM, MinIO root, Neo4j neo4j/password, n8n owner — and no single sign-on. Kong's `key-auth` is only applied to Supabase routes; every other `*.localhost` alias is open on the LAN. Keycloak provides a single OIDC issuer that Kong's `openid-connect`-style flows (via the OSS-compatible community `kong-oidc` plugin or Kong's built-in `jwt` plugin pointed at Keycloak's JWKs) can validate, and that JupyterHub/Open WebUI/n8n/MinIO/Neo4j all natively support.
 
 ## Stack wiring sketch
-- kong → keycloak via `https://keycloak:8443/realms/genai/.well-known/openid-configuration` (JWKs for the `jwt` plugin)
+- kong → keycloak via `https://keycloak:8443/realms/atlas/.well-known/openid-configuration` (JWKs for the `jwt` plugin)
 - jupyterhub → keycloak via the official `oauthenticator` package (already a JupyterHub dep)
 - open-webui → keycloak via Open WebUI's `OAUTH_*` env vars
 - n8n → keycloak via n8n's SSO config (`N8N_SSO_*`)
@@ -28,7 +28,7 @@ The stack currently has at least six independent credential surfaces — Supabas
 - backend → keycloak via the FastAPI middleware validating bearer tokens against Keycloak JWKs
 
 ## Effort
-large — Keycloak itself is one compose service backed by Supabase Postgres (or its own db), but every consumer requires an OIDC client config and a doc update. The real cost is migrating existing service credentials and writing a hosts-bootstrap script that pre-seeds the `genai` realm + clients on first boot.
+large — Keycloak itself is one compose service backed by Supabase Postgres (or its own db), but every consumer requires an OIDC client config and a doc update. The real cost is migrating existing service credentials and writing a hosts-bootstrap script that pre-seeds the `atlas` realm + clients on first boot.
 
 ## Risks & open questions
 - Keycloak is JVM-based — ~512 MB RAM floor; non-trivial on a 16 GB laptop alongside Ollama.

@@ -149,7 +149,7 @@ def build_app_state(
     service_sources = config_parser.parse_service_sources()
 
     # Brand metadata — overridable via .env. Defaults match the canonical
-    # GenAI Vanilla project values declared on `AppState`.
+    # Atlas project values declared on `AppState`.
     defaults = AppState()
     brand_name = _brand_field(env, "BRAND_NAME", defaults.brand_name)
     tagline = _brand_field(env, "BRAND_TAGLINE", defaults.tagline)

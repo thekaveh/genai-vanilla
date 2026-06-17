@@ -1,6 +1,6 @@
-# JupyterHub - GenAI Vanilla Stack
+# JupyterHub - Atlas
 
-Interactive data science IDE with pre-configured access to all GenAI Vanilla Stack services.
+Interactive data science IDE with pre-configured access to all Atlas services.
 
 ## Overview
 
@@ -45,7 +45,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 ### Authentication
 
 - If `JUPYTERHUB_TOKEN` is not set, a token will be auto-generated on startup
-- Check Docker logs to see the token: `docker logs genai-jupyterhub`
+- Check Docker logs to see the token: `docker logs atlas-jupyterhub`
 - Set a permanent token in `.env` to avoid regeneration
 
 ## Pre-installed Packages
@@ -162,7 +162,7 @@ with engine.connect() as conn:
 
 ### Work Directory
 - Location: `/home/jovyan/work`
-- Persisted in: `genai-jupyterhub-data` Docker volume
+- Persisted in: `atlas-jupyterhub-data` Docker volume
 - All notebooks and files in this directory persist across container restarts
 
 ### Sample Notebooks
@@ -199,7 +199,7 @@ print("Neo4j:", os.getenv("NEO4J_URI"))
 
 ### Token not working
 
-1. Check logs: `docker logs genai-jupyterhub`
+1. Check logs: `docker logs atlas-jupyterhub`
 2. Find the token URL in logs
 3. Or set `JUPYTERHUB_TOKEN` in `.env` and restart
 
@@ -246,10 +246,10 @@ Avoid direct `docker-compose.yml` edits for normal operation; local compose edit
 
 - [Jupyter Lab Documentation](https://jupyterlab.readthedocs.io/)
 - [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
-- [GenAI Vanilla Stack Docs](../../../docs/README.md)
+- [Atlas Docs](../../../docs/README.md)
 
 ## Support
 
-- GitHub Issues: [Report bugs](https://github.com/thekaveh/genai-vanilla/issues)
+- GitHub Issues: [Report bugs](https://github.com/thekaveh/atlas/issues)
 - Documentation: [Full docs](../../../docs/README.md)
-- Logs: `docker logs genai-jupyterhub`
+- Logs: `docker logs atlas-jupyterhub`

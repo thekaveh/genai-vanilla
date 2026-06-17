@@ -9,7 +9,7 @@
 
 ## 1. Summary
 
-This spec adds three new services to the `genai-vanilla` stack as a single
+This spec adds three new services to the `atlas` stack as a single
 coordinated change set:
 
 - **Apache Spark 4.1.2** — standalone-mode cluster (1 master + N workers + history
@@ -988,12 +988,12 @@ A reviewer can mark this PR ready-to-merge when:
 - [ ] All 3 services boot in their `container` source variant via
       `./start.sh --spark-source container --zeppelin-source container
       --airflow-source container`.
-- [ ] `docker exec genai-airflow-webserver airflow connections list`
+- [ ] `docker exec atlas-airflow-webserver airflow connections list`
       shows all expected `_default` connections seeded based on which
       sibling services are enabled.
-- [ ] `docker exec genai-zeppelin` can run a sample notebook that does
+- [ ] `docker exec atlas-zeppelin` can run a sample notebook that does
       a Spark DataFrame round-trip with MinIO.
-- [ ] `docker exec genai-spark-master spark-submit --version` reports
+- [ ] `docker exec atlas-spark-master spark-submit --version` reports
       4.1.2.
 - [ ] All 4 Kong aliases resolve in the browser with no host-rewrite
       issues (verified via `curl -I` from the host).

@@ -4,7 +4,7 @@ InfoPanel — bordered, brand-titled info panel anchoring the wizard screen.
 Mockup 003 layout:
 
     ┌─────────────────────────────────────────────────────────────────┐
-    │ GENAI VANILLA                Kaveh · Apache-2.0 · github.com/.. │
+    │ ATLAS                        Kaveh · Apache-2.0 · github.com/.. │
     │                                                                 │
     │ █  ⌕  Filter services...                                        │
     │ █  ▸ ● supabase-db   INFRA  supabase.localhost  :63010 …        │
@@ -69,7 +69,7 @@ class BrandInfo:
     # All fields default to empty so that any caller constructing
     # BrandInfo() directly without explicitly providing values gets a
     # visibly unbranded panel (rather than silently falling back to
-    # GenAI-Vanilla defaults). The canonical defaults live in
+    # Atlas defaults). The canonical defaults live in
     # ``ui/state.py::AppState`` and are layered in by
     # ``state_builder.build_app_state`` from BRAND_* env vars + fallbacks.
     name: str = ""

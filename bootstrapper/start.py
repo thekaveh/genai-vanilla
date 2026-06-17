@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-GenAI Vanilla Stack - Start Script
+Atlas - Start Script
 
 Python implementation of start.sh with full feature parity.
-Cross-platform startup script for the GenAI development environment.
+Cross-platform startup script for the Atlas development environment.
 """
 
 import re
@@ -112,7 +112,7 @@ def _detect_port_collisions(rows) -> list[str]:
     `rows` is an iterable of ``(name, port_val)`` tuples — the same
     shape the pre-launch summary builder already accumulates as it
     iterates services. Kept as a module-level free function so it can
-    be unit-tested without instantiating ``GenAIStackStarter``.
+    be unit-tested without instantiating ``AtlasStarter``.
 
     The warnings are purely informational — launch still proceeds.
     Compose-up would otherwise fail with an opaque "address already in
@@ -139,8 +139,8 @@ def _detect_port_collisions(rows) -> list[str]:
     return warnings
 
 
-class GenAIStackStarter:
-    """Main class for starting the GenAI Stack."""
+class AtlasStarter:
+    """Main class for starting the Atlas."""
     
     def __init__(self):
         # Set root directory first
@@ -285,7 +285,8 @@ class GenAIStackStarter:
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None) -> bool:
         """
         Setup .env file from .env.example if needed.
-        Supports custom .env file paths via GENAI_ENV_FILE environment variable.
+        Supports custom .env file paths via ATLAS_ENV_FILE environment variable
+        (and the deprecated GENAI_ENV_FILE alias).
         Replicates the .env setup logic from the original start.sh.
 
         Args:
@@ -295,7 +296,7 @@ class GenAIStackStarter:
         Returns:
             bool: True if successful
         """
-        # Use config_parser paths which respect GENAI_ENV_FILE
+        # Use config_parser paths which respect ATLAS_ENV_FILE
         env_file_path = self.config_parser.env_file_path
         env_example_path = self.config_parser.env_example_path
 
@@ -952,7 +953,7 @@ class GenAIStackStarter:
         Idempotent. Each step is gated by its own ``_needs_*`` predicate
         so re-running is safe and stamping is independent. Reads
         ``BOOTSTRAPPER_PORT_LAYOUT_VERSION`` from the active env file
-        (honors ``GENAI_ENV_FILE``).
+        (honors ``ATLAS_ENV_FILE``).
 
         v1: rewrites every port var whose current value matches the v0
         default to the topology-derived v1 default. User-customized
@@ -1332,7 +1333,7 @@ class GenAIStackStarter:
             result = self.docker_manager.execute_compose_command(['up', '-d', '--force-recreate'])
             
         else:
-            self.banner.show_status_message("Starting GenAI Vanilla Stack services...", "info")
+            self.banner.show_status_message("Starting Atlas services...", "info")
             result = self.docker_manager.start_services(detached=True)
         
         if result != 0:
@@ -1410,7 +1411,7 @@ class GenAIStackStarter:
         hosts_present = set()
         try:
             existing_missing = self.hosts_manager.check_missing_hosts()
-            all_hosts = self.hosts_manager.get_genai_hosts()
+            all_hosts = self.hosts_manager.get_atlas_hosts()
             hosts_present = set(all_hosts) - set(existing_missing)
         except Exception:
             pass
@@ -1767,7 +1768,7 @@ class GenAIStackStarter:
               type=click.Path(exists=False, dir_okay=False),
               help='Path to a sidecar custom-models.yaml. Default: '
                    'services/comfyui/custom-models.yaml. Override to point at '
-                   'a file outside the repo (e.g. /etc/genai/my-models.yaml).')
+                   'a file outside the repo (e.g. /etc/atlas/my-models.yaml).')
 @click.option('--comfyui-source',
               type=click.Choice(['container-cpu', 'container-gpu', 'localhost',
                                 'disabled'], case_sensitive=False),
@@ -1891,7 +1892,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          zeppelin_source,
          airflow_source,
          no_tui, no_port_migrate):
-    """Start the GenAI Vanilla Stack - Cross-platform AI development environment."""
+    """Start the Atlas - Cross-platform AI development environment."""
 
     # ─── Track override warnings ─────────────────────────────────────
     # Fires when --track is set AND any explicit --*-source flag picks
@@ -1996,7 +1997,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             )
             sys.exit(2)
 
-    starter = GenAIStackStarter()
+    starter = AtlasStarter()
 
     try:
         # Cloud LLM provider keys passed via CLI flags. Persisting to

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add Apache Spark 4.1.2 (standalone cluster), Apache Zeppelin 0.12.0 (Spark-first notebook), and Apache Airflow 3.2.2 (LocalExecutor with AI/ML SDK) to the genai-vanilla stack as a single coordinated PR, with comprehensive cross-stack integration covering MinIO, Supabase, LiteLLM, Hermes, and the existing service lineup.
+**Goal:** Add Apache Spark 4.1.2 (standalone cluster), Apache Zeppelin 0.12.0 (Spark-first notebook), and Apache Airflow 3.2.2 (LocalExecutor with AI/ML SDK) to the atlas stack as a single coordinated PR, with comprehensive cross-stack integration covering MinIO, Supabase, LiteLLM, Hermes, and the existing service lineup.
 
 **Architecture:** Three new `services/<svc>/{service.yml, compose.yml}` manifests follow the existing fragment pattern. Spark + Zeppelin + Airflow are placed in `data` / `apps` / `agents` categories respectively (no `topology.py` surgery). All default `disabled`. Spark has a wizard-prompted worker-count slider mirroring Ray's `SecondaryNumberInput` pattern. Airflow's init container conditionally seeds Connection objects for every enabled sibling service (Spark, MinIO, LiteLLM, Postgres, Weaviate, Neo4j, Redis) so DAGs reference them by canonical names. Zeppelin hard-fails source selection when Spark is disabled.
 
@@ -28,7 +28,7 @@
 - [ ] **Step 1: Confirm starting state**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 git fetch --prune origin
 git checkout main
 git pull --ff-only origin main
@@ -62,7 +62,7 @@ Expected: new branch tracking `origin/feat/airflow-spark-zeppelin`.
 - [ ] **Step 1: Run the full suite and record the pass count**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m pytest --tb=no -q 2>&1 | tail -3
 ```
 
@@ -113,7 +113,7 @@ def test_spark_manifest_loads():
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m pytest tests/test_manifests.py::test_spark_manifest_loads -v
 ```
 
@@ -264,7 +264,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 git add services/spark/service.yml bootstrapper/tests/test_manifests.py
 git commit -m "feat(spark): add service.yml manifest
 
@@ -432,7 +432,7 @@ Edit `docker-compose.yml` (append to the existing `include:` list, after the las
 - [ ] **Step 6: Verify the merged stack still renders**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose -f docker-compose.yml --env-file .env.example config -q
 echo "exit=$?"
 ```
@@ -464,7 +464,7 @@ service.yml runtime_sc.environment.
 - [ ] **Step 1: Run the bind-source guards to confirm Spark passes**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m pytest tests/test_fragment_bind_sources.py -v 2>&1 | grep spark
 ```
 
@@ -486,16 +486,16 @@ Expected: 51 passed (was 49; +2 for the new spark fragment in both parametrized 
 - [ ] **Step 1: Regenerate from manifests**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m services.env_assembler
 ```
 
-Expected: stderr says "Wrote /Users/kaveh/repos/genai-vanilla/.env.example (~830 lines)" (was 822 — adds ~8 lines for SPARK_*).
+Expected: stderr says "Wrote /Users/kaveh/repos/atlas/.env.example (~830 lines)" (was 822 — adds ~8 lines for SPARK_*).
 
 - [ ] **Step 2: Verify SPARK_* entries landed**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 grep -E '^SPARK_' .env.example
 ```
 
@@ -1009,7 +1009,7 @@ Expected: 4 failed (the rendered output now includes spark blocks that aren't in
 Per `project_compose_baseline_test.md` + `project_baseline_regen_via_ci_artifact.md`: if you're on the same Compose version as CI, just regen locally. Otherwise the CI-artifact dance is required.
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose --env-file .env.example -p genai -f docker-compose.yml config 2>/dev/null > bootstrapper/tests/fixtures/rendered_config_baseline.yml.new
 
 # Normalize paths (replace local REPO_ROOT + HOME with placeholders):
@@ -1035,7 +1035,7 @@ Expected: 4 passed.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 git add bootstrapper/tests/fixtures/rendered_config_baseline.yml
 git commit -m "test(spark): regenerate fragment-equivalence baseline with spark blocks"
 ```
@@ -1113,7 +1113,7 @@ git commit -m "docs(spark): per-service README with access + config + integratio
 - [ ] **Step 1: Run the full suite**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m pytest --tb=no -q 2>&1 | tail -3
 ```
 
@@ -1336,7 +1336,7 @@ Append:
 - [ ] **Step 3: Verify the top-level compose still renders**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose -f docker-compose.yml --env-file .env.example config -q
 echo "exit=$?"
 ```
@@ -1355,7 +1355,7 @@ Expected: 2 PASSED (self-double + escape).
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 git add services/zeppelin/compose.yml docker-compose.yml
 git commit -m "feat(zeppelin): add compose fragment with Spark + JDBC + MinIO env"
 ```
@@ -1611,13 +1611,13 @@ dependency."
 ```bash
 cd bootstrapper
 ./.venv/bin/python -m services.env_assembler
-grep -E '^ZEPPELIN_' /Users/kaveh/repos/genai-vanilla/.env.example
+grep -E '^ZEPPELIN_' /Users/kaveh/repos/atlas/.env.example
 ```
 
 - [ ] **Step 2: Regen baseline**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose --env-file .env.example -p genai -f docker-compose.yml config 2>/dev/null > bootstrapper/tests/fixtures/rendered_config_baseline.yml.new
 python3 -c "
 from pathlib import Path
@@ -2010,7 +2010,7 @@ volumes:
 - [ ] **Step 3: Verify compose renders + bind-source guards**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose -f docker-compose.yml --env-file .env.example config -q
 cd bootstrapper
 ./.venv/bin/python -m pytest tests/test_fragment_bind_sources.py -v 2>&1 | grep airflow
@@ -2021,7 +2021,7 @@ Expected: both pass.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 git add services/airflow/compose.yml docker-compose.yml
 git commit -m "feat(airflow): compose fragment + wire into top-level include
 
@@ -2178,7 +2178,7 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 
 default_args = {
-    "owner": "genai-vanilla",
+    "owner": "atlas",
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=2),
@@ -2361,7 +2361,7 @@ Wizard display name 'Apache Airflow'."
 ```bash
 cd bootstrapper
 ./.venv/bin/python -m services.env_assembler
-grep -E '^AIRFLOW_' /Users/kaveh/repos/genai-vanilla/.env.example
+grep -E '^AIRFLOW_' /Users/kaveh/repos/atlas/.env.example
 ```
 
 - [ ] **Step 2: Regen the byte-equivalence baseline**
@@ -2375,7 +2375,7 @@ Same template as Spark + Zeppelin READMEs. Sections: Overview, Access (UI + REST
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 git add .env.example bootstrapper/tests/fixtures/rendered_config_baseline.yml services/airflow/README.md
 git commit -m "feat(airflow): regen .env.example + baseline + per-service README"
 ```
@@ -2437,7 +2437,7 @@ git commit -m "test(airflow): static assertions on init-airflow.sh gating"
 ### Task 3.9: Phase 3 validation
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m pytest --tb=no -q 2>&1 | tail -3
 ```
 
@@ -2479,7 +2479,7 @@ Expected: zero drift.
 - [ ] **Step 3: Run both scripts**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 bootstrapper/.venv/bin/python scripts/check-kong-routes.py
 bootstrapper/.venv/bin/python scripts/check-compose-source-deps.py
 ```
@@ -2586,7 +2586,7 @@ git commit -m "docs(CHANGELOG): added entry for Airflow + Spark + Zeppelin compu
 ### Task 4.6: Phase 4 validation
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla/bootstrapper
+cd /Users/kaveh/repos/atlas/bootstrapper
 ./.venv/bin/python -m pytest --tb=no -q 2>&1 | tail -3
 ./.venv/bin/python -m docs.regen --all --check 2>&1 | tail -3
 ```
@@ -2604,7 +2604,7 @@ Expected: tests pass, drift zero.
 - [ ] **Step 1: Stop any running stack**
 
 ```bash
-cd /Users/kaveh/repos/genai-vanilla
+cd /Users/kaveh/repos/atlas
 docker compose down --remove-orphans
 ```
 
@@ -2639,7 +2639,7 @@ curl -fsS -H "Authorization: Bearer $TOKEN" \
 - [ ] **Step 4: Confirm seeded Connections in Airflow**
 
 ```bash
-docker exec genai-airflow-webserver airflow connections list
+docker exec atlas-airflow-webserver airflow connections list
 ```
 
 Expected: `spark_default`, `minio_default`, `litellm_default`, `postgres_supabase`, `weaviate_default`, `neo4j_default`, `redis_default` all listed.
@@ -2676,7 +2676,7 @@ Implements the spec at \`docs/superpowers/specs/2026-06-04-airflow-spark-zeppeli
 - [x] \`scripts/check-docs-drift.py\` — PASS
 - [x] \`docs.regen --all --check\` — zero drift
 - [x] All 3 services boot via \`./start.sh --spark-source container --spark-workers 2 --zeppelin-source container --airflow-source container\`
-- [x] \`docker exec genai-airflow-webserver airflow connections list\` shows all 7 seeded Connections.
+- [x] \`docker exec atlas-airflow-webserver airflow connections list\` shows all 7 seeded Connections.
 EOF
 )"
 ```

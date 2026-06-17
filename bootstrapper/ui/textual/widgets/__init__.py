@@ -1,5 +1,5 @@
 """
-Textual widget subpackage for the GenAI Vanilla wizard.
+Textual widget subpackage for the Atlas wizard.
 """
 
 from .block_logo import BlockLogo, BrandPanel

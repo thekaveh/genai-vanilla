@@ -1,6 +1,6 @@
 # SOURCE Configuration Guide
 
-This guide explains the SOURCE-based configuration system that makes the GenAI Vanilla Stack flexible and modular.
+This guide explains the SOURCE-based configuration system that makes the Atlas flexible and modular.
 
 ## 1. Interactive Setup Wizard
 
@@ -487,7 +487,7 @@ GRAFANA_SOURCE=container
 GRAFANA_ADMIN_USERNAME=admin    # override only if you want a different login
 GRAFANA_ADMIN_PASSWORD=...       # auto-generated on first bootstrap; persisted to .env
 ```
-- **Use case**: User-facing observability — 7 dashboards in the "GenAI Vanilla" folder, unified alerting enabled (no rules pre-provisioned), Kong-aliased UI at `grafana.localhost`
+- **Use case**: User-facing observability — 7 dashboards in the "Atlas" folder, unified alerting enabled (no rules pre-provisioned), Kong-aliased UI at `grafana.localhost`
 - **Pros**: Admin login + datasource provisioning happen automatically; sign-up disabled; anonymous-read off by default
 - **Cons**: When `PROMETHEUS_SOURCE=disabled`, every panel shows "datasource unreachable" — pair with `--prometheus-source container` for a working setup
 - **Requirements**: ~300 MB image disk + small named volume for SQLite
@@ -732,7 +732,7 @@ curl http://localhost:8000/           # ComfyUI default localhost URL
 curl http://localhost:8188/           # ComfyUI if you overrode COMFYUI_LOCALHOST_PORT to 8188
 
 # Check service logs
-docker logs genai-backend -f
+docker logs atlas-backend -f
 ```
 
 **Port conflicts**:
@@ -762,9 +762,9 @@ env | grep ^KONG_
 env | grep -E "(OLLAMA|COMFYUI|N8N|WEAVIATE)_SOURCE"
 
 # Test service connectivity (LLM goes via LiteLLM, not Ollama directly)
-docker exec genai-backend curl http://genai-litellm:4000/health/liveliness
-docker exec genai-litellm curl http://genai-ollama:11434/api/tags
-docker exec genai-kong-api-gateway curl http://genai-comfyui:18188/
+docker exec atlas-backend curl http://atlas-litellm:4000/health/liveliness
+docker exec atlas-litellm curl http://atlas-ollama:11434/api/tags
+docker exec atlas-kong-api-gateway curl http://atlas-comfyui:18188/
 
 # Monitor resource usage
 docker stats

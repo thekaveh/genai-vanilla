@@ -2,7 +2,7 @@
 
 ## 1. Project Posture
 
-genai-vanilla is a self-hosted, single-tenant AI infrastructure stack
+atlas is a self-hosted, single-tenant AI infrastructure stack
 intended to run on a developer's local machine or a private homelab
 network. It has no public web surface, no shared deployment, and no
 multi-user access model.

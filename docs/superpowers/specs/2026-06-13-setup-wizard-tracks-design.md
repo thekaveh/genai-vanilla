@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Status:** Approved (brainstorming complete; ready for implementation plan)
 **Author:** Kaveh Razavi
-**Scope:** Add a preselected-profile ("track") layer to the GenAI Vanilla setup wizard so users land on a curated subset of services for their role.
+**Scope:** Add a preselected-profile ("track") layer to the Atlas setup wizard so users land on a curated subset of services for their role.
 
 ---
 
@@ -145,7 +145,7 @@ Inserted at index 0 in `_build_steps_and_rows`. "Base port" becomes step 2; serv
 
 ```
 ─────────────────────────────────────────────────────────────────────
- Step 1 of N                                Welcome to GenAI Vanilla
+ Step 1 of N                                Welcome to Atlas
  Track  ·  pick your profile
 ─────────────────────────────────────────────────────────────────────
  Which profile fits what you're building?
@@ -337,7 +337,7 @@ Single PR, additive. Recommended commit order:
 ## 13. Out of scope (future PRs)
 
 - Per-track default `*_SOURCE` values (e.g. ml-eng → Ray defaults to `container-gpu`).
-- User-defined custom tracks loaded from `$XDG_CONFIG_HOME/genai-vanilla/tracks.yml`.
+- User-defined custom tracks loaded from `$XDG_CONFIG_HOME/atlas/tracks.yml`.
 - A `--track save-as <name>` flag to snapshot current selections as a new track.
 - Per-track default cloud-provider enablement (e.g. gen-ai-rag pre-enables OpenAI).
 - A "Track:" column in the live service-table during the wizard (today: dim color + annotation only).

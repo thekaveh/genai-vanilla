@@ -1,6 +1,6 @@
 # Neo4j Graph Database
 
-Neo4j provides graph database capabilities for the GenAI Vanilla Stack, enabling relationship modeling and graph-based queries.
+Neo4j provides graph database capabilities for the Atlas, enabling relationship modeling and graph-based queries.
 
 ## 1. Overview
 
@@ -60,7 +60,7 @@ docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
 ## 5. Data Persistence
 
 Neo4j data is stored in Docker named volumes:
-- **Volume Name**: `genai-graph-db-data` (from `${PROJECT_NAME}-graph-db-data`)
+- **Volume Name**: `atlas-graph-db-data` (from `${PROJECT_NAME}-graph-db-data`)
 - **Mount Point**: `/data` (inside container)
 - **Backup Location**: `/snapshot` (mounted to host)
 
@@ -286,7 +286,7 @@ docker exec ${PROJECT_NAME}-neo4j-graph-db cat /var/lib/neo4j/conf/neo4j.conf
 docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
 
 # If backup is corrupted, reinitialize (data loss)
-docker volume rm genai-graph-db-data
+docker volume rm atlas-graph-db-data
 docker compose up neo4j-graph-db
 ```
 

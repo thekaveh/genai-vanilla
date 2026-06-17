@@ -129,7 +129,7 @@ curl -X POST http://localhost:63040/v1/document/convert \
 - Images and figures
 - Document structure (headings, paragraphs, lists)
 
-## Integration with GenAI Stack
+## Integration with Atlas
 
 ### Method 1: Localhost Mode (Recommended)
 

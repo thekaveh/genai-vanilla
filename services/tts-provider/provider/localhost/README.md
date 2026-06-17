@@ -48,7 +48,7 @@ The repo's `main.py` is the entry point. Default port is `4123`; override
 with the `PORT` env var.
 
 ```bash
-# Bind on the port the genai-vanilla containers reach you on (63044
+# Bind on the port the atlas containers reach you on (63044
 # matches the CHATTERBOX_LOCALHOST_PORT default — independent of the
 # container CHATTERBOX_PORT, which is 63045).
 PORT=63044 uv run main.py

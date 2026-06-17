@@ -13,7 +13,7 @@ containers: []
 
 env:
   - name: PROJECT_NAME
-    default: genai
+    default: atlas
     description: "Project identifier. Used as container/volume/network name prefix."
   - name: BASE_PORT
     default: 63000
@@ -28,7 +28,7 @@ env:
       on Linux/macOS Docker, or the real bridge IP on rootless setups.
   # Branding (TUI wizard)
   - name: BRAND_NAME
-    default: "GenAI Vanilla Stack"
+    default: "Atlas"
   - name: BRAND_TAGLINE
     default: "An opinionated, modular, source-configurable AI stack."
   - name: BRAND_VERSION
@@ -40,7 +40,7 @@ env:
   - name: BRAND_LICENSE
     default: "Apache License 2.0"
   - name: BRAND_REPO_URL
-    default: "https://github.com/thekaveh/genai-vanilla"
+    default: "https://github.com/thekaveh/atlas"
 
   - name: COMPOSE_PROFILES
     auto_managed: true

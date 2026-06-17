@@ -1,5 +1,5 @@
 """
-GenAI Vanilla Stack — bootstrapper UI package.
+Atlas — bootstrapper UI package.
 
 The interactive bootstrapper UI is a Textual app under ``ui/textual/``
 (``run_setup_flow`` and ``run_launch_flow`` in ``ui/textual/integration.py``).

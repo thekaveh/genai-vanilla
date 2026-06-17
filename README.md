@@ -1,12 +1,12 @@
-# GenAI Vanilla Stack
+# Atlas
 
-A flexible, modular GenAI project boilerplate with customizable services.
+An opinionated, modular Atlas boilerplate with customizable services.
 
-[![GenAI Vanilla Stack — interactive setup wizard streaming the launch phase, with the ASCII brand banner pinned at the top of the terminal](./docs/screenshots/wizard-running.png)](./docs/screenshots/wizard-running.png)
+[![Atlas — interactive setup wizard streaming the launch phase, with the ASCII brand banner pinned at the top of the terminal](./docs/screenshots/wizard-running.png)](./docs/screenshots/wizard-running.png)
 
 *The Textual TUI wizard mid-launch: ASCII brand banner pinned at the top, stack overview + cloud-API status, filter + log-source chips, and the live `docker compose` log stream below. Captured during a normal `./start.sh` run.*
 
-[![GenAI Vanilla Stack — topologically-ordered architecture diagram](./docs/diagrams/architecture.svg)](./docs/diagrams/architecture.svg)
+[![Atlas — topologically-ordered architecture diagram](./docs/diagrams/architecture.svg)](./docs/diagrams/architecture.svg)
 
 *Topologically-ordered architecture: external clients enter via Kong, the gateway routes to Apps and Agents, which call the LLM Core (LiteLLM → Ollama + cloud) and the Media + Data tiers. Hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram); the per-service diagrams under `services/<name>/architecture.svg` share the same design system but are auto-regenerated from each manifest's `data_flow.calls`.*
 
@@ -16,7 +16,7 @@ A flexible, modular GenAI project boilerplate with customizable services.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/thekaveh/genai-vanilla && cd genai-vanilla
+git clone https://github.com/thekaveh/atlas && cd atlas
 
 # 2. Start with the interactive setup wizard (no configuration needed)
 ./start.sh
@@ -72,7 +72,7 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 
 # Observability bundle (Prometheus + Grafana + node-exporter + cAdvisor + per-service exporters)
 # Off by default; opt in to scrape Kong, LiteLLM, Weaviate, n8n, MinIO, Backend,
-# Postgres, and Redis. 7 starter dashboards in the "GenAI Vanilla" Grafana folder.
+# Postgres, and Redis. 7 starter dashboards in the "Atlas" Grafana folder.
 # Grafana admin password is auto-generated on first run (see .env after launch).
 ./start.sh --prometheus-source container --grafana-source container
 ./start.sh --prometheus-source container --grafana-source container --prometheus-retention-days 30
@@ -97,7 +97,7 @@ Running `./start.sh` with no arguments launches an interactive setup wizard that
 - Real-time command preview showing the equivalent CLI command as you make selections
 - Dependency validation that warns if you enable a service without its required dependencies
 - Pre-launch summary table with all endpoints and access URLs before starting
-- Color-coded streaming logs once the stack launches, with the full session (wizard warnings + launch phase) tee'd to `/tmp/genai-vanilla-launch-<YYYYMMDDTHHMMSS>.log`
+- Color-coded streaming logs once the stack launches, with the full session (wizard warnings + launch phase) tee'd to `/tmp/atlas-launch-<YYYYMMDDTHHMMSS>.log`
 - Keyboard shortcuts: `Esc` returns to the previous step, `Space` toggles multiselect rows, `Ctrl+Q` quits
 
 The wizard covers all configurable services, base port selection, cold start option, and hosts file setup. After reviewing the configuration summary, confirm to launch the stack.
@@ -138,9 +138,9 @@ prompt for every configurable service.
 
 ## 2. Overview
 
-### 2.1 What is GenAI Vanilla Stack?
+### 2.1 What is Atlas?
 
-GenAI Vanilla Stack is a customizable multi-service architecture for AI applications, featuring:
+Atlas is a customizable multi-service architecture for AI applications, featuring:
 
 - **Dynamic service configuration**: SOURCE-based deployment with CLI overrides
 - **Kong gateway**: auto-generated routes based on active services
@@ -194,7 +194,7 @@ pip install uv
 #### Quick install (recommended)
 ```bash
 git clone <repository-url>
-cd genai-vanilla
+cd atlas
 ./start.sh
 ```
 
@@ -423,7 +423,7 @@ For NVIDIA GPU acceleration, set the relevant SOURCE variables to a `*-container
 
 ### 6.3 Using as infrastructure foundation
 
-GenAI Vanilla can be used as a git submodule to provide infrastructure for your projects:
+Atlas can be used as a git submodule to provide infrastructure for your projects:
 
 ```bash
 # Add as submodule in your project
@@ -456,14 +456,14 @@ cp .env.example .env
 See [docs/deployment/submodule-usage.md](docs/deployment/submodule-usage.md) for the complete guide including:
 - Detailed setup instructions
 - Integration patterns with code examples
-- Contributing back to genai-vanilla
+- Contributing back to atlas
 - Troubleshooting submodule issues
 
 ## 7. Development
 
 ### 7.1 Project structure
 ```
-genai-vanilla/
+atlas/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
 │   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
 │   ├── schemas/               # JSON Schemas for service.yml manifests
@@ -595,5 +595,5 @@ Contributions welcome. Open a PR or an issue to propose changes.
 ## 12. Support
 
 - Check the [documentation](docs/README.md)
-- Report issues on [GitHub Issues](https://github.com/thekaveh/genai-vanilla/issues)
-- Ask questions in [GitHub Discussions](https://github.com/thekaveh/genai-vanilla/discussions)
+- Report issues on [GitHub Issues](https://github.com/thekaveh/atlas/issues)
+- Ask questions in [GitHub Discussions](https://github.com/thekaveh/atlas/discussions)

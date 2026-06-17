@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add two new services (`lightrag` in `agents` tier, `tei-reranker` in `llm` tier) to the genai-vanilla stack. Both default-disabled. Wire LightRAG into existing Supabase pgvector + Neo4j + Redis (with adaptive in-process fallback), register LightRAG with LiteLLM as a callable model, extend `hermes`/`n8n`/`backend` `runtime_adaptive` to consume LightRAG, and add an optional reranker that LightRAG calls when enabled.
+**Goal:** Add two new services (`lightrag` in `agents` tier, `tei-reranker` in `llm` tier) to the atlas stack. Both default-disabled. Wire LightRAG into existing Supabase pgvector + Neo4j + Redis (with adaptive in-process fallback), register LightRAG with LiteLLM as a callable model, extend `hermes`/`n8n`/`backend` `runtime_adaptive` to consume LightRAG, and add an optional reranker that LightRAG calls when enabled.
 
 **Architecture:** Two new manifests follow the standard service-addition pattern (~25-file checklist). Slot allocator (`topology.py`) assigns host ports automatically — no hand-coded literals. Storage backends are resolved via `runtime_adaptive`, with in-process fallback when the corresponding source is `disabled`. LiteLLM gets a hand-coded `lightrag_model_entry()` (mirrors `hermes_model_entry()`). RAG-Anything is intentionally not added (subsumed by LightRAG v1.5.0).
 

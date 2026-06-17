@@ -1,7 +1,7 @@
 """
 title: Research Assistant (Enhanced)
-author: GenAI Vanilla Stack
-author_url: https://github.com/thekaveh/genai-vanilla
+author: Atlas
+author_url: https://github.com/thekaveh/atlas
 description: Enhanced research tool with progress tracking and detailed results
 required_open_webui_version: 0.4.4
 requirements: requests

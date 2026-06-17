@@ -29,7 +29,7 @@ class BannerDisplay:
                 return v
         except Exception:  # noqa: BLE001 — banner must never break startup
             pass
-        return "Modularized Cross-Platform Gen-AI Vanilla Stack"
+        return "Modularized Cross-Platform Atlas Stack"
 
     def _brand_credits(self) -> tuple[str, str, str]:
         """(author, repo_url, license) for the credit lines.
@@ -41,7 +41,7 @@ class BannerDisplay:
         """
         defaults = (
             "Developed by Kaveh Razavi",
-            "https://github.com/thekaveh/genai-vanilla",
+            "https://github.com/thekaveh/atlas",
             "Apache License 2.0",
         )
         try:
@@ -143,26 +143,21 @@ class BannerDisplay:
 
     def get_ascii_art_full(self) -> List[str]:
         """
-        Get the full ASCII art banner.
-        Based on the ASCII art in start.sh show_full_banner() function.
+        Get the full ASCII art banner for the Atlas project.
+
+        Single 6-row "ATLAS" lockup; the 15-color horizontal gradient
+        (color(17) → color(195)) is applied per-character at render time.
 
         Returns:
             list: List of ASCII art lines
         """
         return [
-            "██████╗ ███████╗███╗   ██╗       █████╗ ██╗",
-            "██╔════╝ ██╔════╝████╗  ██║      ██╔══██╗██║",
-            "██║  ███╗█████╗  ██╔██╗ ██║█████╗███████║██║",
-            "██║   ██║██╔══╝  ██║╚██╗██║╚════╝██╔══██║██║",
-            "╚██████╔╝███████╗██║ ╚████║      ██║  ██║██║",
-            " ╚═════╝ ╚══════╝╚═╝  ╚═══╝      ╚═╝  ╚═╝╚═╝",
-            "",
-            "██╗   ██╗ █████╗ ███╗   ██╗██╗██╗     ██╗      █████╗ ",
-            "██║   ██║██╔══██╗████╗  ██║██║██║     ██║     ██╔══██╗",
-            "██║   ██║███████║██╔██╗ ██║██║██║     ██║     ███████║",
-            "╚██╗ ██╔╝██╔══██║██║╚██╗██║██║██║     ██║     ██╔══██║",
-            " ╚████╔╝ ██║  ██║██║ ╚████║██║███████╗███████╗██║  ██║",
-            "  ╚═══╝  ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝╚═╝  ╚═╝",
+            " █████╗ ████████╗██╗      █████╗ ███████╗",
+            "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝",
+            "███████║   ██║   ██║     ███████║███████╗",
+            "██╔══██║   ██║   ██║     ██╔══██║╚════██║",
+            "██║  ██║   ██║   ███████╗██║  ██║███████║",
+            "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝",
         ]
 
     def get_ascii_art_compact(self) -> List[str]:
@@ -175,7 +170,7 @@ class BannerDisplay:
         """
         return [
             "╔═══════════════════════════════════╗",
-            "║          Gen-AI Vanilla           ║",
+            "║              Atlas                ║",
             "║      🤖 AI Development Suite      ║",
             "╚═══════════════════════════════════╝",
         ]
@@ -313,7 +308,7 @@ class BannerDisplay:
         self.console.print(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
-        self.console.print("🎯 GenAI Vanilla Stack - Service Status")
+        self.console.print("🎯 Atlas - Service Status")
         self.console.print(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )

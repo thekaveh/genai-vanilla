@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a preselected-profile ("track") layer to the GenAI Vanilla setup wizard so users land on a curated subset of services for their role, with an `--track` CLI flag, a Wizard step-1 picker, force-disabled out-of-track services, and `--*-source` flag overrides.
+**Goal:** Add a preselected-profile ("track") layer to the Atlas setup wizard so users land on a curated subset of services for their role, with an `--track` CLI flag, a Wizard step-1 picker, force-disabled out-of-track services, and `--*-source` flag overrides.
 
 **Architecture:** A new top-level `bootstrapper/tracks.yml` registry feeds a pure-data `bootstrapper/tracks.py` module (`Track` / `TrackRegistry` dataclasses + load/validate/lookup helpers). The wizard step builder in `bootstrapper/ui/textual/integration.py` inserts a new picker `PromptStep` at index 0 and attaches `skip_if_prev` predicates to every per-service step. `_selections_to_args` synthesizes `*_SOURCE=disabled` for every configurable service that is out-of-track AND not explicitly overridden by a CLI flag. The override set is computed in `bootstrapper/start.py` from `sys.argv` and threaded into the builder.
 
@@ -135,7 +135,7 @@ git commit -m "feat(tracks): add tracks.yml registry"
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://genai-vanilla/schemas/tracks.schema.json",
+  "$id": "https://atlas/schemas/tracks.schema.json",
   "title": "Tracks Registry",
   "description": "Schema for bootstrapper/tracks.yml — predefined wizard profiles that curate a subset of source-configurable services for a given user role.",
   "type": "object",
