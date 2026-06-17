@@ -299,7 +299,7 @@ def test_spark_fragment_renders():
         [
             "docker", "compose",
             "--env-file", str(REPO_ROOT / ".env.example"),
-            "-p", "genai",
+            "-p", "atlas",
             "-f", str(REPO_ROOT / "services" / "spark" / "compose.yml"),
             "config", "-q",
         ],
@@ -1010,7 +1010,7 @@ Per `project_compose_baseline_test.md` + `project_baseline_regen_via_ci_artifact
 
 ```bash
 cd /Users/kaveh/repos/atlas
-docker compose --env-file .env.example -p genai -f docker-compose.yml config 2>/dev/null > bootstrapper/tests/fixtures/rendered_config_baseline.yml.new
+docker compose --env-file .env.example -p atlas -f docker-compose.yml config 2>/dev/null > bootstrapper/tests/fixtures/rendered_config_baseline.yml.new
 
 # Normalize paths (replace local REPO_ROOT + HOME with placeholders):
 python3 -c "
@@ -1618,7 +1618,7 @@ grep -E '^ZEPPELIN_' /Users/kaveh/repos/atlas/.env.example
 
 ```bash
 cd /Users/kaveh/repos/atlas
-docker compose --env-file .env.example -p genai -f docker-compose.yml config 2>/dev/null > bootstrapper/tests/fixtures/rendered_config_baseline.yml.new
+docker compose --env-file .env.example -p atlas -f docker-compose.yml config 2>/dev/null > bootstrapper/tests/fixtures/rendered_config_baseline.yml.new
 python3 -c "
 from pathlib import Path
 src = Path('bootstrapper/tests/fixtures/rendered_config_baseline.yml.new').read_text(encoding='utf-8')

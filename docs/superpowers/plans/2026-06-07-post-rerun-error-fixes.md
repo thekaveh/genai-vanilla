@@ -77,7 +77,7 @@ Files to change:
 ## 4. Test plan
 
 - `PYTHONPATH=bootstrapper python -m pytest bootstrapper/tests/` → 717+ pass (1 baseline test needs re-baseline)
-- `docker compose -p genai up -d --force-recreate tei-reranker lightrag-init lightrag` → both reach healthy within `start_period`
+- `docker compose -p atlas up -d --force-recreate tei-reranker lightrag-init lightrag` → both reach healthy within `start_period`
 - `curl $TEI_RERANKER_PORT/health` → 200 OK
 - `curl -X POST $TEI_RERANKER_PORT/rerank -d '{"query":"X","texts":["A","B"]}'` → JSON ranked array
 - LightRAG `/health` → `embedding_model` non-empty + `pg_*` workspace suffixes present

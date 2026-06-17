@@ -304,7 +304,7 @@ class WizardScreen(Screen):
     def compose(self) -> ComposeResult:
         with Vertical(id="wizard-body"):
             yield BrandPanel(
-                tagline=self._brand.tagline or "Gen-AI Development Suite",
+                tagline=self._brand.tagline or "Self-hosted Engineering Platform",
                 author=self._brand.creator,
                 author_email=self._brand.creator_email,
                 license=self._brand.license,

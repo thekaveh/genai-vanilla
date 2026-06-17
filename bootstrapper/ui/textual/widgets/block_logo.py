@@ -153,7 +153,7 @@ class BrandPanel(Container):
     def __init__(
         self,
         *,
-        tagline: str = "Gen-AI Development Suite",
+        tagline: str = "Self-hosted Engineering Platform",
         author: str = "",
         author_email: str = "",
         license: str = "",  # noqa: A002 - matches BrandInfo field name

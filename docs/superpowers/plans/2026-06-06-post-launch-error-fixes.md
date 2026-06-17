@@ -110,8 +110,8 @@ But the image `atlas-backend:latest` was built on 2026-05-15, **before** the imp
 
 ```bash
 cd /Users/kaveh/repos/atlas
-docker compose -p genai build --no-cache backend
-docker compose -p genai up -d backend
+docker compose -p atlas build --no-cache backend
+docker compose -p atlas up -d backend
 ```
 
 This is a one-shot operation, not a code change. Optionally, also add `--build` to the `start.sh` invocation for the backend stage, or add the backend to a "force-rebuild on launch" list in the bootstrapper for cases where requirements.txt has changed.
