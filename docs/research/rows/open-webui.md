@@ -48,7 +48,7 @@ sources_consulted:
 
 - **open-webui ↔ neo4j**
   - Why valuable: The existing `memory_tool.py` stores user memories via the backend in Postgres — replacing/augmenting that with a Neo4j-backed graph would let memories link (entity → fact → source-conversation) and power richer recall queries.
-  - Mechanism sketch: extend `extras/tools/memory_tool.py` to call a backend endpoint that writes to `bolt://neo4j:7687`; Cypher queries for entity-linked recall.
+  - Mechanism sketch: extend `extras/tools/memory_tool.py` to call a backend endpoint that writes to `bolt://neo4j-graph-db:7687`; Cypher queries for entity-linked recall.
   - Effort: medium
   - Risks / open questions: schema design; overlap with the simpler Postgres memory store; backend-side endpoint does not yet exist.
   - Confidence: medium (Neo4j is in-stack and the memory tool already exists as the integration surface).

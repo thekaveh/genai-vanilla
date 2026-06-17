@@ -35,7 +35,7 @@ sources_consulted:
 
 - **local-deep-researcher ↔ neo4j**
   - Why valuable: each research run yields `sources_gathered` (URL + snippet) and a `running_summary`. Writing these as `(Topic)-[CITES]->(Source)` triples lets later runs (or n8n flows) detect overlap and reuse evidence across sessions.
-  - Mechanism sketch: post-`finalize_summary` callback writes Cypher `MERGE` via `bolt://neo4j:7687` using `NEO4J_USER`/`NEO4J_PASSWORD`.
+  - Mechanism sketch: post-`finalize_summary` callback writes Cypher `MERGE` via `bolt://neo4j-graph-db:7687` using `NEO4J_USER`/`NEO4J_PASSWORD`.
   - Effort: medium
   - Risks / open questions: LangGraph node injection requires editing the cloned upstream src; alternative is a backend-side ingester reading from the LangGraph state endpoint.
   - Confidence: medium
