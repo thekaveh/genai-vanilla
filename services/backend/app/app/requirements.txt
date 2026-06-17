@@ -25,7 +25,7 @@ storage3>=0.7.0
 
 # Security
 bcrypt>=4.1.2
-python-jose>=3.3.0
+python-jose>=3.5.0
 passlib>=1.7.4
 
 # AI/ML
