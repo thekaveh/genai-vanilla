@@ -105,7 +105,6 @@ class ServiceDiscovery:
             # env var lives on the family (RAY_SOURCE, not RAY_HEAD_SOURCE).
             # Source-mapping resolves the canonical var so the wizard saves
             # selections to the right key.
-            from utils.source_override_manager import SourceOverrideManager
             mapped_var = SourceOverrideManager(self.config_parser).source_mapping.get(cli_key)
             target_source_var = mapped_var or derived_source_var
 

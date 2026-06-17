@@ -50,6 +50,8 @@ shape so simple non-Ollama steps see zero change.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
@@ -57,6 +59,9 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from .. import palette as P
+
+if TYPE_CHECKING:
+    from textual.widgets import Input
 
 
 _BADGE_STYLES = {

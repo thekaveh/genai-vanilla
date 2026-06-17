@@ -73,7 +73,7 @@ class KongConfigGenerator:
                 return True
         except (socket.error, socket.timeout):
             print(f"⚠️  {service_name} localhost service not reachable on {host}:{port}")
-            print(f"    Kong route will be created but may fail until service is started")
+            print("    Kong route will be created but may fail until service is started")
             return False
     
     def generate_kong_config(self) -> Dict[str, Any]:
