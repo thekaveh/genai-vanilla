@@ -145,19 +145,21 @@ class BannerDisplay:
         """
         Get the full ASCII art banner for Atlas.
 
-        Single 6-row "ATLAS" lockup; the 15-color horizontal gradient
-        (color(17) → color(195)) is applied per-character at render time.
+        Single-line 6-row "ATLAS-PLATFORM" lockup (129 cells wide). The
+        15-color horizontal gradient (color(17) → color(195)) is applied
+        per-character at render time, so each row reads as
+        bright-left → pale-right.
 
         Returns:
-            list: List of ASCII art lines
+            list: List of ASCII art lines (6 entries)
         """
         return [
-            " █████╗ ████████╗██╗      █████╗ ███████╗",
-            "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝",
-            "███████║   ██║   ██║     ███████║███████╗",
-            "██╔══██║   ██║   ██║     ██╔══██║╚════██║",
-            "██║  ██║   ██║   ███████╗██║  ██║███████║",
-            "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝",
+            " █████╗  ████████╗ ██╗       █████╗  ███████╗        ██████╗  ██╗       █████╗  ████████╗ ███████╗  ██████╗  ██████╗  ███╗   ███╗",
+            "██╔══██╗ ╚══██╔══╝ ██║      ██╔══██╗ ██╔════╝        ██╔══██╗ ██║      ██╔══██╗ ╚══██╔══╝ ██╔════╝ ██╔═══██╗ ██╔══██╗ ████╗ ████║",
+            "███████║    ██║    ██║      ███████║ ███████╗ ██████ ██████╔╝ ██║      ███████║    ██║    █████╗   ██║   ██║ ██████╔╝ ██╔████╔██║",
+            "██╔══██║    ██║    ██║      ██╔══██║ ╚════██║ ██████ ██╔═══╝  ██║      ██╔══██║    ██║    ██╔══╝   ██║   ██║ ██╔══██╗ ██║╚██╔╝██║",
+            "██║  ██║    ██║    ███████╗ ██║  ██║ ███████║        ██║      ███████╗ ██║  ██║    ██║    ██║      ╚██████╔╝ ██║  ██║ ██║ ╚═╝ ██║",
+            "╚═╝  ╚═╝    ╚═╝    ╚══════╝ ╚═╝  ╚═╝ ╚══════╝        ╚═╝      ╚══════╝ ╚═╝  ╚═╝    ╚═╝    ╚═╝       ╚═════╝  ╚═╝  ╚═╝ ╚═╝     ╚═╝",
         ]
 
     def get_ascii_art_compact(self) -> List[str]:

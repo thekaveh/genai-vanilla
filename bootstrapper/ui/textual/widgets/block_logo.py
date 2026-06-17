@@ -1,12 +1,15 @@
 """
-BlockLogo — 6-row block-art "ATLAS" lockup with vertical gradient.
+BlockLogo — 6-row block-art "ATLAS-PLATFORM" lockup with vertical gradient.
 
 Each of the 6 art rows is painted in one solid color from the
-``_GRADIENT`` (deep navy at the bottom, bright blue at the top).
-Width is fixed to the natural glyph width of the lockup; Textual centers
-the widget horizontally via ``content-align`` in the screen-level CSS so
-we don't need to read ``self.size`` (which would cause a re-render on
-first layout pass and produce visible flicker).
+``_GRADIENT`` (bright blue at the top, deep navy at the bottom). Since
+every letter spans the same 6 rows, each letter naturally inherits the
+same vertical bright→dark fade.
+
+Width is fixed to the natural glyph width of the lockup (129 cells);
+Textual centers the widget horizontally via ``content-align`` in the
+screen-level CSS so we don't need to read ``self.size`` (which would
+cause a re-render on first layout pass and produce visible flicker).
 
 Total height: 7 cells (1 spacer + 6 art). No bottom spacer — the
 panel below it (InfoPanel) provides the breathing room.
@@ -22,73 +25,27 @@ from textual.containers import Container
 from textual.widget import Widget
 
 
-# 6 rows × 5 letter zones (A-T-L-A-S), each (color_idx, glyph). Color
-# indices are vestigial; the renderer paints each row in a single solid
-# color from ``_GRADIENT``. Outer padding centers the lockup inside the
-# 100-cell canvas the surrounding BrandPanel reserves.
-_LOGO_ROWS: list[list[tuple[int, str]]] = [
-    [
-        (0, "                      "),
-        (0, " █████╗ "), (0, " "),
-        (0, "████████╗"), (0, " "),
-        (0, "██╗      "), (0, " "),
-        (0, " █████╗ "), (0, " "),
-        (0, "███████╗"),
-        (0, "                      "),
-    ],
-    [
-        (1, "                      "),
-        (1, "██╔══██╗"), (1, " "),
-        (1, "╚══██╔══╝"), (1, " "),
-        (1, "██║      "), (1, " "),
-        (1, "██╔══██╗"), (1, " "),
-        (1, "██╔════╝"),
-        (1, "                      "),
-    ],
-    [
-        (2, "                      "),
-        (2, "███████║"), (2, " "),
-        (2, "   ██║   "), (2, " "),
-        (2, "██║      "), (2, " "),
-        (2, "███████║"), (2, " "),
-        (2, "███████╗"),
-        (2, "                      "),
-    ],
-    [
-        (3, "                      "),
-        (3, "██╔══██║"), (3, " "),
-        (3, "   ██║   "), (3, " "),
-        (3, "██║      "), (3, " "),
-        (3, "██╔══██║"), (3, " "),
-        (3, "╚════██║"),
-        (3, "                      "),
-    ],
-    [
-        (4, "                      "),
-        (4, "██║  ██║"), (4, " "),
-        (4, "   ██║   "), (4, " "),
-        (4, "███████╗ "), (4, " "),
-        (4, "██║  ██║"), (4, " "),
-        (4, "███████║"),
-        (4, "                      "),
-    ],
-    [
-        (5, "                      "),
-        (5, "╚═╝  ╚═╝"), (5, " "),
-        (5, "   ╚═╝   "), (5, " "),
-        (5, "╚══════╝ "), (5, " "),
-        (5, "╚═╝  ╚═╝"), (5, " "),
-        (5, "╚══════╝"),
-        (5, "                      "),
-    ],
+# Single-line "ATLAS-PLATFORM" block-art lockup. 6 rows, 129 cells wide.
+# Letter widths: A(8) T(9) L(8) A(8) S(8) hyphen(6) P(8) L(8) A(8) T(9)
+# F(8) O(9) R(8) M(11); 1-cell gap between every adjacent glyph. The
+# hyphen is a 6-cell horizontal block at mid-height (rows 2-3 only).
+_LOGO_ROWS: list[str] = [
+    " █████╗  ████████╗ ██╗       █████╗  ███████╗        ██████╗  ██╗       █████╗  ████████╗ ███████╗  ██████╗  ██████╗  ███╗   ███╗",
+    "██╔══██╗ ╚══██╔══╝ ██║      ██╔══██╗ ██╔════╝        ██╔══██╗ ██║      ██╔══██╗ ╚══██╔══╝ ██╔════╝ ██╔═══██╗ ██╔══██╗ ████╗ ████║",
+    "███████║    ██║    ██║      ███████║ ███████╗ ██████ ██████╔╝ ██║      ███████║    ██║    █████╗   ██║   ██║ ██████╔╝ ██╔████╔██║",
+    "██╔══██║    ██║    ██║      ██╔══██║ ╚════██║ ██████ ██╔═══╝  ██║      ██╔══██║    ██║    ██╔══╝   ██║   ██║ ██╔══██╗ ██║╚██╔╝██║",
+    "██║  ██║    ██║    ███████╗ ██║  ██║ ███████║        ██║      ███████╗ ██║  ██║    ██║    ██║      ╚██████╔╝ ██║  ██║ ██║ ╚═╝ ██║",
+    "╚═╝  ╚═╝    ╚═╝    ╚══════╝ ╚═╝  ╚═╝ ╚══════╝        ╚═╝      ╚══════╝ ╚═╝  ╚═╝    ╚═╝    ╚═╝       ╚═════╝  ╚═╝  ╚═╝ ╚═╝     ╚═╝",
 ]
 
 
 # Width of one fully-rendered row.
-_ROW_WIDTH = sum(len(glyph) for _, glyph in _LOGO_ROWS[0])
+_ROW_WIDTH = len(_LOGO_ROWS[0])
 
 
 # Vertical-gradient color stops (top → bottom). Top is the brightest.
+# Every letter inherits this same fade because each row is painted in
+# one solid color and every letter spans the same 6 rows.
 _GRADIENT = [
     "#74A6F4",
     "#4F8AED",
@@ -100,7 +57,7 @@ _GRADIENT = [
 
 
 class BlockLogo(Widget):
-    """Block-art lockup, vertical gradient, horizontally centered."""
+    """Single-line block-art lockup with vertical gradient, horizontally centered."""
 
     DEFAULT_CSS = """
     BlockLogo {
@@ -115,12 +72,9 @@ class BlockLogo(Widget):
     def render(self) -> RenderableType:
         # 1 row top spacer + 6 art rows = 7 cells. No bottom spacer.
         renderables: list[RenderableType] = [Text("")]
-        for i, row in enumerate(_LOGO_ROWS):
+        for i, row_str in enumerate(_LOGO_ROWS):
             color = _GRADIENT[i] if i < len(_GRADIENT) else _GRADIENT[-1]
-            line = Text()
-            for _idx, glyph in row:
-                line.append(glyph, style=color)
-            renderables.append(Align.center(line))
+            renderables.append(Align.center(Text(row_str, style=color)))
         return Group(*renderables)
 
 
@@ -128,8 +82,8 @@ class BrandPanel(Container):
     """Bordered, titled box wrapping the BlockLogo with brand metadata
     on the top + bottom borders.
 
-    Top-left title: tagline (e.g. "AI Dev Suite"). Bottom subtitle
-    (right-aligned): "by <author> · <license> · v<version> · <repo>".
+    Top-left title: tagline (e.g. "Self-hosted Engineering Platform").
+    Bottom subtitle (right-aligned): "by <author> · <license> · v<version> · <repo>".
     """
 
     DEFAULT_CSS = """
