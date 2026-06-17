@@ -2149,8 +2149,12 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             'airflow_source': airflow_source,
         }
         # Ray non-SOURCE settings (worker count) get plumbed via
-        # update_env_file the same way the cloud-API keys do.
+        # update_env_file the same way the cloud-API keys do. Clamp 0-64 to
+        # match the wizard's SecondaryNumberInput contract (integration.py),
+        # mirroring the --spark-workers guard below.
         if ray_worker_count is not None:
+            if not 0 <= ray_worker_count <= 64:
+                raise click.UsageError("--ray-worker-count must be in 0-64")
             user_model_selections['RAY_WORKER_COUNT'] = str(ray_worker_count)
         # Prometheus retention days — same pattern.
         if prometheus_retention_days is not None:
