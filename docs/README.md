@@ -1,6 +1,6 @@
 # Atlas Documentation
 
-Documentation index for the Atlas.
+Documentation index for Atlas.
 
 ## 1. Documentation structure
 

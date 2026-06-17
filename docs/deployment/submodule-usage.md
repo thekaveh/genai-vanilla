@@ -1,6 +1,6 @@
 # Using atlas as a Git Submodule
 
-This guide explains how to use the atlas stack as a git submodule in your project, allowing you to build on top of it as an infrastructure foundation while maintaining the ability to contribute back to the project.
+This guide explains how to use Atlas as a git submodule in your project, allowing you to build on top of it as an infrastructure foundation while maintaining the ability to contribute back to the project.
 
 ## 1. Table of Contents
 
@@ -192,7 +192,7 @@ BASE_PORT=64000
 
 ### 6.1 Pattern 1: Docker Network Integration
 
-Connect your application services to the atlas network.
+Connect your application services to the Atlas network.
 
 **Parent docker-compose.yml:**
 
@@ -340,7 +340,7 @@ When using atlas as a submodule, you can contribute improvements back to the pro
 #### 7.1.1 Create a Fork
 
 ```bash
-# Fork the atlas repository to your account on GitHub
+# Fork the Atlas repository to your account on GitHub
 # Then add your fork as a remote (replace with your fork URL)
 
 cd infra
@@ -663,4 +663,4 @@ If you encounter issues:
 
 ---
 
-*This guide is part of the atlas documentation. For updates and improvements, please contribute back to the project!*
+*This guide is part of the Atlas documentation. For updates and improvements, please contribute back to the project!*

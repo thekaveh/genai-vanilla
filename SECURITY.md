@@ -2,10 +2,11 @@
 
 ## 1. Project Posture
 
-atlas is a self-hosted, single-tenant AI infrastructure stack
-intended to run on a developer's local machine or a private homelab
-network. It has no public web surface, no shared deployment, and no
-multi-user access model.
+Atlas is a self-hosted, single-tenant engineering platform intended
+to run on a developer's local machine or a private homelab network —
+applicable across generative AI, ML, and data engineering workloads.
+It has no public web surface, no shared deployment, and no multi-user
+access model.
 
 This posture shapes how we triage Dependabot and CVE alerts:
 vulnerabilities are scored by **(severity × tier × reachability)**, not

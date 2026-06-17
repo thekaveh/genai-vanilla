@@ -1,6 +1,6 @@
 # Atlas
 
-An opinionated, modular Atlas boilerplate with customizable services.
+A self-hosted, source-configurable engineering platform — gen-AI, ML, and data — composable from a single Docker Compose stack.
 
 [![Atlas — interactive setup wizard streaming the launch phase, with the ASCII brand banner pinned at the top of the terminal](./docs/screenshots/wizard-running.png)](./docs/screenshots/wizard-running.png)
 
@@ -140,7 +140,16 @@ prompt for every configurable service.
 
 ### 2.1 What is Atlas?
 
-Atlas is a customizable multi-service architecture for AI applications, featuring:
+Atlas is a self-hosted engineering platform — designed for the breadth of modern generative AI, ML, and data work. It bundles ~30 integrated services (LLM gateway + inference, vector + graph DBs, workflow + DAG automation, distributed compute, object storage, notebooks, observability) wired together via a Kong gateway and an adaptive FastAPI backend. Each service is independently switchable between `container`, `localhost`, `external`, `api`, or `disabled`; the **tracks system** picks sensible defaults for the work you're doing:
+
+- `gen-ai-rag` — retrieval-augmented generation (vectors, graph, reranker, doc ingest, web search)
+- `gen-ai-eng` — agentic apps + workflows with voice, vision, and search
+- `gen-ai-creative` — multimodal generation (image, voice, vision, doc)
+- `ml-eng` — distributed training/inference + notebooks + experiment storage
+- `data-eng` — batch + lakehouse + graph + vector with orchestration
+- `all` — every configurable service, full wizard, no filtering
+
+Key technical traits:
 
 - **Dynamic service configuration**: SOURCE-based deployment with CLI overrides
 - **Kong gateway**: auto-generated routes based on active services

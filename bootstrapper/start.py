@@ -3,7 +3,7 @@
 Atlas - Start Script
 
 Python implementation of start.sh with full feature parity.
-Cross-platform startup script for the Atlas development environment.
+Cross-platform startup script for Atlas — the self-hosted engineering platform.
 """
 
 import re
@@ -140,7 +140,7 @@ def _detect_port_collisions(rows) -> list[str]:
 
 
 class AtlasStarter:
-    """Main class for starting the Atlas."""
+    """Main class for starting Atlas."""
     
     def __init__(self):
         # Set root directory first
@@ -1892,7 +1892,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          zeppelin_source,
          airflow_source,
          no_tui, no_port_migrate):
-    """Start the Atlas - Cross-platform AI development environment."""
+    """Start Atlas — the self-hosted engineering platform."""
 
     # ─── Track override warnings ─────────────────────────────────────
     # Fires when --track is set AND any explicit --*-source flag picks

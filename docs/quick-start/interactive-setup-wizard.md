@@ -312,7 +312,7 @@ Python ≥ 3.10 is required (see `bootstrapper/pyproject.toml`). The wizard auto
 
 ## 15. Brand Customization
 
-The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are the Atlas project's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
+The metadata on the pinned info-box's border (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_*` environment variables. Defaults are Atlas's identity; forks can rebrand the wizard by editing the `BRAND_*` block in `.env`:
 
 ```
 BRAND_NAME=Atlas

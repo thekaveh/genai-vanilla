@@ -113,7 +113,7 @@ def build_research_prompt(doc_folder: str) -> str:
 
     primary_manifest = members[0] if members else "(none)"
 
-    return f"""You are the Phase B research subagent for **{doc_folder}** in the atlas stack.
+    return f"""You are the Phase B research subagent for **{doc_folder}** in Atlas.
 
 Your job is to research **integration opportunities** for this service and produce a single markdown file at `docs/research/rows/{doc_folder}.md` following the strict schema below.
 

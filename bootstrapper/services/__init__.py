@@ -1,3 +1,3 @@
 """
-Service management and configuration logic for the Atlas.
+Service management and configuration logic for Atlas.
 """

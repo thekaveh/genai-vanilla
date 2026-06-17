@@ -1,6 +1,6 @@
 # Kong API Gateway
 
-Kong serves as the intelligent API gateway for the Atlas, providing dynamic routing, authentication, and service management.
+Kong serves as the intelligent API gateway for Atlas, providing dynamic routing, authentication, and service management.
 
 ## 1. Overview
 
@@ -8,7 +8,7 @@ Kong acts as the central entry point for most services, routing requests to appr
 
 ## 2. Dynamic Configuration
 
-Unlike traditional static configuration files, the Atlas uses dynamic Kong configuration that adapts to your SOURCE settings:
+Unlike traditional static configuration files, Atlas uses dynamic Kong configuration that adapts to your SOURCE settings:
 
 - **Automatic Route Generation**: Kong routes are created based on enabled services
 - **Health Checking**: Localhost services are checked for availability before routing

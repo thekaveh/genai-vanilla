@@ -1,5 +1,5 @@
 """
-Textual widget subpackage for the Atlas wizard.
+Textual widget subpackage for Atlas's wizard.
 """
 
 from .block_logo import BlockLogo, BrandPanel

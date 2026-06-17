@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide covers common issues and their solutions when using the Atlas.
+This guide covers common issues and their solutions when using Atlas.
 
 ## 1. .env Migration (LiteLLM rollout)
 

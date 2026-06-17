@@ -3,7 +3,7 @@
 Atlas - Stop Script
 
 Python implementation of stop.sh with full feature parity.
-Cross-platform stop script for the Atlas development environment.
+Cross-platform stop script for Atlas — the self-hosted engineering platform.
 """
 
 import sys
@@ -20,7 +20,7 @@ from core.docker_manager import DockerManager
 
 
 class AtlasStopper:
-    """Main class for stopping the Atlas."""
+    """Main class for stopping Atlas."""
     
     def __init__(self):
         # Set root directory first
@@ -163,7 +163,7 @@ Examples:
 @click.option('--clean-hosts', is_flag=True, help='Remove Atlas hosts file entries (requires sudo/admin)')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
 def main(cold, clean_hosts, help_usage):
-    """Stop the Atlas - Cross-platform AI development environment."""
+    """Stop Atlas — the self-hosted engineering platform."""
     
     stopper = AtlasStopper()
     
