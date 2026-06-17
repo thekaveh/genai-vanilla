@@ -2535,6 +2535,12 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         starter.check_comfyui_models()
         starter.show_container_logs()
 
+    except click.ClickException:
+        # Let click render its own usage/parameter errors (e.g. the
+        # --spark-workers range check) with their conventional exit code
+        # (2 for UsageError) instead of masking them as an "unexpected
+        # error" with exit 1 via the catch-all below.
+        raise
     except KeyboardInterrupt:
         print("\n❌ Startup interrupted by user")
         sys.exit(1)
