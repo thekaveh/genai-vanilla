@@ -51,7 +51,7 @@ langgraph>=0.0.15
 transformers>=4.39.3
 
 # Memory (LangMem-inspired persistent memory)
-pgvector>=0.3.0
+pgvector>=0.4.2
 weaviate-client>=4.0.0
 
 # Graph Database
