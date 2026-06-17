@@ -1,6 +1,6 @@
 # Interactive Setup Wizard
 
-The Atlas includes an interactive Textual TUI wizard that guides you through configuring all services step by step. It launches automatically when you run `./start.sh` with no arguments.
+Atlas includes an interactive Textual TUI wizard that guides you through configuring all services step by step. It launches automatically when you run `./start.sh` with no arguments.
 
 ## 1. Quick Start
 
@@ -316,7 +316,7 @@ The metadata on the pinned info-box's border (brand name, tagline, version, auth
 
 ```
 BRAND_NAME=Atlas
-BRAND_TAGLINE=An opinionated, modular, source-configurable AI stack.
+BRAND_TAGLINE=A self-hosted, source-configurable engineering platform — gen-AI, ML, and data.
 BRAND_VERSION=0.1.0
 BRAND_AUTHOR=Kaveh Razavi
 BRAND_AUTHOR_EMAIL=kaveh.razavi@gmail.com

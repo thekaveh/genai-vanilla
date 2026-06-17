@@ -4,10 +4,10 @@
 
 set -e
 
-echo "🚀 Starting JupyterHub for Atlas..."
+echo "Starting JupyterHub for Atlas..."
 
 # Display environment information
-echo "📋 Environment Configuration:"
+echo "Environment Configuration:"
 echo "  • LiteLLM gateway: ${LITELLM_BASE_URL:-not configured}"
 echo "  • Weaviate: ${WEAVIATE_URL:-not configured}"
 echo "  • Neo4j: ${NEO4J_URI:-not configured}"
@@ -49,14 +49,14 @@ SEARXNG_URL=${SEARXNG_URL:-http://searxng:8080}
 BACKEND_API_URL=${BACKEND_API_URL:-http://backend:8000}
 EOF
 
-echo "✅ Environment file created at /home/jovyan/work/.env"
+echo "Environment file created at /home/jovyan/work/.env"
 
 # Copy sample notebooks to work directory for easy access
 if [ -d /home/jovyan/notebooks ] && [ ! -d /home/jovyan/work/examples ]; then
-    echo "📓 Copying sample notebooks to work/examples/..."
+    echo "Copying sample notebooks to work/examples/..."
     mkdir -p /home/jovyan/work/examples
     cp -r /home/jovyan/notebooks/* /home/jovyan/work/examples/
-    echo "✅ Sample notebooks copied to /home/jovyan/work/examples/"
+    echo "Sample notebooks copied to /home/jovyan/work/examples/"
 fi
 
 # Create a welcome README in the work directory
@@ -64,9 +64,9 @@ if [ ! -f /home/jovyan/work/README.md ]; then
     cat > /home/jovyan/work/README.md << 'EOF'
 # Welcome to JupyterHub - Atlas
 
-This Jupyter environment is pre-configured to work with all services in the Atlas.
+This Jupyter environment is pre-configured to work with all services in Atlas.
 
-## 📚 Sample Notebooks
+## Sample Notebooks
 
 Check the `examples/` directory for sample notebooks demonstrating:
 - `00_environment_check.ipynb` - Verify all service connections
@@ -77,7 +77,7 @@ Check the `examples/` directory for sample notebooks demonstrating:
 - `05_comfyui_images.ipynb` - Image generation with ComfyUI
 - `06_n8n_workflows.ipynb` - Workflow automation with n8n
 
-## 🔧 Available Services
+## Available Services
 
 All service URLs are available as environment variables:
 - `LITELLM_BASE_URL` / `LITELLM_API_KEY` - Unified LLM gateway
@@ -92,7 +92,7 @@ All service URLs are available as environment variables:
 - `SEARXNG_URL` - Privacy-focused search
 - `BACKEND_API_URL` - Backend API
 
-## 💡 Quick Start
+## Quick Start
 
 ```python
 import os
@@ -113,21 +113,21 @@ resp = client.chat.completions.create(
 print(resp.choices[0].message.content)
 ```
 
-## 📖 Documentation
+## Documentation
 
 See the per-service READMEs in the Atlas repo. Service URLs are
 printed in your terminal after `./start.sh` — including the `*.localhost`
 aliases (`studio.localhost`, `graph.localhost`, `weaviate.localhost`, …)
 when you've run `./start.sh --setup-hosts`.
 EOF
-    echo "✅ Welcome README created"
+    echo "Welcome README created"
 fi
 
 # Display startup message
 echo ""
-echo "🎉 JupyterHub is ready!"
-echo "📂 Your work directory: /home/jovyan/work"
-echo "📓 Sample notebooks: /home/jovyan/work/examples"
+echo "JupyterHub is ready!"
+echo "Your work directory: /home/jovyan/work"
+echo "Sample notebooks: /home/jovyan/work/examples"
 echo ""
 
 # Forward every CMD token to the next stage of the launch chain — typically
