@@ -67,7 +67,7 @@ pytest>=9.1.0
 pytest-asyncio>=0.23.5
 
 # n8n integration
-requests>=2.31.0
+requests>=2.34.2
 
 # Ray (distributed compute) — pin <2.56 so client/server stay in lockstep
 # with the rayproject/ray:2.55.1 image; bump together when the image bumps.
