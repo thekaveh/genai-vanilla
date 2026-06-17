@@ -6,6 +6,7 @@ when Weaviate is unavailable or disabled.
 """
 
 import os
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any, Union
 from uuid import UUID
@@ -50,37 +51,48 @@ class MemoryStore:
         self.backend: Optional[str] = None  # "weaviate" or "pgvector"
         self._weaviate_client = None
         self._initialized = False
+        # Self-guards the one-shot init so the destructive collection heal
+        # in _ensure_weaviate_collection can never race itself, regardless
+        # of caller. (MemoryService also serializes its single init call,
+        # but a direct MemoryStore user would otherwise be unprotected.)
+        self._init_lock = asyncio.Lock()
 
     async def initialize(self):
         """Detect available vector backend and initialize."""
         if self._initialized:
             return
 
-        # Try Weaviate first
-        if self.weaviate_url:
-            try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    resp = await client.get(
-                        f"{self.weaviate_url}/v1/.well-known/ready"
-                    )
-                    if resp.status_code == 200:
-                        self.backend = "weaviate"
-                        await self._ensure_weaviate_collection()
-                        logger.info(
-                            "Memory store initialized with Weaviate backend "
-                            f"at {self.weaviate_url}"
-                        )
-                        self._initialized = True
-                        return
-            except Exception as e:
-                logger.warning(
-                    f"Weaviate not available ({e}), falling back to pgvector"
-                )
+        async with self._init_lock:
+            # Double-check under the lock: a concurrent caller may have
+            # completed init (incl. the collection heal) while we waited.
+            if self._initialized:
+                return
 
-        # Fall back to pgvector
-        self.backend = "pgvector"
-        logger.info("Memory store initialized with pgvector backend")
-        self._initialized = True
+            # Try Weaviate first
+            if self.weaviate_url:
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        resp = await client.get(
+                            f"{self.weaviate_url}/v1/.well-known/ready"
+                        )
+                        if resp.status_code == 200:
+                            self.backend = "weaviate"
+                            await self._ensure_weaviate_collection()
+                            logger.info(
+                                "Memory store initialized with Weaviate backend "
+                                f"at {self.weaviate_url}"
+                            )
+                            self._initialized = True
+                            return
+                except Exception as e:
+                    logger.warning(
+                        f"Weaviate not available ({e}), falling back to pgvector"
+                    )
+
+            # Fall back to pgvector
+            self.backend = "pgvector"
+            logger.info("Memory store initialized with pgvector backend")
+            self._initialized = True
 
     async def _ensure_weaviate_collection(self):
         """Create the Memory collection in Weaviate if it doesn't exist."""
@@ -436,10 +448,22 @@ class MemoryStore:
 
         if self.backend == "weaviate" and weaviate_id:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                await client.delete(
+                resp = await client.delete(
                     f"{self.weaviate_url}/v1/objects/"
                     f"{WEAVIATE_COLLECTION_NAME}/{weaviate_id}"
                 )
+                # 404 = already gone (fine). Any other non-2xx must be
+                # observable: update_embedding deletes-then-recreates, so a
+                # silently-failed delete leaves a stale vector that diverges
+                # from the PG source of truth and pollutes recall.
+                if resp.status_code not in (200, 204, 404):
+                    logger.warning(
+                        "Failed to delete Weaviate object %s (status %s); "
+                        "stale vector may remain for fact %s",
+                        weaviate_id,
+                        resp.status_code,
+                        fact_id,
+                    )
         # pgvector: embedding is in the row, deleted when the row is deleted/updated
 
     async def update_embedding(
