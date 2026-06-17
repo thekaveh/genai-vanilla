@@ -42,8 +42,10 @@ class AtlasHero(Widget):
 
     can_focus = False
 
-    def __init__(self, width: int, *, id: str | None = None) -> None:
-        super().__init__(id=id)
+    def __init__(self, width: int, *, name: str | None = None,
+                 id: str | None = None, classes: str | None = None,
+                 disabled: bool = False) -> None:
+        super().__init__(name=name, id=id, classes=classes, disabled=disabled)
         self._data = load_hero(width)
 
     @property
