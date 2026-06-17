@@ -144,8 +144,9 @@ class BannerDisplay:
     # Terminal columns required to render the full "ATLAS-PLATFORM"
     # banner without clipping its right edge. Below this, get_ascii_
     # art_full() falls back to "ATLAS" only. The full banner is 129
-    # cells wide; at 125-128 cols the user accepts 1-4 cells of clip.
-    _FULL_WIDTH_THRESHOLD = 125
+    # cells wide; the threshold is 130 so the wider lockup only
+    # renders when it fully fits with at least 1 column of margin.
+    _FULL_WIDTH_THRESHOLD = 130
 
     def get_ascii_art_full(self) -> List[str]:
         """

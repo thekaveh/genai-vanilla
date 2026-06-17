@@ -58,11 +58,10 @@ _LOGO_ROWS_COMPACT: list[str] = [
 
 # Terminal columns required to render _LOGO_ROWS_FULL without clipping
 # the right edge. Below this, render() falls back to _LOGO_ROWS_COMPACT.
-# Per the user's request the threshold is 125; the full lockup is
-# 129 cells wide, so terminals between 125 and 128 cols will clip 1-4
-# cells off the right but still convey the wordmark. Bump to 130 if a
-# strictly-no-clip guarantee is preferred.
-_WIDTH_THRESHOLD = 125
+# The full lockup is 129 cells wide; the threshold is 130 so the wider
+# lockup only renders when it fully fits with at least 1 column of
+# margin.
+_WIDTH_THRESHOLD = 130
 
 
 # Width of one fully-rendered row of the full lockup. Used by tests
