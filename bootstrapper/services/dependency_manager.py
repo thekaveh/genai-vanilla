@@ -79,7 +79,7 @@ class DependencyManager:
             self.yaml_config = self.config_parser.load_yaml_config()
             return True
         except Exception as e:
-            print(f"❌ Failed to load service manifests: {e}")
+            print(f"[ERROR] Failed to load service manifests: {e}")
             return False
             
     def get_service_dependencies(self) -> Dict[str, Dict]:
@@ -178,7 +178,7 @@ class DependencyManager:
                 if available_optional:
                     info_msg = dep_config.get('info_message', 
                         f"{service_name} will connect to: {', '.join(available_optional)}")
-                    print(f"ℹ️  {info_msg}")
+                    print(f"[INFO] {info_msg}")
                     
         return all_satisfied
         
@@ -212,7 +212,7 @@ class DependencyManager:
                 ):
                     disabled_services.append(service_name)
                 else:
-                    print(f"❌ Failed to disable {service_name}")
+                    print(f"[ERROR] Failed to disable {service_name}")
             
             else:
                 # Single source of truth (class-level _SCALE_VAR_MAPPING)
@@ -226,7 +226,7 @@ class DependencyManager:
                     ):
                         disabled_services.append(service_name)
                     else:
-                        print(f"❌ Failed to disable {service_name}")
+                        print(f"[ERROR] Failed to disable {service_name}")
                     
         return disabled_services
         
@@ -242,11 +242,11 @@ class DependencyManager:
     def print_dependency_results(self) -> None:
         """Print dependency check results to console."""
         if self.dependency_violations:
-            print("❌ Service dependency violations found:")
+            print("[ERROR] Service dependency violations found:")
             for violation in self.dependency_violations:
                 print(f"   {violation['error_message']}")
         else:
-            print("✅ All service dependencies satisfied")
+            print("[OK] All service dependencies satisfied")
             
     def get_dependency_info(self, service_name: str) -> Dict:
         """
