@@ -19,7 +19,7 @@ Hermes is "MCP-native" per its README but the stack runs zero MCP servers, so ev
 
 ## Stack wiring sketch
 - hermes → mcp-gateway via MCP stdio/SSE at `http://mcp-gateway:8811`, mounting per-tool routes (`/tools/neo4j`, `/tools/weaviate`, `/tools/minio`, `/tools/n8n`).
-- mcp-gateway → neo4j via `bolt://graph-db:7687`.
+- mcp-gateway → neo4j via `bolt://neo4j-graph-db:7687`.
 - mcp-gateway → weaviate via `http://weaviate:8080`.
 - mcp-gateway → minio via S3 SigV4 on `http://minio:9000`.
 - mcp-gateway → n8n via webhook POST to `http://n8n:5678/webhook/<id>`.

@@ -166,7 +166,7 @@ curl -H 'Host: search.localhost' http://localhost:63000/healthz
 ### 10.2 Verify Routes
 ```bash
 # List all configured routes
-docker exec ${PROJECT_NAME}-kong-api-gateway kong config -c /kong.yml dump
+docker exec ${PROJECT_NAME}-kong-api-gateway kong config -c /home/kong/kong.yml dump
 
 # Test specific routes
 curl -H "Host: comfyui.localhost" http://localhost:63000/
@@ -303,7 +303,7 @@ For more information on Kong's role in the overall architecture, see the system 
 docker compose ps | grep kong
 
 # View detailed Kong configuration
-docker exec ${PROJECT_NAME}-kong-api-gateway cat /kong.yml
+docker exec ${PROJECT_NAME}-kong-api-gateway cat /home/kong/kong.yml
 
 # Test internal Kong admin API
 docker exec ${PROJECT_NAME}-kong-api-gateway curl http://localhost:8001/status

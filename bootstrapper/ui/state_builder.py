@@ -16,7 +16,7 @@ from typing import Callable, Optional
 
 from core.config_parser import ConfigParser
 from ui.state import AppState, CloudApiEntry, ServiceEntry
-from services.topology import get_topology, invalidate_cache, Topology
+from services.topology import get_topology, Topology
 
 
 _SERVICES_ROOT = Path(__file__).resolve().parent.parent.parent / "services"

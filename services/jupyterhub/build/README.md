@@ -20,7 +20,7 @@ JupyterHub provides a Jupyter Lab environment with pre-installed libraries for:
 # Start the stack (JupyterHub enabled by default)
 ./start.sh
 
-# Access at: http://localhost:63048
+# Access at: http://localhost:63081
 ```
 
 ### Disable JupyterHub
@@ -37,8 +37,8 @@ Set in `.env` file:
 
 ```bash
 JUPYTERHUB_SOURCE=container     # Options: container, disabled
-JUPYTERHUB_IMAGE=jupyter/datascience-notebook:latest
-JUPYTERHUB_PORT=63048
+JUPYTERHUB_IMAGE=jupyter/datascience-notebook:python-3.11
+JUPYTERHUB_PORT=63081
 JUPYTERHUB_TOKEN=               # Optional: authentication token
 ```
 
@@ -208,7 +208,7 @@ print("Neo4j:", os.getenv("NEO4J_URI"))
 Change port in `.env`:
 
 ```bash
-JUPYTERHUB_PORT=64048  # Use different port
+JUPYTERHUB_PORT=64081  # Use different port
 ```
 
 ### Out of memory

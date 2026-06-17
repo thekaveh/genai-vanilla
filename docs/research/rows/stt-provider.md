@@ -48,7 +48,7 @@ sources_consulted:
 
 - **stt-provider ↔ doc-processor**
   - Why valuable: Docling parses PDFs/Office docs; it does not handle audio. Composing `stt-provider → doc-processor` gives a unified "any media → markdown" ingest, where audio is transcribed first then chunked/cleaned by docling.
-  - Mechanism sketch: Producer-side composition — caller hits `STT_ENDPOINT`, then POSTs transcript text to `http://docling:5001/v1/convert/source` as `text/plain`. No new service.
+  - Mechanism sketch: Producer-side composition — caller hits `STT_ENDPOINT`, then POSTs transcript text to `http://docling-gpu:8000/v1/document/convert` as `text/plain`. No new service.
   - Effort: small
   - Risks / open questions: Whether docling's text branch preserves STT-JSON timestamps (likely lost).
   - Confidence: medium (both endpoints documented; composed path unverified end-to-end).

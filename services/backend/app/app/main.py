@@ -5,6 +5,7 @@ from storage3 import SyncStorageClient as StorageClient
 from typing import Optional, cast, Dict, Any, List
 from contextlib import asynccontextmanager
 import os
+import asyncio
 import httpx
 import asyncpg
 
@@ -64,10 +65,21 @@ async def _db_conn():
         await conn.close()
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    yield
+    # Graceful shutdown: close the process-lifetime n8n client so httpx
+    # doesn't warn about an unclosed client and its keep-alive sockets
+    # close deterministically. (n8n_client is the only long-lived HTTP
+    # client; ComfyUIClient and the memory/research clients are per-call.)
+    await n8n_client.aclose()
+
+
 app = FastAPI(
     title=f"{PROJECT_NAME} Backend",
     description=f"Backend API for {PROJECT_NAME}",
     version="0.1.0",
+    lifespan=_lifespan,
 )
 
 # Prometheus metrics — emits standard HTTP server metrics
@@ -251,7 +263,11 @@ async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
         # the per-bucket proxy (from_), not on the client itself — the
         # old client-level calls raised AttributeError on every request.
         bucket_ref = storage_client.from_(bucket)
-        bucket_ref.upload(
+        # storage3's SyncStorageClient does blocking network I/O; run it off
+        # the event loop so a slow/large upload doesn't stall the worker and
+        # every other in-flight request with it.
+        await asyncio.to_thread(
+            bucket_ref.upload,
             path=filename,
             file=content,
             file_options={"content-type": file.content_type}
@@ -260,7 +276,7 @@ async def upload_file(file: UploadFile = File(...), bucket: str = "default"):
         )
 
         # Get public URL
-        url = bucket_ref.get_public_url(filename)
+        url = await asyncio.to_thread(bucket_ref.get_public_url, filename)
 
         return StorageResponse(bucket=bucket, path=filename, url=url)
     except HTTPException:
@@ -328,6 +344,12 @@ class ResearchLogResponse(BaseModel):
 @app.post("/research/start", response_model=ResearchResponse)
 async def start_research(request: ResearchStartRequest):
     """Start a new research session"""
+    # Validate user_id like every other user-id-bearing route (the other
+    # research routes call _validate_uuid_param too) — without this an
+    # invalid user_id reaches UUID() in research_service and surfaces as an
+    # opaque 500 instead of a clean 400.
+    if request.user_id is not None:
+        _validate_uuid_param(request.user_id, "user_id")
     try:
         result = await research_service.start_research(
             query=request.query,

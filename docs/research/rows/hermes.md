@@ -25,7 +25,7 @@ sources_consulted:
 
 - **hermes ↔ neo4j**
   - Why valuable: Hermes persists state as flat files under `/opt/data`. A graph store adds durable cross-session episodic memory (entities, relations) queryable from other services.
-  - Mechanism sketch: Custom skill reading/writing via `bolt://graph-db:7687` using `GRAPH_DB_USER` / `GRAPH_DB_PASSWORD`; exposed as a `memory.graph` tool.
+  - Mechanism sketch: Custom skill reading/writing via `bolt://neo4j-graph-db:7687` using `GRAPH_DB_USER` / `GRAPH_DB_PASSWORD`; exposed as a `memory.graph` tool.
   - Effort: medium
   - Risks / open questions: Entity-dedupe ownership; Hermes ships no Neo4j client — needs a Python skill.
   - Confidence: medium (custom-skill mechanism documented upstream; Neo4j bolt already exposed).
@@ -53,7 +53,7 @@ sources_consulted:
 
 - **hermes ↔ doc-processor**
   - Why valuable: Hermes can answer questions about uploaded PDFs only if something parses them first. Docling already exposes a conversion endpoint in-stack.
-  - Mechanism sketch: Skill POSTing to `http://docling:5001/v1/convert/file` (multipart) and feeding the result into context or Weaviate.
+  - Mechanism sketch: Skill POSTing to `http://docling-gpu:8000/v1/document/convert` (multipart) and feeding the result into context or Weaviate.
   - Effort: small
   - Risks / open questions: Large-file handling; where parsed text lands.
   - Confidence: high (docling endpoint documented in `services/doc-processor/`).

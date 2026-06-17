@@ -233,9 +233,6 @@ def _family_parent_option(
     # family ⇒ same group typically; if mixed, take the most popular).
     member_groups = [_display_group_for(m.category) for m in members]
     group = max(set(member_groups), key=member_groups.count)
-    # Aggregate popularity = max of members' (so the parent sorts to
-    # the right neighborhood, alongside its most-popular variant).
-    pop = max(m.popularity for m in members)
 
     # Parent badges = just the group (for filter-chip matching). The
     # family root + variant count are in the label, so no need to

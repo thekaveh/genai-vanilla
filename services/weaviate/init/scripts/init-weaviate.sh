@@ -4,9 +4,9 @@ set -e
 echo "weaviate-init: Starting Weaviate configuration process..."
 
 # Check required env vars
-if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ]; then
+if [ -z "$PGHOST" ] || [ -z "$PGPORT" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ]; then
   echo "weaviate-init: Error: One or more required environment variables are not set."
-  echo "PGHOST=$PGHOST, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE"
+  echo "PGHOST=$PGHOST, PGPORT=$PGPORT, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE"
   exit 1
 fi
 

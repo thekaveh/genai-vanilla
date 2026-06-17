@@ -27,8 +27,15 @@ env:
     default: default
   - name: LANGMEM_AUTO_CONSOLIDATE
     default: true
+    description: |
+      Reserved — not yet honored. Memory consolidation currently runs only
+      on demand via POST /memory/consolidate; there is no background
+      scheduler, so changing this value has no effect today.
   - name: LANGMEM_CONSOLIDATION_INTERVAL
     default: 86400
+    description: |
+      Reserved — not yet honored (see LANGMEM_AUTO_CONSOLIDATE). Interval in
+      seconds a future auto-consolidation scheduler would use.
   - name: LANGMEM_MAX_FACTS_PER_USER
     default: 1000
   - name: LANGMEM_EXTRACTION_MODEL

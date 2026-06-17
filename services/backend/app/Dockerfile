@@ -5,8 +5,9 @@ FROM ${BASE_IMAGE}
 
 WORKDIR /app
 
-# Install uv
-RUN pip install --no-cache-dir uv
+# Install uv (pinned so the dependency installer itself is deterministic —
+# an unpinned uv resolves requirements differently across releases).
+RUN pip install --no-cache-dir uv==0.11.19
 
 # Copy requirements first for better layer caching
 COPY ./app/requirements.txt .

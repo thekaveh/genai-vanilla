@@ -68,7 +68,9 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 
 1. Wait for n8n web container to be reachable.
 2. Install each package in `N8N_INIT_NODES` into the user-node directory.
-3. Import seeded JSON workflows from `services/n8n/init/workflows/`.
+3. Print next steps. The seeded workflow template in `services/n8n/init/config/`
+   (mounted at `/config/`) is imported **manually** via the n8n UI — `n8n-init`
+   does not auto-import workflows.
 4. Exit 0.
 
 **Hard dependencies** (`depends_on.required`): `supabase`, `redis`, `litellm`. Without LiteLLM, all AI Agent nodes (the most-used feature) 404.
@@ -77,7 +79,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 
 **Hermes wiring.** `HERMES_ENDPOINT` is injected so workflows can call into Hermes via the HTTP Request node. Inverse path (Hermes → n8n) is webhook-driven: n8n's public REST API has no execute endpoint, so expose a Webhook-trigger workflow and have Hermes POST to its URL.
 
-**Seeded workflows.** `services/n8n/init/workflows/searxng-research-workflow.json` ships as a worked example of the SearXNG → LiteLLM research pattern. More workflows would go here.
+**Seeded workflows.** `services/n8n/init/config/searxng-research-workflow.json` ships as a worked example of the SearXNG → LiteLLM research pattern, imported manually via the n8n UI. Additional example workflows are staged under `services/n8n/workflows-stage/workflows/` for the same manual-import path.
 
 ## 5. Calling LightRAG from n8n
 

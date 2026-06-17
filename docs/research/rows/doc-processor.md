@@ -47,7 +47,7 @@ sources_consulted:
 
 - **doc-processor ↔ neo4j**
   - Why valuable: Docling preserves section hierarchy, tables, formulas and figure links — perfect for a document → entity graph pipeline feeding Neo4j. Today neo4j has no ingest path.
-  - Mechanism sketch: post-conversion DocTags → entity/relation extraction (LLM via litellm) → Cypher batch into `bolt://neo4j:7687`.
+  - Mechanism sketch: post-conversion DocTags → entity/relation extraction (LLM via litellm) → Cypher batch into `bolt://neo4j-graph-db:7687`.
   - Effort: large
   - Risks / open questions: ontology choice; extraction prompt drift; cost.
   - Confidence: medium (Docling's structured-info-extraction is beta; LLM step adds variance).

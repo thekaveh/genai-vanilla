@@ -1252,7 +1252,6 @@ class ServiceConfig:
         var that's already set in os.environ.
         """
         import os
-        from pathlib import Path
         from services.manifests import load_manifests
 
         try:

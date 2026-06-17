@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Atlas (formerly Atlas) will be documented in this file.
+All notable changes to Atlas (formerly GenAI Vanilla) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -95,6 +95,32 @@ Internals (no operator action required):
 - Historical CHANGELOG entries below this section deliberately preserved
   (they describe the project as it was named at the time).
 
+### Fixed — 2026-06-16 overnight maintenance pass
+
+- **`./start.sh` usage errors now exit with click's conventional code.** The
+  `--spark-workers` range check raised `click.UsageError` from inside the broad
+  startup try-block, so the catch-all `except Exception` swallowed it:
+  `./start.sh --spark-workers 99` printed "Unexpected error during startup" and
+  exited 1 instead of click's usage error with exit 2. `click.ClickException`
+  is now re-raised ahead of the generic handler (covers any future inline
+  `UsageError`, not just `--spark-workers`).
+- **JupyterHub starter-notebook cross-references.** `00_environment_check.ipynb`
+  "Next Steps" pointed at the renamed `01_ollama_basics.ipynb` (now
+  `01_litellm_basics.ipynb` — all LLM access goes through the LiteLLM gateway)
+  and stopped at notebook 06, omitting the shipped `07_ray_cluster` and
+  `08_scala_basics`. The `startup.sh` welcome README listed only 00-06. Both now
+  match the actual `notebooks/` directory.
+- **Backend resilience.** File uploads no longer run storage3's blocking I/O on
+  the event loop (offloaded via `asyncio.to_thread`), so a slow/large upload
+  can't stall every other in-flight request; the n8n HTTP client is closed on
+  app shutdown; failed Weaviate vector deletes are logged instead of silently
+  swallowed; and `/research/start` validates `user_id` like its sibling routes
+  (clean 400 instead of an opaque 500).
+- **CHANGELOG accuracy.** Corrected the rename-sweep tautology "(formerly Atlas)"
+  → "(formerly GenAI Vanilla)", and the upload-size note that implied
+  `MAX_UPLOAD_BYTES` is `.env`-overridable (it is a code default, not wired into
+  the backend's compose/`.env.example`).
+
 ### Fixed — 2026-06-15
 
 - **supabase-db-init: `storage.objects.path_tokens` backfill (CRITICAL, PR #105):**
@@ -140,8 +166,8 @@ Internals (no operator action required):
 - **`/storage/upload` bounded buffering:** the backend handler called
   `await file.read()` with no size limit, buffering arbitrarily large uploads
   into RAM and OOMing the worker on a single multi-GB POST. Now reads in 1 MiB
-  chunks bounded by `MAX_UPLOAD_BYTES` (default 100 MiB, override via env);
-  fails cleanly with HTTP 413 when exceeded.
+  chunks bounded by `MAX_UPLOAD_BYTES` (a 100 MiB code default); fails
+  cleanly with HTTP 413 when exceeded.
 - **Local Deep Researcher fallback hardening:**
   `services/local-deep-researcher/build/scripts/init-config.py` wrote
   `local_llm = "ollama/qwen3.6:latest"` when `public.llms` had no active

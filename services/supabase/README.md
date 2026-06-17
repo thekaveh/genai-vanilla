@@ -32,7 +32,7 @@ The database initialization follows a two-stage process managed by Docker Compos
 
 ### 2.2 Custom Post-Initialization (`supabase-db-init` service)
 
-- A dedicated, short-lived service using `postgres:alpine` image
+- A dedicated, short-lived service using `postgres:15-alpine` image
 - Depends on `supabase-db` and waits until it's ready using `pg_isready`
 - Executes all `.sql` files from `./services/supabase/db/scripts/` directory in alphabetical order
 - Custom scripts handle project-specific setup:
@@ -229,7 +229,7 @@ docker logs ${PROJECT_NAME}-supabase-studio -f
 
 ## 8. LightRAG schema
 
-When `LIGHTRAG_SOURCE != disabled` AND `SUPABASE_SOURCE != disabled`, `lightrag-init` runs `migrate-pgvector.sql` which provisions `CREATE EXTENSION IF NOT EXISTS vector` and a `lightrag` schema. LightRAG's `PGVectorStorage` manages tables under that schema at runtime.
+When `LIGHTRAG_SOURCE != disabled` AND `SUPABASE_DB_SOURCE != disabled`, `lightrag-init` runs `migrate-pgvector.sql` which provisions `CREATE EXTENSION IF NOT EXISTS vector` and a `lightrag` schema. LightRAG's `PGVectorStorage` manages tables under that schema at runtime.
 
 ## 9. Dependencies & Integrations
 
