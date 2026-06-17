@@ -53,7 +53,7 @@ def _chafa(tmp_png: Path, cols: int, rows: int) -> str:
         "chafa", "-f", "symbols", "-c", "full", "--symbols", "block+space",
         "--fill", "block", "--dither", "none", "-s", f"{cols}x{rows}", str(tmp_png),
     ]
-    return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
 
 
 def _parse(ansi: str) -> list[list[list[str]]]:
