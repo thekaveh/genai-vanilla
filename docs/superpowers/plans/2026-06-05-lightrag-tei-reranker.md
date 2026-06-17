@@ -254,7 +254,7 @@ from bootstrapper.services.service_config import ServiceConfig
 def base_env(tmp_path):
     env = tmp_path / ".env"
     env.write_text(
-        "PROJECT_NAME=genai\n"
+        "PROJECT_NAME=atlas\n"
         "TEI_RERANKER_LOCALHOST_PORT=63031\n"
         "TEI_RERANKER_CPU_IMAGE=ghcr.io/huggingface/text-embeddings-inference:cpu-1.9\n"
         "TEI_RERANKER_GPU_IMAGE=ghcr.io/huggingface/text-embeddings-inference:1.9\n",
@@ -1331,7 +1331,7 @@ from bootstrapper.services.service_config import ServiceConfig
 def base_env(tmp_path):
     env = tmp_path / ".env"
     env.write_text(
-        "PROJECT_NAME=genai\n"
+        "PROJECT_NAME=atlas\n"
         "LIGHTRAG_LOCALHOST_PORT=63068\n",
         encoding="utf-8",
     )

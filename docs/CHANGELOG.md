@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Atlas (formerly GenAI Vanilla Stack) will be documented in this file.
+All notable changes to Atlas (formerly Atlas) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -287,7 +287,7 @@ audit scripts and the docs-drift gate exit 0.
   expected-startup-warnings table aligned to the `${PROJECT_NAME}-<svc>`
   container-name convention. Non-default-`PROJECT_NAME` deployments now
   have working cut-paste docs throughout. The warning table keeps the
-  literal `genai-` prefix (it documents actual log output) but the new
+  literal `atlas-` prefix (it documents actual log output) but the new
   note at §1 tells readers to substitute their own `PROJECT_NAME`.
 - README §6 `./stop.sh --cold` block now warns that the `docker system
   prune -f --volumes` step is host-wide — it also prunes unused
@@ -932,7 +932,7 @@ audit scripts and the docs-drift gate exit 0.
   provenance corrected everywhere (it is generated from manifests —
   never hand-edit); supabase README per-service ports fixed (5
   off-by-one entries); troubleshooting volume names fixed
-  (`genai-supabase-db-data`, not `genai-vanilla_supabase_db_data`);
+  (`atlas-supabase-db-data`, not `atlas_supabase_db_data`);
   source-matrix rows added for `RAY/AIRFLOW/SPARK/ZEPPELIN_SOURCE`;
   wizard-guide "5a" heading renumbered into a clean 1–18 sequence;
   docs hub now links the research-corpus guide and superpowers
@@ -969,7 +969,7 @@ audit scripts and the docs-drift gate exit 0.
     → `weaviate_module_requests_total` + `weaviate_module_request_duration_seconds_bucket`;
     `minio_bucket_usage_total_bytes` (only at `/metrics/bucket` which
     we don't scrape) → `minio_cluster_usage_total_bytes`.
-  - stack-overview.json: `up{stack="genai-vanilla"}` → `up`. The Prometheus
+  - stack-overview.json: `up{stack="atlas"}` → `up`. The Prometheus
     docs explicitly note `global.external_labels` only apply to
     `remote_write`/federation/Alertmanager, NEVER to locally-scraped TSDB
     series — the selector matched zero series. Panel title also updated to
@@ -2107,11 +2107,11 @@ The cleanup PR documented at the top of this section deliberately defers three c
   - `kind="multiselect"` — checkbox list with `[✓]` / `[ ]` indicators. Space toggles the focused row; Enter confirms. Comma-joined CSV value. Optional `options_provider` for lazy/live fetch with `⏳ Fetching X models…` splash + worker + cache + back-invalidation.
   - `kind="text"` — free-text input with the same `<KEEP>` / `<CLEAR>` sentinels (used for `OLLAMA_CUSTOM_MODELS` so an empty Enter on re-run doesn't silently wipe an existing value).
 - **CLI flags**: `--openai-models`, `--anthropic-models`, `--openrouter-models`, `--ollama-models`, `--ollama-custom-models` (comma-separated). Imply matching `--cloud-*-source=enabled` when paired with the corresponding `--*-api-key`.
-- **`/tmp/genai-vanilla-launch-<YYYYMMDDTHHMMSS>.log`** — every wizard launch tees pipeline + docker compose output to this file. The session log is now opened at wizard start (not launch), so cloud `/v1/models` fetch failures during the setup phase are persisted too. On `docker compose up` non-zero exit, automatically captures `docker compose logs --tail=200` for every service. Path written as the first line in the wizard's log pane (`📝 session log: /tmp/genai-vanilla-launch-<…>.log`).
+- **`/tmp/atlas-launch-<YYYYMMDDTHHMMSS>.log`** — every wizard launch tees pipeline + docker compose output to this file. The session log is now opened at wizard start (not launch), so cloud `/v1/models` fetch failures during the setup phase are persisted too. On `docker compose up` non-zero exit, automatically captures `docker compose logs --tail=200` for every service. Path written as the first line in the wizard's log pane (`📝 session log: /tmp/atlas-launch-<…>.log`).
 - **Per-service color-coded log pane**: `LogPane._write_record` now matches the compose `<container>   | <body>` pattern and colors the container-name prefix using `palette.color_for_source(rec.source)`. Hash-based fallback (md5) gives every service — including ones not in the curated `SOURCE_COLORS` map (jupyterhub, openclaw, local-deep-researcher, etc.) — a stable distinct hue.
 - **Stack-overview Cloud APIs sub-section**: `bootstrapper/ui/textual/widgets/info_box.py:CloudApisRow` shows OpenAI / Anthropic / OpenRouter status (`enabled · key set ✓`, `disabled`, `enabled · key MISSING ⚠`) below the services grid. Footer count line gains a `N cloud apis on` segment.
 - **Validator auto-disable for `enabled+empty-key`**: `services/source_validator.py:_enforce_cloud_keys_present` flips `CLOUD_*_SOURCE=enabled` back to `disabled` when the matching `*_API_KEY` is empty (with a warning), guarding against unusable launch state from hand-edited .env or CLI-flag misuse.
-- **Cloud `/v1/models` fallback diagnostics**: `bootstrapper/utils/cloud_models.py` now accepts an `on_warn` callback. The wizard registers a sink (`integration._set_wizard_warn_sink`) that routes failures into `_safe_log` so they land in both the log pane and `/tmp/genai-vanilla-launch-*.log` — e.g. `[warn/openai-fetch] live /v1/models failed — falling back to catalog (cause: HTTP 401 Unauthorized)`. Distinguishes empty-key, transport, JSON, missing-`data[]`, and post-filter empty-set failures.
+- **Cloud `/v1/models` fallback diagnostics**: `bootstrapper/utils/cloud_models.py` now accepts an `on_warn` callback. The wizard registers a sink (`integration._set_wizard_warn_sink`) that routes failures into `_safe_log` so they land in both the log pane and `/tmp/atlas-launch-*.log` — e.g. `[warn/openai-fetch] live /v1/models failed — falling back to catalog (cause: HTTP 401 Unauthorized)`. Distinguishes empty-key, transport, JSON, missing-`data[]`, and post-filter empty-set failures.
 
 ### Changed (wizard rework)
 - **Wizard step ordering**: cloud secret + multi-select pairs (OpenAI / Anthropic / OpenRouter) are spliced **immediately after the LLM Engine + Ollama steps**, not after every other service-source step. New flow: base port → ComfyUI → LLM Engine → Ollama variants → cloud key+models pairs → other services → cold/hosts/confirm.
@@ -2202,7 +2202,7 @@ The cleanup PR documented at the top of this section deliberately defers three c
   - Default port: 63048 (offset +48 from base port)
   - Environment check notebook for service connectivity verification
 - **Textual-based bootstrapper TUI**: A single Textual app (`bootstrapper/ui/textual/`) now owns the entire interactive experience — wizard prompts, the CLI-flag launch screen, the pre-launch pipeline (apply overrides → validate → ports → kong → supabase keys → hosts → encryption → localhost), and the live `docker compose` build / up / verify / `logs -f` stream — all rendered in one screen with a pinned info-box, a service overview, and a bordered log pane with filter chips. Press `ctrl+q` to detach (the stack keeps running). `--no-tui` falls back to a linear stdout flow for CI / non-TTY shells.
-- **Brand customization via `BRAND_*` env vars**: The wizard's brand panel and info-box title / subtitle metadata (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_VERSION`, `BRAND_AUTHOR`, `BRAND_AUTHOR_EMAIL`, `BRAND_LICENSE`, `BRAND_REPO_URL` in `.env`. Defaults are GenAI Vanilla; forks can rebrand without code changes.
+- **Brand customization via `BRAND_*` env vars**: The wizard's brand panel and info-box title / subtitle metadata (brand name, tagline, version, author, author email, license, repo URL) is overridable via `BRAND_NAME`, `BRAND_TAGLINE`, `BRAND_VERSION`, `BRAND_AUTHOR`, `BRAND_AUTHOR_EMAIL`, `BRAND_LICENSE`, `BRAND_REPO_URL` in `.env`. Defaults are Atlas; forks can rebrand without code changes.
 - **Always-on Supabase services in the bootstrapper overview**: `Supabase Auth`, `Supabase API`, `Supabase Realtime`, `Supabase Storage`, and `Supabase Meta` are now surfaced as rows in both the Textual `ServiceTable` and the `--no-tui` summary table, alongside Supabase DB and Studio.
 - **`scripts/check-compose-source-deps.py`**: Preventative linter that verifies `docker-compose.yml` does not declare hard `depends_on` edges from any service to a SOURCE-replaceable provider, and that core `depends_on` edges are still in place.
 - **`scripts/check-kong-routes.py`**: Preventative linter that verifies the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) produces the documented default routes for `comfyui.localhost`, `n8n.localhost`, `search.localhost`, `jupyter.localhost`, `api.localhost`, and `chat.localhost`. (Initially validated a checked-in Kong fallback file; rewritten later in this same release to invoke the generator against `.env.example` in a tmp dir — see the matching entry under `### Changed`. Both entries describe the same checker; the file is now generated-only.)
@@ -2220,7 +2220,7 @@ The cleanup PR documented at the top of this section deliberately defers three c
 - **Architecture diagrams updated** to include JupyterHub and other recently added services.
 
 ### Removed
-- **Legacy Rich-based bootstrapper UI** (the Rich `Live` + `readchar` wizard, the `Textual` post-wizard log app, and all of their supporting modules): `bootstrapper/ui/presentation_app.py`, `bootstrapper/ui/log_stream_app.py`, `bootstrapper/ui/select_widget.py`, `bootstrapper/ui/number_widget.py`, `bootstrapper/ui/status_ribbon.py`, `bootstrapper/ui/log_pane.py`, `bootstrapper/ui/info_box.py`, `bootstrapper/ui/palette.py`, `bootstrapper/ui/logo.py`, and `bootstrapper/wizard/tui_wizard.py`. The `GENAI_USE_LEGACY_WIZARD=1` env-var fallback that briefly let users opt back into the Rich Live wizard during the migration is also gone.
+- **Legacy Rich-based bootstrapper UI** (the Rich `Live` + `readchar` wizard, the `Textual` post-wizard log app, and all of their supporting modules): `bootstrapper/ui/presentation_app.py`, `bootstrapper/ui/log_stream_app.py`, `bootstrapper/ui/select_widget.py`, `bootstrapper/ui/number_widget.py`, `bootstrapper/ui/status_ribbon.py`, `bootstrapper/ui/log_pane.py`, `bootstrapper/ui/info_box.py`, `bootstrapper/ui/palette.py`, `bootstrapper/ui/logo.py`, and `bootstrapper/wizard/tui_wizard.py`. The `ATLAS_USE_LEGACY_WIZARD=1` env-var fallback that briefly let users opt back into the Rich Live wizard during the migration is also gone.
 - **Earlier obsolete bootstrapper modules folded into the wizard rebuild**: `wizard/interactive_wizard.py`, `wizard/prompts.py`, `wizard/ui_renderer.py`, `utils/scroll_pin.py`, `utils/ansi_filter.py`, `ui/services_poller.py`, `ui/confirm_widget.py`. Pruned dead methods (`up_with_build`, `set_service_state`, `apply_service_snapshot`, `clear_status`, `prompt_confirm`), dead palette helpers (`style_for_service_state`, `dot_for_service_state`, `DOT_STARTING`, `DOT_OFF`, `DOT_UNHEALTHY`, `COLOR_STARTING`), and unused state constants / `ServiceEntry` fields (`SERVICE_STATE_*`, `GROUP_*`, `CATEGORY_*`, `state`, `group`, `category`, `is_default_source`, `endpoints`).
 
 ### Fixed
@@ -2460,4 +2460,4 @@ To roll back: `cp .env.backup.<timestamp> .env && sed -i '' '/BOOTSTRAPPER_PORT_
 
 ---
 
-*For more details on any release, see the corresponding [GitHub release](https://github.com/thekaveh/genai-vanilla/releases) or [documentation](README.md).*
+*For more details on any release, see the corresponding [GitHub release](https://github.com/thekaveh/atlas/releases) or [documentation](README.md).*

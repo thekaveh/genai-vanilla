@@ -867,7 +867,7 @@ def run_setup_flow(
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "Atlas",
-        tagline=getattr(state, "tagline", None) or "Gen-AI Development Suite",
+        tagline=getattr(state, "tagline", None) or "Self-hosted Engineering Platform",
         creator=getattr(state, "creator", None) or "",
         creator_email=getattr(state, "creator_email", None) or "",
         license=getattr(state, "license", None) or "",
@@ -991,7 +991,7 @@ def run_launch_flow(
     )
     brand = BrandInfo(
         name=getattr(state, "brand_name", None) or "Atlas",
-        tagline=getattr(state, "tagline", None) or "Gen-AI Development Suite",
+        tagline=getattr(state, "tagline", None) or "Self-hosted Engineering Platform",
         creator=getattr(state, "creator", None) or "",
         creator_email=getattr(state, "creator_email", None) or "",
         license=getattr(state, "license", None) or "",
