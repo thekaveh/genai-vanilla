@@ -16,7 +16,7 @@ sentence-transformers>=3.0.0
 
 # Database Clients
 weaviate-client>=4.7.0
-neo4j>=5.20.0
+neo4j>=6.2.0
 psycopg2-binary>=2.9.9
 redis>=5.0.0
 supabase>=2.7.0
