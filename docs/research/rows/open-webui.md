@@ -27,7 +27,7 @@ sources_consulted:
 
 - **open-webui ↔ jupyterhub**
   - Why valuable: Open WebUI ships a Jupyter-backed code-execution engine that runs LLM-emitted Python in a real kernel with persistent state; the stack already runs JupyterHub but the WebUI falls back to the in-browser Pyodide sandbox.
-  - Mechanism sketch: set `CODE_EXECUTION_ENGINE=jupyter`, `CODE_EXECUTION_JUPYTER_URL=http://jupyterhub:8000`, `CODE_EXECUTION_JUPYTER_AUTH=token`, `CODE_EXECUTION_JUPYTER_AUTH_TOKEN=${JUPYTERHUB_API_TOKEN}` (mirror for `CODE_INTERPRETER_*`).
+  - Mechanism sketch: set `CODE_EXECUTION_ENGINE=jupyter`, `CODE_EXECUTION_JUPYTER_URL=http://jupyterhub:8888`, `CODE_EXECUTION_JUPYTER_AUTH=token`, `CODE_EXECUTION_JUPYTER_AUTH_TOKEN=${JUPYTERHUB_API_TOKEN}` (mirror for `CODE_INTERPRETER_*`).
   - Effort: medium
   - Risks / open questions: JupyterHub spawns per-user servers — Open WebUI needs a service-account token or a single-user fallback; kernel lifecycle and quota management.
   - Confidence: high (Jupyter engine documented in Open WebUI env reference — https://docs.openwebui.com/).

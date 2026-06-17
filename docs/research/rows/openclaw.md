@@ -23,7 +23,7 @@ sources_consulted:
 
 - **openclaw ↔ hermes**
   - Why valuable: OpenClaw is positioned as a channel adapter (40+ messaging surfaces); Hermes is the programmable agent runtime already in the stack. Routing inbound DMs to Hermes sessions turns Hermes into a multi-channel assistant without writing per-channel code. The compose file already passes `HERMES_ENDPOINT`/`HERMES_API_KEY` — only the bridge wiring is missing.
-  - Mechanism sketch: OpenClaw skill or webhook plugin forwarding inbound messages to `http://hermes:8000/v1/chat/completions`; replies posted back via OpenClaw's `send` RPC.
+  - Mechanism sketch: OpenClaw skill or webhook plugin forwarding inbound messages to `http://hermes:8642/v1/chat/completions`; replies posted back via OpenClaw's `send` RPC.
   - Effort: medium
   - Risks / open questions: session-id mapping across channels; auth token rotation.
   - Confidence: high (compose envs already provisioned; skills system supports custom tools per docs.openclaw.ai/skills/)
@@ -44,7 +44,7 @@ sources_consulted:
 
 - **openclaw ↔ doc-processor**
   - Why valuable: When users drop PDFs/Office docs into a chat, OpenClaw's built-in PDF handling is shallow; doc-processor (Docling) already produces structured markdown + chunks the rest of the stack uses for RAG.
-  - Mechanism sketch: custom OpenClaw skill posting attachments to `http://docling:5001/v1/convert/file`; persist markdown to workspace + MinIO.
+  - Mechanism sketch: custom OpenClaw skill posting attachments to `http://docling-gpu:8000/v1/document/convert`; persist markdown to workspace + MinIO.
   - Effort: medium
   - Risks / open questions: attachment-size limits (Docling 50 MB default); async polling for long jobs.
   - Confidence: high (Docling REST is documented; OpenClaw skills can shell out to HTTP)

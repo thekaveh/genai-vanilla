@@ -47,7 +47,7 @@ sources_consulted:
 
 - **litellm ↔ doc-processor** (docling)
   - Why valuable: docling extracts text/structure from PDFs and feeds RAG pipelines. Today there is no LiteLLM model that lets an OpenAI-compatible client say "parse this PDF" through the unified gateway. Exposing docling as a LiteLLM custom provider gives n8n / hermes / open-webui a single auth surface for document ingestion.
-  - Mechanism sketch: register docling as a LiteLLM custom provider (Python plugin loaded via `custom_provider_map`) routing to `http://docling:5001/v1alpha/convert/file`; or add a thin OpenAI-compatible shim service in front of docling.
+  - Mechanism sketch: register docling as a LiteLLM custom provider (Python plugin loaded via `custom_provider_map`) routing to `http://docling-gpu:8000/v1/document/convert`; or add a thin OpenAI-compatible shim service in front of docling.
   - Effort: large
   - Risks / open questions: docling isn't an LLM — shoehorning into the chat/completions taxonomy is awkward; the custom-provider hook may force a synthetic prompt template.
   - Confidence: low (LiteLLM custom providers exist but are intended for LLM-shaped APIs).
