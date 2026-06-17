@@ -55,7 +55,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 **Hard dependencies** (`depends_on.required`): `supabase`, `litellm`, `ollama`. The Supabase dep covers the Storage upload path; LiteLLM and Ollama are inherited from `runtime_adaptive` (ComfyUI custom nodes that call LLMs route through LiteLLM).
 
-**Volumes:** `comfyui-models` (checkpoints, VAEs, LoRAs), `comfyui-custom-nodes` (community nodes, currently unseeded), `comfyui-output` (generated images, also uploaded to Supabase).
+**Volumes:** `comfyui-models` (checkpoints, VAEs, LoRAs), `comfyui-custom-nodes` (community nodes, currently unseeded), `comfyui-input` (input images at `/opt/ComfyUI/input`), `comfyui-output` (generated images, also uploaded to Supabase).
 
 **Output deduplication.** None today — the same workflow run twice generates two outputs and two Supabase uploads. There is no content-hash dedup pass.
 
