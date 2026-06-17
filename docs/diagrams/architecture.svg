@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1240" preserveAspectRatio="xMidYMid meet" font-family="'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace">
   <title>Atlas — Architecture</title>
-  <desc>Topologically-ordered architecture diagram of the Atlas stack: external clients enter via Kong, the gateway routes to Apps and Agents, which call the LLM Core (LiteLLM → Ollama + cloud + TEI Reranker) and the Media + Data layers; Ray + Spark supply distributed compute; Prometheus + Grafana provide observability.</desc>
+  <desc>Topologically-ordered architecture diagram of Atlas: external clients enter via Kong, the gateway routes to Apps and Agents, which call the LLM Core (LiteLLM → Ollama + cloud + TEI Reranker) and the Media + Data layers; Ray + Spark supply distributed compute; Prometheus + Grafana provide observability.</desc>
 
   <defs>
     <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">

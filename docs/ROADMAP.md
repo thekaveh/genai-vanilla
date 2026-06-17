@@ -1,6 +1,6 @@
 # Atlas Roadmap
 
-This document outlines future development plans and enhancements for the Atlas.
+This document outlines future development plans and enhancements for Atlas.
 
 ## Current status
 

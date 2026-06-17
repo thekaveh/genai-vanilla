@@ -1,6 +1,6 @@
 # SOURCE Configuration Guide
 
-This guide explains the SOURCE-based configuration system that makes the Atlas flexible and modular.
+This guide explains the SOURCE-based configuration system that makes Atlas flexible and modular.
 
 ## 1. Interactive Setup Wizard
 

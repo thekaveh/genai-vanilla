@@ -29,7 +29,7 @@ class BannerDisplay:
                 return v
         except Exception:  # noqa: BLE001 — banner must never break startup
             pass
-        return "Modularized Cross-Platform Atlas Stack"
+        return "A self-hosted, source-configurable engineering platform"
 
     def _brand_credits(self) -> tuple[str, str, str]:
         """(author, repo_url, license) for the credit lines.
@@ -143,7 +143,7 @@ class BannerDisplay:
 
     def get_ascii_art_full(self) -> List[str]:
         """
-        Get the full ASCII art banner for the Atlas project.
+        Get the full ASCII art banner for Atlas.
 
         Single 6-row "ATLAS" lockup; the 15-color horizontal gradient
         (color(17) → color(195)) is applied per-character at render time.

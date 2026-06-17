@@ -30,7 +30,7 @@ env:
   - name: BRAND_NAME
     default: "Atlas"
   - name: BRAND_TAGLINE
-    default: "An opinionated, modular, source-configurable AI stack."
+    default: "A self-hosted, source-configurable engineering platform — gen-AI, ML, and data."
   - name: BRAND_VERSION
     default: "0.1.0"
   - name: BRAND_AUTHOR
