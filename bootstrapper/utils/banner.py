@@ -192,7 +192,7 @@ class BannerDisplay:
         return [
             "╔═══════════════════════════════════╗",
             "║              Atlas                ║",
-            "║      🤖 AI Development Suite      ║",
+            "║       Engineering Platform        ║",
             "╚═══════════════════════════════════╝",
         ]
 
@@ -228,7 +228,7 @@ class BannerDisplay:
             self.console.print(centered_line)
 
         # Add tagline — honors BRAND_TAGLINE like the credits below.
-        tagline = f"🚀 {self._brand_tagline()}"
+        tagline = self._brand_tagline()
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 
@@ -271,7 +271,7 @@ class BannerDisplay:
             self.console.print(centered_line)
 
         # Add compact tagline (brand-aware; truncated for narrow terms)
-        tagline = f"🚀 {self._brand_tagline()[:40]}"
+        tagline = self._brand_tagline()[:40]
         tagline_text = Text(tagline, style="bold cyan")
         self.console.print(Align.center(tagline_text))
 
@@ -290,15 +290,16 @@ class BannerDisplay:
 
         self.console.print()  # Empty line
 
-    def show_section_header(self, title: str, icon: str = "🔧") -> None:
+    def show_section_header(self, title: str, icon: str = "") -> None:
         """
         Display a section header with consistent formatting.
 
         Args:
             title: Section title
-            icon: Icon to display before the title
+            icon: Optional prefix text shown before the title (empty by default)
         """
-        header_text = Text(f"{icon} {title}", style="bold bright_white")
+        prefix = f"{icon} " if icon else ""
+        header_text = Text(f"{prefix}{title}", style="bold bright_white")
         self.console.print(header_text)
 
     def show_status_message(self, message: str, status: str = "info") -> None:
@@ -309,7 +310,7 @@ class BannerDisplay:
             message: Message to display
             status: Status type ("info", "success", "warning", "error")
         """
-        icons = {"info": "📋", "success": "✅", "warning": "⚠️ ", "error": "❌"}
+        labels = {"info": "[INFO]", "success": "[OK]", "warning": "[WARN]", "error": "[ERROR]"}
 
         colors = {
             "info": "bright_white",
@@ -318,10 +319,10 @@ class BannerDisplay:
             "error": "bright_red",
         }
 
-        icon = icons.get(status, "📋")
+        label = labels.get(status, "[INFO]")
         color = colors.get(status, "bright_white")
 
-        status_text = Text(f"{icon} {message}", style=color)
+        status_text = Text(f"{label} {message}", style=color)
         self.console.print(status_text)
 
     def show_service_table_header(self) -> None:
@@ -329,7 +330,7 @@ class BannerDisplay:
         self.console.print(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
-        self.console.print("🎯 Atlas - Service Status")
+        self.console.print("Atlas - Service Status")
         self.console.print(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )

@@ -1236,7 +1236,7 @@ Consumed by (services that would call LiveKit):
 
 ### Image-generation UIs
 - **ComfyUI (existing) vs InvokeAI vs A1111 / Automatic1111**: ComfyUI for graph and batch generation; InvokeAI for canvas and inpainting; A1111 is stagnant and not recommended in 2026
-- **Forge** is a reasonable A1111-compatible fork if user preference demands the A1111 UX, but InvokeAI is the better complement to ComfyUI for an AI stack
+- **Forge** is a reasonable A1111-compatible fork if user preference demands the A1111 UX, but InvokeAI is the better complement to ComfyUI for a generative-AI stack
 
 ### MCP gateway
 - **`mcpo` vs MetaMCP vs IBM ContextForge**: `mcpo` is the lowest-friction MCP→OpenAPI wrapper (from the Open WebUI org); MetaMCP adds namespace and RBAC aggregation; IBM ContextForge has the broadest transport support
@@ -1276,7 +1276,7 @@ The following candidates were evaluated and explicitly *not* recommended at this
 - **Firecrawl self-hosted** — AGPL-3.0 license contaminates the stack's permissive boilerplate posture. Crawl4AI (Apache-2.0) is the choice for web crawling.
 - **Helicone** — entered maintenance mode in early 2026; Langfuse is the actively-developed equivalent with native LiteLLM callback support.
 - **Vaultwarden as a secrets manager** — Vaultwarden is a Bitwarden-compatible *password* vault, not a secrets manager. Infisical (or HashiCorp Vault for enterprise scenarios) is the right layer.
-- **Logseq / Trilium / AppFlowy / AFFiNE as "Obsidian-as-a-service"** — all client-centric or 5+ container database-backed stacks. For an AI stack the value is files RAG can read; SilverBullet's files-on-disk model is the right fit, with Karakeep and Paperless-ngx covering capture and archive.
+- **Logseq / Trilium / AppFlowy / AFFiNE as "Obsidian-as-a-service"** — all client-centric or 5+ container database-backed stacks. For an LLM/RAG stack the value is files RAG can read; SilverBullet's files-on-disk model is the right fit, with Karakeep and Paperless-ngx covering capture and archive.
 - **Phoenix (Arize) as the primary LLM observability backend** — strong for offline eval but Langfuse's LiteLLM-callback integration and richer prompt management make it the better in-production fit.
 - **"LiteRAG"** — not a deployable framework. The canonical project the name evokes is **LightRAG (HKUDS)**; see the Tier 2 entry.
 - **Sourcegraph self-hosted** — heavyweight code-intelligence platform out of scope for the stack's AI-application focus.
