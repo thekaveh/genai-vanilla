@@ -1,21 +1,26 @@
 """
-BlockLogo — 6-row block-art "ATLAS-PLATFORM" lockup with vertical gradient.
+BlockLogo — 6-row block-art lockup with vertical gradient.
 
 Each of the 6 art rows is painted in one solid color from the
 ``_GRADIENT`` (bright blue at the top, deep navy at the bottom). Since
 every letter spans the same 6 rows, each letter naturally inherits the
 same vertical bright→dark fade.
 
-Width is fixed to the natural glyph width of the lockup (129 cells);
-Textual centers the widget horizontally via ``content-align`` in the
-screen-level CSS so we don't need to read ``self.size`` (which would
-cause a re-render on first layout pass and produce visible flicker).
+Two lockup variants are defined; ``render()`` picks at runtime based on
+``shutil.get_terminal_size()``:
+  * ``_LOGO_ROWS_FULL`` — "ATLAS-PLATFORM", 129 cells wide. Used when
+    the terminal is wide enough.
+  * ``_LOGO_ROWS_COMPACT`` — "ATLAS" only, 41 cells wide. Fallback for
+    terminals narrower than ``_WIDTH_THRESHOLD`` columns so the
+    lockup never clips on the right edge.
 
 Total height: 7 cells (1 spacer + 6 art). No bottom spacer — the
 panel below it (InfoPanel) provides the breathing room.
 """
 
 from __future__ import annotations
+
+import shutil
 
 from rich.align import Align
 from rich.console import Group, RenderableType
@@ -25,11 +30,11 @@ from textual.containers import Container
 from textual.widget import Widget
 
 
-# Single-line "ATLAS-PLATFORM" block-art lockup. 6 rows, 129 cells wide.
-# Letter widths: A(8) T(9) L(8) A(8) S(8) hyphen(6) P(8) L(8) A(8) T(9)
+# Full-width "ATLAS-PLATFORM" lockup (129 cells, 6 rows).
+# Letter widths A(8) T(9) L(8) A(8) S(8) hyphen(6) P(8) L(8) A(8) T(9)
 # F(8) O(9) R(8) M(11); 1-cell gap between every adjacent glyph. The
 # hyphen is a 6-cell horizontal block at mid-height (rows 2-3 only).
-_LOGO_ROWS: list[str] = [
+_LOGO_ROWS_FULL: list[str] = [
     " █████╗  ████████╗ ██╗       █████╗  ███████╗        ██████╗  ██╗       █████╗  ████████╗ ███████╗  ██████╗  ██████╗  ███╗   ███╗",
     "██╔══██╗ ╚══██╔══╝ ██║      ██╔══██╗ ██╔════╝        ██╔══██╗ ██║      ██╔══██╗ ╚══██╔══╝ ██╔════╝ ██╔═══██╗ ██╔══██╗ ████╗ ████║",
     "███████║    ██║    ██║      ███████║ ███████╗ ██████ ██████╔╝ ██║      ███████║    ██║    █████╗   ██║   ██║ ██████╔╝ ██╔████╔██║",
@@ -39,8 +44,30 @@ _LOGO_ROWS: list[str] = [
 ]
 
 
-# Width of one fully-rendered row.
-_ROW_WIDTH = len(_LOGO_ROWS[0])
+# Compact-fallback "ATLAS" lockup (41 cells, 6 rows). Used when the
+# terminal is narrower than _WIDTH_THRESHOLD columns.
+_LOGO_ROWS_COMPACT: list[str] = [
+    " █████╗ ████████╗██╗      █████╗ ███████╗",
+    "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝",
+    "███████║   ██║   ██║     ███████║███████╗",
+    "██╔══██║   ██║   ██║     ██╔══██║╚════██║",
+    "██║  ██║   ██║   ███████╗██║  ██║███████║",
+    "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝",
+]
+
+
+# Terminal columns required to render _LOGO_ROWS_FULL without clipping
+# the right edge. Below this, render() falls back to _LOGO_ROWS_COMPACT.
+# Per the user's request the threshold is 125; the full lockup is
+# 129 cells wide, so terminals between 125 and 128 cols will clip 1-4
+# cells off the right but still convey the wordmark. Bump to 130 if a
+# strictly-no-clip guarantee is preferred.
+_WIDTH_THRESHOLD = 125
+
+
+# Width of one fully-rendered row of the full lockup. Used by tests
+# that compare canvas dimensions.
+_ROW_WIDTH = len(_LOGO_ROWS_FULL[0])
 
 
 # Vertical-gradient color stops (top → bottom). Top is the brightest.
@@ -57,7 +84,12 @@ _GRADIENT = [
 
 
 class BlockLogo(Widget):
-    """Single-line block-art lockup with vertical gradient, horizontally centered."""
+    """Single-line block-art lockup with vertical gradient, horizontally centered.
+
+    Renders ``_LOGO_ROWS_FULL`` (ATLAS-PLATFORM, 129 cells) when the
+    terminal is at least ``_WIDTH_THRESHOLD`` columns wide; otherwise
+    falls back to ``_LOGO_ROWS_COMPACT`` (ATLAS, 41 cells).
+    """
 
     DEFAULT_CSS = """
     BlockLogo {
@@ -71,8 +103,16 @@ class BlockLogo(Widget):
 
     def render(self) -> RenderableType:
         # 1 row top spacer + 6 art rows = 7 cells. No bottom spacer.
+        # shutil.get_terminal_size() queries the OS-level terminal
+        # dimensions, which closely match the widget's available width
+        # since the BrandPanel is sized at 100%.
+        rows = (
+            _LOGO_ROWS_FULL
+            if shutil.get_terminal_size().columns >= _WIDTH_THRESHOLD
+            else _LOGO_ROWS_COMPACT
+        )
         renderables: list[RenderableType] = [Text("")]
-        for i, row_str in enumerate(_LOGO_ROWS):
+        for i, row_str in enumerate(rows):
             color = _GRADIENT[i] if i < len(_GRADIENT) else _GRADIENT[-1]
             renderables.append(Align.center(Text(row_str, style=color)))
         return Group(*renderables)
