@@ -52,7 +52,7 @@ sources_consulted:
 
 - **jupyterhub ↔ openclaw**
   - Why valuable: Long-running notebook jobs (training, sweeps, embeddings) finish unattended; a Slack/Discord ping via openclaw closes the loop without leaving Jupyter.
-  - Mechanism sketch: Inject `OPENCLAW_WEBHOOK_URL=http://openclaw:<port>/webhook/notify`; a 5-line helper in a util notebook posts JSON when a cell finishes.
+  - Mechanism sketch: Inject `OPENCLAW_WEBHOOK_URL=http://openclaw-gateway:<port>/webhook/notify`; a 5-line helper in a util notebook posts JSON when a cell finishes.
   - Effort: small (one env + helper snippet).
   - Risks / open questions: Openclaw's outbound channel must already be configured; payload schema needs documenting.
   - Confidence: medium (openclaw is in-network, but its webhook surface is less battle-tested than Slack-native flows).
