@@ -142,7 +142,7 @@ _No high-confidence opportunities identified._
 | KV | Redis `db=2` | JsonKVStorage (`/app/data/kv/*.json`) |
 | Vector | Supabase pgvector | NanoVectorDBStorage (`/app/data/vectors/*.json`) |
 | Graph | Neo4j | NetworkXStorage (`/app/data/graph/*.graphml`) |
-| Doc-status | Redis `db=2` | JsonKVStorage |
+| Doc-status | Redis `db=2` | JsonDocStatusStorage |
 
 ## 7. Init container
 

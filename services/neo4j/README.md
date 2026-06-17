@@ -129,7 +129,7 @@ RETURN p.name, friend.name
 
 ## 8. LightRAG graph store
 
-When `LIGHTRAG_SOURCE != disabled` AND `NEO4J_GRAPH_DB_SOURCE != disabled`, `lightrag-init` provisions `Entity` constraints and indexes. LightRAG writes the extracted KG (entities + relations) to Neo4j. Browse at `neo4j.localhost:${KONG_HTTP_PORT}`.
+When `LIGHTRAG_SOURCE != disabled` AND `NEO4J_GRAPH_DB_SOURCE != disabled`, `lightrag-init` provisions `Entity` constraints and indexes. LightRAG writes the extracted KG (entities + relations) to Neo4j. Browse at `graph.localhost:${KONG_HTTP_PORT}`.
 
 ## 9. Integration with Other Services
 
