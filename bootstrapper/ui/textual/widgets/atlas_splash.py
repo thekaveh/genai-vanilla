@@ -3,6 +3,16 @@ from __future__ import annotations
 
 import os
 import random
+from typing import Callable
+
+from rich.align import Align
+from rich.console import Group, RenderableType
+from rich.style import Style
+from rich.text import Text
+from textual import events
+from textual.widget import Widget
+
+from ui.textual.widgets.atlas_hero import load_hero
 
 
 def should_show_splash(no_splash: bool) -> bool:
@@ -24,18 +34,6 @@ def dissolved_count(n_cells: int, progress: float) -> int:
     return round(p * n_cells)
 
 
-from typing import Callable
-
-from rich.align import Align
-from rich.console import Group, RenderableType
-from rich.style import Style
-from rich.text import Text
-from textual import events
-from textual.widget import Widget
-
-from ui.textual.widgets.atlas_hero import load_hero
-
-
 class AtlasSplash(Widget):
     """Overlay that holds the hero, then pixel-dissolves to reveal the
     wizard beneath, removing itself when done. Any key/mouse skips."""
@@ -55,15 +53,16 @@ class AtlasSplash(Widget):
         self._on_done = on_done
         self._done = False
         self._progress = 0.0
+        self._step = 0
+        self._hold_timer = None
+        self._interval = None
         cols = self._data["cols"] if self._data else 0
         rows = self._data["rows"] if self._data else 0
         self._n_cells = cols * rows
-        from ui.textual.widgets.atlas_splash import dissolve_order  # self-module
         self._order = dissolve_order(self._n_cells)
 
     # --- rendering -----------------------------------------------------
     def _blank_indices(self) -> set[int]:
-        from ui.textual.widgets.atlas_splash import dissolved_count
         return set(self._order[: dissolved_count(self._n_cells, self._progress)])
 
     def _blank_cell_count(self) -> int:
@@ -88,7 +87,7 @@ class AtlasSplash(Widget):
     # --- lifecycle -----------------------------------------------------
     def on_mount(self) -> None:
         self.focus()
-        self.set_timer(self._hold, self._start_dissolve)
+        self._hold_timer = self.set_timer(self._hold, self._start_dissolve)
 
     def _start_dissolve(self) -> None:
         if self._done:
@@ -107,6 +106,10 @@ class AtlasSplash(Widget):
         if self._done:
             return
         self._done = True
+        if self._hold_timer is not None:
+            self._hold_timer.stop()
+        if self._interval is not None:
+            self._interval.stop()
         try:
             self.remove()
         except Exception:
