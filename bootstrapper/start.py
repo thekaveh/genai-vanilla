@@ -161,7 +161,8 @@ class AtlasStarter:
 
 
     def show_banner(self):
-        """Display the startup banner."""
+        """Display the startup banner (hero + wordmark/credits)."""
+        self.banner.show_hero(no_splash=getattr(self, "no_splash", False))
         self.banner.show_banner()
 
     def ensure_dependencies_available(self) -> bool:
@@ -2434,6 +2435,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
 
         # Linear (--no-tui / non-TTY) flow from here on — the wizard and
         # CLI-flag TUI branches above both sys.exit() before this point.
+        starter.no_splash = no_splash
         starter.show_banner()
 
         if not starter.setup_env_file(cold_start=cold, base_port=base_port):
