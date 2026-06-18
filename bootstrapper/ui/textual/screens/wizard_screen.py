@@ -152,7 +152,7 @@ class WizardScreen(Screen):
     DEFAULT_CSS = """
     WizardScreen {
         background: #12131e;
-        layers: base popup;
+        layers: base popup overlay;
     }
     WizardScreen > #wizard-body {
         height: 1fr;
@@ -163,6 +163,7 @@ class WizardScreen(Screen):
         width: 100%;
         height: 1fr;
     }
+    WizardScreen AtlasSplash { layer: overlay; dock: top; height: 1fr; }
     """
 
     def __init__(
@@ -181,8 +182,10 @@ class WizardScreen(Screen):
         prefilled_stack_options: dict | None = None,
         prefilled_selections: dict | None = None,
         track_display_name: str | None = None,
+        no_splash: bool = False,
     ) -> None:
         super().__init__()
+        self._no_splash = no_splash
         self._steps = steps
         self._services = services
         self._brand = brand or BrandInfo()
@@ -336,6 +339,14 @@ class WizardScreen(Screen):
             # launch phase. The prompt panel and command summary are
             # composed in the tree but get removed by the transition's
             # ``await lower.remove_children()`` step.
+            #
+            # The opening splash is intentionally NOT shown on this path:
+            # a scripted ``--<svc>-source`` launch is non-interactive and
+            # should start immediately rather than hold for the splash over
+            # an already-streaming launch screen. ``no_splash`` is still
+            # accepted by ``run_launch_flow`` for signature symmetry with
+            # ``run_setup_flow`` and so a future launch-mode splash could
+            # honor it without re-plumbing.
             self.run_worker(
                 self._transition_to_launch(),
                 exclusive=True, exit_on_error=False,
@@ -346,6 +357,19 @@ class WizardScreen(Screen):
         # ALWAYS visible regardless of whether the user has reached the
         # base-port step yet.
         self._refresh_command_summary()
+        # Mount the opening splash overlay if conditions are met.
+        from ui.textual.widgets.atlas_splash import AtlasSplash, should_show_splash
+        if not should_show_splash(self._no_splash):
+            return
+        width = self.app.size.width or 100
+        if width < 80:
+            return  # too narrow for the hero; skip straight to the wizard
+        # on_done is a no-op: the splash removes itself when the dissolve
+        # completes, and the wizard content is already mounted beneath it,
+        # so there is nothing to do once it finishes.
+        splash = AtlasSplash(width, on_done=lambda: None)
+        # cover the area below BrandPanel and above FooterBar
+        self.mount(splash, after=self.query_one("#info-section"))
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Surface failures from exit_on_error=False workers.

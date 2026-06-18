@@ -196,6 +196,25 @@ class BannerDisplay:
             "╚═══════════════════════════════════╝",
         ]
 
+    def show_hero(self, no_splash: bool = False) -> bool:
+        """Print the pre-rendered Atlas hero (linear/--no-tui path). Returns
+        whether anything was printed."""
+        if no_splash:
+            return False
+        width = self.get_terminal_width()
+        if width < 80:
+            return False
+        from ui.textual.widgets.atlas_hero import load_hero, hero_rows
+        from rich.align import Align
+        data = load_hero(width)
+        if not data:
+            return False
+        self.console.print()
+        for t in hero_rows(data):
+            self.console.print(Align.center(t))
+        self.console.print()
+        return True
+
     def show_banner(self, force_compact: bool = False) -> None:
         """
         Display the appropriate banner based on terminal width.
