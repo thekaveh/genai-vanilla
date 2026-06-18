@@ -339,6 +339,14 @@ class WizardScreen(Screen):
             # launch phase. The prompt panel and command summary are
             # composed in the tree but get removed by the transition's
             # ``await lower.remove_children()`` step.
+            #
+            # The opening splash is intentionally NOT shown on this path:
+            # a scripted ``--<svc>-source`` launch is non-interactive and
+            # should start immediately rather than hold for the splash over
+            # an already-streaming launch screen. ``no_splash`` is still
+            # accepted by ``run_launch_flow`` for signature symmetry with
+            # ``run_setup_flow`` and so a future launch-mode splash could
+            # honor it without re-plumbing.
             self.run_worker(
                 self._transition_to_launch(),
                 exclusive=True, exit_on_error=False,
@@ -356,6 +364,9 @@ class WizardScreen(Screen):
         width = self.app.size.width or 100
         if width < 80:
             return  # too narrow for the hero; skip straight to the wizard
+        # on_done is a no-op: the splash removes itself when the dissolve
+        # completes, and the wizard content is already mounted beneath it,
+        # so there is nothing to do once it finishes.
         splash = AtlasSplash(width, on_done=lambda: None)
         # cover the area below BrandPanel and above FooterBar
         self.mount(splash, after=self.query_one("#info-section"))
