@@ -33,11 +33,13 @@ from textual.widget import Widget
 # Full-width "ATLAS-PLATFORM" lockup (129 cells, 6 rows).
 # Letter widths A(8) T(9) L(8) A(8) S(8) hyphen(6) P(8) L(8) A(8) T(9)
 # F(8) O(9) R(8) M(11); 1-cell gap between every adjacent glyph. The
-# hyphen is a 6-cell horizontal block at mid-height (rows 2-3 only).
+# hyphen is a 6-cell horizontal block on a SINGLE row (row 3 only) so it
+# reads as one clean dash rather than a stacked "=" once a terminal adds
+# inter-line spacing.
 _LOGO_ROWS_FULL: list[str] = [
     " █████╗  ████████╗ ██╗       █████╗  ███████╗        ██████╗  ██╗       █████╗  ████████╗ ███████╗  ██████╗  ██████╗  ███╗   ███╗",
     "██╔══██╗ ╚══██╔══╝ ██║      ██╔══██╗ ██╔════╝        ██╔══██╗ ██║      ██╔══██╗ ╚══██╔══╝ ██╔════╝ ██╔═══██╗ ██╔══██╗ ████╗ ████║",
-    "███████║    ██║    ██║      ███████║ ███████╗ ██████ ██████╔╝ ██║      ███████║    ██║    █████╗   ██║   ██║ ██████╔╝ ██╔████╔██║",
+    "███████║    ██║    ██║      ███████║ ███████╗        ██████╔╝ ██║      ███████║    ██║    █████╗   ██║   ██║ ██████╔╝ ██╔████╔██║",
     "██╔══██║    ██║    ██║      ██╔══██║ ╚════██║ ██████ ██╔═══╝  ██║      ██╔══██║    ██║    ██╔══╝   ██║   ██║ ██╔══██╗ ██║╚██╔╝██║",
     "██║  ██║    ██║    ███████╗ ██║  ██║ ███████║        ██║      ███████╗ ██║  ██║    ██║    ██║      ╚██████╔╝ ██║  ██║ ██║ ╚═╝ ██║",
     "╚═╝  ╚═╝    ╚═╝    ╚══════╝ ╚═╝  ╚═╝ ╚══════╝        ╚═╝      ╚══════╝ ╚═╝  ╚═╝    ╚═╝    ╚═╝       ╚═════╝  ╚═╝  ╚═╝ ╚═╝     ╚═╝",
