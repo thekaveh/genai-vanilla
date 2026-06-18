@@ -356,6 +356,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 # Port and network
 ./start.sh --base-port 64000  # Custom port range
 ./start.sh --setup-hosts      # Configure *.localhost domains
+./start.sh --no-splash        # Skip the opening splash animation (also: set ATLAS_NO_SPLASH=1)
 
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost

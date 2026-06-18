@@ -501,6 +501,8 @@ PYTHONPATH=. uv run python -m docs.regen qdrant
 
 **No external prerequisites.** Graphviz used to be required for the top-level diagram regen; that step is retired now that the diagram is hand-authored via the architecture-diagram skill.
 
+**Atlas hero art:** regenerate with `python bootstrapper/scripts/generate_logo.py` (needs `pip install pillow` + `chafa` on PATH); commit the refreshed `bootstrapper/ui/textual/assets/atlas_hero_*.json`. Not gated in CI.
+
 ## 13. Audit-script + CI implications
 
 After adding a service, check these allowlists. Skipping them means CI fails on the next push.
