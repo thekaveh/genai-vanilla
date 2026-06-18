@@ -843,6 +843,7 @@ def run_setup_flow(
     no_port_migrate: bool = False,
     track: str | None = None,
     overridden_services: frozenset[str] | None = None,
+    no_splash: bool = False,
 ) -> int:
     """Run wizard + pipeline + docker compose all in ONE Textual screen.
 
@@ -938,6 +939,7 @@ def run_setup_flow(
                     {PICKER_STEP_TITLE: track} if track else None
                 ),
                 track_display_name=_track_display_name,
+                no_splash=no_splash,
             ))
 
         def action_interrupt(self) -> None:
@@ -959,6 +961,7 @@ def run_launch_flow(
     no_port_migrate: bool = False,
     track: str | None = None,
     overridden_services: frozenset[str] | None = None,
+    no_splash: bool = False,
 ) -> int:
     """Push the same Textual launch screen the wizard transitions to,
     but pre-loaded with CLI args — no wizard prompts in between.
@@ -1098,6 +1101,7 @@ def run_launch_flow(
                     {PICKER_STEP_TITLE: track} if track else None
                 ),
                 track_display_name=_track_display_name,
+                no_splash=no_splash,
             ))
 
         def action_interrupt(self) -> None:

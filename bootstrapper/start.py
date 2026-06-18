@@ -1869,6 +1869,8 @@ class AtlasStarter:
               help='Disable the TUI (wizard + Textual log app). Falls back to the legacy '
                    'linear flow with passthrough docker output. Useful for log capture, '
                    'debugging, and terminals that don\'t support the alternate screen buffer.')
+@click.option('--no-splash', is_flag=True, default=False,
+              help='Disable the opening splash animation in the wizard.')
 @click.option('--no-port-migrate', is_flag=True, default=False,
               help='Skip the chained .env migrations (port-layout v1, URL→PORT v2, '
                    'model-set v3) for this run. Version sentinels are NOT stamped, '
@@ -1891,7 +1893,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          spark_source, spark_workers,
          zeppelin_source,
          airflow_source,
-         no_tui, no_port_migrate):
+         no_tui, no_splash, no_port_migrate):
     """Start Atlas — the self-hosted engineering platform."""
 
     # ─── Track override warnings ─────────────────────────────────────
@@ -2302,6 +2304,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     no_port_migrate=no_port_migrate,
                     track=track,
                     overridden_services=frozenset(overridden_services),
+                    no_splash=no_splash,
                 )
                 sys.exit(rc)
 
@@ -2425,6 +2428,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     no_port_migrate=no_port_migrate,
                     track=track,
                     overridden_services=frozenset(overridden_services),
+                    no_splash=no_splash,
                 )
                 sys.exit(rc)
 
