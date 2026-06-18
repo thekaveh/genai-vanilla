@@ -13,14 +13,29 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "assets" / "atlas-source.png"
+POSTER = REPO / "assets" / "atlas-poster.png"
+PROFILE = REPO / "assets" / "atlas-profile.png"
 OUT_DIR = REPO / "bootstrapper" / "ui" / "textual" / "assets"
 BREAKPOINTS = (160, 120, 100, 80)
+
+# Reuse the canonical ATLAS-PLATFORM block-art rows + blue gradient so the
+# poster wordmark always matches the in-app title lockup (single dash, etc.).
+sys.path.insert(0, str(REPO / "bootstrapper"))
+from ui.textual.widgets.block_logo import _LOGO_ROWS_FULL, _GRADIENT  # noqa: E402
+
+# Monospace fonts to try for the block-art wordmark (maintainer machine).
+_FONTS = (
+    "/System/Library/Fonts/Menlo.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    "/Library/Fonts/Menlo.ttc",
+)
 
 # Locked params.
 CROP = (0.101, 0.0, 0.941, 1.0)
@@ -93,6 +108,64 @@ def _parse(ansi: str) -> list[list[list[str]]]:
     return rows
 
 
+def _font(size: int):
+    for p in _FONTS:
+        try:
+            return ImageFont.truetype(p, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _hexrgb(h: str) -> tuple[int, int, int]:
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+
+def _wordmark(target_w: int) -> Image.Image:
+    """ATLAS-PLATFORM block art (single-dash, blue gradient) as RGBA ~target_w
+    wide; rows tiled by ink height so the dash never seams into a '='."""
+    n = len(_LOGO_ROWS_FULL[0])
+    size = 2
+    while _font(size).getlength("█") * n < target_w and size < 80:
+        size += 1
+    f = _font(size)
+    cw = f.getlength("█")
+    bb = f.getbbox("█")
+    ink = bb[3] - bb[1]
+    im = Image.new("RGBA", (int(cw * n), int(ink * len(_LOGO_ROWS_FULL)) + 2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for i, row in enumerate(_LOGO_ROWS_FULL):
+        color = _hexrgb(_GRADIENT[i] if i < len(_GRADIENT) else _GRADIENT[-1])
+        d.text((0, int(i * ink - bb[1])), row, font=f, fill=color, anchor="la")
+    return im
+
+
+def _scrim(base: Image.Image, frac: float = 0.42, strength: int = 190) -> Image.Image:
+    """Darken the bottom ``frac`` so the wordmark reads (poster lower third)."""
+    w, h = base.size
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    y0 = int(h * (1 - frac))
+    for y in range(y0, h):
+        a = int(strength * (y - y0) / max(1, h - y0))
+        d.line([(0, y), (w, y)], fill=(6, 8, 18, a))
+    return Image.alpha_composite(base.convert("RGBA"), ov).convert("RGB")
+
+
+def _compose_poster(square: bool, wm_frac: float, bottom_frac: float = 0.07) -> Image.Image:
+    base = Image.open(SRC).convert("RGB")
+    if square:
+        w, h = base.size
+        s = min(w, h)
+        base = base.crop(((w - s) // 2, 0, (w - s) // 2 + s, s))
+    base = _scrim(base)
+    w, h = base.size
+    wm = _wordmark(int(w * wm_frac))
+    base.paste(wm, ((w - wm.width) // 2, h - wm.height - int(h * bottom_frac)), wm)
+    return base
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     im = _enhanced_source()
@@ -109,6 +182,13 @@ def main() -> None:
             print(f"wrote {out.relative_to(REPO)}  {data['cols']}x{data['rows']}")
     finally:
         tmp.unlink(missing_ok=True)
+
+    # Movie-poster (landscape) for the app splash + README hero, and the
+    # square wordmarked profile picture for the GitHub avatar.
+    _compose_poster(square=False, wm_frac=0.72).save(POSTER)
+    print(f"wrote {POSTER.relative_to(REPO)}")
+    _compose_poster(square=True, wm_frac=0.86).save(PROFILE)
+    print(f"wrote {PROFILE.relative_to(REPO)}")
 
 
 if __name__ == "__main__":
