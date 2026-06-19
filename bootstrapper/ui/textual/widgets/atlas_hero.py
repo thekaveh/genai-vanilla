@@ -18,12 +18,30 @@ _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 _BREAKPOINTS = (160, 120, 100, 80)  # descending
 
 
-def load_hero(width: int) -> dict | None:
-    """Largest breakpoint <= width, or None when width < smallest (80)."""
-    for cols in _BREAKPOINTS:
-        if width >= cols:
-            path = _ASSETS / f"atlas_hero_{cols}.json"
-            return json.loads(path.read_text(encoding="utf-8"))
+def _available(prefix: str) -> list[int]:
+    """Column breakpoints with a committed cell-grid for ``prefix``, desc."""
+    cols: list[int] = []
+    for p in _ASSETS.glob(f"{prefix}_*.json"):
+        try:
+            cols.append(int(p.stem.rsplit("_", 1)[1]))
+        except ValueError:
+            continue
+    return sorted(cols, reverse=True)
+
+
+def load_hero(width: int, height: int | None = None,
+              prefix: str = "atlas_hero") -> dict | None:
+    """Largest committed cell-grid that fits: columns <= ``width`` and (when
+    given) rows <= ``height``. Returns None when nothing fits.
+
+    ``prefix`` selects the grid family (``atlas_hero`` = landscape source,
+    ``atlas_profile`` = square poster with wordmark)."""
+    for cols in _available(prefix):
+        if width < cols:
+            continue
+        data = json.loads((_ASSETS / f"{prefix}_{cols}.json").read_text(encoding="utf-8"))
+        if height is None or data["rows"] <= height:
+            return data
     return None
 
 
@@ -42,11 +60,12 @@ class AtlasHero(Widget):
 
     can_focus = False
 
-    def __init__(self, width: int, *, name: str | None = None,
+    def __init__(self, width: int, *, height: int | None = None,
+                 prefix: str = "atlas_hero", name: str | None = None,
                  id: str | None = None, classes: str | None = None,
                  disabled: bool = False) -> None:
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
-        self._data = load_hero(width)
+        self._data = load_hero(width, height, prefix)
 
     @property
     def grid_rows(self) -> int:

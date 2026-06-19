@@ -200,6 +200,24 @@ def main() -> None:
     _optimize_png(SOCIAL)
     print(f"wrote {SOCIAL.relative_to(REPO)} ({SOCIAL.stat().st_size // 1024} KB)")
 
+    # Block-art cell-grids of the SQUARE profile (with wordmark) for the splash
+    # fallback on terminals that can't paint inline images in a TUI (Warp).
+    # Pure-text rendering at runtime, so it never queries the terminal / crashes.
+    profile_img = Image.open(PROFILE).convert("RGB")
+    paspect = profile_img.height / profile_img.width
+    ptmp = OUT_DIR / "_tmp_profile_grid.png"
+    profile_img.save(ptmp)
+    try:
+        for cols in (120, 100, 80, 60):
+            rows = max(1, int(cols * paspect * 0.5) + 1)
+            grid = _parse(_chafa(ptmp, cols, rows))
+            data = {"cols": len(grid[0]), "rows": len(grid), "cells": grid}
+            out = OUT_DIR / f"atlas_profile_{cols}.json"
+            out.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            print(f"wrote {out.relative_to(REPO)}  {data['cols']}x{data['rows']}")
+    finally:
+        ptmp.unlink(missing_ok=True)
+
 
 def _compose_social(w: int = 1280, h: int = 640) -> Image.Image:
     poster = Image.open(POSTER).convert("RGB")

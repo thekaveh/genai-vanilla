@@ -64,6 +64,7 @@ class AtlasSplash(Container):
         background: #0a0b12 80%;
         align: center middle;
     }
+    AtlasSplash AtlasHero { width: auto; height: auto; }
     """
 
     can_focus = True
@@ -77,13 +78,24 @@ class AtlasSplash(Container):
         self._timer = None
 
     def compose(self) -> ComposeResult:
+        yield self._make_artwork()
+
+    def _make_artwork(self):
+        """Smooth inline image on capable terminals; otherwise the committed
+        block-art cell-grid (pure Rich text — never queries the terminal, so it
+        can't crash, unlike a half-cell/protocol image widget in Warp)."""
         if image_capable():
-            from textual_image.widget import Image as _Widget
-        else:
-            from textual_image.widget import HalfcellImage as _Widget
-        img = _Widget(str(PROFILE))
-        self._fit(img)
-        yield img
+            try:
+                from textual_image.widget import Image
+                img = Image(str(PROFILE))
+                self._fit(img)
+                return img
+            except Exception:  # noqa: BLE001 — degrade to block-art, never crash
+                pass
+        from ui.textual.widgets.atlas_hero import AtlasHero
+        avail_w = max(60, int((self.app.size.width or 100) * 0.85))
+        avail_h = max(10, int((self.app.size.height or 30) * 0.82))
+        return AtlasHero(avail_w, height=avail_h, prefix="atlas_profile")
 
     def _fit(self, img) -> None:
         """Explicit, aspect-correct, contained size so the artwork paints
