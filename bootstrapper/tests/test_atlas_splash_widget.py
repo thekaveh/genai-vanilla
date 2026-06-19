@@ -1,21 +1,23 @@
 from ui.textual.widgets.atlas_splash import AtlasSplash
 
 
-def test_full_progress_blanks_every_cell():
-    s = AtlasSplash(100, on_done=lambda: None)
-    s._progress = 1.0
-    assert s._blank_cell_count() == s._n_cells
-
-
-def test_zero_progress_blanks_nothing():
-    s = AtlasSplash(100, on_done=lambda: None)
-    s._progress = 0.0
-    assert s._blank_cell_count() == 0
-
-
 def test_skip_is_idempotent():
     calls = []
-    s = AtlasSplash(100, on_done=lambda: calls.append(1))
+    s = AtlasSplash(on_done=lambda: calls.append(1))
     s.skip()
     s.skip()
     assert calls == [1]
+
+
+def test_skip_marks_done_and_fires_callback():
+    calls = []
+    s = AtlasSplash(on_done=lambda: calls.append(1))
+    assert s._done is False
+    s.skip()
+    assert s._done is True
+    assert calls == [1]
+
+
+def test_on_done_optional():
+    # on_done defaults to a no-op; skip must not raise without a callback.
+    AtlasSplash().skip()

@@ -1,9 +1,10 @@
-from ui.textual.widgets.atlas_splash import (
-    should_show_splash, dissolve_order, dissolved_count,
-)
+from pathlib import Path
+
+from ui.textual.widgets.atlas_splash import image_capable, should_show_splash
 
 
 def test_show_decision(monkeypatch):
+    # The committed poster exists, so with no suppression the splash shows.
     monkeypatch.delenv("ATLAS_NO_SPLASH", raising=False)
     assert should_show_splash(no_splash=False) is True
     assert should_show_splash(no_splash=True) is False
@@ -11,16 +12,31 @@ def test_show_decision(monkeypatch):
     assert should_show_splash(no_splash=False) is False
 
 
-def test_dissolve_order_is_deterministic_permutation():
-    a = dissolve_order(500)
-    b = dissolve_order(500)
-    assert a == b
-    assert sorted(a) == list(range(500))
+def test_show_decision_requires_poster(monkeypatch):
+    import ui.textual.widgets.atlas_splash as m
+    monkeypatch.delenv("ATLAS_NO_SPLASH", raising=False)
+    monkeypatch.setattr(m, "POSTER", Path("/nonexistent/atlas-poster.png"))
+    assert should_show_splash(no_splash=False) is False
 
 
-def test_dissolved_count_bounds():
-    assert dissolved_count(100, 0.0) == 0
-    assert dissolved_count(100, 1.0) == 100
-    assert dissolved_count(100, 0.5) == 50
-    assert dissolved_count(100, 2.0) == 100
-    assert dissolved_count(100, -1.0) == 0
+def test_image_capability_allowlist(monkeypatch):
+    def caps(term_program="", term="", kitty=False):
+        monkeypatch.setenv("TERM_PROGRAM", term_program)
+        monkeypatch.setenv("TERM", term)
+        if kitty:
+            monkeypatch.setenv("KITTY_WINDOW_ID", "1")
+        else:
+            monkeypatch.delenv("KITTY_WINDOW_ID", raising=False)
+        return image_capable()
+
+    # Capable terminals
+    assert caps(term_program="iTerm.app") is True
+    assert caps(term_program="WezTerm") is True
+    assert caps(term_program="ghostty") is True
+    assert caps(term="xterm-kitty") is True
+    assert caps(kitty=True) is True
+    # Not capable (Warp garbles inline images in the TUI) + unknown -> fallback
+    assert caps(term_program="WarpTerminal") is False
+    assert caps(term_program="Apple_Terminal") is False
+    assert caps(term_program="vscode") is False
+    assert caps(term_program="", term="xterm-256color") is False
