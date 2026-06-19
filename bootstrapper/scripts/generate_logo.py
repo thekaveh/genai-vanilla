@@ -16,12 +16,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "assets" / "atlas-source.png"
 POSTER = REPO / "assets" / "atlas-poster.png"
 PROFILE = REPO / "assets" / "atlas-profile.png"
+SOCIAL = REPO / "assets" / "atlas-social-preview.png"
 OUT_DIR = REPO / "bootstrapper" / "ui" / "textual" / "assets"
 BREAKPOINTS = (160, 120, 100, 80)
 
@@ -190,6 +191,25 @@ def main() -> None:
     _compose_poster(square=True, wm_frac=0.86, bottom_frac=0.023).save(PROFILE)
     _optimize_png(PROFILE)  # GitHub avatar/social-preview must be < 1MB
     print(f"wrote {PROFILE.relative_to(REPO)} ({PROFILE.stat().st_size // 1024} KB)")
+
+    # GitHub social-preview card: exactly 1280x640 (2:1). The full poster
+    # (globe + figure + wordmark) is fit inside without cropping; the sides are
+    # filled with a blurred, darkened copy of the artwork so there are no flat
+    # letterbox bars. Must be < 1MB.
+    _compose_social().save(SOCIAL)
+    _optimize_png(SOCIAL)
+    print(f"wrote {SOCIAL.relative_to(REPO)} ({SOCIAL.stat().st_size // 1024} KB)")
+
+
+def _compose_social(w: int = 1280, h: int = 640) -> Image.Image:
+    poster = Image.open(POSTER).convert("RGB")
+    bg = ImageOps.fit(Image.open(SRC).convert("RGB"), (w, h), method=Image.LANCZOS)
+    bg = bg.filter(ImageFilter.GaussianBlur(24))
+    bg = ImageEnhance.Brightness(bg).enhance(0.45)
+    fg = poster.copy()
+    fg.thumbnail((w, h), Image.LANCZOS)  # fit, preserve aspect, no crop
+    bg.paste(fg, ((w - fg.width) // 2, (h - fg.height) // 2))
+    return bg
 
 
 def _optimize_png(path: Path, quality: str = "80-95") -> None:
