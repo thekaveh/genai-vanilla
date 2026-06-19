@@ -1,6 +1,6 @@
 """Parity + boundary guard for the ATLAS-PLATFORM block-art lockup.
 
-The 6-row FULL lockup, the ATLAS COMPACT fallback, and the 130-column
+The 6-row FULL lockup, the ATLAS COMPACT fallback, and the 119-column
 width threshold are duplicated across two render surfaces:
 
   * ``ui/textual/widgets/block_logo`` — the Textual TUI brand panel.
@@ -50,7 +50,7 @@ def test_width_threshold_matches_across_surfaces():
     assert bl._WIDTH_THRESHOLD == BannerDisplay._FULL_WIDTH_THRESHOLD
 
 
-@pytest.mark.parametrize("cols,variant", [(129, "compact"), (130, "full")])
+@pytest.mark.parametrize("cols,variant", [(118, "compact"), (119, "full")])
 def test_threshold_boundary_picks_the_right_lockup(monkeypatch, cols, variant):
     import ui.textual.widgets.block_logo as bl
     from utils.banner import BannerDisplay
