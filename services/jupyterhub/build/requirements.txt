@@ -66,6 +66,10 @@ kaleido>=0.2.1
 
 # Distributed compute
 ray[client]>=2.55.1,<2.56
+# Lightweight Spark Connect client (~1.5 MB, no JVM/Spark distro) — notebook
+# 09_spark_connect talks to the spark-connect sidecar via sc://. Pinned to the
+# server's Spark version (apache/spark:4.1.2); a mismatch breaks the gRPC handshake.
+pyspark-client==4.1.2
 
 # ml-lab runtime support — see https://github.com/thekaveh/ml-lab
 # The package was previously published as `nnx-pytorch`; that distribution

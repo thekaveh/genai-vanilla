@@ -35,7 +35,7 @@ JUPYTERHUB_SOURCE=disabled
 
 - **Pre-installed AI Libraries**: OpenAI SDK (pointed at LiteLLM), LangChain, LlamaIndex, Transformers
 - **Database Clients**: Weaviate, Neo4j, PostgreSQL, Redis, Supabase
-- **Sample Notebooks**: 9 ready-to-use notebooks demonstrating service integration
+- **Sample Notebooks**: 11 ready-to-use notebooks (00-10) demonstrating service integration
 - **Persistent Storage**: All notebooks saved in Docker volumes
 - **Environment Variables**: Auto-configured connections to all services
 - **Multi-kernel runtime**: Python 3 (default) plus **Scala 2.13** and **Scala 3** kernels via Almond. Pick one from JupyterLab's launcher or VS Code's kernel picker. See §11.
@@ -75,6 +75,8 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | `06_n8n_workflows.ipynb` | Workflow automation |
 | `07_ray_cluster.ipynb` | Distributed compute on the Ray cluster |
 | `08_scala_basics.ipynb` | Scala 3 syntax, `import $ivy` dependency loading, calling LiteLLM from Scala, Scala-3 enums + extension methods. Opens on the `scala3` kernel. |
+| `09_spark_connect.ipynb` | Distributed Spark via the `spark-connect` sidecar (DataFrame/SQL + an s3a MinIO round-trip). Requires `SPARK_SOURCE != disabled`. |
+| `10_spark_scala.ipynb` | The Scala counterpart to 09 — Spark Connect from the **Scala 2.13** kernel via `import $ivy.\`org.apache.spark::spark-connect-client-jvm:4.1.2\``. |
 
 ## 6. Service Integration Examples
 
@@ -128,6 +130,25 @@ driver = GraphDatabase.driver(
     os.getenv("NEO4J_URI"),
     auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
 )
+```
+
+### 6.4 Run Spark (Spark Connect)
+
+The image carries `pyspark-client` — a thin Spark Connect client, no JVM. The
+driver runs on the `spark-connect` sidecar (requires `SPARK_SOURCE != disabled`);
+`s3a://` and Spark History work via the server's own conf, so no storage keys in
+the notebook. `SPARK_REMOTE` (compose-injected, default `sc://spark-connect:15002`)
+can be overridden to target a remote/managed endpoint (e.g. EMR Serverless). See
+`09_spark_connect.ipynb`.
+
+```python
+import os
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.remote(
+    os.getenv("SPARK_REMOTE", "sc://spark-connect:15002")
+).getOrCreate()
+spark.range(5).show()
 ```
 
 ## 7. Data Persistence
@@ -353,6 +374,7 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 |---|---|
 | ray | infra |
 | neo4j | data |
+| spark | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |

@@ -4,17 +4,73 @@ Zeppelin runs as a single container in the stack's `apps` band. The Spark interp
 
 ## 1. Overview
 
-Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline. The image does NOT bundle a full Spark distribution — `/opt/zeppelin/interpreter/spark/` contains only the interpreter shim. To run `%spark` cells, configure the Spark interpreter UI to use **Spark Connect** mode:
-
-1. Open Interpreter (top-right user menu) → `spark` → click `edit`
-2. Add a property: `spark.remote` = `sc://spark-connect:15002`
-3. Save + restart the interpreter
-
-The driver then runs on the dedicated `spark-connect` sidecar, which has `hadoop-aws` + AWS SDK v2 bundle pre-installed (via `services/spark/build/Dockerfile`). All s3a:// reads/writes work transparently. `SPARK_MASTER` and `SPARK_SUBMIT_OPTIONS` are kept in env for users who want to wire a different deploy mode, but the supported in-stack pattern is Spark Connect.
+Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline. The image does NOT bundle a full Spark distribution — `/opt/zeppelin/interpreter/spark/` contains only the interpreter shim, so `%spark` cells must run against an external Spark driver via **Spark Connect** (configured once in the UI — see §1.2).
 
 **Hard requirement:** Zeppelin is gated on `SPARK_SOURCE != disabled`. Picking `ZEPPELIN_SOURCE=container` without Spark surfaces an actionable error from the bootstrapper; the spec considers a Spark-less Zeppelin broken on purpose.
 
 **Design deviation from spec §3.2.7:** the spec envisioned a `zeppelin-init` sidecar to materialize starter notebooks and seed interpreter config files. We ship `notebooks/` bind-mounted directly and rely on env-driven interpreter config — same outcome, simpler topology, and users can edit notebooks without restarting the container.
+
+### 1.1 What Spark Connect is (and why Zeppelin uses it)
+
+[Spark Connect](https://spark.apache.org/docs/latest/spark-connect-overview.html) is a client-server protocol introduced in Spark 3.4: a thin client sends DataFrame / SQL operations over **gRPC** to a remote Spark driver, instead of running the driver in the same JVM as the client. The client carries no cluster — it only needs the matching Spark-Connect client library and a `sc://host:port` URL.
+
+In Atlas this is the supported way to run Spark from a notebook:
+
+- Zeppelin's image ships **no Spark distribution**, so there is no local driver to run.
+- The stack runs a dedicated **`spark-connect` sidecar** (`services/spark/compose.yml`) — a `start-connect-server.sh` process bound to gRPC `0.0.0.0:15002`, wired to the standalone cluster (`--master spark://spark-master:7077`) and pre-loaded with the `hadoop-aws` + AWS SDK v2 bundle (via `services/spark/build/Dockerfile`), MinIO s3a credentials, and `spark.eventLog` to `s3a://spark-history/`.
+- Zeppelin's `%spark` interpreter, set to `spark.remote = sc://spark-connect:15002`, becomes that thin client. The **driver runs on the sidecar**, executors on `spark-worker`, and the notebook just streams results back.
+
+This is the same protocol that managed offerings (Databricks Connect, Google Cloud Serverless for Apache Spark, Amazon EMR Serverless) expose — so the in-stack pattern transfers to a remote/cloud Spark backend with only a URL + auth change (see §1.5).
+
+### 1.2 Configure the Spark interpreter (one-time, step-by-step)
+
+The interpreter config is **not** seeded automatically (the image ships interpreter defaults; we don't bind-mount `conf/interpreter.json` yet). Do this once per fresh container:
+
+1. Confirm the Spark side is up: `docker ps --filter name=spark-connect` shows `${PROJECT_NAME}-spark-connect` (i.e. `SPARK_SOURCE != disabled`). On a cold start its JVM lags `spark-master` by 20-60s (loading the Connect plugin + binding 15002) — wait for it before step 6.
+2. Open Zeppelin (`http://localhost:${ZEPPELIN_PORT}` or `http://zeppelin.localhost:${KONG_HTTP_PORT}`).
+3. Top-right user menu → **Interpreter**.
+4. Find the **`spark`** interpreter group → click **edit**.
+5. Under **Properties**, add (or set) a property:
+   - name: `spark.remote`
+   - value: `sc://spark-connect:15002`
+
+   Leave the existing `SPARK_HOME` / `master` properties as-is — when `spark.remote` is present the interpreter uses Connect mode and ignores them.
+6. Click **Save**, then confirm the "restart interpreter" prompt (or use the interpreter's **restart** button).
+
+That single property is the whole setup. `SPARK_MASTER` / `SPARK_SUBMIT_OPTIONS` in the compose env are inert in this mode — they only matter on a user-mounted `spark-submit` path (a `SPARK_HOME` you bind-mount yourself), which is not the supported in-stack flow.
+
+### 1.3 Verify it works
+
+In a new notebook, run a `%spark` (Scala) cell:
+
+```scala
+%spark
+println(spark.version)                 // prints the cluster's Spark version (4.1.x)
+spark.range(5).selectExpr("id * id as sq").show()
+```
+
+…and a `%spark.pyspark` (Python) cell:
+
+```python
+%spark.pyspark
+spark.sql("SELECT 1 + 1 AS result").show()
+```
+
+If both return values, the notebook is talking to the `spark-connect` driver. (The starter notebook `notebooks/spark_basics.zpln` in §5 does the same checks plus an s3a round-trip.)
+
+### 1.4 How MinIO (s3a) and Spark History work through Connect
+
+You do **not** configure storage credentials in the notebook. Because the driver runs on the `spark-connect` sidecar, every Connect session inherits the **server's** conf:
+
+- `s3a://` reads/writes use the sidecar's `spark.hadoop.fs.s3a.*` (MinIO endpoint `http://minio:9000`, root creds, path-style). So `spark.read.parquet("s3a://<bucket>/…")` from a `%spark` cell just works once the bucket exists.
+- `spark.eventLog.enabled=true` + `spark.eventLog.dir=s3a://spark-history/` are set on the server, so every Connect session's events land in the History Server automatically — no per-notebook config. Browse them at the Spark History UI (`SPARK_HISTORY_PORT`).
+
+### 1.5 Reaching Spark Connect from outside the stack (host IDEs, remote/cloud)
+
+The `spark-connect` sidecar is **backend-only by design** — it publishes no host port, so `sc://spark-connect:15002` resolves only from inside the Docker `backend-network` (Zeppelin, Airflow DAGs). Two ways to go further, both tracked as roadmap items:
+
+- **Host-side IDE / local Jupyter:** would require publishing the 15002 gRPC port to the host (then `sc://localhost:<port>`). Not enabled in the in-stack-only baseline.
+- **Remote/managed Spark (cloud burst):** the same `spark.remote` client can point at a managed Spark Connect endpoint instead. Amazon EMR Serverless, for example, exposes interactive Spark Connect sessions at `sc://<endpoint>:443/;use_ssl=true;x-aws-proxy-auth=<token>` — the token is fetched per-session via the `emr-serverless` API and expires hourly, and the client's Spark version must match the EMR release's Spark version. That is a fundamentally different, ephemeral-session + IAM model than the static in-network sidecar — useful for scale-out, not a drop-in replacement.
 
 ## 2. Access
 

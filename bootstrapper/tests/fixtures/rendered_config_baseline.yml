@@ -683,6 +683,7 @@ services:
       RAY_ADDRESS: ''
       REDIS_URL: redis://:redis_password@redis:6379/3
       SEARXNG_URL: http://searxng:8080
+      SPARK_REMOTE: sc://spark-connect:15002
       STT_ENDPOINT: ''
       SUPABASE_ANON_KEY: ''
       SUPABASE_SERVICE_KEY: ''

@@ -37,6 +37,27 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 - **Airflow** — Airflow's `spark_default` Connection is seeded by `airflow-init` when `SPARK_SOURCE=container`. The provided `example_etl_with_llm.py` DAG uses `PythonOperator` + Spark Connect (`sc://spark-connect:15002`) for smoke; `SparkSubmitOperator` is available via the bundled `apache-airflow-providers-apache-spark` for user DAGs. See `services/airflow/README.md`.
 - **Prometheus + Grafana** — deferred. Spec §5.1 marks Spark × Prometheus + Grafana as CRITICAL-opt-in (JMX exporter sidecar + scrape job + `spark.json` dashboard), but the implementation is not yet wired. Tracking as a follow-up; for now use cAdvisor's container-level metrics in the existing Grafana dashboards.
 
+### 4.1 Cloud burst: Amazon EMR Serverless (optional)
+
+Because the stack speaks the open Spark Connect protocol, a notebook or tool can
+point at a **managed** Spark Connect endpoint instead of the in-stack sidecar —
+e.g. [EMR Serverless interactive sessions](https://docs.aws.amazon.com/emr/latest/EMR-Serverless-UserGuide/spark-connect.html).
+A reference helper ships at [`examples/emr_serverless_connect.py`](./examples/emr_serverless_connect.py):
+it runs the boto3 session lifecycle (`start_session` → `get_session_endpoint` →
+`SparkSession.builder.remote(...)` with the session token → `terminate_session`).
+
+Caveats (why it's a documented helper, not a wired source):
+
+- **Version pinning.** EMR Serverless interactive is Spark **3.5.6**; a Spark
+  Connect client must match its server, so this needs a *separate* environment
+  (`pip install "pyspark[connect]==3.5.6" boto3`) — it cannot share JupyterHub's
+  `pyspark-client==4.1.2` kernel (which targets the in-stack 4.1.2 sidecar).
+- **Ephemeral + auth.** Sessions are short-lived: the auth token expires hourly,
+  `spark.stop()` only disconnects (you must `terminate` to stop billing), and IAM
+  (`emr-serverless:StartSession`/`GetSessionEndpoint`/…) gates the session APIs.
+- This is why EMR is a helper + docs, not a `SPARK_SOURCE` variant — its
+  session/token model doesn't map to the stack's static, always-on endpoints.
+
 ## 5. Dependencies & Integrations
 
 > Auto-generated section — the **Current** subsections are derived from `services/spark/service.yml`'s `data_flow.calls` field (and inverse passes). Re-run `python -m bootstrapper.docs.regen spark` after manifest changes.
@@ -53,6 +74,7 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 |---|---|
 | kong | infra |
 | airflow | agents |
+| jupyterhub | apps |
 | zeppelin | apps |
 
 ### 5.3 Architecture diagram

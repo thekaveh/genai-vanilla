@@ -167,10 +167,11 @@ def test_topology_aliases_contract():
     # 4: lossless projection of manifest aliases.
     manifests = load_manifests(repo_root / "services")
     manifest_aliases = [r.alias for m in manifests for r in m.rows if r.alias]
+    manifest_aliases += [a for m in manifests for a in m.extra_kong_aliases]
     assert len(aliases) == len(manifest_aliases), (
-        f"Topology.aliases ({len(aliases)}) and manifest rows[].alias "
-        f"({len(manifest_aliases)}) counts must match — every non-empty "
-        f"row alias should land in the topology's alias list."
+        f"Topology.aliases ({len(aliases)}) and manifest rows[].alias + "
+        f"extra_kong_aliases ({len(manifest_aliases)}) counts must match — "
+        f"every declared alias should land in the topology's alias list."
     )
 
 

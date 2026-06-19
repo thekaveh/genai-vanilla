@@ -138,6 +138,10 @@ class Manifest:
     depends_on: DependsOn = field(default_factory=DependsOn)
     exports: list[ExportRef] = field(default_factory=list)
     rows: list[Row] = field(default_factory=list)
+    # Extra *.localhost Kong hostnames beyond rows[].alias (e.g. minio's
+    # s3.minio.localhost -> minio:9000). Not wizard rows; may be multi-label.
+    # Projected into Topology.aliases for --setup-hosts wiring.
+    extra_kong_aliases: list[str] = field(default_factory=list)
     # Slices of the legacy bootstrapper/service-configs.yml structure, owned
     # by this manifest. sc_synthesizer.synthesize_legacy() concatenates these
     # across manifests to produce the dict the bootstrapper used to load from
@@ -370,6 +374,7 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
         depends_on=depends_on,
         exports=exports,
         rows=rows,
+        extra_kong_aliases=list(raw.get("extra_kong_aliases") or []),
         runtime_sc=dict(raw.get("runtime_sc") or {}),
         runtime_adaptive=dict(raw.get("runtime_adaptive") or {}),
         runtime_deps=dict(raw.get("runtime_deps") or {}),

@@ -9,6 +9,14 @@ label: "MinIO (S3-compatible object storage)"
 category: data
 docs: services/minio/README.md
 
+# Extra Kong hostname for the S3 API (port 9000), distinct from the console
+# row's minio.localhost (port 9001). Lets external s3-compatible tools use a
+# stable friendly host instead of the BASE_PORT-derived port. The route is
+# emitted by kong_config_generator.generate_minio_s3_service(); --setup-hosts
+# wires s3.minio.localhost via Topology.aliases.
+extra_kong_aliases:
+  - s3.minio.localhost
+
 containers:
   - minio
   - minio-init
