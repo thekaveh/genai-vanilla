@@ -61,7 +61,7 @@ class AtlasSplash(Container):
     AtlasSplash {
         width: 100%;
         height: 100%;
-        background: #020c24 88%;
+        background: #000412 88%;
         align: center middle;
     }
     AtlasSplash AtlasHero { width: auto; height: auto; }
