@@ -105,7 +105,7 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 | neo4j | data |
 | redis | data |
 | supabase | data |
-| litellm | llm |
+| litellm ↔ | llm |
 | tei-reranker | llm |
 | docling | media |
 
@@ -114,6 +114,7 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 | Service | Category |
 |---|---|
 | kong | infra |
+| litellm ↔ | llm |
 | hermes | agents |
 | n8n | agents |
 

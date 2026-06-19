@@ -89,3 +89,4 @@ data_flow:
     - ollama
     - cloud-providers
     - hermes
+    - lightrag

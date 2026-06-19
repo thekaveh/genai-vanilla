@@ -284,6 +284,7 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 | cloud-providers | llm |
 | ollama | llm |
 | hermes ↔ | agents |
+| lightrag ↔ | agents |
 
 ### 14.2 Current — Downstream (services that call this)
 
@@ -292,10 +293,9 @@ curl -sX POST http://localhost:${LITELLM_PORT}/v1/chat/completions \
 | kong | infra |
 | prometheus | infra |
 | weaviate | data |
-| comfyui | media |
 | airflow | agents |
 | hermes ↔ | agents |
-| lightrag | agents |
+| lightrag ↔ | agents |
 | n8n | agents |
 | openclaw | agents |
 | backend | apps |

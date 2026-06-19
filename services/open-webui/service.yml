@@ -152,6 +152,5 @@ data_flow:
     - comfyui
     - stt-provider
     - tts-provider
-    - doc-processor
     - local-deep-researcher
 

@@ -246,6 +246,7 @@ _No upstream calls._
 | kong | infra |
 | prometheus | infra |
 | litellm | llm |
+| comfyui | media |
 | airflow | agents |
 | lightrag | agents |
 | n8n | agents |

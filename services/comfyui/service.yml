@@ -196,5 +196,8 @@ runtime_adaptive:
 
 data_flow:
   calls:
-    - litellm
+    # ComfyUI uploads each generated image to Supabase Storage via Kong
+    # (COMFYUI_UPLOAD_TO_SUPABASE=true). It does NOT call LiteLLM at runtime
+    # — the only LiteLLM path is via custom nodes, and that volume is unseeded.
+    - supabase
 
