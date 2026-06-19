@@ -72,7 +72,7 @@ services:
     build:
       context: ./init
       args:
-        BASE_IMAGE: ${OPEN_WEB_UI_INIT_IMAGE:-python:3.12-slim}
+        BASE_IMAGE: ${OPEN_WEB_UI_INIT_IMAGE:-python:3.12.7-slim}
     container_name: ${PROJECT_NAME}-open-webui-init
     restart: "no"
     deploy:
