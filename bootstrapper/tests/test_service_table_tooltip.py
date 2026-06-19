@@ -1,12 +1,10 @@
-"""Hover-tooltip logic for the wizard ServiceTable.
+"""Hover-tooltip card for the wizard ServiceTable.
 
-Covers the two pieces that don't need a live Textual app:
-  - ``_build_tooltip`` — the access-summary string for a row.
-  - ``_row_at`` — mapping a widget-relative (x, y) back to a rendered row,
-    using the grid layout that render() stashes.
+Covers the pieces that don't need a live Textual app:
+  - ``_tooltip_pairs`` / ``_build_tooltip`` — the aligned key/value card.
+  - ``_row_at`` — mapping a widget-relative (x, y) back to a rendered row.
 
-The visual hover behavior itself (Textual showing the tooltip after a hover
-delay) is validated live in the TUI, not here.
+The visual hover behavior itself is validated live in the TUI, not here.
 """
 
 from __future__ import annotations
@@ -18,65 +16,81 @@ def _row(name, **kw):
     return ServiceRow(name=name, **kw)
 
 
-def test_build_tooltip_basic():
+def test_tooltip_pairs_basic():
     row = _row("n8n", source="container", alias="n8n.localhost",
-               alias_port="63000", port="63064")
-    tip = ServiceTable._build_tooltip(row)
-    assert tip.splitlines() == [
-        "n8n  ·  container",
-        "http://n8n.localhost:63000",
-        "localhost:63064",
+               alias_port="63000", port=":63064")
+    assert ServiceTable._tooltip_pairs(row) == [
+        ("Source", "container"),
+        ("URL", "http://n8n.localhost:63000"),
+        ("Local", "localhost:63064"),   # port's leading colon stripped (no '::')
     ]
 
 
-def test_build_tooltip_omits_empty_url_and_dash_port():
+def test_tooltip_pairs_strips_leading_colon_port():
+    # resolve_port returns ':<port>'; the card must not render 'localhost::'.
+    row = _row("MinIO Console", source="container", port=":64094")
+    pairs = ServiceTable._tooltip_pairs(row)
+    assert ("Local", "localhost:64094") in pairs
+    assert all("::" not in v for _, v in pairs)
+
+
+def test_tooltip_pairs_omits_empty_url_and_dash_port():
     row = _row("Supabase DB", source="container", alias="", alias_port="",
                port="—")
-    assert ServiceTable._build_tooltip(row) == "Supabase DB  ·  container"
+    assert ServiceTable._tooltip_pairs(row) == [("Source", "container")]
 
 
-def test_build_tooltip_appends_extra_lines():
+def test_tooltip_pairs_appends_extra():
     row = _row("MinIO Console", source="container", alias="minio.localhost",
-               alias_port="63000", port="63019",
-               tooltip_lines=["S3 API: http://localhost:63018",
-                              "S3 API (Kong): http://s3.minio.localhost:63000"])
-    tip = ServiceTable._build_tooltip(row)
-    assert "S3 API: http://localhost:63018" in tip
-    assert "S3 API (Kong): http://s3.minio.localhost:63000" in tip
-    # extra lines come after the row's own console URL
-    assert tip.index("63019") < tip.index("63018")
+               alias_port="63000", port=":63019",
+               tooltip_extra=[("S3 API", "http://localhost:63018"),
+                              ("S3 (Kong)", "http://s3.minio.localhost:63000")])
+    pairs = ServiceTable._tooltip_pairs(row)
+    assert pairs[0] == ("Source", "container")
+    assert ("S3 API", "http://localhost:63018") in pairs
+    assert ("S3 (Kong)", "http://s3.minio.localhost:63000") in pairs
+
+
+def test_build_tooltip_renders_aligned_card():
+    row = _row("MinIO Console", source="container", alias="minio.localhost",
+               alias_port="63000", port=":63019",
+               tooltip_extra=[("S3 API", "http://localhost:63018")])
+    card = ServiceTable._build_tooltip(row)
+    lines = card.plain.splitlines()
+    assert lines[0] == "MinIO Console"               # title
+    # labels left-aligned to a common width (Source/URL/Local/S3 API -> 6)
+    assert lines[1] == "Source  container"
+    assert lines[2] == "URL     http://minio.localhost:63000"
+    assert lines[3] == "Local   localhost:63019"
+    assert lines[4] == "S3 API  http://localhost:63018"
+    # URL value is styled with the accent color
+    assert any(span.style and "#7dcfff" in str(span.style) for span in card.spans)
 
 
 def test_row_at_single_column():
     t = ServiceTable(rows=[])
     rows = [_row("a"), _row("b"), _row("c")]
-    # Simulate a single-column render layout.
     t._hit_flat = rows
     t._hit_offsets = [0]
     t._hit_lens = [3]
     t._hit_block_w = 40
     assert t._row_at(5, 0) is rows[0]
     assert t._row_at(5, 2) is rows[2]
-    assert t._row_at(5, 3) is None        # past the last row
+    assert t._row_at(5, 3) is None
     assert t._row_at(5, -1) is None
 
 
 def test_row_at_two_columns():
     t = ServiceTable(rows=[])
     rows = [_row("a"), _row("b"), _row("c"), _row("d")]
-    # Two columns: group0=[a,b] (offset 0), group1=[c,d] (offset 2).
     t._hit_flat = rows
     t._hit_offsets = [0, 2]
     t._hit_lens = [2, 2]
     t._hit_block_w = 40
-    assert t._row_at(5, 0) is rows[0]     # col 0, row 0
-    assert t._row_at(5, 1) is rows[1]     # col 0, row 1
-    assert t._row_at(45, 0) is rows[2]    # col 1, row 0
-    assert t._row_at(45, 1) is rows[3]    # col 1, row 1
-    assert t._row_at(85, 0) is None       # past last column
+    assert t._row_at(5, 0) is rows[0]
+    assert t._row_at(45, 1) is rows[3]
+    assert t._row_at(85, 0) is None
 
 
 def test_row_at_no_layout_returns_none():
-    t = ServiceTable(rows=[])
-    # No render() yet → no hit layout.
-    assert t._row_at(0, 0) is None
+    assert ServiceTable(rows=[])._row_at(0, 0) is None
