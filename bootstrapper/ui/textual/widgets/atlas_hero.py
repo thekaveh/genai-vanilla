@@ -35,7 +35,7 @@ def load_hero(width: int, height: int | None = None,
     given) rows <= ``height``. Returns None when nothing fits.
 
     ``prefix`` selects the grid family (``atlas_hero`` = landscape source,
-    ``atlas_profile`` = square poster with wordmark)."""
+    ``atlas_poster`` = landscape poster with wordmark)."""
     for cols in _available(prefix):
         if width < cols:
             continue

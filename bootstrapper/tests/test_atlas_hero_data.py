@@ -6,7 +6,7 @@ import pytest
 
 ASSETS = Path(__file__).resolve().parent.parent / "ui" / "textual" / "assets"
 BREAKPOINTS = (80, 100, 120, 160)
-PROFILE_BREAKPOINTS = (60, 80, 100, 120)
+POSTER_BREAKPOINTS = (60, 80, 100, 120, 160)
 _HEX = re.compile(r"^#[0-9a-f]{6}$")
 
 
@@ -27,8 +27,8 @@ def test_hero_grid_is_wellformed(cols):
     )
 
 
-@pytest.mark.parametrize("cols", PROFILE_BREAKPOINTS)
-def test_profile_grid_is_wellformed(cols):
+@pytest.mark.parametrize("cols", POSTER_BREAKPOINTS)
+def test_poster_grid_is_wellformed(cols):
     _assert_wellformed(
-        json.loads((ASSETS / f"atlas_profile_{cols}.json").read_text(encoding="utf-8")), cols
+        json.loads((ASSETS / f"atlas_poster_{cols}.json").read_text(encoding="utf-8")), cols
     )

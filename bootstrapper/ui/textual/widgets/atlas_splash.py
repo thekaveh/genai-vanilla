@@ -1,15 +1,15 @@
 """Atlas opening splash.
 
-A full-screen, semi-transparent dim overlay (the wizard shows through dimmed)
-with the square profile artwork centered on top; holds briefly, then removes
-itself to reveal the wizard. Any key or mouse press skips.
+A full-screen overlay tinted to the poster's own dark navy (the wizard shows
+through dimmed) with the landscape poster artwork centered on top; holds
+briefly, then removes itself to reveal the wizard. Any key or mouse press skips.
 
-The artwork (``assets/atlas-profile.png`` — square, with the ATLAS-PLATFORM
+The artwork (``assets/atlas-poster.png`` — landscape, with the ATLAS-PLATFORM
 wordmark) renders SMOOTHLY via the terminal's inline-image protocol on
 image-capable terminals (iTerm2, Kitty, WezTerm, Ghostty). On terminals that
 garble that protocol inside a TUI (Warp, Apple Terminal, VS Code) it renders
-the SAME file as colored half-block text (``HalfcellImage``) — plain text, so
-it always shows, never blank or garbled.
+the SAME artwork as a committed colored block-art cell-grid (``AtlasHero``) —
+pure Rich text, so it always shows, never blank, garbled, or crashing.
 """
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container
 
-# Repo-root assets/atlas-profile.png (square artwork + ATLAS-PLATFORM wordmark).
-PROFILE = Path(__file__).resolve().parents[4] / "assets" / "atlas-profile.png"
+# Repo-root assets/atlas-poster.png (landscape artwork + ATLAS-PLATFORM wordmark).
+POSTER = Path(__file__).resolve().parents[4] / "assets" / "atlas-poster.png"
 
 
 def should_show_splash(no_splash: bool) -> bool:
@@ -32,7 +32,7 @@ def should_show_splash(no_splash: bool) -> bool:
         return False
     if (os.environ.get("ATLAS_NO_SPLASH", "") or "").strip():
         return False
-    return PROFILE.is_file()
+    return POSTER.is_file()
 
 
 def image_capable() -> bool:
@@ -54,14 +54,14 @@ def image_capable() -> bool:
 
 
 class AtlasSplash(Container):
-    """Dim overlay + centered profile artwork; holds, then removes itself
+    """Navy overlay + centered poster artwork; holds, then removes itself
     (revealing the wizard). Timer-guaranteed removal so it can never stick."""
 
     DEFAULT_CSS = """
     AtlasSplash {
         width: 100%;
         height: 100%;
-        background: #0a0b12 80%;
+        background: #020c24 88%;
         align: center middle;
     }
     AtlasSplash AtlasHero { width: auto; height: auto; }
@@ -87,7 +87,7 @@ class AtlasSplash(Container):
         if image_capable():
             try:
                 from textual_image.widget import Image
-                img = Image(str(PROFILE))
+                img = Image(str(POSTER))
                 self._fit(img)
                 return img
             except Exception:  # noqa: BLE001 — degrade to block-art, never crash
@@ -95,7 +95,7 @@ class AtlasSplash(Container):
         from ui.textual.widgets.atlas_hero import AtlasHero
         avail_w = max(60, int((self.app.size.width or 100) * 0.85))
         avail_h = max(10, int((self.app.size.height or 30) * 0.82))
-        return AtlasHero(avail_w, height=avail_h, prefix="atlas_profile")
+        return AtlasHero(avail_w, height=avail_h, prefix="atlas_poster")
 
     def _fit(self, img) -> None:
         """Explicit, aspect-correct, contained size so the artwork paints
@@ -103,7 +103,7 @@ class AtlasSplash(Container):
         try:
             from PIL import Image as _PIL
             from textual_image.widget import get_cell_size
-            pw, ph = _PIL.open(PROFILE).size
+            pw, ph = _PIL.open(POSTER).size
             cw, ch = get_cell_size()
             ratio = (pw / ph) * (ch / cw)  # cols:rows for true aspect
             max_cols = max(1, int(self.app.size.width * 0.8))
