@@ -13,10 +13,11 @@ images:
     default: "dyrnq/open-webui:latest"
     container: open-web-ui
   - var: OPEN_WEB_UI_INIT_IMAGE
-    # 3.12-slim matches the init Dockerfile's own default and every
-    # other init container; the 3.11 pin was a half-finished migration
-    # (.env.example overrode the Dockerfile back to 3.11).
-    default: "python:3.12-slim"
+    # Pinned to the patch version the init Dockerfile pins (and that
+    # litellm/init + comfyui/catalog-init use) so the real compose build
+    # path stays reproducible. Compose passes this value as BASE_IMAGE, so
+    # a floating 3.12-slim here would defeat the Dockerfile's 3.12.7 pin.
+    default: "python:3.12.7-slim"
     container: open-webui-init
 
 sources:

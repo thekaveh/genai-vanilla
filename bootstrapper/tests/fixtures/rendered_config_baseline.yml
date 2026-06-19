@@ -1604,7 +1604,7 @@ services:
   open-webui-init:
     build:
       args:
-        BASE_IMAGE: python:3.12-slim
+        BASE_IMAGE: python:3.12.7-slim
       context: '{REPO_ROOT}/services/open-webui/init'
       dockerfile: Dockerfile
     container_name: atlas-open-webui-init
