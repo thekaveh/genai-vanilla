@@ -187,7 +187,7 @@ def main() -> None:
     # square wordmarked profile picture for the GitHub avatar.
     _compose_poster(square=False, wm_frac=0.72, bottom_frac=0.023).save(POSTER)
     print(f"wrote {POSTER.relative_to(REPO)}")
-    _compose_poster(square=True, wm_frac=0.86, bottom_frac=0.03).save(PROFILE)
+    _compose_poster(square=True, wm_frac=0.86, bottom_frac=0.023).save(PROFILE)
     print(f"wrote {PROFILE.relative_to(REPO)}")
 
 
