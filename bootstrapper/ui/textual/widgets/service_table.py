@@ -505,7 +505,8 @@ class ServiceTable(Widget):
         """A clean, aligned key/value card for a row's hover tooltip.
 
         Title line (the service name) over one ``label  value`` row per
-        field — labels left-aligned in a fixed column, URLs accented.
+        field — labels left-aligned in a fixed column, URLs accented, and
+        the active source highlighted within the 'Source options' list.
         """
         pairs = ServiceTable._tooltip_pairs(row)
         label_w = max((len(k) for k, _ in pairs), default=0)
@@ -515,8 +516,18 @@ class ServiceTable(Widget):
             card.append("\n")
             card.append(label.ljust(label_w), style=P.TEXT_MUTED)
             card.append("  ")
-            is_url = value.startswith(("http://", "https://", "sc://"))
-            card.append(value, style=P.ACCENT if is_url else P.TEXT_BRIGHT)
+            if label == "Source options" and row.source_options:
+                # Accent the selected/active source; dim the rest.
+                for i, opt in enumerate(row.source_options):
+                    if i:
+                        card.append(", ", style=P.TEXT_MUTED)
+                    if opt == row.source:
+                        card.append(opt, style=f"bold {P.ACCENT}")
+                    else:
+                        card.append(opt, style=P.TEXT_MUTED)
+            else:
+                is_url = value.startswith(("http://", "https://", "sc://"))
+                card.append(value, style=P.ACCENT if is_url else P.TEXT_BRIGHT)
         return card
 
     def on_mouse_move(self, event) -> None:

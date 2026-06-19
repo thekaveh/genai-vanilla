@@ -127,3 +127,18 @@ def test_recompute_ports_preserves_card_metadata():
     assert out[0].tooltip_extra == [("S3 API", "http://localhost:63018")]
     assert out[0].source_options == ["container", "disabled"]
     assert out[0].depends_on == ["supabase"]
+
+
+def test_source_options_highlights_active_source():
+    row = _row("LLM Engine", source="ollama-localhost",
+               source_options=["ollama-container-cpu", "ollama-localhost", "none"])
+    card = ServiceTable._build_tooltip(row)
+    active_accented = False
+    for span in card.spans:
+        seg = card.plain[span.start:span.end]
+        style = str(span.style)
+        if seg == "ollama-localhost":
+            active_accented = "#7dcfff" in style and "bold" in style
+        if seg == "none":   # an inactive option must NOT be accented
+            assert "#7dcfff" not in style
+    assert active_accented, "active source option should be accent + bold"
