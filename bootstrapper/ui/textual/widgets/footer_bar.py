@@ -4,12 +4,13 @@ FooterBar — bordered, titled, center-aligned shortcut strip.
 Layout (anchored to the bottom):
 
     ╭─ shortcuts ──────────────────────────────────────────────────────╮
-    │      [↑] [↓] navigate   [↵] confirm   [esc] back   [ctrl+q] quit │
+    │   [↑] [↓] navigate  ·  [↵] confirm  ·  [esc] back  ·  [ctrl+q] quit │
     ╰──────────────────────────────────────────────────────────────────╯
 
 Each key is rendered as a small bracketed keycap; labels follow in
-muted text. All hints (including ctrl+q) sit inline so there's no
-awkward right-side gap.
+muted text, and hints are separated by a faint "·" divider (the app's
+divider convention). All hints (including ctrl+q) sit inline so there's
+no awkward right-side gap.
 """
 
 from __future__ import annotations
@@ -69,7 +70,7 @@ class _Body(Static):
         line = Text()
         for i, hint in enumerate(self.hints):
             if i > 0:
-                line.append("   ")
+                line.append("  ·  ", style=P.TEXT_FAINT)
             _append_hint(line, hint)
         return Align.center(line)
 
