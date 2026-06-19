@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/atlas-poster.png" alt="Atlas — the Titan holding the globe, with the ATLAS-PLATFORM wordmark" width="66%">
+</p>
+
 # Atlas
 
 A self-hosted, source-configurable engineering platform — gen-AI, ML, and data — composable from a single Docker Compose stack.

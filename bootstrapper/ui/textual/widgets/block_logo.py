@@ -8,7 +8,7 @@ same vertical bright→dark fade.
 
 Two lockup variants are defined; ``render()`` picks at runtime based on
 ``shutil.get_terminal_size()``:
-  * ``_LOGO_ROWS_FULL`` — "ATLAS-PLATFORM", 129 cells wide. Used when
+  * ``_LOGO_ROWS_FULL`` — "ATLAS-PLATFORM", 118 cells wide. Used when
     the terminal is wide enough.
   * ``_LOGO_ROWS_COMPACT`` — "ATLAS" only, 41 cells wide. Fallback for
     terminals narrower than ``_WIDTH_THRESHOLD`` columns so the
@@ -30,17 +30,19 @@ from textual.containers import Container
 from textual.widget import Widget
 
 
-# Full-width "ATLAS-PLATFORM" lockup (129 cells, 6 rows).
+# Full-width "ATLAS-PLATFORM" lockup (118 cells, 6 rows).
 # Letter widths A(8) T(9) L(8) A(8) S(8) hyphen(6) P(8) L(8) A(8) T(9)
 # F(8) O(9) R(8) M(11); 1-cell gap between every adjacent glyph. The
-# hyphen is a 6-cell horizontal block at mid-height (rows 2-3 only).
+# hyphen is a 6-cell horizontal block on a SINGLE row (row 3 only) so it
+# reads as one clean dash rather than a stacked "=" once a terminal adds
+# inter-line spacing.
 _LOGO_ROWS_FULL: list[str] = [
-    " █████╗  ████████╗ ██╗       █████╗  ███████╗        ██████╗  ██╗       █████╗  ████████╗ ███████╗  ██████╗  ██████╗  ███╗   ███╗",
-    "██╔══██╗ ╚══██╔══╝ ██║      ██╔══██╗ ██╔════╝        ██╔══██╗ ██║      ██╔══██╗ ╚══██╔══╝ ██╔════╝ ██╔═══██╗ ██╔══██╗ ████╗ ████║",
-    "███████║    ██║    ██║      ███████║ ███████╗ ██████ ██████╔╝ ██║      ███████║    ██║    █████╗   ██║   ██║ ██████╔╝ ██╔████╔██║",
-    "██╔══██║    ██║    ██║      ██╔══██║ ╚════██║ ██████ ██╔═══╝  ██║      ██╔══██║    ██║    ██╔══╝   ██║   ██║ ██╔══██╗ ██║╚██╔╝██║",
-    "██║  ██║    ██║    ███████╗ ██║  ██║ ███████║        ██║      ███████╗ ██║  ██║    ██║    ██║      ╚██████╔╝ ██║  ██║ ██║ ╚═╝ ██║",
-    "╚═╝  ╚═╝    ╚═╝    ╚══════╝ ╚═╝  ╚═╝ ╚══════╝        ╚═╝      ╚══════╝ ╚═╝  ╚═╝    ╚═╝    ╚═╝       ╚═════╝  ╚═╝  ╚═╝ ╚═╝     ╚═╝",
+    " █████╗ ████████╗██╗      █████╗ ███████╗        ██████╗ ██╗      █████╗ ████████╗███████╗ ██████╗ ██████╗ ███╗   ███╗",
+    "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝        ██╔══██╗██║     ██╔══██╗╚══██╔══╝██╔════╝██╔═══██╗██╔══██╗████╗ ████║",
+    "███████║   ██║   ██║     ███████║███████╗ █████╗ ██████╔╝██║     ███████║   ██║   █████╗  ██║   ██║██████╔╝██╔████╔██║",
+    "██╔══██║   ██║   ██║     ██╔══██║╚════██║ ╚════╝ ██╔═══╝ ██║     ██╔══██║   ██║   ██╔══╝  ██║   ██║██╔══██╗██║╚██╔╝██║",
+    "██║  ██║   ██║   ███████╗██║  ██║███████║        ██║     ███████╗██║  ██║   ██║   ██║     ╚██████╔╝██║  ██║██║ ╚═╝ ██║",
+    "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝        ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝      ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝",
 ]
 
 
@@ -58,10 +60,10 @@ _LOGO_ROWS_COMPACT: list[str] = [
 
 # Terminal columns required to render _LOGO_ROWS_FULL without clipping
 # the right edge. Below this, render() falls back to _LOGO_ROWS_COMPACT.
-# The full lockup is 129 cells wide; the threshold is 130 so the wider
+# The full lockup is 118 cells wide; the threshold is 119 so the wider
 # lockup only renders when it fully fits with at least 1 column of
 # margin.
-_WIDTH_THRESHOLD = 130
+_WIDTH_THRESHOLD = 119
 
 
 # Width of one fully-rendered row of the full lockup. Used by tests
@@ -85,7 +87,7 @@ _GRADIENT = [
 class BlockLogo(Widget):
     """Single-line block-art lockup with vertical gradient, horizontally centered.
 
-    Renders ``_LOGO_ROWS_FULL`` (ATLAS-PLATFORM, 129 cells) when the
+    Renders ``_LOGO_ROWS_FULL`` (ATLAS-PLATFORM, 118 cells) when the
     terminal is at least ``_WIDTH_THRESHOLD`` columns wide; otherwise
     falls back to ``_LOGO_ROWS_COMPACT`` (ATLAS, 41 cells).
     """
