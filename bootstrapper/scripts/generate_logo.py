@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "assets" / "atlas-source.png"
@@ -154,17 +154,22 @@ def _scrim(base: Image.Image, frac: float = 0.42, strength: int = 190) -> Image.
     return Image.alpha_composite(base.convert("RGBA"), ov).convert("RGB")
 
 
+def _finish(base: Image.Image, wm_frac: float, bottom_frac: float) -> Image.Image:
+    """Scrim the lower third and overlay the centered ATLAS-PLATFORM wordmark."""
+    base = _scrim(base)
+    w, h = base.size
+    wm = _wordmark(int(w * wm_frac))
+    base.paste(wm, ((w - wm.width) // 2, h - wm.height - int(h * bottom_frac)), wm)
+    return base
+
+
 def _compose_poster(square: bool, wm_frac: float, bottom_frac: float = 0.07) -> Image.Image:
     base = Image.open(SRC).convert("RGB")
     if square:
         w, h = base.size
         s = min(w, h)
         base = base.crop(((w - s) // 2, 0, (w - s) // 2 + s, s))
-    base = _scrim(base)
-    w, h = base.size
-    wm = _wordmark(int(w * wm_frac))
-    base.paste(wm, ((w - wm.width) // 2, h - wm.height - int(h * bottom_frac)), wm)
-    return base
+    return _finish(base, wm_frac, bottom_frac)
 
 
 def main() -> None:
@@ -222,14 +227,18 @@ def main() -> None:
 
 
 def _compose_social(w: int = 1280, h: int = 640) -> Image.Image:
-    poster = Image.open(POSTER).convert("RGB")
-    bg = ImageOps.fit(Image.open(SRC).convert("RGB"), (w, h), method=Image.LANCZOS)
-    bg = bg.filter(ImageFilter.GaussianBlur(24))
-    bg = ImageEnhance.Brightness(bg).enhance(0.45)
-    fg = poster.copy()
-    fg.thumbnail((w, h), Image.LANCZOS)  # fit, preserve aspect, no crop
-    bg.paste(fg, ((w - fg.width) // 2, (h - fg.height) // 2))
-    return bg
+    """Native 2:1 social card: crop the source scene to the card's aspect
+    (full-bleed, no letterbox/blur fill), weighting the vertical trim toward
+    the top (empty sky/space) so the globe, figure, and wordmark stay intact,
+    then scrim + place the wordmark fresh and resize to exactly w x h."""
+    base = Image.open(SRC).convert("RGB")
+    W, H = base.size
+    new_h = int(W * h / w)           # height for the card's aspect (2:1)
+    cut = max(0, H - new_h)
+    top = int(cut * 0.85)            # take most of the trim from the top sky
+    base = base.crop((0, top, W, top + new_h))
+    base = _finish(base, wm_frac=0.68, bottom_frac=0.035)
+    return base.resize((w, h), Image.LANCZOS)
 
 
 def _optimize_png(path: Path, quality: str = "80-95") -> None:
