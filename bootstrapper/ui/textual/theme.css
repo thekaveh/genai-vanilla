@@ -24,3 +24,11 @@ Screen {
     scrollbar-color-active: $accent;
     scrollbar-background: $bg;
 }
+
+/* Service hover card (ServiceTable tooltip). Textual's default Tooltip
+   max-width is 40, which wraps our key/value rows and breaks the value
+   column. The card content is no-wrap, so widen the box to fit the longest
+   line (full URLs) on one row. */
+Tooltip {
+    max-width: 120;
+}
