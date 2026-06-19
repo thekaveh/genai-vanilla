@@ -26,8 +26,8 @@ the other (e.g. cpu vs gpu), GPU wins and the bootstrapper prints a notice.
 | Multilingual | 99 langs | 25 EN/EU langs | 99 langs |
 | Realtime factor on Apple Silicon | ~0.3× CPU container | ~0.003× MLX | ~0.1× Metal+CoreML |
 | Realtime factor on NVIDIA | ~0.05× (RTX 4090) | ~0.0003× (A100) | ~0.05× (CUDA) |
-| Word-level timestamps | ✅ | ✅ | ✅ |
-| Streaming | partial (chunked) | ✅ (TDT) | ✅ |
+| Word-level timestamps | yes | yes | yes |
+| Streaming | partial (chunked) | yes (TDT) | yes |
 
 Speaches is the default because Faster-Whisper-distil-large-v3 has the best
 "works on every platform out of the box" profile. Parakeet remains the

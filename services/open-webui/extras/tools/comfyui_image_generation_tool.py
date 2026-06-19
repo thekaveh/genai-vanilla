@@ -10,8 +10,6 @@ license: MIT
 """
 
 import requests
-import json
-import time
 from pydantic import BaseModel, Field
 from typing import Optional, List
 

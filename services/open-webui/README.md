@@ -47,7 +47,6 @@ If a dependency is disabled, adaptive services should degrade where supported. S
 | supabase | data |
 | litellm | llm |
 | comfyui | media |
-| doc-processor | media |
 | stt-provider | media |
 | tts-provider | media |
 | backend | apps |

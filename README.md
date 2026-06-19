@@ -160,7 +160,7 @@ Key technical traits:
 - **Cross-platform support**: Python-based bootstrapping works on all OS
 - **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
-- **Always-on core**: Supabase ecosystem, Neo4j, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
+- **Always-on core**: Supabase ecosystem, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
 - **Opt-in**: Ray, OpenClaw, Airflow, Spark, Zeppelin, LightRAG, TEI Reranker, and the observability bundle (Prometheus + Grafana) ship disabled; everything is switchable per service via SOURCE flags or the interactive wizard
 
 ### 2.2 Key features
@@ -360,7 +360,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 # Port and network
 ./start.sh --base-port 64000  # Custom port range
 ./start.sh --setup-hosts      # Configure *.localhost domains
+./start.sh --skip-hosts       # Skip hosts file checks and setup
 ./start.sh --no-splash        # Skip the opening splash animation (also: set ATLAS_NO_SPLASH=1)
+./start.sh --no-port-migrate  # Skip the chained .env migrations for this run (sentinels not stamped)
 
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost

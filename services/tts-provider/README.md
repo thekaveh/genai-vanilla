@@ -26,7 +26,7 @@ prints a one-line notice.
 | Param count | 82 M | ~20 M | ~500 M |
 | Quality | high | good | high + voice cloning |
 | First-request load | ~90 MB | ~30 MB | ~2 GB |
-| Voice cloning | ❌ | ❌ | ✅ 5-sec zero-shot |
+| Voice cloning | no | no | yes (5-sec zero-shot) |
 | Languages | 8–9 | 30+ | 23 |
 | Realtime factor on CPU | ~1× | ~0.3× | ~4×–6× (slow on CPU) |
 

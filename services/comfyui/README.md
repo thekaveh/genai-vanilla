@@ -67,7 +67,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 | Service | Category |
 |---|---|
-| litellm | llm |
+| supabase | data |
 
 ### 5.2 Current — Downstream (services that call this)
 

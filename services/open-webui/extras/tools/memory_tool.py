@@ -215,7 +215,7 @@ class Tools:
                 output_lines.append(
                     f"- [{mem.get('fact_type', 'observation')}] "
                     f"{mem.get('content', '')} "
-                    f"(id: {mem.get('id', 'N/A')[:8]}..., "
+                    f"(id: {(mem.get('id') or 'N/A')[:8]}..., "
                     f"confidence: {mem.get('confidence', 0):.1%})"
                 )
 

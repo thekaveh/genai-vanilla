@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — 2026-06-18 — Atlas brand identity: logo, wizard splash, poster
+
+Building on the rename, the project gained a visual identity (PRs #116–#119):
+
+- **Atlas logo + brand assets** under `assets/` (`atlas-poster.png`,
+  `atlas-profile.png`, `atlas-social-preview.png`, `atlas-source.png`),
+  used for the README hero poster and the GitHub social/profile images.
+- **Wizard splash** — a centered poster over a navy overlay shown on
+  `./start.sh`, rendered via `textual-image` with an `AtlasHero` block-art
+  fallback on terminals that can't display inline images.
+- **Terminal hero art** for the linear (`--no-tui`) path.
+- **Splash suppression** — the new `--no-splash` flag and `ATLAS_NO_SPLASH`
+  environment variable skip the splash for non-interactive / fast launches.
+
 ### Changed — 2026-06-16 — Project renamed: GenAI Vanilla → Atlas
 
 This release renames the project end-to-end. Every variant of the old

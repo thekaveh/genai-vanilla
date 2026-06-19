@@ -10,7 +10,7 @@ HuggingFace `text-embeddings-inference` running `mixedbread-ai/mxbai-rerank-base
 
 **Why this model:** mxbai-rerank-base-v1 ships ONNX out of the box (so the amd64 ORT backend in `cpu-1.9` loads it cleanly) AND is light enough (~184 M params) that the arm64 candle backend in `cpu-arm64-latest` completes warmup successfully on Apple Silicon. BGE-reranker-v2-m3 was the original spec'd model but its safetensors-only distribution + ~560 M params caused the arm64 candle backend to crash silently during warmup (RestartCount climbed in live smoke until the model was swapped 2026-06-07).
 
-The vanilla stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's `RERANK_BINDING` points at `${TEI_RERANKER_ENDPOINT}`). The service is reusable: any consumer with an OpenAI-style request body can call it directly.
+The default stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's `RERANK_BINDING` points at `${TEI_RERANKER_ENDPOINT}`). The service is reusable: any consumer with an OpenAI-style request body can call it directly.
 
 ## 2. Source variants
 

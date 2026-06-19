@@ -497,7 +497,6 @@ _No upstream calls._
 | kong | infra |
 | lightrag | agents |
 | n8n | agents |
-| open-webui | apps |
 
 ### 16.3 Architecture diagram
 

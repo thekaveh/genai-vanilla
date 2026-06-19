@@ -986,14 +986,14 @@ class KongConfigGenerator:
         # isn't sensitive behind Kong; pair with Grafana for dashboards.
         ('PROMETHEUS_SOURCE', 'prometheus', 'http://prometheus:9090/',
          'prometheus.localhost'),
-        ('SPARK_SOURCE', 'spark-master-ui', 'http://spark-master:8080',
+        ('SPARK_SOURCE', 'spark-master-ui', 'http://spark-master:8080/',
          'spark.localhost'),
-        ('SPARK_SOURCE', 'spark-history-ui', 'http://spark-history:18080',
+        ('SPARK_SOURCE', 'spark-history-ui', 'http://spark-history:18080/',
          'spark-history.localhost'),
         # Airflow: same alias serves the Web UI and the REST API (/api/v2/).
-        ('AIRFLOW_SOURCE', 'airflow', 'http://airflow-webserver:8080',
+        ('AIRFLOW_SOURCE', 'airflow', 'http://airflow-webserver:8080/',
          'airflow.localhost'),
-        ('ZEPPELIN_SOURCE', 'zeppelin', 'http://zeppelin:8080',
+        ('ZEPPELIN_SOURCE', 'zeppelin', 'http://zeppelin:8080/',
          'zeppelin.localhost'),
     ]
 

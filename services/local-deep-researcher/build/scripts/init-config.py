@@ -33,7 +33,7 @@ def wait_for_database():
 
     while retry_count < max_retries:
         try:
-            conn = psycopg2.connect(database_url)
+            conn = psycopg2.connect(database_url, connect_timeout=5)
             conn.close()
             print("Database connection successful")
             return True
@@ -61,7 +61,7 @@ def initialize_config():
     cursor = None
 
     try:
-        conn = psycopg2.connect(database_url)
+        conn = psycopg2.connect(database_url, connect_timeout=5)
         cursor = conn.cursor()
 
         # Query for active content LLMs, prefer highest priority, then ollama

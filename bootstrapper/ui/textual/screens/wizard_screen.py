@@ -53,6 +53,18 @@ from ..widgets import (
 )
 
 
+# Multi-container service families surface their discovery-anchor container
+# key as ``PromptStep.service_key`` (e.g. ``ray-head``), but the real CLI flag
+# uses the family stem (``--ray-source``, not ``--ray-head-source``). These are
+# the discovery shims documented in ``utils/source_override_manager.py``; the
+# command-summary panel must remap them or it renders flags Click rejects.
+_FAMILY_FLAG_STEM = {
+    "ray-head": "ray",
+    "spark-master": "spark",
+    "airflow-webserver": "airflow",
+}
+
+
 _SETUP_HINTS = [
     (("↑", "↓"), "navigate"),
     (("space",), "toggle"),
@@ -937,6 +949,7 @@ class WizardScreen(Screen):
                 # ``LLM Engine`` → ``--llm-engine-source`` is not a real
                 # Click flag and Click rejects it.
                 key = step.service_key or step.service_name.lower().replace(" ", "-")
+                key = _FAMILY_FLAG_STEM.get(key, key)
                 flag = "--" + key.replace("_", "-") + "-source"
                 flags.append((flag, value))
                 continue
