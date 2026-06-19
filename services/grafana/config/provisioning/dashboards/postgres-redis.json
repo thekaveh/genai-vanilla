@@ -8,12 +8,12 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "title": "Postgres — active connections",
+      "title": "Postgres — connections by database",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "targets": [
-        { "expr": "sum(pg_stat_activity_count{state=\"active\"}) by (datname)", "refId": "A" }
+        { "expr": "sum(pg_stat_database_numbackends) by (datname)", "refId": "A" }
       ]
     },
     {
