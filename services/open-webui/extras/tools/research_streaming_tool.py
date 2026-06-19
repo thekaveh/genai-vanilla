@@ -68,8 +68,6 @@ class Tools:
         """Start a research session and return session ID"""
         try:
             # Create a new thread with unique metadata
-            import time
-
             timestamp = int(time.time() * 1000)
 
             thread_resp = requests.post(

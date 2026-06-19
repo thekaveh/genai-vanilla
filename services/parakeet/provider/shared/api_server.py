@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import tempfile
 import logging
+from typing import Optional
 
 # Import backend-specific transcriber
 try:
@@ -61,8 +62,8 @@ async def health_check():
 async def transcribe(
     file: UploadFile = File(...),
     model: str = Form(default="parakeet-tdt-0.6b-v3"),
-    language: str = Form(default=None),
-    prompt: str = Form(default=None),
+    language: Optional[str] = Form(default=None),
+    prompt: Optional[str] = Form(default=None),
     response_format: str = Form(default="json"),
     temperature: float = Form(default=0.0)
 ):
