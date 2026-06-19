@@ -257,7 +257,6 @@ No OpenClaw agent (default).
 |---|---|
 | litellm | llm |
 | hermes | agents |
-| n8n | agents |
 
 ### 12.2 Current — Downstream (services that call this)
 

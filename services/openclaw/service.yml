@@ -123,5 +123,4 @@ data_flow:
   calls:
     - litellm
     - hermes
-    - n8n
 
