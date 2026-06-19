@@ -75,6 +75,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | `06_n8n_workflows.ipynb` | Workflow automation |
 | `07_ray_cluster.ipynb` | Distributed compute on the Ray cluster |
 | `08_scala_basics.ipynb` | Scala 3 syntax, `import $ivy` dependency loading, calling LiteLLM from Scala, Scala-3 enums + extension methods. Opens on the `scala3` kernel. |
+| `09_spark_connect.ipynb` | Distributed Spark via the `spark-connect` sidecar (DataFrame/SQL + an s3a MinIO round-trip). Requires `SPARK_SOURCE != disabled`. |
 
 ## 6. Service Integration Examples
 
@@ -128,6 +129,25 @@ driver = GraphDatabase.driver(
     os.getenv("NEO4J_URI"),
     auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASSWORD"))
 )
+```
+
+### 6.4 Run Spark (Spark Connect)
+
+The image carries `pyspark-client` — a thin Spark Connect client, no JVM. The
+driver runs on the `spark-connect` sidecar (requires `SPARK_SOURCE != disabled`);
+`s3a://` and Spark History work via the server's own conf, so no storage keys in
+the notebook. `SPARK_REMOTE` (compose-injected, default `sc://spark-connect:15002`)
+can be overridden to target a remote/managed endpoint (e.g. EMR Serverless). See
+`09_spark_connect.ipynb`.
+
+```python
+import os
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.remote(
+    os.getenv("SPARK_REMOTE", "sc://spark-connect:15002")
+).getOrCreate()
+spark.range(5).show()
 ```
 
 ## 7. Data Persistence
@@ -353,6 +373,7 @@ For the current high-level stack diagram, see [Architecture Diagram](../../docs/
 |---|---|
 | ray | infra |
 | neo4j | data |
+| spark | data |
 | supabase | data |
 | weaviate | data |
 | litellm | llm |

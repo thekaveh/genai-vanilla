@@ -104,9 +104,9 @@ runtime_deps:
 data_flow:
   # Mirrors the compose-injected env surface the bundled notebooks use:
   # litellm (01/08), comfyui (05), n8n (06), neo4j (03), supabase (04),
-  # weaviate (02), ray (07), backend + searxng (00 env check), hermes
-  # (direct-path env for user code). MinIO is NOT wired (no env, no
-  # notebook) — do not re-add without compose env + a notebook.
+  # weaviate (02), ray (07), spark (09 via SPARK_REMOTE), backend + searxng
+  # (00 env check), hermes (direct-path env for user code). MinIO is NOT
+  # wired (no env, no notebook) — do not re-add without compose env + a notebook.
   calls:
     - litellm
     - hermes
@@ -114,6 +114,7 @@ data_flow:
     - neo4j
     - supabase
     - ray
+    - spark
     - comfyui
     - n8n
     - backend

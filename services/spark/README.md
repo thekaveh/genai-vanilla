@@ -53,6 +53,7 @@ SPARK_WORKER_COUNT=2               # 1-8 (wizard prompts via SecondaryNumberInpu
 |---|---|
 | kong | infra |
 | airflow | agents |
+| jupyterhub | apps |
 | zeppelin | apps |
 
 ### 5.3 Architecture diagram
