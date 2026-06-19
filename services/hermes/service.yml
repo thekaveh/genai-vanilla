@@ -65,6 +65,9 @@ env:
   - name: HERMES_DASHBOARD_TUI
     default: 1
     description: "Embed PTY-backed Chat tab in dashboard. 1 = on, 0 = read-only."
+  - name: HERMES_DASHBOARD_INSECURE
+    default: true
+    description: "Allow the dashboard to bind to its non-loopback container address (0.0.0.0) without a Nous Portal OAuth provider. Required since the upstream image stopped implicitly inferring insecure mode from the bind host; without it the dashboard fails closed and s6 restart-loops it. Safe here: the dashboard binds inside the isolated backend-network and is only reachable via the localhost host-port + Kong. Set to false (and provide HERMES_DASHBOARD_OAUTH_CLIENT_ID) to enforce the OAuth auth gate instead."
   - name: HERMES_UID
     default: 10000
     description: "Container user — match a host UID to read hermes-data from outside."

@@ -163,7 +163,7 @@ class WizardScreen(Screen):
         width: 100%;
         height: 1fr;
     }
-    WizardScreen AtlasSplash { layer: overlay; dock: top; height: 1fr; }
+    WizardScreen AtlasSplash { layer: overlay; width: 100%; height: 100%; }
     """
 
     def __init__(
@@ -357,19 +357,13 @@ class WizardScreen(Screen):
         # ALWAYS visible regardless of whether the user has reached the
         # base-port step yet.
         self._refresh_command_summary()
-        # Mount the opening splash overlay if conditions are met.
+        # Mount the opening splash: a full-screen dim overlay with the poster
+        # centered (smooth on image-capable terminals, block-art fallback
+        # otherwise). It holds, then removes itself to reveal the wizard, which
+        # is mounted beneath and shows dimly through the overlay meanwhile.
         from ui.textual.widgets.atlas_splash import AtlasSplash, should_show_splash
-        if not should_show_splash(self._no_splash):
-            return
-        width = self.app.size.width or 100
-        if width < 80:
-            return  # too narrow for the hero; skip straight to the wizard
-        # on_done is a no-op: the splash removes itself when the dissolve
-        # completes, and the wizard content is already mounted beneath it,
-        # so there is nothing to do once it finishes.
-        splash = AtlasSplash(width, on_done=lambda: None)
-        # cover the area below BrandPanel and above FooterBar
-        self.mount(splash, after=self.query_one("#info-section"))
+        if should_show_splash(self._no_splash):
+            self.mount(AtlasSplash())
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Surface failures from exit_on_error=False workers.

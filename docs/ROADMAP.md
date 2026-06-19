@@ -91,6 +91,15 @@ The stack now orchestrates 32 service families (29 containerized + 3 virtual) / 
 
 ---
 
+### TUI & developer experience
+
+**Upgrade Textual for native log selection + copy**
+- The live-logs pane (`bootstrapper/ui/textual/widgets/log_pane.py`, a `RichLog` subclass) currently can't be click-drag-selected: Textual 0.89's mouse capture pre-empts the terminal's own selection, and in-app text selection (`ALLOW_SELECT` / `Screen.get_selection` / copy bindings) only landed in **Textual 1.0**. Bumping the pinned `textual>=0.85` (currently resolving to 0.89.1) to the latest 1.x/3.x line brings click-drag selection + copy to the logs pane — and every other widget — out of the box, so no bespoke copy affordance is needed.
+- Caveats to handle during the bump: breaking CSS / message-API changes across the 1.0 and 3.0 boundaries (the entire wizard + launch + streaming-logs TUI is built on 0.89 APIs), re-verifying the pinned `textual-image>=0.12,<0.13` still co-installs, and preserving the Python 3.10 floor (`textual-image` 0.13+ requires 3.12).
+- Interim workaround for users today (no upgrade needed): hold **Option (⌥, macOS)** / **Shift** and drag to use the terminal's own selection, bypassing Textual's mouse reporting. Textual 0.89 does expose `App.copy_to_clipboard()` (OSC 52), so a stop-gap "copy visible logs" key is also possible without the upgrade if needed before then.
+
+---
+
 ### Tier 1: high-priority candidates
 
 **Enhanced vector search (Weaviate optimization)**

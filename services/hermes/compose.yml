@@ -97,6 +97,14 @@ services:
       # ``ptyprocess`` is already in the image. Default on; flip to
       # ``0`` via .env if you want a read-only dashboard.
       HERMES_DASHBOARD_TUI: ${HERMES_DASHBOARD_TUI:-1}
+      # Allow the dashboard to bind to 0.0.0.0 without a Nous Portal OAuth
+      # provider. The upstream image stopped implicitly inferring insecure
+      # mode from a non-loopback bind host, so the dashboard now fails closed
+      # (s6 restart-loops it, spamming the log) unless this is set. Safe: the
+      # dashboard lives on the isolated backend-network, reached only via the
+      # mapped host port + Kong. Set false (+ HERMES_DASHBOARD_OAUTH_CLIENT_ID)
+      # to enforce the OAuth auth gate instead.
+      HERMES_DASHBOARD_INSECURE: ${HERMES_DASHBOARD_INSECURE:-true}
       # OpenAI-compatible API server (what LiteLLM and clients connect to)
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: 0.0.0.0
