@@ -199,6 +199,10 @@ class KongConfigGenerator:
         if minio_service:
             services.append(minio_service)
 
+        minio_s3_service = self.generate_minio_s3_service()
+        if minio_s3_service:
+            services.append(minio_s3_service)
+
         ray_service = self.generate_ray_service()
         if ray_service:
             services.append(ray_service)
@@ -924,6 +928,41 @@ class KongConfigGenerator:
                     'strip_path': False,
                     'preserve_host': True,
                     'hosts': ['minio.localhost']
+                }
+            ],
+            'plugins': [{'name': 'cors'}]
+        }
+
+    def generate_minio_s3_service(self) -> Optional[Dict[str, Any]]:
+        """Generate the MinIO S3 API Kong route.
+
+        Routes ``s3.minio.localhost:${KONG_HTTP_PORT}`` to the MinIO S3 API
+        on internal port 9000 — a friendly, BASE_PORT-independent host for
+        external S3-compatible tools (separate from the console route at
+        ``minio.localhost`` -> 9001). Declared as ``extra_kong_aliases`` in
+        ``services/minio/service.yml`` so ``--setup-hosts`` wires the host.
+
+        ``preserve_host: True`` keeps the client's signed Host header intact
+        so S3 SigV4 validates through the proxy (path-style addressing). The
+        host port (``MINIO_PORT``, default 63018) remains the direct,
+        proxy-free path and is the recommended one for heavy/upload traffic.
+
+        Gated on ``MINIO_SOURCE != disabled`` (no container to route to
+        otherwise — the alias would 502).
+        """
+        source = self.get_env_value('MINIO_SOURCE')
+        if source == 'disabled':
+            return None
+
+        return {
+            'name': 'minio-s3',
+            'url': 'http://minio:9000/',
+            'routes': [
+                {
+                    'name': 'minio-s3-all',
+                    'strip_path': False,
+                    'preserve_host': True,
+                    'hosts': ['s3.minio.localhost']
                 }
             ],
             'plugins': [{'name': 'cors'}]

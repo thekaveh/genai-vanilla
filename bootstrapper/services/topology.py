@@ -347,6 +347,9 @@ def _build_from_manifests(manifests: list[Manifest], base_port: int) -> Topology
             ))
             if r.alias:
                 aliases.append(r.alias)
+        # Extra Kong hostnames (beyond rows[].alias) — e.g. minio's
+        # s3.minio.localhost. Projected here so --setup-hosts wires them.
+        aliases.extend(m.extra_kong_aliases)
 
     return Topology(
         canonical_order=canonical,
