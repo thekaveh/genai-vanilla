@@ -1,14 +1,15 @@
 """Atlas opening splash.
 
 A full-screen, semi-transparent dim overlay (the wizard shows through dimmed)
-with the poster centered on top; holds briefly, then fades out to reveal the
-wizard. Any key or mouse press skips.
+with the square profile artwork centered on top; holds briefly, then removes
+itself to reveal the wizard. Any key or mouse press skips.
 
-The poster renders SMOOTHLY via the terminal's inline-image protocol on
+The artwork (``assets/atlas-profile.png`` — square, with the ATLAS-PLATFORM
+wordmark) renders SMOOTHLY via the terminal's inline-image protocol on
 image-capable terminals (iTerm2, Kitty, WezTerm, Ghostty). On terminals that
-cannot paint inline images inside a full-screen TUI (Warp, Apple Terminal, VS
-Code) it falls back to the committed block-art rendering — so the splash is
-never blank or garbled.
+garble that protocol inside a TUI (Warp, Apple Terminal, VS Code) it renders
+the SAME file as colored half-block text (``HalfcellImage``) — plain text, so
+it always shows, never blank or garbled.
 """
 from __future__ import annotations
 
@@ -20,28 +21,26 @@ from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container
 
-from ui.textual.widgets.atlas_hero import AtlasHero  # block-art fallback
-
-# Repo-root assets/atlas-poster.png (artwork + ATLAS-PLATFORM wordmark).
-POSTER = Path(__file__).resolve().parents[4] / "assets" / "atlas-poster.png"
+# Repo-root assets/atlas-profile.png (square artwork + ATLAS-PLATFORM wordmark).
+PROFILE = Path(__file__).resolve().parents[4] / "assets" / "atlas-profile.png"
 
 
 def should_show_splash(no_splash: bool) -> bool:
     """False when suppressed by ``--no-splash`` / ``ATLAS_NO_SPLASH``, or when
-    the poster is missing. (Non-TTY / CI is excluded upstream.)"""
+    the artwork is missing. (Non-TTY / CI is excluded upstream.)"""
     if no_splash:
         return False
     if (os.environ.get("ATLAS_NO_SPLASH", "") or "").strip():
         return False
-    return POSTER.is_file()
+    return PROFILE.is_file()
 
 
 def image_capable() -> bool:
     """Whether this terminal reliably paints inline images inside a TUI.
 
     Allowlist of known-good terminals; everything else (notably Warp, which
-    garbles the protocol inside the alternate screen) gets the block-art
-    fallback. Conservative by design: unknown terminals fall back.
+    garbles the protocol inside the alternate screen) uses the half-cell text
+    renderer instead. Conservative: unknown terminals use half-cell.
     """
     tp = os.environ.get("TERM_PROGRAM", "")
     term = os.environ.get("TERM", "")
@@ -55,8 +54,8 @@ def image_capable() -> bool:
 
 
 class AtlasSplash(Container):
-    """Dim overlay + centered poster; holds, then removes itself (revealing the
-    wizard). Timer-guaranteed removal so it can never stick on a blank screen."""
+    """Dim overlay + centered profile artwork; holds, then removes itself
+    (revealing the wizard). Timer-guaranteed removal so it can never stick."""
 
     DEFAULT_CSS = """
     AtlasSplash {
@@ -79,27 +78,24 @@ class AtlasSplash(Container):
 
     def compose(self) -> ComposeResult:
         if image_capable():
-            from textual_image.widget import Image
-            img = Image(str(POSTER))
-            self._fit(img)
-            yield img
+            from textual_image.widget import Image as _Widget
         else:
-            # Block-art fallback (no inline-image support): the committed
-            # cell-grid artwork, sized to fit the screen width.
-            width = max(80, int((self.app.size.width or 100) * 0.8))
-            yield AtlasHero(width)
+            from textual_image.widget import HalfcellImage as _Widget
+        img = _Widget(str(PROFILE))
+        self._fit(img)
+        yield img
 
     def _fit(self, img) -> None:
-        """Explicit, aspect-correct, contained size so the image paints
-        immediately (not lazily) and is never stretched."""
+        """Explicit, aspect-correct, contained size so the artwork paints
+        immediately and is never stretched."""
         try:
             from PIL import Image as _PIL
             from textual_image.widget import get_cell_size
-            pw, ph = _PIL.open(POSTER).size
+            pw, ph = _PIL.open(PROFILE).size
             cw, ch = get_cell_size()
-            ratio = (pw / ph) * (ch / cw)
+            ratio = (pw / ph) * (ch / cw)  # cols:rows for true aspect
             max_cols = max(1, int(self.app.size.width * 0.8))
-            max_rows = max(1, int(self.app.size.height * 0.8))
+            max_rows = max(1, int(self.app.size.height * 0.82))
             rows = max_rows
             cols = int(rows * ratio)
             if cols > max_cols:
@@ -113,8 +109,6 @@ class AtlasSplash(Container):
     def on_mount(self) -> None:
         self.focus()
         self._timer = self.set_timer(self._hold, self._finish)
-        # Nudge a repaint after the first render settles (some terminals need
-        # it to actually emit the inline image).
         self.call_after_refresh(self._nudge)
 
     def _nudge(self) -> None:

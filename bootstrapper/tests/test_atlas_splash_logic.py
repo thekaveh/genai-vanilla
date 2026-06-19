@@ -12,10 +12,10 @@ def test_show_decision(monkeypatch):
     assert should_show_splash(no_splash=False) is False
 
 
-def test_show_decision_requires_poster(monkeypatch):
+def test_show_decision_requires_artwork(monkeypatch):
     import ui.textual.widgets.atlas_splash as m
     monkeypatch.delenv("ATLAS_NO_SPLASH", raising=False)
-    monkeypatch.setattr(m, "POSTER", Path("/nonexistent/atlas-poster.png"))
+    monkeypatch.setattr(m, "PROFILE", Path("/nonexistent/atlas-profile.png"))
     assert should_show_splash(no_splash=False) is False
 
 
