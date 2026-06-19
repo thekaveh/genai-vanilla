@@ -2,7 +2,7 @@
 
 Common startup problems and their fixes. If you hit something not covered here, open an issue.
 
-## "Refusing to run as root"
+## 1. "Refusing to run as root"
 
 ```
 start.sh: refusing to run as root.
@@ -17,7 +17,7 @@ You ran `sudo ./start.sh` (or `sudo sh start.sh`). The wizard runs as your user 
 ./start.sh --setup-hosts # if you want host entries set up up front
 ```
 
-## Recovering from a prior `sudo ./start.sh`
+## 2. Recovering from a prior `sudo ./start.sh`
 
 If you ran the script under `sudo` on a version before the guard landed, root will own files the next non-sudo run can't overwrite. Symptoms:
 
@@ -57,7 +57,7 @@ rm -rf bootstrapper/.venv
 ./start.sh
 ```
 
-## "Permission denied" writing `kong-dynamic.yml`
+## 3. "Permission denied" writing `kong-dynamic.yml`
 
 Same root cause as above. `volumes/api/kong-dynamic.yml` is regenerated at every startup, so it can also be safely deleted:
 
@@ -65,7 +65,7 @@ Same root cause as above. `volumes/api/kong-dynamic.yml` is regenerated at every
 sudo rm -f volumes/api/kong-dynamic.yml
 ```
 
-## Apache Airflow build fails with `ResolutionImpossible`
+## 4. Apache Airflow build fails with `ResolutionImpossible`
 
 ```
 ERROR: Cannot install apache-airflow-providers-amazon>=9.30.0 because these package versions have conflicting dependencies.
@@ -85,7 +85,7 @@ Then re-run:
 ./start.sh
 ```
 
-## n8n container restart-loops with `Command start not found`
+## 5. n8n container restart-loops with `Command start not found`
 
 The n8n data volume is corrupted (usually after an interrupted upgrade). Wipe just that one volume rather than the whole stack:
 
@@ -94,7 +94,7 @@ docker volume rm atlas-n8n-data
 ./start.sh
 ```
 
-## Cold start when things just won't reconcile
+## 6. Cold start when things just won't reconcile
 
 When in doubt:
 
