@@ -30,7 +30,7 @@ larger than the gaps between columns inside a half.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from rich.text import Text
 from textual.widget import Widget
@@ -57,6 +57,9 @@ class ServiceRow:
     category: str = ""        # drives leading bar color (Task 5.4 uses this)
     pending: bool = False     # drives pending-state rendering
     off_track: bool = False   # True when a track is active and this service is excluded
+    # Extra lines appended to the hover tooltip (e.g. MinIO's S3 endpoints,
+    # which aren't the row's own console URL). Empty for most services.
+    tooltip_lines: list[str] = field(default_factory=list)
 
     @property
     def is_changed(self) -> bool:
@@ -427,6 +430,14 @@ class ServiceTable(Widget):
         # The render loop walks visually-top-to-bottom across all columns;
         # row count = the tallest group.
         max_height = max((len(g) for g in groups), default=0)
+
+        # Stash the layout so on_mouse_move() can map a cursor (x, y) back to
+        # a row for the hover tooltip. Each column block is
+        # slot_render_width + GUTTER wide; row index within a column == y line.
+        self._hit_flat = [r for g in groups for r in g]
+        self._hit_offsets = list(group_offsets)
+        self._hit_lens = [len(g) for g in groups]
+        self._hit_block_w = slot_render_width + self.GUTTER
         for r_idx in range(max_height):
             for c_idx, group in enumerate(groups):
                 if c_idx > 0:
@@ -447,3 +458,38 @@ class ServiceTable(Widget):
 
     def on_resize(self) -> None:
         self.refresh()
+
+    def _row_at(self, x: int, y: int) -> ServiceRow | None:
+        """Map a widget-relative (x, y) to the rendered row, or None.
+
+        Mirrors render()'s grid: column = x // block_width, row = y line.
+        Relies on the layout stashed by the last render().
+        """
+        block_w = getattr(self, "_hit_block_w", 0)
+        offsets = getattr(self, "_hit_offsets", [])
+        if block_w <= 0 or not offsets:
+            return None
+        col = x // block_w
+        if col < 0 or col >= len(offsets):
+            return None
+        if y < 0 or y >= self._hit_lens[col]:
+            return None
+        idx = offsets[col] + y
+        flat = getattr(self, "_hit_flat", [])
+        return flat[idx] if 0 <= idx < len(flat) else None
+
+    @staticmethod
+    def _build_tooltip(row: ServiceRow) -> str:
+        """Human-readable access summary for a row's hover tooltip."""
+        lines = [f"{row.name}  ·  {row.source}"]
+        if row.alias and row.alias_port:
+            lines.append(f"http://{row.alias}:{row.alias_port}")
+        if row.port and row.port not in ("", "—"):
+            lines.append(f"localhost:{row.port}")
+        lines.extend(row.tooltip_lines)
+        return "\n".join(lines)
+
+    def on_mouse_move(self, event) -> None:
+        """Update the hover tooltip to the service under the cursor."""
+        row = self._row_at(event.x, event.y)
+        self.tooltip = self._build_tooltip(row) if row is not None else None

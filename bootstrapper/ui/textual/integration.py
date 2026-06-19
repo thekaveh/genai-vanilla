@@ -630,6 +630,20 @@ def _build_steps_and_rows(
         return (_canonical_index.get(svc.name, 999), svc.name)
 
     sorted_services = sorted(state.services, key=_svc_row_canonical_key)
+
+    # MinIO's wizard row is the admin console; surface its S3 API endpoints
+    # (direct port + the s3.minio.localhost Kong alias) in the hover tooltip
+    # so external s3 clients can discover them from the services pane.
+    _minio_port = (env_vars.get("MINIO_PORT", "") or "63018").strip()
+
+    def _tooltip_lines_for(svc) -> list[str]:
+        if svc.name == "MinIO Console":
+            return [
+                f"S3 API: http://localhost:{_minio_port}",
+                f"S3 API (Kong): http://s3.minio.localhost:{kong_port}",
+            ]
+        return []
+
     rows = [
         ServiceRow(
             name=s.name, source=(s.source or "container"),
@@ -640,6 +654,7 @@ def _build_steps_and_rows(
             category=s.category,
             pending=(s.name in configurable_names),  # locked rows start not-pending
             off_track=s.off_track,
+            tooltip_lines=_tooltip_lines_for(s),
         )
         for s in sorted_services
     ]
