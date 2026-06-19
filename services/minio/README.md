@@ -21,6 +21,58 @@ so the MinIO console SPA constructs login / session-cookie URLs
 against the browser's real hostname instead of the internal
 `minio:9001`. Same pattern n8n / Hermes / LiteLLM use.
 
+### 2.1 Connecting an external S3-compatible client (CLI, SDK, TUI)
+
+Any S3-compatible tool — `aws` CLI, boto3, `mc`, `s3cmd`, rclone, or a
+custom client — connects to the **host S3 API endpoint**, NOT through Kong:
+
+| Setting | Value | Source |
+|---|---|---|
+| Endpoint URL | `http://localhost:${MINIO_PORT}` (default `http://localhost:63018`) | `MINIO_PORT` in `.env` |
+| Region | `us-east-1` | `MINIO_REGION` |
+| Access key | `minioadmin` (full access), or a per-bucket key (scoped) | `MINIO_ROOT_USER` / `MINIO_<BUCKET>_ACCESS_KEY` |
+| Secret key | `grep ^MINIO_ROOT_PASSWORD= .env` (full), or the per-bucket secret | `MINIO_ROOT_PASSWORD` / `MINIO_<BUCKET>_SECRET_KEY` |
+| Addressing style | **path-style (required)** | localhost/IP endpoints can't use virtual-host style |
+| TLS | none (`http://`) | the in-stack baseline serves plain HTTP |
+
+The endpoint is **stable across restarts** for a given `BASE_PORT` (the
+port is `BASE_PORT + 18` by default), so it's safe to hard-code in an
+external tool's profile. Use the root credentials for browse-everything
+access, or a per-bucket service-account key (see §5) to scope a tool to
+one bucket.
+
+`aws` CLI example:
+
+```sh
+aws --endpoint-url "http://localhost:${MINIO_PORT:-63018}" \
+    --region us-east-1 \
+    s3 ls
+# Credentials via env or ~/.aws/credentials:
+#   AWS_ACCESS_KEY_ID=minioadmin
+#   AWS_SECRET_ACCESS_KEY=$(grep ^MINIO_ROOT_PASSWORD= .env | cut -d= -f2-)
+# aws CLI uses path-style automatically against a custom --endpoint-url.
+```
+
+Generic client config (the fields a tool like a standalone S3 TUI needs):
+
+```
+endpoint  = localhost:63018      # or ${MINIO_PORT}; host, no scheme for some clients
+use_ssl   = false
+region    = us-east-1
+access_key = minioadmin
+secret_key = <MINIO_ROOT_PASSWORD from .env>
+path_style = true
+```
+
+> **Why not through Kong?** The S3 API is deliberately reached on its
+> own published port rather than a `*.localhost` Kong alias. S3 uses
+> SigV4 request signing over the full host + path; a reverse-proxy hop
+> adds host-preservation and large-object-upload-streaming concerns that
+> a plain published port avoids. The direct port is the supported,
+> standard path for S3 clients. (A friendly `s3.localhost` Kong alias is
+> tracked as a possible future convenience — see the roadmap — but the
+> direct endpoint above is the recommended connection method.)
+
 ## 3. Default credentials
 
 - **Root user:** `MINIO_ROOT_USER` (default `minioadmin`)
