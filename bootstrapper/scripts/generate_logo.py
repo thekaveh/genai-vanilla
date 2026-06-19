@@ -188,7 +188,22 @@ def main() -> None:
     _compose_poster(square=False, wm_frac=0.72, bottom_frac=0.023).save(POSTER)
     print(f"wrote {POSTER.relative_to(REPO)}")
     _compose_poster(square=True, wm_frac=0.86, bottom_frac=0.023).save(PROFILE)
-    print(f"wrote {PROFILE.relative_to(REPO)}")
+    _optimize_png(PROFILE)  # GitHub avatar/social-preview must be < 1MB
+    print(f"wrote {PROFILE.relative_to(REPO)} ({PROFILE.stat().st_size // 1024} KB)")
+
+
+def _optimize_png(path: Path, quality: str = "80-95") -> None:
+    """Shrink a PNG below GitHub's 1MB avatar/social-preview limit via
+    pngquant (palette quantization — preserves dimensions/aspect, near-lossless
+    for this artwork). No-op with a note if pngquant is unavailable."""
+    import shutil as _sh
+    if _sh.which("pngquant") is None:
+        print(f"  (pngquant not found; {path.name} left unoptimized — may exceed 1MB)")
+        return
+    subprocess.run(
+        ["pngquant", "--force", "--quality", quality, "--output", str(path), str(path)],
+        check=False,
+    )
 
 
 if __name__ == "__main__":
