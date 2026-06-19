@@ -106,7 +106,7 @@ _No upstream calls._
 
 ## 6. Troubleshooting
 
-**`/search?format=json` returns HTML.** `settings.yml` is missing `json` from the `server.formats:` list. Either restore the stack default (`[html, json]`) or rebuild from `services/searxng/config/settings.yml`.
+**`/search?format=json` returns HTML.** This happens only if `json` was removed from the `server.formats:` list in `settings.yml` (the shipped default already includes it: `[html, json]`). Restore it, or rebuild from `services/searxng/config/settings.yml`.
 
 **`429 Too Many Requests` from a single upstream engine.** Engine-side rate-limit, not SearXNG's. The aggregator silently drops that engine for the query; results shrink. Either wait or disable the offending engine in `settings.yml`.
 
