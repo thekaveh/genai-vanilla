@@ -301,3 +301,41 @@ def test_every_source_args_key_resolves_in_source_mapping() -> None:
         f"source_args keys with no source_mapping entry (silently dropped "
         f"by collect_overrides): {sorted(unmapped)}"
     )
+
+
+def test_command_summary_flags_are_real_click_options(discovery):
+    """Every discovered service's command-summary flag must be a real flag.
+
+    The launch-screen command summary builds a copy-pasteable ``./start.sh``
+    invocation. It derives each service flag from ``PromptStep.service_key``
+    (== ``ServiceInfo.key``). Multi-container families (ray-head, spark-master,
+    airflow-webserver) carry their discovery-anchor container key, NOT the
+    family flag stem, so they must be remapped via ``_FAMILY_FLAG_STEM`` or the
+    summary prints ``--ray-head-source`` etc. — flags Click rejects.
+
+    This guards the H1 fix and fails loudly if a new multi-container family is
+    added without a remap entry.
+    """
+    import start
+    from ui.textual.screens.wizard_screen import _FAMILY_FLAG_STEM
+
+    real_source_flags = {
+        opt
+        for param in start.main.params
+        for opt in getattr(param, "opts", [])
+        if opt.endswith("-source")
+    }
+    assert real_source_flags, "no --*-source Click flags found on start.main"
+
+    offenders = []
+    for svc in discovery.discover():
+        key = _FAMILY_FLAG_STEM.get(svc.key, svc.key)
+        flag = "--" + key.replace("_", "-") + "-source"
+        if flag not in real_source_flags:
+            offenders.append((svc.key, flag))
+
+    assert not offenders, (
+        "command-summary would emit flags Click rejects (add a "
+        "_FAMILY_FLAG_STEM remap for multi-container families): "
+        + ", ".join(f"{k} -> {f}" for k, f in offenders)
+    )
