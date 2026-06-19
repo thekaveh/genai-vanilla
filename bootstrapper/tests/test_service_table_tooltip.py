@@ -94,3 +94,36 @@ def test_row_at_two_columns():
 
 def test_row_at_no_layout_returns_none():
     assert ServiceTable(rows=[])._row_at(0, 0) is None
+
+
+def test_tooltip_pairs_includes_source_options_and_depends():
+    row = _row("MinIO Console", source="container",
+               source_options=["container", "disabled"],
+               depends_on=["supabase", "redis"])
+    pairs = ServiceTable._tooltip_pairs(row)
+    assert ("Source options", "container, disabled") in pairs
+    assert ("Depends on", "supabase, redis") in pairs
+    # config rows come before access rows
+    labels = [k for k, _ in pairs]
+    assert labels.index("Source options") < labels.index("Source") + 3
+
+
+def test_recompute_ports_preserves_card_metadata():
+    """A base-port change must not strip a row's hover-card metadata
+    (the bug where MinIO lost its S3 endpoints after the base-port step)."""
+    from ui.textual.integration import recompute_ports_for_base
+
+    class _CP:
+        def parse_env_file(self):
+            return {}
+
+    row = ServiceRow(
+        name="MinIO Console", source="container", alias="minio.localhost",
+        tooltip_extra=[("S3 API", "http://localhost:63018")],
+        source_options=["container", "disabled"],
+        depends_on=["supabase"],
+    )
+    out = recompute_ports_for_base(64000, [row], _CP(), {})
+    assert out[0].tooltip_extra == [("S3 API", "http://localhost:63018")]
+    assert out[0].source_options == ["container", "disabled"]
+    assert out[0].depends_on == ["supabase"]

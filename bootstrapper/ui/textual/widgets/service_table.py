@@ -61,6 +61,10 @@ class ServiceRow:
     # MinIO's S3 endpoints, which aren't the row's own console URL. Empty
     # for most services.
     tooltip_extra: list[tuple[str, str]] = field(default_factory=list)
+    # Hover-card metadata (from the manifest): all selectable source ids and
+    # the services this one depends on. Shown as their own card rows.
+    source_options: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
     @property
     def is_changed(self) -> bool:
@@ -483,6 +487,10 @@ class ServiceTable(Widget):
     def _tooltip_pairs(row: ServiceRow) -> list[tuple[str, str]]:
         """The (label, value) rows shown in a service's hover card."""
         pairs: list[tuple[str, str]] = [("Source", row.source or "—")]
+        if row.source_options:
+            pairs.append(("Source options", ", ".join(row.source_options)))
+        if row.depends_on:
+            pairs.append(("Depends on", ", ".join(row.depends_on)))
         if row.alias and row.alias_port:
             pairs.append(("URL", f"http://{row.alias}:{row.alias_port}"))
         # ``row.port`` is pre-colon'd by resolve_port (e.g. ":64094").
