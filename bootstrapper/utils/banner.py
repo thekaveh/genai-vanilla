@@ -143,7 +143,7 @@ class BannerDisplay:
 
     # Terminal columns required to render the full "ATLAS-PLATFORM"
     # banner without clipping its right edge. Below this, get_ascii_
-    # art_full() falls back to "ATLAS" only. The full banner is 129
+    # art_full() falls back to "ATLAS" only. The full banner is 118
     # cells wide; the threshold is 119 so the wider lockup only
     # renders when it fully fits with at least 1 column of margin.
     _FULL_WIDTH_THRESHOLD = 119
@@ -152,7 +152,7 @@ class BannerDisplay:
         """
         Get the full ASCII art banner for Atlas.
 
-        Returns the single-line 6-row "ATLAS-PLATFORM" lockup (129
+        Returns the single-line 6-row "ATLAS-PLATFORM" lockup (118
         cells) when the terminal is at least ``_FULL_WIDTH_THRESHOLD``
         columns wide; otherwise falls back to "ATLAS" only (41 cells).
         Both variants are 6 rows tall; the 15-color horizontal gradient

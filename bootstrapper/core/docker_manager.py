@@ -64,8 +64,8 @@ class DockerManager:
         
         # Check if 'docker compose' (newer) works
         try:
-            result = subprocess.run(['docker', 'compose', 'version'],
-                                  capture_output=True, check=True, timeout=10)
+            subprocess.run(['docker', 'compose', 'version'],
+                           capture_output=True, check=True, timeout=10)
             self._compose_cmd = "docker compose"
             return self._compose_cmd
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):

@@ -236,4 +236,16 @@ def stamp_version(env_path: Path, version: int = 3) -> None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         lines.append(f"BOOTSTRAPPER_PORT_LAYOUT_VERSION={version}\n")
-    env_path.write_text("".join(lines), encoding="utf-8")
+    # Atomic write via tmp + rename, preserving the original mode (mirrors
+    # apply()'s pattern): a user-chmod'd 0600 .env must keep its mode, and a
+    # crash mid-write must not truncate the live .env.
+    import os as _os
+    tmp = env_path.with_suffix(env_path.suffix + ".tmp")
+    original_mode = _os.stat(env_path).st_mode
+    try:
+        tmp.touch()
+        _os.chmod(tmp, original_mode)
+        tmp.write_text("".join(lines), encoding="utf-8")
+        tmp.replace(env_path)
+    finally:
+        tmp.unlink(missing_ok=True)
