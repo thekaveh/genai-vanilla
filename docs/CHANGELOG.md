@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — 2026-06-20 — Atlas startup artwork gated behind a master switch (off by default)
+
+- **`feature_flags.splash_enabled()`** is a new single source of truth that
+  gates ALL Atlas startup block-art: the TUI opening splash overlay
+  (`AtlasSplash`) and the linear / `--no-tui` printed hero banner
+  (`BannerDisplay.show_hero`). Both call sites check it first.
+- **Disabled by default** — the block-art reproduction read too coarse at real
+  terminal sizes. Nothing was removed: flip `_SPLASH_DEFAULT` to `True` (or set
+  `ATLAS_SPLASH=1` at runtime) to re-enable both paths. The existing
+  suppressors (`--no-splash` / `ATLAS_NO_SPLASH`, terminal-width,
+  artwork-present) still apply on top when enabled.
+- The `atlas_poster_*.json` grids remain committed (latent) so re-enabling is a
+  one-line change.
+
 ### Added — 2026-06-18 — Atlas brand identity: logo, wizard splash, poster
 
 Building on the rename, the project gained a visual identity (PRs #116–#119):

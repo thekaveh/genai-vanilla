@@ -3,8 +3,18 @@ from pathlib import Path
 from ui.textual.widgets.atlas_splash import image_capable, should_show_splash
 
 
+def test_master_switch_off_by_default(monkeypatch):
+    # Master switch is OFF by default -> splash never shows, regardless of the
+    # poster being present or no other suppression in effect.
+    monkeypatch.delenv("ATLAS_SPLASH", raising=False)
+    monkeypatch.delenv("ATLAS_NO_SPLASH", raising=False)
+    assert should_show_splash(no_splash=False) is False
+
+
 def test_show_decision(monkeypatch):
-    # The committed poster exists, so with no suppression the splash shows.
+    # With the master switch ON, the committed poster exists, so with no other
+    # suppression the splash shows; --no-splash / ATLAS_NO_SPLASH still suppress.
+    monkeypatch.setenv("ATLAS_SPLASH", "1")
     monkeypatch.delenv("ATLAS_NO_SPLASH", raising=False)
     assert should_show_splash(no_splash=False) is True
     assert should_show_splash(no_splash=True) is False
@@ -14,6 +24,7 @@ def test_show_decision(monkeypatch):
 
 def test_show_decision_requires_artwork(monkeypatch):
     import ui.textual.widgets.atlas_splash as m
+    monkeypatch.setenv("ATLAS_SPLASH", "1")
     monkeypatch.delenv("ATLAS_NO_SPLASH", raising=False)
     monkeypatch.setattr(m, "POSTER", Path("/nonexistent/atlas-poster.png"))
     assert should_show_splash(no_splash=False) is False
