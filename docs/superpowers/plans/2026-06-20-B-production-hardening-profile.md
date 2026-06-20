@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `--profile prod` mode to the bootstrapper that (1) confines all service host-port bindings to `127.0.0.1` (so only the public edge is reachable), (2) enforces memory/CPU limits on the heavy services, (3) turns Docker log rotation on, and (4) defaults Prometheus + Grafana on — all opt-in, with zero change to the default (dev) behaviour.
+**Goal:** Add a `prod` deployment profile to the bootstrapper that (1) confines all service host-port bindings to `127.0.0.1` (so only the public edge is reachable), (2) enforces memory/CPU limits on the heavy services, (3) turns Docker log rotation on, and (4) defaults Prometheus + Grafana on — all opt-in, with zero change to the default (dev) behaviour. The profile is selectable BOTH via `--profile prod` AND an equivalent **wizard step**, and in prod the wizard hides — and the CLI validator rejects — every `localhost` source variant (e.g. `ollama-localhost`, `parakeet-localhost`, ComfyUI/Neo4j/Weaviate `localhost`), which is meaningless on a remote host.
 
-**Architecture:** A single global env var `HOST_BIND_IP` (default empty → `0.0.0.0`) is prefixed onto every published port in every fragment (`"${HOST_BIND_IP:-}${X_PORT}:CONTAINER"`). `--profile prod` writes `HOST_BIND_IP=127.0.0.1:` into `.env`, flips `PROMETHEUS_SOURCE`/`GRAFANA_SOURCE` to `container` (unless overridden), sets the `*_MEMORY_LIMIT`/`*_CPU_LIMIT` vars, and sets log-rotation vars consumed by per-fragment `logging:` blocks. This avoids Compose's port-merge limitation (you can't *remove* a published port via an override file) by changing emission at the env layer, which is the only clean mechanism.
+**Architecture:** A single global env var `HOST_BIND_IP` (default empty → `0.0.0.0`) is prefixed onto every published port in every fragment (`"${HOST_BIND_IP:-}${X_PORT}:CONTAINER"`). The resolved profile (from the wizard step OR `--profile prod`) writes `HOST_BIND_IP=127.0.0.1:` into `.env`, flips `PROMETHEUS_SOURCE`/`GRAFANA_SOURCE` to `container` (unless overridden), sets the `*_MEMORY_LIMIT`/`*_CPU_LIMIT` vars, and sets log-rotation vars consumed by per-fragment `logging:` blocks. This avoids Compose's port-merge limitation (you can't *remove* a published port via an override file) by changing emission at the env layer, which is the only clean mechanism. The wizard profile step mirrors the existing TRACK picker; prod source-filtering happens at the wizard option-builder and in the source validator. `container-gpu` is NOT auto-disabled in prod (that is a host-capability concern, not a profile one) — a separate optional guard, noted but out of scope here.
 
 **Tech Stack:** Click CLI in `bootstrapper/start.py`; env writing via the existing source-override/env path; Compose interpolation; pytest + the fragment byte-equivalence baseline.
 
@@ -146,7 +146,7 @@ if getattr(self, "profile", "default") == "prod":
         overrides["PROMETHEUS_SOURCE"] = "container"
     if grafana_source is None:
         overrides["GRAFANA_SOURCE"] = "container"
-    # Log rotation (Task 4 consumes these).
+    # Log rotation (Task 5 consumes these).
     overrides["LOG_MAX_SIZE"] = "10m"
     overrides["LOG_MAX_FILE"] = "3"
     self._apply_env_overrides(overrides)  # use the existing override-writer
@@ -183,7 +183,114 @@ git commit -m "Add --profile prod flag (localhost ports, observability on, log r
 
 ---
 
-### Task 3: Resource limits on heavy services
+### Task 3: Deployment-profile wizard step + prod localhost-source filtering
+
+**Files:**
+- Modify: `bootstrapper/ui/textual/integration.py` (profile picker step + filter localhost options + thread `profile`)
+- Modify: `bootstrapper/start.py` (pass `profile` into `run_setup_flow`/`run_launch_flow`; set `starter.profile` from the wizard selection)
+- Modify: `bootstrapper/services/source_validator.py` (reject localhost sources in prod)
+- Test: `bootstrapper/tests/test_profile_source_filter.py`
+
+**Interfaces:**
+- Consumes: `--profile` from Task 2; the TRACK picker pattern (`PICKER_STEP_TITLE`, `_make_track_skip`, `prefilled_selections`); `ServiceDiscovery.discover()` `svc.options`.
+- Produces: a wizard step keyed `PROFILE_STEP_TITLE`; prod filtering of `localhost`-id options in the wizard; `SourceValidator.validate_no_localhost_in_prod(service_sources, profile)`; `profile` threaded through both flows; `starter.profile` set from the wizard pick so Task 2's env overrides run for wizard-driven runs too.
+
+No new `profiles.yml` is needed — there are exactly two fixed profiles (`default`, `prod`), so the step is built inline (unlike tracks, which are data-driven).
+
+- [ ] **Step 1: Thread `profile` through the flow signatures**
+
+In `integration.py`, add `profile: str | None = None` to both `run_setup_flow(...)` and `run_launch_flow(...)` (mirror the existing `track` param). In `start.py`, pass `profile=profile` at both call sites (mirror `track=track`).
+
+- [ ] **Step 2: Add the wizard profile step** (in `_build_steps_and_rows`, right after the track picker step is appended)
+
+```python
+PROFILE_STEP_TITLE = "Profile  ·  deployment hardening"
+# ...
+steps.append(PromptStep(
+    title=PROFILE_STEP_TITLE,
+    step_index=2, step_total=total,
+    heading="Dev or production hardening?",
+    subtitle=("prod: localhost-only ports, resource limits, log rotation, "
+              "observability on — and localhost sources hidden."),
+    options=[
+        PromptOption(value="default", label="Default (dev)",
+                     hint="0.0.0.0 ports; all sources available", badges=[]),
+        PromptOption(value="prod", label="Production hardening",
+                     hint="127.0.0.1 ports; localhost sources hidden", badges=[]),
+    ],
+    default_value=(profile or "default"),
+    service_name="",
+    skip_if_prev=((lambda sel, _p=profile: bool(_p)) if profile else None),
+))
+```
+Prefill when `--profile` was passed: add `{PROFILE_STEP_TITLE: profile}` to `prefilled_selections` alongside the track prefill so downstream filters can read it even when the step auto-skips.
+
+- [ ] **Step 3: Filter localhost options in the wizard when prod** (where `svc.options` becomes `PromptOption`s — the `opts = [...]` comprehension)
+
+```python
+_prod = (selections.get(PROFILE_STEP_TITLE) or profile) == "prod"
+visible_opts = [o for o in svc.options if not (_prod and "localhost" in o)]
+```
+Build the `PromptOption` list from `visible_opts`. Edge case: if filtering removes the highlighted `current_value` (or empties the list), fall back the default highlight to the manifest default, else `disabled`, and add a one-line note. (Real localhost ids to filter, from the manifests: `ollama-localhost`, `parakeet-localhost`, `whisper-cpp-localhost`, `chatterbox-localhost`, `docling-localhost`, and bare `localhost` for comfyui/hermes/lightrag/neo4j/openclaw/tei-reranker/weaviate — substring `"localhost"` matches them all.)
+
+- [ ] **Step 4: Reject localhost sources in the CLI validator under prod** (`source_validator.py`)
+
+```python
+def validate_no_localhost_in_prod(self, service_sources: dict, profile: str) -> bool:
+    """Under --profile prod, localhost sources are unreachable on a remote
+    host. Reject them with a clear, accumulated error."""
+    if profile != "prod":
+        return True
+    ok = True
+    for var, val in service_sources.items():
+        if val and "localhost" in val:
+            self.validation_errors.append(
+                f"{var}='{val}' is not allowed with --profile prod "
+                f"(localhost sources are unreachable on a remote host)."
+            )
+            ok = False
+    return ok
+```
+Call it in `start.py`'s prod path before `validate_all_sources()` (pass the resolved profile), so a `--profile prod --ollama-source ollama-localhost` invocation fails fast with a readable message.
+
+- [ ] **Step 5: Wire the wizard pick back to `starter.profile`**
+
+In the wizard pipeline, after the prompts resolve, read `selections.get(PROFILE_STEP_TITLE)` and set `starter.profile = <that or "default">` BEFORE the env-override step from Task 2 runs — so a wizard-selected prod run gets `HOST_BIND_IP`, observability, limits, and log rotation exactly like the CLI `--profile prod` path.
+
+- [ ] **Step 6: Tests** — create `bootstrapper/tests/test_profile_source_filter.py` (mirror `test_tracks_wizard_skip.py` + `test_source_validator_errors.py`):
+
+```python
+def test_validator_rejects_localhost_under_prod():
+    import sys, pathlib
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from services.source_validator import SourceValidator
+    v = SourceValidator()
+    v.validation_errors = []
+    ok = v.validate_no_localhost_in_prod({"OLLAMA_SOURCE": "ollama-localhost"}, "prod")
+    assert ok is False and any("OLLAMA_SOURCE" in e for e in v.validation_errors)
+
+def test_validator_allows_localhost_under_default():
+    import sys, pathlib
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from services.source_validator import SourceValidator
+    v = SourceValidator()
+    v.validation_errors = []
+    assert v.validate_no_localhost_in_prod({"OLLAMA_SOURCE": "ollama-localhost"}, "default") is True
+```
+Add a wizard-builder test asserting that, with `profile="prod"`, the built ComfyUI/Ollama step contains no option whose value contains `localhost` (mirror how `test_tracks_wizard_skip.py` drives the step builder).
+
+- [ ] **Step 7: Run + commit**
+
+Run: `cd bootstrapper && uv run pytest tests/test_profile_source_filter.py tests/test_profile_flag.py -q`
+Expected: PASS.
+```bash
+git add bootstrapper/ui/textual/integration.py bootstrapper/start.py bootstrapper/services/source_validator.py bootstrapper/tests/test_profile_source_filter.py
+git commit -m "Add deployment-profile wizard step + prod localhost-source filtering"
+```
+
+---
+
+### Task 4: Resource limits on heavy services
 
 **Files:**
 - Modify: heavy `services/*/compose.yml` + their `service.yml` (declare `*_MEMORY_LIMIT`/`*_CPU_LIMIT` with prod-safe defaults)
@@ -231,7 +338,7 @@ git commit -m "Add resource limits to heavy services"
 
 ---
 
-### Task 4: Log rotation
+### Task 5: Log rotation
 
 **Files:**
 - Modify: each `services/*/compose.yml` (add a `logging:` block) OR document a daemon-level default
@@ -275,7 +382,7 @@ git commit -m "Add json-file log rotation to long-running services"
 
 ---
 
-### Task 5: Document the profile
+### Task 6: Document the profile
 
 **Files:**
 - Modify: `README.md` (add `--profile prod` to the options list), `docs/CHANGELOG.md`
@@ -299,8 +406,8 @@ git commit -m "docs: document --profile prod hardening"
 
 ## Self-Review
 
-- **Spec coverage:** Implements P0-3 (lock network exposure via `HOST_BIND_IP`) and P0-7 (resource limits + log rotation + observability-on `compose.prod` semantics via the prod profile).
-- **Placeholders:** none — exact env names, fragment edits, and commands given. Per-service limit numbers are left to the implementer to size, with explicit guidance (32 GB host) — that is a sizing decision, not a placeholder.
-- **Type consistency:** `HOST_BIND_IP`, `LOG_MAX_SIZE`, `LOG_MAX_FILE`, `*_MEMORY_LIMIT`/`*_CPU_LIMIT` used identically across globals manifest, fragments, and the `--profile prod` override map.
+- **Spec coverage:** Implements P0-3 (lock network exposure via `HOST_BIND_IP`) and P0-7 (resource limits + log rotation + observability-on `compose.prod` semantics via the prod profile). Adds the reviewer-requested **wizard profile step** (Task 3) and **prod `localhost`-source filtering** in both the wizard and the CLI validator.
+- **Placeholders:** none — exact env names, fragment edits, module/function names, and commands given. Per-service limit numbers are left to the implementer to size, with explicit guidance (32 GB host) — that is a sizing decision, not a placeholder.
+- **Type consistency:** `HOST_BIND_IP`, `LOG_MAX_SIZE`, `LOG_MAX_FILE`, `*_MEMORY_LIMIT`/`*_CPU_LIMIT`, `PROFILE_STEP_TITLE`, `validate_no_localhost_in_prod`, and `starter.profile` used identically across the globals manifest, fragments, the `--profile prod` override map, the wizard builder, and the validator. The wizard pick and the CLI flag both resolve to the same `profile` value that drives every prod behaviour.
 - **Key correctness note:** the `${HOST_BIND_IP:-}` prefix yields a byte-identical dev render (empty prefix), so Task 1 must produce a zero diff in dev — this is the test that proves the mechanism is non-breaking. Resource-limit/logging tasks DO change the baseline (expected) and regenerate it.
 - **Risk:** the baseline regen is sensitive to local vs CI Docker Compose version (documented repo gotcha); if local regen yields unrelated drift, defer the baseline commit to the CI-artifact path.
