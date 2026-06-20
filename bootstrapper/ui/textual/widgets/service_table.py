@@ -57,9 +57,14 @@ class ServiceRow:
     category: str = ""        # drives leading bar color (Task 5.4 uses this)
     pending: bool = False     # drives pending-state rendering
     off_track: bool = False   # True when a track is active and this service is excluded
-    # Extra lines appended to the hover tooltip (e.g. MinIO's S3 endpoints,
-    # which aren't the row's own console URL). Empty for most services.
-    tooltip_lines: list[str] = field(default_factory=list)
+    # Extra (label, value) rows appended to the hover tooltip card — e.g.
+    # MinIO's S3 endpoints, which aren't the row's own console URL. Empty
+    # for most services.
+    tooltip_extra: list[tuple[str, str]] = field(default_factory=list)
+    # Hover-card metadata (from the manifest): all selectable source ids and
+    # the services this one depends on. Shown as their own card rows.
+    source_options: list[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
     @property
     def is_changed(self) -> bool:
@@ -479,15 +484,51 @@ class ServiceTable(Widget):
         return flat[idx] if 0 <= idx < len(flat) else None
 
     @staticmethod
-    def _build_tooltip(row: ServiceRow) -> str:
-        """Human-readable access summary for a row's hover tooltip."""
-        lines = [f"{row.name}  ·  {row.source}"]
+    def _tooltip_pairs(row: ServiceRow) -> list[tuple[str, str]]:
+        """The (label, value) rows shown in a service's hover card."""
+        pairs: list[tuple[str, str]] = [("Source", row.source or "—")]
+        if row.source_options:
+            pairs.append(("Source options", ", ".join(row.source_options)))
+        if row.depends_on:
+            pairs.append(("Depends on", ", ".join(row.depends_on)))
         if row.alias and row.alias_port:
-            lines.append(f"http://{row.alias}:{row.alias_port}")
-        if row.port and row.port not in ("", "—"):
-            lines.append(f"localhost:{row.port}")
-        lines.extend(row.tooltip_lines)
-        return "\n".join(lines)
+            pairs.append(("URL", f"http://{row.alias}:{row.alias_port}"))
+        # ``row.port`` is pre-colon'd by resolve_port (e.g. ":64094").
+        port = (row.port or "").lstrip(":").strip()
+        if port and port != "—":
+            pairs.append(("Local", f"localhost:{port}"))
+        pairs.extend(row.tooltip_extra)
+        return pairs
+
+    @staticmethod
+    def _build_tooltip(row: ServiceRow) -> Text:
+        """A clean, aligned key/value card for a row's hover tooltip.
+
+        Title line (the service name) over one ``label  value`` row per
+        field — labels left-aligned in a fixed column, URLs accented, and
+        the active source highlighted within the 'Source options' list.
+        """
+        pairs = ServiceTable._tooltip_pairs(row)
+        label_w = max((len(k) for k, _ in pairs), default=0)
+        card = Text(no_wrap=True)
+        card.append(row.name, style=f"bold {P.TEXT_BRIGHT}")
+        for label, value in pairs:
+            card.append("\n")
+            card.append(label.ljust(label_w), style=P.TEXT_MUTED)
+            card.append("  ")
+            if label == "Source options" and row.source_options:
+                # Accent the selected/active source; dim the rest.
+                for i, opt in enumerate(row.source_options):
+                    if i:
+                        card.append(", ", style=P.TEXT_MUTED)
+                    if opt == row.source:
+                        card.append(opt, style=f"bold {P.ACCENT}")
+                    else:
+                        card.append(opt, style=P.TEXT_MUTED)
+            else:
+                is_url = value.startswith(("http://", "https://", "sc://"))
+                card.append(value, style=P.ACCENT if is_url else P.TEXT_BRIGHT)
+        return card
 
     def on_mouse_move(self, event) -> None:
         """Update the hover tooltip to the service under the cursor."""

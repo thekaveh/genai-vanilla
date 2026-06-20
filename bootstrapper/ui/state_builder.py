@@ -11,6 +11,7 @@ picks a new SOURCE for a service.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -55,6 +56,29 @@ def lookup_service_meta(name: str) -> Optional[dict]:
                 "scale_var": r.scale_var,
             }
     return None
+
+
+@lru_cache(maxsize=1)
+def _service_extras_map() -> dict:
+    """display_name -> {'options': [source ids], 'depends': [service names]}.
+
+    Built once from the manifests; drives the hover-card's 'Source options'
+    and 'Depends on' rows. Cleared with the topology cache in tests.
+    """
+    from services.manifests import load_manifests
+
+    out: dict = {}
+    for m in load_manifests(_SERVICES_ROOT):
+        opts = [o.id for o in m.sources.options] if m.sources else []
+        deps = list(m.depends_on.required) + list(m.depends_on.optional)
+        for r in m.rows:
+            out[r.display_name] = {"options": opts, "depends": deps}
+    return out
+
+
+def service_extras(name: str) -> dict:
+    """Source options + dependency names for a service display name."""
+    return _service_extras_map().get(name, {"options": [], "depends": []})
 
 
 def resolve_port(name: str, source: str, port_var: Optional[str], env: dict) -> Optional[str]:
