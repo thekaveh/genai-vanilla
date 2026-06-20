@@ -1,0 +1,71 @@
+# services/cloudflared/service.yml
+name: cloudflared
+label: "Cloudflare Tunnel (public edge)"
+category: infra
+docs: services/cloudflared/README.md
+
+containers:
+  - cloudflared
+
+images:
+  - var: CLOUDFLARED_IMAGE
+    default: "cloudflare/cloudflared:2025.8.1"
+    container: cloudflared
+    notes: "Cloudflare Tunnel daemon. Pin a dated tag; bump deliberately."
+
+sources:
+  var: CLOUDFLARED_SOURCE
+  default: disabled
+  options:
+    - id: container
+      label: "Run the tunnel daemon as a container (proxies to Kong)."
+    - id: disabled
+      label: "No public edge (default)."
+
+env:
+  - name: CLOUDFLARED_PORT
+    # default removed — computed by services/topology.py slot allocator
+    description: "Host port for cloudflared local metrics (in-container 2000). Bound to localhost in prod."
+  - name: CLOUDFLARE_TUNNEL_TOKEN
+    default: ""
+    secret: true
+    description: |
+      Cloudflare named-tunnel token (Zero Trust > Networks > Tunnels). When
+      CLOUDFLARED_SOURCE=container this must be set or the daemon exits. The
+      tunnel's public hostname is configured in the Cloudflare dashboard to
+      point at http://kong-api-gateway:8000.
+  - name: CLOUDFLARED_SCALE
+    auto_managed: true
+    description: "Set to 1 when CLOUDFLARED_SOURCE=container, 0 when disabled."
+
+depends_on:
+  required:
+    - kong
+  optional: []
+
+rows:
+  - display_name: "Cloudflare Tunnel"
+    source_var: CLOUDFLARED_SOURCE
+    port_var: CLOUDFLARED_PORT
+    description: "Outbound tunnel to Cloudflare; terminates TLS at the edge and proxies to Kong."
+
+exports: []
+
+runtime_sc:
+  cloudflared:
+    container:
+      scale: 1
+      environment:
+        TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+        TUNNEL_METRICS: "0.0.0.0:2000"
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls:
+    - kong
