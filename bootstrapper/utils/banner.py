@@ -199,6 +199,9 @@ class BannerDisplay:
     def show_hero(self, no_splash: bool = False) -> bool:
         """Print the pre-rendered Atlas hero (linear/--no-tui path). Returns
         whether anything was printed."""
+        from feature_flags import splash_enabled
+        if not splash_enabled():
+            return False
         if no_splash:
             return False
         width = self.get_terminal_width()

@@ -26,8 +26,12 @@ POSTER = Path(__file__).resolve().parents[4] / "assets" / "atlas-poster.png"
 
 
 def should_show_splash(no_splash: bool) -> bool:
-    """False when suppressed by ``--no-splash`` / ``ATLAS_NO_SPLASH``, or when
-    the artwork is missing. (Non-TTY / CI is excluded upstream.)"""
+    """False when the master switch is off (``feature_flags.splash_enabled``),
+    when suppressed by ``--no-splash`` / ``ATLAS_NO_SPLASH``, or when the
+    artwork is missing. (Non-TTY / CI is excluded upstream.)"""
+    from feature_flags import splash_enabled
+    if not splash_enabled():
+        return False
     if no_splash:
         return False
     if (os.environ.get("ATLAS_NO_SPLASH", "") or "").strip():

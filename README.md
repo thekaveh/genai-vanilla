@@ -361,7 +361,8 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh --base-port 64000  # Custom port range
 ./start.sh --setup-hosts      # Configure *.localhost domains
 ./start.sh --skip-hosts       # Skip hosts file checks and setup
-./start.sh --no-splash        # Skip the opening splash animation (also: set ATLAS_NO_SPLASH=1)
+./start.sh --no-splash        # Skip the opening splash (also: set ATLAS_NO_SPLASH=1)
+                              # Note: Atlas startup artwork is OFF by default; set ATLAS_SPLASH=1 to enable
 ./start.sh --no-port-migrate  # Skip the chained .env migrations for this run (sentinels not stamped)
 
 # SOURCE overrides (temporary)
