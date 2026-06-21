@@ -66,11 +66,13 @@ services:
       REDIS_URI: ${LIGHTRAG_REDIS_URI}
       LIGHTRAG_PARSER: "*:native-teP,*:legacy-R"
       DOCLING_ENDPOINT: ${LIGHTRAG_DOCLING_ENDPOINT}
-      # LightRAG v1.5.0 only accepts cohere/jina/aliyun/null for RERANK_BINDING.
-      # TEI's /rerank endpoint is wire-compatible with the Jina/Cohere standard
-      # payload, so we use `jina` whenever the reranker endpoint is set.
-      # The :+ pattern only emits the value when the host var is non-empty.
-      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING_HOST:+jina}
+      # LightRAG v1.5.0 only accepts cohere/jina/aliyun/null for RERANK_BINDING
+      # and HARD-CRASHES on an empty string. TEI's /rerank endpoint is
+      # wire-compatible with the Jina/Cohere payload, so service_config.py sets
+      # LIGHTRAG_RERANK_BINDING=jina when the reranker endpoint is set and =null
+      # when it's disabled (reranking off — graceful degradation). The :-null
+      # default covers a blank/absent var so the container can never boot-loop.
+      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING:-null}
       RERANK_BINDING_HOST: ${LIGHTRAG_RERANK_BINDING_HOST}
       RERANK_MODEL: mixedbread-ai/mxbai-rerank-base-v1
     volumes:

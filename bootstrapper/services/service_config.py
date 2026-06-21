@@ -1146,6 +1146,11 @@ class ServiceConfig:
             env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = (
                 f'{tei_endpoint.rstrip("/")}/rerank' if tei_endpoint else ''
             )
+            # LightRAG (v1.5.0) only accepts cohere/jina/aliyun/null for
+            # RERANK_BINDING and HARD-CRASHES on an empty string. When the TEI
+            # reranker is disabled we must emit the literal `null` (reranking
+            # off) rather than blank — graceful degradation, not a boot loop.
+            env_vars['LIGHTRAG_RERANK_BINDING'] = 'jina' if tei_endpoint else 'null'
 
             # Docling — mirror DOCLING_ENDPOINT.
             env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = parent_vars.get('DOCLING_ENDPOINT', '')
@@ -1187,8 +1192,10 @@ class ServiceConfig:
 
         else:
             # LightRAG disabled — emit blanks so any stale .env values are
-            # cleared on next run.
+            # cleared on next run. RERANK_BINDING still gets `null` (never
+            # blank) so a re-enable that races the rewrite can't crash-loop.
             env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = ''
+            env_vars['LIGHTRAG_RERANK_BINDING'] = 'null'
             env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = ''
             env_vars['LIGHTRAG_PG_URI'] = ''
             env_vars['LIGHTRAG_NEO4J_URI'] = ''

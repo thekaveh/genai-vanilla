@@ -70,6 +70,9 @@ def test_lightrag_adaptive_picks_up_tei_endpoint(env_with_overrides):
     # plus the /rerank path — LightRAG's `jina` rerank binding POSTs to
     # the host URL as-is without auto-appending any path.
     assert env.get("LIGHTRAG_RERANK_BINDING_HOST") == "http://tei-reranker:80/rerank"
+    # Binding word must be `jina` when the reranker is on — LightRAG's only
+    # TEI-compatible binding.
+    assert env.get("LIGHTRAG_RERANK_BINDING") == "jina"
 
 
 def test_lightrag_adaptive_blanks_rerank_when_tei_disabled(env_with_overrides):
@@ -79,6 +82,9 @@ def test_lightrag_adaptive_blanks_rerank_when_tei_disabled(env_with_overrides):
     }))
     env = sc.generate_service_environment()
     assert env.get("LIGHTRAG_RERANK_BINDING_HOST", "") == ""
+    # Graceful degradation: TEI disabled → binding is the literal `null`
+    # (reranking off), NEVER an empty string (LightRAG v1.5.0 crashes on "").
+    assert env.get("LIGHTRAG_RERANK_BINDING") == "null"
 
 
 # ---------------------------------------------------------------------------
@@ -175,3 +181,6 @@ def test_lightrag_rerank_blank_when_lightrag_disabled(env_with_overrides):
     env = sc.generate_service_environment()
     # Even though TEI is on, LightRAG is disabled — its rerank var must be blank
     assert env.get("LIGHTRAG_RERANK_BINDING_HOST", "") == ""
+    # Binding still resolves to `null` (never blank) so a re-enable racing the
+    # .env rewrite can't boot the container with an empty RERANK_BINDING.
+    assert env.get("LIGHTRAG_RERANK_BINDING") == "null"
