@@ -211,6 +211,40 @@ class AtlasStarter:
             return self.source_override_manager.apply_overrides(overrides)
         return True
 
+    def apply_profile_overrides(
+        self,
+        profile: str,
+        *,
+        explicit_prometheus: str | None = None,
+        explicit_grafana: str | None = None,
+    ) -> bool:
+        """Apply deployment-profile env overrides to .env.
+
+        Called from both the linear (--no-tui) path and the TUI wizard
+        pipeline so prod-profile configuration applies regardless of how
+        Atlas is started.
+
+        Args:
+            profile:             The resolved profile ("default" or "prod").
+            explicit_prometheus: Non-None when --prometheus-source was passed
+                                 on the CLI (or the wizard set it); skips the
+                                 default-ON override so the user's choice wins.
+            explicit_grafana:    Same for grafana.
+
+        Returns:
+            bool: True on success (or if profile is "default" — no-op).
+        """
+        if profile != "prod":
+            return True
+        prod_overrides: Dict[str, str] = {"HOST_BIND_IP": "127.0.0.1:"}
+        if explicit_prometheus is None:
+            prod_overrides["PROMETHEUS_SOURCE"] = "container"
+        if explicit_grafana is None:
+            prod_overrides["GRAFANA_SOURCE"] = "container"
+        prod_overrides["LOG_MAX_SIZE"] = "10m"
+        prod_overrides["LOG_MAX_FILE"] = "3"
+        return self.source_override_manager.update_env_file(prod_overrides)
+
     def apply_cloud_api_keys(self, keys: Dict[str, str]) -> bool:
         """
         Persist cloud LLM provider API keys (OPENAI_API_KEY,
@@ -2312,6 +2346,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     track=track,
                     overridden_services=frozenset(overridden_services),
                     no_splash=no_splash,
+                    profile=profile,
                 )
                 sys.exit(rc)
 
@@ -2397,6 +2432,10 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     "setup_hosts": setup_hosts,
                     "skip_hosts": skip_hosts,
                     "launch_confirmed": True,
+                    # Forward the resolved deployment profile into the
+                    # launch pipeline so wizard_screen sets starter.profile
+                    # and calls apply_profile_overrides before compose up.
+                    "profile": profile or "default",
                     # Forward any CLI-supplied cloud API keys into the
                     # launch pipeline; the wizard pipeline writes them
                     # to .env via SourceOverrideManager.update_env_file.
@@ -2436,6 +2475,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                     track=track,
                     overridden_services=frozenset(overridden_services),
                     no_splash=no_splash,
+                    profile=profile,
                 )
                 sys.exit(rc)
 
@@ -2462,14 +2502,11 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         # observability default-ON only fires when the user didn't pass an
         # explicit --prometheus-source / --grafana-source flag.
         if profile == "prod":
-            prod_overrides: Dict[str, str] = {"HOST_BIND_IP": "127.0.0.1:"}
-            if prometheus_source is None:
-                prod_overrides["PROMETHEUS_SOURCE"] = "container"
-            if grafana_source is None:
-                prod_overrides["GRAFANA_SOURCE"] = "container"
-            prod_overrides["LOG_MAX_SIZE"] = "10m"
-            prod_overrides["LOG_MAX_FILE"] = "3"
-            if not starter.source_override_manager.update_env_file(prod_overrides):
+            if not starter.apply_profile_overrides(
+                profile,
+                explicit_prometheus=prometheus_source,
+                explicit_grafana=grafana_source,
+            ):
                 sys.exit(1)
 
         # Persist any CLI-supplied cloud API keys to .env. No-op when
@@ -2497,7 +2534,16 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         if cold:
             starter.perform_cold_start_cleanup()
         
-        # Step 2: Validate SOURCE configurations
+        # Step 2: Validate SOURCE configurations.
+        # Profile-source compatibility check runs first so --profile prod
+        # with a dev-only source (e.g. ollama-localhost) fails fast with a
+        # clear message before the heavier structural validation pass.
+        if profile == "prod":
+            _svc_srcs = starter.config_parser.parse_service_sources()
+            starter.source_validator.validation_errors = []
+            if not starter.source_validator.validate_sources_for_profile(_svc_srcs, "prod"):
+                starter.source_validator.print_validation_results()
+                sys.exit(1)
         if not starter.validate_source_configurations():
             sys.exit(1)
         

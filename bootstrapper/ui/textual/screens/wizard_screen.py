@@ -1447,9 +1447,30 @@ class WizardScreen(Screen):
 
         starter.docker_manager.execute_compose_command = _patched_execute
 
+        # Resolve the deployment profile from stack_options (set by
+        # _selections_to_args from the wizard's PROFILE_STEP_TITLE selection,
+        # or by run_launch_flow from the CLI --profile flag). Defaults to
+        # "default" so the no-profile path is a no-op.
+        _resolved_profile = ((self._stack_options or {}).get("profile") or "default")
+        starter.profile = _resolved_profile
+
         steps = [
             ("Apply source overrides",
              lambda: starter.apply_source_overrides(**(self._source_args or {}))),
+            # Apply prod-profile env overrides after source overrides so the
+            # observability default-ON only fires when the user didn't set
+            # prometheus/grafana sources explicitly. The explicit_prometheus/
+            # explicit_grafana guards replicate start.py's linear-path logic:
+            # if the user already set them via source_args, those args were
+            # already applied above, so we pass None here (helper skips the
+            # default-ON write). The TUI wizard merges user choices into
+            # source_args so we can safely read from there.
+            ("Apply profile overrides",
+             lambda _p=_resolved_profile: starter.apply_profile_overrides(
+                 _p,
+                 explicit_prometheus=(self._source_args or {}).get("prometheus_source"),
+                 explicit_grafana=(self._source_args or {}).get("grafana_source"),
+             )),
             ("Apply cloud API keys",
              lambda: starter.apply_cloud_api_keys(
                  (self._stack_options or {}).get("cloud_api_keys", {})
