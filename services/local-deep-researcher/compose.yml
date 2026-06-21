@@ -31,6 +31,11 @@ services:
     volumes:
       - local-deep-researcher-data:/app/data
       - local-deep-researcher-repo:/app/repo
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

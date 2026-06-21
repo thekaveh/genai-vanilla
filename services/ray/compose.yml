@@ -48,6 +48,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -76,5 +81,10 @@ services:
     # No /tmp/ray volume — same reasoning as ray-head above (image runs
     # as UID 1000, named volumes default to root:root, Ray needs to
     # write its session dir on every start).
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network

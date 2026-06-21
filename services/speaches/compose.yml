@@ -49,6 +49,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     labels:
       - "com.${PROJECT_NAME}.service=speech-tts-stt"
       - "com.${PROJECT_NAME}.category=ai"

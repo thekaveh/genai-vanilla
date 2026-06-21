@@ -26,6 +26,11 @@ services:
       - ./build/scripts:/scripts
       - ./build/snapshot:/snapshot
       - graph-db-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

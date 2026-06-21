@@ -65,6 +65,11 @@ services:
       - ./extras/functions:/app/backend/data/functions
     ports:
       - "${HOST_BIND_IP:-}${OPEN_WEB_UI_PORT}:8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

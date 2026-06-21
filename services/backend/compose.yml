@@ -89,6 +89,11 @@ services:
       - weaviate-shared-config:/shared
     ports:
       - "${HOST_BIND_IP:-}${BACKEND_PORT}:8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

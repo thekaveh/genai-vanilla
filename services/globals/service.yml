@@ -84,6 +84,13 @@ env:
   - name: PROD_ENV_COMFYUI_MEM_LIMIT
     default: 4g
 
+  - name: LOG_MAX_SIZE
+    default: "10m"
+    description: "Per-container json-file log max size (Docker logging option)."
+  - name: LOG_MAX_FILE
+    default: "3"
+    description: "Per-container json-file log file count (Docker logging option)."
+
   # Migration sentinels
   - name: BOOTSTRAPPER_PORT_LAYOUT_VERSION
     default: 3

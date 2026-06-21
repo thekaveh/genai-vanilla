@@ -96,6 +96,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
 
   n8n-worker:
     image: ${N8N_IMAGE}
@@ -162,6 +167,11 @@ services:
       LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     volumes:
       - n8n-data:/home/node/.n8n
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

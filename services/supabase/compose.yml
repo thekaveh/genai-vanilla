@@ -21,6 +21,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
 
   supabase-db-init:
     image: ${SUPABASE_DB_INIT_IMAGE}
@@ -56,6 +61,11 @@ services:
       PG_META_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
     ports:
       - "${HOST_BIND_IP:-}${SUPABASE_META_PORT}:8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -85,6 +95,11 @@ services:
       - "${HOST_BIND_IP:-}${SUPABASE_STORAGE_PORT}:5000"
     volumes:
       - supabase-storage-data:/var/lib/storage
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -119,6 +134,11 @@ services:
       GOTRUE_SITE_NAME: "Local Supabase"
     ports:
       - "${HOST_BIND_IP:-}${SUPABASE_AUTH_PORT}:9999"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -137,6 +157,11 @@ services:
       PGRST_DB_USE_LEGACY_GUCS: "false"
     ports:
       - "${HOST_BIND_IP:-}${SUPABASE_API_PORT}:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -187,6 +212,11 @@ services:
       APP_NAME: realtime
     ports:
       - "${HOST_BIND_IP:-}${SUPABASE_REALTIME_PORT}:4000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -228,6 +258,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -251,6 +286,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

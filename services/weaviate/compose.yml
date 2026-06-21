@@ -93,6 +93,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
 
   multi2vec-clip:
     image: ${MULTI2VEC_CLIP_IMAGE}
@@ -105,6 +110,11 @@ services:
       ENABLE_CUDA: ${CLIP_ENABLE_CUDA:-0}
     deploy:
       replicas: ${CLIP_SCALE:-1}
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

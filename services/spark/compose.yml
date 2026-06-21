@@ -56,6 +56,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -85,6 +90,11 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -158,6 +168,11 @@ services:
       # not a directory` if spark-init hasn't completed yet.
       spark-init:
         condition: service_completed_successfully
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -188,6 +203,11 @@ services:
     depends_on:
       spark-init:
         condition: service_completed_successfully
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
