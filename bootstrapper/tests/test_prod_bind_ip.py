@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -34,7 +33,13 @@ def test_prod_bind_ip_localhost():
     assert "host_ip: 0.0.0.0" not in out.stdout, (
         "A port was rendered with host_ip 0.0.0.0 — some fragment is missing the HOST_BIND_IP prefix"
     )
-    # Sanity: at least one port is actually bound to 127.0.0.1.
-    assert "host_ip: 127.0.0.1" in out.stdout, (
-        "No port was rendered with host_ip 127.0.0.1 — HOST_BIND_IP substitution did not take effect"
+    # Strong guard: EVERY published port must carry host_ip: 127.0.0.1 in prod.
+    # A missing prefix renders a published port with NO host_ip line, so the
+    # count of host_ip:127.0.0.1 must equal the count of published ports.
+    published = out.stdout.count("published:")
+    localhost_bound = out.stdout.count("host_ip: 127.0.0.1")
+    assert published > 0, "no published ports rendered — env-file/interpolation problem"
+    assert localhost_bound == published, (
+        f"{published - localhost_bound} published port(s) are NOT bound to 127.0.0.1 in prod — "
+        "a fragment is missing the HOST_BIND_IP prefix"
     )
