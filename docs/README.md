@@ -45,6 +45,7 @@ Documentation index for Atlas.
 - [Ports and Routes](deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
 - [Reusing Atlas as Infrastructure](deployment/reusing-atlas.md) — overview + decision guide: use Atlas as the backing infra for another project (which method, is it ready, how to wire + customize)
 - [Using as a Submodule](deployment/submodule-usage.md) — deep-dive for the Git-submodule reuse method
+- [Releasing & version tags](deployment/releasing.md) — semver tag convention for pinning a vendored Atlas
 - [Expected Startup Warnings](deployment/expected-startup-warnings.md) — known-benign log lines on `./start.sh`
 
 ### 1.4 Contributors

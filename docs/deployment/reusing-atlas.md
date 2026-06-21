@@ -13,7 +13,7 @@ This page is the **overview and decision guide**. It answers: *can I reuse Atlas
   - **A — Standalone + shared network** (recommended when one Atlas instance backs *several* of your projects): run Atlas on its own; your project is a *separate* repo / Compose project that joins `${PROJECT_NAME}-network` and calls services by their Docker DNS name (or through Kong).
   - **B — Git submodule** (recommended when your project *ships and deploys Atlas together with it*): vendor Atlas into your repo under `infra/` and run it from there. Fully documented in [submodule-usage.md](submodule-usage.md).
 - **Customization needs no fork:** `PROJECT_NAME`, `BASE_PORT`, `BRAND_*`, per-service `*_SOURCE`, and `--track` cover the common cases.
-- **Honest status:** the consumer paths above work today. Two reuse niceties are not finished yet — auto-launching services you drop into the `services/_user/` overlay, and published semver release tags for pinning. See [§7 Readiness & known gaps](#7-readiness--known-gaps).
+- **Honest status:** the consumer paths above work today; services dropped into the `services/_user/` overlay now **launch automatically** (see [§6.1](#61-extending-the-stack-via-services_user)); and the repo is **tagged** for submodule pinning. See [§7 Readiness](#7-readiness).
 
 ---
 
@@ -130,13 +130,42 @@ This is the same shared-network model as Method A (your app joins `${PROJECT_NAM
 | **`BRAND_*`** | Rebrands the wizard/banner (name, tagline, author, repo URL, license) — make Atlas present as your platform. | `.env` (`BRAND_*` block) |
 | **`*_SOURCE`** | Enable/disable each service or pick its backend (`container` / `container-gpu` / `localhost` / `disabled`, plus `api` for LLMs). Disable what your showcase doesn't use. | `.env` / `--<svc>-source` |
 | **`--track`** | Start a curated subset (`gen-ai-rag`, `gen-ai-eng`, `gen-ai-creative`, `ml-eng`, `data-eng`, `all`). `--track gen-ai-rag` is the natural fit for a RAG showcase. | flag |
-| **`services/_user/` overlay** | Drop your own co-located service manifests here (gitignored upstream, so they never leak into Atlas PRs). | `services/_user/<name>/` — see limitation in §7 |
+| **`services/_user/` overlay** | Drop your own co-located service into `services/_user/<name>/compose.yml` (gitignored upstream, so it never leaks into Atlas PRs); the bootstrapper auto-merges and launches it. | [§6.1](#61-extending-the-stack-via-services_user) |
 
 Full source/customization matrix: [source-configuration.md](source-configuration.md).
 
+### 6.1 Extending the stack via `services/_user/`
+
+To add your own service *into* the Atlas stack (so it starts/stops with `./start.sh` / `./stop.sh` and shares the stack's network), drop a Compose fragment at `services/_user/<name>/compose.yml`. On launch the bootstrapper discovers every `services/_user/*/compose.yml` and merges it into the `docker compose` invocation (`-f docker-compose.yml -f services/_user/<name>/compose.yml …`), so your service comes up alongside the core stack. The `services/_user/` slot is gitignored upstream, so your additions never appear in an Atlas PR.
+
+A `_user/` overlay service is a **self-contained Compose fragment**: it brings its own image, host ports, and environment, and joins the shared network. Example:
+
+```yaml
+# services/_user/rag-indexer/compose.yml
+services:
+  rag-indexer:
+    image: myorg/rag-indexer:1.2.0
+    container_name: ${PROJECT_NAME}-rag-indexer
+    restart: unless-stopped
+    environment:
+      WEAVIATE_URL: "http://weaviate:8080"
+      OPENAI_BASE_URL: "http://litellm:4000/v1"
+    ports:
+      - "${HOST_BIND_IP:-}8090:8090"      # choose a free host port yourself
+    networks:
+      - backend-network
+
+networks:
+  backend-network:
+    name: ${PROJECT_NAME}-network
+    external: true
+```
+
+**Scope note:** overlay services *launch*, but they are intentionally **not** wired into Atlas's wizard, topology port-allocator, or generated `.env.example` — you manage their image/ports/env directly in the fragment (use `${HOST_BIND_IP:-}` on published ports to inherit the `--profile prod` localhost-binding behavior). If you'd rather keep your service in its *own* repo entirely, use Method A instead (it joins the same network from outside).
+
 ---
 
-## 7. Readiness & known gaps
+## 7. Readiness
 
 | Capability | Status |
 |------------|--------|
@@ -144,11 +173,11 @@ Full source/customization matrix: [source-configuration.md](source-configuration
 | Git submodule (Method B) | **Ready** ([submodule-usage.md](submodule-usage.md)) |
 | Customization: `PROJECT_NAME` / `BASE_PORT` / `BRAND_*` / `*_SOURCE` / `--track` | **Ready** |
 | Multiple isolated Atlas stacks on one host | **Ready** (distinct `PROJECT_NAME` + `BASE_PORT`) |
-| `services/_user/` overlay **auto-launch** | **Partial** — manifests dropped in `services/_user/` are parsed by the bootstrapper, but the top-level `docker-compose.yml` `include:` list is hand-maintained, so those services are **not started automatically** yet. Until this is wired, add a co-located service from *your own* Compose project on the shared network (Method A) instead. |
+| `services/_user/` overlay **auto-launch** | **Ready** — drop `services/_user/<name>/compose.yml` and the bootstrapper merges + launches it (see [§6.1](#61-extending-the-stack-via-services_user)). |
+| Semver release tags for submodule pinning | **Ready** — the repo is tagged `vMAJOR.MINOR.PATCH`; pin your submodule to a tag (see [releasing.md](releasing.md)). |
 | Published images / pip package | **Not supported** (see §5) |
-| Semver release tags for submodule pinning | **Not yet** — pin to a commit SHA for now |
 
-The two gaps above are tracked as Phase 1 of the production-readiness & reuse roadmap: [`docs/superpowers/specs/2026-06-20-production-readiness-and-reuse-roadmap-design.md`](../superpowers/specs/2026-06-20-production-readiness-and-reuse-roadmap-design.md) (Part 3).
+The first two rows were Phase 1 of the production-readiness & reuse roadmap — now implemented (see the [Phase 1 design](../superpowers/specs/2026-06-21-phase1-reuse-mechanics-design.md)). Remaining roadmap items (Infisical secrets, centralized logging, image signing, deeper hardening) are Phase 2+.
 
 ---
 
@@ -157,4 +186,5 @@ The two gaps above are tracked as Phase 1 of the production-readiness & reuse ro
 - [submodule-usage.md](submodule-usage.md) — complete Git-submodule guide (layout, integration patterns, CI/CD, troubleshooting)
 - [source-configuration.md](source-configuration.md) — every `*_SOURCE` variable and what it does
 - [ports-and-routes.md](ports-and-routes.md) — authoritative port + Kong-hostname mapping
+- [releasing.md](releasing.md) — version-tag convention for pinning a submodule
 - [Production readiness & reuse roadmap](../superpowers/specs/2026-06-20-production-readiness-and-reuse-roadmap-design.md) — the strategy/assessment behind this guide

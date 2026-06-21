@@ -778,14 +778,30 @@ services/
 └── …
 ```
 
-The default manifest loader (`bootstrapper.services.manifests.load_manifests`)
-skips directories whose name starts with `_`, so `_user/` is invisible to the
-core stack. A downstream `start.sh` wrapper can call
-`load_manifests(services_dir / "_user")` and merge the results into its own
-runtime — the manifest schema and the synthesizer are the same.
+**Auto-launch (Phase 1):** at startup the bootstrapper discovers every
+`services/_user/*/compose.yml` and appends it to the `docker compose`
+invocation (`-f docker-compose.yml -f services/_user/<name>/compose.yml …` —
+see `DockerManager._compose_file_args`), so overlay services come up and down
+with the core stack. When no overlay exists the invocation is unchanged
+(default file auto-discovery), so the core stack and the byte-equivalence
+baseline are unaffected.
+
+An overlay service is a **self-contained Compose fragment**: it brings its own
+image, host ports, and environment, and joins the shared network
+(`networks: { backend-network: { name: ${PROJECT_NAME}-network, external: true } }`).
+It is intentionally NOT wired into the wizard, the topology port-allocator, or
+the generated `.env.example` — manage its image/ports/env directly in the
+fragment (use `${HOST_BIND_IP:-}` on published ports to inherit `--profile prod`
+localhost binding). The default manifest loader
+(`bootstrapper.services.manifests.load_manifests`) still skips `_`-prefixed
+directories, so a `_user/<name>/service.yml` remains invisible to the core
+manifest pipeline; a downstream wrapper can still call
+`load_manifests(services_dir / "_user")` if it wants the manifest model.
 
 This slot is reserved by convention; the upstream `.gitignore` excludes
-`services/_user/` so the directory never leaks into a fork's PRs.
+`services/_user/` so the directory never leaks into a fork's PRs. See
+[deployment/reusing-atlas.md §6.1](deployment/reusing-atlas.md) for the
+consumer-facing walkthrough.
 
 
 ## 22. Documentation-only manifest fields

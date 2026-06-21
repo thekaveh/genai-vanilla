@@ -143,6 +143,29 @@ class DockerManager:
         except Exception as e:
             return False, f"Could not detect Docker Compose version: {e}"
     
+    def _compose_file_args(self) -> List[str]:
+        """Compose ``-f`` arguments.
+
+        Empty by default — Docker Compose auto-discovers ``docker-compose.yml``
+        from ``cwd`` (the repo root), so the default invocation (and the
+        compose byte-equivalence baseline) is unchanged. When a downstream
+        consumer has dropped overlay fragments under
+        ``services/_user/<name>/compose.yml`` (a gitignored overlay slot),
+        return an explicit base + overlay file list so those services are
+        merged into the stack and launched. Sorted for determinism.
+
+        Note: once any ``-f`` is passed, Compose stops auto-discovering the
+        default file, so the base ``docker-compose.yml`` must be listed first.
+        """
+        user_dir = self.root_dir / "services" / "_user"
+        overlays = sorted(user_dir.glob("*/compose.yml")) if user_dir.is_dir() else []
+        if not overlays:
+            return []
+        file_args: List[str] = ['-f', 'docker-compose.yml']
+        for overlay in overlays:
+            file_args.extend(['-f', str(overlay.relative_to(self.root_dir))])
+        return file_args
+
     def execute_compose_command(self, args: List[str], use_env_file: bool = True) -> int:
         """
         Execute a docker compose command with proper error handling.
@@ -171,6 +194,9 @@ class DockerManager:
             # silently ignored custom env files at the compose seam.
             full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
 
+        # Merge any downstream services/_user/<name>/compose.yml overlays
+        # (no-op when none exist — preserves default behavior).
+        full_cmd.extend(self._compose_file_args())
         full_cmd.extend(args)
 
         self._on_command(f"      Command: {' '.join(full_cmd)}")
@@ -551,6 +577,9 @@ class DockerManager:
             # Use the resolved path (honors ATLAS_ENV_FILE) — hardcoding .env
             # silently ignored custom env files at the compose seam.
             full_cmd.extend([f'--env-file={self.config_parser.env_file_path}'])
+        # Merge any downstream services/_user/<name>/compose.yml overlays
+        # (no-op when none exist — preserves default behavior).
+        full_cmd.extend(self._compose_file_args())
         full_cmd.extend(args)
         return full_cmd
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — 2026-06-21 — Phase 1 reuse mechanics (`services/_user/` auto-launch + release tags)
+
+- **`services/_user/` overlay services now launch.** The bootstrapper discovers every `services/_user/<name>/compose.yml` and merges it into the `docker compose` invocation (`DockerManager._compose_file_args`: `-f docker-compose.yml -f services/_user/<name>/compose.yml …`), so a downstream consumer's co-located services come up/down with the stack. When no overlay exists the invocation is unchanged — default file auto-discovery preserved, byte-equivalence baseline unaffected. Overlay services are self-contained Compose fragments (own image/ports/env, joined to the shared network); they are intentionally not wired into the wizard/topology/`.env.example`.
+- **Release/version-tag convention** for pinning a vendored Atlas: semver `vMAJOR.MINOR.PATCH` documented in `docs/deployment/releasing.md`, with the first tag `v0.1.0`.
+- Docs: new `docs/deployment/releasing.md`; `reusing-atlas.md` readiness rows flipped to **Ready** + a §6.1 extension walkthrough; `CONTRIBUTING-services.md` §21 updated. Phase 1 design: `docs/superpowers/specs/2026-06-21-phase1-reuse-mechanics-design.md`.
+
 ### Added — 2026-06-20 — Secrets hygiene guard + cross-OS doc accuracy
 
 - **Placeholder-secret coverage guard** — a test (`test_no_unrotated_nonempty_secret_defaults`) now asserts every `secret: true` manifest default is either empty (generated-when-absent) or a registered `KeyGenerator.PLACEHOLDER_DEFAULTS` literal (rotated-when-placeholder). It caught and registered a previously-unregistered composite, `GRAPH_DB_AUTH`.
