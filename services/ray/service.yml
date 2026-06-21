@@ -54,6 +54,18 @@ env:
   - name: RAY_DASHBOARD_URL
     default: ""
     description: "Optional override for the Ray dashboard URL the backend's job client uses. Empty = derive from RAY_ADDRESS (http://ray-head:8265)."
+  - name: RAY_HEAD_MEMORY_LIMIT
+    default: 4g
+    description: "Container memory limit for ray-head (deploy.resources.limits.memory). The head node manages the GCS, dashboard, and object directory; 4 g is conservative but safe on a 32 GB host (the shm_size=8gb allocation is for /dev/shm, separate from this OS memory cap)."
+  - name: RAY_HEAD_CPU_LIMIT
+    default: "2.0"
+    description: "Container CPU limit for ray-head (deploy.resources.limits.cpus). GCS + dashboard coordination rarely needs more than 1 core; 2.0 leaves room for brief spikes."
+  - name: RAY_WORKER_MEMORY_LIMIT
+    default: 4g
+    description: "Container memory limit per ray-worker (deploy.resources.limits.memory). Workers run tasks and actors; 4 g per replica is a modest OOM fence on a 32 GB host with the default 2 workers. Raise for large in-memory datasets."
+  - name: RAY_WORKER_CPU_LIMIT
+    default: "2.0"
+    description: "Container CPU limit per ray-worker (deploy.resources.limits.cpus). 2.0 cores per worker. Raise if workers need more parallelism; lower if the host is saturated."
 
 depends_on:
   # Display-ordering pin: Ray is genuinely standalone at runtime (ships its

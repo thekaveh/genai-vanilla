@@ -108,6 +108,10 @@ services:
       - ${COMFYUI_LOCAL_MODELS_PATH:-./empty}:/host_models
     deploy:
       replicas: ${COMFYUI_SCALE:-1}
+      resources:
+        limits:
+          memory: ${COMFYUI_MEMORY_LIMIT:-4g}
+          cpus: "${COMFYUI_CPU_LIMIT:-2.0}"
     networks:
       - backend-network
     healthcheck:

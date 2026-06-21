@@ -30,6 +30,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${SPARK_MASTER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${SPARK_MASTER_MEMORY_LIMIT:-2g}
+          cpus: "${SPARK_MASTER_CPU_LIMIT:-1.0}"
     ports:
       - "${HOST_BIND_IP:-}${SPARK_MASTER_UI_PORT}:8080"
     environment:
@@ -68,6 +72,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${SPARK_WORKER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${SPARK_WORKER_MEMORY_LIMIT:-4g}
+          cpus: "${SPARK_WORKER_CPU_LIMIT:-2.0}"
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.worker.Worker

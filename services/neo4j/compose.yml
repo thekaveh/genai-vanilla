@@ -9,6 +9,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${NEO4J_SCALE:-1}
+      resources:
+        limits:
+          memory: ${NEO4J_MEMORY_LIMIT:-2g}
+          cpus: "${NEO4J_CPU_LIMIT:-1.5}"
     environment:
       NEO4J_AUTH: ${GRAPH_DB_AUTH}
       NEO4J_server_default__advertised__address: "neo4j-graph-db"

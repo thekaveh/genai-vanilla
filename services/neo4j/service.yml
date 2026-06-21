@@ -56,6 +56,12 @@ env:
   - name: NEO4J_LOCALHOST_BOLT_PORT
     default: "7687"
     description: "Host Bolt port for the neo4j-localhost source variant (driver protocol). NEO4J_URI is derived as bolt://host.docker.internal:7687. The wizard's inline-textbox edits THIS port (HTTP is overridable via .env hand-edit)."
+  - name: NEO4J_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for neo4j-graph-db (deploy.resources.limits.memory). 2 g is conservative for a 32 GB host; Neo4j keeps hot nodes in a heap-based page cache that typically stays well under 2 g for single-node dev/staging workloads."
+  - name: NEO4J_CPU_LIMIT
+    default: "1.5"
+    description: "Container CPU limit for neo4j-graph-db (deploy.resources.limits.cpus). 1.5 cores is sufficient for single-node Bolt + HTTP query serving."
 
 depends_on:
   required:

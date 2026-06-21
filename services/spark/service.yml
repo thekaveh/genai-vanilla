@@ -50,6 +50,18 @@ env:
   - name: SPARK_CONNECT_SCALE
     auto_managed: true
     description: "Resolved by the bootstrapper from SPARK_SOURCE; spark-connect runs as a sidecar to spark-master."
+  - name: SPARK_MASTER_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for spark-master (deploy.resources.limits.memory). The standalone master process manages cluster state and requires minimal heap — 2 g is generous on a 32 GB host."
+  - name: SPARK_MASTER_CPU_LIMIT
+    default: "1.0"
+    description: "Container CPU limit for spark-master (deploy.resources.limits.cpus). Master is lightweight; 1.0 core is ample."
+  - name: SPARK_WORKER_MEMORY_LIMIT
+    default: 4g
+    description: "Container memory limit per spark-worker (deploy.resources.limits.memory). Workers run executor JVMs; 4 g per replica is a conservative cap on a 32 GB host with the default 2 workers (8 g total). Raise for memory-intensive jobs."
+  - name: SPARK_WORKER_CPU_LIMIT
+    default: "2.0"
+    description: "Container CPU limit per spark-worker (deploy.resources.limits.cpus). 2.0 cores per worker leaves headroom for other services on the host."
 
 depends_on:
   required:

@@ -79,6 +79,12 @@ env:
     description: "Resolved per COMFYUI_SOURCE. Consumed by backend, open-webui, n8n, jupyterhub."
   - name: COMFYUI_DEPLOY_RESOURCES
     default: "~"
+  - name: COMFYUI_MEMORY_LIMIT
+    default: 4g
+    description: "Container memory limit for the comfyui container (deploy.resources.limits.memory). 4 g is appropriate for CPU-only inference; GPU workloads holding VRAM are bounded by device memory, not host RAM, so 4 g is still a safe OOM fence on a 32 GB host."
+  - name: COMFYUI_CPU_LIMIT
+    default: "2.0"
+    description: "Container CPU limit for the comfyui container (deploy.resources.limits.cpus). 2.0 cores keeps CPU-mode inference from monopolising the host; GPU mode is GPU-bound so the CPU cap is irrelevant in practice."
 
 
 depends_on:

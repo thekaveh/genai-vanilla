@@ -41,6 +41,10 @@ services:
         condition: service_healthy
     deploy:
       replicas: ${WEAVIATE_SCALE:-1}
+      resources:
+        limits:
+          memory: ${WEAVIATE_MEMORY_LIMIT:-2g}
+          cpus: "${WEAVIATE_CPU_LIMIT:-1.5}"
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:

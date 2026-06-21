@@ -9,6 +9,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${AIRFLOW_WEBSERVER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${AIRFLOW_WEBSERVER_MEMORY_LIMIT:-2g}
+          cpus: "${AIRFLOW_WEBSERVER_CPU_LIMIT:-1.0}"
     ports:
       - "${HOST_BIND_IP:-}${AIRFLOW_PORT}:8080"
     environment:
@@ -73,6 +77,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${AIRFLOW_SCHEDULER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${AIRFLOW_SCHEDULER_MEMORY_LIMIT:-2g}
+          cpus: "${AIRFLOW_SCHEDULER_CPU_LIMIT:-1.0}"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
@@ -132,6 +140,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${AIRFLOW_DAG_PROCESSOR_SCALE:-0}
+      resources:
+        limits:
+          memory: ${AIRFLOW_DAG_PROCESSOR_MEMORY_LIMIT:-2g}
+          cpus: "${AIRFLOW_DAG_PROCESSOR_CPU_LIMIT:-1.0}"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
