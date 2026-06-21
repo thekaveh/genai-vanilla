@@ -61,6 +61,8 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `OPENCLAW_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes OpenClaw config where applicable. |
 | `HERMES_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Renders `/opt/data/config.yaml` for Hermes from environment (model, TTS, STT, ComfyUI host override). |
 | `SUPABASE_DB_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Supabase database state. |
+| `CLOUDFLARED_SOURCE` | `disabled` | `container`, `disabled` | User-facing optional | Cloudflare Tunnel public edge — terminates TLS at Cloudflare and proxies to Kong (egress-only, no inbound ports). Requires `CLOUDFLARE_TUNNEL_TOKEN`. |
+| `BACKUP_SOURCE` | `disabled` | `container`, `disabled` | User-facing optional | On-demand backup runner — Postgres dump + named-volume snapshots pushed to MinIO/S3. Invoke via `docker compose run --rm backup`. |
 
 > The `litellm-init` and `llm-catalog-init` containers are mandatory and have no SOURCE toggle — they always run when the stack starts. `litellm-init` provisions the dedicated `litellm` Postgres database and renders `volumes/litellm/config.yaml` from `public.llms`; `llm-catalog-init` UPSERTs the curated catalog and the wizard's `*_USER_MODELS` selections into `public.llms`.
 

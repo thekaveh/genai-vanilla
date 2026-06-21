@@ -254,7 +254,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 | Category | Service | Default port | Alias |
 |---|---|---:|---|
+| Infra | Backup / restore | — | — |
 | Infra | Kong API Gateway | 63000 | — |
+| Infra | Cloudflare Tunnel | — | — |
 | Infra | Ray | 63002 | ray.localhost |
 | Infra | Prometheus | 63005 | prometheus.localhost |
 | Infra | Grafana | 63008 | grafana.localhost |
