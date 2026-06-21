@@ -52,6 +52,11 @@ class KeyGenerator:
         "SUPABASE_DB_PASSWORD": "password",
         "SUPABASE_DB_APP_PASSWORD": "app_password",
         "GRAPH_DB_PASSWORD": "neo4j_password",
+        # GRAPH_DB_AUTH is the composite form (user/password) passed verbatim to
+        # NEO4J_AUTH in compose.yml. It derives from GRAPH_DB_PASSWORD and ships
+        # the same well-known placeholder value; generate_and_update_graph_db_password
+        # rewrites it as a side effect so it is rotation-covered.
+        "GRAPH_DB_AUTH": "neo4j/neo4j_password",
         "REDIS_PASSWORD": "redis_password",
         "DASHBOARD_PASSWORD": "kong_password",
         "OPEN_WEB_UI_ADMIN_PASSWORD": "admin",
