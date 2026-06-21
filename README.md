@@ -364,6 +364,10 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh --no-splash        # Skip the opening splash (also: set ATLAS_NO_SPLASH=1)
                               # Note: Atlas startup artwork is OFF by default; set ATLAS_SPLASH=1 to enable
 ./start.sh --no-port-migrate  # Skip the chained .env migrations for this run (sentinels not stamped)
+./start.sh --profile prod     # Production hardening: localhost-only port binding (HOST_BIND_IP), per-service
+                              # resource limits (OOM fences — heavy services default to scale 0 and are
+                              # enabled per track, so total limits intentionally exceed a 32 GB host),
+                              # json-file log rotation, observability defaulted on, localhost sources hidden
 
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost
