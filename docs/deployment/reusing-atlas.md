@@ -85,7 +85,7 @@ Within `${PROJECT_NAME}-network`, reach each service by its **compose service na
 | **LiteLLM** (LLM gateway, OpenAI-compatible) | `litellm:4000` | `POST http://litellm:4000/v1/chat/completions`; auth with `LITELLM_MASTER_KEY` |
 | **Weaviate** (vector DB) | `weaviate:8080` (gRPC `weaviate:50051`) | |
 | **Neo4j** (graph DB) | `neo4j-graph-db:7687` (Bolt), `:7474` (HTTP) | auth from `GRAPH_DB_AUTH` |
-| **Supabase Postgres** | `supabase-db:5432` | REST/Auth/Storage are exposed via Kong — see [submodule-usage.md §6.2](submodule-usage.md) |
+| **Supabase Postgres** | `supabase-db:5432` | REST/Auth/Storage are exposed via Kong — see [submodule-usage.md §6.2](submodule-usage.md#62-pattern-2-kong-gateway-as-single-entry-point) |
 | **MinIO** (S3-compatible) | `minio:9000` (console `:9001`) | creds `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
 | **Redis** | `redis:6379` | auth `REDIS_PASSWORD` |
 | **n8n** (workflows) | `n8n:5678` | |
@@ -96,7 +96,7 @@ The authoritative, always-current port list (host-published ports + Kong hostnam
 
 ### 3.4 Going through Kong instead (single entry point)
 
-If you'd rather not depend on individual service hostnames, route through Kong — Atlas's gateway — at `kong-api-gateway:8000`. Supabase REST is path-routed (`/rest/v1/...`); browser-facing services are host-routed (`<service>.localhost`). The Kong patterns, including the auth headers, are documented in [submodule-usage.md §6.2](submodule-usage.md).
+If you'd rather not depend on individual service hostnames, route through Kong — Atlas's gateway — at `kong-api-gateway:8000`. Supabase REST is path-routed (`/rest/v1/...`); browser-facing services are host-routed (`<service>.localhost`). The Kong patterns, including the auth headers, are documented in [submodule-usage.md §6.2](submodule-usage.md#62-pattern-2-kong-gateway-as-single-entry-point).
 
 ---
 
@@ -106,11 +106,12 @@ Vendor Atlas into your repo and run it from a subdirectory — best when your pr
 
 ```bash
 git submodule add https://github.com/thekaveh/atlas infra
-cd infra && cp .env.example .env      # set PROJECT_NAME to your project
+cd infra && git checkout v0.1.0       # pin to a release tag — see releasing.md
+cp .env.example .env                   # set PROJECT_NAME to your project
 ./start.sh
 ```
 
-This is the same shared-network model as Method A (your app joins `${PROJECT_NAME}-network`), with the difference that Atlas's source lives inside your repo at a pinned commit. The **complete** guide — directory layout, `.gitignore`, custom env-file location, integration patterns, contributing upstream, CI/CD, multiple stacks, troubleshooting — is [submodule-usage.md](submodule-usage.md).
+Pin the submodule to a release **tag** rather than tracking `main`, so infra upgrades are explicit, reviewable commits — see [releasing.md](releasing.md) for the tag convention. This is the same shared-network model as Method A (your app joins `${PROJECT_NAME}-network`), with the difference that Atlas's source lives inside your repo at a pinned commit. The **complete** guide — directory layout, `.gitignore`, custom env-file location, integration patterns, contributing upstream, CI/CD, multiple stacks, troubleshooting — is [submodule-usage.md](submodule-usage.md).
 
 ---
 

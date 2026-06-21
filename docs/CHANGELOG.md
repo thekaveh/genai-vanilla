@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release/version-tag convention** for pinning a vendored Atlas: semver `vMAJOR.MINOR.PATCH` documented in `docs/deployment/releasing.md`, with the first tag `v0.1.0`.
 - Docs: new `docs/deployment/releasing.md`; `reusing-atlas.md` readiness rows flipped to **Ready** + a §6.1 extension walkthrough; `CONTRIBUTING-services.md` §21 updated. Phase 1 design: `docs/superpowers/specs/2026-06-21-phase1-reuse-mechanics-design.md`.
 
+### Added — 2026-06-20 — Cloudflare Tunnel service (`cloudflared`)
+
+- New `services/cloudflared/` service, **disabled by default** (`CLOUDFLARED_SOURCE=disabled`). Set `CLOUDFLARED_SOURCE=container` + provide `CLOUDFLARE_TUNNEL_TOKEN` to run an outbound Cloudflare Tunnel daemon that terminates TLS at the Cloudflare edge and proxies to Kong — no inbound ports opened. Egress-only (no Kong route); requires a named tunnel configured in the Cloudflare Zero Trust dashboard.
+
+### Added — 2026-06-20 — On-demand backup runner (`backup`)
+
+- New `services/backup/` one-shot runner, **disabled by default** (`BACKUP_SOURCE=disabled`; never long-running). Invoke with `docker compose run --rm backup`. Dumps the Supabase Postgres database (`pg_dump`) and snapshots the critical named volumes (supabase-storage, graph-db, weaviate) to S3-compatible storage — on-box MinIO by default, `BACKUP_S3_ALIAS_URL` for offsite. Ships `restore-postgres.sh` for recovery drills.
+
 ### Added — 2026-06-20 — Secrets hygiene guard + cross-OS doc accuracy
 
 - **Placeholder-secret coverage guard** — a test (`test_no_unrotated_nonempty_secret_defaults`) now asserts every `secret: true` manifest default is either empty (generated-when-absent) or a registered `KeyGenerator.PLACEHOLDER_DEFAULTS` literal (rotated-when-placeholder). It caught and registered a previously-unregistered composite, `GRAPH_DB_AUTH`.

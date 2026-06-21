@@ -771,8 +771,10 @@ additional services without modifying the upstream tree. Drop them under
 services/
 ├── _user/                    # gitignored upstream; tracked downstream
 │   └── my-extra-service/
-│       ├── service.yml
-│       └── compose.yml
+│       └── compose.yml       # required — auto-merged & launched (see below)
+│                             # (a service.yml is optional; the core loader
+│                             #  skips _-prefixed dirs, so it's only for your
+│                             #  own tooling)
 ├── supabase/
 ├── ollama/
 └── …

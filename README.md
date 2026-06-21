@@ -161,7 +161,7 @@ Key technical traits:
 - **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
 - **Always-on core**: Supabase ecosystem, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
-- **Opt-in**: Ray, OpenClaw, Airflow, Spark, Zeppelin, LightRAG, TEI Reranker, and the observability bundle (Prometheus + Grafana) ship disabled; everything is switchable per service via SOURCE flags or the interactive wizard
+- **Opt-in**: Ray, OpenClaw, Airflow, Spark, Zeppelin, LightRAG, TEI Reranker, the observability bundle (Prometheus + Grafana), the Cloudflare Tunnel public edge (`cloudflared`), and the on-demand backup runner (`backup`) ship disabled; everything is switchable per service via SOURCE flags or the interactive wizard
 
 ### 2.2 Key features
 
@@ -366,10 +366,10 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh --no-splash        # Skip the opening splash (also: set ATLAS_NO_SPLASH=1)
                               # Note: Atlas startup artwork is OFF by default; set ATLAS_SPLASH=1 to enable
 ./start.sh --no-port-migrate  # Skip the chained .env migrations for this run (sentinels not stamped)
-./start.sh --profile prod     # Production hardening: localhost-only port binding (HOST_BIND_IP), per-service
-                              # resource limits (OOM fences — heavy services default to scale 0 and are
-                              # enabled per track, so total limits intentionally exceed a 32 GB host),
-                              # json-file log rotation, observability defaulted on, localhost sources hidden
+./start.sh --profile prod     # Production hardening: localhost-only port binding (HOST_BIND_IP),
+                              # json-file log rotation, observability defaulted on, localhost sources
+                              # hidden. (Per-service resource limits are always-on .env defaults, not
+                              # gated by this flag.) Does not bypass the wizard.
 
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost
