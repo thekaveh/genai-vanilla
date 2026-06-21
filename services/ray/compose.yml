@@ -7,6 +7,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${RAY_HEAD_SCALE:-0}
+      resources:
+        limits:
+          memory: ${RAY_HEAD_MEMORY_LIMIT:-4g}
+          cpus: "${RAY_HEAD_CPU_LIMIT:-2.0}"
     # Ray's object store uses /dev/shm. Default Docker Desktop allocates 64MB;
     # 4GB triggered Ray's "/dev/shm too small, falling back to /tmp/ray" warning
     # on every launch. 8GB satisfies Ray's recommended >30% RAM threshold for
@@ -23,9 +27,9 @@ services:
           --dashboard-port 8265 \
           --block
     ports:
-      - "${RAY_DASHBOARD_PORT}:8265"
-      - "${RAY_GCS_PORT}:6379"
-      - "${RAY_CLIENT_PORT}:10001"
+      - "${HOST_BIND_IP:-}${RAY_DASHBOARD_PORT}:8265"
+      - "${HOST_BIND_IP:-}${RAY_GCS_PORT}:6379"
+      - "${HOST_BIND_IP:-}${RAY_CLIENT_PORT}:10001"
     # No /tmp/ray volume — the rayproject/ray image runs as user ``ray``
     # (UID 1000), but a named Docker volume gets initialized as
     # root:root because the image doesn't pre-create /tmp/ray. The
@@ -44,6 +48,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -52,6 +61,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${RAY_WORKER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${RAY_WORKER_MEMORY_LIMIT:-4g}
+          cpus: "${RAY_WORKER_CPU_LIMIT:-2.0}"
     # Ray's object store uses /dev/shm. Default Docker Desktop allocates 64MB;
     # 4GB triggered Ray's "/dev/shm too small, falling back to /tmp/ray" warning
     # on every launch. 8GB satisfies Ray's recommended >30% RAM threshold for
@@ -68,5 +81,10 @@ services:
     # No /tmp/ray volume — same reasoning as ray-head above (image runs
     # as UID 1000, named volumes default to root:root, Ray needs to
     # write its session dir on every start).
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network

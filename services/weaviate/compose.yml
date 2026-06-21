@@ -41,6 +41,10 @@ services:
         condition: service_healthy
     deploy:
       replicas: ${WEAVIATE_SCALE:-1}
+      resources:
+        limits:
+          memory: ${WEAVIATE_MEMORY_LIMIT:-2g}
+          cpus: "${WEAVIATE_CPU_LIMIT:-1.5}"
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
@@ -71,8 +75,8 @@ services:
       PROMETHEUS_MONITORING_ENABLED: 'true'
     entrypoint: ["/scripts/configure-weaviate.sh", "/bin/weaviate", "--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
     ports:
-      - "${WEAVIATE_PORT}:8080"
-      - "${WEAVIATE_GRPC_PORT}:50051"
+      - "${HOST_BIND_IP:-}${WEAVIATE_PORT}:8080"
+      - "${HOST_BIND_IP:-}${WEAVIATE_GRPC_PORT}:50051"
     expose:
       # Prometheus metrics endpoint — PROMETHEUS_MONITORING_ENABLED=true
       # in runtime_sc surfaces /metrics on this port. Internal-only;
@@ -89,6 +93,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
 
   multi2vec-clip:
     image: ${MULTI2VEC_CLIP_IMAGE}
@@ -101,6 +110,11 @@ services:
       ENABLE_CUDA: ${CLIP_ENABLE_CUDA:-0}
     deploy:
       replicas: ${CLIP_SCALE:-1}
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

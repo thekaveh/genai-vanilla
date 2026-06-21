@@ -28,6 +28,12 @@ env:
     description: "Host port for the Zeppelin Web UI (in-container 8080)."
   - name: ZEPPELIN_SCALE
     auto_managed: true
+  - name: ZEPPELIN_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for the zeppelin container (deploy.resources.limits.memory). Zeppelin's JVM-based interpreter host typically uses under 1 g for a single-user session; 2 g leaves comfortable headroom on a 32 GB host."
+  - name: ZEPPELIN_CPU_LIMIT
+    default: "1.5"
+    description: "Container CPU limit for the zeppelin container (deploy.resources.limits.cpus). 1.5 cores covers notebook rendering and interpreter dispatch; compute-heavy work runs on the remote Spark cluster, not in this process."
 
 depends_on:
   required:

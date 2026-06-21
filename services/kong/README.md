@@ -248,6 +248,7 @@ For more information on Kong's role in the overall architecture, see the system 
 
 | Service | Category |
 |---|---|
+| cloudflared | infra |
 | prometheus ↔ | infra |
 
 ### 13.3 Architecture diagram

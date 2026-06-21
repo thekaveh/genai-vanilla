@@ -488,6 +488,63 @@ class SourceValidator:
             return False
         return True
     
+    def validate_sources_for_profile(
+        self, service_sources: dict, profile: str
+    ) -> bool:
+        """Reject any chosen source not offered under the given profile.
+
+        Uses the declarative ``profiles:`` metadata from the manifests
+        (Task 3, Plan B) to decide which source options are available.
+        A source that is annotated as dev-only (``profiles: [default]``)
+        is rejected under ``--profile prod`` with a clear error message.
+
+        Args:
+            service_sources: Mapping of SOURCE env-var names to their
+                             current values (e.g. ``{"OLLAMA_SOURCE": "ollama-localhost"}``).
+            profile:         The deployment profile to validate against
+                             (``"default"`` or ``"prod"``).
+
+        Returns:
+            bool: True if every source is available under the profile,
+                  False if at least one source is not (errors appended to
+                  ``self.validation_errors``).
+        """
+        from pathlib import Path as _Path
+        from services.manifests import load_manifests as _load_manifests, option_in_profile as _oip
+        try:
+            _services_dir = _Path(self.config_parser.root_dir) / "services"
+            _manifests = _load_manifests(_services_dir)
+        except Exception as e:  # noqa: BLE001
+            self.validation_errors.append(
+                f"Could not load manifests for profile validation: {e}"
+            )
+            return False
+
+        # Build a SOURCE-var → manifest-name mapping directly from the
+        # manifests' sources.var field. This is more accurate than
+        # get_service_mapping_from_yaml() because the YAML config aggregates
+        # sources under synthetic service-config keys (e.g. "llm_provider")
+        # that don't match manifest names (e.g. "ollama"). option_in_profile
+        # looks up by manifest.name, so we must use this mapping.
+        _source_var_to_name: dict[str, str] = {
+            mf.sources.var: mf.name
+            for mf in _manifests
+            if mf.sources is not None
+        }
+
+        ok = True
+        for var, val in service_sources.items():
+            if not val:
+                continue
+            skey = _source_var_to_name.get(var)
+            if skey and not _oip(_manifests, skey, val, profile):
+                self.validation_errors.append(
+                    f"{var}='{val}' is not available under --profile {profile} "
+                    f"(marked for other profiles in services/{skey}/service.yml)."
+                )
+                ok = False
+        return ok
+
     def get_validation_errors(self) -> List[str]:
         """
         Get list of validation errors.

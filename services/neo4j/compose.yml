@@ -9,6 +9,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${NEO4J_SCALE:-1}
+      resources:
+        limits:
+          memory: ${NEO4J_MEMORY_LIMIT:-2g}
+          cpus: "${NEO4J_CPU_LIMIT:-1.5}"
     environment:
       NEO4J_AUTH: ${GRAPH_DB_AUTH}
       NEO4J_server_default__advertised__address: "neo4j-graph-db"
@@ -16,12 +20,17 @@ services:
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
       NEO4J_browser_remote__content__hostname__whitelist: "*"
     ports:
-      - "${GRAPH_DB_PORT}:7687"
-      - "${GRAPH_DB_DASHBOARD_PORT}:7474"
+      - "${HOST_BIND_IP:-}${GRAPH_DB_PORT}:7687"
+      - "${HOST_BIND_IP:-}${GRAPH_DB_DASHBOARD_PORT}:7474"
     volumes:
       - ./build/scripts:/scripts
       - ./build/snapshot:/snapshot
       - graph-db-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

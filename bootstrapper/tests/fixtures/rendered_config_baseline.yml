@@ -20,6 +20,10 @@ services:
         required: true
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 1
+          memory: '2147483648'
     environment:
       AIRFLOW_UID: '50000'
       AIRFLOW__API__SECRET_KEY: ''
@@ -38,6 +42,11 @@ services:
       - airflow jobs check --job-type DagProcessorJob --hostname "$$(hostname)"
       timeout: 10s
     image: atlas-airflow:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -119,6 +128,10 @@ services:
         required: true
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 1
+          memory: '2147483648'
     environment:
       AIRFLOW_UID: '50000'
       AIRFLOW__API__SECRET_KEY: ''
@@ -137,6 +150,11 @@ services:
       - airflow jobs check --job-type SchedulerJob --hostname "$$(hostname)"
       timeout: 10s
     image: atlas-airflow:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -165,6 +183,10 @@ services:
         required: true
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 1
+          memory: '2147483648'
     environment:
       AIRFLOW_UID: '50000'
       AIRFLOW__API__SECRET_KEY: ''
@@ -185,6 +207,11 @@ services:
       - http://localhost:8080/api/v2/monitor/health
       timeout: 10s
     image: atlas-airflow:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -271,6 +298,11 @@ services:
       WEAVIATE_URL: http://weaviate:8080
     extra_hosts:
     - host.docker.internal=
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -292,11 +324,59 @@ services:
       target: /shared
       type: volume
       volume: {}
+  backup:
+    command:
+    - apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc &&
+      /scripts/backup-all.sh
+    container_name: atlas-backup
+    deploy:
+      replicas: 0
+    entrypoint:
+    - sh
+    - -c
+    environment:
+      BACKUP_BUCKET: atlas-backups
+      BACKUP_S3_ALIAS_URL: http://minio:9000
+      MINIO_ROOT_PASSWORD: ''
+      MINIO_ROOT_USER: minioadmin
+      SUPABASE_DB_NAME: postgres
+      SUPABASE_DB_PASSWORD: password
+      SUPABASE_DB_USER: supabase_admin
+    image: postgres:15-alpine
+    networks:
+      backend-network: null
+    restart: 'no'
+    volumes:
+    - bind: {}
+      read_only: true
+      source: '{REPO_ROOT}/services/backup/init/scripts'
+      target: /scripts
+      type: bind
+    - read_only: true
+      source: supabase-storage-data
+      target: /volumes/supabase-storage
+      type: volume
+      volume: {}
+    - read_only: true
+      source: graph-db-data
+      target: /volumes/graph-db
+      type: volume
+      volume: {}
+    - read_only: true
+      source: weaviate-data
+      target: /volumes/weaviate
+      type: volume
+      volume: {}
   cadvisor:
     container_name: atlas-cadvisor
     deploy:
       replicas: 0
     image: gcr.io/cadvisor/cadvisor:v0.49.1
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -331,6 +411,42 @@ services:
       source: /dev/disk/
       target: /dev/disk
       type: bind
+  cloudflared:
+    command:
+    - tunnel
+    - --no-autoupdate
+    - run
+    container_name: atlas-cloudflared
+    depends_on:
+      kong-api-gateway:
+        condition: service_healthy
+        required: true
+    deploy:
+      replicas: 0
+    environment:
+      TUNNEL_METRICS: 0.0.0.0:2000
+      TUNNEL_TOKEN: ''
+    healthcheck:
+      interval: 30s
+      retries: 3
+      start_period: 20s
+      test:
+      - CMD
+      - cloudflared
+      - tunnel
+      - --metrics
+      - 0.0.0.0:2000
+      - ready
+      timeout: 10s
+    image: cloudflare/cloudflared:2025.8.1
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
+    networks:
+      backend-network: null
+    restart: unless-stopped
   comfyui:
     container_name: atlas-comfyui
     depends_on:
@@ -345,6 +461,10 @@ services:
         required: true
     deploy:
       replicas: 1
+      resources:
+        limits:
+          cpus: 2
+          memory: '4294967296'
     environment:
       AUTO_UPDATE: 'false'
       COMFYUI_ARGS: --listen
@@ -372,6 +492,11 @@ services:
       com.atlas.category: ai
       com.atlas.dependencies: litellm,supabase-storage
       com.atlas.service: image-generation
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     platform: linux/amd64
@@ -502,6 +627,11 @@ services:
       - wget -q -O- http://localhost:3000/api/health | grep -q ok
       timeout: 10s
     image: grafana/grafana:11.4.3
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -575,6 +705,11 @@ services:
       com.atlas.agent: hermes
       com.atlas.category: ai
       com.atlas.service: ai-agent
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -706,6 +841,11 @@ services:
       com.atlas.category: application
       com.atlas.service: jupyterhub
       com.atlas.tier: app
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -791,6 +931,11 @@ services:
       - kong health
       timeout: 10s
     image: kong:3.9.0
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -878,6 +1023,11 @@ services:
         timeout=5).status == 200 else 1)
       timeout: 8s
     image: ghcr.io/hkuds/lightrag:v1.5.0
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -978,6 +1128,11 @@ services:
         timeout=3).status == 200 else 1)
       timeout: 5s
     image: ghcr.io/berriai/litellm:v1.83.14-stable.patch.2
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1114,6 +1269,11 @@ services:
       SEARXNG_URL: http://searxng:8080
     extra_hosts:
     - host.docker.internal=
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1157,6 +1317,11 @@ services:
       - http://localhost:9000/minio/health/live
       timeout: 10s
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1224,6 +1389,11 @@ services:
     environment:
       ENABLE_CUDA: '0'
     image: semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -1301,6 +1471,11 @@ services:
       - http://127.0.0.1:5678/healthz
       timeout: 5s
     image: n8nio/n8n:latest
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1401,6 +1576,11 @@ services:
       TTS_ENDPOINT: ''
       WEAVIATE_URL: http://weaviate:8080
     image: n8nio/n8n:latest
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -1418,12 +1598,21 @@ services:
     container_name: atlas-neo4j-graph-db
     deploy:
       replicas: 1
+      resources:
+        limits:
+          cpus: 1.5
+          memory: '2147483648'
     environment:
       NEO4J_ACCEPT_LICENSE_AGREEMENT: 'yes'
       NEO4J_AUTH: neo4j/neo4j_password
       NEO4J_browser_remote__content__hostname__whitelist: '*'
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
       NEO4J_server_default__advertised__address: neo4j-graph-db
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1459,6 +1648,11 @@ services:
     deploy:
       replicas: 0
     image: prom/node-exporter:v1.8.2
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1490,6 +1684,11 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
     image: ollama/ollama:latest
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -1581,6 +1780,11 @@ services:
     extra_hosts:
     - host.docker.internal=
     image: dyrnq/open-webui:latest
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1686,6 +1890,11 @@ services:
       com.atlas.agent: openclaw
       com.atlas.category: ai
       com.atlas.service: ai-agent
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1759,6 +1968,11 @@ services:
       - http://localhost:9187/metrics
       timeout: 10s
     image: prometheuscommunity/postgres-exporter:v0.18.1
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1790,6 +2004,11 @@ services:
       - http://localhost:9090/-/healthy
       timeout: 10s
     image: prom/prometheus:v2.55.1
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1822,6 +2041,10 @@ services:
     container_name: atlas-ray-head
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 2
+          memory: '4294967296'
     healthcheck:
       interval: 30s
       retries: 5
@@ -1832,6 +2055,11 @@ services:
       timeout: 10s
     hostname: ray-head
     image: rayproject/ray:2.55.1
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1862,7 +2090,16 @@ services:
         required: true
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 2
+          memory: '4294967296'
     image: rayproject/ray:2.55.1
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -1887,6 +2124,11 @@ services:
       - ping
       timeout: 10s
     image: redis:7.2-alpine
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1923,6 +2165,11 @@ services:
       - http://localhost:9121/metrics
       timeout: 10s
     image: oliver006/redis_exporter:v1.62.0
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -1952,6 +2199,11 @@ services:
       - http://localhost:8080/healthz
       timeout: 10s
     image: searxng/searxng:latest
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2007,6 +2259,11 @@ services:
     deploy:
       replicas: 0
     image: atlas-spark:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -2031,6 +2288,11 @@ services:
         -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key=
         -Dspark.hadoop.fs.s3a.path.style.access=true
     image: atlas-spark:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2074,6 +2336,10 @@ services:
     container_name: atlas-spark-master
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 1
+          memory: '2147483648'
     environment:
       SPARK_MASTER_HOST: spark-master
     healthcheck:
@@ -2087,6 +2353,11 @@ services:
       - http://localhost:8080/
       timeout: 10s
     image: atlas-spark:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2113,7 +2384,16 @@ services:
         required: true
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 2
+          memory: '4294967296'
     image: atlas-spark:local
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     restart: unless-stopped
@@ -2130,6 +2410,11 @@ services:
       PGRST_DB_USE_LEGACY_GUCS: 'false'
       PGRST_JWT_SECRET: ''
     image: postgrest/postgrest:v12.2.10
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2167,6 +2452,11 @@ services:
       GOTRUE_SMTP_SENDER_NAME: Supabase Auth
       GOTRUE_SMTP_USER: ''
     image: supabase/gotrue:v2.171.0
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2190,6 +2480,11 @@ services:
       - pg_isready -U supabase_admin -d postgres
       timeout: 5s
     image: supabase/postgres:17.4.1.016
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2243,6 +2538,11 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_PORT: '8080'
     image: supabase/postgres-meta:v0.88.9
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2284,6 +2584,11 @@ services:
       SECRET_KEY_BASE: ''
       SECURE_CHANNELS: 'true'
     image: supabase/realtime:v2.33.72
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2314,6 +2619,11 @@ services:
       STORAGE_BACKEND: file
       TENANT_ID: stub
     image: supabase/storage-api:v1.22.7
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2371,6 +2681,11 @@ services:
       - node -e 'require("net").createConnection({port:3000,host:"localhost"},()=>process.exit(0)).on("error",()=>process.exit(1))'
       timeout: 10s
     image: supabase/studio:latest
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2408,6 +2723,11 @@ services:
       - http://localhost/health
       timeout: 5s
     image: __TEI_RERANKER_CPU_IMAGE__
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2435,6 +2755,10 @@ services:
         required: true
     deploy:
       replicas: 1
+      resources:
+        limits:
+          cpus: 1.5
+          memory: '2147483648'
     entrypoint:
     - /scripts/configure-weaviate.sh
     - /bin/weaviate
@@ -2471,6 +2795,11 @@ services:
       - http://localhost:8080/v1/.well-known/ready
       timeout: 5s
     image: cr.weaviate.io/semitechnologies/weaviate:1.27.5
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:
@@ -2543,6 +2872,10 @@ services:
         required: true
     deploy:
       replicas: 0
+      resources:
+        limits:
+          cpus: 1.5
+          memory: '2147483648'
     environment:
       SPARK_MASTER: spark://spark-master:7077
       SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000
@@ -2566,6 +2899,11 @@ services:
       - http://localhost:8080/
       timeout: 10s
     image: apache/zeppelin:0.12.0
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
     networks:
       backend-network: null
     ports:

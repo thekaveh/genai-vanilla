@@ -157,7 +157,7 @@ Key technical traits:
 
 - **Dynamic service configuration**: SOURCE-based deployment with CLI overrides
 - **Kong gateway**: auto-generated routes based on active services
-- **Cross-platform support**: Python-based bootstrapping works on all OS
+- **Cross-platform support**: runs natively on Linux and macOS (Intel/Apple Silicon); on Windows via WSL2 or Git Bash (`start.sh`/`stop.sh` are POSIX shell — there is no native PowerShell/cmd wrapper)
 - **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
 - **Always-on core**: Supabase ecosystem, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
@@ -170,7 +170,7 @@ Key technical traits:
 - **Flexible service sources**: switch between container and localhost variants per service, plus cloud LLM providers via LiteLLM
 - **Modular architecture**: choose service combinations via SOURCE variables
 - **Environment-based config**: configuration through environment variables
-- **Cross-platform Python scripts**: consistent behavior across Windows, macOS, Linux
+- **Cross-platform Python core**: the bootstrapper is OS-aware; Linux and macOS run natively, Windows runs under WSL2 / Git Bash
 
 ### 2.3 Architecture overview
 
@@ -254,7 +254,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 | Category | Service | Default port | Alias |
 |---|---|---:|---|
+| Infra | Backup / restore | — | — |
 | Infra | Kong API Gateway | 63000 | — |
+| Infra | Cloudflare Tunnel | — | — |
 | Infra | Ray | 63002 | ray.localhost |
 | Infra | Prometheus | 63005 | prometheus.localhost |
 | Infra | Grafana | 63008 | grafana.localhost |
@@ -364,6 +366,10 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 ./start.sh --no-splash        # Skip the opening splash (also: set ATLAS_NO_SPLASH=1)
                               # Note: Atlas startup artwork is OFF by default; set ATLAS_SPLASH=1 to enable
 ./start.sh --no-port-migrate  # Skip the chained .env migrations for this run (sentinels not stamped)
+./start.sh --profile prod     # Production hardening: localhost-only port binding (HOST_BIND_IP), per-service
+                              # resource limits (OOM fences — heavy services default to scale 0 and are
+                              # enabled per track, so total limits intentionally exceed a 32 GB host),
+                              # json-file log rotation, observability defaulted on, localhost sources hidden
 
 # SOURCE overrides (temporary)
 ./start.sh --llm-provider-source ollama-localhost
@@ -440,7 +446,9 @@ For NVIDIA GPU acceleration, set the relevant SOURCE variables to a `*-container
 
 ### 6.3 Using as infrastructure foundation
 
-Atlas can be used as a git submodule to provide infrastructure for your projects:
+Atlas is designed to back other projects (e.g. a RAG-showcase app) as shared infrastructure. The two ready-today paths are **standalone + shared network** (your project is a separate repo that joins `${PROJECT_NAME}-network`) and **Git submodule** (vendor Atlas into your repo). For the full decision guide — which method, what's ready, how to wire and customize it — see **[Reusing Atlas as Infrastructure](docs/deployment/reusing-atlas.md)**.
+
+The submodule path in brief:
 
 ```bash
 # Add as submodule in your project
@@ -588,7 +596,8 @@ Key entry points by audience:
 ### 9.2 Operators
 - [SOURCE configuration](docs/deployment/source-configuration.md) — every service's container / localhost / disabled modes (and GPU variants for the LLM/embedding engines)
 - [Ports and routes](docs/deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
-- [Using as a submodule](docs/deployment/submodule-usage.md) — embedding the stack inside another project
+- [Reusing Atlas as infrastructure](docs/deployment/reusing-atlas.md) — overview + decision guide for backing another project with Atlas
+- [Using as a submodule](docs/deployment/submodule-usage.md) — deep-dive for the Git-submodule reuse method
 - [Service documentation](services/) — per-service READMEs (each owns its manifest, compose fragment, and architecture diagram)
 
 ### 9.3 Contributors

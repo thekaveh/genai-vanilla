@@ -99,7 +99,7 @@ services:
       - SUPABASE_STORAGE_BUCKET=${COMFYUI_STORAGE_BUCKET:-comfyui-images}
       - COMFYUI_UPLOAD_TO_SUPABASE=${COMFYUI_UPLOAD_TO_SUPABASE:-true}
     ports:
-      - "${COMFYUI_PORT}:18188"
+      - "${HOST_BIND_IP:-}${COMFYUI_PORT}:18188"
     volumes:
       - comfyui-models:/opt/ComfyUI/models
       - comfyui-output:/opt/ComfyUI/output
@@ -108,6 +108,10 @@ services:
       - ${COMFYUI_LOCAL_MODELS_PATH:-./empty}:/host_models
     deploy:
       replicas: ${COMFYUI_SCALE:-1}
+      resources:
+        limits:
+          memory: ${COMFYUI_MEMORY_LIMIT:-4g}
+          cpus: "${COMFYUI_CPU_LIMIT:-2.0}"
     networks:
       - backend-network
     healthcheck:
@@ -116,6 +120,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     labels:
       - "com.${PROJECT_NAME}.service=image-generation"
       - "com.${PROJECT_NAME}.category=ai"

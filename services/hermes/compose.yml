@@ -119,8 +119,8 @@ services:
     volumes:
       - hermes-data:/opt/data
     ports:
-      - "${HERMES_API_PORT:-63061}:8642"
-      - "${HERMES_DASHBOARD_PORT:-63062}:9119"
+      - "${HOST_BIND_IP:-}${HERMES_API_PORT:-63061}:8642"
+      - "${HOST_BIND_IP:-}${HERMES_DASHBOARD_PORT:-63062}:9119"
     networks:
       - backend-network
     healthcheck:
@@ -137,6 +137,11 @@ services:
       retries: 5
       start_period: 60s
     command: ["gateway", "run"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     labels:
       - "com.${PROJECT_NAME}.service=ai-agent"
       - "com.${PROJECT_NAME}.category=ai"

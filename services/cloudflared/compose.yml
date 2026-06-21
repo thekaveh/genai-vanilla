@@ -1,0 +1,31 @@
+# Cloudflare Tunnel — outbound edge that terminates TLS at Cloudflare and
+# proxies to Kong. Egress-only: no published ingress port, no Kong route.
+# Disabled by default (CLOUDFLARED_SCALE=0).
+
+services:
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.8.1}
+    container_name: ${PROJECT_NAME}-cloudflared
+    restart: unless-stopped
+    deploy:
+      replicas: ${CLOUDFLARED_SCALE:-0}
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      TUNNEL_METRICS: "0.0.0.0:2000"
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "0.0.0.0:2000", "ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      kong-api-gateway:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
+    networks:
+      - backend-network

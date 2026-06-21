@@ -26,6 +26,7 @@ sources:
       label: "Container (GPU, NVIDIA)"
     - id: ollama-localhost
       label: "Host (existing Ollama on this machine)"
+      profiles: [default]
     - id: none
       label: "Disabled (cloud-only)"
 

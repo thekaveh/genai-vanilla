@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — 2026-06-20 — Secrets hygiene guard + cross-OS doc accuracy
+
+- **Placeholder-secret coverage guard** — a test (`test_no_unrotated_nonempty_secret_defaults`) now asserts every `secret: true` manifest default is either empty (generated-when-absent) or a registered `KeyGenerator.PLACEHOLDER_DEFAULTS` literal (rotated-when-placeholder). It caught and registered a previously-unregistered composite, `GRAPH_DB_AUTH`.
+- **Prod-launch secrets gate** — `KeyGenerator.assert_no_placeholders_remaining()` refuses to launch under `--profile prod` if any managed secret in `.env` still equals its shipped placeholder. It runs after key generation (so a fresh `./start.sh --profile prod` auto-rotates first and passes) and fails loud if `.env` is unreadable. A rotation-consistency test proves every gated placeholder is actually rotated by `generate_missing_keys()`.
+- **Cross-OS doc accuracy** — corrected the README's overstated "works on all OS" claim: Atlas runs natively on Linux and macOS (Intel/Apple Silicon) and on Windows via WSL2 / Git Bash (the `start.sh`/`stop.sh` entrypoints are POSIX shell; there is no native PowerShell/cmd wrapper).
+
+### Added — 2026-06-20 — Production-hardening profile (`--profile prod`)
+
+A new deployment profile consolidates all production-hardening behaviors under a
+single flag and a matching wizard step:
+
+- **`--profile prod` CLI flag / wizard profile step** — selects the prod profile
+  for the current run. The wizard surfaces this as a dedicated step; the CLI flag
+  skips the wizard entirely for that choice.
+- **`HOST_BIND_IP` localhost binding** — all published ports are prefixed with
+  `${HOST_BIND_IP:-}`, which resolves to the empty string in dev (no-op, byte-
+  identical compose output) and to `127.0.0.1` under prod, so no service socket
+  is reachable from outside the host.
+- **Per-service resource limits** — every service manifest declares
+  `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values injected via the prod compose
+  overlay. These are OOM fences, not reservations; heavy services (Spark,
+  Airflow, Ray, Zeppelin) default to scale 0 and are enabled per track, so the
+  sum of all default limits intentionally exceeds a 32 GB host — size and enable
+  per your track.
+- **JSON-file log rotation** — `LOG_MAX_SIZE` and `LOG_MAX_FILE` control the
+  Docker json-file log driver's `max-size` and `max-file` options, applied to
+  every service under the prod overlay.
+- **Observability defaulted on** — Prometheus and Grafana are promoted from
+  their default-disabled state to default-on when the prod profile is active.
+- **Declarative `profiles:` source metadata** — each source option in
+  `service.yml` now carries an optional `option_in_profile` list. The wizard
+  filters out sources not listed for the active profile (hiding dev-only
+  localhost sources in prod), and the CLI validator rejects them with an
+  explicit error.
+
 ### Changed — 2026-06-20 — Atlas startup artwork gated behind a master switch (off by default)
 
 - **`feature_flags.splash_enabled()`** is a new single source of truth that

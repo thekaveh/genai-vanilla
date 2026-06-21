@@ -9,7 +9,7 @@ services:
     networks:
       - backend-network
     ports:
-      - "${SEARXNG_PORT}:8080"
+      - "${HOST_BIND_IP:-}${SEARXNG_PORT}:8080"
     volumes:
       - ./config:/etc/searxng:rw
       - searxng-data:/var/cache/searxng
@@ -29,6 +29,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     # No depends_on: searxng runs with `valkey.url: false` in
     # config/settings.yml (no redis/valkey usage) — the old
     # redis:service_healthy gate was pure startup coupling.

@@ -18,8 +18,8 @@ services:
       # (9000) — see services/prometheus/config/prometheus.yml.
       MINIO_PROMETHEUS_AUTH_TYPE: 'public'
     ports:
-      - "${MINIO_PORT}:9000"
-      - "${MINIO_CONSOLE_PORT}:9001"
+      - "${HOST_BIND_IP:-}${MINIO_PORT}:9000"
+      - "${HOST_BIND_IP:-}${MINIO_CONSOLE_PORT}:9001"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -28,6 +28,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

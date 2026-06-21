@@ -1,0 +1,73 @@
+# services/backup/service.yml
+#
+# On-demand backup runner: Postgres dump + named-volume tarballs -> S3.
+# Never long-running (BACKUP_SCALE=0). Invoke with:
+#   docker compose run --rm backup /scripts/backup-all.sh
+
+name: backup
+label: "Backup / restore (Postgres + volumes -> S3)"
+category: infra
+docs: services/backup/README.md
+
+containers:
+  - backup
+
+images:
+  - var: BACKUP_IMAGE
+    default: "postgres:15-alpine"
+    container: backup
+    notes: "Provides pg_dump/pg_restore. Alpine minio-client (mcli) is installed inline via apk; entrypoint symlinks mcli -> mc so the backup scripts work unchanged."
+
+sources:
+  var: BACKUP_SOURCE
+  default: disabled
+  options:
+    - id: container
+      label: "Enable the backup runner (invoke via docker compose run --rm backup)."
+    - id: disabled
+      label: "No backup service (default)."
+
+env:
+  - name: BACKUP_SOURCE
+    default: disabled
+    description: "Deployment mode: container (enable the runner) or disabled (default)."
+  - name: BACKUP_BUCKET
+    default: "atlas-backups"
+    description: "Target bucket for backups."
+  - name: BACKUP_S3_ALIAS_URL
+    default: "http://minio:9000"
+    description: "S3 endpoint. Default = on-box MinIO; set to an external S3 URL for offsite."
+  - name: BACKUP_SCALE
+    auto_managed: true
+    description: "0 (never long-running); the runner is invoked on demand via docker compose run."
+
+depends_on:
+  required:
+    - supabase
+    - minio
+  optional: []
+
+rows:
+  - display_name: "Backup / restore"
+    source_var: BACKUP_SOURCE
+    description: "On-demand Postgres dump + volume snapshot to S3."
+
+exports: []
+
+runtime_sc:
+  backup:
+    container:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+    disabled:
+      scale: 0
+      environment: {}
+      deploy: {}
+      extra_hosts: []
+
+data_flow:
+  calls:
+    - supabase
+    - minio

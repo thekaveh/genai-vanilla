@@ -135,6 +135,12 @@
                 "type": "array",
                 "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
                 "description": "Env vars that MUST be non-empty when this source is selected."
+              },
+              "profiles": {
+                "type": "array",
+                "items": { "enum": ["default", "prod"] },
+                "uniqueItems": true,
+                "description": "Deployment profiles this option is offered in. OMITTED = all profiles. [\"default\"] = dev-only (hidden in the wizard and rejected by the validator under --profile prod); [\"prod\"] = prod-only."
               }
             }
           }

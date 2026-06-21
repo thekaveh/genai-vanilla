@@ -1447,9 +1447,59 @@ class WizardScreen(Screen):
 
         starter.docker_manager.execute_compose_command = _patched_execute
 
+        # Resolve the deployment profile from stack_options (set by
+        # _selections_to_args from the wizard's PROFILE_STEP_TITLE selection,
+        # or by run_launch_flow from the CLI --profile flag). Defaults to
+        # "default" so the no-profile path is a no-op.
+        _resolved_profile = ((self._stack_options or {}).get("profile") or "default")
+        starter.profile = _resolved_profile
+
+        def _validate_sources_for_profile() -> bool:
+            """Profile-source compatibility check for the TUI pipeline.
+
+            Mirrors the same guard in the linear path (start.py) so that
+            a ``--profile prod`` TUI launch with a dev-only source (e.g.
+            ollama-localhost) that was left in .env by a track-skipped
+            wizard step fails fast with a clear message instead of
+            proceeding silently.  No-ops for non-prod profiles.
+            """
+            if _resolved_profile != "prod":
+                return True
+            svc_srcs = starter.config_parser.parse_service_sources()
+            starter.source_validator.validation_errors = []
+            ok = starter.source_validator.validate_sources_for_profile(
+                svc_srcs, _resolved_profile
+            )
+            if not ok:
+                starter.source_validator.print_validation_results()
+            return ok
+
         steps = [
             ("Apply source overrides",
              lambda: starter.apply_source_overrides(**(self._source_args or {}))),
+            # Apply prod-profile env overrides after source overrides so the
+            # observability default-ON only fires when the user didn't set
+            # prometheus/grafana sources explicitly. The explicit_prometheus/
+            # explicit_grafana guards replicate start.py's linear-path logic:
+            # if the user already set them via source_args, those args were
+            # already applied above, so we pass None here (helper skips the
+            # default-ON write). The TUI wizard merges user choices into
+            # source_args so we can safely read from there.
+            ("Apply profile overrides",
+             lambda _p=_resolved_profile: starter.apply_profile_overrides(
+                 _p,
+                 explicit_prometheus=(self._source_args or {}).get("prometheus_source"),
+                 explicit_grafana=(self._source_args or {}).get("grafana_source"),
+             )),
+            # Validate that no dev-only source (e.g. ollama-localhost) is active
+            # under --profile prod. This mirrors the linear-path check in start.py
+            # but was absent from the TUI pipeline: a track-skipped service step
+            # could leave a localhost source in .env and proceed silently.
+            # Runs only when profile=prod; default profile allows all sources.
+            # Runs AFTER Apply profile overrides so the .env already reflects any
+            # prod-default source changes before we read it back.
+            ("Validate sources for profile",
+             _validate_sources_for_profile),
             ("Apply cloud API keys",
              lambda: starter.apply_cloud_api_keys(
                  (self._stack_options or {}).get("cloud_api_keys", {})

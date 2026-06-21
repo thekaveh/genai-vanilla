@@ -2,6 +2,8 @@
 
 This guide explains how to use Atlas as a git submodule in your project, allowing you to build on top of it as an infrastructure foundation while maintaining the ability to contribute back to the project.
 
+> **New here?** Start with [Reusing Atlas as Infrastructure](reusing-atlas.md) — it compares all the reuse methods (standalone shared-network vs submodule vs fork), states what's ready, and walks a concrete consumer example. This page is the deep-dive for the **submodule** method specifically.
+
 ## 1. Table of Contents
 
 - [Quick Start](#2-quick-start)

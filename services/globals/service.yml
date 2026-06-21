@@ -18,6 +18,14 @@ env:
   - name: BASE_PORT
     default: 63000
     description: "Base port. Every service's *_PORT derives from this + a fixed offset."
+  - name: HOST_BIND_IP
+    default: ""
+    description: |
+      Host interface prefix for ALL published service ports. Empty (default)
+      => Docker binds 0.0.0.0 (dev). `--profile prod` sets this to
+      "127.0.0.1:" so service ports are reachable only from the host (the
+      public edge — Cloudflare Tunnel or Caddy — reaches Kong locally).
+      Must include the trailing colon when set, e.g. "127.0.0.1:".
   - name: HOST_GATEWAY_IP
     auto_managed: true
     default: host-gateway
@@ -75,6 +83,13 @@ env:
     default: 2
   - name: PROD_ENV_COMFYUI_MEM_LIMIT
     default: 4g
+
+  - name: LOG_MAX_SIZE
+    default: "10m"
+    description: "Per-container json-file log max size (Docker logging option)."
+  - name: LOG_MAX_FILE
+    default: "3"
+    description: "Per-container json-file log file count (Docker logging option)."
 
   # Migration sentinels
   - name: BOOTSTRAPPER_PORT_LAYOUT_VERSION

@@ -14,7 +14,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       PROMETHEUS_ENDPOINT: ${PROMETHEUS_ENDPOINT:-http://prometheus:9090}
     ports:
-      - "${GRAFANA_PORT}:3000"
+      - "${HOST_BIND_IP:-}${GRAFANA_PORT}:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./config/grafana.ini:/etc/grafana/grafana.ini:ro
@@ -28,6 +28,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

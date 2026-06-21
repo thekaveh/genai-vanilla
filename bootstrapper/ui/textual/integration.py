@@ -94,6 +94,12 @@ def _option_hint(opt: str) -> str:
 # Used as the selections-dict key by every downstream skip predicate.
 PICKER_STEP_TITLE = "Track  ·  pick your profile"
 
+# Stable title for the deployment-profile picker step. Added right after
+# the track-picker step (or at index 0 when the track registry failed).
+# Used as the selections-dict key by the profile-based option filter below
+# and by the TUI pipeline to set starter.profile before env overrides run.
+PROFILE_STEP_TITLE = "Profile  ·  deployment hardening"
+
 
 def _resolve_track_display_name(track: str | None) -> str | None:
     """Look up a track's display_name from the registry; None if no
@@ -209,6 +215,7 @@ def _build_steps_and_rows(
     *,
     track_key: str | None = None,
     overridden_services: frozenset[str] | None = None,
+    profile: str | None = None,
 ):
     """Build the wizard steps + service rows from real config."""
     from wizard.service_discovery import ServiceDiscovery
@@ -216,6 +223,21 @@ def _build_steps_and_rows(
     from core.config_parser import DEFAULT_BASE_PORT
     from .widgets.prompt_panel import PromptOption, PromptStep
     from .widgets.service_table import ServiceRow
+    from services.manifests import load_manifests as _load_manifests, option_in_profile as _option_in_profile
+    from pathlib import Path as _Path
+    try:
+        _manifests = _load_manifests(_Path(config_parser.root_dir) / "services")
+    except Exception:  # noqa: BLE001
+        _manifests = []
+    # Build SOURCE-var → manifest-name mapping from the manifests.
+    # Used by the profile-based option filter so option_in_profile receives
+    # the real manifest name (e.g. "ollama") rather than the svc.key from
+    # ServiceDiscovery (e.g. "llm_provider"), which doesn't match manifest.name.
+    _src_var_to_mname: dict[str, str] = {
+        mf.sources.var: mf.name
+        for mf in _manifests
+        if mf.sources is not None
+    }
 
     services_info = ServiceDiscovery(config_parser).discover()
     env_vars = config_parser.parse_env_file()
@@ -322,6 +344,39 @@ def _build_steps_and_rows(
                 if track_key else None
             ),
         ))
+
+    # Profile picker: dev (default) vs production hardening.
+    # Placed right after the track picker (or at the top when the registry
+    # failed). Auto-skips when --profile was passed on the CLI — prefilled
+    # into selections so the per-service option filter below can read it.
+    steps.append(PromptStep(
+        title=PROFILE_STEP_TITLE,
+        step_index=2, step_total=total,
+        heading="Dev or production hardening?",
+        subtitle=(
+            "prod: localhost-only ports, resource limits, log rotation, "
+            "observability on — and localhost sources hidden."
+        ),
+        options=[
+            PromptOption(
+                value="default",
+                label="Default (dev)",
+                hint="0.0.0.0 ports; all sources available",
+                badges=[],
+            ),
+            PromptOption(
+                value="prod",
+                label="Production hardening",
+                hint="127.0.0.1 ports; localhost sources hidden",
+                badges=[],
+            ),
+        ],
+        default_value=(profile or "default"),
+        service_name="",
+        skip_if_prev=(
+            (lambda sel, _p=profile: bool(_p)) if profile else None
+        ),
+    ))
 
     # Base port is asked FIRST so all subsequent service-port displays
     # reflect the chosen base port immediately.
@@ -441,6 +496,27 @@ def _build_steps_and_rows(
                 number_max=8,
                 unit_suffix="workers",
             )
+        # Filter options by the resolved deployment profile.
+        # Use the manifest option IDs (svc.options are the raw source IDs
+        # from service.yml, e.g. "localhost", "ollama-localhost") so that
+        # option_in_profile matches the annotated SourceOption.id fields.
+        # We look up the manifest name via svc.env_var_name (the SOURCE
+        # var, e.g. "LLM_PROVIDER_SOURCE") → _src_var_to_mname → "ollama",
+        # because svc.key (e.g. "llm_provider") does NOT match manifest.name.
+        # NOTE: the option list is built statically at step-construction time
+        # using the `profile` kwarg (pinned from CLI or prefilled_selections).
+        _prof = profile or "default"
+        _mname = _src_var_to_mname.get(getattr(svc, "env_var_name", ""), svc.key)
+        visible_opts = [
+            o for o in svc.options
+            if _option_in_profile(_manifests, _mname, o, _prof)
+        ]
+        # Guard: if filtering removed the currently-highlighted option,
+        # fall back to the manifest default if it's in visible_opts,
+        # else the first remaining option. The Task 3 lint guarantees
+        # visible_opts is non-empty for every real service manifest.
+        if not visible_opts:
+            visible_opts = list(svc.options)  # fallback: show all (permissive)
         opts = [
             PromptOption(
                 value=opt,
@@ -460,11 +536,21 @@ def _build_steps_and_rows(
                     else _localhost_port_config(svc.display_name, opt)
                 ),
             )
-            for opt in svc.options
+            for opt in visible_opts
         ]
-        default = svc.current_value if svc.current_value in svc.options else (
-            svc.options[0] if svc.options else None
-        )
+        # If the current .env value was filtered out, fall back to the
+        # manifest default (svc.options[0]) if available in visible_opts,
+        # else the first visible option.
+        _raw_current = svc.current_value
+        if _raw_current in visible_opts:
+            default = _raw_current
+        else:
+            # svc.options[0] is the manifest default for this service.
+            _manifest_default = svc.options[0] if svc.options else None
+            if _manifest_default in visible_opts:
+                default = _manifest_default
+            else:
+                default = visible_opts[0] if visible_opts else None
         steps.append(PromptStep(
             title=f"{svc.display_name}  ·  source",
             step_index=i + 2, step_total=total,
@@ -848,6 +934,9 @@ def _selections_to_args(
     cold = selections.get("Cold start  ·  rebuild") == "yes"
     hosts = selections.get("Hosts setup  ·  /etc/hosts", "default")
     launch = selections.get("Confirm  ·  launch the stack") == "yes"
+    # Resolve the deployment profile from the wizard's profile-step selection.
+    # Falls back to "default" when the step was never visited.
+    resolved_profile = (selections.get(PROFILE_STEP_TITLE) or "default").strip()
     return source_args, {
         "base_port": base_port_val, "cold": cold,
         "setup_hosts": (hosts == "setup"), "skip_hosts": (hosts == "skip"),
@@ -856,6 +945,7 @@ def _selections_to_args(
         "cloud_user_models": cloud_user_models,
         "ollama_user_models": ollama_user_models,
         "comfyui_user_models": comfyui_user_models,
+        "profile": resolved_profile,
     }
 
 
@@ -868,6 +958,7 @@ def run_setup_flow(
     track: str | None = None,
     overridden_services: frozenset[str] | None = None,
     no_splash: bool = False,
+    profile: str | None = None,
 ) -> int:
     """Run wizard + pipeline + docker compose all in ONE Textual screen.
 
@@ -888,6 +979,7 @@ def run_setup_flow(
             config_parser, hosts_manager,
             track_key=track,
             overridden_services=overridden_services or frozenset(),
+            profile=profile,
         )
     )
     brand = BrandInfo(
@@ -952,6 +1044,11 @@ def run_setup_flow(
 
         def on_mount(self) -> None:
             self.title = f"{brand.name or 'Atlas'} — Setup"
+            _prefilled: dict = {}
+            if track:
+                _prefilled[PICKER_STEP_TITLE] = track
+            if profile:
+                _prefilled[PROFILE_STEP_TITLE] = profile
             self.push_screen(WizardScreen(
                 steps=steps, services=rows, brand=brand,
                 starter=starter,
@@ -959,9 +1056,7 @@ def run_setup_flow(
                 on_base_port_change=_recompute_ports,
                 resolve_port_for_service=_resolve_port_for_service,
                 cloud_apis=cloud_summaries,
-                prefilled_selections=(
-                    {PICKER_STEP_TITLE: track} if track else None
-                ),
+                prefilled_selections=(_prefilled if _prefilled else None),
                 track_display_name=_track_display_name,
                 no_splash=no_splash,
             ))
@@ -986,6 +1081,7 @@ def run_launch_flow(
     track: str | None = None,
     overridden_services: frozenset[str] | None = None,
     no_splash: bool = False,
+    profile: str | None = None,
 ) -> int:
     """Push the same Textual launch screen the wizard transitions to,
     but pre-loaded with CLI args — no wizard prompts in between.
@@ -1014,6 +1110,7 @@ def run_launch_flow(
             config_parser, hosts_manager,
             track_key=track,
             overridden_services=overridden_services or frozenset(),
+            profile=profile,
         )
     )
     brand = BrandInfo(
@@ -1111,6 +1208,11 @@ def run_launch_flow(
             # ``steps=[]`` is fine because auto_launch=True bypasses
             # the wizard entirely; the prompt panel is composed but
             # immediately removed by the launch transition.
+            _prefilled_launch: dict = {}
+            if track:
+                _prefilled_launch[PICKER_STEP_TITLE] = track
+            if profile:
+                _prefilled_launch[PROFILE_STEP_TITLE] = profile
             self.push_screen(WizardScreen(
                 steps=[], services=new_rows, brand=brand,
                 starter=starter,
@@ -1122,7 +1224,7 @@ def run_launch_flow(
                 prefilled_stack_options=dict(stack_options,
                                              base_port=base_port),
                 prefilled_selections=(
-                    {PICKER_STEP_TITLE: track} if track else None
+                    _prefilled_launch if _prefilled_launch else None
                 ),
                 track_display_name=_track_display_name,
                 no_splash=no_splash,

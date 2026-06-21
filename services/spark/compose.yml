@@ -30,8 +30,12 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${SPARK_MASTER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${SPARK_MASTER_MEMORY_LIMIT:-2g}
+          cpus: "${SPARK_MASTER_CPU_LIMIT:-1.0}"
     ports:
-      - "${SPARK_MASTER_UI_PORT}:8080"
+      - "${HOST_BIND_IP:-}${SPARK_MASTER_UI_PORT}:8080"
     environment:
       SPARK_MASTER_HOST: spark-master
     command:
@@ -52,6 +56,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -68,6 +77,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${SPARK_WORKER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${SPARK_WORKER_MEMORY_LIMIT:-4g}
+          cpus: "${SPARK_WORKER_CPU_LIMIT:-2.0}"
     command:
       - /opt/spark/bin/spark-class
       - org.apache.spark.deploy.worker.Worker
@@ -77,6 +90,11 @@ services:
     depends_on:
       spark-master:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -150,6 +168,11 @@ services:
       # not a directory` if spark-init hasn't completed yet.
       spark-init:
         condition: service_completed_successfully
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -164,7 +187,7 @@ services:
     deploy:
       replicas: ${SPARK_HISTORY_SCALE:-0}
     ports:
-      - "${SPARK_HISTORY_PORT}:18080"
+      - "${HOST_BIND_IP:-}${SPARK_HISTORY_PORT}:18080"
     environment:
       # NOTE: dual-write per project_runtime_sc_vs_compose_env_dual_write.md.
       # Same SPARK_HISTORY_OPTS must appear in service.yml::runtime_sc.
@@ -180,6 +203,11 @@ services:
     depends_on:
       spark-init:
         condition: service_completed_successfully
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

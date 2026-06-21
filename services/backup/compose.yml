@@ -1,0 +1,47 @@
+# On-demand backup runner. Never long-running (replicas 0); invoke with:
+#   docker compose run --rm backup
+#
+# mc validation note: Alpine's minio-client package installs the binary as
+# `mcli`, not `mc`. The entrypoint symlinks mcli -> mc so backup-all.sh
+# and restore-postgres.sh work without modification.
+#
+# Cross-fragment volumes: supabase-storage-data, graph-db-data, and
+# weaviate-data are owned by their respective fragments. Redeclared here
+# (matching name + driver) so Compose merges them rather than errors.
+# Volumes must already exist (owning services started at least once).
+services:
+  backup:
+    image: ${BACKUP_IMAGE:-postgres:15-alpine}
+    container_name: ${PROJECT_NAME}-backup
+    restart: "no"
+    deploy:
+      replicas: ${BACKUP_SCALE:-0}
+    entrypoint: ["sh", "-c"]
+    command:
+      - "apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc && /scripts/backup-all.sh"
+    environment:
+      SUPABASE_DB_USER: ${SUPABASE_DB_USER}
+      SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
+      SUPABASE_DB_NAME: ${SUPABASE_DB_NAME}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      BACKUP_BUCKET: ${BACKUP_BUCKET}
+      BACKUP_S3_ALIAS_URL: ${BACKUP_S3_ALIAS_URL}
+    volumes:
+      - ./init/scripts:/scripts:ro
+      - supabase-storage-data:/volumes/supabase-storage:ro
+      - graph-db-data:/volumes/graph-db:ro
+      - weaviate-data:/volumes/weaviate:ro
+    networks:
+      - backend-network
+
+volumes:
+  supabase-storage-data:
+    name: ${PROJECT_NAME}-supabase-storage-data
+    driver: local
+  graph-db-data:
+    name: ${PROJECT_NAME}-graph-db-data
+    driver: local
+  weaviate-data:
+    name: ${PROJECT_NAME}-weaviate-data
+    driver: local

@@ -28,6 +28,7 @@ sources:
       label: "Container (in-stack Weaviate)"
     - id: localhost
       label: "Host (existing Weaviate on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 
@@ -72,6 +73,12 @@ env:
   - name: WEAVIATE_LOCALHOST_PORT
     default: "8080"
     description: "Host port for the weaviate-localhost source variant. URL is derived at compose-render time as http://host.docker.internal:8080."
+  - name: WEAVIATE_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for the weaviate container (deploy.resources.limits.memory). 2 g is conservative for a 32 GB host; the Go-based Weaviate data plane plus in-memory HNSW index fits comfortably for small-to-medium collections."
+  - name: WEAVIATE_CPU_LIMIT
+    default: "1.5"
+    description: "Container CPU limit for the weaviate container (deploy.resources.limits.cpus). 1.5 cores covers routine indexing and query serving on a shared host."
 
 
 depends_on:

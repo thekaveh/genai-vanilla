@@ -180,6 +180,7 @@ _No upstream calls._
 
 | Service | Category |
 |---|---|
+| backup | infra |
 | kong | infra |
 | prometheus | infra |
 | spark | data |

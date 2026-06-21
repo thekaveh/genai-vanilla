@@ -57,6 +57,7 @@ class ValidationIssue:
     #   category_overflow          — *_PORT count in a category exceeds that category's block size
     #   engine_orphan              — engine-only manifest (no rows, not virtual) unreferenced by any source variant id
     #   runtime_sc_missing_variant — a main runtime_sc slice lacks an entry for a declared source option
+    #   no_prod_option             — every source option in the manifest is annotated profiles=[default], leaving nothing selectable under prod
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ def validate_manifests(
     issues.extend(_check_category_overflow(manifests))
     issues.extend(_check_engine_orphans(manifests))
     issues.extend(_check_runtime_sc_source_coverage(manifests))
+    issues.extend(_check_prod_option_availability(manifests))
     if services_root is not None:
         issues.extend(_check_fragment_containers(manifests, services_root))
 
@@ -535,4 +537,41 @@ def _check_runtime_sc_source_coverage(
                         ),
                     )
                 )
+    return issues
+
+
+def _check_prod_option_availability(
+    manifests: list[Manifest],
+) -> list[ValidationIssue]:
+    """Every multi-source service must keep at least one option available in prod.
+
+    An option is available in prod when it is unannotated (profiles=None) or
+    its profiles list includes "prod". A service that marks ALL of its options
+    as dev-only (profiles=[default]) would leave users unable to configure it
+    under --profile prod — this lint catches accidental total exclusion.
+
+    Services with fewer than 2 selectable options (no sources block, or only
+    one option) are exempt; they have nothing to compare against.
+    """
+    issues: list[ValidationIssue] = []
+    for m in manifests:
+        if m.sources is None or len(m.sources.options) < 2:
+            continue
+        has_prod_option = any(
+            opt.profiles is None or "prod" in opt.profiles
+            for opt in m.sources.options
+        )
+        if not has_prod_option:
+            issues.append(
+                ValidationIssue(
+                    kind="no_prod_option",
+                    manifest=m.name,
+                    message=(
+                        f"all {len(m.sources.options)} source options are annotated "
+                        f"profiles=[default], leaving no option available under "
+                        f"--profile prod. At least one option must be unannotated "
+                        f"or include 'prod' in its profiles list."
+                    ),
+                )
+            )
     return issues

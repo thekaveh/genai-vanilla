@@ -9,8 +9,12 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${AIRFLOW_WEBSERVER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${AIRFLOW_WEBSERVER_MEMORY_LIMIT:-2g}
+          cpus: "${AIRFLOW_WEBSERVER_CPU_LIMIT:-1.0}"
     ports:
-      - "${AIRFLOW_PORT}:8080"
+      - "${HOST_BIND_IP:-}${AIRFLOW_PORT}:8080"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
@@ -54,6 +58,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -73,6 +82,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${AIRFLOW_SCHEDULER_SCALE:-0}
+      resources:
+        limits:
+          memory: ${AIRFLOW_SCHEDULER_MEMORY_LIMIT:-2g}
+          cpus: "${AIRFLOW_SCHEDULER_CPU_LIMIT:-1.0}"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
@@ -111,6 +124,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 
@@ -132,6 +150,10 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${AIRFLOW_DAG_PROCESSOR_SCALE:-0}
+      resources:
+        limits:
+          memory: ${AIRFLOW_DAG_PROCESSOR_MEMORY_LIMIT:-2g}
+          cpus: "${AIRFLOW_DAG_PROCESSOR_CPU_LIMIT:-1.0}"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow
@@ -154,6 +176,11 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-3}"
     networks:
       - backend-network
 

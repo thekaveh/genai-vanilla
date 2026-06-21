@@ -55,6 +55,24 @@ env:
     description: "Required in Airflow 3.x — the standalone DAG processor service parses DAG files into the metadata DB (the scheduler no longer does this in-process)."
   - name: AIRFLOW_INIT_SCALE
     auto_managed: true
+  - name: AIRFLOW_WEBSERVER_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for airflow-webserver (deploy.resources.limits.memory). The api-server process is Python + Flask/FAB; 2 g is comfortable on a 32 GB host and prevents runaway memory from large DAG list pages."
+  - name: AIRFLOW_WEBSERVER_CPU_LIMIT
+    default: "1.0"
+    description: "Container CPU limit for airflow-webserver (deploy.resources.limits.cpus). 1.0 core is ample for the API/UI server under typical load."
+  - name: AIRFLOW_SCHEDULER_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for airflow-scheduler (deploy.resources.limits.memory). The LocalExecutor scheduler forks task processes in-process; 2 g caps runaway task forking."
+  - name: AIRFLOW_SCHEDULER_CPU_LIMIT
+    default: "1.0"
+    description: "Container CPU limit for airflow-scheduler (deploy.resources.limits.cpus). 1.0 core is sufficient for LocalExecutor task scheduling on a dev/staging host."
+  - name: AIRFLOW_DAG_PROCESSOR_MEMORY_LIMIT
+    default: 2g
+    description: "Container memory limit for airflow-dag-processor (deploy.resources.limits.memory). DAG parsing is Python-heavy but short-lived per cycle; 2 g prevents unbounded growth from parsing pathological DAG files."
+  - name: AIRFLOW_DAG_PROCESSOR_CPU_LIMIT
+    default: "1.0"
+    description: "Container CPU limit for airflow-dag-processor (deploy.resources.limits.cpus). 1.0 core covers the periodic DAG file parsing cycle."
 
 depends_on:
   required:

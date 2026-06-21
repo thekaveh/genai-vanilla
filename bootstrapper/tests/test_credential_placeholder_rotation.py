@@ -85,6 +85,36 @@ def test_graph_db_auth_stays_in_sync_with_password(tmp_path):
     assert kg.get_current_env_value("GRAPH_DB_AUTH") == f"neo4j/{new_pw}"
 
 
+def test_no_unrotated_nonempty_secret_defaults():
+    """Every env var marked secret: true in a manifest must either ship an
+    empty default (generated-when-absent) or be a known PLACEHOLDER_DEFAULTS
+    value (rotated-when-placeholder). A non-empty secret default that is
+    NOT in PLACEHOLDER_DEFAULTS would ship a real-looking credential that
+    nothing rotates."""
+    import sys
+    import pathlib
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from services.manifests import load_manifests
+    from utils.key_generator import KeyGenerator
+
+    repo = pathlib.Path(__file__).resolve().parents[2]
+    manifests = load_manifests(repo / "services")
+    placeholder_defaults = KeyGenerator.PLACEHOLDER_DEFAULTS
+    offenders = []
+    for m in manifests:
+        for env in m.env:
+            if not getattr(env, "secret", False):
+                continue
+            default = getattr(env, "default", "") or ""
+            if default == "":
+                continue  # generated-when-absent: fine
+            if env.name in placeholder_defaults and placeholder_defaults[env.name] == default:
+                continue  # rotated placeholder: fine
+            offenders.append((m.name, env.name, default))
+    assert not offenders, f"unrotated non-empty secret defaults: {offenders}"
+
+
 def test_generate_missing_keys_covers_all_placeholder_vars(tmp_path):
     """End-to-end: the aggregator generates every placeholder var."""
     body = "\n".join(
@@ -98,3 +128,43 @@ def test_generate_missing_keys_covers_all_placeholder_vars(tmp_path):
         assert kg.get_current_env_value(var) != placeholder, (
             f"{var}: aggregator did not upgrade placeholder"
         )
+
+
+def test_assert_no_placeholders_detects_unrotated(tmp_path):
+    import sys, pathlib
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from utils.key_generator import KeyGenerator
+    env = tmp_path / ".env"
+    env.write_text("REDIS_PASSWORD=redis_password\nDASHBOARD_PASSWORD=already-rotated-xyz\n", encoding="utf-8")
+    kg = KeyGenerator(str(env))
+    import pytest
+    with pytest.raises(Exception) as ei:
+        kg.assert_no_placeholders_remaining()
+    msg = str(ei.value)
+    assert "REDIS_PASSWORD" in msg
+    assert "DASHBOARD_PASSWORD" not in msg, (
+        "already-rotated var should not appear in the offender list"
+    )
+
+
+def test_generate_missing_keys_rotates_all_placeholder_defaults(tmp_path):
+    """Consistency gate: every var in PLACEHOLDER_DEFAULTS must be rotated
+    by generate_missing_keys(). Seed the .env with every placeholder at its
+    literal value, run the aggregator, then assert_no_placeholders_remaining
+    must not raise.
+
+    If this test fails it means a PLACEHOLDER_DEFAULTS entry lacks a rotator
+    inside generate_missing_keys() — a fresh `./start.sh --profile prod` would
+    trip the security gate even after auto-rotation.
+    """
+    import textwrap
+    body = "\n".join(
+        f"{var}={placeholder}"
+        for var, placeholder in KeyGenerator.PLACEHOLDER_DEFAULTS.items()
+    ) + "\n"
+    env = tmp_path / ".env"
+    env.write_text(textwrap.dedent(body), encoding="utf-8")
+    kg = KeyGenerator(str(tmp_path))
+    kg.generate_missing_keys(force_regenerate=False)
+    # Must not raise — all placeholders should now be rotated.
+    kg.assert_no_placeholders_remaining()
