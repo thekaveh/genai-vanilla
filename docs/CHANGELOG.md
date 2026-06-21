@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — 2026-06-20 — Secrets hygiene guard + cross-OS doc accuracy
+
+- **Placeholder-secret coverage guard** — a test (`test_no_unrotated_nonempty_secret_defaults`) now asserts every `secret: true` manifest default is either empty (generated-when-absent) or a registered `KeyGenerator.PLACEHOLDER_DEFAULTS` literal (rotated-when-placeholder). It caught and registered a previously-unregistered composite, `GRAPH_DB_AUTH`.
+- **Prod-launch secrets gate** — `KeyGenerator.assert_no_placeholders_remaining()` refuses to launch under `--profile prod` if any managed secret in `.env` still equals its shipped placeholder. It runs after key generation (so a fresh `./start.sh --profile prod` auto-rotates first and passes) and fails loud if `.env` is unreadable. A rotation-consistency test proves every gated placeholder is actually rotated by `generate_missing_keys()`.
+- **Cross-OS doc accuracy** — corrected the README's overstated "works on all OS" claim: Atlas runs natively on Linux and macOS (Intel/Apple Silicon) and on Windows via WSL2 / Git Bash (the `start.sh`/`stop.sh` entrypoints are POSIX shell; there is no native PowerShell/cmd wrapper).
+
 ### Added — 2026-06-20 — Production-hardening profile (`--profile prod`)
 
 A new deployment profile consolidates all production-hardening behaviors under a

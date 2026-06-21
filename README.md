@@ -157,7 +157,7 @@ Key technical traits:
 
 - **Dynamic service configuration**: SOURCE-based deployment with CLI overrides
 - **Kong gateway**: auto-generated routes based on active services
-- **Cross-platform support**: Python-based bootstrapping works on all OS
+- **Cross-platform support**: runs natively on Linux and macOS (Intel/Apple Silicon); on Windows via WSL2 or Git Bash (`start.sh`/`stop.sh` are POSIX shell — there is no native PowerShell/cmd wrapper)
 - **Flexible deployment**: mix containerized and localhost-installed services (with cloud LLM providers wired through LiteLLM)
 - **GPU support**: container variants with NVIDIA GPU access for inference services
 - **Always-on core**: Supabase ecosystem, Redis, LiteLLM gateway (fronts Ollama + cloud LLM providers), FastAPI backend, Kong Gateway
@@ -170,7 +170,7 @@ Key technical traits:
 - **Flexible service sources**: switch between container and localhost variants per service, plus cloud LLM providers via LiteLLM
 - **Modular architecture**: choose service combinations via SOURCE variables
 - **Environment-based config**: configuration through environment variables
-- **Cross-platform Python scripts**: consistent behavior across Windows, macOS, Linux
+- **Cross-platform Python core**: the bootstrapper is OS-aware; Linux and macOS run natively, Windows runs under WSL2 / Git Bash
 
 ### 2.3 Architecture overview
 
