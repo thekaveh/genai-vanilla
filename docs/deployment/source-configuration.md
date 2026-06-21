@@ -772,4 +772,16 @@ docker exec atlas-kong-api-gateway curl http://atlas-comfyui:18188/
 docker stats
 ```
 
+## 10. Deployment profile (`--profile prod`)
+
+Beyond the per-service `*_SOURCE` variables above, a small set of global variables is managed by the **deployment profile**. `./start.sh --profile prod` (or the wizard's profile step) writes them; `--profile default` clears the prod-managed bind IP. They are not `*_SOURCE` toggles, so they don't appear in the §2 matrix.
+
+| Variable | Default | Set by `--profile prod` | Meaning |
+|----------|---------|-------------------------|---------|
+| `HOST_BIND_IP` | _(empty)_ | `127.0.0.1:` | Host-interface prefix on every published port. Empty → `0.0.0.0` (dev); `127.0.0.1:` → ports reachable only from the host, with the public edge (Cloudflare Tunnel / reverse proxy) fronting Kong. |
+| `LOG_MAX_SIZE` | `10m` | `10m` | Per-container json-file log max size (Docker logging option). |
+| `LOG_MAX_FILE` | `3` | `3` | Per-container json-file log file count. |
+
+Under `--profile prod`, `PROMETHEUS_SOURCE` and `GRAFANA_SOURCE` are also defaulted to `container` (observability on) unless you set them explicitly. Per-service resource limits (`*_MEMORY_LIMIT` / `*_CPU_LIMIT`) are always-on `.env` defaults, independent of the profile. See [reusing-atlas.md](reusing-atlas.md) and the `--profile prod` line in the README for the full behavior.
+
 For more troubleshooting help, see [../quick-start/troubleshooting.md](../quick-start/troubleshooting.md).

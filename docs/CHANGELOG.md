@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release/version-tag convention** for pinning a vendored Atlas: semver `vMAJOR.MINOR.PATCH` documented in `docs/deployment/releasing.md`, with the first tag `v0.1.0`.
 - Docs: new `docs/deployment/releasing.md`; `reusing-atlas.md` readiness rows flipped to **Ready** + a §6.1 extension walkthrough; `CONTRIBUTING-services.md` §21 updated. Phase 1 design: `docs/superpowers/specs/2026-06-21-phase1-reuse-mechanics-design.md`.
 
+### Added — 2026-06-20 — Cloudflare Tunnel service (`cloudflared`)
+
+- New `services/cloudflared/` service, **disabled by default** (`CLOUDFLARED_SOURCE=disabled`). Set `CLOUDFLARED_SOURCE=container` + provide `CLOUDFLARE_TUNNEL_TOKEN` to run an outbound Cloudflare Tunnel daemon that terminates TLS at the Cloudflare edge and proxies to Kong — no inbound ports opened. Egress-only (no Kong route); requires a named tunnel configured in the Cloudflare Zero Trust dashboard.
+
+### Added — 2026-06-20 — On-demand backup runner (`backup`)
+
+- New `services/backup/` one-shot runner, **disabled by default** (`BACKUP_SOURCE=disabled`; never long-running). Invoke with `docker compose run --rm backup`. Dumps the Supabase Postgres database (`pg_dump`) and snapshots the critical named volumes (supabase-storage, graph-db, weaviate) to S3-compatible storage — on-box MinIO by default, `BACKUP_S3_ALIAS_URL` for offsite. Ships `restore-postgres.sh` for recovery drills.
+
 ### Added — 2026-06-20 — Secrets hygiene guard + cross-OS doc accuracy
 
 - **Placeholder-secret coverage guard** — a test (`test_no_unrotated_nonempty_secret_defaults`) now asserts every `secret: true` manifest default is either empty (generated-when-absent) or a registered `KeyGenerator.PLACEHOLDER_DEFAULTS` literal (rotated-when-placeholder). It caught and registered a previously-unregistered composite, `GRAPH_DB_AUTH`.
@@ -32,18 +40,20 @@ single flag and a matching wizard step:
   identical compose output) and to `127.0.0.1` under prod, so no service socket
   is reachable from outside the host.
 - **Per-service resource limits** — every service manifest declares
-  `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values injected via the prod compose
-  overlay. These are OOM fences, not reservations; heavy services (Spark,
-  Airflow, Ray, Zeppelin) default to scale 0 and are enabled per track, so the
-  sum of all default limits intentionally exceeds a 32 GB host — size and enable
-  per your track.
+  `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values as always-on `.env` defaults wired
+  directly into each `compose.yml` fragment (applied unconditionally, independent
+  of `--profile prod`). These are OOM fences, not reservations; heavy services
+  (Spark, Airflow, Ray, Zeppelin) default to scale 0 and are enabled per track,
+  so the sum of all default limits intentionally exceeds a 32 GB host — size and
+  enable per your track.
 - **JSON-file log rotation** — `LOG_MAX_SIZE` and `LOG_MAX_FILE` control the
-  Docker json-file log driver's `max-size` and `max-file` options, applied to
-  every service under the prod overlay.
+  Docker json-file log driver's `max-size` and `max-file` options, wired into
+  every service's `compose.yml` fragment as always-on `.env` defaults
+  (independent of `--profile prod`).
 - **Observability defaulted on** — Prometheus and Grafana are promoted from
   their default-disabled state to default-on when the prod profile is active.
 - **Declarative `profiles:` source metadata** — each source option in
-  `service.yml` now carries an optional `option_in_profile` list. The wizard
+  `service.yml` now carries an optional `profiles:` list. The wizard
   filters out sources not listed for the active profile (hiding dev-only
   localhost sources in prod), and the CLI validator rejects them with an
   explicit error.

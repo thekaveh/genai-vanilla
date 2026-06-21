@@ -46,13 +46,32 @@ def _make_starter(tmp_path: Path, env_body: str) -> "start.AtlasStarter":
 # ---------------------------------------------------------------------------
 
 def test_prod_profile_sets_host_bind_ip(tmp_path):
-    """--profile prod must write HOST_BIND_IP=127.0.0.1: to .env."""
+    """--profile prod must write ALL five prod overrides to .env, not just
+    HOST_BIND_IP — localhost binding, observability default-ON, log rotation."""
     env_body = "HOST_BIND_IP=\nLOG_MAX_SIZE=\nLOG_MAX_FILE=\nPROMETHEUS_SOURCE=disabled\nGRAFANA_SOURCE=disabled\n"
     starter = _make_starter(tmp_path, env_body)
     ok = starter.apply_profile_overrides("prod")
     assert ok
     out = (tmp_path / ".env").read_text(encoding="utf-8")
     assert "HOST_BIND_IP=127.0.0.1:" in out
+    assert "PROMETHEUS_SOURCE=container" in out
+    assert "GRAFANA_SOURCE=container" in out
+    assert "LOG_MAX_SIZE=10m" in out
+    assert "LOG_MAX_FILE=3" in out
+
+
+def test_prod_profile_respects_explicit_observability_source(tmp_path):
+    """When --prometheus-source was passed explicitly, prod must NOT override
+    it to container (the explicit flag wins; default-ON is skipped). Grafana,
+    with no explicit flag, is still defaulted ON."""
+    env_body = "HOST_BIND_IP=\nLOG_MAX_SIZE=\nLOG_MAX_FILE=\nPROMETHEUS_SOURCE=disabled\nGRAFANA_SOURCE=disabled\n"
+    starter = _make_starter(tmp_path, env_body)
+    ok = starter.apply_profile_overrides("prod", explicit_prometheus="disabled")
+    assert ok
+    out = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "PROMETHEUS_SOURCE=disabled" in out
+    assert "PROMETHEUS_SOURCE=container" not in out
+    assert "GRAFANA_SOURCE=container" in out
 
 
 # ---------------------------------------------------------------------------

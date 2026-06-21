@@ -1065,6 +1065,22 @@ class ServiceConfig:
         else:
             env_vars['MINIO_INIT_SCALE'] = '0'
 
+        # Cloudflared tunnel — scale derives from CLOUDFLARED_SOURCE via the
+        # manifest (container → 1, disabled → 0). The compose fragment reads
+        # replicas: ${CLOUDFLARED_SCALE:-0}, so without this write the tunnel
+        # never starts even when the user sets CLOUDFLARED_SOURCE=container.
+        cloudflared_source = self.service_sources.get('CLOUDFLARED_SOURCE', 'disabled')
+        cloudflared_config = self.get_service_config('cloudflared', cloudflared_source)
+        env_vars['CLOUDFLARED_SCALE'] = str(cloudflared_config.get('scale', 0))
+
+        # Backup runner — on-demand only; the manifest pins scale 0 for every
+        # source variant (the user invokes it with `docker compose run --rm
+        # backup`). Written from the manifest so the auto-managed var is never
+        # left blank.
+        backup_source = self.service_sources.get('BACKUP_SOURCE', 'disabled')
+        backup_config = self.get_service_config('backup', backup_source)
+        env_vars['BACKUP_SCALE'] = str(backup_config.get('scale', 0))
+
         return env_vars
     
     def _generate_adaptive_services_config(self, all_env_vars: Optional[Dict[str, str]] = None) -> Dict[str, str]:

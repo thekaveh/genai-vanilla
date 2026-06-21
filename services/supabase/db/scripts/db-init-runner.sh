@@ -28,12 +28,19 @@ echo "db-init-runner: Database is ready. Running post-initialization scripts fro
 # Loop through SQL files in mounted directory in alphabetical/numerical order
 # Use find to handle potential spaces or special characters in filenames (though unlikely here)
 # and sort to ensure numerical order (01, 02, ..., 10, etc.)
-find /scripts -maxdepth 1 -name '*.sql' -print | sort | while IFS= read -r f; do
+# Redirect the file list into the loop (instead of `find | sort | while`) so the
+# loop body runs in the CURRENT shell, where `set -e` unambiguously aborts on a
+# failing psql. Under dash, a `while` on the RHS of a pipe runs in a subshell
+# where set-e propagation is implementation-dependent — a failing migration
+# could be missed. The temp-file pattern is what the other init scripts use.
+find /scripts -maxdepth 1 -name '*.sql' -print | sort > /tmp/_db_init_sql_files
+while IFS= read -r f; do
   if [ -f "$f" ]; then
     echo "db-init-runner: Running $f..."
     # Execute script using psql, stop on error
     psql -v ON_ERROR_STOP=1 --host "$PGHOST" --username "$PGUSER" --dbname "$PGDATABASE" -a -f "$f"
   fi
-done
+done < /tmp/_db_init_sql_files
+rm -f /tmp/_db_init_sql_files
 
 echo "db-init-runner: All post-initialization scripts finished successfully."

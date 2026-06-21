@@ -471,6 +471,7 @@ class DockerManager:
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
                 cmd.append(f'--env-file={self.config_parser.env_file_path}')
+            cmd.extend(self._compose_file_args())
             cmd.extend(['ps', '-q'])
 
             result = subprocess.run(
@@ -506,6 +507,7 @@ class DockerManager:
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
                 cmd.append(f'--env-file={self.config_parser.env_file_path}')
+            cmd.extend(self._compose_file_args())
             cmd.extend(['port', service, internal_port])
 
             result = subprocess.run(

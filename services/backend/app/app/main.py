@@ -100,7 +100,12 @@ Instrumentator(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
+    # NOTE: `allow_credentials=True` with the `*` wildcard origin is rejected by
+    # all browsers (the spec forbids credentials + wildcard), so it would only
+    # silently break credentialed requests. The backend is reached server-side
+    # via Kong and does not rely on browser cookies, so credentials stay off
+    # until specific origins are configured.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -733,10 +738,14 @@ async def get_generated_image(filename: str, subfolder: str = "", folder_type: s
                 content_type = "image/webp"
             
             from fastapi.responses import Response
+            # Sanitize the filename before placing it in a header: strip CR/LF
+            # (which crash the HTTP/1.1 codec with a 500) and quote per RFC 6266
+            # so a name containing ';' or '"' can't break the header structure.
+            safe_name = filename.replace("\r", "").replace("\n", "").replace('"', "")
             return Response(
                 content=image_data,
                 media_type=content_type,
-                headers={"Content-Disposition": f"inline; filename={filename}"}
+                headers={"Content-Disposition": f'inline; filename="{safe_name}"'}
             )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:

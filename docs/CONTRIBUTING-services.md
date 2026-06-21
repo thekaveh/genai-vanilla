@@ -176,6 +176,7 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 
 - **Locked vs. user-choice.** A service with only one source variant is "locked" — the wizard skips its prompt entirely. The `_is_locked` helper in `bootstrapper/services/topology.py` enforces this. Services like Backend, Kong, LiteLLM are locked because they're always-on.
 - **`requires:` per option.** Use `requires: [<ENV_VAR>]` on a source option to declare prerequisite env vars (e.g. `localhost` typically requires `<SVC>_LOCALHOST_PORT`).
+- **`profiles:` per option (deployment-profile gating).** Add `profiles: [default]` to any source option that is dev-only and unreachable on a remote prod host — `localhost` variants in particular, since `host.docker.internal` doesn't point anywhere useful on a managed server. Omitting `profiles:` means "offered in every profile" (the right choice for `container` / `disabled`). The annotation drives two things: the wizard hides non-matching options under `--profile prod`, and `bootstrapper/services/source_validator.py::validate_sources_for_profile` rejects them with an explicit error. Note the manifest-validator lint only fires when a service has **no** prod-eligible option left, so a single unannotated `container` option keeps CI green — you must add `profiles: [default]` to each dev-only option yourself. The matching Python predicate is `option_in_profile` in `bootstrapper/services/manifests.py`.
 - **`<SVC>_LOCALHOST_PORT` as the single source of truth.** If you offer `localhost`, declare a `<SVC>_LOCALHOST_PORT` env var (integer string, defaulting to the upstream's standard host port). The URL is then derived at compose-render time and Kong-config-generation time as `http://host.docker.internal:${<SVC>_LOCALHOST_PORT:-<default>}`. Both the in-container consumers (`runtime_sc.<svc>.localhost.environment`) AND the Kong route generator (`bootstrapper/utils/kong_config_generator.py`) MUST read the same PORT var so the two paths agree on where the localhost upstream lives. The wizard surfaces an inline integer textbox on the `localhost` row so users can override it without editing `.env`. See PR #10 + the localhost-port-override CHANGELOG entry under [Unreleased] for the design rationale; the symmetry rule is captured in [Common gotchas](#14-common-gotchas--anti-patterns) below.
 - **`runtime_sc` slice per source.** Every source variant declared in `sources.options` should have a matching `runtime_sc.<key>.<source>` slice with `scale`, `environment`, `deploy`, `extra_hosts`. The manifest validator does NOT currently check coverage — a missing slice silently scales that source to 0 — so add a slice for every option you declare.
 
@@ -342,6 +343,7 @@ sources:                                      # ← Decision 3
       label: "Container"
     - id: localhost
       label: "Host (existing Qdrant)"
+      profiles: [default]                      # dev-only: hidden in the prod wizard, rejected by --profile prod
     - id: disabled
       label: "Disabled"
     # NOTE: `external` is deliberately omitted per the stack-wide moratorium
@@ -771,8 +773,10 @@ additional services without modifying the upstream tree. Drop them under
 services/
 ├── _user/                    # gitignored upstream; tracked downstream
 │   └── my-extra-service/
-│       ├── service.yml
-│       └── compose.yml
+│       └── compose.yml       # required — auto-merged & launched (see below)
+│                             # (a service.yml is optional; the core loader
+│                             #  skips _-prefixed dirs, so it's only for your
+│                             #  own tooling)
 ├── supabase/
 ├── ollama/
 └── …

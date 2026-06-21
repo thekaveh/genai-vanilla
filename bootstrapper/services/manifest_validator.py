@@ -550,12 +550,14 @@ def _check_prod_option_availability(
     as dev-only (profiles=[default]) would leave users unable to configure it
     under --profile prod — this lint catches accidental total exclusion.
 
-    Services with fewer than 2 selectable options (no sources block, or only
-    one option) are exempt; they have nothing to compare against.
+    Services with no sources block (or an empty options list) are exempt —
+    there is nothing to gate. A service with a single option that is marked
+    dev-only IS checked: that single option being dev-only would leave the
+    service unconfigurable under prod, which is exactly the bug to catch.
     """
     issues: list[ValidationIssue] = []
     for m in manifests:
-        if m.sources is None or len(m.sources.options) < 2:
+        if m.sources is None or len(m.sources.options) < 1:
             continue
         has_prod_option = any(
             opt.profiles is None or "prod" in opt.profiles

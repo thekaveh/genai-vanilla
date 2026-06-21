@@ -128,8 +128,36 @@ def test_lint_detects_all_dev_only_service():
     )
 
 
-def test_lint_passes_for_single_option_service():
-    """A service with only one source option is exempt from the prod lint."""
+def test_lint_single_unannotated_option_is_exempt():
+    """A single UNANNOTATED option is available in every profile (including
+    prod), so it is fine — no violation."""
+    from services.manifests import (
+        Manifest, EnvVarDecl, SourcesBlock, SourceOption
+    )
+    from services.manifest_validator import validate_manifests as vm
+
+    single = Manifest(
+        name="single-svc",
+        label="Single Option Service",
+        category="apps",
+        env=[EnvVarDecl(name="SINGLE_SVC_SOURCE", default="container")],
+        sources=SourcesBlock(
+            var="SINGLE_SVC_SOURCE",
+            default="container",
+            options=[
+                SourceOption(id="container", label="Container"),  # unannotated => all profiles
+            ],
+        ),
+    )
+    prod_violations = [i for i in vm([single]) if i.kind == "no_prod_option"]
+    assert prod_violations == [], (
+        f"Single unannotated option is prod-available; should not flag: {prod_violations}"
+    )
+
+
+def test_lint_single_dev_only_option_is_flagged():
+    """A service whose ONLY option is marked dev-only ([default]) is
+    unconfigurable under --profile prod — the lint must catch it."""
     from services.manifests import (
         Manifest, EnvVarDecl, SourcesBlock, SourceOption
     )
@@ -148,8 +176,7 @@ def test_lint_passes_for_single_option_service():
             ],
         ),
     )
-    issues = vm([single])
-    prod_violations = [i for i in issues if i.kind == "no_prod_option"]
-    assert prod_violations == [], (
-        f"Single-option service should be exempt, got: {prod_violations}"
+    prod_violations = [i for i in vm([single]) if i.kind == "no_prod_option"]
+    assert len(prod_violations) == 1, (
+        f"Single dev-only option leaves no prod option; should flag: {prod_violations}"
     )
