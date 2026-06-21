@@ -25,9 +25,16 @@ trap 'neo4j start' EXIT
 # Stop Neo4j service temporarily to ensure consistent backup
 neo4j stop
 
-# Wait for Neo4j to stop
+# Wait for Neo4j to stop. Bounded (60s) like the other init wait loops —
+# a wedged JVM/lock should fail the backup, not hang the docker exec forever.
 echo "Waiting for Neo4j to stop..."
+WAITED=0
 until ! neo4j status | grep -q "Neo4j is running"; do
+  WAITED=$((WAITED + 1))
+  if [ "$WAITED" -ge 60 ]; then
+    echo "ERROR: Neo4j did not stop after 60s; aborting backup." >&2
+    exit 1
+  fi
   sleep 1
 done
 
