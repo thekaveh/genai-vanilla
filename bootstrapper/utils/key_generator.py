@@ -82,8 +82,10 @@ class KeyGenerator:
             cp = ConfigParser(str(self.root_dir))
             cp.env_file_path = target
             return cp.parse_env_file()
-        except Exception:
-            return {}
+        except Exception as e:
+            raise RuntimeError(
+                f"cannot read .env to verify secrets: {e}"
+            ) from e
 
     def _is_placeholder_or_empty(self, var_name: str) -> bool:
         """Return True if .env carries either no value for `var_name` or the
