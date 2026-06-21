@@ -128,3 +128,16 @@ def test_generate_missing_keys_covers_all_placeholder_vars(tmp_path):
         assert kg.get_current_env_value(var) != placeholder, (
             f"{var}: aggregator did not upgrade placeholder"
         )
+
+
+def test_assert_no_placeholders_detects_unrotated(tmp_path):
+    import sys, pathlib
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from utils.key_generator import KeyGenerator
+    env = tmp_path / ".env"
+    env.write_text("REDIS_PASSWORD=redis_password\nDASHBOARD_PASSWORD=already-rotated-xyz\n", encoding="utf-8")
+    kg = KeyGenerator(str(env))
+    import pytest
+    with pytest.raises(Exception) as ei:
+        kg.assert_no_placeholders_remaining()
+    assert "REDIS_PASSWORD" in str(ei.value)

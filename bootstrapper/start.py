@@ -2584,7 +2584,14 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         # Step 6: Generate encryption keys (improved behavior - always ensures keys exist)
         if not starter.generate_encryption_keys(cold_start=cold):
             sys.exit(1)
-        
+
+        # Step 6.1: Prod-launch gate — refuse to start if any managed secret
+        # still equals its shipped placeholder. Runs AFTER generate_encryption_keys
+        # so a normal first-run auto-rotation happens first and does NOT trip this
+        # gate. Only fires when --profile prod is active.
+        if getattr(starter, "profile", "default") == "prod":
+            starter.key_generator.assert_no_placeholders_remaining()
+
         # Step 7: Validate localhost services before starting
         if not starter.validate_localhost_services():
             sys.exit(1)

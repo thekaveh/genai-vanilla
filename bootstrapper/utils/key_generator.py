@@ -63,6 +63,28 @@ class KeyGenerator:
         "OPEN_WEB_UI_SECRET_KEY": "secret",
     }
 
+    def _read_env_values(self) -> dict:
+        """Return a dict of all KEY=VALUE pairs from the active .env file.
+
+        Uses ConfigParser.parse_env_file() so quote / inline-comment
+        semantics stay identical to every other .env reader in the
+        bootstrapper.  Falls back to reading self.root_dir directly when
+        it points at the .env file itself (i.e. the caller passed a file
+        path rather than a directory — used in tests).
+        """
+        target = self.env_file_path
+        if not target.exists() and self.root_dir.is_file():
+            # Called as KeyGenerator(str(env_file)) — root_dir IS the file.
+            target = self.root_dir
+        if not target.exists():
+            return {}
+        try:
+            cp = ConfigParser(str(self.root_dir))
+            cp.env_file_path = target
+            return cp.parse_env_file()
+        except Exception:
+            return {}
+
     def _is_placeholder_or_empty(self, var_name: str) -> bool:
         """Return True if .env carries either no value for `var_name` or the
         literal placeholder shipped in `.env.example`. Used by every
@@ -72,6 +94,28 @@ class KeyGenerator:
         if not current:
             return True
         return current == self.PLACEHOLDER_DEFAULTS.get(var_name)
+
+    def assert_no_placeholders_remaining(self) -> None:
+        """Raise if any managed secret in .env still equals its shipped
+        placeholder literal. Used as a prod-launch gate.
+
+        Reads all .env values in one pass via _read_env_values() so
+        inline-comment and quote semantics are handled correctly. Only
+        vars listed in PLACEHOLDER_DEFAULTS are checked — generated-when-
+        absent vars (LITELLM_MASTER_KEY, Airflow secrets, MinIO keys, etc.)
+        are intentionally excluded because they have no shipped placeholder.
+        """
+        values = self._read_env_values()
+        offenders = [
+            name for name, placeholder in self.PLACEHOLDER_DEFAULTS.items()
+            if (values.get(name, "") or "") == placeholder
+        ]
+        if offenders:
+            raise RuntimeError(
+                "Refusing to launch: placeholder secrets not rotated: "
+                + ", ".join(sorted(offenders))
+                + ". Run ./start.sh once (auto-rotates) or set strong values in .env."
+            )
 
     def __init__(self, root_dir: Optional[str] = None):
         """
