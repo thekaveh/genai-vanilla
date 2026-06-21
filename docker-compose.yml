@@ -60,6 +60,9 @@ include:
   - services/zeppelin/compose.yml
   - services/airflow/compose.yml
 
+  # Public edge (outbound tunnel to Cloudflare; disabled by default)
+  - services/cloudflared/compose.yml
+
   # Gateway last (depends on everything else it routes to)
   - services/kong/compose.yml
 
