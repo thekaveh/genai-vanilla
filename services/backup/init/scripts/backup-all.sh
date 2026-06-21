@@ -8,19 +8,22 @@ set -eu
 BUCKET="${BACKUP_BUCKET:-atlas-backups}"
 TS="${BACKUP_TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}"
 WORK=/tmp/backup
-mkdir -p "$WORK"
+rm -rf "$WORK" && mkdir -p "$WORK"
 
 echo "backup: pg_dump ${SUPABASE_DB_NAME}..."
 PGPASSWORD="$SUPABASE_DB_PASSWORD" pg_dump -h supabase-db -U "$SUPABASE_DB_USER" -d "$SUPABASE_DB_NAME" -Fc -f "$WORK/postgres.dump"
 
 echo "backup: snapshot mounted volumes..."
 # Volumes to snapshot are bind-mounted read-only at /volumes/<name> by the fragment.
+vols=0
 for d in /volumes/*; do
   [ -d "$d" ] || continue
   name="$(basename "$d")"
   tar czf "$WORK/${name}.tar.gz" -C "$d" .
+  vols=$((vols + 1))
   echo "backup: archived ${name}"
 done
+[ "$vols" -gt 0 ] || echo "backup: WARNING — no volumes found under /volumes/* (only the Postgres dump was captured)" >&2
 
 echo "backup: push to s3://${BUCKET}/${TS}/..."
 mc alias set s3 "${BACKUP_S3_ALIAS_URL:-http://minio:9000}" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
