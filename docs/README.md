@@ -43,7 +43,8 @@ Documentation index for Atlas.
 ### 1.3 Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants
 - [Ports and Routes](deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
-- [Using as a Submodule](deployment/submodule-usage.md) — embedding the stack inside another project
+- [Reusing Atlas as Infrastructure](deployment/reusing-atlas.md) — overview + decision guide: use Atlas as the backing infra for another project (which method, is it ready, how to wire + customize)
+- [Using as a Submodule](deployment/submodule-usage.md) — deep-dive for the Git-submodule reuse method
 - [Expected Startup Warnings](deployment/expected-startup-warnings.md) — known-benign log lines on `./start.sh`
 
 ### 1.4 Contributors

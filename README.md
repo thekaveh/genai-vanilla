@@ -446,7 +446,9 @@ For NVIDIA GPU acceleration, set the relevant SOURCE variables to a `*-container
 
 ### 6.3 Using as infrastructure foundation
 
-Atlas can be used as a git submodule to provide infrastructure for your projects:
+Atlas is designed to back other projects (e.g. a RAG-showcase app) as shared infrastructure. The two ready-today paths are **standalone + shared network** (your project is a separate repo that joins `${PROJECT_NAME}-network`) and **Git submodule** (vendor Atlas into your repo). For the full decision guide — which method, what's ready, how to wire and customize it — see **[Reusing Atlas as Infrastructure](docs/deployment/reusing-atlas.md)**.
+
+The submodule path in brief:
 
 ```bash
 # Add as submodule in your project
@@ -594,7 +596,8 @@ Key entry points by audience:
 ### 9.2 Operators
 - [SOURCE configuration](docs/deployment/source-configuration.md) — every service's container / localhost / disabled modes (and GPU variants for the LLM/embedding engines)
 - [Ports and routes](docs/deployment/ports-and-routes.md) — canonical port offsets, direct URLs, and Kong routes
-- [Using as a submodule](docs/deployment/submodule-usage.md) — embedding the stack inside another project
+- [Reusing Atlas as infrastructure](docs/deployment/reusing-atlas.md) — overview + decision guide for backing another project with Atlas
+- [Using as a submodule](docs/deployment/submodule-usage.md) — deep-dive for the Git-submodule reuse method
 - [Service documentation](services/) — per-service READMEs (each owns its manifest, compose fragment, and architecture diagram)
 
 ### 9.3 Contributors
