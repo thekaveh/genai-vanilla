@@ -28,6 +28,7 @@ sources:
       label: "Container (in-stack Weaviate)"
     - id: localhost
       label: "Host (existing Weaviate on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

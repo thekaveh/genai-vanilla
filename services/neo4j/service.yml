@@ -21,6 +21,7 @@ sources:
       label: "Container (in-stack Neo4j)"
     - id: localhost
       label: "Host (use existing Neo4j on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

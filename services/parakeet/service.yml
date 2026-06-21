@@ -44,8 +44,10 @@ sources:
       label: "Parakeet (NVIDIA, container GPU)"
     - id: parakeet-localhost
       label: "Parakeet (host, Mac MLX or Linux CPU/GPU)"
+      profiles: [default]
     - id: whisper-cpp-localhost
       label: "whisper.cpp (host, Apple Silicon Metal/ANE)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

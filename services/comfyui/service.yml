@@ -28,6 +28,7 @@ sources:
       label: "Container (GPU, NVIDIA)"
     - id: localhost
       label: "Host (existing ComfyUI on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

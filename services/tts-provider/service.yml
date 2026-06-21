@@ -27,6 +27,7 @@ sources:
       label: "Chatterbox (GPU, voice cloning)"
     - id: chatterbox-localhost
       label: "Chatterbox (host install)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

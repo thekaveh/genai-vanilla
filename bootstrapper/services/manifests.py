@@ -67,12 +67,18 @@ class SourceOption:
     Per-source runtime data (scale, environment, deploy, extra_hosts) lives
     in `manifest.runtime_sc.<sc_key>.<id>` — `runtime_sc` is the operational
     source consumed by the bootstrapper. The fields below are wizard-facing
-    only (label for display, requires for input validation).
+    only (label for display, requires for input validation, profiles for
+    deployment-profile gating).
+
+    `profiles`: None means the option is available in all profiles (unannotated).
+    A list restricts the option to the named profiles only (e.g. ["default"]
+    marks a dev-only localhost option that is hidden/rejected under --profile prod).
     """
 
     id: str
     label: str
     requires: list[str] = field(default_factory=list)
+    profiles: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -225,6 +231,40 @@ def load_manifests(services_root: Path) -> list[Manifest]:
     return manifests
 
 
+def option_in_profile(
+    manifests: list[Manifest],
+    service_key: str,
+    option_id: str,
+    profile: str,
+) -> bool:
+    """Return True if option_id is offered under the given deployment profile.
+
+    An unannotated option (profiles=None) is available in ALL profiles.
+    An annotated option (profiles=[...]) is available only in the listed profiles.
+
+    Args:
+        manifests:   The full manifest list returned by load_manifests().
+        service_key: The service name (manifest.name), e.g. "comfyui".
+        option_id:   The source option id, e.g. "localhost" or "container-cpu".
+        profile:     The deployment profile to check, e.g. "prod" or "default".
+
+    Returns True when the option is unannotated or lists the profile.
+    Returns False when the option is annotated and does not list the profile.
+    Returns True (permissive) when the service or option is not found, so
+    callers don't need to guard against unknown ids.
+    """
+    for m in manifests:
+        if m.name != service_key:
+            continue
+        if m.sources is None:
+            return True
+        for opt in m.sources.options:
+            if opt.id == option_id:
+                return opt.profiles is None or profile in opt.profiles
+        return True  # option_id not found in this manifest — permissive
+    return True  # service not found — permissive
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Internals
 # ────────────────────────────────────────────────────────────────────────────
@@ -331,6 +371,7 @@ def _to_dataclass(raw: dict[str, Any], source_path: Path) -> Manifest:
                     id=opt["id"],
                     label=opt["label"],
                     requires=list(opt.get("requires", [])),
+                    profiles=list(opt["profiles"]) if "profiles" in opt else None,
                 )
                 for opt in sources_raw["options"]
             ],

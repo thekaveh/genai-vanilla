@@ -26,6 +26,7 @@ sources:
       label: "Container"
     - id: localhost
       label: "Host (existing OpenClaw on this machine)"
+      profiles: [default]
 
 env:
   - name: OPENCLAW_SOURCE

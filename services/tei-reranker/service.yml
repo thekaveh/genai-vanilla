@@ -37,6 +37,7 @@ sources:
       label: "Container (GPU, NVIDIA)"
     - id: localhost
       label: "Host (existing TEI rerank on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

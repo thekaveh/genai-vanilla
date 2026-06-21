@@ -21,6 +21,7 @@ sources:
       label: "Disabled"
     - id: docling-localhost
       label: "Host (existing Docling on this machine)"
+      profiles: [default]
     - id: docling-container-gpu
       label: "Container (GPU, NVIDIA)"
 

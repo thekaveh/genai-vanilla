@@ -35,6 +35,7 @@ sources:
       label: "Container (in-stack Hermes)"
     - id: localhost
       label: "Host (existing Hermes on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 

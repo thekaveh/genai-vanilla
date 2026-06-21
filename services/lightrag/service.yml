@@ -28,6 +28,7 @@ sources:
       label: "Container (in-stack LightRAG)"
     - id: localhost
       label: "Host (existing LightRAG on this machine)"
+      profiles: [default]
     - id: disabled
       label: "Disabled"
 
