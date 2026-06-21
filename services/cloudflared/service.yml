@@ -23,9 +23,9 @@ sources:
       label: "No public edge (default)."
 
 env:
-  - name: CLOUDFLARED_PORT
-    # default removed — computed by services/topology.py slot allocator
-    description: "Host port for cloudflared local metrics (in-container 2000). Bound to localhost in prod."
+  - name: CLOUDFLARED_SOURCE
+    default: disabled
+    description: "Deployment mode: container (run the tunnel) or disabled (default)."
   - name: CLOUDFLARE_TUNNEL_TOKEN
     default: ""
     secret: true
@@ -46,7 +46,6 @@ depends_on:
 rows:
   - display_name: "Cloudflare Tunnel"
     source_var: CLOUDFLARED_SOURCE
-    port_var: CLOUDFLARED_PORT
     description: "Outbound tunnel to Cloudflare; terminates TLS at the edge and proxies to Kong."
 
 exports: []
