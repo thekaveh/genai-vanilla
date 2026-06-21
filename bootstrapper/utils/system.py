@@ -163,30 +163,3 @@ def get_hosts_file_path() -> str:
         return "C:/Windows/System32/drivers/etc/hosts"
     else:
         return ""
-
-
-def run_command(command: list, capture_output: bool = True, timeout: float = 60.0) -> subprocess.CompletedProcess:
-    """
-    Run a system command with proper error handling.
-
-    Args:
-        command: List of command arguments
-        capture_output: Whether to capture stdout/stderr
-        timeout: Seconds before the subprocess is killed. Default 60.
-
-    Returns:
-        subprocess.CompletedProcess: The completed process
-    """
-    try:
-        return subprocess.run(
-            command,
-            capture_output=capture_output,
-            text=True,
-            check=False,
-            timeout=timeout,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except FileNotFoundError:
-        # Command not found
-        raise FileNotFoundError(f"Command not found: {command[0]}")

@@ -609,6 +609,7 @@ Key entry points by audience:
 ### 9.4 Release history
 - [ROADMAP.md](docs/ROADMAP.md) — future development plans and tier-status of every service
 - [CHANGELOG.md](docs/CHANGELOG.md) — release history and the `[Unreleased]` known-follow-ups block
+- [Releasing & version tags](docs/deployment/releasing.md) — semver tag convention for pinning a vendored Atlas
 
 ## 10. Contributing
 
