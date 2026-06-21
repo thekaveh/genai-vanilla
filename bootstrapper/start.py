@@ -1876,6 +1876,12 @@ class AtlasStarter:
               help='Skip the chained .env migrations (port-layout v1, URL→PORT v2, '
                    'model-set v3) for this run. Version sentinels are NOT stamped, '
                    'so the migration re-prompts on the next run.')
+@click.option('--profile',
+              type=click.Choice(['default', 'prod'], case_sensitive=False),
+              default='default',
+              help='Deployment profile. "prod": bind all service ports to '
+                   '127.0.0.1 (public edge fronts Kong), enforce resource '
+                   'limits, enable log rotation, default observability ON.')
 def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
@@ -1894,7 +1900,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          spark_source, spark_workers,
          zeppelin_source,
          airflow_source,
-         no_tui, no_splash, no_port_migrate):
+         no_tui, no_splash, no_port_migrate, profile):
     """Start Atlas — the self-hosted engineering platform."""
 
     # ─── Track override warnings ─────────────────────────────────────
@@ -2436,6 +2442,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         # Linear (--no-tui / non-TTY) flow from here on — the wizard and
         # CLI-flag TUI branches above both sys.exit() before this point.
         starter.no_splash = no_splash
+        starter.profile = profile
         starter.show_banner()
 
         if not starter.setup_env_file(cold_start=cold, base_port=base_port):
@@ -2450,6 +2457,20 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
 
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
+
+        # Apply prod-profile env overrides after source overrides so the
+        # observability default-ON only fires when the user didn't pass an
+        # explicit --prometheus-source / --grafana-source flag.
+        if profile == "prod":
+            prod_overrides: Dict[str, str] = {"HOST_BIND_IP": "127.0.0.1:"}
+            if prometheus_source is None:
+                prod_overrides["PROMETHEUS_SOURCE"] = "container"
+            if grafana_source is None:
+                prod_overrides["GRAFANA_SOURCE"] = "container"
+            prod_overrides["LOG_MAX_SIZE"] = "10m"
+            prod_overrides["LOG_MAX_FILE"] = "3"
+            if not starter.source_override_manager.update_env_file(prod_overrides):
+                sys.exit(1)
 
         # Persist any CLI-supplied cloud API keys to .env. No-op when
         # the dict is empty.
