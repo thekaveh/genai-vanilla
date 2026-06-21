@@ -76,7 +76,7 @@ def test_validator_skips_empty_values():
     v = SourceValidator()
     v.load_yaml_config()
     v.validation_errors = []
-    ok = v.validate_sources_for_profile({"OLLAMA_SOURCE": ""}, "prod")
+    ok = v.validate_sources_for_profile({"LLM_PROVIDER_SOURCE": ""}, "prod")
     assert ok is True
 
 

@@ -1454,6 +1454,26 @@ class WizardScreen(Screen):
         _resolved_profile = ((self._stack_options or {}).get("profile") or "default")
         starter.profile = _resolved_profile
 
+        def _validate_sources_for_profile() -> bool:
+            """Profile-source compatibility check for the TUI pipeline.
+
+            Mirrors the same guard in the linear path (start.py) so that
+            a ``--profile prod`` TUI launch with a dev-only source (e.g.
+            ollama-localhost) that was left in .env by a track-skipped
+            wizard step fails fast with a clear message instead of
+            proceeding silently.  No-ops for non-prod profiles.
+            """
+            if _resolved_profile != "prod":
+                return True
+            svc_srcs = starter.config_parser.parse_service_sources()
+            starter.source_validator.validation_errors = []
+            ok = starter.source_validator.validate_sources_for_profile(
+                svc_srcs, _resolved_profile
+            )
+            if not ok:
+                starter.source_validator.print_validation_results()
+            return ok
+
         steps = [
             ("Apply source overrides",
              lambda: starter.apply_source_overrides(**(self._source_args or {}))),
@@ -1471,6 +1491,15 @@ class WizardScreen(Screen):
                  explicit_prometheus=(self._source_args or {}).get("prometheus_source"),
                  explicit_grafana=(self._source_args or {}).get("grafana_source"),
              )),
+            # Validate that no dev-only source (e.g. ollama-localhost) is active
+            # under --profile prod. This mirrors the linear-path check in start.py
+            # but was absent from the TUI pipeline: a track-skipped service step
+            # could leave a localhost source in .env and proceed silently.
+            # Runs only when profile=prod; default profile allows all sources.
+            # Runs AFTER Apply profile overrides so the .env already reflects any
+            # prod-default source changes before we read it back.
+            ("Validate sources for profile",
+             _validate_sources_for_profile),
             ("Apply cloud API keys",
              lambda: starter.apply_cloud_api_keys(
                  (self._stack_options or {}).get("cloud_api_keys", {})
