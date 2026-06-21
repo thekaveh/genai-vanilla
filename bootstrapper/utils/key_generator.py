@@ -683,27 +683,16 @@ class KeyGenerator:
         results['SUPABASE_DB_PASSWORD'] = self.generate_and_update_supabase_db_password(force=False)
         results['SUPABASE_DB_APP_PASSWORD'] = self.generate_and_update_supabase_db_app_password(force=False)
         results['GRAPH_DB_PASSWORD'] = self.generate_and_update_graph_db_password(force=False)
+        # GRAPH_DB_AUTH is rewritten as a side effect of the password rotator
+        # (it embeds the password: "neo4j/<password>"). Track its de-placeholdering
+        # explicitly so a partial side-effect write surfaces here rather than only
+        # tripping the prod placeholder gate later.
+        results['GRAPH_DB_AUTH'] = (
+            self.get_current_env_value('GRAPH_DB_AUTH')
+            != self.PLACEHOLDER_DEFAULTS.get('GRAPH_DB_AUTH')
+        )
         results['REDIS_PASSWORD'] = self.generate_and_update_redis_password(force=False)
         results['DASHBOARD_PASSWORD'] = self.generate_and_update_kong_dashboard_password(force=False)
         results['OPEN_WEB_UI_ADMIN_PASSWORD'] = self.generate_and_update_webui_admin_password(force=False)
 
-        return results
-    
-    def validate_keys(self) -> Dict[str, bool]:
-        """
-        Validate that all required encryption keys are present and valid.
-        
-        Returns:
-            dict: Dictionary with key names and validation status
-        """
-        results = {}
-        
-        # Validate N8N encryption key (should be 48 characters)
-        n8n_key = self.get_current_env_value('N8N_ENCRYPTION_KEY')
-        results['N8N_ENCRYPTION_KEY'] = bool(n8n_key and len(n8n_key) == 48)
-        
-        # Validate SearxNG secret (should be 64 characters)
-        searxng_secret = self.get_current_env_value('SEARXNG_SECRET')
-        results['SEARXNG_SECRET'] = bool(searxng_secret and len(searxng_secret) == 64)
-        
         return results

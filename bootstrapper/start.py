@@ -227,8 +227,12 @@ class AtlasStarter:
         Args:
             profile:             The resolved profile ("default" or "prod").
             explicit_prometheus: Non-None when --prometheus-source was passed
-                                 on the CLI (or the wizard set it); skips the
-                                 default-ON override so the user's choice wins.
+                                 explicitly (CLI flag or wizard selection); the
+                                 default-ON override is then skipped. Note: a
+                                 persisted PROMETHEUS_SOURCE=disabled in .env
+                                 with NO explicit flag is still overridden to
+                                 container under prod (the flag, not the .env
+                                 value, gates the skip).
             explicit_grafana:    Same for grafana.
 
         Returns:
@@ -1924,8 +1928,10 @@ class AtlasStarter:
               type=click.Choice(['default', 'prod'], case_sensitive=False),
               default='default',
               help='Deployment profile. "prod": bind all service ports to '
-                   '127.0.0.1 (public edge fronts Kong), enforce resource '
-                   'limits, enable log rotation, default observability ON.')
+                   '127.0.0.1 (public edge fronts Kong), enable log rotation, '
+                   'default observability ON, and hide dev-only (localhost) '
+                   'sources. Does not bypass the wizard. (Resource limits are '
+                   'always-on .env defaults, not profile-gated.)')
 def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
@@ -2602,7 +2608,11 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         # so a normal first-run auto-rotation happens first and does NOT trip this
         # gate. Only fires when --profile prod is active.
         if getattr(starter, "profile", "default") == "prod":
-            starter.key_generator.assert_no_placeholders_remaining()
+            try:
+                starter.key_generator.assert_no_placeholders_remaining()
+            except RuntimeError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                sys.exit(1)
 
         # Step 7: Validate localhost services before starting
         if not starter.validate_localhost_services():

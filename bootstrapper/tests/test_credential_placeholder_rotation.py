@@ -168,3 +168,25 @@ def test_generate_missing_keys_rotates_all_placeholder_defaults(tmp_path):
     kg.generate_missing_keys(force_regenerate=False)
     # Must not raise — all placeholders should now be rotated.
     kg.assert_no_placeholders_remaining()
+
+
+def test_graph_db_auth_split_state_is_surfaced(tmp_path):
+    """Edge: if GRAPH_DB_PASSWORD was hand-pinned (non-placeholder) but
+    GRAPH_DB_AUTH still holds its placeholder, the password rotator does NOT
+    fire (it is guarded on the password), so GRAPH_DB_AUTH stays stale. That
+    must be SURFACED — in the generate_missing_keys results AND by the prod
+    gate — not silently passed. Intentional, documented behavior."""
+    import pytest
+    env = tmp_path / ".env"
+    env.write_text(
+        "GRAPH_DB_USER=neo4j\n"
+        "GRAPH_DB_PASSWORD=already-rotated-xyz\n"
+        "GRAPH_DB_AUTH=neo4j/neo4j_password\n",
+        encoding="utf-8",
+    )
+    kg = KeyGenerator(str(tmp_path))
+    results = kg.generate_missing_keys(force_regenerate=False)
+    assert results.get("GRAPH_DB_AUTH") is False
+    with pytest.raises(RuntimeError) as ei:
+        kg.assert_no_placeholders_remaining()
+    assert "GRAPH_DB_AUTH" in str(ei.value)

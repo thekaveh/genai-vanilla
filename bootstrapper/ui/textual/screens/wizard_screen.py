@@ -1474,6 +1474,21 @@ class WizardScreen(Screen):
                 starter.source_validator.print_validation_results()
             return ok
 
+        def _assert_no_placeholder_secrets() -> bool:
+            """Prod-launch gate for the TUI pipeline: refuse to start if any
+            managed secret still equals its shipped placeholder. Mirrors the
+            linear path (start.py). Runs after key generation, so a normal
+            first-run auto-rotation happens first and does not trip it.
+            No-ops for non-prod profiles."""
+            if _resolved_profile != "prod":
+                return True
+            try:
+                starter.key_generator.assert_no_placeholders_remaining()
+                return True
+            except RuntimeError as exc:
+                self._safe_log(str(exc), source="pipeline", level="warn")
+                return False
+
         steps = [
             ("Apply source overrides",
              lambda: starter.apply_source_overrides(**(self._source_args or {}))),
@@ -1540,6 +1555,11 @@ class WizardScreen(Screen):
              lambda: starter.handle_hosts_configuration(setup_hosts, skip_hosts)),
             ("Generate encryption keys",
              lambda: starter.generate_encryption_keys(cold_start=cold)),
+            # Prod-launch gate: refuse to start under --profile prod if any
+            # managed secret still equals its placeholder. After key gen, so
+            # first-run auto-rotation passes cleanly. No-op for non-prod.
+            ("Assert no placeholder secrets",
+             _assert_no_placeholder_secrets),
             ("Validate localhost services",
              starter.validate_localhost_services),
             # Defensive final backfill — runs after every other
