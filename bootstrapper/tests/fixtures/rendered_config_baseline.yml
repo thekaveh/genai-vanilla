@@ -1003,7 +1003,7 @@ services:
       POSTGRES_USER: ''
       POSTGRES_WORKSPACE: lightrag
       REDIS_URI: ''
-      RERANK_BINDING: ''
+      RERANK_BINDING: 'null'
       RERANK_BINDING_HOST: ''
       RERANK_MODEL: mixedbread-ai/mxbai-rerank-base-v1
       TOKEN_SECRET: ''

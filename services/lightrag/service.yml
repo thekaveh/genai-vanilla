@@ -91,6 +91,9 @@ env:
     description: "Consumed by hermes/n8n/backend runtime_adaptive and LiteLLM model_list."
   - name: LIGHTRAG_RERANK_BINDING_HOST
     auto_managed: true
+  - name: LIGHTRAG_RERANK_BINDING
+    auto_managed: true
+    description: "jina when the TEI reranker endpoint is set, null (reranking off) when disabled. Computed by _generate_lightrag_config(); LightRAG crashes on an empty value."
   - name: LIGHTRAG_DOCLING_ENDPOINT
     auto_managed: true
   - name: LIGHTRAG_PG_URI
