@@ -40,14 +40,16 @@ single flag and a matching wizard step:
   identical compose output) and to `127.0.0.1` under prod, so no service socket
   is reachable from outside the host.
 - **Per-service resource limits** — every service manifest declares
-  `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values injected via the prod compose
-  overlay. These are OOM fences, not reservations; heavy services (Spark,
-  Airflow, Ray, Zeppelin) default to scale 0 and are enabled per track, so the
-  sum of all default limits intentionally exceeds a 32 GB host — size and enable
-  per your track.
+  `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values as always-on `.env` defaults wired
+  directly into each `compose.yml` fragment (applied unconditionally, independent
+  of `--profile prod`). These are OOM fences, not reservations; heavy services
+  (Spark, Airflow, Ray, Zeppelin) default to scale 0 and are enabled per track,
+  so the sum of all default limits intentionally exceeds a 32 GB host — size and
+  enable per your track.
 - **JSON-file log rotation** — `LOG_MAX_SIZE` and `LOG_MAX_FILE` control the
-  Docker json-file log driver's `max-size` and `max-file` options, applied to
-  every service under the prod overlay.
+  Docker json-file log driver's `max-size` and `max-file` options, wired into
+  every service's `compose.yml` fragment as always-on `.env` defaults
+  (independent of `--profile prod`).
 - **Observability defaulted on** — Prometheus and Grafana are promoted from
   their default-disabled state to default-on when the prod profile is active.
 - **Declarative `profiles:` source metadata** — each source option in
