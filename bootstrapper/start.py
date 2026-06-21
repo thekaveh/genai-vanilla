@@ -232,9 +232,19 @@ class AtlasStarter:
             explicit_grafana:    Same for grafana.
 
         Returns:
-            bool: True on success (or if profile is "default" — no-op).
+            bool: True on success.
         """
         if profile != "prod":
+            # Clear the prod-managed bind-IP if it is exactly the value
+            # prod writes, so switching back to the default profile does
+            # not leave ports silently bound to 127.0.0.1. Any other
+            # (user-set) value is left untouched.
+            _PROD_BIND = "127.0.0.1:"
+            env_vars = self.config_parser.parse_env_file()
+            current_bind = env_vars.get("HOST_BIND_IP", "")
+            if current_bind == _PROD_BIND:
+                print("profile=default: cleared HOST_BIND_IP (ports return to all-interfaces)")
+                return self.source_override_manager.update_env_file({"HOST_BIND_IP": ""})
             return True
         prod_overrides: Dict[str, str] = {"HOST_BIND_IP": "127.0.0.1:"}
         if explicit_prometheus is None:
@@ -2498,16 +2508,18 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         if not starter.apply_source_overrides(**source_args):
             sys.exit(1)
 
-        # Apply prod-profile env overrides after source overrides so the
-        # observability default-ON only fires when the user didn't pass an
-        # explicit --prometheus-source / --grafana-source flag.
-        if profile == "prod":
-            if not starter.apply_profile_overrides(
-                profile,
-                explicit_prometheus=prometheus_source,
-                explicit_grafana=grafana_source,
-            ):
-                sys.exit(1)
+        # Apply prod-profile env overrides (and default-profile cleanup)
+        # after source overrides so the observability default-ON only
+        # fires when the user didn't pass an explicit
+        # --prometheus-source / --grafana-source flag. The default
+        # branch clears HOST_BIND_IP when it equals the prod-managed
+        # "127.0.0.1:" value, preventing it from persisting across runs.
+        if not starter.apply_profile_overrides(
+            profile or "default",
+            explicit_prometheus=prometheus_source,
+            explicit_grafana=grafana_source,
+        ):
+            sys.exit(1)
 
         # Persist any CLI-supplied cloud API keys to .env. No-op when
         # the dict is empty.
