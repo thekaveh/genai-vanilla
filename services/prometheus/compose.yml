@@ -14,7 +14,7 @@ services:
       - --web.console.templates=/usr/share/prometheus/consoles
       - --web.enable-lifecycle
     ports:
-      - "${PROMETHEUS_PORT}:9090"
+      - "${HOST_BIND_IP:-}${PROMETHEUS_PORT}:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./config/rules:/etc/prometheus/rules:ro
@@ -44,7 +44,7 @@ services:
       - --path.rootfs=/rootfs
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     ports:
-      - "${NODE_EXPORTER_PORT}:9100"
+      - "${HOST_BIND_IP:-}${NODE_EXPORTER_PORT}:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -59,7 +59,7 @@ services:
     deploy:
       replicas: ${CADVISOR_SCALE:-0}
     ports:
-      - "${CADVISOR_PORT}:8080"
+      - "${HOST_BIND_IP:-}${CADVISOR_PORT}:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

@@ -13,7 +13,7 @@ services:
           memory: ${LIGHTRAG_MEMORY_LIMIT:-6g}
           cpus: '${LIGHTRAG_CPU_LIMIT:-2.0}'
     ports:
-      - "${LIGHTRAG_API_PORT}:9621"
+      - "${HOST_BIND_IP:-}${LIGHTRAG_API_PORT}:9621"
     # Override the image's bare `python -m lightrag.api.lightrag_server`
     # entrypoint with a shell wrapper that exports the resolved values
     # lightrag-init wrote to /app/data/.env BEFORE python starts. Without

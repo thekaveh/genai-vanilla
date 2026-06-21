@@ -9,7 +9,7 @@ services:
     networks:
       - backend-network
     ports:
-      - "${SEARXNG_PORT}:8080"
+      - "${HOST_BIND_IP:-}${SEARXNG_PORT}:8080"
     volumes:
       - ./config:/etc/searxng:rw
       - searxng-data:/var/cache/searxng

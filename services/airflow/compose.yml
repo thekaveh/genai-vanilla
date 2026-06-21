@@ -10,7 +10,7 @@ services:
     deploy:
       replicas: ${AIRFLOW_WEBSERVER_SCALE:-0}
     ports:
-      - "${AIRFLOW_PORT}:8080"
+      - "${HOST_BIND_IP:-}${AIRFLOW_PORT}:8080"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@supabase-db:5432/airflow

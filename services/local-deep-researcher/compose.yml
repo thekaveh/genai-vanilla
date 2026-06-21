@@ -27,7 +27,7 @@ services:
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
       LOCAL_DEEP_RESEARCHER_WORKERS: ${LOCAL_DEEP_RESEARCHER_WORKERS:-3}
     ports:
-      - "${LOCAL_DEEP_RESEARCHER_PORT}:2024"
+      - "${HOST_BIND_IP:-}${LOCAL_DEEP_RESEARCHER_PORT}:2024"
     volumes:
       - local-deep-researcher-data:/app/data
       - local-deep-researcher-repo:/app/repo

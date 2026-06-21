@@ -13,7 +13,7 @@ services:
       - supabase-db-data:/var/lib/postgresql/data
       - ./db/snapshot:/snapshot
     ports:
-      - "${SUPABASE_DB_PORT}:5432"
+      - "${HOST_BIND_IP:-}${SUPABASE_DB_PORT}:5432"
     networks:
       - backend-network
     healthcheck:
@@ -55,7 +55,7 @@ services:
       PG_META_DB_USER: ${SUPABASE_DB_USER}
       PG_META_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
     ports:
-      - "${SUPABASE_META_PORT}:8080"
+      - "${HOST_BIND_IP:-}${SUPABASE_META_PORT}:8080"
     networks:
       - backend-network
 
@@ -82,7 +82,7 @@ services:
       POSTGREST_URL: http://supabase-api:3000
       GOTRUE_URL: http://supabase-auth:9999
     ports:
-      - "${SUPABASE_STORAGE_PORT}:5000"
+      - "${HOST_BIND_IP:-}${SUPABASE_STORAGE_PORT}:5000"
     volumes:
       - supabase-storage-data:/var/lib/storage
     networks:
@@ -118,7 +118,7 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_SITE_NAME: "Local Supabase"
     ports:
-      - "${SUPABASE_AUTH_PORT}:9999"
+      - "${HOST_BIND_IP:-}${SUPABASE_AUTH_PORT}:9999"
     networks:
       - backend-network
 
@@ -136,7 +136,7 @@ services:
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       PGRST_DB_USE_LEGACY_GUCS: "false"
     ports:
-      - "${SUPABASE_API_PORT}:3000"
+      - "${HOST_BIND_IP:-}${SUPABASE_API_PORT}:3000"
     networks:
       - backend-network
 
@@ -186,7 +186,7 @@ services:
       DNS_NODES: supabase-realtime-noop.invalid
       APP_NAME: realtime
     ports:
-      - "${SUPABASE_REALTIME_PORT}:4000"
+      - "${HOST_BIND_IP:-}${SUPABASE_REALTIME_PORT}:4000"
     networks:
       - backend-network
 
@@ -221,7 +221,7 @@ services:
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD}
       HOSTNAME: 0.0.0.0
     ports:
-      - "${SUPABASE_STUDIO_PORT}:3000"
+      - "${HOST_BIND_IP:-}${SUPABASE_STUDIO_PORT}:3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e 'require(\"net\").createConnection({port:3000,host:\"localhost\"},()=>process.exit(0)).on(\"error\",()=>process.exit(1))'"]
       interval: 30s
@@ -241,7 +241,7 @@ services:
       DATA_SOURCE_NAME: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}?sslmode=disable"
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
     ports:
-      - "${POSTGRES_EXPORTER_PORT}:9187"
+      - "${HOST_BIND_IP:-}${POSTGRES_EXPORTER_PORT}:9187"
     depends_on:
       supabase-db:
         condition: service_healthy

@@ -77,7 +77,7 @@ services:
       LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
       LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
     ports:
-      - "${N8N_PORT}:5678"
+      - "${HOST_BIND_IP:-}${N8N_PORT}:5678"
     volumes:
       - n8n-data:/home/node/.n8n
     networks:

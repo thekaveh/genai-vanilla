@@ -99,7 +99,7 @@ services:
       - SUPABASE_STORAGE_BUCKET=${COMFYUI_STORAGE_BUCKET:-comfyui-images}
       - COMFYUI_UPLOAD_TO_SUPABASE=${COMFYUI_UPLOAD_TO_SUPABASE:-true}
     ports:
-      - "${COMFYUI_PORT}:18188"
+      - "${HOST_BIND_IP:-}${COMFYUI_PORT}:18188"
     volumes:
       - comfyui-models:/opt/ComfyUI/models
       - comfyui-output:/opt/ComfyUI/output

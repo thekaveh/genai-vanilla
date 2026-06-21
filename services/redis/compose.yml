@@ -11,7 +11,7 @@ services:
     volumes:
       - redis-data:/data
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${HOST_BIND_IP:-}${REDIS_PORT}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 30s
@@ -31,7 +31,7 @@ services:
       REDIS_ADDR: "redis://redis:6379"
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "${REDIS_EXPORTER_PORT}:9121"
+      - "${HOST_BIND_IP:-}${REDIS_EXPORTER_PORT}:9121"
     depends_on:
       redis:
         condition: service_healthy

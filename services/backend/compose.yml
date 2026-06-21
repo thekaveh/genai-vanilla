@@ -88,7 +88,7 @@ services:
       - backend-data:/app/data
       - weaviate-shared-config:/shared
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "${HOST_BIND_IP:-}${BACKEND_PORT}:8000"
     networks:
       - backend-network
 
