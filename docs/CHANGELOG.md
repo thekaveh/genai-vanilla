@@ -53,7 +53,7 @@ single flag and a matching wizard step:
 - **Observability defaulted on** — Prometheus and Grafana are promoted from
   their default-disabled state to default-on when the prod profile is active.
 - **Declarative `profiles:` source metadata** — each source option in
-  `service.yml` now carries an optional `option_in_profile` list. The wizard
+  `service.yml` now carries an optional `profiles:` list. The wizard
   filters out sources not listed for the active profile (hiding dev-only
   localhost sources in prod), and the CLI validator rejects them with an
   explicit error.
