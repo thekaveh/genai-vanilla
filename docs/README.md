@@ -39,6 +39,8 @@ Documentation index for Atlas.
 - [Apache Zeppelin](../services/zeppelin/README.md) — Spark-first notebook UI; Spark interpreter pre-configured, JDBC interpreter requires a one-time UI setup (opt-in via `ZEPPELIN_SOURCE`; gated on Spark)
 - [Apache Airflow](../services/airflow/README.md) — code-defined DAG orchestrator (webserver + scheduler + dag-processor + init) with LiteLLM-wired LLM operators (opt-in via `AIRFLOW_SOURCE`)
 - [TEI Reranker](../services/tei-reranker/README.md) — Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift
+- [Cloudflared Tunnel](../services/cloudflared/README.md) — Cloudflare Tunnel for zero-config public TLS ingress fronting Kong (opt-in via `CLOUDFLARED_SOURCE`)
+- [Backup / Restore](../services/backup/README.md) — on-demand Postgres dump + volume tarballs to S3/MinIO with a restore path (opt-in via `BACKUP_SOURCE`)
 
 ### 1.3 Deployment guides
 - [SOURCE Configuration](deployment/source-configuration.md) — SOURCE-based deployment, including GPU variants
