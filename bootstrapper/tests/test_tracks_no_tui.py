@@ -86,3 +86,59 @@ def test_no_tui_prompt_block_is_inside_will_run_wizard():
     assert prompt_pos < linear_pos, (
         "The no-TUI track prompt must fire BEFORE the linear flow section"
     )
+
+
+def test_no_tui_preset_track_force_disables_off_track_services():
+    """Regression: ``--no-tui --track <key>`` (preset track, no source flags,
+    TTY) must force-disable off-track services in source_args. Previously the
+    synthesis was gated ``if track is None`` (only the stdin-prompt path), so a
+    *preset* track in a TTY left will_run_wizard=True → wizard skipped (no-TUI)
+    → off-track services kept their .env defaults and started, silently
+    violating the track contract. This replicates the synthesis logic and
+    asserts the off-track / in-track / explicitly-flagged behaviors."""
+    from tracks import load_tracks, is_in_track
+    reg = load_tracks()
+    track = reg.by_key["gen-ai-rag"]
+    assert is_in_track(track, "weaviate", always_on=reg.always_on)       # in-track
+    assert not is_in_track(track, "airflow", always_on=reg.always_on)    # off-track
+    assert not is_in_track(track, "comfyui", always_on=reg.always_on)    # off-track
+
+    source_args = {
+        "weaviate_source": None,             # in-track → untouched
+        "airflow_source": None,              # off-track, no flag → disabled
+        "comfyui_source": "container-cpu",   # off-track but flagged → flag wins
+        "cloud_openai_source": None,         # cloud key → always skipped
+    }
+    overridden: set[str] = set()
+    # Mirrors the synthesis loop in start.py's no-TUI fallback.
+    for cli_key in list(source_args.keys()):
+        if cli_key.startswith("cloud_"):
+            continue
+        svc_key = cli_key.removesuffix("_source").replace("_", "-")
+        if is_in_track(track, svc_key, always_on=reg.always_on):
+            continue
+        if source_args.get(cli_key) is not None:
+            overridden.add(svc_key)
+        else:
+            source_args[cli_key] = "disabled"
+
+    assert source_args["airflow_source"] == "disabled", "off-track svc must be disabled"
+    assert source_args["weaviate_source"] is None, "in-track svc must be untouched"
+    assert source_args["comfyui_source"] == "container-cpu", "explicit flag must win"
+    assert "comfyui" in overridden, "flagged off-track svc recorded as override"
+    assert source_args["cloud_openai_source"] is None, "cloud keys always skipped"
+
+
+def test_no_tui_force_disable_runs_for_resolved_track_not_just_prompted():
+    """Structural guard for the regression above: the no-TUI force-disable
+    synthesis must run for the RESOLVED track (preset via --track OR prompted
+    on stdin), gated on ``track is not None`` — NOT nested solely inside the
+    ``if track is None`` prompt block. Re-nesting it under ``track is None``
+    would silently reintroduce the ``--no-tui --track`` bug."""
+    src = (REPO_ROOT / "bootstrapper" / "start.py").read_text(encoding="utf-8")
+    assert "if _reg is not None and track is not None:" in src, (
+        "The no-TUI force-disable synthesis must run for the resolved track "
+        "(guard `if _reg is not None and track is not None:`). Gating it on "
+        "`track is None` regresses `--no-tui --track <key>` — off-track "
+        "services would not be force-disabled."
+    )
