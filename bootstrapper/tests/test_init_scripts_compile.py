@@ -1,14 +1,16 @@
-"""Every Python init/runtime script under `services/*/init/scripts/*.py`
-or `services/*/build/scripts/*.py` must parse cleanly via `py_compile`;
-every shell script under the same two locations must parse cleanly via
-`bash -n`.
+"""Every Python init/runtime script under any `services/<svc>/.../scripts/`
+directory must parse cleanly via `py_compile`; every shell script under
+the same tree must parse cleanly via `bash -n`.
 
-Two layouts ship scripts the bootstrapper package never imports:
-`init/scripts/` (dedicated init containers) and `build/scripts/`
-(entrypoints + helpers baked into a service image — e.g. neo4j
-backup/restore, jupyterhub `startup.sh`, local-deep-researcher's
-entrypoint + `init-config.py`). Both run at container build or start, so
-both need the syntax guard.
+Service scripts the bootstrapper package never imports live in several
+`scripts/` layouts: `init/scripts/` (dedicated init containers),
+`build/scripts/` (entrypoints + helpers baked into a service image — neo4j
+backup/restore, jupyterhub `startup.sh`, local-deep-researcher's entrypoint
++ `init-config.py`), `catalog-init/scripts/` (litellm + comfyui
+`sync-catalog.py`), `pull/scripts/`, and `db/scripts/`. All run at container
+build or start, so all need the syntax guard — the discovery globs recurse
+the whole `services/` tree rather than enumerate subdirs (which kept missing
+new layouts).
 
 The init container is the production loader — Python imports / bash
 sources those files at container start. A purely-syntactic error
@@ -43,17 +45,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _discover_init_scripts() -> list[Path]:
-    return sorted(
-        list(REPO_ROOT.glob("services/*/init/scripts/*.py"))
-        + list(REPO_ROOT.glob("services/*/build/scripts/*.py"))
-    )
+    # Recursive: every *.py under ANY services/<svc>/.../scripts/ directory —
+    # covers init/scripts, build/scripts, catalog-init/scripts, pull/scripts,
+    # db/scripts, and any future <subdir>/scripts/ layout. Enumerating specific
+    # subdirs missed catalog-init (litellm/comfyui sync-catalog.py) and others,
+    # so glob the whole tree instead of playing subdir whack-a-mole.
+    return sorted(REPO_ROOT.glob("services/*/**/scripts/*.py"))
 
 
 def _discover_shell_init_scripts() -> list[Path]:
-    return sorted(
-        list(REPO_ROOT.glob("services/*/init/scripts/*.sh"))
-        + list(REPO_ROOT.glob("services/*/build/scripts/*.sh"))
-    )
+    return sorted(REPO_ROOT.glob("services/*/**/scripts/*.sh"))
 
 
 @pytest.mark.parametrize(
