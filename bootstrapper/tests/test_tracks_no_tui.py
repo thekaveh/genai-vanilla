@@ -68,17 +68,22 @@ def test_no_tui_prompt_valid_track_accepted():
 
 
 def test_no_tui_prompt_block_is_inside_will_run_wizard():
-    """Structural check: the prompt block is gated inside the will_run_wizard
-    branch so it only fires when the full wizard would have run."""
+    """Structural (positional-bracketing) check: the no-TUI track prompt must
+    sit between the ``if will_run_wizard:`` branch opener and the linear-flow
+    marker — i.e. within the region that only executes when a wizard run was
+    intended. This is a substring-position guard, not a full AST nesting
+    proof; it catches the prompt being hoisted out ahead of the branch or
+    sinking past the linear-flow boundary."""
     src = (REPO_ROOT / "bootstrapper" / "start.py").read_text(encoding="utf-8")
-    # The prompt must appear AFTER 'will_run_wizard' is defined and inside
-    # the branch that tests it.
-    wizard_pos = src.find("will_run_wizard =")
+    # Bracket from the actual branch OPENER (`if will_run_wizard:`), not merely
+    # the variable's definition — so moving the prompt above the branch fails.
+    branch_pos = src.find("if will_run_wizard:")
     prompt_pos = src.find("Pick a track")
-    assert wizard_pos != -1, "will_run_wizard not found in start.py"
+    assert branch_pos != -1, "`if will_run_wizard:` branch not found in start.py"
     assert prompt_pos != -1, "Pick a track prompt not found in start.py"
-    assert prompt_pos > wizard_pos, (
-        "The no-TUI track prompt must appear AFTER will_run_wizard is defined"
+    assert prompt_pos > branch_pos, (
+        "The no-TUI track prompt must appear AFTER the `if will_run_wizard:` "
+        "branch opener (inside the branch), not before it"
     )
     # The prompt must also appear before the linear flow marker.
     linear_pos = src.find("# Linear (--no-tui / non-TTY) flow from here on")
