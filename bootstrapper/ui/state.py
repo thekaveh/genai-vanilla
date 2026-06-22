@@ -52,7 +52,7 @@ class AppState:
     # `.env` sees the same canonical strings the manifest-shipped default
     # would have produced. Both layers consume the same source of truth.
     brand_name: str = "Atlas"
-    tagline: str = "A self-hosted, source-configurable engineering platform — gen-AI, ML, and data."
+    tagline: str = "A self-hosted, source-configurable multi-disciplinary engineering platform — gen-AI, ML, and data."
     version: str = "0.1.0"
     creator: str = "Kaveh Razavi"
     creator_email: str = "kaveh.razavi@gmail.com"

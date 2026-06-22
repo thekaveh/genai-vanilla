@@ -15,7 +15,9 @@ from utils.banner import BannerDisplay
 _DEFAULT_AUTHOR = "Developed by Kaveh Razavi"
 _DEFAULT_REPO = "https://github.com/thekaveh/atlas"
 _DEFAULT_LICENSE = "Apache License 2.0"
-_DEFAULT_TAGLINE = "A self-hosted, source-configurable engineering platform"
+_DEFAULT_TAGLINE = (
+    "A self-hosted, source-configurable multi-disciplinary engineering platform"
+)
 
 
 def _patch_env(monkeypatch, value):
