@@ -316,7 +316,7 @@ The metadata on the pinned info-box's border (brand name, tagline, version, auth
 
 ```
 BRAND_NAME=Atlas
-BRAND_TAGLINE=A self-hosted, source-configurable multi-disciplinary engineering platform — gen-AI, ML, and data.
+BRAND_TAGLINE=A self-hosted, source-configurable, multi-disciplinary engineering platform — gen-AI, ML, and data.
 BRAND_VERSION=0.1.0
 BRAND_AUTHOR=Kaveh Razavi
 BRAND_AUTHOR_EMAIL=kaveh.razavi@gmail.com
