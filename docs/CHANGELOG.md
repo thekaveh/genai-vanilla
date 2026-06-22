@@ -39,13 +39,15 @@ single flag and a matching wizard step:
   `${HOST_BIND_IP:-}`, which resolves to the empty string in dev (no-op, byte-
   identical compose output) and to `127.0.0.1` under prod, so no service socket
   is reachable from outside the host.
-- **Per-service resource limits** — every service manifest declares
-  `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values as always-on `.env` defaults wired
-  directly into each `compose.yml` fragment (applied unconditionally, independent
-  of `--profile prod`). These are OOM fences, not reservations; heavy services
-  (Spark, Airflow, Ray, Zeppelin) default to scale 0 and are enabled per track,
-  so the sum of all default limits intentionally exceeds a 32 GB host — size and
-  enable per your track.
+- **Per-service resource limits** — the heavy compute + data services (Airflow,
+  ComfyUI, Hermes, LightRAG, Neo4j, Ray, Spark, TEI Reranker, Weaviate, Zeppelin)
+  declare `*_MEMORY_LIMIT` and `*_CPU_LIMIT` values as always-on `.env` defaults
+  wired directly into their `compose.yml` `deploy.resources.limits` (applied
+  unconditionally, independent of `--profile prod`). These are OOM fences, not
+  reservations; the GPU/compute services default to scale 0 and are enabled per
+  track, so the sum of all default limits intentionally exceeds a 32 GB host —
+  size and enable per your track. Lighter always-on services (Backend, n8n,
+  LiteLLM, etc.) currently run unbounded.
 - **JSON-file log rotation** — `LOG_MAX_SIZE` and `LOG_MAX_FILE` control the
   Docker json-file log driver's `max-size` and `max-file` options, wired into
   every service's `compose.yml` fragment as always-on `.env` defaults

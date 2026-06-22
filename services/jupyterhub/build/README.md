@@ -45,7 +45,7 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 ### Authentication
 
 - If `JUPYTERHUB_TOKEN` is not set, a token will be auto-generated on startup
-- Check Docker logs to see the token: `docker logs atlas-jupyterhub`
+- Check Docker logs to see the token: `docker logs ${PROJECT_NAME}-jupyterhub`
 - Set a permanent token in `.env` to avoid regeneration
 
 ## Pre-installed Packages
@@ -199,7 +199,7 @@ print("Neo4j:", os.getenv("NEO4J_URI"))
 
 ### Token not working
 
-1. Check logs: `docker logs atlas-jupyterhub`
+1. Check logs: `docker logs ${PROJECT_NAME}-jupyterhub`
 2. Find the token URL in logs
 3. Or set `JUPYTERHUB_TOKEN` in `.env` and restart
 
@@ -252,4 +252,4 @@ Avoid direct `docker-compose.yml` edits for normal operation; local compose edit
 
 - GitHub Issues: [Report bugs](https://github.com/thekaveh/atlas/issues)
 - Documentation: [Full docs](../../../docs/README.md)
-- Logs: `docker logs atlas-jupyterhub`
+- Logs: `docker logs ${PROJECT_NAME}-jupyterhub`

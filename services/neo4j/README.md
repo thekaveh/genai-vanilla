@@ -286,7 +286,7 @@ docker exec ${PROJECT_NAME}-neo4j-graph-db cat /var/lib/neo4j/conf/neo4j.conf
 docker exec -it ${PROJECT_NAME}-neo4j-graph-db /usr/local/bin/restore.sh
 
 # If backup is corrupted, reinitialize (data loss)
-docker volume rm atlas-graph-db-data
+docker volume rm ${PROJECT_NAME}-graph-db-data
 docker compose up neo4j-graph-db
 ```
 
