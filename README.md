@@ -4,7 +4,7 @@
 
 # Atlas
 
-A self-hosted, source-configurable multi-disciplinary engineering platform — gen-AI, ML, and data — composable from a single Docker Compose stack.
+A self-hosted, source-configurable, multi-disciplinary engineering platform — gen-AI, ML, and data — composable from a single Docker Compose stack.
 
 [![Atlas — interactive setup wizard streaming the launch phase, with the ASCII brand banner pinned at the top of the terminal](./docs/screenshots/wizard-running.png)](./docs/screenshots/wizard-running.png)
 
