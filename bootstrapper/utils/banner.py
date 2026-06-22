@@ -29,7 +29,7 @@ class BannerDisplay:
                 return v
         except Exception:  # noqa: BLE001 — banner must never break startup
             pass
-        return "A self-hosted, source-configurable engineering platform"
+        return "A self-hosted, source-configurable multi-disciplinary engineering platform"
 
     def _brand_credits(self) -> tuple[str, str, str]:
         """(author, repo_url, license) for the credit lines.
