@@ -1,6 +1,14 @@
-"""Every Python init script under `services/*/init/scripts/*.py` must
-parse cleanly via `py_compile`; every shell init script under
-`services/*/init/scripts/*.sh` must parse cleanly via `bash -n`.
+"""Every Python init/runtime script under `services/*/init/scripts/*.py`
+or `services/*/build/scripts/*.py` must parse cleanly via `py_compile`;
+every shell script under the same two locations must parse cleanly via
+`bash -n`.
+
+Two layouts ship scripts the bootstrapper package never imports:
+`init/scripts/` (dedicated init containers) and `build/scripts/`
+(entrypoints + helpers baked into a service image — e.g. neo4j
+backup/restore, jupyterhub `startup.sh`, local-deep-researcher's
+entrypoint + `init-config.py`). Both run at container build or start, so
+both need the syntax guard.
 
 The init container is the production loader — Python imports / bash
 sources those files at container start. A purely-syntactic error
@@ -35,11 +43,17 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _discover_init_scripts() -> list[Path]:
-    return sorted(REPO_ROOT.glob("services/*/init/scripts/*.py"))
+    return sorted(
+        list(REPO_ROOT.glob("services/*/init/scripts/*.py"))
+        + list(REPO_ROOT.glob("services/*/build/scripts/*.py"))
+    )
 
 
 def _discover_shell_init_scripts() -> list[Path]:
-    return sorted(REPO_ROOT.glob("services/*/init/scripts/*.sh"))
+    return sorted(
+        list(REPO_ROOT.glob("services/*/init/scripts/*.sh"))
+        + list(REPO_ROOT.glob("services/*/build/scripts/*.sh"))
+    )
 
 
 @pytest.mark.parametrize(
@@ -67,8 +81,8 @@ def test_at_least_one_script_discovered() -> None:
     """
     scripts = _discover_init_scripts()
     assert scripts, (
-        "No init scripts discovered under services/*/init/scripts/*.py — "
-        "the layout may have changed; update this test's glob."
+        "No init scripts discovered under services/*/{init,build}/scripts/*.py "
+        "— the layout may have changed; update this test's glob."
     )
 
 
