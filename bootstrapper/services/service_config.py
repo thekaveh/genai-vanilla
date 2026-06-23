@@ -4,6 +4,7 @@ Service configuration generation based on YAML and SOURCE values.
 Python implementation of generate_service_environment() and related functions from start.sh.
 """
 
+import os
 import re
 from typing import Dict, Any, Optional
 from core.config_parser import ConfigParser
@@ -1357,10 +1358,22 @@ class ServiceConfig:
                     # Variable doesn't exist, append it
                     updated_content += f'\n{replacement}'
             
-            # Write updated content back
-            with open(env_file_path, 'w', encoding="utf-8") as f:
-                f.write(updated_content)
-                
+            # Write atomically (tmp + os.replace): a crash mid-write on an
+            # in-place open(..., 'w') truncates the user's secrets-bearing
+            # .env. Preserve the original mode (a user-chmod'd 0600 .env must
+            # not come back umask-default) and never leave the tmp behind on
+            # failure. Mirrors utils/source_override_manager.py.
+            tmp_path = f"{env_file_path}.tmp"
+            try:
+                original_mode = os.stat(env_file_path).st_mode
+                with open(tmp_path, 'w', encoding="utf-8") as f:
+                    os.chmod(tmp_path, original_mode)
+                    f.write(updated_content)
+                os.replace(tmp_path, env_file_path)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
             return True
             
         except Exception as e:
