@@ -72,6 +72,20 @@ The `spark-connect` sidecar is **backend-only by design** — it publishes no ho
 - **Host-side IDE / local Jupyter:** would require publishing the 15002 gRPC port to the host (then `sc://localhost:<port>`). Not enabled in the in-stack-only baseline.
 - **Remote/managed Spark (cloud burst):** the same `spark.remote` client can point at a managed Spark Connect endpoint instead. Amazon EMR Serverless, for example, exposes interactive Spark Connect sessions at `sc://<endpoint>:443/;use_ssl=true;x-aws-proxy-auth=<token>` — the token is fetched per-session via the `emr-serverless` API and expires hourly, and the client's Spark version must match the EMR release's Spark version. That is a fundamentally different, ephemeral-session + IAM model than the static in-network sidecar — useful for scale-out, not a drop-in replacement.
 
+### 1.6 Driving Zeppelin from VS Code
+
+Zeppelin speaks its own REST + websocket protocol, **not** the Jupyter kernel protocol — so VS Code's built-in Jupyter extension cannot connect to it. Use the community **"Zeppelin Notebook"** extension ([`AllenLi1231.zeppelin-vscode`](https://marketplace.visualstudio.com/items?itemName=AllenLi1231.zeppelin-vscode)) instead. It renders `.zpln` notebooks in VS Code and runs every paragraph **server-side** on the Zeppelin server:
+
+1. Install `AllenLi1231.zeppelin-vscode` from the Marketplace (requires Zeppelin >= 0.8.0; this image is 0.12.0).
+2. Open or create a `.zpln` file. On the first cell run, the extension prompts for the **server URL** — enter `http://localhost:${ZEPPELIN_PORT}` (no credentials; the stack ships no auth — see §2).
+3. Complete the one-time `spark.remote` interpreter setup from §1.2 if you haven't. It lives server-side, so it applies to the web UI and VS Code alike.
+
+Because execution happens on the server, `%spark` (Scala) and `%spark.pyspark` cells run through the same Spark Connect sidecar as the web UI — VS Code never needs a Scala kernel or a Spark client of its own, and S3A/MinIO + the History Server behave identically.
+
+**Remote host:** the extension only needs the HTTP UI, so SSH-tunnel it and point at localhost — `ssh -N -L ${ZEPPELIN_PORT}:localhost:${ZEPPELIN_PORT} user@host`. You do **not** expose the backend-only gRPC port (15002); the Zeppelin server reaches Spark Connect on the Docker network for you (§1.5).
+
+**Caveats** (third-party extension): no notebook permissions / version-control / cron; don't edit a cell mid-run (close and reopen the notebook to resync); the VS Code language mode is cosmetic syntax highlighting only. The browser UI (§2) is the dependable fallback.
+
 ## 2. Access
 
 | Surface | URL | Auth |
