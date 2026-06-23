@@ -85,6 +85,7 @@ def validate_manifests(
 
     issues.extend(_check_unique_env_vars(manifests))
     issues.extend(_check_unique_containers(manifests))
+    issues.extend(_check_data_flow_targets(manifests))
     issues.extend(_check_dependency_closure(manifests))
     issues.extend(_check_export_consumer_closure(manifests))
     issues.extend(_check_per_manifest_contract(manifests))
@@ -105,6 +106,43 @@ def validate_manifests(
 # ────────────────────────────────────────────────────────────────────────────
 # Individual rules
 # ────────────────────────────────────────────────────────────────────────────
+
+
+# Aggregate doc-folder names are valid data_flow.calls targets even though
+# some own no manifest (they fold one or more real manifests under a single
+# user-facing role). Mirror of docs.deps_resolver._AGGREGATE_DOC_FOLDERS keys;
+# kept local to avoid a services/ -> docs/ import. The two are guarded against
+# drift by test_data_flow_targets.py.
+_AGGREGATE_DOC_FOLDER_NAMES = frozenset(
+    {"stt-provider", "tts-provider", "doc-processor", "multi2vec-clip"}
+)
+
+
+def _check_data_flow_targets(manifests: list[Manifest]) -> list[ValidationIssue]:
+    """Every data_flow.calls target must name a real manifest or an aggregate
+    doc-folder. An unknown target (typo / renamed / deleted service) otherwise
+    silently renders as a phantom 'external' node in the generated deps graph
+    and architecture diagram. NOTE: name-existence only — this does NOT verify
+    the caller actually reaches the target at runtime (semantic reachability is
+    not statically checkable here without unacceptable false positives)."""
+    valid = {m.name for m in manifests} | _AGGREGATE_DOC_FOLDER_NAMES
+    issues: list[ValidationIssue] = []
+    for m in manifests:
+        calls = (m.data_flow or {}).get("calls") or []
+        for target in calls:
+            if target not in valid:
+                issues.append(
+                    ValidationIssue(
+                        kind="data_flow_unknown_target",
+                        manifest=m.name,
+                        message=(
+                            f"data_flow.calls references unknown target '{target}' "
+                            f"— not a manifest name or aggregate doc-folder. Fix the "
+                            f"name or remove the edge."
+                        ),
+                    )
+                )
+    return issues
 
 
 def _check_unique_env_vars(manifests: list[Manifest]) -> list[ValidationIssue]:
