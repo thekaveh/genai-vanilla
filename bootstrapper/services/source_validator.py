@@ -93,9 +93,9 @@ class SourceValidator:
             # cli_key is e.g. 'ray_head_source' → strip suffix → 'ray_head'
             # → kebab-case → 'ray-head' (the runtime_sc top-level key)
             stem = cli_key[:-len('_source')] if cli_key.endswith('_source') else cli_key
-            container_key = stem.replace('_', '-')
-            if container_key in source_configurable:
-                service_mapping[canonical_env_var] = container_key
+            runtime_sc_key = stem.replace('_', '-')
+            if runtime_sc_key in source_configurable:
+                service_mapping[canonical_env_var] = runtime_sc_key
 
         return service_mapping
         
