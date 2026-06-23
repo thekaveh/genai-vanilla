@@ -112,7 +112,8 @@ def validate_manifests(
 # some own no manifest (they fold one or more real manifests under a single
 # user-facing role). Mirror of docs.deps_resolver._AGGREGATE_DOC_FOLDERS keys;
 # kept local to avoid a services/ -> docs/ import. The two are guarded against
-# drift by test_data_flow_targets.py.
+# drift by test_aggregate_doc_folder_names_match_deps_resolver in
+# tests/test_manifest_validator.py.
 _AGGREGATE_DOC_FOLDER_NAMES = frozenset(
     {"stt-provider", "tts-provider", "doc-processor", "multi2vec-clip"}
 )

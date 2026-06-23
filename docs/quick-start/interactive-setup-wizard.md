@@ -236,9 +236,11 @@ Selections persist as a sibling env var:
 
 The input renders directly on the source step — no follow-up cascade — so
 the user picks both a source and a numeric refinement in one keystroke
-sequence. Adding a new inline input requires only a `secondary_number` block
-on the relevant `rows[]` entry in `service.yml` (the schema field is
-documented in `docs/CONTRIBUTING-services.md`).
+sequence. Adding a Prometheus-style manifest-driven inline input requires only
+a `secondary_number` block on the relevant `rows[]` entry in `service.yml` (the
+schema field is documented in `docs/CONTRIBUTING-services.md`); the Ray and
+Spark worker-count inputs are wired directly in the wizard code
+(`bootstrapper/ui/textual/integration.py`).
 
 ## 7. Stack Options
 
