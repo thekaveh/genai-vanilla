@@ -33,6 +33,14 @@ on their host.
 - `urllib3` decompression-bomb (CVE-2026-44431/44432, high): **reachable**.
   The bootstrapper makes outbound HTTPS calls (Docker registry, Hugging Face,
   Ollama catalog). Floor-bumped immediately to clear.
+- `torch.load` deserialization RCE (CVE-2025-32434, critical) in
+  `torch==2.4.1` (Tier A, jupyterhub image): **unreachable**. No
+  `torch.load` / `torch.jit.script` / `weights_only` callsite exists
+  anywhere in `services/**`; notebooks load models through library APIs,
+  not attacker-supplied checkpoints. The pin is held back deliberately —
+  torch + PyTorch-Geometric must migrate in lockstep with the matching
+  `--find-links` wheel index (see the `dependabot.yml` ignore list), so
+  the fixed `torch>=2.6` is not a drop-in bump.
 
 ## 4. Reporting a Vulnerability
 

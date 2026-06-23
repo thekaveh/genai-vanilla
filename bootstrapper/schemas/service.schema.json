@@ -59,7 +59,7 @@
     },
     "docs": {
       "type": "string",
-      "description": "Optional pointer to services/<name>.md (or similar)."
+      "description": "Optional pointer to the service's docs, e.g. services/<name>/README.md."
     },
     "extra_kong_aliases": {
       "type": "array",
@@ -331,7 +331,7 @@
             "type": "object",
             "additionalProperties": false,
             "required": ["env_var", "label", "default"],
-            "description": "Inline secondary numeric input on the row's source prompt. Used by Ray (worker count) and Prometheus (retention days). The Textual wizard mounts a SecondaryNumberInput widget; the value persists to .env on confirm.",
+            "description": "Inline secondary numeric input on the row's source prompt. Used by Prometheus (retention days). The Textual wizard mounts a SecondaryNumberInput widget; the value persists to .env on confirm. (Ray/Spark worker-count widgets are built in integration.py, not via this field.)",
             "properties": {
               "env_var": {
                 "type": "string",
