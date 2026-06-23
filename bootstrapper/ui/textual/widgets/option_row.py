@@ -590,6 +590,12 @@ class OptionRow(Widget):
             box_color = P.OK if self.checked else P.TEXT_FAINT
             line1.append(box, style=box_color)
             line1.append(" ")
+        # Column at which the label begins — cursor(3) + 2-space gap +
+        # expand-indicator(2) [+ checkbox(4) when multi]. Captured here
+        # so line 2 (size variants / hint) can indent to exactly this
+        # column and read as nested *under* the label rather than
+        # starting to its left.
+        label_col = line1.cell_len
         label_color = P.ACCENT if self.selected else P.TEXT
         line1.append(self.label, style=f"bold {label_color}" if self.selected else label_color)
 
@@ -642,7 +648,7 @@ class OptionRow(Widget):
             return line1
 
         line2 = Text()
-        line2.append(" " * 5)
+        line2.append(" " * label_col)
         if has_sizes:
             line2.append(sizes_text)
         if has_sizes and has_hint:
@@ -866,8 +872,9 @@ class OptionRowWithInput(Container):
             yield Static(badges_text, classes="row-badges")
         yield top
         # Second row — hint, full container width. Padding-left of 7
-        # matches OptionRow's hint indent ("  " * 5 inside its render
-        # plus a 2-cell extra to align under the label).
+        # matches the label column: _LabelOnlyRender's cursor(3) + 4-cell
+        # gap puts the label at column 7, and OptionRow.render indents its
+        # own line-2 hint to the same computed label column.
         if self.hint:
             yield Static(
                 Text(self.hint, style=P.TEXT_FAINT),
