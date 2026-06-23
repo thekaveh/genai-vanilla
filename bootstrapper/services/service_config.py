@@ -1380,29 +1380,40 @@ class ServiceConfig:
             print(f"❌ Failed to update .env file: {e}")
             return False
     
-    def check_comfyui_local_models(self) -> None:
+    def check_comfyui_local_models(self, on_line=None) -> None:
         """
         Check ComfyUI local models directory.
         Replicates the ComfyUI local models check from start.sh.
+
+        When `on_line` is provided (TUI mode), output routes through it as
+        ``on_line(msg, level)`` — matching show_container_status_and_verify_ports
+        — so a late check after the log pane detaches can't smear the bare
+        terminal. When None (legacy/linear mode), falls back to print().
         """
+        def _emit(msg: str, level: str = "ok") -> None:
+            if on_line is not None:
+                on_line(msg, level)
+            else:
+                print(msg)
+
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
         is_local = comfyui_source == 'localhost'
-        
+
         if is_local:
             from pathlib import Path
-            
+
             # Get local models path from env
             env_vars = self.config_parser.parse_env_file()
             models_path = env_vars.get('COMFYUI_LOCAL_MODELS_PATH', '~/Documents/ComfyUI/models')
-            
+
             # Expand user home directory
             models_path = Path(models_path).expanduser()
-            
+
             if models_path.exists():
-                print(f"  • ✅ ComfyUI local models found: {models_path}")
+                _emit(f"  • ✅ ComfyUI local models found: {models_path}", "ok")
             else:
-                print(f"  • ⚠️  ComfyUI local models directory not found: {models_path}")
-                print("    Please ensure your local ComfyUI models are in the correct location")
+                _emit(f"  • ⚠️  ComfyUI local models directory not found: {models_path}", "warn")
+                _emit("    Please ensure your local ComfyUI models are in the correct location", "warn")
     
     def generate_and_update_env(self, create_backup: bool = True) -> bool:
         """
