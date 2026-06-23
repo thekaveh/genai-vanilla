@@ -1644,7 +1644,9 @@ class WizardScreen(Screen):
                         on_line=_on_verify_line,
                     )
                 with contextlib.suppress(Exception):
-                    await asyncio.to_thread(starter.check_comfyui_models)
+                    await asyncio.to_thread(
+                        starter.check_comfyui_models, on_line=_on_verify_line
+                    )
 
             self.run_worker(_post_up_checks(), exclusive=False, exit_on_error=False)
 

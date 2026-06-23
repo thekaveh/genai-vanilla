@@ -4,6 +4,7 @@ Service configuration generation based on YAML and SOURCE values.
 Python implementation of generate_service_environment() and related functions from start.sh.
 """
 
+import os
 import re
 from typing import Dict, Any, Optional
 from core.config_parser import ConfigParser
@@ -1357,39 +1358,62 @@ class ServiceConfig:
                     # Variable doesn't exist, append it
                     updated_content += f'\n{replacement}'
             
-            # Write updated content back
-            with open(env_file_path, 'w', encoding="utf-8") as f:
-                f.write(updated_content)
-                
+            # Write atomically (tmp + os.replace): a crash mid-write on an
+            # in-place open(..., 'w') truncates the user's secrets-bearing
+            # .env. Preserve the original mode (a user-chmod'd 0600 .env must
+            # not come back umask-default) and never leave the tmp behind on
+            # failure. Mirrors utils/source_override_manager.py.
+            tmp_path = f"{env_file_path}.tmp"
+            try:
+                original_mode = os.stat(env_file_path).st_mode
+                with open(tmp_path, 'w', encoding="utf-8") as f:
+                    os.chmod(tmp_path, original_mode)
+                    f.write(updated_content)
+                os.replace(tmp_path, env_file_path)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+
             return True
             
         except Exception as e:
             print(f"❌ Failed to update .env file: {e}")
             return False
     
-    def check_comfyui_local_models(self) -> None:
+    def check_comfyui_local_models(self, on_line=None) -> None:
         """
         Check ComfyUI local models directory.
         Replicates the ComfyUI local models check from start.sh.
+
+        When `on_line` is provided (TUI mode), output routes through it as
+        ``on_line(msg, level)`` — matching show_container_status_and_verify_ports
+        — so a late check after the log pane detaches can't smear the bare
+        terminal. When None (legacy/linear mode), falls back to print().
         """
+        def _emit(msg: str, level: str = "ok") -> None:
+            if on_line is not None:
+                on_line(msg, level)
+            else:
+                print(msg)
+
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
         is_local = comfyui_source == 'localhost'
-        
+
         if is_local:
             from pathlib import Path
-            
+
             # Get local models path from env
             env_vars = self.config_parser.parse_env_file()
             models_path = env_vars.get('COMFYUI_LOCAL_MODELS_PATH', '~/Documents/ComfyUI/models')
-            
+
             # Expand user home directory
             models_path = Path(models_path).expanduser()
-            
+
             if models_path.exists():
-                print(f"  • ✅ ComfyUI local models found: {models_path}")
+                _emit(f"  • ✅ ComfyUI local models found: {models_path}", "ok")
             else:
-                print(f"  • ⚠️  ComfyUI local models directory not found: {models_path}")
-                print("    Please ensure your local ComfyUI models are in the correct location")
+                _emit(f"  • ⚠️  ComfyUI local models directory not found: {models_path}", "warn")
+                _emit("    Please ensure your local ComfyUI models are in the correct location", "warn")
     
     def generate_and_update_env(self, create_backup: bool = True) -> bool:
         """

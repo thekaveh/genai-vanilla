@@ -151,8 +151,11 @@ class SupabaseKeyGenerator:
                 replacement = f'{key}={value}'
                 
                 if re.search(pattern, updated_content, re.MULTILINE):
-                    # Key exists, replace it
-                    updated_content = re.sub(pattern, replacement, updated_content, flags=re.MULTILINE)
+                    # Key exists, replace it. Lambda bypasses re.sub's
+                    # backslash interpretation in the replacement string
+                    # (matches the other .env writers — see
+                    # source_override_manager.py / service_config.py).
+                    updated_content = re.sub(pattern, lambda _m, r=replacement: r, updated_content, flags=re.MULTILINE)
                 else:
                     # Key doesn't exist, append it
                     if updated_content and not updated_content.endswith('\n'):

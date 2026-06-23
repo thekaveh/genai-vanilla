@@ -48,9 +48,7 @@ class LocalhostValidator:
         'NEO4J_GRAPH_DB_SOURCE': {
             'source_values': ['localhost'],
             'check_type': 'tcp',
-            'host': 'localhost',
             'port_env_var': 'NEO4J_LOCALHOST_BOLT_PORT',
-            'port': 7687,
             'service_name': 'Neo4j',
             'default_port': 7687
         },
@@ -251,7 +249,7 @@ class LocalhostValidator:
                 # `or default`: dict.get's default only applies when the
                 # key is ABSENT — a present-but-blank var would otherwise
                 # produce http://localhost:/path and a false warning.
-                port = env_vars.get(config['port_env_var']) or config['default_port']
+                port = (env_vars.get(config['port_env_var']) or "").strip() or config['default_port']
                 endpoints = [f"http://localhost:{port}{config.get('health_path', '/health')}"]
             else:
                 endpoints = config['endpoints']
@@ -286,7 +284,7 @@ class LocalhostValidator:
             # check treats as "down").
             if 'port_env_var' in config:
                 env_vars = self.config_parser.parse_env_file()
-                port = env_vars.get(config['port_env_var']) or config['default_port']
+                port = (env_vars.get(config['port_env_var']) or "").strip() or config['default_port']
                 host = 'localhost'
             else:
                 host = config['host']

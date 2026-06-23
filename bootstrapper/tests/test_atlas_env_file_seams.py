@@ -86,6 +86,53 @@ def test_update_env_file_preserves_backslashes_in_values(tmp_path, monkeypatch):
     assert f"SOME_SECRET={tricky}\n" in env.read_text(encoding="utf-8")
 
 
+def test_service_config_update_preserves_backslashes_in_values(tmp_path, monkeypatch):
+    """ServiceConfig.update_env_file is the PRIMARY start-path .env writer
+    and a near-duplicate of SourceOverrideManager.update_env_file. It must
+    carry the same backslash-safe lambda re.sub — a plain replacement
+    string would interpret \\1 / \\g<name> and silently corrupt a JWT /
+    base64 secret. Pins the second copy so the two can't drift."""
+    from services.service_config import ServiceConfig
+
+    env = tmp_path / ".env"
+    env.write_text("SOME_SECRET=old\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+    sc = ServiceConfig()
+    tricky = r"abc\1def\g<name>\\end"
+    assert sc.update_env_file({"SOME_SECRET": tricky}, create_backup=False) is True
+    assert f"SOME_SECRET={tricky}\n" in env.read_text(encoding="utf-8")
+
+
+def test_service_config_update_preserves_file_mode(tmp_path, monkeypatch):
+    """A user-chmod'd 0600 .env must not come back umask-default. The
+    atomic writer clamps the tmp file's mode to the original before
+    writing secrets."""
+    import os
+
+    env = tmp_path / ".env"
+    env.write_text("SOME_SECRET=old\n", encoding="utf-8")
+    os.chmod(env, 0o600)
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+    from services.service_config import ServiceConfig
+
+    sc = ServiceConfig()
+    assert sc.update_env_file({"SOME_SECRET": "new"}, create_backup=False) is True
+    assert (os.stat(env).st_mode & 0o777) == 0o600
+
+
+def test_service_config_update_is_atomic_no_tmp_left(tmp_path, monkeypatch):
+    """The tmp + os.replace write must not leave a secrets-bearing
+    `.env.tmp` behind on success."""
+    env = tmp_path / ".env"
+    env.write_text("SOME_SECRET=old\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+    from services.service_config import ServiceConfig
+
+    sc = ServiceConfig()
+    assert sc.update_env_file({"SOME_SECRET": "new"}, create_backup=False) is True
+    assert not (tmp_path / ".env.tmp").exists()
+
+
 def test_parse_env_file_quote_and_hash_semantics(tmp_path, monkeypatch):
     """Inline-comment stripping must be quote-aware: a `#` inside quotes
     is data (PASSWORD="ab#cd" was silently read as `ab`), an unquoted

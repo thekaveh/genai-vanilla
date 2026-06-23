@@ -1,6 +1,6 @@
 # ComfyUI
 
-Node-based image generation workflow engine. ComfyUI runs as a single container with a web UI on its own port, exposing an HTTP API (`/prompt`, `/history/{id}`, `/view`) and a WebSocket (`/ws`) that streams `executing`/`executed`/`progress` events while a workflow runs. The stack treats ComfyUI as a media-tier engine: backend, n8n, Hermes, and Open WebUI all consume it indirectly through Kong (browser) or directly via the internal Docker DNS name.
+Node-based image generation workflow engine. ComfyUI runs as a single container with a web UI on its own port, exposing an HTTP API (`/prompt`, `/history/{id}`, `/view`) and a WebSocket (`/ws`) that streams `executing`/`executed`/`progress` events while a workflow runs. The stack treats ComfyUI as a media-tier engine: backend, Hermes, and Open WebUI consume it through Kong (browser) or directly via the internal Docker DNS name; n8n reaches it through the backend (`backend:8000/comfyui/*`), not directly.
 
 Three source variants cover the common deployment shapes: containerized CPU and GPU (built from `ai-dock/comfyui` images) and a localhost mode that routes consumers to a host-running ComfyUI. Disabled mode removes it from compose entirely. A short-lived `comfyui-init` container stages model checkpoints into the `comfyui-models` volume based on `COMFYUI_USER_MODELS` (selected via the wizard's "ComfyUI · models" step).
 
@@ -49,7 +49,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 ## 4. Architecture & wiring
 
-**Request flow.** Backend or n8n POSTs a workflow JSON to `${COMFYUI_ENDPOINT}/prompt` and receives a `prompt_id`. To track progress, the caller either polls `GET /history/{prompt_id}` or opens a `/ws` websocket and filters by `prompt_id`. Outputs land under `output/` inside the container; the `/view` endpoint serves them by filename.
+**Request flow.** The backend POSTs a workflow JSON to `${COMFYUI_ENDPOINT}/prompt` and receives a `prompt_id` (n8n workflows call the backend's `/comfyui/*` routes rather than ComfyUI directly). To track progress, the caller either polls `GET /history/{prompt_id}` or opens a `/ws` websocket and filters by `prompt_id`. Outputs land under `output/` inside the container; the `/view` endpoint serves them by filename.
 
 **Init flow** (`comfyui-init`): plain alpine + `apk add wget postgresql-client ca-certificates`. The init script queries `SELECT … FROM public.comfyui_models WHERE active = true` via psql and downloads each active model into the `comfyui-models` volume via wget (with optional SHA256 verification), in parallel to `ollama-pull`'s shape. `comfyui-catalog-init` runs first: it UPSERTs the curated catalog + `services/comfyui/custom-models.yaml` sidecar into `public.comfyui_models` and flips `active = true` for names in `COMFYUI_USER_MODELS`. Failure mode is non-fatal — ComfyUI starts even if downloads are incomplete, you just get model-not-found errors at workflow time.
 
@@ -75,7 +75,6 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 |---|---|
 | kong | infra |
 | hermes | agents |
-| n8n | agents |
 | backend | apps |
 | jupyterhub | apps |
 | open-webui | apps |

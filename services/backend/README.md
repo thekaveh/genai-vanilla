@@ -102,7 +102,7 @@ When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and
 | weaviate | data |
 | litellm | llm |
 | comfyui | media |
-| n8n | agents |
+| n8n ↔ | agents |
 | local-deep-researcher | apps |
 
 ### 6.2 Current — Downstream (services that call this)
@@ -111,6 +111,7 @@ When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and
 |---|---|
 | kong | infra |
 | prometheus | infra |
+| n8n ↔ | agents |
 | jupyterhub | apps |
 | open-webui | apps |
 

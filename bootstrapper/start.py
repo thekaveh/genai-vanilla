@@ -1653,9 +1653,9 @@ class AtlasStarter:
             return "● off", "color(245)"
         return "● on", "bright_green"
 
-    def check_comfyui_models(self):
+    def check_comfyui_models(self, on_line=None):
         """Check ComfyUI local models."""
-        self.service_config.check_comfyui_local_models()
+        self.service_config.check_comfyui_local_models(on_line=on_line)
         
     def show_container_status_and_verify_ports(self, on_line=None):
         """

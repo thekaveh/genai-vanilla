@@ -476,3 +476,56 @@ def test_main_slice_full_coverage_clean(write_manifest, full_manifest_dict, serv
     from services.manifest_validator import validate_manifests
     issues = validate_manifests(load_manifests(services_root))
     assert not [i for i in issues if i.kind == "runtime_sc_missing_variant"]
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# data_flow.calls target existence (the n8n->comfyui/backend bug class)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_data_flow_unknown_target_flagged(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """A data_flow.calls target that is neither a manifest name nor an
+    aggregate doc-folder is flagged — the typo / renamed / deleted-service
+    class that would otherwise render as a phantom 'external' node."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    backend = minimal_manifest_dict("backend") | {
+        "category": "apps",
+        "data_flow": {"calls": ["redis", "does-not-exist"]},
+    }
+    write_manifest("backend", backend)
+    from services.manifests import load_manifests
+
+    issues = validate_manifests(load_manifests(services_root))
+    hits = [i for i in issues if i.kind == "data_flow_unknown_target"]
+    assert any(i.manifest == "backend" and "does-not-exist" in i.message for i in hits), hits
+    # The real target 'redis' must NOT be flagged.
+    assert not any("'redis'" in i.message for i in hits)
+
+
+def test_data_flow_aggregate_doc_folder_target_accepted(
+    services_root, write_manifest, minimal_manifest_dict
+):
+    """An aggregate doc-folder name (e.g. stt-provider) is a valid target
+    even though it owns no manifest of its own."""
+    write_manifest("redis", minimal_manifest_dict("redis"))
+    backend = minimal_manifest_dict("backend") | {
+        "category": "apps",
+        "data_flow": {"calls": ["redis", "stt-provider"]},
+    }
+    write_manifest("backend", backend)
+    from services.manifests import load_manifests
+
+    issues = validate_manifests(load_manifests(services_root))
+    assert not [i for i in issues if i.kind == "data_flow_unknown_target"]
+
+
+def test_aggregate_doc_folder_names_match_deps_resolver():
+    """The validator's local doc-folder set must track the canonical
+    deps_resolver._AGGREGATE_DOC_FOLDERS keys; if they drift, the data_flow
+    guard would false-positive on a legitimately-aggregated target."""
+    from services.manifest_validator import _AGGREGATE_DOC_FOLDER_NAMES
+    from docs.deps_resolver import _AGGREGATE_DOC_FOLDERS
+
+    assert _AGGREGATE_DOC_FOLDER_NAMES == set(_AGGREGATE_DOC_FOLDERS.keys())

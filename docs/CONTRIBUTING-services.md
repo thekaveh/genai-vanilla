@@ -20,6 +20,7 @@ A maintainer who already understands the stack can land a new service in under a
 - [ ] **Write `services/<name>/compose.yml`** (only if folder flavor = container) → [Mechanics](#11-mechanics--putting-it-all-together)
 - [ ] **Add the `include:` line to `docker-compose.yml`** (only if you wrote a compose fragment)
 - [ ] **Register CLI key in `source_mapping`** → [Mechanics — source_override_manager registration](#114-bootstrapperutilssource_override_managerpy--register-the-cli-key). Without this the wizard silently skips your service.
+- [ ] **Add the new folder to the relevant track(s) in `bootstrapper/tracks.yml`** (source-configurable services only). A configurable service absent from a named track's `services:` list is force-disabled (`*_SOURCE=disabled`) there — it only runs under `--track all`. Always-on infra and the always-prompted LLM/Prometheus/Grafana tier are exempt.
 - [ ] **Run the five-command regen + lint chain** → [After you save the files](#12-after-you-save-the-files--regen--lint-commands-in-order)
 - [ ] **Update audit-script allowlists** if your service has hard deps → [Audit-script + CI implications](#13-audit-script--ci-implications)
 - [ ] **Commit and push.** CI gates the change (three jobs: manifest-lint+pytest, compose-equivalence+permutation matrix, docs-drift+audit-scripts).
@@ -77,7 +78,7 @@ Before you touch any manifest, spend 15–30 minutes with the candidate service'
 
 ### 4.2 Integration discovery — how does this fit our stack?
 
-Once you understand the candidate, scan our existing 32-manifest stack to identify integration points:
+Once you understand the candidate, scan our existing 34-manifest stack to identify integration points:
 
 - **Upstream callers (who in our stack would call this new service).** Run `grep -l "^data_flow:" services/*/service.yml` and skim each service's `data_flow.calls` list. Which existing services would benefit from calling this new one? (E.g., a new vector DB → Backend, n8n, JupyterHub, possibly Hermes Agent.) These become entries in those EXISTING manifests' `data_flow.calls` lists — NOT in your new service's `depends_on`. (See [Decision 5](#9-decision-5--dependencies-depends_onrequired--optional) for why `data_flow.calls` is separate from `depends_on`.)
 - **Downstream callees (what this service calls).** Does the candidate make outbound calls to anything we already run? Most app-tier services touch Supabase (auth/storage), LiteLLM (LLM access), and Redis (caching). These would be entries in YOUR new service's `data_flow.calls`.
@@ -140,7 +141,7 @@ Every manifest declares one of six categories. The category drives two things: t
 
 | Category | Wizard block | Services currently in this category | When to pick |
 |---|---|---|---|
-| `infra` | Infra | Kong, globals, Prometheus, Grafana, Ray | Gateways, project-wide config, observability |
+| `infra` | Infra | Kong, globals, Prometheus, Grafana, Ray, backup, cloudflared | Gateways, project-wide config, observability, prod-readiness |
 | `data` | Data | Supabase, Redis, MinIO, Neo4j, Weaviate (+ `multi2vec-clip` as a Weaviate sub-module), Spark | Databases, caches, object storage |
 | `llm` | LLM Core | LiteLLM, Ollama, cloud-providers, TEI Reranker | LLM gateways / engines |
 | `media` | Media | ComfyUI, parakeet, speaches, chatterbox, docling, searxng, tts-provider | Multimodal AI (image / audio / doc / search) |
@@ -721,7 +722,7 @@ rows:
     alias: myservice.localhost
     description: "Short description shown in the wizard subtitle."
     # OPTIONAL — inline numeric input mounted on the source prompt. Used by
-    # Ray (worker count) and Prometheus (TSDB retention days). The wizard
+    # Prometheus (TSDB retention days). The wizard
     # renders a SecondaryNumberInput widget next to the source picker so
     # the user picks source AND numeric refinement in one keystroke
     # sequence — no follow-up cascade step.
