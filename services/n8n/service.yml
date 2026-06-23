@@ -168,7 +168,11 @@ data_flow:
     # block) — a hard runtime call edge, not just an enablement flag.
     - redis
     - weaviate
-    - comfyui
+    # Bundled workflows POST to http://backend:8000 (e.g. /comfyui/generate,
+    # langmem-consolidation, research flows) — n8n reaches ComfyUI THROUGH the
+    # backend, not directly (n8n<->comfyui is an unwired future pair; see the
+    # README Future-pairs note).
+    - backend
     - doc-processor
     - hermes
     - litellm

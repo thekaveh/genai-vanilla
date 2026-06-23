@@ -101,13 +101,13 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 | supabase | data |
 | weaviate | data |
 | litellm | llm |
-| comfyui | media |
 | doc-processor | media |
 | searxng | media |
 | stt-provider | media |
 | tts-provider | media |
 | hermes | agents |
 | lightrag | agents |
+| backend ↔ | apps |
 
 ### 6.2 Current — Downstream (services that call this)
 
@@ -115,7 +115,7 @@ When `LIGHTRAG_SOURCE != disabled`, the env vars `LIGHTRAG_ENDPOINT` and `LIGHTR
 |---|---|
 | kong | infra |
 | prometheus | infra |
-| backend | apps |
+| backend ↔ | apps |
 | jupyterhub | apps |
 
 ### 6.3 Architecture diagram

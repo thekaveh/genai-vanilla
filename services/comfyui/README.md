@@ -75,7 +75,6 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 |---|---|
 | kong | infra |
 | hermes | agents |
-| n8n | agents |
 | backend | apps |
 | jupyterhub | apps |
 | open-webui | apps |
