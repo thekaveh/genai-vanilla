@@ -35,7 +35,10 @@ _CREATE_TABLE = re.compile(
 
 
 def _read(name: str) -> str:
-    return (SCRIPTS_DIR / name).read_text(encoding="utf-8")
+    path = SCRIPTS_DIR / name
+    if not path.exists():
+        raise AssertionError(f"{name} does not exist yet — Task 3 creates it")
+    return path.read_text(encoding="utf-8")
 
 
 def test_each_app_table_created_in_exactly_one_slice():
@@ -59,16 +62,20 @@ def test_every_slice_has_owner_banner():
 
 
 def test_slice_tables_are_guarded():
-    bad = re.compile(r"CREATE TABLE\s+public\.", re.IGNORECASE)  # without IF NOT EXISTS
+    unguarded_table = re.compile(
+        r"CREATE TABLE(?!\s+IF NOT EXISTS)\s+public\.", re.IGNORECASE
+    )
     for name in SLICE_FILES:
         text = _read(name)
-        assert not bad.search(text), (
+        assert not unguarded_table.search(text), (
             f"{name} has a CREATE TABLE without IF NOT EXISTS"
         )
-        for m in re.finditer(r"ADD COLUMN\s+(?!IF NOT EXISTS)", text, re.IGNORECASE):
-            raise AssertionError(f"{name} has an ADD COLUMN without IF NOT EXISTS")
-        for m in re.finditer(r"CREATE INDEX\s+(?!IF NOT EXISTS)", text, re.IGNORECASE):
-            raise AssertionError(f"{name} has a CREATE INDEX without IF NOT EXISTS")
+        assert not re.search(r"ADD COLUMN\s+(?!IF NOT EXISTS)", text, re.IGNORECASE), (
+            f"{name} has an ADD COLUMN without IF NOT EXISTS"
+        )
+        assert not re.search(r"CREATE INDEX\s+(?!IF NOT EXISTS)", text, re.IGNORECASE), (
+            f"{name} has a CREATE INDEX without IF NOT EXISTS"
+        )
 
 
 def test_all_expected_tables_present():
