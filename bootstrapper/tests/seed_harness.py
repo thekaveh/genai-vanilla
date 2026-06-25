@@ -41,7 +41,14 @@ SEED_QUERY = (
 
 
 def docker_available() -> bool:
-    return shutil.which("docker") is not None
+    """True only when the Docker CLI is on PATH AND the daemon is reachable,
+    so the docker-gated tests SKIP (not ERROR) when the daemon is paused."""
+    if shutil.which("docker") is None:
+        return False
+    try:
+        return subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+    except OSError:
+        return False
 
 
 def _normalize(dump: str) -> str:
@@ -69,6 +76,8 @@ def run_scripts_and_dump(
             "-e", f"POSTGRES_USER={DB_USER}",
             "-e", "POSTGRES_PASSWORD=postgres",
             "-e", f"POSTGRES_DB={DB_NAME}",
+            # Trust auth on TCP loopback (the supabase image's pg_hba.conf mandates
+            # scram on the Unix socket, so the harness connects via -h 127.0.0.1).
             "-e", "POSTGRES_HOST_AUTH_METHOD=trust",
             DB_IMAGE,
         ],
@@ -90,12 +99,13 @@ def run_scripts_and_dump(
         passes = 2 if run_twice else 1
         for _ in range(passes):
             for sql in sql_files:
-                subprocess.run(
-                    ["docker", "exec", "-i", name, "psql", "-h", "127.0.0.1",
-                     "-v", "ON_ERROR_STOP=1",
-                     "-U", DB_USER, "-d", DB_NAME, "-f", "-"],
-                    stdin=sql.open("rb"), check=True, capture_output=True,
-                )
+                with sql.open("rb") as fh:
+                    subprocess.run(
+                        ["docker", "exec", "-i", name, "psql", "-h", "127.0.0.1",
+                         "-v", "ON_ERROR_STOP=1",
+                         "-U", DB_USER, "-d", DB_NAME, "-f", "-"],
+                        stdin=fh, check=True, capture_output=True,
+                    )
 
         schema = subprocess.run(
             ["docker", "exec", name, "pg_dump", "--schema-only",
