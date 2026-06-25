@@ -35,7 +35,10 @@ The database initialization follows a two-stage process managed by Docker Compos
 - A dedicated, short-lived service using `postgres:15-alpine` image
 - Depends on `supabase-db` and waits until it's ready using `pg_isready`
 - Executes all `.sql` files from `./services/supabase/db/scripts/` directory in alphabetical order
-- Custom scripts handle project-specific setup. The layout follows a two-tier convention: core scaffolding lives in the `0x`-prefixed files; per-service "vertical slice" files (`10`–`14`) each own one service's tables, migrations, and seeds. All files are executed in alphabetical order by `db-init-runner.sh`, which means slice-to-slice FK references work as long as a lower-numbered slice creates the referenced table first (e.g. `public.users` in `10` is referenced by slices `13` and `14`).
+- Custom scripts handle project-specific setup.
+
+The seeding layout follows a two-tier convention: core scaffolding lives in the `0x`-prefixed files; per-service "vertical slice" files (`10`–`14`) each own one service's tables, migrations, and seeds. All files are executed in alphabetical order by `db-init-runner.sh`, which means slice-to-slice FK references work as long as a lower-numbered slice creates the referenced table first (e.g. `public.users` in `10` is referenced by slices `13` and `14`).
+
   - Enabling extensions: `vector`, `postgis`, `pgcrypto` (`01-extensions.sql`)
   - Ensuring schemas `auth` and `storage` exist (`02-schemas.sql`)
   - Creating custom types for Supabase Auth / GoTrue (`03-auth-types.sql`)

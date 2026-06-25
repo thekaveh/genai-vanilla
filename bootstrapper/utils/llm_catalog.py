@@ -23,9 +23,7 @@ model facts (context_window, size_gb) refresh from the catalog on
 every run; ``active`` and ``description`` are preserved on conflict
 so wizard choices and hand-edited notes survive re-runs.
 
-The default-active Ollama trio is seeded by ``llm-catalog-init`` at every
-``docker compose up`` — the rest of the catalog (cloud + non-default Ollama)
-is also populated by ``llm-catalog-init``.
+All llm rows — the default-active Ollama trio and the broader catalog (cloud + non-default Ollama) — are populated by ``llm-catalog-init`` at every ``docker compose up``.
 
 Maintenance cadence
 -------------------
