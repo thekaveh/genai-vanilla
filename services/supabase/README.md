@@ -49,8 +49,8 @@ The seeding layout follows a two-tier convention: core scaffolding lives in the 
   - **`10-users.sql`** — `public.users` table (shared user identity, referenced by downstream slices)
   - **`11-litellm.sql`** — `public.llms` catalog table, its idempotent schema migrations (constraint, column, type changes), and the `update_llms_updated_at` trigger (the trigger function itself lives in `07-functions.sql`)
   - **`12-comfyui.sql`** — `public.comfyui_models`, `public.comfyui_workflows`, `public.comfyui_generations` tables, catalog-metadata extension columns, and the default workflow seed rows
-  - **`13-backend-research.sql`** — `research` schema and research-session/source/result tables (owned by backend / local-deep-researcher)
-  - **`14-backend-memory.sql`** — `public.memory_facts` and `public.memory_conversations` tables plus their idempotent column migrations (owned by backend / LangMem)
+  - **`13-backend-research.sql`** — `research` schema and research tables (`public.research_sessions`, `public.research_results`, `public.research_sources`, `public.research_logs`) (owned by backend / local-deep-researcher)
+  - **`14-backend-memory.sql`** — LangMem memory tables (`public.memory_facts`, `public.memory_sessions`, `public.memory_consolidation_log`) plus their idempotent column migrations (owned by backend / LangMem)
 
 All custom SQL scripts use `IF NOT EXISTS` logic to allow safe re-runs.
 
