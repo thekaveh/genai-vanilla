@@ -288,7 +288,7 @@ def verify_constraint(conn) -> None:
         if cur.fetchone() is None:
             sys.exit(
                 "❌ llms_provider_name_key constraint missing on public.llms — "
-                "did supabase/db/scripts/05a-public-tables-migrations.sql fail "
+                "did supabase/db/scripts/11-litellm.sql fail "
                 "to run? Check supabase-db-init logs."
             )
     print("  ↳ verified llms_provider_name_key constraint on public.llms", flush=True)

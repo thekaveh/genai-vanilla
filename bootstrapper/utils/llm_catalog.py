@@ -23,10 +23,9 @@ model facts (context_window, size_gb) refresh from the catalog on
 every run; ``active`` and ``description`` are preserved on conflict
 so wizard choices and hand-edited notes survive re-runs.
 
-The seed in ``supabase/db/scripts/08-seed-data.sql`` only inserts the
-default-active Ollama trio — the rest of the catalog (cloud + non-
-default Ollama) is populated by ``llm-catalog-init`` at every
-``docker compose up``.
+The default-active Ollama trio is seeded by ``llm-catalog-init`` at every
+``docker compose up`` — the rest of the catalog (cloud + non-default Ollama)
+is also populated by ``llm-catalog-init``.
 
 Maintenance cadence
 -------------------
@@ -245,7 +244,7 @@ CLOUD_CATALOG: List[CatalogEntry] = [
 # Default-active baseline only. The user-facing catalog comes from the
 # live ollama.com/library scrape (~230 entries) via
 # ``utils/ollama_library.py``. This list is the fallback shown when
-# the scrape fails AND the seed for ``supabase/db/scripts/08-seed-data.sql``.
+# the scrape fails AND the default-active set seeded by ``llm-catalog-init``.
 # Keep this trim — every entry here needs maintenance; the live library
 # is the source of truth for what's available.
 

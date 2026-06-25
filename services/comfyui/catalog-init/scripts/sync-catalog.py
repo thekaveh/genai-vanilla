@@ -140,7 +140,7 @@ def verify_constraint(conn) -> None:
             sys.exit(
                 "❌ unique_comfyui_model_name constraint missing on "
                 "public.comfyui_models — did "
-                "supabase/db/scripts/05-public-tables.sql fail to run? "
+                "supabase/db/scripts/12-comfyui.sql fail to run? "
                 "Check supabase-db-init logs."
             )
     print(

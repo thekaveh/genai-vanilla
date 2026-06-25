@@ -32,8 +32,8 @@ DB_IMAGE = "supabase/postgres:17.4.1.016"
 DB_USER = "supabase_admin"
 DB_NAME = "postgres"
 
-# Deterministic seed data lives only in comfyui_workflows (from the former
-# 08-seed-data.sql). Snapshot the columns the seed sets, ordered stably.
+# Deterministic seed data lives only in comfyui_workflows (seeded by 12-comfyui.sql).
+# Snapshot the columns the seed sets, ordered stably.
 SEED_QUERY = (
     "SELECT name, description, category, active "
     "FROM public.comfyui_workflows ORDER BY name;"

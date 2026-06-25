@@ -35,15 +35,19 @@ The database initialization follows a two-stage process managed by Docker Compos
 - A dedicated, short-lived service using `postgres:15-alpine` image
 - Depends on `supabase-db` and waits until it's ready using `pg_isready`
 - Executes all `.sql` files from `./services/supabase/db/scripts/` directory in alphabetical order
-- Custom scripts handle project-specific setup:
-  - Ensuring extensions like `vector` and `postgis` are enabled (`01-extensions.sql`)
-  - Ensuring schemas like `auth` and `storage` exist (`02-schemas.sql`)
-  - Creating necessary custom types for Supabase Auth (`03-auth-types.sql`)
+- Custom scripts handle project-specific setup. The layout follows a two-tier convention: core scaffolding lives in the `0x`-prefixed files; per-service "vertical slice" files (`10`–`14`) each own one service's tables, migrations, and seeds. All files are executed in alphabetical order by `db-init-runner.sh`, which means slice-to-slice FK references work as long as a lower-numbered slice creates the referenced table first (e.g. `public.users` in `10` is referenced by slices `13` and `14`).
+  - Enabling extensions: `vector`, `postgis`, `pgcrypto` (`01-extensions.sql`)
+  - Ensuring schemas `auth` and `storage` exist (`02-schemas.sql`)
+  - Creating custom types for Supabase Auth / GoTrue (`03-auth-types.sql`)
+  - GoTrue migration sync shim (`03b-gotrue-migration-sync.sql`)
   - Setting up storage schema and tables (`04-storage.sql`)
-  - Creating custom public tables like `users` and `llms` (`05-public-tables.sql`)
   - Granting appropriate permissions to standard roles (`06-permissions.sql`)
-  - Creating custom functions like `public.health` (`07-functions.sql`)
-  - Inserting seed data like default LLMs (`08-seed-data.sql`)
+  - Creating shared functions like `public.health` and `update_updated_at_column()` (`07-functions.sql`)
+  - **`10-users.sql`** — `public.users` table (shared user identity, referenced by downstream slices)
+  - **`11-litellm.sql`** — `public.llms` catalog table, its idempotent schema migrations (constraint, column, type changes), and the `update_llms_updated_at` trigger (the trigger function itself lives in `07-functions.sql`)
+  - **`12-comfyui.sql`** — `public.comfyui_models`, `public.comfyui_workflows`, `public.comfyui_generations` tables, catalog-metadata extension columns, and the default workflow seed rows
+  - **`13-backend-research.sql`** — `research` schema and research-session/source/result tables (owned by backend / local-deep-researcher)
+  - **`14-backend-memory.sql`** — `public.memory_facts` and `public.memory_conversations` tables plus their idempotent column migrations (owned by backend / LangMem)
 
 All custom SQL scripts use `IF NOT EXISTS` logic to allow safe re-runs.
 

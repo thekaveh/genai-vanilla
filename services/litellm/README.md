@@ -50,7 +50,7 @@ Two init containers cooperate on every `docker compose up`:
 1. **`llm-catalog-init`** UPSERTs the curated catalog (`bootstrapper/utils/llm_catalog.py`) into `public.llms` and registers every entry from the wizard's `*_USER_MODELS` env vars (see below). Capability flags (content / structured_content / vision / embeddings) and immutable model facts (context_window, size_gb) refresh from the catalog on every run; existing `active` and `description` edits in the DB are preserved on conflict, so wizard selections and hand-edited notes survive re-runs.
 2. **`litellm-init`** queries `SELECT provider, name FROM public.llms WHERE active = true` and renders `volumes/litellm/config.yaml` using per-provider routing rules baked into the init script (see the bullet list below). It does **not** join catalog metadata at render time — capability flags exist solely to drive wizard / backend behavior, not LiteLLM routing. The bootstrapper writes only a stub before `docker compose up` to satisfy the bind mount; the real `model_list` is filled in by `services/litellm/init/scripts/init.py` before the LiteLLM proxy starts.
 
-The DB is the editable surface — change models via the wizard, or by hand. Note that `public.llms` is unique on `(provider, name)` (see `services/supabase/db/scripts/05a-public-tables-migrations.sql`), so every direct SQL edit must qualify the row by provider:
+The DB is the editable surface — change models via the wizard, or by hand. Note that `public.llms` is unique on `(provider, name)` (see `services/supabase/db/scripts/11-litellm.sql`), so every direct SQL edit must qualify the row by provider:
 
 ```bash
 # Enable an OpenAI model
