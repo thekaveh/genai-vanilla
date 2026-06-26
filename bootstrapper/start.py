@@ -299,6 +299,16 @@ class AtlasStarter:
         """
         if not selections:
             return True
+        # Dimension-safety guard (warn, don't block): the wizard may carry a
+        # LITELLM_EMBEDDING_MODEL pick in `selections`. A non-768-dim embedding
+        # model breaks the backend memory_facts vector(768) pgvector inserts at
+        # runtime with no obvious cause, so surface it here at write time.
+        embed = (selections.get("LITELLM_EMBEDDING_MODEL", "") or "").strip()
+        if embed:
+            from utils.model_resolver import embedding_dim_warning  # noqa: PLC0415
+            warning = embedding_dim_warning(embed)
+            if warning:
+                self.banner.console.print(f"[bright_yellow]⚠ {warning}[/bright_yellow]")
         return self.source_override_manager.update_env_file(selections)
 
     def validate_source_configurations(self) -> bool:

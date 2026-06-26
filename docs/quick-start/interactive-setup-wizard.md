@@ -24,6 +24,9 @@ first  Base port
          OpenAI key + models
          Anthropic key + models
          OpenRouter key + models
+         LLM defaults  ·  chat model      (single-select)
+         LLM defaults  ·  embedding model (single-select, dimension-sensitive)
+         LLM defaults  ·  vision model    (single-select, skippable)
 …      Remaining service-source steps
 near-end  Cold start
 near-end  Hosts file
@@ -38,7 +41,7 @@ Each wizard step renders one of five prompt widgets, picked based on the questio
 
 | Kind | Used for | UX |
 |---|---|---|
-| `options` | Single-select with a small fixed option set (every `*_SOURCE`, the `Cold start` toggle, the `Hosts file` choice). | Up/Down arrows + Enter; the current `.env` value is pre-highlighted. |
+| `options` | Single-select with a small fixed option set — every `*_SOURCE`, the `Cold start` toggle, the `Hosts file` choice, and the three **LLM defaults** pickers (chat / embedding / vision, see §4.6). | Up/Down arrows + Enter; the current `.env` value is pre-highlighted. |
 | `number` | Numeric prompts (`Base port`). | Single-line input restricted to digits; range-validated. |
 | `secret` | API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`). | Masked password Input + a live char-count hint as you paste. When a key is already set, the hint shows the source-aware action: press Enter to keep the saved key, type a new key to replace, type `clear` + Enter to remove. No sentinel rows are rendered — the input field IS the prompt. |
 | `multiselect` | Cloud and Ollama model lists. | `[✓]` / `[ ]` rows in a scrollable viewport (capped height; the cursor follows the selection so a 230-row library scrape stays usable). Space toggles, Enter confirms. **Cloud** multiselect: default-active set (intersected with what your account actually returns) is pre-checked on first visit. **Ollama** multiselect: source-aware — container shows the library only, localhost shows a merged `[pulled]` + `[library]` view. Purely additive; the default-active baseline is baked into `services/ollama/models.yaml` with `default_active: true` and resolved by `model_resolver` on every `docker compose up`. |
@@ -129,6 +132,16 @@ If the live fetch fails (network outage, key rejected, 5xx), the wizard falls ba
 ### 4.5 Splash + cache + back-invalidation
 
 Live fetches run in a background worker so the wizard stays responsive (Esc still works). While the request is in flight, the multiselect renders a single `⏳ Fetching <provider> models…` row (the **fetch splash**). Once data arrives, the splash is replaced with the real options. The fetched list is cached for the lifetime of the wizard process and re-used if you navigate forward and back. Pressing **Esc** to return to a prior step **invalidates** the cache for any provider step at or after the new position AND bumps a generation counter so any in-flight worker that has since become stale silently drops its result instead of polluting the now-empty cache. Re-entry triggers a fresh fetch with the (possibly updated) key.
+
+### 4.6 LLM defaults · chat / embedding / vision (single-select)
+
+After the cloud key/model pairs, the wizard asks you to pick the **default model per role** from everything you just selected (Ollama + cloud). Three consecutive `options` steps, each pre-highlighting the current `.env` value:
+
+1. **Chat / content** → `LITELLM_DEFAULT_MODEL`. The fallback the backend and Open WebUI use when no model is named. Pre-selected to the highest-priority content-capable model in your selection.
+2. **Embedding** → `LITELLM_EMBEDDING_MODEL`. ⚠ **Dimension-sensitive.** The backend's `memory_facts` table is a pgvector `vector(768)` column, so the safe default is the 768-dim `ollama/nomic-embed-text` (pre-selected). Choosing a different-dimension model — e.g. the 1536-dim `qwen3-embedding:0.6b`, or OpenAI's 1536/3072-dim embedders — breaks memory writes unless you migrate that column; the bootstrapper prints a warning at write time when it detects a non-768-dim pick.
+3. **Vision** → `LITELLM_VISION_MODEL`. The first option is **— none / skip —**; vision routing is optional, and the step is skipped entirely when no vision-capable model is selected.
+
+All three persist to `.env` and are consumed by `litellm-init` (via `model_resolver`) on the next `docker compose up`. The whole trio is skipped when no LLM provider is active.
 
 ## 5. ComfyUI Model Picker
 
