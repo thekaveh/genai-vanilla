@@ -260,7 +260,7 @@ class ServiceConfig:
 
     def _generate_cloud_providers_config(self) -> Dict[str, str]:
         """Generate cloud-provider toggle env vars consumed by
-        ``llm-catalog-init`` (which gates the active rows it writes
+        ``model_resolver`` (which gates the active entries it returns
         per-provider). Each cloud_* SOURCE is a binary enabled/disabled
         selector. Tuple list lives in utils/cloud_providers.py.
         """
@@ -1007,8 +1007,8 @@ class ServiceConfig:
         # OLLAMA_PULL_SCALE: 1 only for in-stack ollama-container-* sources.
         # Host-side Ollama (ollama-localhost) is not pull-controllable
         # from the stack — sending /api/pull at the user's host Ollama
-        # would surprise them and is what llm-catalog-init's
-        # apply_ollama_selection refuses to register custom rows for.
+        # would surprise them (for localhost, the operator must `ollama pull`
+        # manually).
         # Source=none has no upstream at all.
         llm_source = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
         if llm_source.startswith('ollama-container-'):
@@ -1016,12 +1016,6 @@ class ServiceConfig:
         else:
             env_vars['OLLAMA_PULL_SCALE'] = '0'
             
-        # COMFYUI_CATALOG_INIT_SCALE: 1 for ALL non-disabled sources.
-        # The catalog-init container UPSERTs public.comfyui_models so the
-        # backend /comfyui/db/models endpoint (consumed by Open WebUI +
-        # n8n) sees the user's picks regardless of whether ComfyUI is
-        # in-stack or host-side.
-        #
         # COMFYUI_INIT_SCALE: 1 only for container sources. For localhost
         # the named-volume `comfyui-models` isn't mounted into the user's
         # host ComfyUI install, so running the wget-based init would write
@@ -1031,14 +1025,11 @@ class ServiceConfig:
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
         if comfyui_source == 'disabled':
             env_vars['COMFYUI_INIT_SCALE'] = '0'
-            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '0'
         elif comfyui_source.startswith('container-'):
             env_vars['COMFYUI_INIT_SCALE'] = '1'
-            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
         else:
-            # localhost — DB populated, but no wget-into-volume.
+            # localhost — no wget-into-volume.
             env_vars['COMFYUI_INIT_SCALE'] = '0'
-            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
 
         # OPENCLAW_INIT_SCALE: follows OPENCLAW_SCALE (1 when container, 0 otherwise)
         openclaw_source = self.service_sources.get('OPENCLAW_SOURCE', 'disabled')

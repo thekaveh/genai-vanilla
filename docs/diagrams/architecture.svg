@@ -201,7 +201,7 @@
     <rect x="95" y="548" width="280" height="52" rx="6" fill="#0f172a"/>
     <rect x="95" y="548" width="280" height="52" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
     <text x="235" y="568" fill="#fde68a" font-size="12" font-weight="600" text-anchor="middle">LiteLLM Gateway</text>
-    <text x="235" y="586" fill="#fcd34d" font-size="9" text-anchor="middle">OpenAI-compatible router ▸ public.llms</text>
+    <text x="235" y="586" fill="#fcd34d" font-size="9" text-anchor="middle">OpenAI-compatible router ▸ YAML model catalog</text>
 
     <rect x="405" y="548" width="280" height="52" rx="6" fill="#0f172a"/>
     <rect x="405" y="548" width="280" height="52" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
@@ -259,7 +259,7 @@
     <rect x="85" y="788" width="380" height="72" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
     <text x="275" y="810" fill="#ddd6fe" font-size="12" font-weight="600" text-anchor="middle">Supabase Ecosystem</text>
     <text x="275" y="828" fill="#c4b5fd" font-size="9" text-anchor="middle">Postgres + pgvector · Auth · Storage · Realtime · Studio</text>
-    <text x="275" y="848" fill="#a78bfa" font-size="8" text-anchor="middle" opacity="0.85">single source of truth for public.llms</text>
+    <text x="275" y="848" fill="#a78bfa" font-size="8" text-anchor="middle" opacity="0.85">pgvector semantic search · JWT auth · object storage</text>
 
     <rect x="490" y="788" width="170" height="72" rx="6" fill="#0f172a"/>
     <rect x="490" y="788" width="170" height="72" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
@@ -358,6 +358,6 @@
       <text x="820" y="11" fill="#94a3b8" font-size="9">Kong route fan-out</text>
     </g>
 
-    <text x="0" y="78" fill="#475569" font-size="9">All edges are runtime / request-path. Init-time bootstrap calls (LiteLLM-init reading public.llms, Ollama-pull warming models, Prometheus scrape config) are omitted for clarity.</text>
+    <text x="0" y="78" fill="#475569" font-size="9">All edges are runtime / request-path. Init-time bootstrap calls (litellm-init rendering config from YAML catalogs + env, ollama-pull warming models, Prometheus scrape config) are omitted for clarity.</text>
   </g>
 </svg>

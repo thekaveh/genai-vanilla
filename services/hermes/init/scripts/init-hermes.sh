@@ -174,7 +174,7 @@ export LIGHTRAG_API_KEY="${LIGHTRAG_API_KEY:-}"
 # ``models: [...]`` in providers.litellm. Tradeoff: new models pulled
 # AFTER the stack is running (via ``ollama pull`` or wizard updates)
 # don't appear until the next ./start.sh. Acceptable since the wizard
-# and llm-catalog-init always run at boot.
+# and litellm-init always run at boot.
 LITELLM_MODELS_LIST="[]"
 if [[ -n "${models_json:-}" ]]; then
   filtered=$(printf '%s' "$models_json" | jq -r '

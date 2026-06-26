@@ -117,13 +117,13 @@ ollama pull qwen3:1.7b  # Smaller model
 
 **Models downloading slowly or missing:**
 ```bash
-# Catalog-init UPSERTs the curated catalog + flips active=true for the
-# names in COMFYUI_USER_MODELS. If models you picked never show up, check
-# this log first — typo'd names get warned here.
-docker logs ${PROJECT_NAME}-comfyui-catalog-init
-
-# Check ComfyUI init progress (downloads each active row via psql + wget)
+# The bootstrapper resolves COMFYUI_USER_MODELS at start and writes
+# volumes/comfyui/active-models.tsv. comfyui-init downloads each entry
+# via wget. If models you picked never show up, check these logs:
 docker logs ${PROJECT_NAME}-comfyui-init -f
+
+# Verify the manifest was written at start (check volumes/comfyui/):
+ls volumes/comfyui/
 
 # Check ComfyUI service status
 docker logs ${PROJECT_NAME}-comfyui -f

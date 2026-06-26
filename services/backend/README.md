@@ -6,7 +6,7 @@ The backend is `_SOURCE`-trivial — it has only one variant, `container` — be
 
 ## 1. Overview
 
-Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`, `/workflows`, `/comfyui/*`, `/api/ray/*`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models taken from `public.llms` via LiteLLM. A small pytest suite lives at `app/app/tests/` (Ray client/routes; run in the required CI job); local iteration is edit-in-place — the compose fragment bind-mounts `./app/app` onto `/app` and `uvicorn[standard] --reload` (via `watchfiles`) hot-reloads on every source edit. Only requirements.txt changes need a `docker compose up --force-recreate backend`.
+Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts feature routes (`/memory`, `/research`, `/storage`, `/health`, `/workflows`, `/comfyui/*`, `/api/ray/*`), and reads adaptive env vars at startup. LangMem (LangChain's long-term-memory layer) is bundled in: `LANGMEM_ENABLED=true` by default, with extraction/embedding models resolved from `LITELLM_DEFAULT_MODEL` / `LITELLM_EMBEDDING_MODEL` (set by `litellm-init` from the YAML catalog + env). A small pytest suite lives at `app/app/tests/` (Ray client/routes; run in the required CI job); local iteration is edit-in-place — the compose fragment bind-mounts `./app/app` onto `/app` and `uvicorn[standard] --reload` (via `watchfiles`) hot-reloads on every source edit. Only requirements.txt changes need a `docker compose up --force-recreate backend`.
 
 ## 2. Access
 
@@ -35,7 +35,7 @@ LANGMEM_MEMORY_NAMESPACE=default
 LANGMEM_AUTO_CONSOLIDATE=true
 LANGMEM_CONSOLIDATION_INTERVAL=86400
 LANGMEM_MAX_FACTS_PER_USER=1000
-LANGMEM_EXTRACTION_MODEL=          # empty = highest-priority active content model from public.llms
+LANGMEM_EXTRACTION_MODEL=          # empty = LITELLM_DEFAULT_MODEL (resolved by litellm-init from YAML catalogs + env)
 LANGMEM_EMBEDDING_MODEL=
 ```
 
@@ -145,7 +145,7 @@ When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and
 
 **`/health` returns 503 for a specific upstream.** Read which upstream is failing from the response payload, then `docker logs <project>-<service>` for the failing service. The backend never crashes on upstream failure — it degrades.
 
-**LangMem extraction silently fails.** Check that `public.llms` has at least one row where `content_model=true AND active=true`. Without that, `LANGMEM_EXTRACTION_MODEL` resolves to empty and the consolidation loop short-circuits. Set it explicitly to a known model id (e.g. `ollama/qwen3:8b`).
+**LangMem extraction silently fails.** Check that `LITELLM_DEFAULT_MODEL` is set (it is written into `.env` by `litellm-init` on first start from the YAML catalogs + env). Without a resolved default model, `LANGMEM_EXTRACTION_MODEL` remains empty and the consolidation loop short-circuits. Set it explicitly to a known model id (e.g. `ollama/qwen3:8b`).
 
 **Cold-start hangs on Supabase.** Backend `depends_on: supabase-db-init: { condition: service_completed_successfully }`. If `supabase-db-init` is stuck (usually a bad SQL script in `services/supabase/db/scripts/`), backend will wait forever. Check `docker logs <project>-supabase-db-init`.
 

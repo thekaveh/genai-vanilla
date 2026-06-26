@@ -5,28 +5,42 @@ knows about.
 Three consumers import this module:
 
   • The wizard step builder (cloud + Ollama multi-select option lists).
-  • ``llm-catalog-init`` (UPSERTs DB rows from this catalog into
-    ``public.llms``).
-  • ``litellm-init`` (renders ``volumes/litellm/config.yaml`` from
-    rows that are ``active = true`` in ``public.llms`` — query is
-    ``SELECT provider, name FROM public.llms WHERE active = true``
-    followed by per-provider routing rules baked into the init
-    script. Catalog capability metadata (content / structured_content
-    / vision / embeddings) is consumed by the wizard and backend,
+  • ``model_resolver`` (computes the active model set from YAML catalogs
+    + env; consumed by ``litellm-init`` and ``ollama-pull``).
+  • ``litellm-init`` (renders ``volumes/litellm/config.yaml`` via
+    ``model_resolver.active_models()`` — no DB query involved. Catalog
+    capability metadata (content / structured_content / vision /
+    embeddings) is consumed by the wizard and backend,
     NOT by litellm-init at config-render time).
 
-To add a model: append a ``CatalogEntry`` below. To remove one: delete
-the entry (it stays in the DB row history but won't be re-UPSERTed).
-The ``llm-catalog-init`` UPSERT is idempotent — capability flags
-(content / structured_content / vision / embeddings) and immutable
-model facts (context_window, size_gb) refresh from the catalog on
-every run; ``active`` and ``description`` are preserved on conflict
-so wizard choices and hand-edited notes survive re-runs.
+Catalog data lives in YAML files rather than in this module:
 
-The seed in ``supabase/db/scripts/08-seed-data.sql`` only inserts the
-default-active Ollama trio — the rest of the catalog (cloud + non-
-default Ollama) is populated by ``llm-catalog-init`` at every
-``docker compose up``.
+  • ``services/ollama/models.yaml``  — flat-sections format
+    (sections: content | embeddings | vision)
+  • ``services/litellm/models.yaml`` — provider-keyed format
+    (top-level keys: openai | anthropic | openrouter; each value is
+    a section map)
+
+Path resolution (host vs container):
+  1. ``ATLAS_MODELS_DIR`` env var, if set.
+  2. ``<repo_root>/services`` (detected as three parents above this file:
+     bootstrapper/utils/llm_catalog.py → bootstrapper/utils → bootstrapper
+     → repo_root; then repo_root/services).
+  3. ``/catalog`` (container bind-mount target).
+
+After loading, the module exposes the same public API as the former
+hardcoded version:
+
+  • ``CLOUD_CATALOG``          — list of CatalogEntry for cloud providers
+  • ``OLLAMA_DEFAULT_CATALOG`` — list of CatalogEntry for ollama
+  • ``cloud_entries(provider)``
+  • ``ollama_entries()``
+  • ``default_active_names(provider)``
+  • ``all_catalog_entries()``
+
+To add a model: add an entry to the relevant YAML file.
+To remove one: delete the entry (it stays in DB row history but won't
+be re-UPSERTed).
 
 Maintenance cadence
 -------------------
@@ -34,27 +48,23 @@ Cloud-provider catalogs drift faster than the rest of the codebase.
 Suggested cadence:
 
   • **Quarterly** (or whenever a major release lands): refresh the
-    ``CLOUD_CATALOG`` to add new flagship models (e.g. gpt-6, claude-5,
-    gemini-3) and update ``default_active`` so first-run wizard users
-    get the current sensible defaults.
-  • **Every 6 months**: prune deprecated entries (after their replacement
-    has been ``default_active`` for at least one cycle). Removed entries
-    stop being UPSERTed but stay in DBs that already have them — no DB
-    migration needed.
+    YAML files to add new flagship models and update ``default: true``
+    so first-run wizard users get the current sensible defaults.
+  • **Every 6 months**: prune deprecated entries.
   • **Ollama**: only the ``OLLAMA_DEFAULT_CATALOG`` trio needs upkeep
     (the wizard's catalog multiselect goes via the live
     ``ollama.com/library`` scrape). Update when one of the three is
     superseded by a clearly better default.
-
-When live-fetched names overlap catalog names, the catalog metadata
-wins (capability flags + descriptions); when live-only names appear,
-``llm-catalog-init`` UPSERTs them with generic capability defaults.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
-from typing import List
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+import yaml
 
 
 @dataclass
@@ -87,201 +97,192 @@ class CatalogEntry:
     badges: List[str] = field(default_factory=list)
 
 
-# ─── Cloud catalog ────────────────────────────────────────────────────
-# Two roles:
-#   1. **Pre-check intersection** for the wizard's live multi-select.
-#      When the user pastes a key, we query ``/v1/models`` (OpenAI /
-#      Anthropic) or the public ``/api/v1/models`` (OpenRouter) and
-#      pre-check ``(live_ids ∩ catalog.default_active)``. Each
-#      provider's curated default-active set is what shows up checked
-#      out of the box. Listing additional non-default entries here
-#      makes them available to pre-check for users whose accounts
-#      don't have access to the newer flagships (e.g. an OpenAI
-#      account without gpt-5 access still gets gpt-4o pre-checked
-#      because we list it here).
-#   2. **Capability metadata** for ``public.llms`` rows — when the
-#      live API returns a name that matches a catalog entry, the
-#      ``content`` / ``structured_content`` / ``vision`` / ``embeddings``
-#      flags get carried over to the DB row. Live-only names get
-#      generic defaults from ``llm-catalog-init``.
-#
-# Bump on releases. The DB UPSERT in ``llm-catalog-init`` will pick
-# it up on the next ``./start.sh``.
-
-CLOUD_CATALOG: List[CatalogEntry] = [
-    # ─── OpenAI ──────────────────────────────────────────────────────
-    CatalogEntry(
-        provider="openai", name="gpt-5",
-        content=10, structured_content=10, vision=10,
-        context_window=400000,
-        description="OpenAI flagship multimodal — strongest content + vision + structured output",
-        default_active=True,
-        badges=["flagship"],
-    ),
-    CatalogEntry(
-        provider="openai", name="gpt-5-mini",
-        content=8, structured_content=8, vision=8,
-        context_window=400000,
-        description="OpenAI mid-tier multimodal — fast, cheaper than gpt-5",
-        default_active=True,
-    ),
-    CatalogEntry(
-        provider="openai", name="gpt-5-nano",
-        content=6, structured_content=6, vision=6,
-        context_window=128000,
-        description="OpenAI ultra-cheap multimodal — for high-volume tasks",
-    ),
-    CatalogEntry(
-        provider="openai", name="gpt-4o",
-        content=8, structured_content=8, vision=8,
-        context_window=128000,
-        description="Previous-gen multimodal — kept for compatibility",
-    ),
-    CatalogEntry(
-        provider="openai", name="gpt-4o-mini",
-        content=6, structured_content=6, vision=6,
-        context_window=128000,
-        description="Previous-gen cheap multimodal",
-    ),
-    CatalogEntry(
-        provider="openai", name="o3",
-        content=10, structured_content=10,
-        context_window=200000,
-        description="OpenAI reasoning model — strong on math, code, logic; no vision",
-        badges=["reasoning"],
-    ),
-    CatalogEntry(
-        provider="openai", name="o3-mini",
-        content=8, structured_content=8,
-        context_window=200000,
-        description="OpenAI smaller reasoning model — faster, cheaper",
-        badges=["reasoning"],
-    ),
-    CatalogEntry(
-        provider="openai", name="o1",
-        content=10, structured_content=9,
-        context_window=200000,
-        description="OpenAI o1 reasoning model",
-        badges=["reasoning"],
-    ),
-    CatalogEntry(
-        provider="openai", name="text-embedding-3-large",
-        embeddings=10,
-        context_window=8191,
-        description="OpenAI flagship embedding model — 3072 dims",
-        default_active=True,
-        badges=["embeddings"],
-    ),
-    CatalogEntry(
-        provider="openai", name="text-embedding-3-small",
-        embeddings=8,
-        context_window=8191,
-        description="OpenAI cheaper embedding model — 1536 dims",
-        badges=["embeddings"],
-    ),
-
-    # ─── Anthropic ───────────────────────────────────────────────────
-    CatalogEntry(
-        provider="anthropic", name="claude-opus-4-7",
-        content=10, structured_content=10, vision=10,
-        context_window=200000,
-        description="Anthropic flagship — strongest reasoning + writing",
-        default_active=True,
-        badges=["flagship"],
-    ),
-    CatalogEntry(
-        provider="anthropic", name="claude-sonnet-4-6",
-        content=9, structured_content=9, vision=9,
-        context_window=1000000,
-        description="Anthropic mid-tier — 1M context, balanced cost/quality",
-        default_active=True,
-    ),
-    CatalogEntry(
-        provider="anthropic", name="claude-haiku-4-5",
-        content=7, structured_content=7, vision=7,
-        context_window=200000,
-        description="Anthropic small/fast — cheapest in the family",
-    ),
-
-    # ─── OpenRouter ──────────────────────────────────────────────────
-    # OpenRouter is a routing aggregator. Names are prefixed with
-    # ``openrouter/`` so LiteLLM routes them via the OpenRouter API.
-    CatalogEntry(
-        provider="openrouter", name="openrouter/auto",
-        content=8, structured_content=8, vision=5,
-        context_window=200000,
-        description="OpenRouter auto-router — picks a backend per request",
-        default_active=True,
-        badges=["router"],
-    ),
-    CatalogEntry(
-        provider="openrouter", name="openrouter/anthropic/claude-sonnet-4.6",
-        content=9, structured_content=9, vision=9,
-        context_window=1000000,
-        description="Claude Sonnet 4.6 via OpenRouter (alternative billing)",
-    ),
-    CatalogEntry(
-        provider="openrouter", name="openrouter/openai/gpt-5",
-        content=10, structured_content=10, vision=10,
-        context_window=400000,
-        description="GPT-5 via OpenRouter (alternative billing)",
-    ),
-    CatalogEntry(
-        provider="openrouter", name="openrouter/google/gemini-2.5-pro",
-        content=9, structured_content=9, vision=9,
-        context_window=2000000,
-        description="Gemini 2.5 Pro via OpenRouter — 2M context window",
-    ),
-    CatalogEntry(
-        provider="openrouter", name="openrouter/meta-llama/llama-3.3-70b-instruct",
-        content=8, structured_content=7,
-        context_window=128000,
-        description="Llama 3.3 70B via OpenRouter — open-weight content model",
-    ),
-]
+# ─── YAML loader ─────────────────────────────────────────────────────
 
 
-# ─── Ollama catalog ──────────────────────────────────────────────────
-# Default-active baseline only. The user-facing catalog comes from the
-# live ollama.com/library scrape (~230 entries) via
-# ``utils/ollama_library.py``. This list is the fallback shown when
-# the scrape fails AND the seed for ``supabase/db/scripts/08-seed-data.sql``.
-# Keep this trim — every entry here needs maintenance; the live library
-# is the source of truth for what's available.
+def _find_models_dir() -> Path:
+    """Resolve the directory that contains ollama/models.yaml (or
+    ollama-models.yaml) and litellm/models.yaml (or litellm-models.yaml).
 
-OLLAMA_DEFAULT_CATALOG: List[CatalogEntry] = [
-    CatalogEntry(
-        provider="ollama", name="qwen3.6:latest",
-        content=10, structured_content=10, vision=10,
-        context_window=256000, size_gb=24.0,
-        description="Qwen3.6 multimodal — strong content + vision, default content model",
-        default_active=True,
-        badges=["default"],
-    ),
-    CatalogEntry(
-        provider="ollama", name="qwen3-embedding:0.6b",
-        embeddings=10,
-        context_window=32000, size_gb=0.6,
-        description="Qwen3 embeddings, 0.6B — top of MTEB multilingual leaderboard",
-        default_active=True,
-        badges=["default", "embeddings"],
-    ),
-    CatalogEntry(
-        provider="ollama", name="nomic-embed-text",
-        embeddings=8,
-        context_window=8192, size_gb=0.27,
-        description="Nomic text embeddings — small, fast",
-        default_active=True,
-        badges=["default", "embeddings"],
-    ),
-]
+    Search order:
+      1. ATLAS_MODELS_DIR env var
+      2. <repo_root>/services  (repo_root = 3 parents above this file)
+      3. /catalog              (container bind-mount target)
+    """
+    env_dir = os.environ.get("ATLAS_MODELS_DIR")
+    if env_dir:
+        return Path(env_dir)
+
+    # bootstrapper/utils/llm_catalog.py  → parent = utils/ → parent = bootstrapper/
+    # → parent = repo_root
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    candidates = [repo_root / "services", Path("/catalog")]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+
+    raise FileNotFoundError(
+        "Cannot locate models directory. Tried: "
+        + str([str(c) for c in candidates])
+        + ". Set ATLAS_MODELS_DIR to override."
+    )
 
 
-# Removed entries (llama3.3, llama3.2, mistral-small, phi4, qwen3.6:7b,
-# deepseek-r1, mxbai-embed-large) — superseded by the live
-# ``ollama.com/library`` scrape used by the wizard's catalog
-# multiselect. They never sat in ``default_active``, so removing them
-# only affects the (rare) scrape-failure fallback path.
+def _find_yaml(base_dir: Path, service: str) -> Path:
+    """Try <base_dir>/<service>/models.yaml then <base_dir>/<service>-models.yaml."""
+    primary = base_dir / service / "models.yaml"
+    if primary.exists():
+        return primary
+    fallback = base_dir / f"{service}-models.yaml"
+    if fallback.exists():
+        return fallback
+    raise FileNotFoundError(
+        f"Cannot find models YAML for '{service}'. "
+        f"Tried: {primary}, {fallback}"
+    )
+
+
+def _parse_section(
+    entries_raw: list,
+    section: str,
+    provider: str,
+) -> List[Tuple[str, Dict]]:
+    """Parse one YAML section list into (key, attrs) tuples where key = (provider, name).
+
+    Priority = len(section) - position_index so the first entry is highest.
+    Returns list of (key, attrs_dict) preserving order.
+    """
+    n = len(entries_raw)
+    results = []
+    for idx, raw in enumerate(entries_raw):
+        name = raw["name"]
+        priority = n - idx
+        results.append(((provider, name), {
+            "section": section,
+            "priority": priority,
+            "description": raw.get("description", ""),
+            "badges": raw.get("badges", []),
+            "default_active": raw.get("default", False),
+        }))
+    return results
+
+
+def _build_entries(
+    section_tuples: List[Tuple[str, Dict]],
+) -> List[CatalogEntry]:
+    """Merge per-section tuples into CatalogEntry objects (one per (provider, name)).
+
+    When a model appears in multiple sections (e.g. content + vision), the
+    fields for each section are SET to the computed priority; description /
+    badges / default_active come from the first non-empty occurrence.
+    """
+    # Ordered dict: (provider, name) → mutable dict of accumulated state
+    merged: Dict[Tuple[str, str], dict] = {}
+
+    for (prov, name), attrs in section_tuples:
+        key = (prov, name)
+        section = attrs["section"]
+        priority = attrs["priority"]
+
+        if key not in merged:
+            merged[key] = {
+                "provider": prov,
+                "name": name,
+                "content": 0,
+                "structured_content": 0,
+                "vision": 0,
+                "embeddings": 0,
+                "description": "",
+                "badges": [],
+                "default_active": False,
+            }
+
+        state = merged[key]
+
+        # Set capability for this section
+        if section == "content":
+            state["content"] = priority
+            state["structured_content"] = priority
+        elif section == "vision":
+            state["vision"] = priority
+        elif section == "embeddings":
+            state["embeddings"] = priority
+
+        # Take description / badges / default_active from first non-empty occurrence
+        if not state["description"] and attrs["description"]:
+            state["description"] = attrs["description"]
+        if not state["badges"] and attrs["badges"]:
+            state["badges"] = list(attrs["badges"])
+        if not state["default_active"] and attrs["default_active"]:
+            state["default_active"] = attrs["default_active"]
+
+    entries = []
+    for state in merged.values():
+        entries.append(CatalogEntry(
+            provider=state["provider"],
+            name=state["name"],
+            content=state["content"],
+            structured_content=state["structured_content"],
+            vision=state["vision"],
+            embeddings=state["embeddings"],
+            context_window=0,
+            size_gb=None,
+            description=state["description"],
+            default_active=state["default_active"],
+            badges=list(state["badges"]),
+        ))
+    return entries
+
+
+def _load_ollama_catalog(models_dir: Path) -> List[CatalogEntry]:
+    """Load services/ollama/models.yaml (flat-sections format)."""
+    path = _find_yaml(models_dir, "ollama")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    section_tuples: List[Tuple[str, Dict]] = []
+    for section in ("content", "embeddings", "vision"):
+        raw_entries = data.get(section, [])
+        if raw_entries:
+            section_tuples.extend(_parse_section(raw_entries, section, "ollama"))
+
+    return _build_entries(section_tuples)
+
+
+def _load_cloud_catalog(models_dir: Path) -> List[CatalogEntry]:
+    """Load services/litellm/models.yaml (provider-keyed format)."""
+    path = _find_yaml(models_dir, "litellm")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+    all_entries: List[CatalogEntry] = []
+
+    for provider_key, section_map in data.items():
+        section_tuples: List[Tuple[str, Dict]] = []
+        for section in ("content", "embeddings", "vision"):
+            raw_entries = section_map.get(section, [])
+            if raw_entries:
+                section_tuples.extend(
+                    _parse_section(raw_entries, section, provider_key)
+                )
+        all_entries.extend(_build_entries(section_tuples))
+
+    return all_entries
+
+
+def _load_catalogs() -> tuple[List[CatalogEntry], List[CatalogEntry]]:
+    """Load both YAML files and return (cloud_entries, ollama_entries)."""
+    models_dir = _find_models_dir()
+    ollama = _load_ollama_catalog(models_dir)
+    cloud = _load_cloud_catalog(models_dir)
+    return cloud, ollama
+
+
+# ─── Module-level catalog lists ──────────────────────────────────────
+# Loaded once at import time. Both lists are populated from YAML.
+
+CLOUD_CATALOG: List[CatalogEntry]
+OLLAMA_DEFAULT_CATALOG: List[CatalogEntry]
+
+CLOUD_CATALOG, OLLAMA_DEFAULT_CATALOG = _load_catalogs()
 
 
 # ─── Convenience accessors ───────────────────────────────────────────
@@ -309,7 +310,7 @@ def default_active_names(provider: str) -> List[str]:
 
 
 def all_catalog_entries() -> List[CatalogEntry]:
-    """Every entry — cloud + Ollama. Used by ``llm-catalog-init``'s
-    UPSERT loop.
+    """Every entry — cloud + Ollama. Used by ``model_resolver`` and
+    the wizard step builder.
     """
     return list(CLOUD_CATALOG) + list(OLLAMA_DEFAULT_CATALOG)

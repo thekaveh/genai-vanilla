@@ -45,7 +45,17 @@ from ui.textual.widgets.prompt_panel import (
 )
 
 
+def _csv(val: str | None) -> list[str]:
+    """Split a comma-separated string into a list of non-empty stripped tokens."""
+    if not val:
+        return []
+    return [s.strip() for s in val.split(",") if s.strip()]
+
+
 LLM_ENGINE_TITLE = "LLM Engine  ·  source"
+LLM_DEFAULT_CONTENT_TITLE = "LLM defaults  ·  chat model"
+LLM_DEFAULT_EMBED_TITLE   = "LLM defaults  ·  embedding model"
+LLM_DEFAULT_VISION_TITLE  = "LLM defaults  ·  vision model"
 # Single unified Ollama models step. Replaces the previous pulled+library
 # split, which produced two near-duplicate pages for localhost/external
 # users (the library was a strict superset of /api/tags). Now: container
@@ -323,7 +333,7 @@ def build_ollama_steps(
                 return [PromptOption(
                     value="",
                     label="(catalog unreachable — ollama.com/library scrape failed)",
-                    hint="check network access; ollama-pull will pull whatever is active in public.llms",
+                    hint="check network access; ollama-pull will pull the model_resolver active set on next start",
                     badges=[],
                 )]
             opts = _build_library_options(library_entries)
@@ -648,7 +658,7 @@ def build_cloud_steps(
             heading=f"Which {name} models do you want available?",
             subtitle=(
                 "Live from /v1/models (filtered). Space toggles, Enter confirms. "
-                "Picks become active rows in public.llms."
+                "Picks are persisted to .env and activate the model set via model_resolver on next start."
             ),
             options=[],
             default_values=default_values,
@@ -662,3 +672,290 @@ def build_cloud_steps(
             ),
         ))
     return cloud_steps
+
+
+# ─── Default model steps ───────────────────────────────────────────────
+
+
+def _litellm_id(provider: str, name: str) -> str:
+    """Format a (provider, model-name) pair as a LiteLLM model id.
+
+    Ollama models are prefixed with ``ollama/`` (matching the litellm-init
+    routing table and ``model_resolver.best``'s return format). Every other
+    provider (openai, anthropic, openrouter) uses the bare model name because
+    LiteLLM routes them by the provider header rather than an id prefix.
+
+    >>> _litellm_id("ollama", "qwen3.6:latest")
+    'ollama/qwen3.6:latest'
+    >>> _litellm_id("openai", "gpt-4o")
+    'gpt-4o'
+    """
+    if provider == "ollama":
+        return f"ollama/{name}"
+    return name
+
+
+def build_default_model_steps(
+    env_vars: Dict[str, str],
+    warn: Callable[[str], None] | None = None,
+) -> List[PromptStep]:
+    """Build the three final wizard steps that let the user choose the default
+    chat (content), embedding, and vision models across all enabled providers.
+
+    The selections write ``LITELLM_DEFAULT_MODEL``, ``LITELLM_EMBEDDING_MODEL``,
+    and ``LITELLM_VISION_MODEL`` to ``.env`` via the wizard's
+    ``apply_user_model_selections`` pipeline.
+
+    Convention pre-selection
+    ------------------------
+    * **Chat / content:** pre-selects the first content-capable model in
+      catalog-priority order among the user's current selections.
+    * **Embedding:** pre-selects the current ``LITELLM_EMBEDDING_MODEL`` value
+      from ``.env``, falling back to ``ollama/nomic-embed-text`` (the 768-dim
+      safe default).  A visible warning in the heading/subtitle reminds the
+      user that changing this can break the backend's pgvector fallback.
+    * **Vision:** pre-selects the first vision-capable model in priority order,
+      or ``""`` (none / skip) when no vision model is selected.
+
+    Skip logic
+    ----------
+    Content and embedding steps are skipped when no LLM provider is active
+    (Ollama disabled AND no cloud provider enabled via a real secret or
+    SECRET_KEEP-with-existing-key).  The vision step is also skipped when no
+    vision-capable model is among the user's selections.
+
+    Embedding-dimension caveat
+    --------------------------
+    The backend's ``public.memory_facts.embedding vector(768)`` pgvector column
+    is sized for nomic-embed-text (768 dims).  If the user picks a
+    different-dimension model, that column and all embedding storage will break.
+    The warning is surfaced in the embedding step's heading and subtitle; the
+    default is deliberately NOT changed — users who understand the risk can
+    still override it with eyes open.
+    """
+    _warn = warn or (lambda _msg: None)
+
+    def _no_llm_active(selections: dict) -> bool:
+        """Return True (→ skip) when no LLM provider is active.
+
+        Ollama: source must start with ``ollama-``.
+        Cloud: any provider must have a real key (or SECRET_KEEP on an
+        existing key) to be considered active.
+        """
+        # Check Ollama
+        src = _selected_llm_source(env_vars, selections)
+        ollama_active = src.startswith("ollama-")
+
+        # Check cloud providers
+        cloud_active = False
+        for p in CLOUD_PROVIDERS:
+            v = selections.get(cloud_secret_title(p.name))
+            if v is None:
+                # Step not visited — check .env
+                existing_source = (env_vars.get(p.source_var, "disabled") or "").strip().lower()
+                existing_key = (env_vars.get(p.api_key_var, "") or "").strip()
+                if existing_source == "enabled" and existing_key:
+                    cloud_active = True
+                    break
+            elif v == SECRET_KEEP:
+                existing_source = (env_vars.get(p.source_var, "disabled") or "").strip().lower()
+                existing_key = (env_vars.get(p.api_key_var, "") or "").strip()
+                if existing_source == "enabled" and existing_key:
+                    cloud_active = True
+                    break
+                # Disabled in .env but has key → auto-promote path
+                if existing_key:
+                    cloud_active = True
+                    break
+            elif v and v not in (SECRET_CLEAR,):
+                # Real key typed → provider is active
+                cloud_active = True
+                break
+
+        return not (ollama_active or cloud_active)
+
+    def _gather_selected_models(selections: dict) -> List[tuple]:
+        """Return a list of (provider, name) pairs for the user's current
+        selections across all providers.
+
+        For Ollama: reads from the selections dict; falls back to .env when
+        the step returned SECRET_KEEP (degraded fetch).
+        For cloud: reads per-provider multiselect; falls back to .env when
+        the step was not visited.
+        """
+        pairs: List[tuple] = []
+
+        # Ollama
+        ollama_v = selections.get(OLLAMA_MODELS_TITLE)
+        if ollama_v is None or ollama_v == SECRET_KEEP:
+            # Step not visited / degraded — fall back to saved .env value
+            ollama_names = _csv(env_vars.get("OLLAMA_USER_MODELS", ""))
+        else:
+            ollama_names = _csv(ollama_v)
+        src = _selected_llm_source(env_vars, selections)
+        if src.startswith("ollama-"):
+            for name in ollama_names:
+                pairs.append(("ollama", name))
+
+        # Cloud providers
+        for p in CLOUD_PROVIDERS:
+            secret_v = selections.get(cloud_secret_title(p.name))
+            # Provider is active if secret was not cleared
+            if secret_v == SECRET_CLEAR or secret_v == "":
+                continue
+            models_v = selections.get(cloud_models_title(p.name))
+            if models_v is None or models_v == SECRET_KEEP:
+                # Not visited / degraded → fall back to .env
+                names = _csv(env_vars.get(p.user_models_var, ""))
+            else:
+                names = _csv(models_v)
+            # Determine if provider is active
+            if secret_v is not None and secret_v not in (SECRET_KEEP, SECRET_CLEAR, ""):
+                # Real key was typed
+                provider_active = True
+            elif secret_v == SECRET_KEEP or secret_v is None:
+                existing_source = (env_vars.get(p.source_var, "disabled") or "").strip().lower()
+                existing_key = (env_vars.get(p.api_key_var, "") or "").strip()
+                provider_active = existing_key and (existing_source == "enabled" or existing_key)
+            else:
+                provider_active = False
+            if provider_active:
+                for name in names:
+                    pairs.append((p.key, name))
+
+        return pairs
+
+    def _classify(provider: str, name: str, category: str) -> bool:
+        """Return True if (provider, name) qualifies for ``category``.
+
+        Category is one of ``'content'``, ``'embeddings'``, ``'vision'``.
+        Looks up the curated catalog; treats models not in the catalog as
+        content-only (mirrors _synthesize's content=8, embeddings=0, vision=0).
+        """
+        # Search the appropriate catalog
+        if provider == "ollama":
+            entries = ollama_entries()
+        else:
+            entries = cloud_entries(provider)
+        for entry in entries:
+            if entry.name == name:
+                return getattr(entry, category, 0) > 0
+        # Not in catalog → synthesized: content-only
+        return category == "content"
+
+    def _description(provider: str, name: str) -> str:
+        """Return the catalog description for (provider, name), or empty."""
+        catalog = ollama_entries() if provider == "ollama" else cloud_entries(provider)
+        for entry in catalog:
+            if entry.name == name:
+                return entry.description
+        return ""
+
+    def _build_options_for_category(selections: dict, category: str) -> List[PromptOption]:
+        """Build PromptOption list for the given category from current selections."""
+        pairs = _gather_selected_models(selections)
+        opts: List[PromptOption] = []
+        for provider, name in pairs:
+            if not _classify(provider, name, category):
+                continue
+            litellm_id = _litellm_id(provider, name)
+            hint = _description(provider, name)
+            opts.append(PromptOption(value=litellm_id, label=name, hint=hint))
+        return opts
+
+    def _default_for_content(selections: dict) -> str | None:
+        opts = _build_options_for_category(selections, "content")
+        return opts[0].value if opts else None
+
+    def _default_for_embeddings(env_vars: Dict[str, str]) -> str:
+        saved = (env_vars.get("LITELLM_EMBEDDING_MODEL", "") or "").strip()
+        return saved if saved else "ollama/nomic-embed-text"
+
+    def _default_for_vision(selections: dict) -> str:
+        opts = _build_options_for_category(selections, "vision")
+        return opts[0].value if opts else ""
+
+    def _has_vision_models(selections: dict) -> bool:
+        return bool(_build_options_for_category(selections, "vision"))
+
+    # ── Step 1: default chat / content model ─────────────────────────
+    def _content_options(selections: dict) -> List[PromptOption]:
+        return _build_options_for_category(selections, "content")
+
+    _embedding_default = _default_for_embeddings(env_vars)
+
+    # ── Step 2: default embedding model ──────────────────────────────
+    def _embed_options(selections: dict) -> List[PromptOption]:
+        return _build_options_for_category(selections, "embeddings")
+
+    # ── Step 3: default vision model ─────────────────────────────────
+    def _vision_options(selections: dict) -> List[PromptOption]:
+        none_opt = PromptOption(value="", label="— none / skip —")
+        capable = _build_options_for_category(selections, "vision")
+        return [none_opt] + capable
+
+    def _skip_no_llm_or_no_vision(selections: dict) -> bool:
+        return _no_llm_active(selections) or not _has_vision_models(selections)
+
+    # Compute default_value lazily via a sentinel trick: PromptStep.default_value
+    # is used for options steps. Since options_provider is lazy, we use a
+    # wrapper to compute the default from the final options list.
+    # For the WizardScreen, when default_value is None but options_provider
+    # is set, the screen re-computes it after calling options_provider.
+    # We pass a callable as default_value by using the first-option convention
+    # in the step — but PromptStep.default_value is a str|None. Instead we
+    # supply the current env value for embeddings (deterministic) and let
+    # the content/vision defaults also pre-fill via their first-qualifying option
+    # (same as how cloud steps pick default_values from existing or catalog).
+
+    return [
+        PromptStep(
+            title=LLM_DEFAULT_CONTENT_TITLE,
+            step_index=0, step_total=0,
+            heading="Which model should be the default for chat?",
+            subtitle=(
+                "This sets LITELLM_DEFAULT_MODEL — the fallback used by the backend and "
+                "Open WebUI when no model is specified. Pre-selected to the highest-priority "
+                "content-capable model from your current selections."
+            ),
+            options=[],
+            default_value=None,
+            service_name="",
+            kind="options",
+            skip_if_prev=_no_llm_active,
+            options_provider=_content_options,
+        ),
+        PromptStep(
+            title=LLM_DEFAULT_EMBED_TITLE,
+            step_index=0, step_total=0,
+            heading="Which model should be used for embeddings?  ⚠ Dimension-sensitive",
+            subtitle=(
+                "This sets LITELLM_EMBEDDING_MODEL. "
+                "Most stacks should keep the 768-dim default (nomic-embed-text); "
+                "a different-dimension model can break the backend's pgvector fallback. "
+                "Pre-selected to the current saved value (or the 768-dim safe default)."
+            ),
+            options=[],
+            default_value=_embedding_default,
+            service_name="",
+            kind="options",
+            skip_if_prev=_no_llm_active,
+            options_provider=_embed_options,
+        ),
+        PromptStep(
+            title=LLM_DEFAULT_VISION_TITLE,
+            step_index=0, step_total=0,
+            heading="Which model should handle image/vision inputs?",
+            subtitle=(
+                "This sets LITELLM_VISION_MODEL — used by the backend when an image is "
+                "attached to a request. Select '— none / skip —' to leave unset. "
+                "Pre-selected to the highest-priority vision-capable model from your selections."
+            ),
+            options=[],
+            default_value="",
+            service_name="",
+            kind="options",
+            skip_if_prev=_skip_no_llm_or_no_vision,
+            options_provider=_vision_options,
+        ),
+    ]

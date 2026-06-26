@@ -1,8 +1,9 @@
 """Tests for assemble_wizard_catalog() — merge, partial-failure, fallback.
 
-The wizard / comfyui-catalog-init container call this once per invocation.
-There is no host-side file cache (the DB row is the persistence layer);
-the previous cache-related tests were retired with that pivot.
+The wizard calls this once per invocation. There is no host-side file
+cache; the bootstrapper writes the active set to volumes/comfyui/ via
+comfyui_manifest_generator. The previous cache-related tests were retired
+when the DB flow was removed.
 """
 from __future__ import annotations
 

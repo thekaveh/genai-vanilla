@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST", 
+        "httpMethod": "POST",
         "path": "research",
         "responseMode": "responseNode",
         "options": {}
@@ -12,7 +12,10 @@
       "name": "Research Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "research"
     },
     {
@@ -28,7 +31,7 @@
               "value": "={{ $json.query || $json.search || 'artificial intelligence' }}"
             },
             {
-              "name": "format", 
+              "name": "format",
               "value": "json"
             },
             {
@@ -57,25 +60,10 @@
       "name": "Search SearxNG",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [460, 300]
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT name FROM public.llms WHERE provider = 'ollama' AND active = true AND content > 0 ORDER BY created_at DESC LIMIT 1",
-        "options": {}
-      },
-      "id": "a1a1a1a1-3333-3333-3333-333333333333",
-      "name": "Get AI Model for Summary",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [680, 300],
-      "credentials": {
-        "postgres": {
-          "id": "postgres_supabase",
-          "name": "Supabase Database"
-        }
-      }
+      "position": [
+        460,
+        300
+      ]
     },
     {
       "parameters": {
@@ -85,7 +73,10 @@
       "name": "Format Results for AI",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 300]
+      "position": [
+        900,
+        300
+      ]
     },
     {
       "parameters": {
@@ -112,7 +103,7 @@
           "parameters": [
             {
               "name": "model",
-              "value": "=ollama/{{ $node['Get AI Model for Summary'].json[0].name }}"
+              "value": "={{ $env.LITELLM_DEFAULT_MODEL }}"
             },
             {
               "name": "messages",
@@ -140,18 +131,24 @@
       "name": "Generate AI Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1120, 300]
+      "position": [
+        1120,
+        300
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ {\n  \"search_query\": $node['Format Results for AI'].json.search_query,\n  \"total_results_found\": $node['Format Results for AI'].json.total_results,\n  \"results_analyzed\": $node['Format Results for AI'].json.results_count,\n  \"ai_summary\": ($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || $json.response,\n  \"model_used\": $node['Get AI Model for Summary'].json[0].name,\n  \"raw_search_results\": $node['Format Results for AI'].json.raw_results.slice(0, 3),\n  \"success\": true,\n  \"timestamp\": new Date().toISOString()\n} }}"
+        "responseBody": "={{ {\n  \"search_query\": $node['Format Results for AI'].json.search_query,\n  \"total_results_found\": $node['Format Results for AI'].json.total_results,\n  \"results_analyzed\": $node['Format Results for AI'].json.results_count,\n  \"ai_summary\": ($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || $json.response,\n  \"model_used\": $env.LITELLM_DEFAULT_MODEL,\n  \"raw_search_results\": $node['Format Results for AI'].json.raw_results.slice(0, 3),\n  \"success\": true,\n  \"timestamp\": new Date().toISOString()\n} }}"
       },
       "id": "a1a1a1a1-6666-6666-6666-666666666666",
       "name": "Return Research Summary",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1340, 300]
+      "position": [
+        1340,
+        300
+      ]
     },
     {
       "parameters": {
@@ -162,7 +159,10 @@
       "name": "Error Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1340, 480]
+      "position": [
+        1340,
+        480
+      ]
     }
   ],
   "connections": {
@@ -178,17 +178,6 @@
       ]
     },
     "Search SearxNG": {
-      "main": [
-        [
-          {
-            "node": "Get AI Model for Summary",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get AI Model for Summary": {
       "main": [
         [
           {
@@ -214,7 +203,7 @@
       "main": [
         [
           {
-            "node": "Return Research Summary", 
+            "node": "Return Research Summary",
             "type": "main",
             "index": 0
           }
@@ -232,7 +221,7 @@
   },
   "tags": [
     "searxng",
-    "research", 
+    "research",
     "ai",
     "ollama",
     "automation"

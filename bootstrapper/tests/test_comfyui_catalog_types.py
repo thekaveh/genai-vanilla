@@ -1,7 +1,7 @@
 """Tests for ComfyUILibraryEntry dataclass + category enum.
 
-Pins the schema that the wizard, sidecar loader, and the
-comfyui-catalog-init container all consume. Changes here ripple to
+Pins the schema that the wizard, sidecar loader, comfyui_resolver,
+and comfyui_manifest_generator all consume. Changes here ripple to
 each of them.
 """
 from __future__ import annotations

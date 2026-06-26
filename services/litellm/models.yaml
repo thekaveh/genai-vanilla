@@ -1,0 +1,82 @@
+# services/litellm/models.yaml
+# Curated cloud-provider catalog. Top level: provider name.
+# Each provider contains role sections: content | embeddings | vision.
+# Section = role, order = priority (first entry = highest priority),
+# default: pre-selected in the wizard when the provider's API key is set.
+# Multi-role models appear in each applicable section; description/badges
+# on the first (content) occurrence; later occurrences carry just name.
+#
+# Schema: bootstrapper/schemas/models.schema.json (provider-keyed variant).
+# Maintainer cadence: quarterly refresh for cloud providers.
+openai:
+  content:
+    - name: gpt-5
+      default: true
+      description: "OpenAI flagship multimodal — strongest content + vision + structured output"
+      badges: [flagship]
+    - name: gpt-5-mini
+      default: true
+      description: "OpenAI mid-tier multimodal — fast, cheaper than gpt-5"
+    - name: gpt-5-nano
+      description: "OpenAI ultra-cheap multimodal — for high-volume tasks"
+    - name: gpt-4o
+      description: "Previous-gen multimodal — kept for compatibility"
+    - name: gpt-4o-mini
+      description: "Previous-gen cheap multimodal"
+    - name: o3
+      description: "OpenAI reasoning model — strong on math, code, logic; no vision"
+      badges: [reasoning]
+    - name: o3-mini
+      description: "OpenAI smaller reasoning model — faster, cheaper"
+      badges: [reasoning]
+    - name: o1
+      description: "OpenAI o1 reasoning model"
+      badges: [reasoning]
+  embeddings:
+    - name: text-embedding-3-large
+      default: true
+      description: "OpenAI flagship embedding model — 3072 dims"
+      badges: [embeddings]
+    - name: text-embedding-3-small
+      description: "OpenAI cheaper embedding model — 1536 dims"
+      badges: [embeddings]
+  vision:
+    - name: gpt-5
+    - name: gpt-5-mini
+    - name: gpt-5-nano
+    - name: gpt-4o
+    - name: gpt-4o-mini
+anthropic:
+  content:
+    - name: claude-opus-4-7
+      default: true
+      description: "Anthropic flagship — strongest reasoning + writing"
+      badges: [flagship]
+    - name: claude-sonnet-4-6
+      default: true
+      description: "Anthropic mid-tier — 1M context, balanced cost/quality"
+    - name: claude-haiku-4-5
+      description: "Anthropic small/fast — cheapest in the family"
+  vision:
+    - name: claude-opus-4-7
+    - name: claude-sonnet-4-6
+    - name: claude-haiku-4-5
+openrouter:
+  content:
+    - name: openrouter/auto
+      default: true
+      description: "OpenRouter auto-router — picks a backend per request"
+      badges: [router]
+    - name: openrouter/anthropic/claude-sonnet-4.6
+      description: "Claude Sonnet 4.6 via OpenRouter (alternative billing)"
+    - name: openrouter/openai/gpt-5
+      description: "GPT-5 via OpenRouter (alternative billing)"
+    - name: openrouter/google/gemini-2.5-pro
+      description: "Gemini 2.5 Pro via OpenRouter — 2M context window"
+    - name: openrouter/meta-llama/llama-3.3-70b-instruct
+      description: "Llama 3.3 70B via OpenRouter — open-weight content model"
+  vision:
+    - name: openrouter/auto
+    - name: openrouter/anthropic/claude-sonnet-4.6
+    - name: openrouter/openai/gpt-5
+    - name: openrouter/google/gemini-2.5-pro

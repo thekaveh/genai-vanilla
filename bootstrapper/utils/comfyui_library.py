@@ -1,20 +1,42 @@
 """ComfyUI model catalog — scrapers, parsers, and types.
 
-Mirrors `bootstrapper/utils/llm_catalog.py`'s role for the ComfyUI side:
-a pure-functional, side-effect-free catalog module imported BOTH by the
-wizard (host-side, build time) AND by the comfyui-catalog-init container
-(via the /catalog bind mount) to seed ``public.comfyui_models``.
+Mirrors ``bootstrapper/utils/llm_catalog.py``'s role for the ComfyUI side:
+a pure-functional, side-effect-free catalog module imported by the wizard
+(host-side) and by ``comfyui_resolver`` / ``comfyui_manifest_generator`` to
+compute the active model set at bootstrapper start.
 
-There is no host-side file cache — the wizard runs once per invocation
-and assembles the catalog live, then comfyui-catalog-init re-assembles
-it at container start and UPSERTs into Postgres. The DB row is the
-single source of truth for downstream consumers (comfyui-init,
-the backend's /comfyui/db/models routes, the Open WebUI tool,
-the n8n workflow).
+**Curated catalog SoT** (C1)
+The hand-curated model list formerly embedded as ``_CURATED_ENTRIES`` in this
+file now lives in ``services/comfyui/models.yaml``.  ``list_curated()`` reads
+that YAML at call time (no import-time side effects).  Path resolution mirrors
+``llm_catalog._find_models_dir()``:
+
+  1. ``ATLAS_MODELS_DIR`` env var, if set.
+  2. ``<repo_root>/services``  (repo_root = 3 parents above this file:
+     ``bootstrapper/utils/comfyui_library.py`` → ``utils/`` → ``bootstrapper/``
+     → ``repo_root``; then ``repo_root/services``).
+  3. ``/catalog``  (defensive remnant of the former comfyui-catalog-init
+     bind-mount; that container was deleted and no compose fragment mounts
+     ``/catalog`` today — this path is unreachable in normal operation but
+     kept harmlessly as a last-resort fallback).
+
+The wizard **also** live-scrapes HuggingFace and civitai on each invocation;
+those results are merged with the curated entries (curated wins on name
+collision, last in the dedupe pass).  If both scrapers are down, the bundled
+fallback snapshot at ``bootstrapper/utils/data/comfyui_catalog_fallback.json``
+is used instead.  User additions go in ``services/comfyui/custom-models.yaml``.
+
+There is no host-side file cache — the wizard runs once per invocation and
+assembles the catalog live (``assemble_wizard_catalog``).  The bootstrapper
+then writes the active set into ``volumes/comfyui/{selected-models.yaml,
+active-models.tsv}`` via ``comfyui_manifest_generator``.  ``comfyui-init``
+downloads from the TSV; the backend's ``GET /comfyui/db/models`` reads the
+manifest YAML.  No DB; the former ``public.comfyui_models`` table was removed.
 """
 from __future__ import annotations
 
 import json as _json
+import os as _os
 import sys as _sys
 from dataclasses import dataclass
 from pathlib import Path as _Path
@@ -88,6 +110,7 @@ class ComfyUILibraryEntry:
     # URL-derived name is a bare numeric id with no extension and ComfyUI's
     # extension-filtered scanner never lists the downloaded file.
     filename: str | None = None
+    essential: bool = False  # True → activated by default even with empty COMFYUI_USER_MODELS.
 
 
 # ── HF + civitai response parsers ──────────────────────────────────────
@@ -304,125 +327,69 @@ def _parse_civitai_response(
     return out
 
 
-# ── Curated allowlist ──────────────────────────────────────────────────
-# Hand-picked entries for categories where HF tag search is noisy.
-# Add to this list with PRs. Sizes / popularity approximate; accuracy
-# improves over time via community contributions.
+# ── Curated catalog YAML path resolution ──────────────────────────────
+# services/comfyui/models.yaml is the curated SoT (C1).  This loader runs
+# HOST-SIDE only (the bootstrapper's comfyui_manifest_generator at start +
+# the wizard) — no container imports it: comfyui-catalog-init was deleted
+# and comfyui-init is a pure shell script (download_models.sh).
+# Search order mirrors llm_catalog._find_models_dir():
+#   1. ATLAS_MODELS_DIR env var
+#   2. <repo_root>/services  (3 parents above this file)
+#   3. /catalog              (defensive remnant of the former comfyui-catalog-init
+#                             bind-mount; no compose fragment mounts /catalog today)
 
-_CURATED_ENTRIES: tuple[dict, ...] = (
-    # ── Checkpoints ────────────────────────────────────────────────────
-    # SD1.5 + SDXL-base live in the CURATED layer (always merged) so the
-    # names migration_v3's COMFYUI_MODEL_SET translation emits and the
-    # filenames the seeded workflows / backend defaults reference
-    # (v1-5-pruned-emaonly.safetensors, sd_xl_base_1.0.safetensors) have
-    # catalog rows regardless of scrape outcome. Previously they existed
-    # only in the both-scrapers-down fallback snapshot, so an upgraded
-    # .env activated nothing and every seeded workflow failed at render.
-    {
-        "name": "v1-5-pruned-emaonly",
-        "family": "SD1.5", "category": "checkpoint", "size_gb": 3.97,
-        "url": "https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors",
-        "min_vram_gb": 4.0, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 95,
-    },
-    {
-        "name": "sd_xl_base_1.0",
-        "family": "SDXL", "category": "checkpoint", "size_gb": 6.94,
-        "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
-        "min_vram_gb": 8.0, "cpu_supported": False,
-        "requires_custom_node": (), "popularity": 93,
-    },
-    # ── VAE ────────────────────────────────────────────────────────────
-    {
-        "name": "vae-ft-mse-840000-ema-pruned",
-        "family": "SD1.5", "category": "vae", "size_gb": 0.32,
-        "url": "https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors",
-        "min_vram_gb": None, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 80,
-    },
-    {
-        "name": "sdxl-vae",
-        "family": "SDXL", "category": "vae", "size_gb": 0.32,
-        "url": "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors",
-        "min_vram_gb": None, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 85,
-    },
-    # ── ipadapter ──────────────────────────────────────────────────────
-    {
-        "name": "ip-adapter-plus_sdxl_vit-h",
-        "family": "SDXL", "category": "ipadapter", "size_gb": 0.85,
-        "url": "https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors",
-        "min_vram_gb": 6.0, "cpu_supported": False,
-        "requires_custom_node": ("ComfyUI_IPAdapter_plus",), "popularity": 70,
-    },
-    {
-        "name": "ip-adapter-faceid-plusv2_sdxl",
-        "family": "SDXL", "category": "ipadapter", "size_gb": 0.50,
-        "url": "https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin",
-        "min_vram_gb": 6.0, "cpu_supported": False,
-        "requires_custom_node": ("ComfyUI_IPAdapter_plus",), "popularity": 65,
-    },
-    # ── instantid ──────────────────────────────────────────────────────
-    {
-        "name": "instantid-ip-adapter",
-        "family": "InstantID", "category": "instantid", "size_gb": 1.20,
-        "url": "https://huggingface.co/InstantX/InstantID/resolve/main/ip-adapter.bin",
-        "min_vram_gb": 8.0, "cpu_supported": False,
-        "requires_custom_node": ("ComfyUI_InstantID",), "popularity": 60,
-    },
-    # ── upscaler ───────────────────────────────────────────────────────
-    {
-        "name": "real-esrgan-x4plus",
-        "family": "Real-ESRGAN", "category": "upscaler", "size_gb": 0.07,
-        "url": "https://huggingface.co/lllyasviel/Annotators/resolve/main/RealESRGAN_x4plus.pth",
-        "min_vram_gb": None, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 90,
-    },
-    {
-        "name": "4x-ultrasharp",
-        "family": "4x-UltraSharp", "category": "upscaler", "size_gb": 0.07,
-        "url": "https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth",
-        "min_vram_gb": None, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 88,
-    },
-    # ── embedding ──────────────────────────────────────────────────────
-    {
-        "name": "easynegative",
-        "family": "EasyNegative", "category": "embedding", "size_gb": 0.0,
-        "url": "https://huggingface.co/embed/EasyNegative/resolve/main/EasyNegative.safetensors",
-        "min_vram_gb": None, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 85,
-    },
-    # ── clip ───────────────────────────────────────────────────────────
-    {
-        "name": "clip-vit-large-patch14",
-        "family": "CLIP", "category": "clip", "size_gb": 0.60,
-        "url": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin",
-        "min_vram_gb": 2.0, "cpu_supported": True,
-        "requires_custom_node": (), "popularity": 75,
-    },
-    # ── motion_lora ────────────────────────────────────────────────────
-    # Real motion LoRA (zoom-in camera move, ~28 MB); the full motion module
-    # v3_sd15_mm.ckpt belongs in animatediff_models/ and is covered by the
-    # fallback entry animatediff-mm-sd15-v3 (category: animatediff).
-    {
-        "name": "animatediff-camera-zoomin-lora",
-        "family": "AnimateDiff", "category": "motion_lora", "size_gb": 0.028,
-        "url": "https://huggingface.co/guoyww/animatediff-motion-lora-zoom-in/resolve/main/diffusion_pytorch_model.safetensors",
-        "min_vram_gb": 6.0, "cpu_supported": False,
-        "requires_custom_node": ("ComfyUI-AnimateDiff-Evolved",), "popularity": 65,
-    },
-    # ── audio_model ────────────────────────────────────────────────────
-    {
-        "name": "audioldm-text-to-audio",
-        "family": "AudioLDM", "category": "audio_model", "size_gb": 1.50,
-        "url": "https://huggingface.co/cvssp/audioldm/resolve/main/pytorch_model.bin",
-        "min_vram_gb": 6.0, "cpu_supported": False,
-        # Audio nodes are an open ecosystem with no canonical wrapper today;
-        # surface the model but leave node selection to the user (warn-only).
-        "requires_custom_node": (), "popularity": 50,
-    },
-)
+def _find_services_dir() -> _Path:
+    """Resolve the directory that contains comfyui/models.yaml.
+
+    This function runs HOST-SIDE only (bootstrapper venv).  No container
+    imports comfyui_library; comfyui-init is a pure shell script.
+
+    Search order:
+      1. ``ATLAS_MODELS_DIR`` env var.
+      2. ``<repo_root>/services``  (repo_root = 3 parents above this file).
+      3. ``/catalog``  (defensive remnant of the former comfyui-catalog-init
+         bind-mount; unreachable in normal operation — kept as a last-resort
+         fallback only).
+    """
+    env_dir = _os.environ.get("ATLAS_MODELS_DIR")
+    if env_dir:
+        return _Path(env_dir)
+
+    # bootstrapper/utils/comfyui_library.py → utils/ → bootstrapper/ → repo_root
+    repo_root = _Path(__file__).resolve().parent.parent.parent
+    candidates = [repo_root / "services", _Path("/catalog")]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+
+    raise FileNotFoundError(
+        "Cannot locate services directory for comfyui models.yaml. Tried: "
+        + str([str(c) for c in candidates])
+        + ". Set ATLAS_MODELS_DIR to override."
+    )
+
+
+def _find_comfyui_yaml() -> _Path:
+    """Locate services/comfyui/models.yaml (host-side, normal case).
+
+    Tries:
+      1. ``<services_dir>/comfyui/models.yaml``  — host layout (expected path).
+      2. ``<services_dir>/comfyui-models.yaml``  — flat layout under /catalog
+         (defensive remnant of the former comfyui-catalog-init bind-mount;
+         unreachable in normal operation).
+    """
+    base = _find_services_dir()
+    primary = base / "comfyui" / "models.yaml"
+    if primary.exists():
+        return primary
+    flat = base / "comfyui-models.yaml"
+    if flat.exists():
+        return flat
+    raise FileNotFoundError(
+        f"Cannot find ComfyUI curated catalog YAML. Tried: {primary}, {flat}. "
+        "Ensure services/comfyui/models.yaml is present (host) or bind-mounted "
+        "as /catalog/comfyui-models.yaml (container)."
+    )
 
 
 def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
@@ -454,12 +421,41 @@ def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
         cloud_only=bool(d.get("cloud_only", False)),
         notes=d.get("notes"),
         filename=d.get("filename"),
+        essential=bool(d.get("essential", False)),
     )
 
 
 def list_curated() -> list[ComfyUILibraryEntry]:
-    """Return curated entries."""
-    return [_dict_to_entry(d, "curated") for d in _CURATED_ENTRIES]
+    """Return curated entries loaded from services/comfyui/models.yaml.
+
+    Path resolved at call time (not import time) via ``_find_comfyui_yaml()``.
+    Runs HOST-SIDE only — called by the wizard and by
+    ``comfyui_manifest_generator`` at bootstrapper start.  No container
+    imports this function; comfyui-init is a pure shell script.
+
+    Raises RuntimeError if the curated YAML is missing or unparseable —
+    services/comfyui/models.yaml is a REQUIRED file (unlike the optional
+    fallback JSON).  A silent empty catalog would silently drop the curated
+    SoT, which is always a misconfiguration.
+    """
+    try:
+        yaml_path = _find_comfyui_yaml()
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"ComfyUI curated catalog YAML is required but could not be located: {exc}"
+        ) from exc
+    try:
+        raw = _yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+    except _yaml.YAMLError as exc:
+        raise RuntimeError(
+            f"ComfyUI curated catalog YAML at {yaml_path} is unparseable: {exc}"
+        ) from exc
+    if not isinstance(raw, dict):
+        raise RuntimeError(
+            f"ComfyUI curated catalog YAML at {yaml_path} must have a top-level "
+            f"'models:' mapping; got {type(raw).__name__}."
+        )
+    return [_dict_to_entry(d, "curated") for d in (raw.get("models") or [])]
 
 
 # ── Bundled fallback snapshot ──────────────────────────────────────────
@@ -645,9 +641,9 @@ def assemble_wizard_catalog(
     """Live-assembled, merged catalog: HF + civitai + curated
     (+ fallback if both scrapers are down).
 
-    Called once per wizard invocation AND once per comfyui-catalog-init
-    container run. NO caching — there is no host-side file cache (the
-    DB row is the persistence layer; this function is the producer).
+    Called once per wizard invocation. NO caching — there is no host-side
+    file cache (``comfyui_manifest_generator`` writes the active set to
+    ``volumes/comfyui/`` at bootstrapper start; this function is the producer).
     The ``force_refresh`` parameter is accepted for API parity with
     upstream ``list_*`` helpers but is currently a no-op.
 

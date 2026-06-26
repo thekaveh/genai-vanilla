@@ -64,7 +64,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `CLOUDFLARED_SOURCE` | `disabled` | `container`, `disabled` | User-facing optional | Cloudflare Tunnel public edge — terminates TLS at Cloudflare and proxies to Kong (egress-only, no inbound ports). Requires `CLOUDFLARE_TUNNEL_TOKEN`. |
 | `BACKUP_SOURCE` | `disabled` | `container`, `disabled` | User-facing optional | On-demand backup runner — Postgres dump + named-volume snapshots pushed to MinIO/S3. Invoke via `docker compose run --rm backup`. |
 
-> The `litellm-init` and `llm-catalog-init` containers are mandatory and have no SOURCE toggle — they always run when the stack starts. `litellm-init` provisions the dedicated `litellm` Postgres database and renders `volumes/litellm/config.yaml` from `public.llms`; `llm-catalog-init` UPSERTs the curated catalog and the wizard's `*_USER_MODELS` selections into `public.llms`.
+> The `litellm-init` container is mandatory and has no SOURCE toggle — it always runs when the stack starts. `litellm-init` provisions the dedicated `litellm` Postgres database and renders `volumes/litellm/config.yaml` from the YAML model catalogs (`services/ollama/models.yaml`, `services/litellm/models.yaml`) + the wizard's `*_USER_MODELS` env vars, via `model_resolver`. No separate catalog-init container is involved in LLM model selection.
 
 ### 3.1 Services Supporting Localhost
 
@@ -98,14 +98,14 @@ Some features within services are controlled by feature flags rather than SOURCE
 
 ### 3.4 Wizard Model Selections (Non-SOURCE)
 
-The interactive wizard's per-provider multiselects persist as comma-separated env vars in `.env`. Two init containers consume them:
+The interactive wizard's per-provider multiselects persist as comma-separated env vars in `.env`. On each `docker compose up`:
 
-- **`llm-catalog-init`** registers every entry in `public.llms` (the single source of truth for what LiteLLM exposes).
-- **`ollama-pull`** pre-pulls Ollama models (container sources only).
+- **`litellm-init`** calls `model_resolver.active_models(env)` — which reads `services/ollama/models.yaml`, `services/litellm/models.yaml`, and the `*_USER_MODELS` vars below — to render `volumes/litellm/config.yaml`. No DB query involved.
+- **`ollama-pull`** pre-pulls Ollama models (container sources only) using the same resolved active set.
 
 | Variable | Set by | Default | Notes |
 |---|---|---|---|
-| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware; localhost rows are badged `[pulled]` / `[library]`). | Default-active baseline (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). | Registered in `public.llms` for every Ollama source. Pulled by `ollama-pull` only for container sources. |
+| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware; localhost rows are badged `[pulled]` / `[library]`). | Default-active baseline (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). | Consumed by `model_resolver` for every Ollama source. Pulled by `ollama-pull` only for container sources. |
 | `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | Empty. | Comma-separated. Pulled by `ollama-pull` for container sources only. |
 | `OPENAI_USER_MODELS` | OpenAI multiselect (live `/v1/models` fetch). | Curated default-active intersection (gpt-5, gpt-5-mini, text-embedding-3-large) when key valid. | Requires `OPENAI_API_KEY`. |
 | `ANTHROPIC_USER_MODELS` | Anthropic multiselect (live `/v1/models` fetch). | Curated default-active intersection (claude-opus-4-7, claude-sonnet-4-6) when key valid. | Requires `ANTHROPIC_API_KEY`. |
@@ -172,7 +172,7 @@ The legacy values `LLM_PROVIDER_SOURCE=api` and `LLM_PROVIDER_SOURCE=disabled` h
 
 #### 4.1.2 `CLOUD_OPENAI_SOURCE` / `CLOUD_ANTHROPIC_SOURCE` / `CLOUD_OPENROUTER_SOURCE` (multi-toggle)
 
-Each cloud provider is an independent `enabled` / `disabled` switch — turn on as many as you want simultaneously. Consumers request model IDs against `LITELLM_BASE_URL`; LiteLLM routes per-provider based on `public.llms` rows that `llm-catalog-init` activates from the rules below.
+Each cloud provider is an independent `enabled` / `disabled` switch — turn on as many as you want simultaneously. Consumers request model IDs against `LITELLM_BASE_URL`; LiteLLM routes per-provider based on the active model set that `model_resolver` computes from the YAML catalogs + env on each `docker compose up`.
 
 ```bash
 CLOUD_OPENAI_SOURCE=enabled          # requires OPENAI_API_KEY
@@ -180,14 +180,13 @@ CLOUD_ANTHROPIC_SOURCE=enabled       # requires ANTHROPIC_API_KEY
 CLOUD_OPENROUTER_SOURCE=enabled      # requires OPENROUTER_API_KEY
 ```
 
-#### 4.1.3 Per-provider activation rules (run by `llm-catalog-init` on every `docker compose up`)
+#### 4.1.3 Per-provider activation rules (applied by `model_resolver` on every `docker compose up`)
 
-| Provider state | `*_USER_MODELS` env var | Existing active rows in `public.llms` | Result |
-|---|---|---|---|
-| `disabled` OR no API key | (any) | (any) | All rows for that provider deactivated. |
-| `enabled` + key | non-empty CSV | (any) | Activate exactly those rows; deactivate everything else for the provider. |
-| `enabled` + key | empty | ≥ 1 | **Keep existing actives** — wizard / hand edits survive re-runs. |
-| `enabled` + key | empty | 0 | Activate the curated `default_active=True` set (gpt-5 + gpt-5-mini + text-embedding-3-large for OpenAI, etc.) so the provider is usable out of the box. |
+| Provider state | `*_USER_MODELS` env var | Result |
+|---|---|---|
+| `disabled` OR no API key | (any) | Zero active entries for that provider — LiteLLM routes nothing to it. |
+| `enabled` + key | non-empty CSV | Exactly those models are active (catalog entries + synthesized entries for unknown names). |
+| `enabled` + key | empty | The curated `default_active=True` set from the YAML catalog (e.g. gpt-5 + gpt-5-mini + text-embedding-3-large for OpenAI) so the provider is usable out of the box. |
 
 **Bootstrapper safety net** — `source_validator.enforce_runtime_invariants()` flips `CLOUD_*_SOURCE=enabled` back to `disabled` when the matching API key is empty and prints a warning. This protects against the "looks ready in .env, errors at first request" failure mode.
 

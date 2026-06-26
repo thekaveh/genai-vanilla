@@ -123,7 +123,6 @@ runtime_dependency_tiers:
   - neo4j-graph-db
   init_tier:
   - supabase-db-init
-  - llm-catalog-init
   - litellm-init
   - ollama-pull
   - comfyui-init

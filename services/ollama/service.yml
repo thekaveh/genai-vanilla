@@ -35,13 +35,13 @@ env:
     default: ollama-container-cpu
   - name: OLLAMA_USER_MODELS
     default: ""
-    description: "Comma-separated Ollama model names the wizard activated."
+    description: "Comma-separated Ollama model names to activate/pull. Pre-filled by env_assembler from the catalog's default-active Ollama set (see services/ollama/models.yaml); the wizard overwrites it with the user's selection."
   - name: OLLAMA_CUSTOM_MODELS
     default: ""
     description: "Free-text extra Ollama models pulled in container-* sources."
   - name: OLLAMA_AUTO_IMPORT_LOCAL_MODELS
     default: true
-    description: "When LLM_PROVIDER_SOURCE=ollama-localhost, llm-catalog-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
+    description: "When LLM_PROVIDER_SOURCE=ollama-localhost, litellm-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
   - name: OLLAMA_DEPLOY_RESOURCES
     default: "~"
     description: "Reserved for future GPU deploy block. Currently '~' (null)."
@@ -69,8 +69,8 @@ depends_on:
   # after LiteLLM in the wizard's LLM block (see
   # tests/test_row_order_stability.py). When a separate
   # `display_order:` field is added, this edge moves there.
-  # `supabase` is the actual bootstrap blocker (llm-catalog-init reads
-  # public.llms before ollama-pull seeds models).
+  # `supabase` is the actual bootstrap blocker (supabase-db-init must
+  # complete before ollama-pull can run).
   required:
     - supabase
     - litellm
@@ -149,8 +149,8 @@ runtime_adaptive:
 data_flow:
   # Ollama serves /api at runtime; it doesn't initiate outbound calls in
   # the request path. The historical supabase + litellm edges here were
-  # init-time bootstrap contacts (ollama-pull queries public.llms in
-  # supabase and warms LiteLLM's catalog), which the schema explicitly
-  # excludes — those belong on the ollama-pull init manifest if anywhere.
+  # init-time bootstrap contacts (ollama-pull reads OLLAMA_USER_MODELS /
+  # OLLAMA_CUSTOM_MODELS and warms the Ollama engine), which the schema
+  # explicitly excludes — those belong on the ollama-pull init manifest if anywhere.
   calls: []
 

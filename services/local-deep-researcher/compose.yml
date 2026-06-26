@@ -22,6 +22,8 @@ services:
       DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      # Default content LLM — init-config.py reads this directly (no DB query).
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-ollama/qwen3.6:latest}
       SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
       SEARXNG_URL: http://searxng:8080
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}

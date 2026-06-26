@@ -26,19 +26,6 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create updated_at trigger for llms table
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_trigger 
-        WHERE tgname = 'update_llms_updated_at'
-    ) THEN
-        CREATE TRIGGER update_llms_updated_at 
-            BEFORE UPDATE ON public.llms 
-            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-    END IF;
-END $$;
-
 -- Add any other custom functions here
 
 -- Enable logical replication for Realtime

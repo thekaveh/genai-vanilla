@@ -113,12 +113,6 @@ SOURCE_COLORS: Dict[str, str] = {
     "kong": SVC_KONG,
     "litellm": SVC_LITELLM,
     "litellm-init": SVC_LITELLM,
-    # llm-catalog-init populates public.llms (the source of truth
-    # LiteLLM reads at config-render time) — colour-share with LiteLLM
-    # so the two init containers appear visually related in the log
-    # pane. Cloud providers themselves never run as services, so they
-    # never need their own source color in compose output.
-    "llm-catalog-init": SVC_LITELLM,
     "ollama": SVC_OLLAMA,
     "weaviate": SVC_WEAVIATE,
     "openwebui": SVC_OPENWEBUI,

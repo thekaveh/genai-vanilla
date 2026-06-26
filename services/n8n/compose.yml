@@ -52,6 +52,7 @@ services:
       # undeclared: the node rendered "undefined/v1/chat/completions").
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-ollama/qwen3.6:latest}
       # STT/TTS/DOC endpoints (available for workflows)
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
@@ -157,6 +158,7 @@ services:
       GENERIC_TIMEZONE: ${TZ:-UTC}
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-ollama/qwen3.6:latest}
       STT_ENDPOINT: ${STT_ENDPOINT}
       TTS_ENDPOINT: ${TTS_ENDPOINT}
       DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
