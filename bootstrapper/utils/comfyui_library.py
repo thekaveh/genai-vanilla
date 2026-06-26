@@ -426,26 +426,28 @@ def list_curated() -> list[ComfyUILibraryEntry]:
     and inside the comfyui-catalog-init container (where it is bind-mounted as
     /catalog/comfyui-models.yaml).
 
-    Returns an empty list (with a stderr warning) if the YAML cannot be
-    found or parsed — same defensive pattern as ``list_fallback()``.
+    Raises RuntimeError if the curated YAML is missing or unparseable —
+    services/comfyui/models.yaml is a REQUIRED file (unlike the optional
+    fallback JSON).  A silent empty catalog would silently drop the curated
+    SoT, which is always a misconfiguration.
     """
     try:
         yaml_path = _find_comfyui_yaml()
     except FileNotFoundError as exc:
-        print(f"WARNING: ComfyUI curated catalog YAML not found: {exc}",
-              file=_sys.stderr)
-        return []
+        raise RuntimeError(
+            f"ComfyUI curated catalog YAML is required but could not be located: {exc}"
+        ) from exc
     try:
         raw = _yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
     except _yaml.YAMLError as exc:
-        print(f"WARNING: ComfyUI curated catalog YAML parse failed at "
-              f"{yaml_path}: {exc}", file=_sys.stderr)
-        return []
+        raise RuntimeError(
+            f"ComfyUI curated catalog YAML at {yaml_path} is unparseable: {exc}"
+        ) from exc
     if not isinstance(raw, dict):
-        print(f"WARNING: ComfyUI curated catalog YAML at {yaml_path} must "
-              f"have a top-level 'models:' mapping; got "
-              f"{type(raw).__name__}. Ignoring.", file=_sys.stderr)
-        return []
+        raise RuntimeError(
+            f"ComfyUI curated catalog YAML at {yaml_path} must have a top-level "
+            f"'models:' mapping; got {type(raw).__name__}."
+        )
     return [_dict_to_entry(d, "curated") for d in (raw.get("models") or [])]
 
 

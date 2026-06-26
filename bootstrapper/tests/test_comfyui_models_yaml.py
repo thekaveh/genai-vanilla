@@ -23,6 +23,7 @@ from utils.comfyui_library import (
     ComfyUILibraryEntry,
     VALID_CATEGORIES,
     CATEGORY_TARGET_DIR,
+    _find_comfyui_yaml,
     list_curated,
     list_fallback,
     assemble_wizard_catalog,
@@ -285,3 +286,35 @@ def test_assemble_wizard_catalog_all_valid_categories(monkeypatch):
         assert e.category in VALID_CATEGORIES, (
             f"Entry '{e.name}' has unknown category '{e.category}'"
         )
+
+
+# ─── Loud-failure path (Fix 1) ───────────────────────────────────────────────
+
+def test_list_curated_raises_on_missing_yaml(monkeypatch, tmp_path):
+    """list_curated() must raise RuntimeError (not return []) when the
+    curated YAML is missing.  services/comfyui/models.yaml is a REQUIRED
+    file; a silent empty catalog would mask a misconfiguration.
+    """
+    nonexistent = tmp_path / "does_not_exist" / "comfyui-models.yaml"
+
+    # Monkeypatch _find_comfyui_yaml to raise FileNotFoundError pointing at
+    # the non-existent path, simulating a missing YAML on any machine.
+    import utils.comfyui_library as _lib
+
+    def _missing():
+        raise FileNotFoundError(f"No such file or directory: '{nonexistent}'")
+
+    monkeypatch.setattr(_lib, "_find_comfyui_yaml", _missing)
+
+    with pytest.raises(RuntimeError, match="required but could not be located"):
+        list_curated()
+
+
+def test_list_curated_returns_13_entries_happy_path():
+    """Happy path: list_curated() must return the 13 curated entries when
+    services/comfyui/models.yaml is present and valid.
+    """
+    entries = list_curated()
+    assert len(entries) == 13, (
+        f"Expected 13 curated entries from list_curated(); got {len(entries)}"
+    )

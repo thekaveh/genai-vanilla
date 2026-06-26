@@ -87,10 +87,6 @@
           "minimum": 0,
           "description": "Approximate popularity score (0-100). Used for wizard sort order."
         },
-        "source_tag": {
-          "type": "string",
-          "description": "Internal source hint; not normally needed — source is always 'curated' for entries in this file."
-        },
         "cloud_only": {
           "type": "boolean",
           "description": "If true, the model is only available via cloud API, not for local download."
