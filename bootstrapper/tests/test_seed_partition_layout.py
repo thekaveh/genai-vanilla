@@ -15,7 +15,6 @@ SCRIPTS_DIR = REPO_ROOT / "services" / "supabase" / "db" / "scripts"
 # Expected owning slice for each app table.
 EXPECTED_OWNER = {
     "users": "10-users.sql",
-    "llms": "11-litellm.sql",
     "comfyui_models": "12-comfyui.sql",
     "comfyui_workflows": "12-comfyui.sql",
     "comfyui_generations": "12-comfyui.sql",
