@@ -1,9 +1,9 @@
 """ComfyUI model catalog — scrapers, parsers, and types.
 
 Mirrors ``bootstrapper/utils/llm_catalog.py``'s role for the ComfyUI side:
-a pure-functional, side-effect-free catalog module imported BOTH by the
-wizard (host-side, build time) AND by the comfyui-catalog-init container
-(via the ``/catalog`` bind mount) to seed ``public.comfyui_models``.
+a pure-functional, side-effect-free catalog module imported by the wizard
+(host-side) and by ``comfyui_resolver`` / ``comfyui_manifest_generator`` to
+compute the active model set at bootstrapper start.
 
 **Curated catalog SoT** (C1)
 The hand-curated model list formerly embedded as ``_CURATED_ENTRIES`` in this
@@ -25,12 +25,12 @@ collision, last in the dedupe pass).  If both scrapers are down, the bundled
 fallback snapshot at ``bootstrapper/utils/data/comfyui_catalog_fallback.json``
 is used instead.  User additions go in ``services/comfyui/custom-models.yaml``.
 
-There is no host-side file cache — the wizard runs once per invocation
-and assembles the catalog live, then comfyui-catalog-init re-assembles
-it at container start and UPSERTs into Postgres.  The DB row is the
-single source of truth for downstream consumers (comfyui-init,
-the backend's /comfyui/db/models routes, the Open WebUI tool,
-the n8n workflow).
+There is no host-side file cache — the wizard runs once per invocation and
+assembles the catalog live (``assemble_wizard_catalog``).  The bootstrapper
+then writes the active set into ``volumes/comfyui/{selected-models.yaml,
+active-models.tsv}`` via ``comfyui_manifest_generator``.  ``comfyui-init``
+downloads from the TSV; the backend's ``GET /comfyui/db/models`` reads the
+manifest YAML.  No DB; the former ``public.comfyui_models`` table was removed.
 """
 from __future__ import annotations
 
@@ -328,7 +328,7 @@ def _parse_civitai_response(
 
 # ── Curated catalog YAML path resolution ──────────────────────────────
 # services/comfyui/models.yaml is the curated SoT (C1).  The loader must
-# find it on the host AND inside the comfyui-catalog-init container, where
+# find it on the host AND inside the comfyui-init container, where
 # bootstrapper/utils is bind-mounted as /catalog and models.yaml is
 # additionally mounted as /catalog/comfyui-models.yaml.
 # Search order mirrors llm_catalog._find_models_dir():
@@ -425,7 +425,7 @@ def list_curated() -> list[ComfyUILibraryEntry]:
 
     Path resolved at call time (not import time) via ``_find_comfyui_yaml()``.
     Works on the host (where the YAML is at repo_root/services/comfyui/models.yaml)
-    and inside the comfyui-catalog-init container (where it is bind-mounted as
+    and inside the comfyui-init container (where it is bind-mounted as
     /catalog/comfyui-models.yaml).
 
     Raises RuntimeError if the curated YAML is missing or unparseable —
@@ -636,9 +636,9 @@ def assemble_wizard_catalog(
     """Live-assembled, merged catalog: HF + civitai + curated
     (+ fallback if both scrapers are down).
 
-    Called once per wizard invocation AND once per comfyui-catalog-init
-    container run. NO caching — there is no host-side file cache (the
-    DB row is the persistence layer; this function is the producer).
+    Called once per wizard invocation. NO caching — there is no host-side
+    file cache (``comfyui_manifest_generator`` writes the active set to
+    ``volumes/comfyui/`` at bootstrapper start; this function is the producer).
     The ``force_refresh`` parameter is accepted for API parity with
     upstream ``list_*`` helpers but is currently a no-op.
 

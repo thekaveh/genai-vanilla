@@ -51,7 +51,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 **Request flow.** The backend POSTs a workflow JSON to `${COMFYUI_ENDPOINT}/prompt` and receives a `prompt_id` (n8n workflows call the backend's `/comfyui/*` routes rather than ComfyUI directly). To track progress, the caller either polls `GET /history/{prompt_id}` or opens a `/ws` websocket and filters by `prompt_id`. Outputs land under `output/` inside the container; the `/view` endpoint serves them by filename.
 
-**Init flow** (`comfyui-init`): plain alpine + `apk add wget postgresql-client ca-certificates`. The init script queries `SELECT … FROM public.comfyui_models WHERE active = true` via psql and downloads each active model into the `comfyui-models` volume via wget (with optional SHA256 verification), in parallel to `ollama-pull`'s shape. `comfyui-catalog-init` runs first: it UPSERTs the curated catalog + `services/comfyui/custom-models.yaml` sidecar into `public.comfyui_models` and flips `active = true` for names in `COMFYUI_USER_MODELS`. Failure mode is non-fatal — ComfyUI starts even if downloads are incomplete, you just get model-not-found errors at workflow time.
+**Init flow** (`comfyui-init`): plain alpine + `apk add wget ca-certificates`. At bootstrapper start, `comfyui_resolver` (host-side, DB-free) computes the active model set from `COMFYUI_USER_MODELS` + `services/comfyui/custom-models.yaml` and writes `volumes/comfyui/selected-models.yaml` (full manifest) and `volumes/comfyui/active-models.tsv` (shell-consumable TSV). `comfyui-init` bind-mounts `volumes/comfyui/` and downloads each model listed in the TSV into the `comfyui-models` volume via wget (with optional SHA256 verification), in parallel to `ollama-pull`'s shape. Failure mode is non-fatal — ComfyUI starts even if downloads are incomplete, you just get model-not-found errors at workflow time. The former `comfyui-catalog-init` container and `public.comfyui_models` DB table have been removed.
 
 **Hard dependencies** (`depends_on.required`): `supabase`, `litellm`, `ollama`. The Supabase dep covers the Storage upload path; LiteLLM and Ollama are inherited from `runtime_adaptive` (ComfyUI custom nodes that call LLMs route through LiteLLM).
 
@@ -127,14 +127,14 @@ For general startup and routing issues, see [Troubleshooting](../../docs/quick-s
 
 **Choosing models.** Run `./start.sh` (or the wizard standalone) and navigate to the "ComfyUI · models" step. The step shows for every non-`disabled` source (container-cpu / container-gpu / localhost) — same shape as the Ollama picker. Use filter chips (`f` key) to browse by category (Image / Image-edit / Video / Audio / 3D), `/` or `Tab` to search by name, `Space` to toggle rows, and `Enter` to confirm. Selected names are persisted as `COMFYUI_USER_MODELS` in `.env`. On the next `./start.sh`:
 
-- **`container-cpu` / `container-gpu`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` AND `comfyui-init` downloads them into the `comfyui-models` volume.
-- **`localhost`:** `comfyui-catalog-init` activates the chosen rows in `public.comfyui_models` so the backend `/comfyui/db/models` endpoint surfaces them to Open WebUI + n8n. `comfyui-init` does NOT run (scale=0) — you populate your host ComfyUI install's models directory yourself, same way you'd run `ollama pull <name>` on the host for Ollama localhost.
+- **`container-cpu` / `container-gpu`:** the bootstrapper resolves the active set via `comfyui_resolver` and writes `volumes/comfyui/selected-models.yaml` + `volumes/comfyui/active-models.tsv`. `comfyui-init` downloads each model in the TSV into the `comfyui-models` volume.
+- **`localhost`:** the bootstrapper still writes the manifest (so the backend `/comfyui/db/models` endpoint surfaces the active set to Open WebUI + n8n). `comfyui-init` does NOT run (scale=0) — you populate your host ComfyUI install's models directory yourself, same way you'd run `ollama pull <name>` on the host for Ollama localhost.
 
 CLI alternative (works for all non-disabled sources):
 ```bash
 ./start.sh --comfyui-models=sdxl-base-1.0,sdxl-vae,flux1-dev-Q4_K_S
 ```
-Unknown names log a warning during catalog-init but don't block startup.
+Unknown names log a warning at bootstrapper start but don't block startup.
 
 **Required custom_nodes.** Some models (Flux GGUF, AnimateDiff, IP-Adapter, InstantID, etc.) need specific ComfyUI custom_nodes installed before they will load. The wizard surfaces a `⚠ <node-name>` badge on those rows. Install each required node manually:
 
@@ -145,9 +145,9 @@ docker exec -it <project>-comfyui sh -c \
 
 Restart ComfyUI after cloning a new node.
 
-**Adding models not in the catalog.** Edit `services/comfyui/custom-models.yaml`. The wizard surfaces additions on the next run with a `[Custom]` family badge; `comfyui-catalog-init` ingests them into the DB so the pull script downloads them. Schema is documented in the file's header comment.
+**Adding models not in the catalog.** Edit `services/comfyui/custom-models.yaml`. The wizard surfaces additions on the next run with a `[Custom]` family badge; the bootstrapper ingests them via `comfyui_resolver` at start and adds them to the download manifest. Schema is documented in the file's header comment.
 
-**Removing models.** Unchecking a model in the wizard sets `active = false` on the next start. The underlying file is NOT deleted from the volume (same behavior as Ollama). To reclaim disk:
+**Removing models.** Unchecking a model in the wizard sets it inactive on the next start (it is removed from the manifest and won't be re-downloaded). The underlying file is NOT deleted from the volume (same behavior as Ollama). To reclaim disk:
 
 ```bash
 # Nuke the entire volume:

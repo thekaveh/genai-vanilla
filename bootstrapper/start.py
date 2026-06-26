@@ -1845,7 +1845,7 @@ class AtlasStarter:
                    '(e.g. "sd_xl_base_1.0,sdxl-vae,flux1-dev-Q4_K_S"). '
                    'Overrides wizard selection and existing COMFYUI_USER_MODELS '
                    'in .env. Pass "" to clear. Unknown names skip with warning '
-                   '(comfyui-catalog-init logs them).')
+                   '(comfyui-init logs unknown names at start).')
 @click.option('--comfyui-custom-models-file',
               type=click.Path(exists=False, dir_okay=False),
               help='Path to a sidecar custom-models.yaml. Default: '
@@ -2204,9 +2204,9 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             if not _comfyui_source.startswith('container-'):
                 print(
                     f"⚠️  --comfyui-models was set but COMFYUI_SOURCE={_comfyui_source} — "
-                    f"the comfyui-catalog-init container won't run, so the selection "
-                    f"won't take effect. Pass --comfyui-source=container-cpu (or -gpu) "
-                    f"first.",
+                    f"comfyui-init won't run (COMFYUI_INIT_SCALE=0 for non-container sources), "
+                    f"so the selection won't take effect. Pass --comfyui-source=container-cpu "
+                    f"(or -gpu) first.",
                     file=sys.stderr,
                 )
 

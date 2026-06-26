@@ -12,8 +12,9 @@ the `<project>-comfyui-models` named Docker volume, so the host-side
 wizard can only see them when `docker volume inspect`'s Mountpoint is
 readable from the host (rootful Linux). On Docker Desktop the path
 lives inside the VM and the [pulled] badges are simply omitted. NO DB
-query — the wizard runs BEFORE comfyui-catalog-init populates
-public.comfyui_models.
+query — the wizard writes selections to COMFYUI_USER_MODELS in .env;
+the bootstrapper resolves these at start via comfyui_resolver and writes
+volumes/comfyui/{selected-models.yaml, active-models.tsv}.
 """
 from __future__ import annotations
 
@@ -445,10 +446,10 @@ def build_comfyui_steps(
         Mirrors the Ollama picker, which shows for container-cpu /
         container-gpu / localhost / external — all non-disabled
         variants. For localhost / external the picker still writes
-        COMFYUI_USER_MODELS to .env so comfyui-catalog-init can mark
-        the chosen rows active in public.comfyui_models (consumed by
-        the backend /comfyui/db/models endpoint that Open WebUI + n8n
-        call). For those sources comfyui-init (the wget container)
+        COMFYUI_USER_MODELS to .env so the bootstrapper's
+        comfyui_manifest_generator writes the manifest at start (consumed
+        by the backend /comfyui/db/models endpoint that Open WebUI + n8n
+        call). For those sources comfyui-init (the download container)
         scales to 0 per service_config.py — same shape as ollama-pull
         being scale=0 for non-container ollama sources. The user
         populates their host ComfyUI install's models dir themselves,

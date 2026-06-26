@@ -13,7 +13,7 @@ services:
       COMFYUI_MODELS_PATH: /models
       # Path to the bootstrapper-generated active-models TSV
       # (volumes/comfyui/active-models.tsv → bind-mounted at /comfyui-manifest).
-      # download_models.sh reads this instead of querying public.comfyui_models.
+      # download_models.sh reads this instead of the former public.comfyui_models DB query.
       COMFYUI_MANIFEST_TSV: /comfyui-manifest/active-models.tsv
     volumes:
       - ./init/scripts:/scripts

@@ -111,8 +111,8 @@ except ImportError:                     # container /catalog (loose modules)
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Default sidecar path inside the comfyui-catalog-init / comfyui-init
-#: containers (bind-mounted from ``services/comfyui/custom-models.yaml``).
+#: Default sidecar path inside the comfyui-init container
+#: (bind-mounted from ``services/comfyui/custom-models.yaml``).
 _DEFAULT_SIDECAR_PATH = "/custom-models.yaml"
 
 

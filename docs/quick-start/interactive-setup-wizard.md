@@ -195,17 +195,18 @@ catalog still loads.
 **Source-aware behaviour** — the picker fires for all non-`disabled`
 ComfyUI sources, but the downstream init pipeline branches:
 
-- **`container-cpu` / `container-gpu`** — `comfyui-init` wgets every
-  `active = true` row from `public.comfyui_models` into the
-  container's models volume on startup. Selections persist to
-  `COMFYUI_USER_MODELS` and arrive after `comfyui-catalog-init`
-  has flipped the corresponding rows active.
-- **`localhost`** — `comfyui-init` is scaled to 0
-  (the wget container would write into a path the host ComfyUI
-  doesn't read), but `comfyui-catalog-init` still scales to 1 so
-  `public.comfyui_models` gets the active set populated for the
-  backend `/comfyui/db/models` endpoint that Open WebUI and n8n
-  consume. You populate your host ComfyUI install's
+- **`container-cpu` / `container-gpu`** — at bootstrapper start,
+  `comfyui_resolver` computes the active set from `COMFYUI_USER_MODELS`
+  + `services/comfyui/custom-models.yaml` and writes
+  `volumes/comfyui/selected-models.yaml` (manifest) and
+  `volumes/comfyui/active-models.tsv`. `comfyui-init` then downloads
+  each model in the TSV into the `comfyui-models` volume via wget.
+  Selections persist to `COMFYUI_USER_MODELS` in `.env`.
+- **`localhost`** — `comfyui-init` is scaled to 0 (the download
+  container would write into a path the host ComfyUI doesn't read), but
+  the bootstrapper still writes the manifest so the backend
+  `/comfyui/db/models` endpoint that Open WebUI and n8n consume can
+  serve the active set. You populate your host ComfyUI install's
   `models/<target_dir>/` directory yourself, same as
   `ollama pull <name>` for an Ollama localhost upstream.
 

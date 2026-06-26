@@ -101,7 +101,7 @@
         },
         "essential": {
           "type": "boolean",
-          "description": "If true, this entry is activated by default when COMFYUI_USER_MODELS is empty (DB-free equivalent of the essential column in public.comfyui_models)."
+          "description": "If true, this entry is activated by default when COMFYUI_USER_MODELS is empty (DB-free replacement for the former essential column in public.comfyui_models)."
         }
       }
     }

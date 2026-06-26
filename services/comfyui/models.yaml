@@ -3,8 +3,7 @@
 # This file is the single source of truth for the CURATED subset of the
 # ComfyUI model catalog.  It is read by bootstrapper/utils/comfyui_library.py's
 # list_curated() function (YAML path resolved at host AND inside the
-# comfyui-catalog-init container, where bootstrapper/utils is bind-mounted
-# as /catalog).
+# comfyui-init container, where bootstrapper/utils is bind-mounted as /catalog).
 #
 # The wizard ALSO live-scrapes HuggingFace and civitai on each invocation;
 # those results are merged with the curated entries (curated wins on name
