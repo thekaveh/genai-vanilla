@@ -1,9 +1,12 @@
 # services/comfyui/models.yaml — Curated ComfyUI model catalog (Part C1)
 #
 # This file is the single source of truth for the CURATED subset of the
-# ComfyUI model catalog.  It is read by bootstrapper/utils/comfyui_library.py's
-# list_curated() function (YAML path resolved at host AND inside the
-# comfyui-init container, where bootstrapper/utils is bind-mounted as /catalog).
+# ComfyUI model catalog.  It is read HOST-SIDE by
+# bootstrapper/utils/comfyui_library.py's list_curated() function — by the
+# wizard and by comfyui_manifest_generator at bootstrapper start.  The former
+# /catalog bind-mount into comfyui-catalog-init was removed when that
+# container was deleted; comfyui-init is a pure shell script with no Python
+# runtime and no /catalog or /custom-models.yaml bind-mount.
 #
 # The wizard ALSO live-scrapes HuggingFace and civitai on each invocation;
 # those results are merged with the curated entries (curated wins on name

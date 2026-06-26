@@ -15,9 +15,10 @@ that YAML at call time (no import-time side effects).  Path resolution mirrors
   2. ``<repo_root>/services``  (repo_root = 3 parents above this file:
      ``bootstrapper/utils/comfyui_library.py`` → ``utils/`` → ``bootstrapper/``
      → ``repo_root``; then ``repo_root/services``).
-  3. ``/catalog``  (container bind-mount target where
-     ``services/comfyui/models.yaml`` is additionally mounted as
-     ``/catalog/comfyui-models.yaml`` — see services/comfyui/compose.yml).
+  3. ``/catalog``  (defensive remnant of the former comfyui-catalog-init
+     bind-mount; that container was deleted and no compose fragment mounts
+     ``/catalog`` today — this path is unreachable in normal operation but
+     kept harmlessly as a last-resort fallback).
 
 The wizard **also** live-scrapes HuggingFace and civitai on each invocation;
 those results are merged with the curated entries (curated wins on name
@@ -339,11 +340,15 @@ def _parse_civitai_response(
 def _find_services_dir() -> _Path:
     """Resolve the directory that contains comfyui/models.yaml.
 
+    This function runs HOST-SIDE only (bootstrapper venv).  No container
+    imports comfyui_library; comfyui-init is a pure shell script.
+
     Search order:
       1. ``ATLAS_MODELS_DIR`` env var.
       2. ``<repo_root>/services``  (repo_root = 3 parents above this file).
-      3. ``/catalog``  (container bind-mount; models.yaml is mounted there
-         as ``comfyui-models.yaml``).
+      3. ``/catalog``  (defensive remnant of the former comfyui-catalog-init
+         bind-mount; unreachable in normal operation — kept as a last-resort
+         fallback only).
     """
     env_dir = _os.environ.get("ATLAS_MODELS_DIR")
     if env_dir:
@@ -364,14 +369,13 @@ def _find_services_dir() -> _Path:
 
 
 def _find_comfyui_yaml() -> _Path:
-    """Locate services/comfyui/models.yaml (host) or /catalog/comfyui-models.yaml
-    (container).
+    """Locate services/comfyui/models.yaml (host-side, normal case).
 
     Tries:
-      1. ``<services_dir>/comfyui/models.yaml``  — host layout.
-      2. ``<services_dir>/comfyui-models.yaml``  — container flat layout
-         (bind-mounted from services/comfyui/models.yaml as
-         /catalog/comfyui-models.yaml).
+      1. ``<services_dir>/comfyui/models.yaml``  — host layout (expected path).
+      2. ``<services_dir>/comfyui-models.yaml``  — flat layout under /catalog
+         (defensive remnant of the former comfyui-catalog-init bind-mount;
+         unreachable in normal operation).
     """
     base = _find_services_dir()
     primary = base / "comfyui" / "models.yaml"
@@ -424,9 +428,9 @@ def list_curated() -> list[ComfyUILibraryEntry]:
     """Return curated entries loaded from services/comfyui/models.yaml.
 
     Path resolved at call time (not import time) via ``_find_comfyui_yaml()``.
-    Works on the host (where the YAML is at repo_root/services/comfyui/models.yaml)
-    and inside the comfyui-init container (where it is bind-mounted as
-    /catalog/comfyui-models.yaml).
+    Runs HOST-SIDE only — called by the wizard and by
+    ``comfyui_manifest_generator`` at bootstrapper start.  No container
+    imports this function; comfyui-init is a pure shell script.
 
     Raises RuntimeError if the curated YAML is missing or unparseable —
     services/comfyui/models.yaml is a REQUIRED file (unlike the optional

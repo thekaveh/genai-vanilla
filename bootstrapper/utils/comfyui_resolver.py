@@ -89,20 +89,21 @@ from urllib.parse import urlparse
 
 import yaml
 
-# Container-safe dual-mode import.
+# Dual-mode import (defensive remnant).
 #
-# This module is consumed in two contexts:
-#   1. Bootstrapper venv (host): ``bootstrapper/utils/`` is a proper Python
-#      package, so ``from utils import comfyui_library`` works fine.
-#   2. comfyui-init container: ``bootstrapper/utils/`` is bind-mounted as
-#      ``/catalog`` and scripts import modules LOOSE (no ``utils`` package).
-#      In that context ``from utils import comfyui_library`` raises ImportError
-#      because there is no ``utils`` package on sys.path.  The fallback handles
-#      this case.
+# comfyui_resolver runs HOST-SIDE only (bootstrapper venv).  No container
+# imports it: comfyui-init is a pure shell script; the backend reads the
+# manifest YAML directly without importing this module.
+#
+# The try/except was originally needed when ``bootstrapper/utils/`` was
+# bind-mounted as ``/catalog`` into comfyui-catalog-init, which imported
+# this module loose (no ``utils`` package prefix).  That container was
+# deleted.  The fallback branch is now dead code kept harmlessly in case
+# a future context re-introduces a loose-module import environment.
 try:                                    # bootstrapper venv (package context)
     from utils import comfyui_library
     from utils.comfyui_library import ComfyUILibraryEntry
-except ImportError:                     # container /catalog (loose modules)
+except ImportError:                     # defensive fallback (no active caller)
     import comfyui_library  # type: ignore[no-redef]
     from comfyui_library import ComfyUILibraryEntry  # type: ignore[no-redef]
 
@@ -111,8 +112,12 @@ except ImportError:                     # container /catalog (loose modules)
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Default sidecar path inside the comfyui-init container
-#: (bind-mounted from ``services/comfyui/custom-models.yaml``).
+#: Default host-side sidecar path fallback when neither ``sidecar_path``
+#: nor ``COMFYUI_CUSTOM_MODELS_FILE`` is supplied.  The ``/custom-models.yaml``
+#: value is a defensive remnant of the former comfyui-catalog-init bind-mount
+#: (which mounted ``services/comfyui/custom-models.yaml`` at that path).
+#: comfyui-init is a pure shell script and does not mount this path;
+#: on the host this path is simply absent, so ``load_custom_models`` returns [].
 _DEFAULT_SIDECAR_PATH = "/custom-models.yaml"
 
 
