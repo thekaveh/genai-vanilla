@@ -99,7 +99,9 @@ data_flow:
   calls:
     - litellm
     - searxng
-    # init-config.py connects straight to Postgres (psycopg2 over
-    # via LITELLM_DEFAULT_MODEL env var (set by litellm-init).
+    # supabase: the Local Deep Researcher app stores its research_* tables
+    # (research_sessions/results/sources/logs) in Postgres at runtime.
+    # init-config.py reads the model from LITELLM_DEFAULT_MODEL (set by
+    # litellm-init), not from public.llms.
     - supabase
 

@@ -221,8 +221,8 @@ def _maybe_fetch_ollama_tags() -> list[str] | None:
       • ``LLM_PROVIDER_SOURCE`` must start with ``ollama-localhost``
       • ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS`` must be truthy
 
-    Uses ``/catalog/ollama_discovery.py`` (the same module the wizard
-    and catalog-init use) so discovery behaviour is consistent.
+    Uses ``/catalog/ollama_discovery.py`` (the same module the wizard's
+    ollama_discovery use) so discovery behaviour is consistent.
     Returns an empty list (not None) on fetch failure — resolver treats
     an empty list the same as no auto-import.
     """
