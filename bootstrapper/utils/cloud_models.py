@@ -42,8 +42,8 @@ new family from OpenAI (gpt-6, o4, o5, etc.) needs a prefix added to
 
 When the upstream catalog drifts faster than we update these filters,
 the wizard's worst-case behavior is silently dropping new models from
-the picker — the user can still type the name into the catalog directly
-or activate the row via ``UPDATE public.llms``.
+the picker — the user can still set the model name explicitly via
+``OPENAI_USER_MODELS`` (or the relevant ``*_USER_MODELS`` env var).
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def _emit(on_warn: Optional[WarnFn], msg: str) -> None:
 class ModelInfo:
     """One row in the cloud multi-select picker.
 
-    ``id`` is what we store in ``public.llms.name`` and what
+    ``id`` is the canonical model name in the YAML catalog and what
     ``litellm-init`` puts in ``model_list[].model_name`` — stable.
     ``label`` is what the user sees in the wizard. ``description``
     is shown as the row hint.

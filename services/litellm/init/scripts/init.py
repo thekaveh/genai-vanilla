@@ -47,8 +47,7 @@ import yaml
 def _load_shared_settings():
     """Import ``litellm_settings`` from the bind-mounted /catalog dir.
 
-    Sibling mount of /scripts (see docker-compose.yml). Same trick as
-    llm-catalog-init's load_catalog() — register in sys.modules before
+    Sibling mount of /scripts (see docker-compose.yml). Register in sys.modules before
     exec_module so dataclass / future-annotations machinery resolves
     cleanly.
 
@@ -88,7 +87,7 @@ LITELLM_OLLAMA_UPSTREAM = os.environ.get("LITELLM_OLLAMA_UPSTREAM", "http://olla
 # Hermes Agent — appended as a `hermes-agent` model_list entry when
 # HERMES_SOURCE != disabled. Hermes is a *runtime* (programmable agent
 # loop), not a model provider, so it's deliberately kept out of the
-# llm_catalog / public.llms taxonomy and stitched in here. Open WebUI,
+# llm_catalog YAML taxonomy and stitched in here. Open WebUI,
 # n8n, backend, jupyterhub all see it for free via LiteLLM.
 HERMES_SOURCE = os.environ.get("HERMES_SOURCE", "disabled").strip().lower()
 HERMES_ENDPOINT = os.environ.get("HERMES_ENDPOINT", "").strip()
@@ -218,8 +217,7 @@ def _maybe_fetch_ollama_tags() -> list[str] | None:
     catalog) land in the config.
 
     Returns ``None`` (skip auto-import) for container sources or when
-    ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS`` is not truthy.  Mirrors the
-    gating logic in ``llm-catalog-init``'s ``sync-catalog.py``:
+    ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS`` is not truthy.  Gating rules:
       • ``LLM_PROVIDER_SOURCE`` must start with ``ollama-localhost``
       • ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS`` must be truthy
 

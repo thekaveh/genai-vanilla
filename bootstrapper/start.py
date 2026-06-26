@@ -285,9 +285,10 @@ class AtlasStarter:
         ANTHROPIC_USER_MODELS, OPENROUTER_USER_MODELS, OLLAMA_USER_MODELS,
         OLLAMA_CUSTOM_MODELS) into ``.env``.
 
-        Values are comma-separated model names. ``llm-catalog-init``
-        consumes them on the next ``docker compose up`` to set the
-        ``active`` flag on the corresponding rows in ``public.llms``.
+        Values are comma-separated model names. ``litellm-init``
+        consumes them on the next ``docker compose up`` via
+        ``model_resolver`` (YAML catalogs + env) to build the active
+        model set.
 
         Args:
             selections: Mapping of env-var name to comma-separated
@@ -1120,7 +1121,7 @@ class AtlasStarter:
     def generate_litellm_configuration(self) -> bool:
         """Write a STUB volumes/litellm/config.yaml so the bind mount has
         a file to attach to. The real model_list is rendered by
-        ``litellm-init`` from public.llms on every ``docker compose up``.
+        ``litellm-init`` from the YAML catalogs + env on every ``docker compose up``.
 
         ``force=True`` here, but the writer is NOT unconditionally
         destructive — ``LiteLLMConfigGenerator.write_config`` checks
@@ -1796,7 +1797,7 @@ class AtlasStarter:
                    'and implies --cloud-openrouter-source=enabled.')
 @click.option('--openai-models', type=str, default=None,
               help='Comma-separated OpenAI model names to activate (e.g. "gpt-5,gpt-5-mini,o3"). '
-                   'Persists to .env as OPENAI_USER_MODELS; llm-catalog-init activates these in public.llms.')
+                   'Persists to .env as OPENAI_USER_MODELS; litellm-init activates these via model_resolver on the next docker compose up.')
 @click.option('--anthropic-models', type=str, default=None,
               help='Comma-separated Anthropic model names to activate. Persists as ANTHROPIC_USER_MODELS.')
 @click.option('--openrouter-models', type=str, default=None,
@@ -2077,9 +2078,9 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             if cloud_openrouter_source is None:
                 cloud_openrouter_source = 'enabled'
 
-        # User-selected model lists from CLI flags. llm-catalog-init
-        # consumes these on the next docker compose up to activate the
-        # matching public.llms rows.
+        # User-selected model lists from CLI flags. litellm-init
+        # consumes these on the next docker compose up via model_resolver
+        # (YAML catalogs + env) to build the active model set.
         user_model_selections: Dict[str, str] = {}
         if openai_models is not None:
             user_model_selections['OPENAI_USER_MODELS'] = openai_models
@@ -2097,7 +2098,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             user_model_selections['COMFYUI_CUSTOM_MODELS_FILE'] = comfyui_custom_models_file
 
         # Warn on cloud --*-models flags passed WITHOUT enabling the
-        # provider. llm-catalog-init deactivates every row of a disabled
+        # provider. model_resolver produces zero active entries for a disabled
         # provider, so the persisted CSV would be inert. Surface this to
         # the user instead of silently no-op'ing. The matching key flag
         # implies enabling above; a bare --openai-models is the case to
@@ -2154,7 +2155,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
                 _provider = _source_var.removeprefix('CLOUD_').removesuffix('_SOURCE').lower()
                 print(
                     f"⚠️  --{_provider}-models was set but {_source_var}={_effective} — "
-                    f"llm-catalog-init will deactivate every {_provider} row, so the "
+                    f"model_resolver produces no active entries for a disabled provider, so the "
                     f"persisted list won't take effect. Pass --{_provider}-api-key, "
                     f"--cloud-{_provider}-source=enabled, or set {_source_var}=enabled "
                     f"in .env.",
@@ -2538,7 +2539,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             sys.exit(1)
 
         # Persist any CLI-supplied user model selections to .env.
-        # llm-catalog-init reads these on the next docker compose up.
+        # litellm-init reads these on the next docker compose up via model_resolver.
         if not starter.apply_user_model_selections(user_model_selections):
             sys.exit(1)
 
@@ -2592,7 +2593,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
 
         # Step 4.55: Write LiteLLM stub config.yaml so the bind mount has
         # a file. The real model_list is rendered later by litellm-init
-        # from public.llms — see services/litellm/init/scripts/init.py.
+        # from the YAML catalogs + env — see services/litellm/init/scripts/init.py.
         if not starter.generate_litellm_configuration():
             sys.exit(1)
 

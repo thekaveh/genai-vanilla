@@ -41,7 +41,7 @@ Each wizard step renders one of five prompt widgets, picked based on the questio
 | `options` | Single-select with a small fixed option set (every `*_SOURCE`, the `Cold start` toggle, the `Hosts file` choice). | Up/Down arrows + Enter; the current `.env` value is pre-highlighted. |
 | `number` | Numeric prompts (`Base port`). | Single-line input restricted to digits; range-validated. |
 | `secret` | API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`). | Masked password Input + a live char-count hint as you paste. When a key is already set, the hint shows the source-aware action: press Enter to keep the saved key, type a new key to replace, type `clear` + Enter to remove. No sentinel rows are rendered — the input field IS the prompt. |
-| `multiselect` | Cloud and Ollama model lists. | `[✓]` / `[ ]` rows in a scrollable viewport (capped height; the cursor follows the selection so a 230-row library scrape stays usable). Space toggles, Enter confirms. **Cloud** multiselect: default-active set (intersected with what your account actually returns) is pre-checked on first visit. **Ollama** multiselect: source-aware — container shows the library only, localhost shows a merged `[pulled]` + `[library]` view. Purely additive; the default-active baseline is already active via `llm-catalog-init` (UPSERTs the curated catalog on every `docker compose up`). |
+| `multiselect` | Cloud and Ollama model lists. | `[✓]` / `[ ]` rows in a scrollable viewport (capped height; the cursor follows the selection so a 230-row library scrape stays usable). Space toggles, Enter confirms. **Cloud** multiselect: default-active set (intersected with what your account actually returns) is pre-checked on first visit. **Ollama** multiselect: source-aware — container shows the library only, localhost shows a merged `[pulled]` + `[library]` view. Purely additive; the default-active baseline is baked into `services/ollama/models.yaml` with `default_active: true` and resolved by `model_resolver` on every `docker compose up`. |
 | `text` | Free-text additions (the Ollama "additional models to pull" step). | Comma-separated input; trimmed and merged into selections. |
 
 Throughout: `Up/Down` to move, `Enter` to confirm, `Space` to toggle multiselect rows, `Esc` returns to the previous step, `Ctrl+C` (or `Ctrl+Q`) quits.
@@ -59,7 +59,7 @@ The wizard refuses to launch when **LLM Engine = `none`** **and** every cloud pr
 A single unified multi-select shown for every `ollama-*` source. The option list is **source-aware**:
 
 - **`ollama-container-*`** — only the live scrape of `https://ollama.com/library` (~230 entries). Nothing is pulled yet (the in-stack container isn't running at wizard time), so the library is the primary discovery surface. The `ollama-pull` init container fetches checked entries at startup.
-- **`ollama-localhost`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — checking registers a `public.llms` row but you must `ollama pull <name>` on the host yourself).
+- **`ollama-localhost`** — the upstream's `/api/tags` (already-pulled models) merged with the library scrape. Each row carries a status badge: `[pulled]` (on disk on the upstream — checking activates it immediately) or `[library]` (catalog-only — checking saves the name to `OLLAMA_USER_MODELS` in `.env` but you must `ollama pull <name>` on the host yourself so it's available when LiteLLM routes to it).
 
 Each row is 2 cells tall and surfaces:
 
@@ -103,7 +103,7 @@ Selections persist as `OLLAMA_USER_MODELS`.
 
 When the library scrape fails (rare), the wizard falls back to the curated default-active baseline in `bootstrapper/utils/llm_catalog.py` (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text). Capability tags and sizes aren't recoverable in fallback (the catalog only carries `embedding` / `vision` flags); the `[legacy]` badge is suppressed because age data is unavailable. When `/api/tags` fails for a localhost source, the merge degrades to library-only with a warning in the session log.
 
-The default-active baseline is already activated in `public.llms` by `llm-catalog-init` (which UPSERTs the curated catalog from `bootstrapper/utils/llm_catalog.py` with `default_active=True` rows on every `docker compose up`), so checking items here is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour:
+The default-active baseline is baked into `services/ollama/models.yaml` with `default_active: true` and is always included by `model_resolver` when `OLLAMA_USER_MODELS` is empty, so checking items here is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour:
 
 - **First visit** (`OLLAMA_USER_MODELS` empty): the wizard pre-checks the default-active baseline (`default_active_names("ollama")` → `qwen3.6:latest`, `qwen3-embedding:0.6b`, `nomic-embed-text`). The user sees the baseline already ticked.
 - **Subsequent visit** (`OLLAMA_USER_MODELS` set): the saved selection is restored, intersected with the visible options. Names no longer in the merged list are dropped silently.

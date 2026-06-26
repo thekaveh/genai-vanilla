@@ -5,7 +5,7 @@ Three pieces of state every consumer needs:
   • ``source_var`` — CLOUD_*_SOURCE selector (enabled / disabled).
   • ``api_key_var`` — matching API key env var.
   • ``enabled_flag_var`` — derived LITELLM_*_ENABLED flag emitted by
-    ``service_config.py`` for the LiteLLM proxy + llm-catalog-init.
+    ``service_config.py`` for the LiteLLM proxy + model_resolver.
 
 Callers that previously held their own list:
   • ``bootstrapper/ui/state_builder.py`` — overview rendering.

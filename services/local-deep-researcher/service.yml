@@ -100,6 +100,6 @@ data_flow:
     - litellm
     - searxng
     # init-config.py connects straight to Postgres (psycopg2 over
-    # DATABASE_URL) to read public.llms at startup.
+    # via LITELLM_DEFAULT_MODEL env var (set by litellm-init).
     - supabase
 

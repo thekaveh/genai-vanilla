@@ -333,7 +333,7 @@ def build_ollama_steps(
                 return [PromptOption(
                     value="",
                     label="(catalog unreachable — ollama.com/library scrape failed)",
-                    hint="check network access; ollama-pull will pull whatever is active in public.llms",
+                    hint="check network access; ollama-pull will pull the model_resolver active set on next start",
                     badges=[],
                 )]
             opts = _build_library_options(library_entries)
@@ -658,7 +658,7 @@ def build_cloud_steps(
             heading=f"Which {name} models do you want available?",
             subtitle=(
                 "Live from /v1/models (filtered). Space toggles, Enter confirms. "
-                "Picks become active rows in public.llms."
+                "Picks are persisted to .env and activate the model set via model_resolver on next start."
             ),
             options=[],
             default_values=default_values,

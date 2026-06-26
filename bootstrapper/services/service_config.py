@@ -260,7 +260,7 @@ class ServiceConfig:
 
     def _generate_cloud_providers_config(self) -> Dict[str, str]:
         """Generate cloud-provider toggle env vars consumed by
-        ``llm-catalog-init`` (which gates the active rows it writes
+        ``model_resolver`` (which gates the active entries it returns
         per-provider). Each cloud_* SOURCE is a binary enabled/disabled
         selector. Tuple list lives in utils/cloud_providers.py.
         """
@@ -1007,8 +1007,8 @@ class ServiceConfig:
         # OLLAMA_PULL_SCALE: 1 only for in-stack ollama-container-* sources.
         # Host-side Ollama (ollama-localhost) is not pull-controllable
         # from the stack — sending /api/pull at the user's host Ollama
-        # would surprise them and is what llm-catalog-init's
-        # apply_ollama_selection refuses to register custom rows for.
+        # would surprise them (for localhost, the operator must `ollama pull`
+        # manually).
         # Source=none has no upstream at all.
         llm_source = self.service_sources.get('LLM_PROVIDER_SOURCE', 'ollama-container-cpu')
         if llm_source.startswith('ollama-container-'):

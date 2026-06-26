@@ -4,7 +4,7 @@ model_resolver.py — DB-free active-model set computation and convention winner
 OVERVIEW
 --------
 This module is the host-side replacement for the activation+ranking logic that
-``sync-catalog.py`` + the ``public.llms`` DB ``ORDER BY`` performed at
+the former ``sync-catalog.py`` + the former ``public.llms`` DB ``ORDER BY`` performed at
 container-init time. Instead of querying Postgres, it drives model selection
 purely from:
   • the curated YAML catalogs (loaded by ``utils.llm_catalog``)
@@ -16,10 +16,10 @@ to the bootstrapper, wizard, and env_assembler without requiring a running DB or
 Docker stack — enabling compile-time defaults (e.g. ``.env.example`` values)
 and single-source-of-truth answers before any container is up.
 
-IMPORTANT DIVERGENCE FROM sync-catalog.py
-------------------------------------------
+IMPORTANT DIVERGENCE FROM THE FORMER sync-catalog.py
+------------------------------------------------------
 When a provider's ``*_USER_MODELS`` is empty, this module ALWAYS falls back to
-the catalog's ``default_active=True`` names. sync-catalog.py instead preserves
+the catalog's ``default_active=True`` names. The former ``sync-catalog.py`` instead preserved
 whatever rows were already active in the database on a re-run. That distinction
 is moot here (there is no DB to preserve state) and is correct for bootstrap,
 wizard, and ``.env.example`` generation, but callers must NOT treat
@@ -27,7 +27,7 @@ wizard, and ``.env.example`` generation, but callers must NOT treat
 
 ACTIVATION RULES
 ----------------
-These replicate ``sync-catalog.py``'s DB-write logic without touching the DB:
+These replicate the former ``sync-catalog.py``'s DB-write logic without touching the DB:
 
 Ollama (provider ``'ollama'``):
   1. ``LLM_PROVIDER_SOURCE`` must start with ``'ollama-'`` (i.e. not ``'none'``
@@ -102,11 +102,11 @@ except ImportError:                    # container /catalog (loose modules)
 
 
 # ---------------------------------------------------------------------------
-# Local helpers — mirror sync-catalog.py with safe extensions
+# Local helpers — mirror the former sync-catalog.py with safe extensions
 # ---------------------------------------------------------------------------
 
 def _truthy(val: str | None) -> bool:
-    """Accepts a conservative superset of sync-catalog.py's truthy set (adds 'on');
+    """Accepts a conservative superset of the former sync-catalog.py's truthy set (adds 'on');
     harmless since no env var uses other spellings."""
     return (val or "").strip().lower() in ("true", "1", "yes", "on", "enabled")
 
@@ -125,7 +125,7 @@ def _csv(val: str | None) -> list[str]:
 def _synthesize(provider: str, name: str) -> CatalogEntry:
     """Create a minimal CatalogEntry for a model not in the curated catalog.
 
-    Mirrors ``LIVE_DEFAULTS`` in sync-catalog.py: content=8, structured_content=5,
+    Mirrors ``LIVE_DEFAULTS`` in the former sync-catalog.py: content=8, structured_content=5,
     vision/embeddings=0.  vision=0 is deliberately conservative — we cannot
     infer vision capability from a model name alone.
     """
@@ -154,7 +154,7 @@ def active_models(
 ) -> list[CatalogEntry]:
     """Return the active catalog entries for the given env selection.
 
-    Replicates sync-catalog.py's activation rules WITHOUT a DB (env is the
+    Replicates the former sync-catalog.py's activation rules WITHOUT a DB (env is the
     persistent selection store). See module docstring for the full rule set.
 
     Args:

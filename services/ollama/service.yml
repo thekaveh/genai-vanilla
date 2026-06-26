@@ -149,8 +149,8 @@ runtime_adaptive:
 data_flow:
   # Ollama serves /api at runtime; it doesn't initiate outbound calls in
   # the request path. The historical supabase + litellm edges here were
-  # init-time bootstrap contacts (ollama-pull queries public.llms in
-  # supabase and warms LiteLLM's catalog), which the schema explicitly
-  # excludes — those belong on the ollama-pull init manifest if anywhere.
+  # init-time bootstrap contacts (ollama-pull reads OLLAMA_USER_MODELS /
+  # OLLAMA_CUSTOM_MODELS and warms the Ollama engine), which the schema
+  # explicitly excludes — those belong on the ollama-pull init manifest if anywhere.
   calls: []
 

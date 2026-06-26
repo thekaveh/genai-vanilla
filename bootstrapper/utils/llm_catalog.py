@@ -5,14 +5,12 @@ knows about.
 Three consumers import this module:
 
   • The wizard step builder (cloud + Ollama multi-select option lists).
-  • ``llm-catalog-init`` (UPSERTs DB rows from this catalog into
-    ``public.llms``).
-  • ``litellm-init`` (renders ``volumes/litellm/config.yaml`` from
-    rows that are ``active = true`` in ``public.llms`` — query is
-    ``SELECT provider, name FROM public.llms WHERE active = true``
-    followed by per-provider routing rules baked into the init
-    script. Catalog capability metadata (content / structured_content
-    / vision / embeddings) is consumed by the wizard and backend,
+  • ``model_resolver`` (computes the active model set from YAML catalogs
+    + env; consumed by ``litellm-init`` and ``ollama-pull``).
+  • ``litellm-init`` (renders ``volumes/litellm/config.yaml`` via
+    ``model_resolver.active_models()`` — no DB query involved. Catalog
+    capability metadata (content / structured_content / vision /
+    embeddings) is consumed by the wizard and backend,
     NOT by litellm-init at config-render time).
 
 Catalog data lives in YAML files rather than in this module:
@@ -312,7 +310,7 @@ def default_active_names(provider: str) -> List[str]:
 
 
 def all_catalog_entries() -> List[CatalogEntry]:
-    """Every entry — cloud + Ollama. Used by ``llm-catalog-init``'s
-    UPSERT loop.
+    """Every entry — cloud + Ollama. Used by ``model_resolver`` and
+    the wizard step builder.
     """
     return list(CLOUD_CATALOG) + list(OLLAMA_DEFAULT_CATALOG)
