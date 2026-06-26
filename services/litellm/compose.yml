@@ -1,65 +1,5 @@
-# services/litellm/compose.yml — LiteLLM gateway + catalog/init pipeline
+# services/litellm/compose.yml — LiteLLM gateway + init pipeline
 services:
-  llm-catalog-init:
-    build: ./catalog-init
-    container_name: ${PROJECT_NAME}-llm-catalog-init
-    restart: "no"
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-    environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-      LLM_PROVIDER_SOURCE: ${LLM_PROVIDER_SOURCE:-ollama-container-cpu}
-      LITELLM_OPENAI_ENABLED: ${LITELLM_OPENAI_ENABLED:-false}
-      LITELLM_ANTHROPIC_ENABLED: ${LITELLM_ANTHROPIC_ENABLED:-false}
-      LITELLM_OPENROUTER_ENABLED: ${LITELLM_OPENROUTER_ENABLED:-false}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENAI_USER_MODELS: ${OPENAI_USER_MODELS:-}
-      ANTHROPIC_USER_MODELS: ${ANTHROPIC_USER_MODELS:-}
-      OPENROUTER_USER_MODELS: ${OPENROUTER_USER_MODELS:-}
-      OLLAMA_USER_MODELS: ${OLLAMA_USER_MODELS:-}
-      OLLAMA_CUSTOM_MODELS: ${OLLAMA_CUSTOM_MODELS:-}
-      # Auto-import every model on the host's Ollama (or external
-      # Ollama) into ``public.llms`` at boot, in addition to whatever
-      # is in OLLAMA_USER_MODELS / OLLAMA_CUSTOM_MODELS. Makes the
-      # catalog auto-sync with the upstream's ``/api/tags`` so any
-      # ``ollama pull <name>`` you do on the host shows up across the
-      # stack on the next ``./start.sh`` — no wizard re-run needed.
-      # No-op for ``LLM_PROVIDER_SOURCE=ollama-container-*`` (containers
-      # are populated by ollama-pull, which already reads
-      # OLLAMA_USER_MODELS). Set to ``false`` to keep strict
-      # wizard-only control (e.g. to hide private fine-tunes you don't
-      # want exposed to every stack consumer).
-      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: ${OLLAMA_AUTO_IMPORT_LOCAL_MODELS:-true}
-      # Upstream URL the catalog should query for /api/tags. Same env
-      # var litellm-init consumes for its config.yaml rendering; the
-      # ``${VAR-default}`` form (no colon) preserves empty values
-      # (LLM_PROVIDER_SOURCE=none) so we don't accidentally hit a
-      # nonexistent upstream.
-      LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
-    extra_hosts:
-      # Required for OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true with
-      # LLM_PROVIDER_SOURCE=ollama-localhost — the script needs to
-      # reach the operator's host Ollama via host.docker.internal.
-      - "host.docker.internal:${HOST_GATEWAY_IP}"
-    volumes:
-      - ./catalog-init/scripts:/scripts:ro
-      # Catalog module mounted as a SIBLING dir, not as a file inside
-      # the /scripts mount. Docker's behavior with file-on-dir overlays
-      # is platform-dependent and was the root cause of a silent
-      # init-chain failure on first launch. Sibling mount is unambiguous.
-      - ../../bootstrapper/utils:/catalog:ro
-      - ../../services/ollama/models.yaml:/catalog/ollama-models.yaml:ro
-      - ../../services/litellm/models.yaml:/catalog/litellm-models.yaml:ro
-    networks:
-      - backend-network
-
   litellm-init:
     build: ./init
     container_name: ${PROJECT_NAME}-litellm-init
@@ -67,8 +7,6 @@ services:
     depends_on:
       supabase-db:
         condition: service_healthy
-      llm-catalog-init:
-        condition: service_completed_successfully
     deploy:
       replicas: ${LITELLM_INIT_SCALE:-1}
     environment:
@@ -122,8 +60,9 @@ services:
       - ./init/scripts:/scripts:ro
       - ../../volumes/litellm:/litellm-config:rw
       # Sibling mount of bootstrapper/utils so /catalog/litellm_settings.py
-      # (the shared settings dict) is reachable from init.py. Same
-      # rationale as llm-catalog-init's /catalog mount.
+      # (the shared settings dict) is reachable from init.py. The catalog
+      # module is mounted as a sibling dir to avoid platform-dependent
+      # file-on-dir overlay behaviour.
       - ../../bootstrapper/utils:/catalog:ro
       - ../../services/ollama/models.yaml:/catalog/ollama-models.yaml:ro
       - ../../services/litellm/models.yaml:/catalog/litellm-models.yaml:ro
@@ -181,9 +120,8 @@ services:
       PROMETHEUS_MULTIPROC_DIR: /tmp/litellm_metrics
       # NOTE: LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED /
       # LITELLM_OPENROUTER_ENABLED are NOT passed here — consumed by
-      # llm-catalog-init (public.llms) and litellm-init
-      # (model_resolver → config.yaml rendering); the LiteLLM proxy
-      # itself reads only /app/config.yaml.
+      # litellm-init (model_resolver → config.yaml rendering); the
+      # LiteLLM proxy itself reads only /app/config.yaml.
     volumes:
       - ../../volumes/litellm/config.yaml:/app/config.yaml:ro
     tmpfs:

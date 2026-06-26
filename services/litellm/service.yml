@@ -1,8 +1,8 @@
-# services/litellm/service.yml — LiteLLM gateway + init + catalog sync
+# services/litellm/service.yml — LiteLLM gateway + init
 #
 # The LiteLLM gateway is the mandatory core LLM router. Single source value
-# (container); always on. The init containers (litellm-init, llm-catalog-init)
-# run once per startup to populate public.llms and render config.yaml.
+# (container); always on. The init container (litellm-init) runs once per
+# startup to render config.yaml from the model catalog.
 name: litellm
 label: "LiteLLM gateway (LLM router)"
 category: llm
@@ -11,7 +11,6 @@ docs: services/litellm/README.md
 containers:
   - litellm
   - litellm-init
-  - llm-catalog-init
 
 images:
   - var: LITELLM_IMAGE

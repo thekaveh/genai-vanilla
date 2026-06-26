@@ -1151,9 +1151,6 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-litellm-init
     depends_on:
-      llm-catalog-init:
-        condition: service_completed_successfully
-        required: true
       supabase-db:
         condition: service_healthy
         required: true
@@ -1199,61 +1196,6 @@ services:
     - type: bind
       source: '{REPO_ROOT}/volumes/litellm'
       target: /litellm-config
-      bind: {}
-    - type: bind
-      source: '{REPO_ROOT}/bootstrapper/utils'
-      target: /catalog
-      read_only: true
-      bind: {}
-    - type: bind
-      source: '{REPO_ROOT}/services/ollama/models.yaml'
-      target: /catalog/ollama-models.yaml
-      read_only: true
-      bind: {}
-    - type: bind
-      source: '{REPO_ROOT}/services/litellm/models.yaml'
-      target: /catalog/litellm-models.yaml
-      read_only: true
-      bind: {}
-  llm-catalog-init:
-    build:
-      context: '{REPO_ROOT}/services/litellm/catalog-init'
-      dockerfile: Dockerfile
-    container_name: atlas-llm-catalog-init
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
-    environment:
-      ANTHROPIC_API_KEY: ''
-      ANTHROPIC_USER_MODELS: ''
-      LITELLM_ANTHROPIC_ENABLED: 'false'
-      LITELLM_OLLAMA_UPSTREAM: ''
-      LITELLM_OPENAI_ENABLED: 'false'
-      LITELLM_OPENROUTER_ENABLED: 'false'
-      LLM_PROVIDER_SOURCE: ollama-container-cpu
-      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: 'true'
-      OLLAMA_CUSTOM_MODELS: ''
-      OLLAMA_USER_MODELS: qwen3.6:latest,qwen3-embedding:0.6b,nomic-embed-text
-      OPENAI_API_KEY: ''
-      OPENAI_USER_MODELS: ''
-      OPENROUTER_API_KEY: ''
-      OPENROUTER_USER_MODELS: ''
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
-    extra_hosts:
-    - host.docker.internal=
-    networks:
-      backend-network: null
-    restart: 'no'
-    volumes:
-    - type: bind
-      source: '{REPO_ROOT}/services/litellm/catalog-init/scripts'
-      target: /scripts
-      read_only: true
       bind: {}
     - type: bind
       source: '{REPO_ROOT}/bootstrapper/utils'
@@ -1731,9 +1673,6 @@ services:
   ollama-pull:
     container_name: atlas-ollama-pull
     depends_on:
-      llm-catalog-init:
-        condition: service_completed_successfully
-        required: true
       ollama:
         condition: service_started
         required: true

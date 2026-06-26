@@ -41,7 +41,7 @@ env:
     description: "Free-text extra Ollama models pulled in container-* sources."
   - name: OLLAMA_AUTO_IMPORT_LOCAL_MODELS
     default: true
-    description: "When LLM_PROVIDER_SOURCE=ollama-localhost, llm-catalog-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
+    description: "When LLM_PROVIDER_SOURCE=ollama-localhost, litellm-init queries the upstream's /api/tags and auto-imports every model found, unioning with OLLAMA_USER_MODELS. Set false to keep strict wizard-only control."
   - name: OLLAMA_DEPLOY_RESOURCES
     default: "~"
     description: "Reserved for future GPU deploy block. Currently '~' (null)."
@@ -69,8 +69,8 @@ depends_on:
   # after LiteLLM in the wizard's LLM block (see
   # tests/test_row_order_stability.py). When a separate
   # `display_order:` field is added, this edge moves there.
-  # `supabase` is the actual bootstrap blocker (llm-catalog-init reads
-  # public.llms before ollama-pull seeds models).
+  # `supabase` is the actual bootstrap blocker (supabase-db-init must
+  # complete before ollama-pull can run).
   required:
     - supabase
     - litellm
