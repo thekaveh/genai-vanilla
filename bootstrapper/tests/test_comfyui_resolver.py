@@ -488,3 +488,75 @@ class TestUnknownModelDropped:
         names = _names(result)
         assert "sidecar-special" in names
         assert "catalog-a" in names
+
+
+# ---------------------------------------------------------------------------
+# Test 7 — Host sidecar fallback (dead /custom-models.yaml container default)
+# ---------------------------------------------------------------------------
+
+class TestHostSidecarFallback:
+    """When COMFYUI_CUSTOM_MODELS_FILE points at a path absent on the host
+    (the shipped /custom-models.yaml is a dead container path), the resolver
+    falls back to the repo sidecar services/comfyui/custom-models.yaml."""
+
+    def test_dead_container_default_falls_back_to_repo_sidecar(self, tmp_path, monkeypatch):
+        from utils import comfyui_library
+
+        # Build a fake services dir: <tmp>/comfyui/custom-models.yaml
+        comfyui_dir = tmp_path / "comfyui"
+        comfyui_dir.mkdir()
+        (comfyui_dir / "custom-models.yaml").write_text(
+            _sidecar_yaml(
+                [{"name": "host-custom", "category": "lora",
+                  "url": "https://example.com/host-custom.safetensors"}]
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(comfyui_library, "_find_services_dir", lambda: tmp_path)
+
+        # env points at the dead container default; no explicit sidecar_path.
+        env = {"COMFYUI_CUSTOM_MODELS_FILE": "/custom-models.yaml",
+               "COMFYUI_USER_MODELS": ""}
+        result = active_comfyui_models(env, catalog=[_entry("x", essential=False)])
+        assert "host-custom" in _names(result)
+
+    def test_unset_env_falls_back_to_repo_sidecar(self, tmp_path, monkeypatch):
+        from utils import comfyui_library
+
+        comfyui_dir = tmp_path / "comfyui"
+        comfyui_dir.mkdir()
+        (comfyui_dir / "custom-models.yaml").write_text(
+            _sidecar_yaml(
+                [{"name": "host-custom", "category": "lora",
+                  "url": "https://example.com/host-custom.safetensors"}]
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(comfyui_library, "_find_services_dir", lambda: tmp_path)
+
+        # COMFYUI_CUSTOM_MODELS_FILE entirely unset → still finds the repo sidecar.
+        result = active_comfyui_models({}, catalog=[_entry("x", essential=False)])
+        assert "host-custom" in _names(result)
+
+    def test_explicit_sidecar_path_is_not_overridden_by_host_fallback(self, tmp_path, monkeypatch):
+        from utils import comfyui_library
+
+        # A repo sidecar exists, but an explicit (nonexistent) sidecar_path must
+        # be honored verbatim — no silent host fallback for explicit callers.
+        comfyui_dir = tmp_path / "comfyui"
+        comfyui_dir.mkdir()
+        (comfyui_dir / "custom-models.yaml").write_text(
+            _sidecar_yaml(
+                [{"name": "host-custom", "category": "lora",
+                  "url": "https://example.com/host-custom.safetensors"}]
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(comfyui_library, "_find_services_dir", lambda: tmp_path)
+
+        result = active_comfyui_models(
+            {"COMFYUI_USER_MODELS": ""},
+            catalog=[_entry("x", essential=False)],
+            sidecar_path=str(tmp_path / "explicit-absent.yaml"),
+        )
+        assert "host-custom" not in _names(result)

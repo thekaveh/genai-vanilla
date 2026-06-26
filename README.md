@@ -501,11 +501,11 @@ atlas/
 │   │   ├── service.yml        # Manifest: env vars, source variants, deps, runtime_sc slice
 │   │   ├── compose.yml        # Compose fragment for the family
 │   │   └── db/                # SQL init scripts + snapshots (bind-mounted into supabase-db-init)
-│   ├── litellm/               # LiteLLM gateway + init + catalog-init
+│   ├── litellm/               # LiteLLM gateway + init
 │   │   ├── service.yml
 │   │   ├── compose.yml
 │   │   ├── init/              # litellm-init Dockerfile + scripts (config.yaml renderer)
-│   │   └── catalog-init/      # llm-catalog-init Dockerfile + scripts (public.llms UPSERT)
+│   │   └── models.yaml        # Curated cloud-provider model catalog (per-service SoT)
 │   ├── ollama/                # ollama + ollama-pull (with pull/ scripts subfolder)
 │   ├── redis/                 # Redis cache/queue substrate (AOF persistence, shared by n8n/Kong/LiteLLM/owui/LightRAG)
 │   ├── weaviate/              # weaviate + multi2vec-clip + weaviate-init

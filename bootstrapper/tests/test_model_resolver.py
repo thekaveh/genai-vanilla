@@ -19,7 +19,13 @@ from __future__ import annotations
 
 import pytest
 
-from utils.model_resolver import active_models, best, resolved_defaults
+from utils.model_resolver import (
+    PGVECTOR_DIM,
+    active_models,
+    best,
+    embedding_dim_warning,
+    resolved_defaults,
+)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -419,3 +425,41 @@ class TestEmbeddingCarveOut:
         result = best("embeddings", {})
         assert result is not None
         assert result.startswith("ollama/")
+
+
+# ── 10. Embedding dimension safety ───────────────────────────────────────────
+
+class TestEmbeddingDimensionSafety:
+    """best('embeddings') must resolve to the 768-dim model, and
+    embedding_dim_warning() must flag non-768 picks (pgvector(768) contract)."""
+
+    def test_best_embeddings_is_768_dim_safe_default(self):
+        # services/ollama/models.yaml lists nomic-embed-text (768-dim) FIRST,
+        # so the catalog's "best" embedding model matches the memory_facts
+        # vector(768) column. A regression here (e.g. re-ranking the 1536-dim
+        # qwen3-embedding first) would silently break memory writes.
+        assert best("embeddings", {}) == "ollama/nomic-embed-text"
+
+    def test_warning_none_for_768_models(self):
+        assert embedding_dim_warning("nomic-embed-text") is None
+        assert embedding_dim_warning("ollama/nomic-embed-text") is None
+
+    def test_warning_none_for_empty_or_unknown(self):
+        assert embedding_dim_warning("") is None
+        assert embedding_dim_warning(None) is None
+        assert embedding_dim_warning("some/unlisted-embedder") is None
+
+    def test_warning_flags_1536_dim_qwen(self):
+        for name in ("qwen3-embedding:0.6b", "ollama/qwen3-embedding:0.6b"):
+            msg = embedding_dim_warning(name)
+            assert msg is not None
+            assert "1536" in msg
+            assert str(PGVECTOR_DIM) in msg
+
+    def test_warning_flags_3072_dim_openai(self):
+        msg = embedding_dim_warning("openai/text-embedding-3-large")
+        assert msg is not None
+        assert "3072" in msg
+
+    def test_warning_tolerates_surrounding_whitespace(self):
+        assert embedding_dim_warning("  ollama/qwen3-embedding:0.6b  ") is not None

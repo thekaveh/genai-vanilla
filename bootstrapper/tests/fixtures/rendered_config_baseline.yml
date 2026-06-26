@@ -1140,7 +1140,7 @@ services:
       LLM_PROVIDER_SOURCE: ollama-container-cpu
       OLLAMA_AUTO_IMPORT_LOCAL_MODELS: 'true'
       OLLAMA_CUSTOM_MODELS: ''
-      OLLAMA_USER_MODELS: qwen3.6:latest,qwen3-embedding:0.6b,nomic-embed-text
+      OLLAMA_USER_MODELS: qwen3.6:latest,nomic-embed-text,qwen3-embedding:0.6b
       OPENAI_API_KEY: ''
       OPENAI_USER_MODELS: ''
       OPENROUTER_API_KEY: ''
@@ -1655,7 +1655,7 @@ services:
     environment:
       OLLAMA_CUSTOM_MODELS: ''
       OLLAMA_HOST_URL: ''
-      OLLAMA_USER_MODELS: qwen3.6:latest,qwen3-embedding:0.6b,nomic-embed-text
+      OLLAMA_USER_MODELS: qwen3.6:latest,nomic-embed-text,qwen3-embedding:0.6b
     extra_hosts:
     - host.docker.internal=
     image: alpine:latest

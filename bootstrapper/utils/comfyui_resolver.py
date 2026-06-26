@@ -112,12 +112,14 @@ except ImportError:                     # defensive fallback (no active caller)
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Default host-side sidecar path fallback when neither ``sidecar_path``
-#: nor ``COMFYUI_CUSTOM_MODELS_FILE`` is supplied.  The ``/custom-models.yaml``
-#: value is a defensive remnant of the former comfyui-catalog-init bind-mount
-#: (which mounted ``services/comfyui/custom-models.yaml`` at that path).
-#: comfyui-init is a pure shell script and does not mount this path;
-#: on the host this path is simply absent, so ``load_custom_models`` returns [].
+#: Legacy default value of ``COMFYUI_CUSTOM_MODELS_FILE`` (and the fallback when
+#: it is unset).  ``/custom-models.yaml`` was the path the former
+#: comfyui-catalog-init CONTAINER saw — it bind-mounted
+#: ``services/comfyui/custom-models.yaml`` there.  That container is gone and
+#: this resolver now runs HOST-SIDE, where ``/custom-models.yaml`` is absent.
+#: When the configured/legacy path does not exist on disk, the resolver falls
+#: back to the repo sidecar (:func:`_host_repo_sidecar`) so operator-authored
+#: ``services/comfyui/custom-models.yaml`` entries are still honored.
 _DEFAULT_SIDECAR_PATH = "/custom-models.yaml"
 
 
@@ -150,6 +152,22 @@ def _derive_filename(entry: ComfyUILibraryEntry) -> str:
     entries whose URL path has no real filename) over a URL-derived name.
     """
     return entry.filename or _filename_from_url(entry.url)
+
+
+def _host_repo_sidecar() -> Path | None:
+    """Best-effort path to the repo's host-side custom-models sidecar
+    (``services/comfyui/custom-models.yaml``).
+
+    Used as the fallback when the configured ``COMFYUI_CUSTOM_MODELS_FILE``
+    (default ``/custom-models.yaml``, a dead container path) does not exist on
+    the host where this resolver runs.  Returns ``None`` if the services
+    directory can't be located (unusual layout) — the caller then keeps the
+    configured path and ``load_custom_models`` returns ``[]`` as before.
+    """
+    try:
+        return comfyui_library._find_services_dir() / "comfyui" / "custom-models.yaml"
+    except FileNotFoundError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -190,18 +208,31 @@ def active_comfyui_models(
             live ``comfyui_library.assemble_wizard_catalog()`` is called.
             **Pass a synthetic list in tests to avoid the live scrape.**
         sidecar_path: Path to the sidecar YAML.  When ``None`` falls back to
-            ``env.get("COMFYUI_CUSTOM_MODELS_FILE")`` and then to
-            ``/custom-models.yaml`` (container default).
+            ``env.get("COMFYUI_CUSTOM_MODELS_FILE")`` (default
+            ``/custom-models.yaml``); if that path is absent on the host, falls
+            back again to the repo sidecar ``services/comfyui/custom-models.yaml``
+            (see :func:`_host_repo_sidecar`).  An explicit ``sidecar_path`` is
+            honored verbatim with no host fallback.
 
     Returns:
         Ordered list of active ``ComfyUILibraryEntry`` objects.  May be
         empty when the catalog is empty and the sidecar is absent/empty.
     """
     # ── 1. Resolve sidecar path ──────────────────────────────────────────
+    # An explicit sidecar_path (tests, advanced callers) is honored verbatim.
+    # Otherwise derive from COMFYUI_CUSTOM_MODELS_FILE; if that path is absent
+    # on the host (the shipped default /custom-models.yaml is a dead container
+    # path — see _DEFAULT_SIDECAR_PATH), fall back to the repo sidecar so
+    # services/comfyui/custom-models.yaml is honored.
     if sidecar_path is None:
-        sidecar_path = env.get(
-            "COMFYUI_CUSTOM_MODELS_FILE", _DEFAULT_SIDECAR_PATH
+        configured = (
+            env.get("COMFYUI_CUSTOM_MODELS_FILE", "").strip() or _DEFAULT_SIDECAR_PATH
         )
+        if os.path.isfile(configured):
+            sidecar_path = configured
+        else:
+            host_sidecar = _host_repo_sidecar()
+            sidecar_path = str(host_sidecar) if host_sidecar is not None else configured
 
     # ── 2. Load sidecar (always active) ─────────────────────────────────
     sidecar_entries: list[ComfyUILibraryEntry] = comfyui_library.load_custom_models(

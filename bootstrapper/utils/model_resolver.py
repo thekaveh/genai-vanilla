@@ -251,6 +251,58 @@ def resolved_defaults(
 
 
 # ---------------------------------------------------------------------------
+# Embedding dimension safety
+# ---------------------------------------------------------------------------
+
+#: Width of the backend ``public.memory_facts.embedding`` pgvector fallback
+#: column.  An embedding model whose output dimension differs from this fails
+#: the memory INSERT at runtime inside Postgres with a dimension-mismatch error
+#: and no traceback back to the model choice.
+PGVECTOR_DIM = 768
+
+#: Known output dimensions for the embedding models the catalogs ship.  Keys
+#: cover both the bare Ollama name and the ``ollama/``-prefixed litellm id, and
+#: the ``openai/`` cloud forms.  Unknown models are NOT flagged (we can't know
+#: their dimension here) — the static 768-dim default protects the common path.
+_EMBEDDING_DIMS: dict[str, int] = {
+    "nomic-embed-text": 768,
+    "ollama/nomic-embed-text": 768,
+    "qwen3-embedding:0.6b": 1536,
+    "ollama/qwen3-embedding:0.6b": 1536,
+    "text-embedding-3-small": 1536,
+    "openai/text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "openai/text-embedding-3-large": 3072,
+}
+
+
+def embedding_dim_warning(model: str | None) -> Optional[str]:
+    """Return a human-readable warning when ``model`` is a known embedding
+    model whose output dimension is not :data:`PGVECTOR_DIM` (768).
+
+    The wizard writes ``LITELLM_EMBEDDING_MODEL`` from the user's pick; a
+    non-768-dim choice silently breaks the backend ``memory_facts vector(768)``
+    pgvector inserts.  Callers surface this string as a non-fatal warning at
+    ``.env``-write time (we warn rather than block — an operator who migrated
+    the column may legitimately want a wider model).
+
+    Returns ``None`` for the safe 768-dim models, empty/None input, and models
+    whose dimension we don't know.
+    """
+    if not model:
+        return None
+    dim = _EMBEDDING_DIMS.get(model.strip())
+    if dim is not None and dim != PGVECTOR_DIM:
+        return (
+            f"LITELLM_EMBEDDING_MODEL='{model}' produces {dim}-dim embeddings, but the "
+            f"backend memory_facts column is vector({PGVECTOR_DIM}). Memory writes will "
+            f"fail unless you migrate that column or choose a {PGVECTOR_DIM}-dim model "
+            f"(e.g. ollama/nomic-embed-text)."
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Private activation helpers
 # ---------------------------------------------------------------------------
 
