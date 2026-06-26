@@ -1181,7 +1181,6 @@ services:
       OPENAI_USER_MODELS: ''
       OPENROUTER_API_KEY: ''
       OPENROUTER_USER_MODELS: ''
-      PGDATABASE: postgres
       PGHOST: supabase-db
       PGPASSWORD: password
       PGPORT: '5432'
@@ -2753,7 +2752,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 2m0s
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    image: __TEI_RERANKER_CPU_IMAGE__
     logging:
       driver: json-file
       options:

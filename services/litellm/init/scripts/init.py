@@ -58,7 +58,7 @@ def _load_shared_settings():
     docker-compose.yml needs fixing — surfacing it now is more honest
     than papering over it.
     """
-    path = Path("/catalog/litellm_settings.py")
+    path = _catalog_dir() / "litellm_settings.py"
     if not path.exists():
         sys.exit(
             f"❌ {path} not found — the ``./bootstrapper/utils:/catalog:ro`` "
@@ -193,6 +193,8 @@ def _load_catalog_module(name: str):
     Exits loudly when the catalog is misconfigured: a silent fallback would
     hide operator errors that must be fixed in compose.yml.
     """
+    if name in sys.modules:
+        return sys.modules[name]
     catalog = _catalog_dir()
     path = catalog / f"{name}.py"
     if not path.exists():

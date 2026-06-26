@@ -74,7 +74,6 @@ services:
     environment:
       PGHOST: supabase-db
       PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
       PGUSER: ${SUPABASE_DB_USER}
       PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       LITELLM_DB_NAME: ${LITELLM_DB_NAME:-litellm}
@@ -181,10 +180,10 @@ services:
       # command uses (4 workers).
       PROMETHEUS_MULTIPROC_DIR: /tmp/litellm_metrics
       # NOTE: LITELLM_OPENAI_ENABLED / LITELLM_ANTHROPIC_ENABLED /
-      # LITELLM_OPENROUTER_ENABLED are NOT passed here — they're
-      # consumed only by ``llm-catalog-init`` to gate which provider
-      # rows in public.llms get activated. The LiteLLM proxy's own
-      # config comes entirely from /app/config.yaml.
+      # LITELLM_OPENROUTER_ENABLED are NOT passed here — consumed by
+      # llm-catalog-init (public.llms) and litellm-init
+      # (model_resolver → config.yaml rendering); the LiteLLM proxy
+      # itself reads only /app/config.yaml.
     volumes:
       - ../../volumes/litellm/config.yaml:/app/config.yaml:ro
     tmpfs:
