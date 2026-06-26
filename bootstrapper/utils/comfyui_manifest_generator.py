@@ -1,0 +1,155 @@
+"""
+ComfyUI manifest generator.
+
+Writes two files into ``volumes/comfyui/`` at bootstrapper start (when ComfyUI
+is enabled), replacing the former ``public.comfyui_models`` DB query that
+``comfyui-init`` ran at container startup:
+
+  • ``volumes/comfyui/selected-models.yaml``
+        Full YAML manifest (``{"models": [...]}``), validated against
+        ``bootstrapper/schemas/comfyui-manifest.schema.json``.  This is the
+        canonical active-model file; the backend ``GET /comfyui/db/models``
+        (C4) reads it directly.
+
+  • ``volumes/comfyui/active-models.tsv``
+        Shell-consumable tab-separated view: ``name\\ttype\\tfilename\\t
+        download_url\\tsha256`` (one row per active model, no header).
+        ``sha256`` is the empty string when ``None`` — matching the old
+        ``COALESCE(sha256, '')`` pattern — so the existing verification
+        branch in ``download_models.sh`` continues to work unchanged.
+        ``comfyui-init``'s ``download_models.sh`` ``cat``s this file into
+        its existing tempfile/download loop (the loop is NOT changed).
+
+Both files are written atomically (tmp-then-replace) via
+``comfyui_resolver.write_manifest`` (YAML) and an inline atomic write (TSV).
+
+The generator is skipped cleanly when ``COMFYUI_SOURCE == "disabled"``.
+"""
+
+from __future__ import annotations
+
+import os
+import tempfile
+from pathlib import Path
+from typing import Any, Mapping
+
+
+class ComfyUIManifestGenerator:
+    """Writes ``volumes/comfyui/selected-models.yaml`` and
+    ``volumes/comfyui/active-models.tsv`` from the resolved active model set.
+
+    Mirrors the structure of ``LiteLLMConfigGenerator``; consumed by
+    ``AtlasStarter.generate_comfyui_manifest()`` in ``start.py``.
+    """
+
+    def __init__(self, env: Mapping[str, str]):
+        """
+        Args:
+            env: Current env mapping (from config_parser or .env).  Must
+                contain ``COMFYUI_SOURCE`` and optionally
+                ``COMFYUI_USER_MODELS`` / ``COMFYUI_CUSTOM_MODELS_FILE``.
+        """
+        self.env = env
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def is_enabled(self) -> bool:
+        """Return True when ComfyUI is active (SOURCE != disabled)."""
+        return self.env.get("COMFYUI_SOURCE", "disabled") != "disabled"
+
+    def write(self, output_dir: Path) -> bool:
+        """Resolve the active model set and write both output files.
+
+        Uses ``comfyui_resolver.active_comfyui_models(env)`` (C2) — pure host-
+        side resolver, no DB, no Docker.  Files are written atomically so a
+        crashed bootstrapper never leaves a partial file on disk.
+
+        Args:
+            output_dir: Directory for the output files; typically
+                ``<repo-root>/volumes/comfyui/``.  Created if absent.
+
+        Returns:
+            True on success (files written or ComfyUI disabled — both are
+            normal outcomes).  Callers should treat False as a fatal error.
+        """
+        if not self.is_enabled():
+            return True  # skipped cleanly
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # --- resolve active entries (no DB, no network scrape in tests) ---
+        from utils import comfyui_resolver
+
+        entries = comfyui_resolver.active_comfyui_models(self.env)
+
+        # --- write YAML manifest (canonical SoT, read by backend C4) ---
+        yaml_path = output_dir / "selected-models.yaml"
+        comfyui_resolver.write_manifest(entries, str(yaml_path))
+
+        # --- write TSV (shell-consumable view for download_models.sh) ---
+        tsv_path = output_dir / "active-models.tsv"
+        self._write_tsv(entries, tsv_path)
+
+        return True
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _row_tsv(row: dict[str, Any]) -> str:
+        """Format a manifest-dict row as a single TSV line.
+
+        Columns: name TAB type TAB filename TAB download_url TAB sha256
+        ``sha256`` is the empty string when ``None``, matching the old
+        ``COALESCE(sha256, '')`` pattern used by the former psql query.
+        """
+        sha = row.get("sha256") or ""  # None → ""
+        return "\t".join([
+            str(row["name"]),
+            str(row["type"]),
+            str(row["filename"]),
+            str(row["download_url"]),
+            str(sha),
+        ])
+
+    def _write_tsv(
+        self,
+        entries: list[Any],
+        tsv_path: Path,
+    ) -> None:
+        """Write the tab-separated active-models file atomically.
+
+        The file has no header row — ``download_models.sh`` reads it with
+        ``IFS=$'\\t' read -r name category filename url sha`` in its existing
+        loop (unchanged from the old psql output format).
+
+        An empty entries list produces an empty file (zero bytes), which
+        ``download_models.sh`` detects via ``[ ! -s "$MANIFEST_TSV" ]`` and
+        treats as "nothing to download" — the same early-exit path as the old
+        "no active comfyui_models rows" branch.
+        """
+        from utils import comfyui_resolver
+
+        manifest = comfyui_resolver.manifest_dict(entries)
+        rows = manifest.get("models", [])
+
+        tsv_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(
+            dir=str(tsv_path.parent),
+            prefix=tsv_path.name + ".",
+            suffix=".tmp",
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                for row in rows:
+                    fh.write(self._row_tsv(row) + "\n")
+            os.replace(tmp, str(tsv_path))
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise

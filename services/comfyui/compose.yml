@@ -45,26 +45,30 @@ services:
     container_name: ${PROJECT_NAME}-comfyui-init
     restart: "no"
     depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
       comfyui-catalog-init:
-        # comfyui-catalog-init owns public.comfyui_models; this init's
-        # psql SELECT depends on its UPSERT having completed.
+        # comfyui-catalog-init still runs and writes the DB for C4/C5
+        # backward-compat; comfyui-init no longer depends on its psql
+        # SELECT (C3 — now reads the bootstrapper-generated manifest TSV).
+        # The depends_on is preserved here; C5 removes it.
         condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       COMFYUI_MODELS_PATH: /models
+      # Path to the bootstrapper-generated active-models TSV
+      # (volumes/comfyui/active-models.tsv → bind-mounted at /comfyui-manifest).
+      # download_models.sh reads this instead of querying public.comfyui_models.
+      COMFYUI_MANIFEST_TSV: /comfyui-manifest/active-models.tsv
     volumes:
       - ./init/scripts:/scripts
       - comfyui-models:/models
+      # Bootstrapper-generated manifest dir (written at start by
+      # bootstrapper/utils/comfyui_manifest_generator.py via comfyui_resolver).
+      # Contains selected-models.yaml (canonical SoT) and active-models.tsv
+      # (shell-consumable TSV for download_models.sh).
+      - ../../volumes/comfyui:/comfyui-manifest:ro
     entrypoint: ["/scripts/download_models.sh"]
     deploy:
       replicas: ${COMFYUI_INIT_SCALE:-1}

@@ -1147,6 +1147,38 @@ class AtlasStarter:
             self.banner.show_status_message(f"Failed to generate LiteLLM configuration: {e}", "error")
             return False
 
+    def generate_comfyui_manifest(self) -> bool:
+        """Write ``volumes/comfyui/selected-models.yaml`` and
+        ``volumes/comfyui/active-models.tsv`` so ``comfyui-init`` can
+        download the active model set without querying the DB.
+
+        Resolves the active set via ``comfyui_resolver.active_comfyui_models``
+        (C2 — DB-free, pure env + catalog computation).  Both files are
+        written atomically; the TSV uses the same column order as the former
+        ``psql SELECT`` so ``download_models.sh``'s existing loop is unchanged.
+
+        Skipped cleanly when ``COMFYUI_SOURCE == "disabled"``; that case
+        returns True (not an error).
+
+        Mirrors ``generate_litellm_configuration`` — see that method for the
+        general pattern.
+        """
+        try:
+            from utils.comfyui_manifest_generator import ComfyUIManifestGenerator
+            env = self.config_parser.parse_env_file()
+            generator = ComfyUIManifestGenerator(env)
+            if not generator.is_enabled():
+                return True  # disabled — nothing to write
+            manifest_dir = self.root_dir / "volumes/comfyui"
+            self._ensure_volume_dir_writable(manifest_dir)
+            generator.write(manifest_dir)
+            return True
+        except Exception as e:
+            self.banner.show_status_message(
+                f"Failed to generate ComfyUI manifest: {e}", "error"
+            )
+            return False
+
     def _ensure_volume_dir_writable(self, path: "Path") -> None:
         """Make sure a bootstrapper-managed host directory is writable
         by both the current host user and any future container that
@@ -2595,6 +2627,12 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         # a file. The real model_list is rendered later by litellm-init
         # from the YAML catalogs + env — see services/litellm/init/scripts/init.py.
         if not starter.generate_litellm_configuration():
+            sys.exit(1)
+
+        # Step 4.56: Write ComfyUI manifest (selected-models.yaml + active-models.tsv)
+        # so comfyui-init can download the active set without querying the DB.
+        # Skipped when COMFYUI_SOURCE=disabled. Mirrors generate_litellm_configuration.
+        if not starter.generate_comfyui_manifest():
             sys.exit(1)
 
         # Step 4.6: Validate Supabase keys (auto-generate for cold start)

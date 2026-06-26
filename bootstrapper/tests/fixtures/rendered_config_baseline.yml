@@ -575,20 +575,13 @@ services:
       ollama-pull:
         condition: service_completed_successfully
         required: true
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
     deploy:
       replicas: 1
     entrypoint:
     - /scripts/download_models.sh
     environment:
+      COMFYUI_MANIFEST_TSV: /comfyui-manifest/active-models.tsv
       COMFYUI_MODELS_PATH: /models
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
     extra_hosts:
     - host.docker.internal=
     image: alpine:latest
@@ -604,6 +597,11 @@ services:
       source: comfyui-models
       target: /models
       volume: {}
+    - type: bind
+      source: '{REPO_ROOT}/volumes/comfyui'
+      target: /comfyui-manifest
+      read_only: true
+      bind: {}
   grafana:
     container_name: atlas-grafana
     depends_on:
@@ -2696,7 +2694,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 2m0s
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    image: __TEI_RERANKER_CPU_IMAGE__
     logging:
       driver: json-file
       options:
