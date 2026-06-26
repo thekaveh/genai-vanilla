@@ -80,11 +80,11 @@ as a mirror of a running stack's persisted DB state.
 """
 from __future__ import annotations
 
+import os
 import sys
-import warnings
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import yaml
@@ -120,7 +120,7 @@ _DEFAULT_SIDECAR_PATH = "/custom-models.yaml"
 # Private helpers
 # ---------------------------------------------------------------------------
 
-def _csv(val: Optional[str]) -> list[str]:
+def _csv(val: str | None) -> list[str]:
     """Split a comma-separated string into a list of non-empty stripped tokens."""
     if not val:
         return []
@@ -154,8 +154,8 @@ def _derive_filename(entry: ComfyUILibraryEntry) -> str:
 def active_comfyui_models(
     env: Mapping[str, str],
     *,
-    catalog: Optional[list[ComfyUILibraryEntry]] = None,
-    sidecar_path: Optional[str] = None,
+    catalog: list[ComfyUILibraryEntry] | None = None,
+    sidecar_path: str | None = None,
 ) -> list[ComfyUILibraryEntry]:
     """Return the active ComfyUI entries (with full metadata) for the given env.
 
@@ -322,7 +322,7 @@ def write_manifest(entries: list[ComfyUILibraryEntry], path: str) -> None:
     """Write ``manifest_dict(entries)`` as YAML to ``path``.
 
     Creates parent directories if they do not exist.  The YAML is written
-    atomically within the write call (no partial writes).
+    atomically via a temporary file and os.replace() (no partial writes).
 
     Args:
         entries: Active model entries, as returned by ``active_comfyui_models()``.
@@ -331,7 +331,16 @@ def write_manifest(entries: list[ComfyUILibraryEntry], path: str) -> None:
     out_path = Path(path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     data = manifest_dict(entries)
-    out_path.write_text(
-        yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
+    yaml_content = yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    fd, tmp = tempfile.mkstemp(dir=str(out_path.parent), prefix=out_path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(yaml_content)
+        os.replace(tmp, str(out_path))
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
