@@ -117,6 +117,15 @@ def assemble_env_example(
     # full rationale.
     text = _apply_model_resolver_defaults(text)
 
+    # ── Ollama user-models pre-fill ───────────────────────────────────────
+    # Pre-fill OLLAMA_USER_MODELS with the catalog's default-active Ollama
+    # model names (comma-joined, catalog order).  This ensures a fresh
+    # install / CLI-flag run pulls the right default trio without requiring
+    # the wizard to have set the var first.  The wizard overwrites it with
+    # the user's selection on each wizard run; OLLAMA_CUSTOM_MODELS is left
+    # empty (free-text additions by the user).
+    text = _apply_ollama_user_models_default(text)
+
     return text
 
 
@@ -168,6 +177,43 @@ def _apply_model_resolver_defaults(text: str) -> str:
             flags=re.MULTILINE,
         )
 
+    return text
+
+
+def _apply_ollama_user_models_default(text: str) -> str:
+    """Pre-fill OLLAMA_USER_MODELS in .env.example with the catalog's
+    default-active Ollama model names (comma-joined, catalog order).
+
+    This keeps OLLAMA_USER_MODELS in sync with the catalog YAML — when the
+    catalog's default_active set changes, the next env_assembler regen picks
+    it up automatically.  The wizard overwrites this value with the user's
+    selection; OLLAMA_CUSTOM_MODELS is intentionally left empty.
+
+    Imported lazily for the same reason as _apply_model_resolver_defaults:
+    llm_catalog triggers YAML loading at import time, which synthetic test
+    trees (no models.yaml) cannot satisfy.  On import failure we leave the
+    manifest-declared empty default untouched.
+    """
+    try:
+        from utils.llm_catalog import default_active_names  # noqa: PLC0415
+    except Exception:  # pragma: no cover
+        return text
+
+    try:
+        names = default_active_names("ollama")
+    except Exception:  # pragma: no cover
+        return text
+
+    if not names:
+        return text  # nothing to override with
+
+    csv_value = ",".join(names)
+    text = re.sub(
+        r"^(OLLAMA_USER_MODELS)=.*$",
+        rf"\g<1>={csv_value}",
+        text,
+        flags=re.MULTILINE,
+    )
     return text
 
 

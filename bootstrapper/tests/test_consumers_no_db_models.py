@@ -1,10 +1,10 @@
 """
-Regression guard: weaviate-init, LDR init-config.py, and backend memory_service.py
-must NOT query ``public.llms`` for model selection — they now read resolved env vars
-(LITELLM_EMBEDDING_MODEL / LITELLM_DEFAULT_MODEL) directly.
+Regression guard: weaviate-init, LDR init-config.py, backend memory_service.py, and
+ollama-pull must NOT query ``public.llms`` for model selection — they now read resolved
+env vars (LITELLM_EMBEDDING_MODEL / LITELLM_DEFAULT_MODEL / OLLAMA_USER_MODELS) directly.
 
 If any of these assertions fail it means someone re-introduced a DB query against
-public.llms for model resolution inside one of these three consumers.  That is the
+public.llms for model resolution inside one of these consumers.  That is the
 pattern being removed in B5 (repoint consumers off public.llms to env vars).
 """
 
@@ -57,6 +57,50 @@ def test_ldr_compose_passes_default_model():
     text = _read("services/local-deep-researcher/compose.yml")
     assert "LITELLM_DEFAULT_MODEL" in text, (
         "local-deep-researcher/compose.yml does not pass LITELLM_DEFAULT_MODEL."
+    )
+
+
+def test_ollama_pull_no_public_llms():
+    """pull.sh must not query public.llms — model list comes from env vars."""
+    text = _read("services/ollama/pull/scripts/pull.sh")
+    assert "public.llms" not in text, (
+        "pull.sh still references public.llms — "
+        "the model list must come from OLLAMA_USER_MODELS + OLLAMA_CUSTOM_MODELS env vars."
+    )
+
+
+def test_env_example_ollama_user_models_is_default_trio():
+    """OLLAMA_USER_MODELS in .env.example must equal the catalog's default-active
+    Ollama model CSV so a fresh install pulls the right default set without
+    running the wizard.
+    """
+    import sys
+    from pathlib import Path
+
+    # Add bootstrapper to sys.path so llm_catalog is importable.
+    bootstrapper_dir = REPO_ROOT / "bootstrapper"
+    if str(bootstrapper_dir) not in sys.path:
+        sys.path.insert(0, str(bootstrapper_dir))
+
+    from utils.llm_catalog import default_active_names  # noqa: PLC0415
+
+    expected_csv = ",".join(default_active_names("ollama"))
+    env_example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+
+    # Find the OLLAMA_USER_MODELS line.
+    for line in env_example.splitlines():
+        if line.startswith("OLLAMA_USER_MODELS="):
+            actual_csv = line.split("=", 1)[1]
+            assert actual_csv == expected_csv, (
+                f"OLLAMA_USER_MODELS in .env.example ({actual_csv!r}) does not match "
+                f"the catalog's default-active set ({expected_csv!r}). "
+                f"Re-run: cd bootstrapper && uv run python -m services.env_assembler"
+            )
+            return
+
+    raise AssertionError(
+        "OLLAMA_USER_MODELS line not found in .env.example. "
+        "Re-run: cd bootstrapper && uv run python -m services.env_assembler"
     )
 
 

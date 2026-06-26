@@ -34,14 +34,12 @@ services:
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       # Bypasses LiteLLM by design — model pulls hit Ollama's /api/pull directly.
       # ``${VAR-default}`` form: see comment in litellm-init service.
       OLLAMA_HOST_URL: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
+      # Model lists sourced from env vars (not DB). See pull.sh header.
+      OLLAMA_USER_MODELS: ${OLLAMA_USER_MODELS:-}
+      OLLAMA_CUSTOM_MODELS: ${OLLAMA_CUSTOM_MODELS:-}
     volumes:
       - ./pull/scripts:/scripts:ro
     entrypoint: ["/scripts/pull.sh"]
