@@ -64,7 +64,7 @@ hiredis>=2.2.3
 
 # Testing
 pytest>=9.1.0
-pytest-asyncio>=0.23.5
+pytest-asyncio>=1.4.0
 
 # n8n integration
 requests>=2.31.0
