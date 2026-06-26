@@ -109,6 +109,7 @@ class ComfyUILibraryEntry:
     # URL-derived name is a bare numeric id with no extension and ComfyUI's
     # extension-filtered scanner never lists the downloaded file.
     filename: str | None = None
+    essential: bool = False  # True → activated by default even with empty COMFYUI_USER_MODELS.
 
 
 # ── HF + civitai response parsers ──────────────────────────────────────
@@ -415,6 +416,7 @@ def _dict_to_entry(d: dict, source: str) -> ComfyUILibraryEntry:
         cloud_only=bool(d.get("cloud_only", False)),
         notes=d.get("notes"),
         filename=d.get("filename"),
+        essential=bool(d.get("essential", False)),
     )
 
 

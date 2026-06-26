@@ -98,6 +98,10 @@
         "filename": {
           "type": ["string", "null"],
           "description": "Explicit on-disk filename. Required for civitai URLs whose URL path carries no real filename."
+        },
+        "essential": {
+          "type": "boolean",
+          "description": "If true, this entry is activated by default when COMFYUI_USER_MODELS is empty (DB-free equivalent of the essential column in public.comfyui_models)."
         }
       }
     }
