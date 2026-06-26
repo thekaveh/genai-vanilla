@@ -64,7 +64,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import yaml
 
@@ -171,7 +171,6 @@ def _parse_section(
 
 def _build_entries(
     section_tuples: List[Tuple[str, Dict]],
-    provider: str,
 ) -> List[CatalogEntry]:
     """Merge per-section tuples into CatalogEntry objects (one per (provider, name)).
 
@@ -248,7 +247,7 @@ def _load_ollama_catalog(models_dir: Path) -> List[CatalogEntry]:
         if raw_entries:
             section_tuples.extend(_parse_section(raw_entries, section, "ollama"))
 
-    return _build_entries(section_tuples, "ollama")
+    return _build_entries(section_tuples)
 
 
 def _load_cloud_catalog(models_dir: Path) -> List[CatalogEntry]:
@@ -266,7 +265,7 @@ def _load_cloud_catalog(models_dir: Path) -> List[CatalogEntry]:
                 section_tuples.extend(
                     _parse_section(raw_entries, section, provider_key)
                 )
-        all_entries.extend(_build_entries(section_tuples, provider_key))
+        all_entries.extend(_build_entries(section_tuples))
 
     return all_entries
 

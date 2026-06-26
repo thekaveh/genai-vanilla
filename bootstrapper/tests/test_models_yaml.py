@@ -74,6 +74,10 @@ def test_public_functions_intact():
     """All public functions return non-empty typed CatalogEntry lists."""
     from utils import llm_catalog as c
 
+    # Module-level catalog globals
+    assert isinstance(c.CLOUD_CATALOG, list) and len(c.CLOUD_CATALOG) > 0
+    assert isinstance(c.OLLAMA_DEFAULT_CATALOG, list) and len(c.OLLAMA_DEFAULT_CATALOG) > 0
+
     # ollama_entries
     ollama = c.ollama_entries()
     assert len(ollama) > 0, "ollama_entries() must be non-empty"
