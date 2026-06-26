@@ -1,56 +1,10 @@
 # services/comfyui/compose.yml — ComfyUI + init pipeline
 services:
-  comfyui-catalog-init:
-    # Mirrors services/litellm/compose.yml::llm-catalog-init. Single
-    # source of truth for public.comfyui_models — UPSERTs the live
-    # HF/civitai/curated catalog + sidecar YAML, then applies
-    # COMFYUI_USER_MODELS as the activation set. Must complete before
-    # comfyui-init's psql-driven download loop runs (see depends_on
-    # below). The bind-mounted bootstrapper/utils sibling delivers
-    # comfyui_library.py to the container.
-    build: ./catalog-init
-    container_name: ${PROJECT_NAME}-comfyui-catalog-init
-    restart: "no"
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-    environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-      COMFYUI_USER_MODELS: ${COMFYUI_USER_MODELS:-}
-      COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml
-    volumes:
-      - ./catalog-init/scripts:/scripts:ro
-      - ./custom-models.yaml:/custom-models.yaml:ro
-      # Sibling mount of bootstrapper/utils — same rationale as
-      # llm-catalog-init's /catalog mount. The catalog module
-      # (comfyui_library.py) is imported via the importlib spec at
-      # /catalog/comfyui_library.py inside sync-catalog.py.
-      - ../../bootstrapper/utils:/catalog:ro
-      # Curated catalog YAML (C1 SoT). Mounted alongside the utils bind-mount
-      # as /catalog/comfyui-models.yaml so comfyui_library._find_comfyui_yaml()
-      # resolves it at /catalog (mirrors litellm-catalog-init's pattern for
-      # services/litellm/models.yaml → /catalog/litellm-models.yaml).
-      - ./models.yaml:/catalog/comfyui-models.yaml:ro
-    deploy:
-      replicas: ${COMFYUI_CATALOG_INIT_SCALE:-1}
-    networks:
-      - backend-network
-
   comfyui-init:
     image: ${COMFYUI_INIT_IMAGE}
     container_name: ${PROJECT_NAME}-comfyui-init
     restart: "no"
     depends_on:
-      comfyui-catalog-init:
-        # comfyui-catalog-init still runs and writes the DB for C4/C5
-        # backward-compat; comfyui-init no longer depends on its psql
-        # SELECT (C3 — now reads the bootstrapper-generated manifest TSV).
-        # The depends_on is preserved here; C5 removes it.
-        condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
     extra_hosts:

@@ -533,55 +533,9 @@ services:
       source: '{HOME}/Documents/ComfyUI/models'
       target: /host_models
       type: bind
-  comfyui-catalog-init:
-    build:
-      context: '{REPO_ROOT}/services/comfyui/catalog-init'
-      dockerfile: Dockerfile
-    container_name: atlas-comfyui-catalog-init
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
-    deploy:
-      replicas: 1
-    environment:
-      COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml
-      COMFYUI_USER_MODELS: ''
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
-    networks:
-      backend-network: null
-    restart: 'no'
-    volumes:
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/services/comfyui/catalog-init/scripts'
-      target: /scripts
-      type: bind
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/services/comfyui/custom-models.yaml'
-      target: /custom-models.yaml
-      type: bind
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/bootstrapper/utils'
-      target: /catalog
-      type: bind
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/services/comfyui/models.yaml'
-      target: /catalog/comfyui-models.yaml
-      type: bind
   comfyui-init:
     container_name: atlas-comfyui-init
     depends_on:
-      comfyui-catalog-init:
-        condition: service_completed_successfully
-        required: true
       ollama-pull:
         condition: service_completed_successfully
         required: true

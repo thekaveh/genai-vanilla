@@ -254,8 +254,5 @@ jobs:
       - name: Build litellm-init image
         run: docker buildx build --load services/litellm/init/
 
-      - name: Build comfyui-catalog-init image
-        run: docker buildx build --load services/comfyui/catalog-init/
-
       - name: Build open-webui-init image
         run: docker buildx build --load services/open-webui/init/

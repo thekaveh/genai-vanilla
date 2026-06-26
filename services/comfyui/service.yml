@@ -7,7 +7,6 @@ docs: services/comfyui/README.md
 containers:
   - comfyui
   - comfyui-init
-  - comfyui-catalog-init
 
 images:
   - var: COMFYUI_IMAGE
@@ -64,14 +63,8 @@ env:
   - name: COMFYUI_USER_MODELS
     default: ""
     description: "Comma-separated catalog model names the user picked in the wizard (or via --comfyui-models). Read by services/comfyui/init/scripts/download_models.sh."
-  - name: COMFYUI_CUSTOM_MODELS_FILE
-    default: "/custom-models.yaml"
-    description: "Path inside comfyui-catalog-init to the sidecar custom-models.yaml. Default points at the bind-mounted services/comfyui/custom-models.yaml."
   - name: COMFYUI_INIT_SCALE
     auto_managed: true
-  - name: COMFYUI_CATALOG_INIT_SCALE
-    auto_managed: true
-    description: "Scale for the comfyui-catalog-init container that UPSERTs public.comfyui_models. Follows COMFYUI_INIT_SCALE (0 when ComfyUI is disabled)."
   - name: COMFYUI_SCALE
     auto_managed: true
   - name: COMFYUI_ENDPOINT
@@ -180,18 +173,6 @@ runtime_sc:
       environment: {}
       deploy: {}
       extra_hosts: []
-  comfyui-catalog-init:
-    container:
-      scale: 1
-      environment: {}
-      deploy: {}
-      extra_hosts: []
-    disabled:
-      scale: 0
-      environment: {}
-      deploy: {}
-      extra_hosts: []
-
 runtime_adaptive:
   comfyui-init:
     adapts_to: comfyui
