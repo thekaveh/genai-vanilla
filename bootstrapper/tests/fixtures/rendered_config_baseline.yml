@@ -275,7 +275,7 @@ services:
       LIGHTRAG_ENDPOINT: ''
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
-      LITELLM_DEFAULT_MODEL: ''
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
       N8N_API_KEY: ''
       N8N_BASE_URL: http://n8n:5678
@@ -1059,7 +1059,7 @@ services:
       LIGHTRAG_PG_URI: ''
       LIGHTRAG_REDIS_URI: ''
       LIGHTRAG_SOURCE: disabled
-      LITELLM_DEFAULT_MODEL: ''
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
       LITELLM_MASTER_KEY: ''
     image: alpine:latest

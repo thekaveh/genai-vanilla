@@ -28,6 +28,7 @@ Output shape (per service):
 
 from __future__ import annotations
 
+import re
 import warnings
 from pathlib import Path
 from typing import Iterable
@@ -99,7 +100,75 @@ def assemble_env_example(
     parts: list[str] = [_HEADER]
     for m in ordered:
         parts.append(_render_manifest(m, port_defaults))
-    return "\n".join(parts).rstrip() + "\n"
+    text = "\n".join(parts).rstrip() + "\n"
+
+    # ── Model-resolver override ────────────────────────────────────────────
+    # Override LITELLM_DEFAULT_MODEL and LITELLM_VISION_MODEL with the values
+    # computed by model_resolver.resolved_defaults({}).  We pass an empty env
+    # dict (= "no user overrides") so the output reflects the default-config
+    # winner — the YAML default_active=True ollama model, which under the
+    # default stack is qwen3.6:latest for both content and vision.
+    #
+    # NOTE: LITELLM_EMBEDDING_MODEL is deliberately NOT overridden here.
+    # Its static default (ollama/nomic-embed-text, 768-dim) must stay fixed
+    # because the public.memory_facts.embedding vector(768) pgvector column
+    # is dimension-locked to nomic-embed-text.  Switching dimension would
+    # silently corrupt all stored embeddings.  See model_resolver.py for the
+    # full rationale.
+    text = _apply_model_resolver_defaults(text)
+
+    return text
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Model-resolver post-step
+# ────────────────────────────────────────────────────────────────────────────
+
+# The two vars we override with computed defaults.  LITELLM_EMBEDDING_MODEL is
+# intentionally absent — see the comment in assemble_env_example().
+_MODEL_RESOLVER_VARS = frozenset({"LITELLM_DEFAULT_MODEL", "LITELLM_VISION_MODEL"})
+
+
+def _apply_model_resolver_defaults(text: str) -> str:
+    """Replace the values of LITELLM_DEFAULT_MODEL and LITELLM_VISION_MODEL
+    with the model-resolver's computed defaults (default-config / empty-env
+    scenario).
+
+    We import model_resolver lazily here to keep env_assembler importable even
+    in test trees that don't have the full services/ YAML structure (model
+    resolver triggers catalog YAML loading at import time).  The lazy import
+    means test suites that use synthetic manifests don't need models.yaml.
+    When the import fails (e.g. during isolated unit tests), we leave the
+    manifest-declared defaults (empty strings) untouched.
+    """
+    try:
+        from utils.model_resolver import resolved_defaults  # noqa: PLC0415
+    except Exception:  # pragma: no cover
+        # Graceful degradation: if the resolver can't load (e.g. YAML missing
+        # in a synthetic test tree), leave the text unchanged.
+        return text
+
+    try:
+        overrides = resolved_defaults({})
+    except Exception:  # pragma: no cover
+        return text
+
+    for var_name, computed_value in overrides.items():
+        if var_name not in _MODEL_RESOLVER_VARS:
+            continue  # safety guard — should never happen
+        if not computed_value:
+            continue  # nothing to override with; leave manifest default
+        # Replace the line `VAR_NAME=<anything>` with `VAR_NAME=<computed>`.
+        # The line immediately follows the description comment lines and is
+        # anchored at the start of a line.
+        text = re.sub(
+            rf"^({re.escape(var_name)})=.*$",
+            rf"\g<1>={computed_value}",
+            text,
+            flags=re.MULTILINE,
+        )
+
+    return text
 
 
 # ────────────────────────────────────────────────────────────────────────────
