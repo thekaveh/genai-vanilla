@@ -35,7 +35,7 @@ env:
     default: ollama-container-cpu
   - name: OLLAMA_USER_MODELS
     default: ""
-    description: "Comma-separated Ollama model names the wizard activated. The .env.example default is pre-filled by env_assembler with the catalog's default-active set (qwen3.6:latest,qwen3-embedding:0.6b,nomic-embed-text). Used by ollama-pull to seed models in container-Ollama sources."
+    description: "Comma-separated Ollama model names to activate/pull. Pre-filled by env_assembler from the catalog's default-active Ollama set (see services/ollama/models.yaml); the wizard overwrites it with the user's selection."
   - name: OLLAMA_CUSTOM_MODELS
     default: ""
     description: "Free-text extra Ollama models pulled in container-* sources."

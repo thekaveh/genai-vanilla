@@ -53,6 +53,7 @@ _raw_list=$(
   printf '%s\n' "${OLLAMA_USER_MODELS:-}" "${OLLAMA_CUSTOM_MODELS:-}" \
     | tr ',' '\n' \
     | while IFS= read -r _m; do
+        # xargs exits 1 on empty input in busybox; the fallback keeps the raw value so the -n guard below drops blanks.
         _mc=$(printf '%s' "$_m" | xargs 2>/dev/null || printf '%s' "$_m")
         [ -n "$_mc" ] && printf '%s\n' "$_mc"
       done \
