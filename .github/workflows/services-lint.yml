@@ -100,7 +100,8 @@ jobs:
             'asyncpg>=0.29.0' \
             'storage3>=0.7.0' \
             'prometheus-fastapi-instrumentator>=7.0.0' \
-            'python-multipart>=0.0.9'
+            'python-multipart>=0.0.9' \
+            'pyyaml>=6.0'
           .ci-venv/bin/python -m pytest tests/ -q
 
   compose-equivalence:
