@@ -322,8 +322,7 @@ services:
       volume: {}
   backup:
     command:
-    - apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc &&
-      /scripts/backup-all.sh
+    - apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc && /scripts/backup-all.sh
     container_name: atlas-backup
     deploy:
       replicas: 0
@@ -690,8 +689,7 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY"
-        http://127.0.0.1:8642/v1/models >/dev/null'
+      - 'curl --fail --silent --show-error -H "Authorization: Bearer $$API_SERVER_KEY" http://127.0.0.1:8642/v1/models >/dev/null'
       timeout: 10s
       interval: 30s
       retries: 5
@@ -1012,8 +1010,7 @@ services:
       - CMD
       - python
       - -c
-      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9621/health',
-        timeout=5).status == 200 else 1)
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9621/health', timeout=5).status == 200 else 1)
       timeout: 8s
       interval: 30s
       retries: 5
@@ -1117,8 +1114,7 @@ services:
       - CMD
       - python
       - -c
-      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness',
-        timeout=3).status == 200 else 1)
+      - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=3).status == 200 else 1)
       timeout: 5s
       interval: 10s
       retries: 12
@@ -1293,6 +1289,7 @@ services:
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       LOCAL_DEEP_RESEARCHER_WORKERS: '3'
       MAX_WEB_RESEARCH_LOOPS: '3'
       SEARCH_API: searxng
@@ -1953,15 +1950,7 @@ services:
     entrypoint:
     - sh
     - -c
-    - "set -e\napk add --no-cache jq > /dev/null\nCONFIG=/home/node/.openclaw/openclaw.json\n\
-      PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
-      :true}}}'\n# Write via tmp + mv on BOTH branches: `> \"$$CONFIG\"` truncates\n\
-      # the target before jq runs, so a missing/failed jq used to\n# leave a 0-byte\
-      \ config the gateway chokes on (and re-runs\n# could not self-heal \u2014 jq\
-      \ errors on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch\
-      \ \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\"\
-      \ \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG.tmp\" && mv \"\
-      $$CONFIG.tmp\" \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
+    - "set -e\napk add --no-cache jq > /dev/null\nCONFIG=/home/node/.openclaw/openclaw.json\nPATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\":true}}}'\n# Write via tmp + mv on BOTH branches: `> \"$$CONFIG\"` truncates\n# the target before jq runs, so a missing/failed jq used to\n# leave a 0-byte config the gateway chokes on (and re-runs\n# could not self-heal — jq errors on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\" \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
     networks:
       backend-network: null
@@ -2066,8 +2055,7 @@ services:
     command:
     - bash
     - -c
-    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port\
-      \ 10001 \\\n  --dashboard-port 8265 \\\n  --block\n"
+    - "ray start --head \\\n  --dashboard-host 0.0.0.0 \\\n  --port 6379 \\\n  --ray-client-server-port 10001 \\\n  --dashboard-port 8265 \\\n  --block\n"
     container_name: atlas-ray-head
     deploy:
       replicas: 0
@@ -2314,9 +2302,7 @@ services:
     deploy:
       replicas: 0
     environment:
-      SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000
-        -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key=
-        -Dspark.hadoop.fs.s3a.path.style.access=true
+      SPARK_HISTORY_OPTS: -Dspark.history.fs.logDirectory=s3a://spark-history/ -Dspark.hadoop.fs.s3a.endpoint=http://minio:9000 -Dspark.hadoop.fs.s3a.access.key=minioadmin -Dspark.hadoop.fs.s3a.secret.key= -Dspark.hadoop.fs.s3a.path.style.access=true
     image: atlas-spark:local
     logging:
       driver: json-file
@@ -2333,8 +2319,7 @@ services:
     restart: unless-stopped
   spark-init:
     command:
-    - "mc alias set minio http://minio:9000 minioadmin \nmc mb --ignore-existing minio/spark-history\n\
-      echo \"spark-init: spark-history bucket ready\"\n"
+    - "mc alias set minio http://minio:9000 minioadmin \nmc mb --ignore-existing minio/spark-history\necho \"spark-init: spark-history bucket ready\"\n"
     container_name: atlas-spark-init
     depends_on:
       minio-init:
@@ -2871,11 +2856,7 @@ services:
     environment:
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
+      LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
     extra_hosts:
     - host.docker.internal=
     image: alpine:latest
@@ -2908,10 +2889,7 @@ services:
           memory: '2147483648'
     environment:
       SPARK_MASTER: spark://spark-master:7077
-      SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000
-        --conf spark.hadoop.fs.s3a.access.key=minioadmin --conf spark.hadoop.fs.s3a.secret.key=
-        --conf spark.hadoop.fs.s3a.path.style.access=true --conf spark.eventLog.enabled=true
-        --conf spark.eventLog.dir=s3a://spark-history/
+      SPARK_SUBMIT_OPTIONS: --conf spark.hadoop.fs.s3a.endpoint=http://minio:9000 --conf spark.hadoop.fs.s3a.access.key=minioadmin --conf spark.hadoop.fs.s3a.secret.key= --conf spark.hadoop.fs.s3a.path.style.access=true --conf spark.eventLog.enabled=true --conf spark.eventLog.dir=s3a://spark-history/
       ZEPPELIN_JDBC_POSTGRES_PASSWORD: password
       ZEPPELIN_JDBC_POSTGRES_URL: jdbc:postgresql://supabase-db:5432/postgres
       ZEPPELIN_JDBC_POSTGRES_USER: supabase_admin
