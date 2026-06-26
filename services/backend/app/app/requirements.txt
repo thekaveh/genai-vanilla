@@ -20,7 +20,7 @@ prometheus-fastapi-instrumentator>=7.0.0
 # Database
 sqlmodel>=0.0.16
 sqlalchemy>=2.0.28
-asyncpg>=0.29.0
+asyncpg>=0.31.0
 storage3>=0.7.0
 
 # Security
