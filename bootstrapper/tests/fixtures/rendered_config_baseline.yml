@@ -1160,19 +1160,34 @@ services:
     deploy:
       replicas: 1
     environment:
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_USER_MODELS: ''
       HERMES_ENDPOINT: ''
       HERMES_SOURCE: container
       LIGHTRAG_API_KEY: ''
       LIGHTRAG_ENDPOINT: ''
       LIGHTRAG_SOURCE: disabled
+      LITELLM_ANTHROPIC_ENABLED: 'false'
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
       LITELLM_DB_NAME: litellm
       LITELLM_OLLAMA_UPSTREAM: ''
+      LITELLM_OPENAI_ENABLED: 'false'
+      LITELLM_OPENROUTER_ENABLED: 'false'
+      LLM_PROVIDER_SOURCE: ollama-container-cpu
+      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: 'true'
+      OLLAMA_CUSTOM_MODELS: ''
+      OLLAMA_USER_MODELS: ''
+      OPENAI_API_KEY: ''
+      OPENAI_USER_MODELS: ''
+      OPENROUTER_API_KEY: ''
+      OPENROUTER_USER_MODELS: ''
       PGDATABASE: postgres
       PGHOST: supabase-db
       PGPASSWORD: password
       PGPORT: '5432'
       PGUSER: supabase_admin
+    extra_hosts:
+    - host.docker.internal=
     networks:
       backend-network: null
     restart: 'no'
@@ -1943,9 +1958,9 @@ services:
       PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
       :true}}}'\n# Write via tmp + mv on BOTH branches: `> \"$$CONFIG\"` truncates\n\
       # the target before jq runs, so a missing/failed jq used to\n# leave a 0-byte\
-      \ config the gateway chokes on (and re-runs\n# could not self-heal — jq errors\
-      \ on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch \"\
-      $$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\"\
+      \ config the gateway chokes on (and re-runs\n# could not self-heal \u2014 jq\
+      \ errors on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch\
+      \ \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\"\
       \ \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG.tmp\" && mv \"\
       $$CONFIG.tmp\" \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
@@ -2738,7 +2753,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 2m0s
-    image: __TEI_RERANKER_CPU_IMAGE__
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
     logging:
       driver: json-file
       options:

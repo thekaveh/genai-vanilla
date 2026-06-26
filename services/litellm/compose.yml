@@ -85,6 +85,24 @@ services:
       # cloud-only setups. See .env.example LITELLM_OLLAMA_UPSTREAM.
       LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
+      # ── model_resolver inputs ─────────────────────────────────────
+      # These vars drive model_resolver.active_models() — the replacement
+      # for the former public.llms DB query. litellm-init now computes
+      # the active model set from YAML catalogs + these env vars directly.
+      LLM_PROVIDER_SOURCE: ${LLM_PROVIDER_SOURCE:-ollama-container-cpu}
+      OLLAMA_USER_MODELS: ${OLLAMA_USER_MODELS:-}
+      OLLAMA_CUSTOM_MODELS: ${OLLAMA_CUSTOM_MODELS:-}
+      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: ${OLLAMA_AUTO_IMPORT_LOCAL_MODELS:-true}
+      LITELLM_OPENAI_ENABLED: ${LITELLM_OPENAI_ENABLED:-false}
+      LITELLM_ANTHROPIC_ENABLED: ${LITELLM_ANTHROPIC_ENABLED:-false}
+      LITELLM_OPENROUTER_ENABLED: ${LITELLM_OPENROUTER_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_USER_MODELS: ${OPENAI_USER_MODELS:-}
+      ANTHROPIC_USER_MODELS: ${ANTHROPIC_USER_MODELS:-}
+      OPENROUTER_USER_MODELS: ${OPENROUTER_USER_MODELS:-}
+      # ── runtime passthroughs ──────────────────────────────────────
       # Hermes Agent passthrough — when HERMES_SOURCE != disabled,
       # services/litellm/init/scripts/init.py appends a hermes-agent model row whose
       # api_base is HERMES_ENDPOINT/v1. Empty/disabled → no row.
@@ -96,6 +114,11 @@ services:
       LIGHTRAG_SOURCE: ${LIGHTRAG_SOURCE:-disabled}
       LIGHTRAG_ENDPOINT: ${LIGHTRAG_ENDPOINT:-}
       LIGHTRAG_API_KEY: ${LIGHTRAG_API_KEY:-}
+    extra_hosts:
+      # Required for OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true with
+      # LLM_PROVIDER_SOURCE=ollama-localhost — the script needs to
+      # reach the operator's host Ollama via host.docker.internal.
+      - "host.docker.internal:${HOST_GATEWAY_IP}"
     volumes:
       - ./init/scripts:/scripts:ro
       - ../../volumes/litellm:/litellm-config:rw

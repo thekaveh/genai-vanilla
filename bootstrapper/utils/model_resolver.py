@@ -80,9 +80,25 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Optional
 
-from utils import llm_catalog
-from utils.llm_catalog import CatalogEntry
-from utils.cloud_providers import CLOUD_PROVIDERS
+# Container-safe dual-mode import.
+#
+# This module is consumed in two contexts:
+#   1. Bootstrapper venv (host): `bootstrapper/utils/` is a proper Python
+#      package, so `from utils import llm_catalog` resolves against the
+#      package's __init__ and works fine.
+#   2. litellm-init container: `bootstrapper/utils/` is bind-mounted as
+#      `/catalog` and the scripts import modules LOOSE (no `utils` package).
+#      In that context `from utils import llm_catalog` raises ImportError
+#      because there is no `utils` package on sys.path — only the bare
+#      `/catalog` directory. The fallback branch handles this case.
+try:                                   # bootstrapper venv (package context)
+    from utils import llm_catalog
+    from utils.llm_catalog import CatalogEntry
+    from utils.cloud_providers import CLOUD_PROVIDERS
+except ImportError:                    # container /catalog (loose modules)
+    import llm_catalog  # type: ignore[no-redef]
+    from llm_catalog import CatalogEntry  # type: ignore[no-redef]
+    from cloud_providers import CLOUD_PROVIDERS  # type: ignore[no-redef]
 
 
 # ---------------------------------------------------------------------------

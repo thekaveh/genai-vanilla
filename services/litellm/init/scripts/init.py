@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 services/litellm/init/scripts/init.py — provision the LiteLLM Postgres
-database and render ``volumes/litellm/config.yaml`` from the active rows
-in ``public.llms``.
+database and render ``volumes/litellm/config.yaml`` from the active model
+set computed by ``model_resolver`` (YAML catalogs + env vars).
 
 Replaces the previous alpine + ensure-litellm-db.sh approach. The
 existing shell script only handled DB creation; this Python script
@@ -13,13 +13,16 @@ Order of operations:
   2. CREATE DATABASE for LiteLLM's own Prisma schema if not present
      (LiteLLM's recommended layout — separate logical DB on the same
      server as Supabase).
-  3. Query ``public.llms WHERE active = true`` (catalog already
-     synced by ``llm-catalog-init`` upstream).
-  4. Render config.yaml with model_list entries built per-provider
+  3. Compute the active model set via ``model_resolver.active_models()``
+     (reads YAML catalogs + env vars — no DB query needed).
+  4. For host-side Ollama sources with ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS``
+     enabled, also fetch ``/api/tags`` from the upstream to union in any
+     locally-pulled models not in the curated catalog.
+  5. Render config.yaml with model_list entries built per-provider
      and the standard settings block.
-  5. Write to ``/litellm-config/config.yaml`` (host bind mount →
+  6. Write to ``/litellm-config/config.yaml`` (host bind mount →
      ``volumes/litellm/config.yaml``). The file is OVERWRITTEN every
-     run — DB is the editable surface.
+     run — env vars / YAML catalogs are the editable surface.
 
 The host-side stub generator
 (``bootstrapper/utils/litellm_config_generator.py``) checks our
@@ -38,7 +41,6 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-import psycopg2
 import yaml
 
 
@@ -72,11 +74,13 @@ def _load_shared_settings():
 
 # ─── env ──────────────────────────────────────────────────────────────
 
+# DB credentials — used ONLY by ensure_litellm_db() (CREATE DATABASE).
+# No longer used to query public.llms; the active model set now comes
+# from model_resolver (YAML catalogs + env) instead.
 PG_HOST = os.environ.get("PGHOST", "supabase-db")
 PG_PORT = int(os.environ.get("PGPORT", "5432"))
 PG_USER = os.environ.get("PGUSER", "postgres")
 PG_PASSWORD = os.environ.get("PGPASSWORD", "")
-SUPABASE_DB = os.environ.get("PGDATABASE", "postgres")
 LITELLM_DB_NAME = os.environ.get("LITELLM_DB_NAME", "litellm")
 
 LITELLM_OLLAMA_UPSTREAM = os.environ.get("LITELLM_OLLAMA_UPSTREAM", "http://ollama:11434").strip()
@@ -93,11 +97,18 @@ CONFIG_OUT = Path(os.environ.get("LITELLM_CONFIG_OUT", "/litellm-config/config.y
 
 
 # ─── DB connection ────────────────────────────────────────────────────
+# NOTE: psycopg2 is imported lazily inside ensure_litellm_db() so that
+# tests (and the resolver path) can load this module without needing
+# the psycopg2-binary package from the container image.
 
 def connect(dbname: str, autocommit: bool = False, retries: int = 30, delay: float = 2.0):
-    """Connect with retry. Used for both the maintenance ``postgres``
-    DB (when CREATE DATABASE) and the public DB (when querying llms).
+    """Connect with retry. Used ONLY for CREATE DATABASE (ensure_litellm_db).
+
+    litellm-init no longer queries ``public.llms``; the active model set
+    now comes from ``model_resolver`` instead (see ``fetch_active_models``).
     """
+    import psycopg2  # noqa: PLC0415 — lazy import; not needed by resolver path
+
     last: Exception | None = None
     for attempt in range(retries):
         try:
@@ -140,24 +151,125 @@ def ensure_litellm_db() -> None:
         conn.close()
 
 
+# ─── catalog module loader ─────────────────────────────────────────────
+
+def _catalog_dir() -> Path:
+    """Resolve the catalog directory containing the shared bootstrapper utils.
+
+    Search order (mirrors llm_catalog._find_models_dir's philosophy):
+      1. ``ATLAS_CATALOG_DIR`` env var — test override.
+      2. ``/catalog`` — the container bind-mount target (normal runtime).
+
+    Exits loudly when neither location exists so that misconfigured compose
+    bind mounts surface immediately rather than silently yielding wrong config.
+    """
+    env_dir = os.environ.get("ATLAS_CATALOG_DIR")
+    if env_dir:
+        return Path(env_dir)
+    container_catalog = Path("/catalog")
+    if container_catalog.is_dir():
+        return container_catalog
+    sys.exit(
+        "❌ /catalog not found and ATLAS_CATALOG_DIR is not set — "
+        "the ``./bootstrapper/utils:/catalog:ro`` bind mount is missing or "
+        "misconfigured. Check the litellm-init service block in docker-compose.yml."
+    )
+
+
+def _load_catalog_module(name: str):
+    """Import a module from the bind-mounted ``/catalog`` directory.
+
+    Uses the same importlib pattern as ``_load_shared_settings`` — load the
+    file at ``<catalog_dir>/<name>.py`` and register it in ``sys.modules`` so
+    intra-module imports (e.g. ``model_resolver`` → ``llm_catalog``) resolve
+    cleanly against the same instances.
+
+    The catalog directory is resolved by ``_catalog_dir()``:
+      • In the container it is ``/catalog`` (the bind mount).
+      • In tests it is the path set by ``ATLAS_CATALOG_DIR`` (pointing at
+        ``bootstrapper/utils``), so the same modules are exercised without
+        needing a running container.
+
+    Exits loudly when the catalog is misconfigured: a silent fallback would
+    hide operator errors that must be fixed in compose.yml.
+    """
+    catalog = _catalog_dir()
+    path = catalog / f"{name}.py"
+    if not path.exists():
+        sys.exit(
+            f"❌ {path} not found — the ``./bootstrapper/utils:/catalog:ro`` "
+            f"bind mount is missing or misconfigured. Check the litellm-init "
+            f"service block in docker-compose.yml."
+        )
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
 # ─── config rendering ─────────────────────────────────────────────────
 
-def fetch_active_models() -> list[tuple[str, str]]:
-    """Return [(provider, name)] for every active row in public.llms."""
-    conn = connect(SUPABASE_DB)
+def _maybe_fetch_ollama_tags() -> list[str] | None:
+    """For host-side Ollama sources with auto-import enabled, query the
+    upstream ``/api/tags`` so host-pulled models (beyond the curated
+    catalog) land in the config.
+
+    Returns ``None`` (skip auto-import) for container sources or when
+    ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS`` is not truthy.  Mirrors the
+    gating logic in ``llm-catalog-init``'s ``sync-catalog.py``:
+      • ``LLM_PROVIDER_SOURCE`` must start with ``ollama-localhost``
+      • ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS`` must be truthy
+
+    Uses ``/catalog/ollama_discovery.py`` (the same module the wizard
+    and catalog-init use) so discovery behaviour is consistent.
+    Returns an empty list (not None) on fetch failure — resolver treats
+    an empty list the same as no auto-import.
+    """
+    source = os.environ.get("LLM_PROVIDER_SOURCE", "").strip().lower()
+    if not source.startswith("ollama-localhost"):
+        return None
+    auto = os.environ.get("OLLAMA_AUTO_IMPORT_LOCAL_MODELS", "").strip().lower()
+    if auto not in ("true", "1", "yes", "on", "enabled"):
+        return None
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT provider, name FROM public.llms "
-                "WHERE active = true ORDER BY provider, name;"
-            )
-            return cur.fetchall()
-    finally:
-        conn.close()
+        od = _load_catalog_module("ollama_discovery")
+        tags = od.list_pulled_models(LITELLM_OLLAMA_UPSTREAM)
+        print(
+            f"  ↳ auto-import: fetched {len(tags)} tag(s) from "
+            f"{LITELLM_OLLAMA_UPSTREAM}/api/tags",
+            flush=True,
+        )
+        return tags
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"  ⚠ auto-import: failed to fetch /api/tags from "
+            f"{LITELLM_OLLAMA_UPSTREAM}: {exc} — continuing without auto-import tags",
+            flush=True,
+        )
+        return []
+
+
+def fetch_active_models() -> list[tuple[str, str]]:
+    """Return [(provider, name)] for every active model, computed from
+    the YAML catalogs + env vars via ``model_resolver`` — no DB query.
+
+    Previously this function queried ``SELECT provider, name FROM
+    public.llms WHERE active = true``.  The active model set is now
+    derived entirely from the YAML catalogs (``services/ollama/models.yaml``,
+    ``services/litellm/models.yaml``) and the env vars the wizard writes
+    (``LLM_PROVIDER_SOURCE``, ``OLLAMA_USER_MODELS``, ``LITELLM_*_ENABLED``,
+    cloud ``*_API_KEY``, etc.), making litellm-init DB-free for config
+    rendering.
+    """
+    mr = _load_catalog_module("model_resolver")
+    tags = _maybe_fetch_ollama_tags()
+    entries = mr.active_models(os.environ, ollama_tags=tags)
+    return [(e.provider, e.name) for e in entries]
 
 
 def render_model_list(active_rows: list[tuple[str, str]]) -> list[dict[str, Any]]:
-    """Build LiteLLM's ``model_list`` from active DB rows.
+    """Build LiteLLM's ``model_list`` from active model rows.
 
     Per-provider routing rules:
       • ollama       → model: ollama/{name}, api_base: $LITELLM_OLLAMA_UPSTREAM
@@ -342,8 +454,9 @@ def render_config(active_rows: list[tuple[str, str]]) -> dict[str, Any]:
     via the bind-mounted /catalog dir — single source of truth shared
     with the bootstrapper's host-side stub writer.
 
-    Hermes Agent is stitched in here (rather than via public.llms) —
-    see hermes_model_entry() and its comment.
+    Hermes Agent and LightRAG are stitched in here (they are runtime
+    services, not catalog models) — see hermes_model_entry() and
+    lightrag_model_entry() for details.
     """
     model_list = render_model_list(active_rows)
     hermes_entry = hermes_model_entry()
@@ -381,9 +494,9 @@ def write_config(config: dict[str, Any]) -> None:
         # managed-by sentinel — bootstrapper/utils/litellm_config_generator.py
         # checks for it before deciding whether to overwrite the file
         # with a stub.
-        fh.write("# Generated by litellm-init/init.py from public.llms.\n")
+        fh.write("# Generated by litellm-init/init.py from YAML catalogs via model_resolver.\n")
         fh.write("# DO NOT edit by hand — change models via the wizard or\n")
-        fh.write("# `psql ... -c \"UPDATE public.llms SET active=...\"`.\n")
+        fh.write("# OLLAMA_USER_MODELS / LITELLM_*_ENABLED env vars in .env.\n")
         fh.write("# This file is OVERWRITTEN on every ./start.sh.\n\n")
         yaml.safe_dump(config, fh, sort_keys=False, default_flow_style=False)
     os.replace(tmp_path, CONFIG_OUT)
@@ -395,7 +508,8 @@ def main() -> int:
     print("litellm-init: starting", flush=True)
     print(
         f"  ↳ env: PGHOST={PG_HOST} LITELLM_DB={LITELLM_DB_NAME} "
-        f"OLLAMA_UPSTREAM={LITELLM_OLLAMA_UPSTREAM} CONFIG_OUT={CONFIG_OUT}",
+        f"OLLAMA_UPSTREAM={LITELLM_OLLAMA_UPSTREAM} CONFIG_OUT={CONFIG_OUT} "
+        f"LLM_SOURCE={os.environ.get('LLM_PROVIDER_SOURCE', '(unset)')}",
         flush=True,
     )
     try:
@@ -405,15 +519,15 @@ def main() -> int:
             first = f"{rows[0][0]}/{rows[0][1]}"
             last = f"{rows[-1][0]}/{rows[-1][1]}"
             print(
-                f"  ↳ {len(rows)} active model(s) in public.llms "
+                f"  ↳ {len(rows)} active model(s) from YAML catalogs "
                 f"(first={first}, last={last})",
                 flush=True,
             )
         else:
             print(
-                "  ⚠ 0 active models in public.llms — LiteLLM will start "
-                "with an empty model_list. Re-run the wizard or "
-                "INSERT/UPDATE rows in public.llms to populate.",
+                "  ⚠ 0 active models resolved — LiteLLM will start "
+                "with an empty model_list. Check LLM_PROVIDER_SOURCE, "
+                "OLLAMA_USER_MODELS, and LITELLM_*_ENABLED in .env.",
                 flush=True,
             )
         config = render_config(rows)
@@ -421,7 +535,7 @@ def main() -> int:
         n_entries = len(config.get("model_list", []))
         print(
             f"  ↳ wrote {CONFIG_OUT} ({n_entries} model_list entries "
-            f"from {len(rows)} catalog rows)",
+            f"from {len(rows)} active model(s))",
             flush=True,
         )
     except Exception as exc:
