@@ -16,6 +16,15 @@ to the bootstrapper, wizard, and env_assembler without requiring a running DB or
 Docker stack — enabling compile-time defaults (e.g. ``.env.example`` values)
 and single-source-of-truth answers before any container is up.
 
+IMPORTANT DIVERGENCE FROM sync-catalog.py
+------------------------------------------
+When a provider's ``*_USER_MODELS`` is empty, this module ALWAYS falls back to
+the catalog's ``default_active=True`` names. sync-catalog.py instead preserves
+whatever rows were already active in the database on a re-run. That distinction
+is moot here (there is no DB to preserve state) and is correct for bootstrap,
+wizard, and ``.env.example`` generation, but callers must NOT treat
+``active_models()`` as a mirror of a running stack's persisted DB state.
+
 ACTIVATION RULES
 ----------------
 These replicate ``sync-catalog.py``'s DB-write logic without touching the DB:
@@ -77,11 +86,12 @@ from utils.cloud_providers import CLOUD_PROVIDERS
 
 
 # ---------------------------------------------------------------------------
-# Local helpers — mirror sync-catalog.py so activation rules stay identical
+# Local helpers — mirror sync-catalog.py with safe extensions
 # ---------------------------------------------------------------------------
 
 def _truthy(val: str | None) -> bool:
-    """Return True for 'true', '1', 'yes', 'on', 'enabled' (case-insensitive)."""
+    """Accepts a conservative superset of sync-catalog.py's truthy set (adds 'on');
+    harmless since no env var uses other spellings."""
     return (val or "").strip().lower() in ("true", "1", "yes", "on", "enabled")
 
 
@@ -140,6 +150,14 @@ def active_models(
             provided, they are unioned into the Ollama active set.  Pass
             ``None`` (the default) to skip auto-import (e.g. container
             sources, tests without a live Ollama).
+
+            Container vs. host source distinction: For container Ollama
+            sources (``ollama-container-*``), pass ``ollama_tags=None``.
+            Host ``/api/tags`` auto-import only applies to host-side sources
+            (``ollama-localhost``) with ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true``.
+            The resolver does NOT gate on source type — it unions any tags
+            it is given, so the caller is responsible for only passing tags
+            for host-side sources.
 
     Returns:
         Ordered list of active CatalogEntry objects.  Order IS priority

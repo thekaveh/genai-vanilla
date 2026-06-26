@@ -302,7 +302,7 @@ class TestOllamaTagsAutoImport:
 
     def test_tags_none_does_not_add_anything(self):
         env = {"LLM_PROVIDER_SOURCE": "ollama-container-cpu"}
-        models_without = active_models(env, ollama_tags=None)
+        models_without = active_models(env)
         models_with_none = active_models(env, ollama_tags=None)
         assert _names(models_without) == _names(models_with_none)
 
