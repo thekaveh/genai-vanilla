@@ -40,9 +40,12 @@
 models:
 
   # ── Checkpoints ──────────────────────────────────────────────────────
-  # SD1.5 + SDXL-base always present in the curated layer so migration_v3's
-  # COMFYUI_MODEL_SET translation emits valid catalog rows regardless of
-  # scrape outcome, and seeded workflows / backend defaults never fail at render.
+  # SD1.5 + SDXL-base are present in the curated catalog so migration_v3's
+  # COMFYUI_MODEL_SET translation always finds a valid row to emit. They are
+  # NOT auto-activated on an empty selection: models are only downloaded when
+  # the user selects them via the wizard (→ COMFYUI_USER_MODELS) or the
+  # v2→v3 COMFYUI_MODEL_SET migration. Seeded workflows referencing these
+  # checkpoints require an explicit selection before first use.
 
   - name: v1-5-pruned-emaonly
     family: SD1.5

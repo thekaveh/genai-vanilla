@@ -1569,6 +1569,8 @@ class WizardScreen(Screen):
              starter.generate_kong_configuration),
             ("Generate LiteLLM configuration",
              starter.generate_litellm_configuration),
+            ("Generate ComfyUI manifest",
+             starter.generate_comfyui_manifest),
             ("Validate Supabase keys",
              lambda: starter.validate_supabase_keys(cold_start=cold)),
             ("Configure hosts",
