@@ -166,3 +166,27 @@ def test_get_models_no_db_connection(monkeypatch, manifest_file):
     resp = client.get("/comfyui/db/models")
     assert resp.status_code == 200
     assert resp.json()["success"] is True
+
+
+def test_get_models_corrupt_manifest_returns_empty_list(monkeypatch, tmp_path):
+    """Corrupt/malformed YAML in manifest → 200 with empty list, not 500."""
+    _stub_required_env(monkeypatch)
+    corrupt_file = tmp_path / "corrupt.yaml"
+    # Write malformed YAML that yaml.safe_load will reject
+    corrupt_file.write_text("models: [unclosed", encoding="utf-8")
+    monkeypatch.setenv("COMFYUI_MANIFEST_PATH", str(corrupt_file))
+
+    from fastapi.testclient import TestClient
+    import sys
+    if "main" in sys.modules:
+        main = sys.modules["main"]
+    else:
+        import main  # type: ignore[import]
+
+    client = TestClient(main.app)
+    resp = client.get("/comfyui/db/models")
+    # Corrupt manifest should return 200 + empty list, not 500.
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["models"] == []

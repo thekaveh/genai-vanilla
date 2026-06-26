@@ -787,8 +787,9 @@ async def get_comfyui_db_models(active_only: bool = True, essential_only: bool =
         try:
             with open(manifest_path, "r", encoding="utf-8") as fh:
                 manifest = yaml.safe_load(fh) or {}
-        except FileNotFoundError:
-            # ComfyUI disabled or manifest not yet generated — return empty list.
+        except (FileNotFoundError, yaml.YAMLError):
+            # Missing OR corrupt/partial manifest — graceful empty list, not 500
+            # (consumers — the Open WebUI tool, n8n — don't handle a 500 well).
             return {"success": True, "models": []}
 
         models: List[Dict[str, Any]] = manifest.get("models", [])
