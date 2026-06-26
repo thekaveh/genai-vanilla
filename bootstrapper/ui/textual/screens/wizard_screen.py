@@ -1524,6 +1524,9 @@ class WizardScreen(Screen):
                  **((self._stack_options or {}).get("cloud_user_models", {}) or {}),
                  **((self._stack_options or {}).get("ollama_user_models", {}) or {}),
                  **((self._stack_options or {}).get("comfyui_user_models", {}) or {}),
+                 # Default-model picker (B3): LITELLM_DEFAULT_MODEL,
+                 # LITELLM_EMBEDDING_MODEL, LITELLM_VISION_MODEL.
+                 **((self._stack_options or {}).get("default_model_selections", {}) or {}),
                  # CLI-launch catch-all: COMFYUI_CUSTOM_MODELS_FILE,
                  # RAY_WORKER_COUNT, PROMETHEUS_RETENTION_DAYS,
                  # SPARK_WORKER_COUNT — flags that don't match the wizard's

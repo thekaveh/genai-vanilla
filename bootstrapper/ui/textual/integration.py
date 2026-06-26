@@ -396,7 +396,7 @@ def _build_steps_and_rows(
     # LLM cluster steps (Ollama variants + cloud secret/multiselect
     # pairs) live in wizard/llm_steps.py; spliced in below right after
     # the LLM Engine source step so the LLM section reads coherently.
-    from wizard.llm_steps import build_ollama_steps, build_cloud_steps
+    from wizard.llm_steps import build_ollama_steps, build_cloud_steps, build_default_model_steps
     # Ray follow-up steps (worker count + external address) live in
     # wizard/ray_steps.py; spliced in right after the Ray source step.
     from wizard.ray_steps import build_ray_followup_steps
@@ -578,6 +578,7 @@ def _build_steps_and_rows(
         if svc.display_name == "LLM Engine":
             steps.extend(build_ollama_steps(env_vars, _wizard_warn))
             steps.extend(build_cloud_steps(env_vars, _wizard_warn))
+            steps.extend(build_default_model_steps(env_vars, _wizard_warn))
         # Splice Ray follow-up prompts RIGHT AFTER the Ray source step.
         # Each sub-step carries its own skip_if_prev predicate so only
         # the appropriate prompt fires for the chosen source.
@@ -773,6 +774,9 @@ def _selections_to_args(
     from wizard.llm_steps import (
         OLLAMA_CUSTOM_TITLE,
         OLLAMA_MODELS_TITLE,
+        LLM_DEFAULT_CONTENT_TITLE,
+        LLM_DEFAULT_EMBED_TITLE,
+        LLM_DEFAULT_VISION_TITLE,
         cloud_models_title,
         cloud_secret_title,
     )
@@ -926,6 +930,24 @@ def _selections_to_args(
             if env_var:
                 ollama_user_models[env_var] = sel_val
 
+    # Default model selections — the final three wizard steps let the user
+    # pick LITELLM_DEFAULT_MODEL, LITELLM_EMBEDDING_MODEL, LITELLM_VISION_MODEL.
+    # Draining rules:
+    #   content / embedding: omit when None (step skipped) or SECRET_KEEP
+    #     (degraded step), and also when "" (empty answer — no models available).
+    #   vision: "" is a valid explicit "skip" answer (persist it so the user's
+    #     choice to leave vision unset is honoured); SECRET_KEEP is omitted.
+    default_model_selections: dict[str, str] = {}
+    content_v = selections.get(LLM_DEFAULT_CONTENT_TITLE)
+    if content_v not in (None, SECRET_KEEP) and content_v != "":
+        default_model_selections["LITELLM_DEFAULT_MODEL"] = content_v
+    embed_v = selections.get(LLM_DEFAULT_EMBED_TITLE)
+    if embed_v not in (None, SECRET_KEEP) and embed_v != "":
+        default_model_selections["LITELLM_EMBEDDING_MODEL"] = embed_v
+    vision_v = selections.get(LLM_DEFAULT_VISION_TITLE)
+    if vision_v not in (None, SECRET_KEEP):       # "" (skip) is a valid explicit answer
+        default_model_selections["LITELLM_VISION_MODEL"] = vision_v
+
     bp = selections.get("Base port  ·  range")
     try:
         base_port_val = int(bp) if bp else current_base_port
@@ -945,6 +967,7 @@ def _selections_to_args(
         "cloud_user_models": cloud_user_models,
         "ollama_user_models": ollama_user_models,
         "comfyui_user_models": comfyui_user_models,
+        "default_model_selections": default_model_selections,
         "profile": resolved_profile,
     }
 
