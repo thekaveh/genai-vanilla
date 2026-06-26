@@ -6,11 +6,12 @@ Service scripts the bootstrapper package never imports live in several
 `scripts/` layouts: `init/scripts/` (dedicated init containers),
 `build/scripts/` (entrypoints + helpers baked into a service image — neo4j
 backup/restore, jupyterhub `startup.sh`, local-deep-researcher's entrypoint
-+ `init-config.py`), `catalog-init/scripts/` (litellm + comfyui
-`sync-catalog.py`), `pull/scripts/`, and `db/scripts/`. All run at container
-build or start, so all need the syntax guard — the discovery globs recurse
-the whole `services/` tree rather than enumerate subdirs (which kept missing
-new layouts).
++ `init-config.py`), `catalog-init/scripts/` (comfyui's `sync-catalog.py`;
+litellm's catalog-init was removed — the YAML + model_resolver flow in
+`litellm-init` replaced it), `pull/scripts/`, and `db/scripts/`. All run
+at container build or start, so all need the syntax guard — the discovery
+globs recurse the whole `services/` tree rather than enumerate subdirs
+(which kept missing new layouts).
 
 The init container is the production loader — Python imports / bash
 sources those files at container start. A purely-syntactic error
@@ -46,10 +47,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _discover_init_scripts() -> list[Path]:
     # Recursive: every *.py under ANY services/<svc>/.../scripts/ directory —
-    # covers init/scripts, build/scripts, catalog-init/scripts, pull/scripts,
-    # db/scripts, and any future <subdir>/scripts/ layout. Enumerating specific
-    # subdirs missed catalog-init (litellm/comfyui sync-catalog.py) and others,
-    # so glob the whole tree instead of playing subdir whack-a-mole.
+    # covers init/scripts, build/scripts, catalog-init/scripts (comfyui's
+    # sync-catalog.py; litellm's catalog-init was removed in Part B),
+    # pull/scripts, db/scripts, and any future <subdir>/scripts/ layout.
+    # Enumerating specific subdirs missed entries, so glob the whole tree
+    # instead of playing subdir whack-a-mole.
     return sorted(REPO_ROOT.glob("services/*/**/scripts/*.py"))
 
 
@@ -166,7 +168,7 @@ def test_init_script_stdout_is_line_buffered(script_path: Path) -> None:
       preferred for scripts with many ``print()`` sites
       (open-webui/init/register-*.py, lightrag/init/resolve-models.py).
     - Per-call ``flush=True`` on *every* ``print()`` — used by
-      litellm/init/scripts/init.py and the catalog-init siblings.
+      litellm/init/scripts/init.py and comfyui's catalog-init sibling.
 
     Either is fine; mixing isn't, and bare ``print()`` calls with
     neither guard are the bug this test catches.
