@@ -1,30 +1,11 @@
 -- 12-comfyui.sql
--- OWNER: comfyui — comfyui_models / comfyui_workflows / comfyui_generations,
--- their indexes, the catalog-metadata extension columns, and the default
--- workflow seeds. Only this service's objects belong here.
+-- OWNER: comfyui — comfyui_workflows / comfyui_generations, their indexes,
+-- and the default workflow seeds. Only this service's objects belong here.
+-- public.comfyui_models was decommissioned (16-decommission-comfyui-models.sql);
+-- the ComfyUI model catalog SoT is now services/comfyui/models.yaml.
 -- Assembled verbatim from the former 05-public-tables.sql (comfyui tables +
--- indexes), 12-extend-comfyui-models.sql (extension columns + source index),
--- and 08-seed-data.sql (default workflow seeds). Tables are created before the
--- ALTER/seed blocks that depend on them.
-
-CREATE TABLE IF NOT EXISTS public.comfyui_models (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL, -- 'checkpoint', 'vae', 'lora', 'controlnet', 'upscaler', 'embeddings'
-    filename VARCHAR(255) NOT NULL,
-    download_url TEXT NOT NULL,
-    file_size_gb DECIMAL(5,2),
-    description TEXT,
-    active BOOLEAN DEFAULT true,
-    essential BOOLEAN DEFAULT false, -- Models that should be downloaded by default
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT unique_comfyui_model_name UNIQUE (name, type)
-);
-
-CREATE INDEX IF NOT EXISTS idx_comfyui_models_active ON public.comfyui_models(active);
-CREATE INDEX IF NOT EXISTS idx_comfyui_models_essential ON public.comfyui_models(essential);
-CREATE INDEX IF NOT EXISTS idx_comfyui_models_type ON public.comfyui_models(type);
+-- indexes) and 08-seed-data.sql (default workflow seeds). Tables are created
+-- before the seed blocks that depend on them.
 
 CREATE TABLE IF NOT EXISTS public.comfyui_workflows (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -57,21 +38,6 @@ CREATE TABLE IF NOT EXISTS public.comfyui_generations (
 
 CREATE INDEX IF NOT EXISTS idx_comfyui_generations_status ON public.comfyui_generations(status);
 CREATE INDEX IF NOT EXISTS idx_comfyui_generations_created_at ON public.comfyui_generations(created_at DESC);
-
--- Catalog-metadata extension columns (formerly 12-extend-comfyui-models.sql).
-DO $$ BEGIN
-  ALTER TABLE public.comfyui_models
-    ADD COLUMN IF NOT EXISTS family TEXT,
-    ADD COLUMN IF NOT EXISTS sha256 TEXT,
-    ADD COLUMN IF NOT EXISTS target_dir TEXT,
-    ADD COLUMN IF NOT EXISTS min_vram_gb DECIMAL(5,2),
-    ADD COLUMN IF NOT EXISTS cpu_supported BOOLEAN DEFAULT true,
-    ADD COLUMN IF NOT EXISTS requires_custom_node JSONB DEFAULT '[]'::jsonb,
-    ADD COLUMN IF NOT EXISTS popularity INTEGER DEFAULT 0,
-    ADD COLUMN IF NOT EXISTS source TEXT;
-END $$;
-
-CREATE INDEX IF NOT EXISTS idx_comfyui_models_source ON public.comfyui_models(source);
 
 -- Default workflow seeds (formerly 08-seed-data.sql).
 DO $$ BEGIN

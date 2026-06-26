@@ -561,30 +561,6 @@ CREATE TABLE public.comfyui_generations (
 
 ALTER TABLE public.comfyui_generations OWNER TO supabase_admin;
 
-CREATE TABLE public.comfyui_models (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name character varying(255) NOT NULL,
-    type character varying(50) NOT NULL,
-    filename character varying(255) NOT NULL,
-    download_url text NOT NULL,
-    file_size_gb numeric(5,2),
-    description text,
-    active boolean DEFAULT true,
-    essential boolean DEFAULT false,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    family text,
-    sha256 text,
-    target_dir text,
-    min_vram_gb numeric(5,2),
-    cpu_supported boolean DEFAULT true,
-    requires_custom_node jsonb DEFAULT '[]'::jsonb,
-    popularity integer DEFAULT 0,
-    source text
-);
-
-ALTER TABLE public.comfyui_models OWNER TO supabase_admin;
-
 CREATE TABLE public.comfyui_workflows (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name character varying(255) NOT NULL,
@@ -777,9 +753,6 @@ ALTER TABLE ONLY auth.users
 ALTER TABLE ONLY public.comfyui_generations
     ADD CONSTRAINT comfyui_generations_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY public.comfyui_models
-    ADD CONSTRAINT comfyui_models_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY public.comfyui_workflows
     ADD CONSTRAINT comfyui_workflows_pkey PRIMARY KEY (id);
 
@@ -806,9 +779,6 @@ ALTER TABLE ONLY public.research_sources
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
-
-ALTER TABLE ONLY public.comfyui_models
-    ADD CONSTRAINT unique_comfyui_model_name UNIQUE (name, type);
 
 ALTER TABLE ONLY public.comfyui_workflows
     ADD CONSTRAINT unique_comfyui_workflow_name UNIQUE (name);
@@ -843,14 +813,6 @@ CREATE INDEX users_instance_id_idx ON auth.users USING btree (instance_id);
 CREATE INDEX idx_comfyui_generations_created_at ON public.comfyui_generations USING btree (created_at DESC);
 
 CREATE INDEX idx_comfyui_generations_status ON public.comfyui_generations USING btree (status);
-
-CREATE INDEX idx_comfyui_models_active ON public.comfyui_models USING btree (active);
-
-CREATE INDEX idx_comfyui_models_essential ON public.comfyui_models USING btree (essential);
-
-CREATE INDEX idx_comfyui_models_source ON public.comfyui_models USING btree (source);
-
-CREATE INDEX idx_comfyui_models_type ON public.comfyui_models USING btree (type);
 
 CREATE INDEX idx_comfyui_workflows_active ON public.comfyui_workflows USING btree (active);
 
@@ -5590,11 +5552,6 @@ GRANT ALL ON TABLE public.comfyui_generations TO postgres;
 GRANT ALL ON TABLE public.comfyui_generations TO anon;
 GRANT ALL ON TABLE public.comfyui_generations TO authenticated;
 GRANT ALL ON TABLE public.comfyui_generations TO service_role;
-
-GRANT ALL ON TABLE public.comfyui_models TO postgres;
-GRANT ALL ON TABLE public.comfyui_models TO anon;
-GRANT ALL ON TABLE public.comfyui_models TO authenticated;
-GRANT ALL ON TABLE public.comfyui_models TO service_role;
 
 GRANT ALL ON TABLE public.comfyui_workflows TO postgres;
 GRANT ALL ON TABLE public.comfyui_workflows TO anon;
