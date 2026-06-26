@@ -1,0 +1,249 @@
+[
+  {
+    "provider": "openai",
+    "name": "gpt-5",
+    "description": "OpenAI flagship multimodal \u2014 strongest content + vision + structured output",
+    "badges": [
+      "flagship"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "gpt-5-mini",
+    "description": "OpenAI mid-tier multimodal \u2014 fast, cheaper than gpt-5",
+    "badges": [],
+    "default_active": true,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "gpt-5-nano",
+    "description": "OpenAI ultra-cheap multimodal \u2014 for high-volume tasks",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "gpt-4o",
+    "description": "Previous-gen multimodal \u2014 kept for compatibility",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "gpt-4o-mini",
+    "description": "Previous-gen cheap multimodal",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "o3",
+    "description": "OpenAI reasoning model \u2014 strong on math, code, logic; no vision",
+    "badges": [
+      "reasoning"
+    ],
+    "default_active": false,
+    "capabilities": [
+      "content"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "o3-mini",
+    "description": "OpenAI smaller reasoning model \u2014 faster, cheaper",
+    "badges": [
+      "reasoning"
+    ],
+    "default_active": false,
+    "capabilities": [
+      "content"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "o1",
+    "description": "OpenAI o1 reasoning model",
+    "badges": [
+      "reasoning"
+    ],
+    "default_active": false,
+    "capabilities": [
+      "content"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "text-embedding-3-large",
+    "description": "OpenAI flagship embedding model \u2014 3072 dims",
+    "badges": [
+      "embeddings"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "embeddings"
+    ]
+  },
+  {
+    "provider": "openai",
+    "name": "text-embedding-3-small",
+    "description": "OpenAI cheaper embedding model \u2014 1536 dims",
+    "badges": [
+      "embeddings"
+    ],
+    "default_active": false,
+    "capabilities": [
+      "embeddings"
+    ]
+  },
+  {
+    "provider": "anthropic",
+    "name": "claude-opus-4-7",
+    "description": "Anthropic flagship \u2014 strongest reasoning + writing",
+    "badges": [
+      "flagship"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "anthropic",
+    "name": "claude-sonnet-4-6",
+    "description": "Anthropic mid-tier \u2014 1M context, balanced cost/quality",
+    "badges": [],
+    "default_active": true,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "anthropic",
+    "name": "claude-haiku-4-5",
+    "description": "Anthropic small/fast \u2014 cheapest in the family",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openrouter",
+    "name": "openrouter/auto",
+    "description": "OpenRouter auto-router \u2014 picks a backend per request",
+    "badges": [
+      "router"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openrouter",
+    "name": "openrouter/anthropic/claude-sonnet-4.6",
+    "description": "Claude Sonnet 4.6 via OpenRouter (alternative billing)",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openrouter",
+    "name": "openrouter/openai/gpt-5",
+    "description": "GPT-5 via OpenRouter (alternative billing)",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openrouter",
+    "name": "openrouter/google/gemini-2.5-pro",
+    "description": "Gemini 2.5 Pro via OpenRouter \u2014 2M context window",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "openrouter",
+    "name": "openrouter/meta-llama/llama-3.3-70b-instruct",
+    "description": "Llama 3.3 70B via OpenRouter \u2014 open-weight content model",
+    "badges": [],
+    "default_active": false,
+    "capabilities": [
+      "content"
+    ]
+  },
+  {
+    "provider": "ollama",
+    "name": "qwen3.6:latest",
+    "description": "Qwen3.6 multimodal \u2014 strong content + vision, default content model",
+    "badges": [
+      "default"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "content",
+      "vision"
+    ]
+  },
+  {
+    "provider": "ollama",
+    "name": "qwen3-embedding:0.6b",
+    "description": "Qwen3 embeddings, 0.6B \u2014 top of MTEB multilingual leaderboard",
+    "badges": [
+      "default",
+      "embeddings"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "embeddings"
+    ]
+  },
+  {
+    "provider": "ollama",
+    "name": "nomic-embed-text",
+    "description": "Nomic text embeddings \u2014 small, fast",
+    "badges": [
+      "default",
+      "embeddings"
+    ],
+    "default_active": true,
+    "capabilities": [
+      "embeddings"
+    ]
+  }
+]

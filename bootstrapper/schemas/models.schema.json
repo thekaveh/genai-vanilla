@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Atlas model catalog",
+  "description": "Validates services/ollama/models.yaml (flat sections) and services/litellm/models.yaml (provider-keyed sections).",
+  "oneOf": [
+    {
+      "title": "Flat-sections format (Ollama)",
+      "description": "Top-level keys are section names (content, embeddings, vision), each an array of model entries.",
+      "$ref": "#/definitions/sectionMap"
+    },
+    {
+      "title": "Provider-keyed format (LiteLLM / cloud)",
+      "description": "Top-level keys are provider names; each value is a section map.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/sectionMap"
+      },
+      "minProperties": 1
+    }
+  ],
+  "definitions": {
+    "sectionMap": {
+      "type": "object",
+      "properties": {
+        "content":    {"$ref": "#/definitions/entryList"},
+        "embeddings": {"$ref": "#/definitions/entryList"},
+        "vision":     {"$ref": "#/definitions/entryList"}
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "entryList": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/entry"},
+      "minItems": 1
+    },
+    "entry": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":         {"type": "string", "minLength": 1},
+        "default":      {"type": "boolean"},
+        "description":  {"type": "string"},
+        "badges":       {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -55,6 +55,8 @@ services:
       # is platform-dependent and was the root cause of a silent
       # init-chain failure on first launch. Sibling mount is unambiguous.
       - ../../bootstrapper/utils:/catalog:ro
+      - ../../services/ollama/models.yaml:/catalog/ollama-models.yaml:ro
+      - ../../services/litellm/models.yaml:/catalog/litellm-models.yaml:ro
     networks:
       - backend-network
 
@@ -101,6 +103,8 @@ services:
       # (the shared settings dict) is reachable from init.py. Same
       # rationale as llm-catalog-init's /catalog mount.
       - ../../bootstrapper/utils:/catalog:ro
+      - ../../services/ollama/models.yaml:/catalog/ollama-models.yaml:ro
+      - ../../services/litellm/models.yaml:/catalog/litellm-models.yaml:ro
     networks:
       - backend-network
 

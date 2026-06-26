@@ -1,0 +1,104 @@
+"""
+Tests for the YAML model catalog files and the llm_catalog.py loader.
+"""
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+
+import pytest
+import yaml
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+BOOTSTRAPPER = REPO_ROOT / "bootstrapper"
+
+sys.path.insert(0, str(BOOTSTRAPPER))
+
+
+def _load_schema():
+    schema_path = BOOTSTRAPPER / "schemas" / "models.schema.json"
+    return json.loads(schema_path.read_text())
+
+
+def _load_yaml(path: pathlib.Path) -> dict:
+    return yaml.safe_load(path.read_text())
+
+
+def test_yaml_files_validate_against_schema():
+    """Both YAML catalog files must validate against models.schema.json."""
+    try:
+        import jsonschema
+    except ImportError:
+        pytest.skip("jsonschema not installed")
+
+    schema = _load_schema()
+    ollama_yaml = _load_yaml(REPO_ROOT / "services" / "ollama" / "models.yaml")
+    litellm_yaml = _load_yaml(REPO_ROOT / "services" / "litellm" / "models.yaml")
+
+    jsonschema.validate(ollama_yaml, schema)
+    jsonschema.validate(litellm_yaml, schema)
+
+
+def test_loader_reproduces_catalog_snapshot():
+    """Loader output must match the characterization snapshot captured before the rewrite."""
+    snapshot_path = BOOTSTRAPPER / "tests" / "fixtures" / "llm_catalog_snapshot.json"
+    if not snapshot_path.exists():
+        pytest.skip("snapshot fixture missing")
+
+    snap = json.loads(snapshot_path.read_text())
+
+    from utils import llm_catalog as c
+    loaded = c.all_catalog_entries()
+
+    def cap(e):
+        return sorted(k for k in ("content", "embeddings", "vision") if getattr(e, k) > 0)
+
+    loaded_set = {
+        (e.provider, e.name, e.description, tuple(sorted(e.badges)), e.default_active, tuple(cap(e)))
+        for e in loaded
+    }
+    snap_set = {
+        (s["provider"], s["name"], s["description"], tuple(sorted(s["badges"])), s["default_active"], tuple(s["capabilities"]))
+        for s in snap
+    }
+
+    missing_from_loader = snap_set - loaded_set
+    extra_in_loader = loaded_set - snap_set
+
+    assert not missing_from_loader, f"Entries in snapshot but not loader:\n" + "\n".join(str(x) for x in sorted(missing_from_loader))
+    assert not extra_in_loader, f"Extra entries in loader not in snapshot:\n" + "\n".join(str(x) for x in sorted(extra_in_loader))
+
+
+def test_public_functions_intact():
+    """All public functions return non-empty typed CatalogEntry lists."""
+    from utils import llm_catalog as c
+
+    # ollama_entries
+    ollama = c.ollama_entries()
+    assert len(ollama) > 0, "ollama_entries() must be non-empty"
+    assert all(hasattr(e, "provider") for e in ollama)
+    assert all(e.provider == "ollama" for e in ollama)
+
+    # cloud_entries for openai
+    openai = c.cloud_entries("openai")
+    assert len(openai) > 0, "cloud_entries('openai') must be non-empty"
+    assert all(e.provider == "openai" for e in openai)
+
+    # all_catalog_entries
+    all_entries = c.all_catalog_entries()
+    assert len(all_entries) > 0
+    assert all(hasattr(e, "name") for e in all_entries)
+    assert all(hasattr(e, "provider") for e in all_entries)
+    assert all(hasattr(e, "content") for e in all_entries)
+    assert all(hasattr(e, "structured_content") for e in all_entries)
+    assert all(hasattr(e, "vision") for e in all_entries)
+    assert all(hasattr(e, "embeddings") for e in all_entries)
+
+    # default_active_names
+    ollama_defaults = c.default_active_names("ollama")
+    assert len(ollama_defaults) > 0, "default_active_names('ollama') must be non-empty"
+    assert all(isinstance(n, str) for n in ollama_defaults)
+
+    openai_defaults = c.default_active_names("openai")
+    assert len(openai_defaults) > 0
