@@ -1016,12 +1016,6 @@ class ServiceConfig:
         else:
             env_vars['OLLAMA_PULL_SCALE'] = '0'
             
-        # COMFYUI_CATALOG_INIT_SCALE: 1 for ALL non-disabled sources.
-        # The catalog-init container UPSERTs public.comfyui_models so the
-        # backend /comfyui/db/models endpoint (consumed by Open WebUI +
-        # n8n) sees the user's picks regardless of whether ComfyUI is
-        # in-stack or host-side.
-        #
         # COMFYUI_INIT_SCALE: 1 only for container sources. For localhost
         # the named-volume `comfyui-models` isn't mounted into the user's
         # host ComfyUI install, so running the wget-based init would write
@@ -1031,14 +1025,11 @@ class ServiceConfig:
         comfyui_source = self.service_sources.get('COMFYUI_SOURCE', 'container-cpu')
         if comfyui_source == 'disabled':
             env_vars['COMFYUI_INIT_SCALE'] = '0'
-            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '0'
         elif comfyui_source.startswith('container-'):
             env_vars['COMFYUI_INIT_SCALE'] = '1'
-            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
         else:
-            # localhost — DB populated, but no wget-into-volume.
+            # localhost — no wget-into-volume.
             env_vars['COMFYUI_INIT_SCALE'] = '0'
-            env_vars['COMFYUI_CATALOG_INIT_SCALE'] = '1'
 
         # OPENCLAW_INIT_SCALE: follows OPENCLAW_SCALE (1 when container, 0 otherwise)
         openclaw_source = self.service_sources.get('OPENCLAW_SOURCE', 'disabled')
