@@ -104,6 +104,22 @@ def test_env_example_ollama_user_models_is_default_trio():
     )
 
 
+def test_backend_comfyui_routes_no_public_comfyui_models():
+    """GET /comfyui/db/models must read the manifest, not public.comfyui_models.
+
+    The write routes (POST/PUT/DELETE /comfyui/db/models) have been removed
+    entirely; this assertion also covers them by checking the whole file.
+    If this fails, someone has re-introduced a DB query against
+    public.comfyui_models in the backend's comfyui endpoints.
+    """
+    text = _read("services/backend/app/app/main.py")
+    assert "public.comfyui_models" not in text, (
+        "main.py still references public.comfyui_models — "
+        "GET /comfyui/db/models must read the manifest YAML, not the DB; "
+        "the POST/PUT/DELETE write routes must be removed."
+    )
+
+
 def test_weaviate_init_no_double_prefix():
     """init-weaviate.sh must write the model through without re-prepending 'ollama/'."""
     text = _read("services/weaviate/init/scripts/init-weaviate.sh")
