@@ -882,9 +882,6 @@ def build_default_model_steps(
     def _content_options(selections: dict) -> List[PromptOption]:
         return _build_options_for_category(selections, "content")
 
-    def _content_default(selections: dict) -> str | None:
-        return _default_for_content(selections)
-
     _embedding_default = _default_for_embeddings(env_vars)
 
     # ── Step 2: default embedding model ──────────────────────────────
@@ -896,9 +893,6 @@ def build_default_model_steps(
         none_opt = PromptOption(value="", label="— none / skip —")
         capable = _build_options_for_category(selections, "vision")
         return [none_opt] + capable
-
-    def _vision_default(selections: dict) -> str:
-        return _default_for_vision(selections)
 
     def _skip_no_llm_or_no_vision(selections: dict) -> bool:
         return _no_llm_active(selections) or not _has_vision_models(selections)

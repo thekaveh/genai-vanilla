@@ -351,3 +351,78 @@ def test_skip_if_prev_content_not_skipped_when_ollama_active():
     assert not content_step.skip_if_prev(ollama_selections), (
         "content step must NOT be skipped when Ollama is active"
     )
+
+
+# ── REGRESSION TEST: _load_current_step dispatches options_provider for kind="options" ──────
+#
+# This test drives the ACTUAL _load_current_step dispatch code path in
+# WizardScreen. Without Fix 1 (the kind="options" synchronous dispatch block),
+# _load_current_step falls through to ``live_options = self._provider_cache.get(
+# self._step_index, original.options)`` without ever calling the provider —
+# so original.options (the placeholder []) is used and the picker is empty.
+#
+# We exercise this via a minimal stub of the WizardScreen state (no Textual
+# app or event loop needed): we copy _load_current_step's logic onto a simple
+# namespace and assert that after the call, _provider_cache[step_index] is
+# non-empty for a kind="options" step with an options_provider.
+
+
+def test_load_current_step_dispatches_options_provider_for_kind_options():
+    """_load_current_step must populate _provider_cache for kind='options' steps
+    that carry an options_provider, so the rendered options list is non-empty.
+
+    This test FAILS without Fix 1 (the synchronous dispatch block for
+    kind='options') and PASSES with it.
+    """
+    from wizard.llm_steps import build_default_model_steps, LLM_DEFAULT_CONTENT_TITLE
+    from ui.textual.screens.wizard_screen import WizardScreen
+
+    env = _default_env()
+    steps = build_default_model_steps(env)
+    content_step = next(s for s in steps if s.title == LLM_DEFAULT_CONTENT_TITLE)
+
+    # Verify the step has the right shape for this test to be meaningful.
+    assert content_step.kind == "options"
+    assert content_step.options_provider is not None
+    assert content_step.options == [], "placeholder options must be empty before dispatch"
+
+    # Build a minimal namespace that satisfies _load_current_step's attribute
+    # accesses without a real Textual app/event-loop.
+    class _FakeScreen:
+        _steps = [content_step]
+        _step_index = 0
+        _provider_done: dict = {}
+        _provider_cache: dict = {}
+        _selections: dict = {}
+        _rendered_options = None   # captured by the stub below
+
+        def _advance_past_skipped(self, direction):
+            # content_step.skip_if_prev needs at least one LLM active to NOT skip;
+            # inject ollama-active selection so the step isn't bypassed.
+            self._selections = _ollama_selections("qwen3.6:latest,nomic-embed-text")
+
+        def _render_step(self, original, *, options=None, is_loading=False):
+            self._rendered_options = options
+
+        def run_worker(self, *args, **kwargs):
+            raise AssertionError("run_worker must NOT be called for kind='options' steps")
+
+    fake = _FakeScreen()
+    # Bind the real _load_current_step to our fake screen instance.
+    WizardScreen._load_current_step(fake)
+
+    # After the call, the provider must have been invoked and the cache populated.
+    assert fake._step_index in fake._provider_cache, (
+        "_provider_cache must contain the step after _load_current_step — "
+        "this FAILS without the kind='options' synchronous dispatch block"
+    )
+    cached = fake._provider_cache[fake._step_index]
+    assert len(cached) > 0, (
+        "options_provider must return non-empty options for the Ollama config; "
+        f"got {cached!r}"
+    )
+    # The rendered options must also be non-empty (not the placeholder []).
+    assert fake._rendered_options is not None
+    assert len(fake._rendered_options) > 0, (
+        "_render_step was called with empty options — provider was not dispatched"
+    )

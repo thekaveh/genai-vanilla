@@ -480,6 +480,23 @@ class WizardScreen(Screen):
             )
             return
 
+        # kind="options" steps with an options_provider run the provider
+        # synchronously (these are cheap, local computations — no HTTP),
+        # so the step renders with real options on first visit instead of
+        # an empty list (the PromptStep is built with options=[] as a
+        # placeholder because the options depend on upstream selections).
+        if (
+            provider is not None
+            and original.kind == "options"
+            and not self._provider_done.get(self._step_index, False)
+        ):
+            try:
+                opts = provider(dict(self._selections))
+            except Exception:  # noqa: BLE001
+                opts = []
+            self._provider_cache[self._step_index] = opts
+            self._provider_done[self._step_index] = True
+
         # Provider already ran (cache hit) OR this step has no provider —
         # use the cached/static options directly.
         live_options = self._provider_cache.get(self._step_index, original.options)
