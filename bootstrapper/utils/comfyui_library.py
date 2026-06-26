@@ -328,14 +328,15 @@ def _parse_civitai_response(
 
 
 # ── Curated catalog YAML path resolution ──────────────────────────────
-# services/comfyui/models.yaml is the curated SoT (C1).  The loader must
-# find it on the host AND inside the comfyui-init container, where
-# bootstrapper/utils is bind-mounted as /catalog and models.yaml is
-# additionally mounted as /catalog/comfyui-models.yaml.
+# services/comfyui/models.yaml is the curated SoT (C1).  This loader runs
+# HOST-SIDE only (the bootstrapper's comfyui_manifest_generator at start +
+# the wizard) — no container imports it: comfyui-catalog-init was deleted
+# and comfyui-init is a pure shell script (download_models.sh).
 # Search order mirrors llm_catalog._find_models_dir():
 #   1. ATLAS_MODELS_DIR env var
 #   2. <repo_root>/services  (3 parents above this file)
-#   3. /catalog              (container bind-mount target)
+#   3. /catalog              (defensive remnant of the former comfyui-catalog-init
+#                             bind-mount; no compose fragment mounts /catalog today)
 
 def _find_services_dir() -> _Path:
     """Resolve the directory that contains comfyui/models.yaml.
