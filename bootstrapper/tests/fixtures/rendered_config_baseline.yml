@@ -561,6 +561,11 @@ services:
       target: /catalog
       read_only: true
       bind: {}
+    - type: bind
+      source: '{REPO_ROOT}/services/comfyui/models.yaml'
+      target: /catalog/comfyui-models.yaml
+      read_only: true
+      bind: {}
   comfyui-init:
     container_name: atlas-comfyui-init
     depends_on:
@@ -2691,7 +2696,7 @@ services:
       interval: 30s
       retries: 5
       start_period: 2m0s
-    image: __TEI_RERANKER_CPU_IMAGE__
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
     logging:
       driver: json-file
       options:

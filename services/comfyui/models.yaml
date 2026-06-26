@@ -1,0 +1,192 @@
+# services/comfyui/models.yaml — Curated ComfyUI model catalog (Part C1)
+#
+# This file is the single source of truth for the CURATED subset of the
+# ComfyUI model catalog.  It is read by bootstrapper/utils/comfyui_library.py's
+# list_curated() function (YAML path resolved at host AND inside the
+# comfyui-catalog-init container, where bootstrapper/utils is bind-mounted
+# as /catalog).
+#
+# The wizard ALSO live-scrapes HuggingFace and civitai on each invocation;
+# those results are merged with the curated entries (curated wins on name
+# collision, being last in the dedupe pass).  If both scrapers are down, the
+# bundled fallback snapshot in bootstrapper/utils/data/comfyui_catalog_fallback.json
+# is used instead.
+#
+# To add a curated model: add an entry here following the schema below.
+# For user-local models not in this catalog, use services/comfyui/custom-models.yaml.
+# Schema: bootstrapper/schemas/comfyui-models.schema.json
+#
+# Fields:
+#   name           (required) stable unique id — used as the catalog key + DB name
+#   category       (required) one of: checkpoint | vae | lora | controlnet |
+#                             ipadapter | instantid | upscaler | embedding |
+#                             clip | animatediff | motion_lora | video_model |
+#                             voice_model | audio_model | mesh_model
+#   url            (required) direct download URL (HF resolve or signed civitai)
+#   family                    display family label; defaults to name
+#   size_gb                   approximate disk size (GB)
+#   sha256                    hex SHA-256; verified by comfyui-init when present
+#   target_dir                override in-container subdir under /models
+#   min_vram_gb               adds "requires N GB VRAM" badge when host has less
+#   cpu_supported             false adds "requires GPU" badge; default true
+#   requires_custom_node      list of ComfyUI node-repo names (warn-only badges)
+#   popularity                0-100 score for wizard sort order
+#   notes                     one-line subtitle shown in wizard option row
+#   filename                  explicit on-disk filename (needed for civitai URLs
+#                             whose URL path carries no real filename)
+
+models:
+
+  # ── Checkpoints ──────────────────────────────────────────────────────
+  # SD1.5 + SDXL-base always present in the curated layer so migration_v3's
+  # COMFYUI_MODEL_SET translation emits valid catalog rows regardless of
+  # scrape outcome, and seeded workflows / backend defaults never fail at render.
+
+  - name: v1-5-pruned-emaonly
+    family: SD1.5
+    category: checkpoint
+    size_gb: 3.97
+    url: https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors
+    min_vram_gb: 4.0
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 95
+
+  - name: sd_xl_base_1.0
+    family: SDXL
+    category: checkpoint
+    size_gb: 6.94
+    url: https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
+    min_vram_gb: 8.0
+    cpu_supported: false
+    requires_custom_node: []
+    popularity: 93
+
+  # ── VAE ───────────────────────────────────────────────────────────────
+
+  - name: vae-ft-mse-840000-ema-pruned
+    family: SD1.5
+    category: vae
+    size_gb: 0.32
+    url: https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 80
+
+  - name: sdxl-vae
+    family: SDXL
+    category: vae
+    size_gb: 0.32
+    url: https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 85
+
+  # ── IP-Adapter ────────────────────────────────────────────────────────
+
+  - name: ip-adapter-plus_sdxl_vit-h
+    family: SDXL
+    category: ipadapter
+    size_gb: 0.85
+    url: https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors
+    min_vram_gb: 6.0
+    cpu_supported: false
+    requires_custom_node:
+      - ComfyUI_IPAdapter_plus
+    popularity: 70
+
+  - name: ip-adapter-faceid-plusv2_sdxl
+    family: SDXL
+    category: ipadapter
+    size_gb: 0.50
+    url: https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin
+    min_vram_gb: 6.0
+    cpu_supported: false
+    requires_custom_node:
+      - ComfyUI_IPAdapter_plus
+    popularity: 65
+
+  # ── InstantID ─────────────────────────────────────────────────────────
+
+  - name: instantid-ip-adapter
+    family: InstantID
+    category: instantid
+    size_gb: 1.20
+    url: https://huggingface.co/InstantX/InstantID/resolve/main/ip-adapter.bin
+    min_vram_gb: 8.0
+    cpu_supported: false
+    requires_custom_node:
+      - ComfyUI_InstantID
+    popularity: 60
+
+  # ── Upscaler ──────────────────────────────────────────────────────────
+
+  - name: real-esrgan-x4plus
+    family: Real-ESRGAN
+    category: upscaler
+    size_gb: 0.07
+    url: https://huggingface.co/lllyasviel/Annotators/resolve/main/RealESRGAN_x4plus.pth
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 90
+
+  - name: 4x-ultrasharp
+    family: 4x-UltraSharp
+    category: upscaler
+    size_gb: 0.07
+    url: https://huggingface.co/lokCX/4x-Ultrasharp/resolve/main/4x-UltraSharp.pth
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 88
+
+  # ── Embedding ─────────────────────────────────────────────────────────
+
+  - name: easynegative
+    family: EasyNegative
+    category: embedding
+    size_gb: 0.0
+    url: https://huggingface.co/embed/EasyNegative/resolve/main/EasyNegative.safetensors
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 85
+
+  # ── CLIP ──────────────────────────────────────────────────────────────
+
+  - name: clip-vit-large-patch14
+    family: CLIP
+    category: clip
+    size_gb: 0.60
+    url: https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin
+    min_vram_gb: 2.0
+    cpu_supported: true
+    requires_custom_node: []
+    popularity: 75
+
+  # ── Motion LoRA ───────────────────────────────────────────────────────
+  # Real motion LoRA (~28 MB zoom-in camera move).  The full motion module
+  # v3_sd15_mm.ckpt is in the fallback snapshot (animatediff category).
+
+  - name: animatediff-camera-zoomin-lora
+    family: AnimateDiff
+    category: motion_lora
+    size_gb: 0.028
+    url: https://huggingface.co/guoyww/animatediff-motion-lora-zoom-in/resolve/main/diffusion_pytorch_model.safetensors
+    min_vram_gb: 6.0
+    cpu_supported: false
+    requires_custom_node:
+      - ComfyUI-AnimateDiff-Evolved
+    popularity: 65
+
+  # ── Audio ─────────────────────────────────────────────────────────────
+
+  - name: audioldm-text-to-audio
+    family: AudioLDM
+    category: audio_model
+    size_gb: 1.50
+    url: https://huggingface.co/cvssp/audioldm/resolve/main/pytorch_model.bin
+    min_vram_gb: 6.0
+    cpu_supported: false
+    # Audio nodes are an open ecosystem; surface the model but leave node
+    # selection to the user (warn-only — no canonical wrapper today).
+    requires_custom_node: []
+    popularity: 50

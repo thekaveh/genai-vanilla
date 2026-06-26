@@ -30,6 +30,11 @@ services:
       # (comfyui_library.py) is imported via the importlib spec at
       # /catalog/comfyui_library.py inside sync-catalog.py.
       - ../../bootstrapper/utils:/catalog:ro
+      # Curated catalog YAML (C1 SoT). Mounted alongside the utils bind-mount
+      # as /catalog/comfyui-models.yaml so comfyui_library._find_comfyui_yaml()
+      # resolves it at /catalog (mirrors litellm-catalog-init's pattern for
+      # services/litellm/models.yaml → /catalog/litellm-models.yaml).
+      - ./models.yaml:/catalog/comfyui-models.yaml:ro
     deploy:
       replicas: ${COMFYUI_CATALOG_INIT_SCALE:-1}
     networks:
