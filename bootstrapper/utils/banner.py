@@ -10,6 +10,8 @@ from rich.console import Console
 from rich.text import Text
 from rich.align import Align
 
+from utils import brand_logo
+
 
 class BannerDisplay:
     """Handles banner display with gradient colors and terminal responsiveness."""
@@ -141,45 +143,30 @@ class BannerDisplay:
 
         return rich_text
 
-    # Terminal columns required to render the full "ATLAS-PLATFORM"
-    # banner without clipping its right edge. Below this, get_ascii_
-    # art_full() falls back to "ATLAS" only. The full banner is 118
-    # cells wide; the threshold is 119 so the wider lockup only
-    # renders when it fully fits with at least 1 column of margin.
-    _FULL_WIDTH_THRESHOLD = 119
+    # Built-in ATLAS width threshold, kept for back-compat / parity checks.
+    # The active threshold is resolved per call (a BRAND_LOGO_FILE override may
+    # be a different width) — see get_ascii_art_full().
+    _FULL_WIDTH_THRESHOLD = brand_logo.width_threshold(brand_logo.ATLAS_FULL)
 
     def get_ascii_art_full(self) -> List[str]:
         """
-        Get the full ASCII art banner for Atlas.
+        Get the full ASCII-art banner (built-in ATLAS, or a BRAND_LOGO_FILE
+        override — same source as the Textual brand panel, via
+        ``utils.brand_logo``).
 
-        Returns the single-line 6-row "ATLAS-PLATFORM" lockup (118
-        cells) when the terminal is at least ``_FULL_WIDTH_THRESHOLD``
-        columns wide; otherwise falls back to "ATLAS" only (41 cells).
-        Both variants are 6 rows tall; the 15-color horizontal gradient
-        (color(17) → color(195)) is applied per-character at render
-        time, so each row reads as bright-left → pale-right.
+        Returns the wide 6-row lockup when the terminal is at least its width
+        threshold; otherwise falls back to the narrow (compact) lockup. Both
+        variants are 6 rows tall; the 15-color horizontal gradient
+        (color(17) → color(195)) is applied per-character at render time, so
+        each row reads as bright-left → pale-right.
 
         Returns:
-            list: List of ASCII art lines (6 entries)
+            list: List of ASCII-art lines (6 entries)
         """
-        if self.get_terminal_width() >= self._FULL_WIDTH_THRESHOLD:
-            return [
-                " █████╗ ████████╗██╗      █████╗ ███████╗        ██████╗ ██╗      █████╗ ████████╗███████╗ ██████╗ ██████╗ ███╗   ███╗",
-                "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝        ██╔══██╗██║     ██╔══██╗╚══██╔══╝██╔════╝██╔═══██╗██╔══██╗████╗ ████║",
-                "███████║   ██║   ██║     ███████║███████╗ █████╗ ██████╔╝██║     ███████║   ██║   █████╗  ██║   ██║██████╔╝██╔████╔██║",
-                "██╔══██║   ██║   ██║     ██╔══██║╚════██║ ╚════╝ ██╔═══╝ ██║     ██╔══██║   ██║   ██╔══╝  ██║   ██║██╔══██╗██║╚██╔╝██║",
-                "██║  ██║   ██║   ███████╗██║  ██║███████║        ██║     ███████╗██║  ██║   ██║   ██║     ╚██████╔╝██║  ██║██║ ╚═╝ ██║",
-                "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝        ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝      ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝",
-            ]
-        # Fallback: just "ATLAS", 41 cells wide.
-        return [
-            " █████╗ ████████╗██╗      █████╗ ███████╗",
-            "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝",
-            "███████║   ██║   ██║     ███████║███████╗",
-            "██╔══██║   ██║   ██║     ██╔══██║╚════██║",
-            "██║  ██║   ██║   ███████╗██║  ██║███████║",
-            "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝",
-        ]
+        full, compact, threshold = brand_logo.resolve_from_env()
+        if self.get_terminal_width() >= threshold:
+            return full
+        return compact
 
     def get_ascii_art_compact(self) -> List[str]:
         """

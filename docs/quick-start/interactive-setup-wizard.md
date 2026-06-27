@@ -338,9 +338,34 @@ BRAND_AUTHOR=Kaveh Razavi
 BRAND_AUTHOR_EMAIL=kaveh.razavi@gmail.com
 BRAND_LICENSE=Apache License 2.0
 BRAND_REPO_URL=https://github.com/thekaveh/atlas
+BRAND_LOGO_FILE=
 ```
 
 Empty values fall back to the canonical defaults (encoded in `bootstrapper/ui/state.py::AppState`). See `.env.example` for the latest documented block.
+
+### 15.1 Block-art logo (`BRAND_LOGO_FILE`)
+
+The big ASCII block-art lockup — shown in the wizard's brand panel and the `--no-tui` startup banner — defaults to the built-in **ATLAS** art (an [ANSI-Shadow](https://patorjk.com/software/taag/#p=display&f=ANSI%20Shadow) figlet lockup). Point `BRAND_LOGO_FILE` at a text file to override it; leave it empty to keep ATLAS. Both render surfaces read the same file (`bootstrapper/utils/brand_logo.py`), so the override stays in parity across the TUI and the linear banner.
+
+**File format** — the *wide* lockup rows, an optional `---` line on its own, then the *narrow* (compact) fallback used on terminals too small for the wide one:
+
+```
+ ██████╗  █████╗  ██████╗
+ ██╔══██╗██╔══██╗██╔════╝
+ ██████╔╝███████║██║  ███╗
+ ██╔══██╗██╔══██║██║   ██║
+ ██║  ██║██║  ██║╚██████╔╝
+ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝
+---
+(optional narrower variant here)
+```
+
+- Keep the art **6 rows tall** (figlet's ANSI-Shadow output already is, regardless of word length) so it fits the brand panel.
+- Provide the compact section for long names — without a `---` separator the single block is reused at every width and will clip on narrow terminals.
+- Generate matching art with any figlet tool, e.g. `figlet -f "ANSI Shadow" "My Brand"` (or [patorjk.com/software/taag](https://patorjk.com/software/taag/)).
+- Leading/trailing blank lines are trimmed; everything else renders verbatim with the same top→bottom blue gradient as ATLAS.
+
+> The richer image-derived **splash** (the globe hero in `atlas_hero.py`, generated from a source image by `scripts/generate_logo.py`) is a separate asset and is **not** covered by `BRAND_LOGO_FILE` — it stays the Atlas hero unless you regenerate those grids.
 
 ## 16. Configurable Services
 

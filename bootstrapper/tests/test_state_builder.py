@@ -67,10 +67,14 @@ def test_appstate_brand_defaults_match_globals_manifest():
 
     repo_root = Path(__file__).resolve().parent.parent.parent
     globals_manifest = repo_root / "services" / "globals" / "service.yml"
+    # BRAND_LOGO_FILE points at a block-art file and is resolved at render time
+    # by utils.brand_logo — it is intentionally NOT modeled as an AppState brand
+    # field, so it is excluded from this AppState↔manifest parity check.
+    _not_in_appstate = {"BRAND_LOGO_FILE"}
     manifest_brand = {
         e["name"]: e.get("default", "")
         for e in yaml.safe_load(globals_manifest.read_text())["env"]
-        if e["name"].startswith("BRAND_")
+        if e["name"].startswith("BRAND_") and e["name"] not in _not_in_appstate
     }
 
     state = AppState()
