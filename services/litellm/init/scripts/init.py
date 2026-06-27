@@ -153,26 +153,40 @@ def ensure_litellm_db() -> None:
 # ─── catalog module loader ─────────────────────────────────────────────
 
 def _catalog_dir() -> Path:
-    """Resolve the catalog directory containing the shared bootstrapper utils.
+    """Resolve the catalog directory containing the shared bootstrapper utils,
+    and make it importable.
 
     Search order (mirrors llm_catalog._find_models_dir's philosophy):
       1. ``ATLAS_CATALOG_DIR`` env var — test override.
       2. ``/catalog`` — the container bind-mount target (normal runtime).
+
+    The resolved directory is also inserted onto ``sys.path`` (idempotently).
+    The loaders below exec-load modules — notably ``model_resolver`` — whose
+    CONTAINER code path uses loose sibling imports (``import llm_catalog``,
+    ``from cloud_providers import CLOUD_PROVIDERS``) because there is no
+    ``utils`` package inside ``/catalog``. ``importlib.exec_module`` does NOT
+    add the module's own directory to ``sys.path``, so without this those
+    fallback imports raise ``ModuleNotFoundError`` and litellm-init aborts.
+    (In the bootstrapper venv ``utils`` IS a package, so the loose fallback is
+    never taken — which is why this only bit the container.)
 
     Exits loudly when neither location exists so that misconfigured compose
     bind mounts surface immediately rather than silently yielding wrong config.
     """
     env_dir = os.environ.get("ATLAS_CATALOG_DIR")
     if env_dir:
-        return Path(env_dir)
-    container_catalog = Path("/catalog")
-    if container_catalog.is_dir():
-        return container_catalog
-    sys.exit(
-        "❌ /catalog not found and ATLAS_CATALOG_DIR is not set — "
-        "the ``./bootstrapper/utils:/catalog:ro`` bind mount is missing or "
-        "misconfigured. Check the litellm-init service block in docker-compose.yml."
-    )
+        catalog = Path(env_dir)
+    elif Path("/catalog").is_dir():
+        catalog = Path("/catalog")
+    else:
+        sys.exit(
+            "❌ /catalog not found and ATLAS_CATALOG_DIR is not set — "
+            "the ``./bootstrapper/utils:/catalog:ro`` bind mount is missing or "
+            "misconfigured. Check the litellm-init service block in docker-compose.yml."
+        )
+    if catalog.is_dir() and str(catalog) not in sys.path:
+        sys.path.insert(0, str(catalog))
+    return catalog
 
 
 def _load_catalog_module(name: str):
