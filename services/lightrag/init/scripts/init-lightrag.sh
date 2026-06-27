@@ -39,6 +39,29 @@ python3 /scripts/resolve-models.py > /app/data/.env.tmp
 mv /app/data/.env.tmp /app/data/.env
 
 if [ -n "${LIGHTRAG_PG_URI:-}" ]; then
+  # Postgres (supabase-db) is SOURCE-replaceable — it can be container,
+  # localhost, or external — so lightrag-init deliberately does NOT hard
+  # depend_on it in compose (scripts/check-compose-source-deps.py FORBIDS
+  # the ('lightrag','supabase-db') edge; LightRAG falls back to in-process
+  # NanoVectorDB when the source is disabled). The transitive litellm:
+  # service_healthy gate makes supabase-db *usually* ready by now, but that
+  # isn't guaranteed across source modes — so poll the endpoint here before
+  # migrating: the SOURCE-safe equivalent of a compose readiness gate.
+  echo "[lightrag-init] waiting for Postgres (pgvector store) to accept connections..."
+  pg_ready=0
+  attempt=0
+  while [ "$attempt" -lt 60 ]; do
+    if psql "${LIGHTRAG_PG_URI}" -v ON_ERROR_STOP=1 -tAc 'SELECT 1' >/dev/null 2>&1; then
+      pg_ready=1
+      break
+    fi
+    attempt=$((attempt + 1))
+    sleep 2
+  done
+  if [ "$pg_ready" -ne 1 ]; then
+    echo "[lightrag-init] ERROR: Postgres not reachable at LIGHTRAG_PG_URI after 120s" >&2
+    exit 1
+  fi
   echo "[lightrag-init] running pgvector migrations..."
   psql "${LIGHTRAG_PG_URI}" -v ON_ERROR_STOP=1 -f /scripts/migrate-pgvector.sql
 fi
