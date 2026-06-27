@@ -24,7 +24,6 @@ def initialize_config():
     """
     litellm_base_url = os.getenv("LITELLM_BASE_URL", "http://litellm:4000")
     litellm_api_key = os.getenv("LITELLM_API_KEY", "")
-    database_url = os.getenv("DATABASE_URL", "")
 
     # Resolve the content LLM from the LITELLM_DEFAULT_MODEL env var.
     # This var is populated in .env by the bootstrapper (B2) and passed
@@ -68,7 +67,6 @@ LITELLM_API_KEY={litellm_api_key}
 SEARCH_API={config["search_api"]}
 MAX_WEB_RESEARCH_LOOPS={config["max_web_research_loops"]}
 FETCH_FULL_PAGE={config["fetch_full_page"]}
-DATABASE_URL={database_url}
 """
 
         with open("/app/.env", "w", encoding="utf-8") as f:

@@ -263,7 +263,6 @@ _No upstream calls._
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |
-| local-deep-researcher | apps |
 | open-webui | apps |
 | zeppelin | apps |
 
