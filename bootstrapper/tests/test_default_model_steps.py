@@ -109,6 +109,23 @@ def test_embed_step_fallback_when_no_saved_value():
     )
 
 
+def test_embed_options_auto_match_768_dim_first():
+    """Auto-match: the 768-dim model sorts to index 0 (the pre-selected
+    default) even when a non-768 model is selected ahead of it."""
+    from wizard.llm_steps import build_default_model_steps, LLM_DEFAULT_EMBED_TITLE
+
+    steps = build_default_model_steps(_default_env())
+    embed_step = next(s for s in steps if s.title == LLM_DEFAULT_EMBED_TITLE)
+    # qwen3-embedding:0.6b (1536-dim) selected BEFORE nomic-embed-text (768-dim).
+    selections = _ollama_selections("qwen3-embedding:0.6b,nomic-embed-text")
+    values = [o.value for o in embed_step.options_provider(selections)]
+    assert "ollama/nomic-embed-text" in values
+    assert "ollama/qwen3-embedding:0.6b" in values
+    assert values[0] == "ollama/nomic-embed-text", (
+        f"768-dim model must auto-sort to index 0 despite CSV order, got {values!r}"
+    )
+
+
 # ── test 4: vision step always includes value=="" (none/skip) first ──────────
 
 def test_vision_step_always_has_none_option_first():

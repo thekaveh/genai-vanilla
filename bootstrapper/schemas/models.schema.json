@@ -41,7 +41,8 @@
         "name":         {"type": "string", "minLength": 1},
         "default":      {"type": "boolean"},
         "description":  {"type": "string"},
-        "badges":       {"type": "array", "items": {"type": "string"}}
+        "badges":       {"type": "array", "items": {"type": "string"}},
+        "dim":          {"type": "integer", "minimum": 1, "description": "Embedding output vector dimension; matched against the consumer's required dimension (backend memory_facts vector(768))."}
       },
       "additionalProperties": false
     }

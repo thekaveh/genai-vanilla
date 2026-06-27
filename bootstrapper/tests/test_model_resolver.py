@@ -20,9 +20,10 @@ from __future__ import annotations
 import pytest
 
 from utils.model_resolver import (
-    PGVECTOR_DIM,
+    MEMORY_FACTS_EMBEDDING_DIM,
     active_models,
     best,
+    dim_for_model_id,
     embedding_dim_warning,
     resolved_defaults,
 )
@@ -454,12 +455,29 @@ class TestEmbeddingDimensionSafety:
             msg = embedding_dim_warning(name)
             assert msg is not None
             assert "1536" in msg
-            assert str(PGVECTOR_DIM) in msg
+            assert str(MEMORY_FACTS_EMBEDDING_DIM) in msg
 
     def test_warning_flags_3072_dim_openai(self):
-        msg = embedding_dim_warning("openai/text-embedding-3-large")
-        assert msg is not None
-        assert "3072" in msg
+        # canonical (bare) and provider-prefixed forms both resolve
+        for name in ("text-embedding-3-large", "openai/text-embedding-3-large"):
+            msg = embedding_dim_warning(name)
+            assert msg is not None
+            assert "3072" in msg
+
+    def test_dim_sourced_from_yaml_catalog(self):
+        # The dims come from services/*/models.yaml `dim:` fields, not a Python
+        # map — declaring dim on a new entry is all it takes to extend the guard.
+        assert dim_for_model_id("ollama/nomic-embed-text") == MEMORY_FACTS_EMBEDDING_DIM
+        assert dim_for_model_id("ollama/qwen3-embedding:0.6b") == 1536
+        assert dim_for_model_id("text-embedding-3-large") == 3072
+        assert dim_for_model_id("text-embedding-3-small") == 1536
+
+    def test_dim_none_for_non_embedding_or_unknown(self):
+        # content/vision models declare no dim; unknown ids return None.
+        assert dim_for_model_id("ollama/qwen3.6:latest") is None
+        assert dim_for_model_id("totally-unknown-model") is None
+        assert dim_for_model_id("") is None
+        assert dim_for_model_id(None) is None
 
     def test_warning_tolerates_surrounding_whitespace(self):
         assert embedding_dim_warning("  ollama/qwen3-embedding:0.6b  ") is not None

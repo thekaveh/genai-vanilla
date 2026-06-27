@@ -106,3 +106,24 @@ def test_public_functions_intact():
 
     openai_defaults = c.default_active_names("openai")
     assert len(openai_defaults) > 0
+
+
+def test_embedding_entries_declare_dim():
+    """Embedding catalog entries carry the `dim:` from YAML onto CatalogEntry,
+    and exactly one curated embedding model matches the backend's 768-dim
+    requirement so the picker can auto-select it."""
+    from utils import llm_catalog as c
+    from utils.model_resolver import MEMORY_FACTS_EMBEDDING_DIM
+
+    by_name = {e.name: e for e in c.all_catalog_entries()}
+    assert by_name["nomic-embed-text"].dim == MEMORY_FACTS_EMBEDDING_DIM  # 768
+    assert by_name["qwen3-embedding:0.6b"].dim == 1536
+    assert by_name["text-embedding-3-large"].dim == 3072
+    assert by_name["text-embedding-3-small"].dim == 1536
+
+    # Non-embedding (content/vision) entries declare no dim.
+    assert by_name["qwen3.6:latest"].dim is None
+
+    # At least one curated embedding model satisfies the required dim.
+    embed_dims = [e.dim for e in c.all_catalog_entries() if e.embeddings > 0]
+    assert MEMORY_FACTS_EMBEDDING_DIM in embed_dims

@@ -33,6 +33,7 @@ from utils.llm_catalog import (
     default_active_names,
     ollama_entries,
 )
+from utils.model_resolver import MEMORY_FACTS_EMBEDDING_DIM, dim_for_model_id
 from utils.ollama_discovery import list_pulled_models
 from utils.ollama_library import OllamaLibraryEntry, list_library_entries
 from utils.cloud_providers import CLOUD_PROVIDERS
@@ -886,7 +887,16 @@ def build_default_model_steps(
 
     # ── Step 2: default embedding model ──────────────────────────────
     def _embed_options(selections: dict) -> List[PromptOption]:
-        return _build_options_for_category(selections, "embeddings")
+        # Auto-match: stable-sort so embedding models whose declared dim equals
+        # the consumer's required dimension (memory_facts vector(768)) come
+        # first — index 0 is the wizard's pre-selected default. Catalog/selection
+        # order is preserved as the tiebreaker within each dim group, and models
+        # with no declared dim sort after the matching ones.
+        opts = _build_options_for_category(selections, "embeddings")
+        return sorted(
+            opts,
+            key=lambda o: 0 if dim_for_model_id(o.value) == MEMORY_FACTS_EMBEDDING_DIM else 1,
+        )
 
     # ── Step 3: default vision model ─────────────────────────────────
     def _vision_options(selections: dict) -> List[PromptOption]:

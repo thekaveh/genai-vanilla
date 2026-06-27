@@ -95,6 +95,12 @@ class CatalogEntry:
     default_active: bool = False
     # Optional badges shown in the wizard's multi-select option rows.
     badges: List[str] = field(default_factory=list)
+    # Output vector dimension for embedding models (None = unknown / N/A,
+    # e.g. content/vision models or live-scraped models with no declared dim).
+    # Sourced from the YAML ``dim:`` field; consumed by
+    # ``model_resolver.dim_for_model_id`` to match the consumer's required
+    # dimension (see ``model_resolver.MEMORY_FACTS_EMBEDDING_DIM``).
+    dim: int | None = None
 
 
 # ─── YAML loader ─────────────────────────────────────────────────────
@@ -163,6 +169,7 @@ def _parse_section(
             "description": raw.get("description", ""),
             "badges": raw.get("badges", []),
             "default_active": raw.get("default", False),
+            "dim": raw.get("dim"),
         }))
     return results
 
@@ -195,6 +202,7 @@ def _build_entries(
                 "description": "",
                 "badges": [],
                 "default_active": False,
+                "dim": None,
             }
 
         state = merged[key]
@@ -208,13 +216,15 @@ def _build_entries(
         elif section == "embeddings":
             state["embeddings"] = priority
 
-        # Take description / badges / default_active from first non-empty occurrence
+        # Take description / badges / default_active / dim from first occurrence
         if not state["description"] and attrs["description"]:
             state["description"] = attrs["description"]
         if not state["badges"] and attrs["badges"]:
             state["badges"] = list(attrs["badges"])
         if not state["default_active"] and attrs["default_active"]:
             state["default_active"] = attrs["default_active"]
+        if state["dim"] is None and attrs.get("dim") is not None:
+            state["dim"] = attrs["dim"]
 
     entries = []
     for state in merged.values():
@@ -230,6 +240,7 @@ def _build_entries(
             description=state["description"],
             default_active=state["default_active"],
             badges=list(state["badges"]),
+            dim=state["dim"],
         ))
     return entries
 
