@@ -127,3 +127,29 @@ def test_embedding_entries_declare_dim():
     # At least one curated embedding model satisfies the required dim.
     embed_dims = [e.dim for e in c.all_catalog_entries() if e.embeddings > 0]
     assert MEMORY_FACTS_EMBEDDING_DIM in embed_dims
+
+
+def test_find_yaml_resolves_flat_container_layout(tmp_path):
+    """litellm-init mounts the catalogs as flat ``<dir>/<service>-models.yaml``
+    under ``/atlas-models`` (the #154 container layout), NOT the repo's nested
+    ``<service>/models.yaml``. ``_find_yaml`` must resolve that flat form — the
+    loose-import subprocess test exercises the full load; this pins the path
+    resolution directly."""
+    from utils import llm_catalog as c
+
+    # nested form present → primary path wins
+    nested = tmp_path / "nested"
+    (nested / "ollama").mkdir(parents=True)
+    primary = nested / "ollama" / "models.yaml"
+    primary.write_text("content: [{name: x}]\n", encoding="utf-8")
+    assert c._find_yaml(nested, "ollama") == primary
+
+    # only the flat form present (the /atlas-models case) → fallback resolves it
+    flat = tmp_path / "atlas-models"
+    flat.mkdir()
+    flat_ollama = flat / "ollama-models.yaml"
+    flat_litellm = flat / "litellm-models.yaml"
+    flat_ollama.write_text("content: [{name: x}]\n", encoding="utf-8")
+    flat_litellm.write_text("openai: {content: [{name: y}]}\n", encoding="utf-8")
+    assert c._find_yaml(flat, "ollama") == flat_ollama
+    assert c._find_yaml(flat, "litellm") == flat_litellm

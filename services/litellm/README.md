@@ -74,6 +74,22 @@ To add a model outside the curated catalogs without re-running the wizard: set t
 
 > Note: `model_resolver` considers only providers that are both enabled (e.g. `LITELLM_OPENAI_ENABLED=true`) and keyed (`OPENAI_API_KEY` non-empty). Disabling a provider in `.env` causes `model_resolver` to produce zero active entries for that provider, so LiteLLM stops routing to it.
 
+### 5.2 How `litellm-init` loads the catalog (container wiring)
+
+`litellm-init` renders `volumes/litellm/config.yaml` at startup. Two things are bind-mounted into the container, deliberately **kept in separate dirs**:
+
+| Mount | Holds | Env var (default) | Resolved by |
+|---|---|---|---|
+| `bootstrapper/utils` → `/catalog:ro` | resolver **modules** (`model_resolver.py`, `llm_catalog.py`, `cloud_providers.py`, `litellm_settings.py`, …) | `ATLAS_CATALOG_DIR` (`/catalog`) | `init.py::_catalog_dir()` |
+| `services/{ollama,litellm}/models.yaml` → `/atlas-models/<svc>-models.yaml:ro` | model **catalogs** (flat `<svc>-models.yaml` layout) | `ATLAS_MODELS_DIR` (`/atlas-models`) | `llm_catalog._find_models_dir()` → `_find_yaml()` |
+
+Two non-obvious constraints make this split load-bearing — each one previously caused a `docker compose up` abort:
+
+- **The YAMLs are NOT mounted inside `/catalog`.** `/catalog` is a read-only bind mount, and runc on Docker 29.x / macOS cannot create a mountpoint file inside a `:ro` bind mount (`make mountpoint … read-only file system`). The catalogs therefore live in their own writable `/atlas-models` dir, found via the flat `<dir>/<svc>-models.yaml` form.
+- **`/catalog` is placed on `sys.path`.** `init.py` exec-loads `model_resolver` via `importlib`; inside the container there is no `utils` package, so `model_resolver` falls back to loose sibling imports (`import llm_catalog`, `from cloud_providers import …`). `importlib.exec_module` does not add the module's own directory to `sys.path`, so `_catalog_dir()` inserts `/catalog` there — without it those loose imports raise `ModuleNotFoundError` and `litellm-init` exits 1.
+
+When you add a new resolver module that `litellm-init` exec-loads, keep the dual-context import shape — `try: from utils import X` / `except ImportError: import X` — so it works both in the bootstrapper venv (package context) and the container (`/catalog` loose modules). Coverage: `bootstrapper/tests/test_litellm_init_loose_imports.py` (loose import, both catalog layouts) and `test_compose_nested_mounts.py` (no file mounted inside a `:ro` parent).
+
 ## 6. Access
 
 | Surface | URL | Notes |
