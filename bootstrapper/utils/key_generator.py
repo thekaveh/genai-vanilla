@@ -406,22 +406,84 @@ class KeyGenerator:
         """Generic infrastructure-credential generator. URL-safe, CLI-safe."""
         return _cli_safe_token_urlsafe(nbytes)
 
+    def _supabase_db_volume_exists(self) -> bool:
+        """Best-effort: True when THIS project's Postgres data volume already
+        exists.
+
+        The `supabase_admin` / app role passwords are baked into the
+        `supabase-db-data` volume at `initdb` and never re-synced. If the
+        volume exists, rotating the `.env` placeholder to a fresh random value
+        would make every client authenticate with a value the role does not
+        have → ``password authentication failed for user "supabase_admin"``.
+
+        Scoped to the project's volume name (``<project>_supabase-db-data``,
+        Compose's default underscore form; hyphen accepted too) so an
+        unrelated project's volume never trips it. Returns False on ANY
+        uncertainty — no PROJECT_NAME, docker missing/not running, non-zero
+        exit, timeout — so a genuine first run is never blocked from rotating.
+        """
+        project = (self.get_current_env_value("PROJECT_NAME") or "").strip()
+        if not project:
+            return False
+        candidates = {
+            f"{project}_supabase-db-data",
+            f"{project}-supabase-db-data",
+        }
+        try:
+            import subprocess  # local import: keep module import surface small
+            result = subprocess.run(
+                ["docker", "volume", "ls", "--format", "{{.Name}}"],
+                capture_output=True, text=True, timeout=10, check=False,
+            )
+            if result.returncode != 0:
+                return False
+            names = {ln.strip() for ln in result.stdout.splitlines() if ln.strip()}
+            return bool(candidates & names)
+        except Exception:
+            return False
+
+    def _warn_db_password_locked(self, var_name: str) -> None:
+        """Warn that a placeholder DB password can't be safely rotated because
+        the data volume (which baked the role password at initdb) already
+        exists."""
+        project = (self.get_current_env_value("PROJECT_NAME") or "").strip()
+        print(
+            f"⚠ {var_name} is still the placeholder, but the Postgres data volume "
+            f"for project '{project}' already exists.\n"
+            f"   The DB role password was baked into that volume at initdb and cannot "
+            f"be changed by rewriting .env, so rotation is skipped.\n"
+            f"   If startup fails with 'password authentication failed', set {var_name} "
+            f"in .env to the volume's original password, or run ./stop.sh --cold to "
+            f"start fresh."
+        )
+
     def generate_and_update_supabase_db_password(self, force: bool = False) -> bool:
         """Rotate `SUPABASE_DB_PASSWORD` (Postgres `supabase_admin` role) only
         when absent or still the `password` placeholder. The value is baked
         into Postgres at `initdb` time; rotating after the cluster initialises
         would not change the stored role password.
+
+        Guard: if THIS project's `supabase-db-data` volume already exists, the
+        role password is frozen at initdb — rotating the placeholder here would
+        guarantee an auth mismatch, so skip + warn instead (see
+        _supabase_db_volume_exists).
         """
         if not force and not self._is_placeholder_or_empty('SUPABASE_DB_PASSWORD'):
+            return True
+        if not force and self._supabase_db_volume_exists():
+            self._warn_db_password_locked('SUPABASE_DB_PASSWORD')
             return True
         return self.update_env_key('SUPABASE_DB_PASSWORD', self.generate_password())
 
     def generate_and_update_supabase_db_app_password(self, force: bool = False) -> bool:
         """Rotate `SUPABASE_DB_APP_PASSWORD` (application role) only when absent
         or still the `app_password` placeholder. Same `initdb`-bound semantics
-        as the admin role.
+        as the admin role — including the existing-volume guard.
         """
         if not force and not self._is_placeholder_or_empty('SUPABASE_DB_APP_PASSWORD'):
+            return True
+        if not force and self._supabase_db_volume_exists():
+            self._warn_db_password_locked('SUPABASE_DB_APP_PASSWORD')
             return True
         return self.update_env_key('SUPABASE_DB_APP_PASSWORD', self.generate_password())
 
