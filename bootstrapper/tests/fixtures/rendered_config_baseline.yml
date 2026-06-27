@@ -1194,13 +1194,9 @@ services:
       searxng:
         condition: service_healthy
         required: true
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
     deploy:
       replicas: 1
     environment:
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest

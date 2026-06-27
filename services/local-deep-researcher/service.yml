@@ -37,7 +37,6 @@ env:
 
 depends_on:
   required:
-    - supabase
     - searxng
     - litellm
   optional: []
@@ -97,11 +96,12 @@ runtime_deps:
 
 data_flow:
   calls:
+    # LDR is DB-free: it calls only the LLM gateway and the search backend.
+    # The research_* tables (research_sessions/results/sources/logs) are
+    # persisted by the BACKEND (services/backend/app/app/research_service.py),
+    # which calls this LangGraph server over HTTP — that supabase edge lives in
+    # the backend manifest, not here. init-config.py reads the model from
+    # LITELLM_DEFAULT_MODEL (set by litellm-init).
     - litellm
     - searxng
-    # supabase: the Local Deep Researcher app stores its research_* tables
-    # (research_sessions/results/sources/logs) in Postgres at runtime.
-    # init-config.py reads the model from LITELLM_DEFAULT_MODEL (set by
-    # litellm-init), not from public.llms.
-    - supabase
 
