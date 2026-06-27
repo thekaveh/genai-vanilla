@@ -254,31 +254,49 @@ def resolved_defaults(
 # Embedding dimension safety
 # ---------------------------------------------------------------------------
 
-#: Width of the backend ``public.memory_facts.embedding`` pgvector fallback
-#: column.  An embedding model whose output dimension differs from this fails
-#: the memory INSERT at runtime inside Postgres with a dimension-mismatch error
-#: and no traceback back to the model choice.
-PGVECTOR_DIM = 768
+#: The dimension the stack REQUIRES of its embedding model.  This is imposed by
+#: the consumer, NOT the model: the backend ``public.memory_facts.embedding``
+#: column is declared ``vector(768)`` in
+#: ``services/supabase/db/scripts/14-backend-memory.sql``.  An embedding model
+#: of any other dimension fails the memory INSERT at runtime inside Postgres
+#: with a dimension-mismatch error and no traceback to the model choice.
+#:
+#: SINGLE SOURCE: this constant mirrors that DDL literal.  If the column width
+#: ever changes, update both in lockstep.  Per-model output dimensions are NOT
+#: hardcoded here — they live in the YAML catalogs' ``dim:`` field and are read
+#: via :func:`dim_for_model_id`.
+MEMORY_FACTS_EMBEDDING_DIM = 768
 
-#: Known output dimensions for the embedding models the catalogs ship.  Keys
-#: cover both the bare Ollama name and the ``ollama/``-prefixed litellm id, and
-#: the ``openai/`` cloud forms.  Unknown models are NOT flagged (we can't know
-#: their dimension here) — the static 768-dim default protects the common path.
-_EMBEDDING_DIMS: dict[str, int] = {
-    "nomic-embed-text": 768,
-    "ollama/nomic-embed-text": 768,
-    "qwen3-embedding:0.6b": 1536,
-    "ollama/qwen3-embedding:0.6b": 1536,
-    "text-embedding-3-small": 1536,
-    "openai/text-embedding-3-small": 1536,
-    "text-embedding-3-large": 3072,
-    "openai/text-embedding-3-large": 3072,
-}
+
+def dim_for_model_id(model_id: str | None) -> Optional[int]:
+    """Return the declared output dimension for a LiteLLM model id, or ``None``.
+
+    Looks the id up in the YAML catalogs (``utils.llm_catalog``) by reproducing
+    the same id formatting :func:`best` uses — ``ollama/<name>`` for Ollama
+    entries, the bare ``name`` for cloud providers — and returns that entry's
+    ``dim`` field.  ``None`` for unknown ids, ids whose entry declares no
+    ``dim`` (content/vision/live-scraped/custom models), or empty input.
+    """
+    if not model_id:
+        return None
+    target = model_id.strip()
+    # Real LITELLM_EMBEDDING_MODEL values are canonical litellm-ids (ollama
+    # prefixed, cloud bare), but tolerate a leading ``<provider>/`` so a
+    # hand-set ``openai/text-embedding-3-large`` still resolves. Model names
+    # never contain ``/`` (ollama uses ``:`` for tags), so the bare tail is safe.
+    bare_target = target.rsplit("/", 1)[-1]
+    for entry in llm_catalog.all_catalog_entries():
+        entry_id = (
+            f"ollama/{entry.name}" if entry.provider == "ollama" else entry.name
+        )
+        if target == entry_id or bare_target == entry.name:
+            return entry.dim
+    return None
 
 
 def embedding_dim_warning(model: str | None) -> Optional[str]:
-    """Return a human-readable warning when ``model`` is a known embedding
-    model whose output dimension is not :data:`PGVECTOR_DIM` (768).
+    """Return a human-readable warning when ``model``'s declared embedding
+    dimension is not :data:`MEMORY_FACTS_EMBEDDING_DIM` (768).
 
     The wizard writes ``LITELLM_EMBEDDING_MODEL`` from the user's pick; a
     non-768-dim choice silently breaks the backend ``memory_facts vector(768)``
@@ -286,18 +304,20 @@ def embedding_dim_warning(model: str | None) -> Optional[str]:
     ``.env``-write time (we warn rather than block — an operator who migrated
     the column may legitimately want a wider model).
 
-    Returns ``None`` for the safe 768-dim models, empty/None input, and models
-    whose dimension we don't know.
+    The dimension is read from the YAML catalog (:func:`dim_for_model_id`), so
+    declaring ``dim:`` on a new embedding entry is all it takes to extend this
+    guard.  Returns ``None`` for 768-dim models, empty/None input, and models
+    whose dimension the catalog does not declare.
     """
     if not model:
         return None
-    dim = _EMBEDDING_DIMS.get(model.strip())
-    if dim is not None and dim != PGVECTOR_DIM:
+    dim = dim_for_model_id(model)
+    if dim is not None and dim != MEMORY_FACTS_EMBEDDING_DIM:
         return (
             f"LITELLM_EMBEDDING_MODEL='{model}' produces {dim}-dim embeddings, but the "
-            f"backend memory_facts column is vector({PGVECTOR_DIM}). Memory writes will "
-            f"fail unless you migrate that column or choose a {PGVECTOR_DIM}-dim model "
-            f"(e.g. ollama/nomic-embed-text)."
+            f"backend memory_facts column is vector({MEMORY_FACTS_EMBEDDING_DIM}). "
+            f"Memory writes will fail unless you migrate that column or choose a "
+            f"{MEMORY_FACTS_EMBEDDING_DIM}-dim model (e.g. ollama/nomic-embed-text)."
         )
     return None
 

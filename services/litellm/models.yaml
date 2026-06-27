@@ -33,11 +33,17 @@ openai:
       description: "OpenAI o1 reasoning model"
       badges: [reasoning]
   embeddings:
+    # `dim:` is the native output dimension. OpenAI's v3 embedders also accept a
+    # `dimensions` request param (Matryoshka truncation), but the catalog records
+    # the native size; neither matches the backend memory_facts vector(768)
+    # column, so picking either triggers a dimension warning by default.
     - name: text-embedding-3-large
+      dim: 3072
       default: true
       description: "OpenAI flagship embedding model — 3072 dims"
       badges: [embeddings]
     - name: text-embedding-3-small
+      dim: 1536
       description: "OpenAI cheaper embedding model — 1536 dims"
       badges: [embeddings]
   vision:

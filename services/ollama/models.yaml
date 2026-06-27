@@ -12,18 +12,21 @@ content:
     default: true
     description: "Qwen3.6 multimodal — strong content + vision, default content model"
     badges: [default]
-# Order = priority (first = highest). nomic-embed-text is listed FIRST because
-# it is 768-dim, matching the backend memory_facts vector(768) pgvector column;
-# best('embeddings') and the wizard's pre-selected default therefore resolve to
-# the dimension-safe model. qwen3-embedding:0.6b (1536-dim) stays available but
-# is not the default — picking it requires migrating the column. See
+# `dim:` is the model's output vector dimension. The wizard pre-selects the
+# embedding model whose dim matches the consumer's required dimension — the
+# backend memory_facts vector(768) column (model_resolver.MEMORY_FACTS_EMBEDDING_DIM).
+# So nomic-embed-text (dim 768) is the auto-matched default; list-order is only a
+# tiebreaker among same-dim models. qwen3-embedding:0.6b (dim 1536) stays available
+# but selecting it triggers a warning unless that column is migrated. See
 # bootstrapper/utils/model_resolver.embedding_dim_warning.
 embeddings:
   - name: nomic-embed-text
+    dim: 768
     default: true
     description: "Nomic text embeddings — small, fast"
     badges: [default, embeddings]
   - name: qwen3-embedding:0.6b
+    dim: 1536
     default: true
     description: "Qwen3 embeddings, 0.6B — top of MTEB multilingual leaderboard"
     badges: [default, embeddings]
