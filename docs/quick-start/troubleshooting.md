@@ -183,6 +183,15 @@ docker exec ${PROJECT_NAME}-supabase-db pg_isready
 docker exec ${PROJECT_NAME}-backend python -c "import psycopg2; print('DB OK')"
 ```
 
+**`password authentication failed for user "supabase_admin"`:** the `supabase_admin` role password is baked into the `supabase-db-data` volume **once**, at first init, and is never re-synced. `SUPABASE_DB_PASSWORD` ships as the placeholder `password` and auto-rotates to a random value on the first `./start.sh`. If the volume later persists across a `.env` password change (e.g. `.env` regenerated from `.env.example` while an old volume is still around — `./stop.sh` without `--cold` keeps volumes), every client authenticates with the new value while the role still holds the old → this error. The bootstrapper now **skips** rotation and warns when it detects an existing `${PROJECT_NAME}-supabase-db-data` volume, so it won't silently drift `.env`. To recover:
+```bash
+# Option A — start fresh (removes volumes, reinitializes role + .env together)
+./stop.sh --cold && ./start.sh
+# Option B — keep your data: set SUPABASE_DB_PASSWORD in .env back to the
+#            value the volume was created with, then restart.
+```
+See `services/supabase/README.md` §2.1 for the full explanation.
+
 ### 4.5 Kong Gateway Issues
 
 **404 errors for services:**

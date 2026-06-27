@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — 2026-06-27 — Model catalog source-of-truth: Supabase DB → per-service YAML
+
+- The LLM and ComfyUI model catalogs moved out of the `public.llms` / `public.comfyui_models` Postgres tables (both **dropped** via guarded decommission migrations `15-decommission-llms.sql` / `16-decommission-comfyui-models.sql`) into per-service `services/{ollama,litellm,comfyui}/models.yaml`. DB-free resolvers (`bootstrapper/utils/model_resolver.py` / `comfyui_resolver.py`) compute the active set at startup; the `litellm-catalog-init` and `comfyui-catalog-init` sidecars were removed.
+- New wizard step picks the default model per role (content / embeddings / vision). Embedding entries declare their output dimension via `dim:`; the picker auto-selects the model whose `dim` matches the backend `memory_facts vector(768)` column (`MEMORY_FACTS_EMBEDDING_DIM`) and warns on a mismatch. The Supabase seed scripts were repartitioned per-service (`services/supabase/db/scripts/`).
+
+### Fixed — 2026-06-27 — Model-SoT follow-ups
+
+- **ComfyUI custom-models sidecar read again:** the host-side resolver falls back to the repo path `services/comfyui/custom-models.yaml` instead of the dead `/custom-models.yaml` container path, so operator-authored custom models are no longer silently dropped.
+- **`docker compose up` no longer aborts on Docker 29.x / macOS:** `litellm-init` mounts the model YAMLs into `/atlas-models` (via `ATLAS_MODELS_DIR`) instead of nesting them under the read-only `/catalog` bind mount (runc could not create a mountpoint inside a `:ro` mount).
+- **Supabase password drift guard:** `SUPABASE_DB_PASSWORD` rotation is skipped (with a warning) when the project's `supabase-db-data` volume already exists, preventing `.env` from drifting out of sync with the initdb-baked `supabase_admin` role password (`password authentication failed for user "supabase_admin"`).
+- **lightrag-init Postgres race:** `lightrag-init` polls the Postgres endpoint until it accepts connections before running its pgvector migration — the SOURCE-safe readiness gate (supabase-db is source-replaceable, so a hard compose `depends_on` is intentionally avoided) — instead of racing supabase-db readiness.
+
 ### Added — 2026-06-21 — Phase 1 reuse mechanics (`services/_user/` auto-launch + release tags)
 
 - **`services/_user/` overlay services now launch.** The bootstrapper discovers every `services/_user/<name>/compose.yml` and merges it into the `docker compose` invocation (`DockerManager._compose_file_args`: `-f docker-compose.yml -f services/_user/<name>/compose.yml …`), so a downstream consumer's co-located services come up/down with the stack. When no overlay exists the invocation is unchanged — default file auto-discovery preserved, byte-equivalence baseline unaffected. Overlay services are self-contained Compose fragments (own image/ports/env, joined to the shared network); they are intentionally not wired into the wizard/topology/`.env.example`.

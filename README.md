@@ -506,10 +506,10 @@ atlas/
 │   │   ├── compose.yml
 │   │   ├── init/              # litellm-init Dockerfile + scripts (config.yaml renderer)
 │   │   └── models.yaml        # Curated cloud-provider model catalog (per-service SoT)
-│   ├── ollama/                # ollama + ollama-pull (with pull/ scripts subfolder)
+│   ├── ollama/                # ollama + ollama-pull (pull/ scripts); models.yaml = Ollama catalog SoT
 │   ├── redis/                 # Redis cache/queue substrate (AOF persistence, shared by n8n/Kong/LiteLLM/owui/LightRAG)
 │   ├── weaviate/              # weaviate + multi2vec-clip + weaviate-init
-│   ├── comfyui/               # comfyui + comfyui-init (with init/ scripts subfolder)
+│   ├── comfyui/               # comfyui + comfyui-init (init/ scripts); models.yaml + custom-models.yaml = ComfyUI catalog SoT
 │   ├── n8n/                   # n8n + n8n-worker + n8n-init (with init/ assets, workflows-stage/)
 │   ├── open-webui/            # open-web-ui + open-webui-init (with extras/ tools+functions)
 │   ├── hermes/                # hermes + hermes-init (with init/ scripts & templates)
