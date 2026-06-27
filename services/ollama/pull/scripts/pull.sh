@@ -74,20 +74,38 @@ echo "$_raw_list" | while IFS= read -r model_clean; do
     echo "ollama-pull: Pulling $model_clean model from $OLLAMA_HOST_URL..."
     # Construct JSON payload
     json_payload="{\"name\":\"$model_clean\"}"
-    # Execute curl command. `set -e` above would abort on the first failed
-    # pull before the manual error-handling below runs, so we explicitly
-    # tolerate non-zero exits here and rely on the if-check on $? instead.
-    curl_exit_code=0
-    curl_output=$(curl -sf -X POST "$OLLAMA_HOST_URL/api/pull" -d "$json_payload" 2>&1) || curl_exit_code=$?
-    echo "ollama-pull: Curl exit code: $curl_exit_code"
-    echo "ollama-pull: Curl output: $curl_output"
+    # Pull with bounded retries. A transient registry/network blip on a
+    # default model (e.g. qwen3-embedding:0.6b) would otherwise surface as a
+    # one-off ERROR and leave the model missing until the next compose up.
     # /api/pull streams NDJSON and can report failures (bad model name,
-    # registry errors) inside the body with HTTP 200 — check both the
-    # exit code AND the body for an error line, or a typo'd
-    # OLLAMA_USER_MODELS entry "succeeds" silently and only surfaces
-    # as a LiteLLM 404 at request time.
-    if [ $curl_exit_code -ne 0 ] || printf '%s' "$curl_output" | grep -q '"error"'; then
-       echo "ollama-pull: ERROR - Failed to pull model $model_clean. See output above." >&2
+    # registry errors) inside the body with HTTP 200, so each attempt checks
+    # BOTH the exit code AND the body for an error line. `set -e` above would
+    # abort on the first failed curl, so we tolerate non-zero exits here and
+    # branch on the captured status instead.
+    max_attempts=3
+    attempt=1
+    pulled=0
+    while [ "$attempt" -le "$max_attempts" ]; do
+      curl_exit_code=0
+      curl_output=$(curl -sf -X POST "$OLLAMA_HOST_URL/api/pull" -d "$json_payload" 2>&1) || curl_exit_code=$?
+      echo "ollama-pull: Curl exit code: $curl_exit_code (attempt $attempt/$max_attempts)"
+      echo "ollama-pull: Curl output: $curl_output"
+      if [ "$curl_exit_code" -eq 0 ] && ! printf '%s' "$curl_output" | grep -q '"error"'; then
+        pulled=1
+        break
+      fi
+      echo "ollama-pull: WARN - pull of $model_clean failed (attempt $attempt/$max_attempts)." >&2
+      attempt=$((attempt + 1))
+      if [ "$attempt" -le "$max_attempts" ]; then
+        # Linear backoff: 10s, then 15s before the final attempt.
+        sleep $((attempt * 5))
+      fi
+    done
+    # Non-fatal: a typo'd OLLAMA_USER_MODELS entry or a persistently
+    # unavailable model only surfaces as a LiteLLM 404 at request time, so we
+    # log and continue rather than aborting the whole pull set.
+    if [ "$pulled" -ne 1 ]; then
+       echo "ollama-pull: ERROR - Failed to pull model $model_clean after $max_attempts attempts. See output above." >&2
     fi
     echo # Newline after each pull attempt output
   fi
