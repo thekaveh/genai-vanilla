@@ -1126,6 +1126,7 @@ services:
     environment:
       ANTHROPIC_API_KEY: ''
       ANTHROPIC_USER_MODELS: ''
+      ATLAS_MODELS_DIR: /atlas-models
       HERMES_ENDPOINT: ''
       HERMES_SOURCE: container
       LIGHTRAG_API_KEY: ''
@@ -1172,12 +1173,12 @@ services:
     - bind: {}
       read_only: true
       source: '{REPO_ROOT}/services/ollama/models.yaml'
-      target: /catalog/ollama-models.yaml
+      target: /atlas-models/ollama-models.yaml
       type: bind
     - bind: {}
       read_only: true
       source: '{REPO_ROOT}/services/litellm/models.yaml'
-      target: /catalog/litellm-models.yaml
+      target: /atlas-models/litellm-models.yaml
       type: bind
   local-deep-researcher:
     build:
