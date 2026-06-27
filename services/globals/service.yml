@@ -49,6 +49,9 @@ env:
     default: "Apache License 2.0"
   - name: BRAND_REPO_URL
     default: "https://github.com/thekaveh/atlas"
+  - name: BRAND_LOGO_FILE
+    default: ""
+    description: "Optional path to a custom block-art logo that overrides the built-in ATLAS lockup in the wizard + --no-tui banner (the BRAND_* rebranding contract). File format: the wide-lockup rows, an optional '---' line on its own, then the narrow (compact) fallback rows used on terminals too small for the wide one. Keep it 6 rows tall. Empty = built-in ATLAS. Format + example: docs/quick-start/interactive-setup-wizard.md (Brand Customization)."
 
   - name: COMPOSE_PROFILES
     auto_managed: true

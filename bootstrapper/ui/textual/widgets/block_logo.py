@@ -29,41 +29,19 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widget import Widget
 
-
-# Full-width "ATLAS-PLATFORM" lockup (118 cells, 6 rows).
-# Letter widths A(8) T(9) L(8) A(8) S(8) hyphen(6) P(8) L(8) A(8) T(9)
-# F(8) O(9) R(8) M(11); 1-cell gap between every adjacent glyph. The
-# hyphen is a 6-cell horizontal block on a SINGLE row (row 3 only) so it
-# reads as one clean dash rather than a stacked "=" once a terminal adds
-# inter-line spacing.
-_LOGO_ROWS_FULL: list[str] = [
-    " █████╗ ████████╗██╗      █████╗ ███████╗        ██████╗ ██╗      █████╗ ████████╗███████╗ ██████╗ ██████╗ ███╗   ███╗",
-    "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝        ██╔══██╗██║     ██╔══██╗╚══██╔══╝██╔════╝██╔═══██╗██╔══██╗████╗ ████║",
-    "███████║   ██║   ██║     ███████║███████╗ █████╗ ██████╔╝██║     ███████║   ██║   █████╗  ██║   ██║██████╔╝██╔████╔██║",
-    "██╔══██║   ██║   ██║     ██╔══██║╚════██║ ╚════╝ ██╔═══╝ ██║     ██╔══██║   ██║   ██╔══╝  ██║   ██║██╔══██╗██║╚██╔╝██║",
-    "██║  ██║   ██║   ███████╗██║  ██║███████║        ██║     ███████╗██║  ██║   ██║   ██║     ╚██████╔╝██║  ██║██║ ╚═╝ ██║",
-    "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝        ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝      ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝",
-]
+from utils import brand_logo
 
 
-# Compact-fallback "ATLAS" lockup (41 cells, 6 rows). Used when the
-# terminal is narrower than _WIDTH_THRESHOLD columns.
-_LOGO_ROWS_COMPACT: list[str] = [
-    " █████╗ ████████╗██╗      █████╗ ███████╗",
-    "██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝",
-    "███████║   ██║   ██║     ███████║███████╗",
-    "██╔══██║   ██║   ██║     ██╔══██║╚════██║",
-    "██║  ██║   ██║   ███████╗██║  ██║███████║",
-    "╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝",
-]
-
-
-# Terminal columns required to render _LOGO_ROWS_FULL without clipping
-# the right edge. Below this, render() falls back to _LOGO_ROWS_COMPACT.
-# The full lockup is 118 cells wide; the threshold is 119 so the wider
-# lockup only renders when it fully fits with at least 1 column of
-# margin.
-_WIDTH_THRESHOLD = 119
+# The block-art rows + width threshold live in ``utils.brand_logo`` so this
+# Textual brand panel and the --no-tui banner share ONE source, and a fork can
+# override the lockup via ``BRAND_LOGO_FILE`` (see brand_logo). These
+# module-level names remain the built-in ATLAS default — re-exported for
+# back-compat with ``scripts/generate_logo.py`` (the image splash, which stays
+# ATLAS) and the parity tests. ``render()`` resolves the active, possibly
+# brand-overridden, art at runtime.
+_LOGO_ROWS_FULL: list[str] = brand_logo.ATLAS_FULL
+_LOGO_ROWS_COMPACT: list[str] = brand_logo.ATLAS_COMPACT
+_WIDTH_THRESHOLD = brand_logo.width_threshold(brand_logo.ATLAS_FULL)
 
 
 # Width of one fully-rendered row of the full lockup. Used by tests
@@ -102,15 +80,22 @@ class BlockLogo(Widget):
 
     can_focus = False
 
+    _art: tuple[list[str], list[str], int] | None = None
+
     def render(self) -> RenderableType:
         # 1 row top spacer + 6 art rows = 7 cells. No bottom spacer.
-        # shutil.get_terminal_size() queries the OS-level terminal
-        # dimensions, which closely match the widget's available width
+        # The active lockup (built-in ATLAS or a BRAND_LOGO_FILE override) is
+        # resolved once and cached so .env is read a single time, not on every
+        # refresh/resize. shutil.get_terminal_size() queries the OS-level
+        # terminal dimensions, which closely match the widget's available width
         # since the BrandPanel is sized at 100%.
+        if self._art is None:
+            self._art = brand_logo.resolve_from_env()
+        full, compact, threshold = self._art
         rows = (
-            _LOGO_ROWS_FULL
-            if shutil.get_terminal_size().columns >= _WIDTH_THRESHOLD
-            else _LOGO_ROWS_COMPACT
+            full
+            if shutil.get_terminal_size().columns >= threshold
+            else compact
         )
         renderables: list[RenderableType] = [Text("")]
         for i, row_str in enumerate(rows):

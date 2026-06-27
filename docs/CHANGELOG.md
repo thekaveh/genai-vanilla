@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — 2026-06-27 — Brand-overridable block-art logo (`BRAND_LOGO_FILE`)
+
+- The ASCII block-art lockup (wizard brand panel + `--no-tui` banner) is now part of the `BRAND_*` rebranding contract: set `BRAND_LOGO_FILE` to a text file (wide rows, optional `---` separator, then a compact fallback) to override the hardcoded "ATLAS" art. Empty = built-in ATLAS, byte-for-byte. Both render surfaces resolve through the new `bootstrapper/utils/brand_logo.py`, so a custom lockup stays in parity across the TUI and the linear banner (the parity test now covers a custom lockup on both paths). The image-derived globe splash (`atlas_hero.py`) is out of scope and stays the Atlas hero. Docs: `docs/quick-start/interactive-setup-wizard.md` §15.1.
+
 ### Changed — 2026-06-27 — Model catalog source-of-truth: Supabase DB → per-service YAML
 
 - The LLM and ComfyUI model catalogs moved out of the `public.llms` / `public.comfyui_models` Postgres tables (both **dropped** via guarded decommission migrations `15-decommission-llms.sql` / `16-decommission-comfyui-models.sql`) into per-service `services/{ollama,litellm,comfyui}/models.yaml`. DB-free resolvers (`bootstrapper/utils/model_resolver.py` / `comfyui_resolver.py`) compute the active set at startup; the `litellm-catalog-init` and `comfyui-catalog-init` sidecars were removed.
