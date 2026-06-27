@@ -151,7 +151,7 @@ _No high-confidence opportunities identified._
 
 1. Waits for LiteLLM `/v1/models` (60 s timeout).
 2. Resolves `LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` / `LIGHTRAG_EMBEDDING_DIM` from LiteLLM.
-3. Runs idempotent pgvector + Neo4j migrations.
+3. Polls Postgres until it accepts connections (a readiness gate — `supabase-db` is SOURCE-replaceable, so `lightrag-init` intentionally has no hard compose `depends_on` on it), then runs the idempotent pgvector migration. The Neo4j migration runs separately and is non-fatal (LightRAG creates the constraints on first write otherwise).
 
 ## 8. Troubleshooting
 

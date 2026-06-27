@@ -22,6 +22,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UTILS_DIR = REPO_ROOT / "bootstrapper" / "utils"
 SERVICES_DIR = REPO_ROOT / "services"
@@ -74,13 +76,36 @@ print("OK", len(actives))
 """
 
 
-def test_model_resolver_loads_as_loose_modules_in_container(tmp_path):
+def _flat_models_dir(tmp_path) -> str:
+    """Build the container's flat ``/atlas-models`` layout —
+    ``<dir>/<service>-models.yaml`` — from the repo's nested catalogs (#154)."""
+    d = tmp_path / "atlas-models"
+    d.mkdir()
+    for svc in ("ollama", "litellm"):
+        (d / f"{svc}-models.yaml").write_text(
+            (SERVICES_DIR / svc / "models.yaml").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+    return str(d)
+
+
+@pytest.mark.parametrize("layout", ["nested", "flat"])
+def test_model_resolver_loads_as_loose_modules_in_container(tmp_path, layout):
+    """Faithful container check, both model-catalog layouts:
+
+    * the loose-import path (no ``utils`` package) must resolve (#157), AND
+    * ``llm_catalog`` must find the YAMLs in BOTH the repo's nested
+      ``<svc>/models.yaml`` form and the container's flat
+      ``/atlas-models/<svc>-models.yaml`` form (#154).
+    """
     driver = tmp_path / "driver.py"
     driver.write_text(_DRIVER, encoding="utf-8")
 
+    models_dir = str(SERVICES_DIR) if layout == "nested" else _flat_models_dir(tmp_path)
+
     env = dict(os.environ)
     env["ATLAS_CATALOG_DIR"] = str(UTILS_DIR)     # the modules dir (= /catalog)
-    env["ATLAS_MODELS_DIR"] = str(SERVICES_DIR)   # so llm_catalog finds the YAMLs
+    env["ATLAS_MODELS_DIR"] = models_dir          # nested repo dir OR flat /atlas-models
     env["INIT_PY_PATH"] = str(INIT_PY)
     # Do NOT inherit the bootstrapper root on the path — that is what makes
     # `utils` an importable package in-process and hides the container bug.
@@ -95,8 +120,9 @@ def test_model_resolver_loads_as_loose_modules_in_container(tmp_path):
         timeout=120,
     )
     assert result.returncode == 0, (
-        "litellm-init loose-module import regression — model_resolver failed to "
-        "load without a `utils` package (the container's /catalog context):\n"
+        f"litellm-init loose-module import regression ({layout} models layout) — "
+        "model_resolver failed to load without a `utils` package "
+        "(the container's /catalog context):\n"
         f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
     assert "OK" in result.stdout, result.stdout
