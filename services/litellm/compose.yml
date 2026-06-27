@@ -22,6 +22,10 @@ services:
       # cloud-only setups. See .env.example LITELLM_OLLAMA_UPSTREAM.
       LITELLM_OLLAMA_UPSTREAM: ${LITELLM_OLLAMA_UPSTREAM-http://ollama:11434}
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
+      # Where llm_catalog looks for the YAML catalogs (ollama-models.yaml /
+      # litellm-models.yaml). Points at the dedicated /atlas-models mount below
+      # — NOT nested under the read-only /catalog bind mount (see volumes).
+      ATLAS_MODELS_DIR: /atlas-models
       # ── model_resolver inputs ─────────────────────────────────────
       # These vars drive model_resolver.active_models() — the replacement
       # for the former public.llms DB query. litellm-init now computes
@@ -60,12 +64,17 @@ services:
       - ./init/scripts:/scripts:ro
       - ../../volumes/litellm:/litellm-config:rw
       # Sibling mount of bootstrapper/utils so /catalog/litellm_settings.py
-      # (the shared settings dict) is reachable from init.py. The catalog
-      # module is mounted as a sibling dir to avoid platform-dependent
-      # file-on-dir overlay behaviour.
+      # (the shared settings dict) and the resolver modules are reachable from
+      # init.py (import dir, via ATLAS_CATALOG_DIR; default /catalog).
       - ../../bootstrapper/utils:/catalog:ro
-      - ../../services/ollama/models.yaml:/catalog/ollama-models.yaml:ro
-      - ../../services/litellm/models.yaml:/catalog/litellm-models.yaml:ro
+      # The two YAML catalogs go in their OWN mount dir, NOT nested under the
+      # read-only /catalog bind mount above: runc on Docker 29.x / macOS refuses
+      # to create a mountpoint file inside a :ro bind mount ("read-only file
+      # system"), aborting `compose up`. /atlas-models is a fresh (writable)
+      # dir the runtime creates, so the file mounts land cleanly. The resolver
+      # finds them via ATLAS_MODELS_DIR=/atlas-models (set above).
+      - ../../services/ollama/models.yaml:/atlas-models/ollama-models.yaml:ro
+      - ../../services/litellm/models.yaml:/atlas-models/litellm-models.yaml:ro
     networks:
       - backend-network
 
