@@ -33,7 +33,11 @@ from utils.llm_catalog import (
     default_active_names,
     ollama_entries,
 )
-from utils.model_resolver import MEMORY_FACTS_EMBEDDING_DIM, dim_for_model_id
+from utils.model_resolver import (
+    MEMORY_FACTS_EMBEDDING_DIM,
+    dim_for_model_id,
+    looks_like_embedding,
+)
 from utils.ollama_discovery import list_pulled_models
 from utils.ollama_library import OllamaLibraryEntry, list_library_entries
 from utils.cloud_providers import CLOUD_PROVIDERS
@@ -830,25 +834,37 @@ def build_default_model_steps(
         """Return True if (provider, name) qualifies for ``category``.
 
         Category is one of ``'content'``, ``'embeddings'``, ``'vision'``.
-        Looks up the curated catalog; treats models not in the catalog as
-        content-only (mirrors _synthesize's content=8, embeddings=0, vision=0).
+        Looks up the curated catalog by exact name OR by family root (the
+        catalog mixes bare families like ``nomic-embed-text`` with tagged
+        entries like ``qwen3.6:latest``, while wizard selections are tagged —
+        ``nomic-embed-text:latest`` — so a tag-insensitive match on both sides
+        is required or every tagged embedding model falls through). Models the
+        catalog can't speak for are classified by :func:`looks_like_embedding`
+        so embedding models are never offered as the chat/vision default;
+        everything else is treated as content-only (mirrors _synthesize).
         """
-        # Search the appropriate catalog
-        if provider == "ollama":
-            entries = ollama_entries()
-        else:
-            entries = cloud_entries(provider)
+        entries = ollama_entries() if provider == "ollama" else cloud_entries(provider)
+        root = name.split(":", 1)[0]
         for entry in entries:
-            if entry.name == name:
+            if entry.name == name or entry.name.split(":", 1)[0] == root:
                 return getattr(entry, category, 0) > 0
-        # Not in catalog → synthesized: content-only
+        # Not in catalog → live-discovered / custom. Keep embedding models out
+        # of the content/vision pickers; treat the rest as content-only.
+        if looks_like_embedding(name):
+            return category == "embeddings"
         return category == "content"
 
     def _description(provider: str, name: str) -> str:
-        """Return the catalog description for (provider, name), or empty."""
+        """Return the catalog description for (provider, name), or empty.
+
+        Matches by exact name or family root (tag-insensitive) — same reason as
+        ``_classify``: a tagged selection (``nomic-embed-text:latest``) must
+        still find its bare catalog entry (``nomic-embed-text``).
+        """
         catalog = ollama_entries() if provider == "ollama" else cloud_entries(provider)
+        root = name.split(":", 1)[0]
         for entry in catalog:
-            if entry.name == name:
+            if entry.name == name or entry.name.split(":", 1)[0] == root:
                 return entry.description
         return ""
 

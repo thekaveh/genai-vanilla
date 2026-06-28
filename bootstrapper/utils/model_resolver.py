@@ -122,20 +122,39 @@ def _csv(val: str | None) -> list[str]:
 # Synthesized-entry factory
 # ---------------------------------------------------------------------------
 
+def looks_like_embedding(name: str) -> bool:
+    """Heuristic for whether a model is an embedding model, used to classify
+    models the curated catalog cannot speak for (live-discovered / custom).
+
+    Every mainstream embedding family carries ``embed`` in its name
+    (nomic-embed-text, mxbai-embed-large, qwen3-embedding, snowflake-arctic-embed,
+    granite-embedding, text-embedding-3-*). We strip any ``provider/`` prefix and
+    ``:tag`` suffix, then test for that token. No curated-catalog *content* model
+    contains ``embed`` (guarded by ``test_no_catalog_content_model_looks_like_embedding``),
+    so this never misclassifies a chat model as an embedding one.
+    """
+    bare = (name or "").rsplit("/", 1)[-1].split(":", 1)[0].lower()
+    return "embed" in bare
+
+
 def _synthesize(provider: str, name: str) -> CatalogEntry:
     """Create a minimal CatalogEntry for a model not in the curated catalog.
 
-    Mirrors ``LIVE_DEFAULTS`` in the former sync-catalog.py: content=8, structured_content=5,
-    vision/embeddings=0.  vision=0 is deliberately conservative — we cannot
-    infer vision capability from a model name alone.
+    Mirrors ``LIVE_DEFAULTS`` in the former sync-catalog.py: content=8,
+    structured_content=5, vision/embeddings=0 — EXCEPT when the name looks like
+    an embedding model (:func:`looks_like_embedding`), in which case it is
+    synthesized as embeddings=1, content=0 so it is never offered as a chat /
+    vision default. vision=0 is always conservative — we cannot infer vision
+    capability from a model name alone.
     """
+    is_embed = looks_like_embedding(name)
     return CatalogEntry(
         provider=provider,
         name=name,
-        content=8,
-        structured_content=5,
+        content=0 if is_embed else 8,
+        structured_content=0 if is_embed else 5,
         vision=0,
-        embeddings=0,
+        embeddings=1 if is_embed else 0,
         context_window=0,
         size_gb=None,
         description=f"Live-discovered/custom {provider} model (not in curated catalog)",

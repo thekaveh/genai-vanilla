@@ -21,12 +21,15 @@ import pytest
 
 from utils.model_resolver import (
     MEMORY_FACTS_EMBEDDING_DIM,
+    _synthesize,
     active_models,
     best,
     dim_for_model_id,
     embedding_dim_warning,
+    looks_like_embedding,
     resolved_defaults,
 )
+from utils.llm_catalog import cloud_entries, ollama_entries
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -481,3 +484,49 @@ class TestEmbeddingDimensionSafety:
 
     def test_warning_tolerates_surrounding_whitespace(self):
         assert embedding_dim_warning("  ollama/qwen3-embedding:0.6b  ") is not None
+
+
+# ── Embedding-name classification (non-catalog models) ───────────────────────
+
+class TestLooksLikeEmbedding:
+    """The heuristic that keeps non-catalog embedding models out of the
+    content/vision pickers + resolver defaults."""
+
+    def test_known_embedding_names(self):
+        for n in (
+            "mxbai-embed-large:latest",
+            "nomic-embed-text",
+            "ollama/snowflake-arctic-embed",
+            "qwen3-embedding:0.6b",
+            "openai/text-embedding-3-large",
+            "granite-embedding:278m",
+        ):
+            assert looks_like_embedding(n) is True, n
+
+    def test_content_names_are_not_embedding(self):
+        for n in ("qwen3.6:latest", "gemma4:31b", "ollama/llama3.3", "gpt-4o", "deepseek-r1"):
+            assert looks_like_embedding(n) is False, n
+
+    def test_empty_and_none(self):
+        assert looks_like_embedding("") is False
+        assert looks_like_embedding(None) is False
+
+    def test_synthesize_embedding_name_is_embeddings_not_content(self):
+        # A live-discovered / custom embedding model must NOT be synthesized as a
+        # content model (the bug: it surfaced as a chat-default candidate).
+        e = _synthesize("ollama", "mxbai-embed-large:latest")
+        assert e.content == 0 and e.embeddings == 1 and e.vision == 0
+
+    def test_synthesize_non_embedding_name_is_content(self):
+        e = _synthesize("ollama", "some-custom-chat-model:7b")
+        assert e.content == 8 and e.embeddings == 0
+
+    def test_no_catalog_content_model_looks_like_embedding(self):
+        # Guards the heuristic against false positives: no curated *content*
+        # model carries `embed` in its name, so the heuristic never demotes a
+        # real chat model out of the content picker.
+        catalogs = [ollama_entries()] + [cloud_entries(p) for p in ("openai", "anthropic", "openrouter")]
+        for entries in catalogs:
+            for e in entries:
+                if getattr(e, "content", 0) > 0:
+                    assert not looks_like_embedding(e.name), e.name
