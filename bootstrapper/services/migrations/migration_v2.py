@@ -16,7 +16,9 @@ the sentinel to 2.
 
 from __future__ import annotations
 
+import os
 import re
+from datetime import datetime
 from pathlib import Path
 
 
@@ -140,7 +142,29 @@ def apply(env_path: Path) -> None:
             out[-1] += "\n"
         out.extend(appended)
 
-    env_path.write_text("".join(out), encoding="utf-8")
+    original = "".join(lines)
+    new_text = "".join(out)
+    if new_text == original:
+        return  # no-op — nothing to back up or rewrite
+
+    # Back up the pre-v2 .env, then write atomically. The backup is
+    # version-stamped (so it can't collide with v1/v3 backups in a chain) and
+    # mode-clamped (secrets must not land in a 0644 file); the tmp file is
+    # mode-clamped too, else replace() would leave the new .env at the umask
+    # default. tmp + replace means an interrupted write can't truncate .env —
+    # the asymmetry that previously left v2 the only non-atomic, backup-less
+    # migration.
+    ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+    backup = env_path.with_name(f"{env_path.name}.backup.v2.{ts}")
+    backup.touch()
+    os.chmod(backup, os.stat(env_path).st_mode)
+    backup.write_text(original, encoding="utf-8")
+
+    tmp = env_path.with_name(f"{env_path.name}.v2.tmp")
+    tmp.touch()
+    os.chmod(tmp, os.stat(env_path).st_mode)
+    tmp.write_text(new_text, encoding="utf-8")
+    tmp.replace(env_path)
 
 
 def stamp_version(env_path: Path, version: int = 2) -> None:

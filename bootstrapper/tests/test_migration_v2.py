@@ -158,3 +158,40 @@ def test_url_var_to_port_var_pairs_consistently():
     for url_var, port_var in URL_VAR_TO_PORT_VAR.items():
         expected = url_var.replace("_LOCALHOST_URL", "_LOCALHOST_PORT")
         assert port_var == expected, f"{url_var} → {port_var} (expected {expected})"
+
+
+def test_apply_backs_up_and_preserves_mode(tmp_path):
+    """Regression: v2 must back up the pre-migration .env (version-stamped,
+    mode-clamped) and write atomically, preserving the source mode. It was
+    previously the only migration that rewrote .env in place with no backup and
+    no mode clamp — an interrupted write could truncate it, and the standalone
+    sentinel=1 case had no rollback."""
+    import os
+    import stat
+
+    p = _write_env(
+        tmp_path,
+        "COMFYUI_LOCALHOST_URL=http://host.docker.internal:11434\n",
+    )
+    os.chmod(p, 0o600)
+    apply_v2(p)
+
+    # Rewrite happened and mode survived the atomic tmp+replace.
+    assert "COMFYUI_LOCALHOST_PORT=11434" in p.read_text()
+    assert stat.S_IMODE(os.stat(p).st_mode) == 0o600
+
+    # A version-stamped backup with the pre-v2 content + clamped mode exists.
+    backups = list(tmp_path.glob(".env.backup.v2.*"))
+    assert len(backups) == 1
+    assert "COMFYUI_LOCALHOST_URL=http://host.docker.internal:11434" in backups[0].read_text()
+    assert stat.S_IMODE(os.stat(backups[0]).st_mode) == 0o600
+
+    # No leftover tmp file.
+    assert not list(tmp_path.glob(".env.v2.tmp"))
+
+
+def test_apply_noop_creates_no_backup(tmp_path):
+    """With no legacy URL vars, v2 must not rewrite or back up."""
+    p = _write_env(tmp_path, "SOME_PORT=63000\n")
+    apply_v2(p)
+    assert not list(tmp_path.glob(".env.backup.v2.*"))

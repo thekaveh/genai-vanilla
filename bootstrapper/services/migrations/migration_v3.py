@@ -171,9 +171,11 @@ def apply(env_path: Path) -> None:
     if current >= 3:
         return  # already migrated — idempotent
 
-    # Backup.
+    # Backup. Version-stamped so it can't collide with v1's backup in a single
+    # v1→v2→v3 chain (both used to name it ``.env.backup.<ts>`` at second
+    # precision, so v3 silently overwrote v1's pristine snapshot).
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
-    backup = env_path.with_name(f"{env_path.name}.backup.{ts}")
+    backup = env_path.with_name(f"{env_path.name}.backup.v3.{ts}")
     backup.touch()
     # Backup carries the same secrets — clamp to the original mode
     # before writing (a user-chmod'd 0600 .env must not back up 0644).
