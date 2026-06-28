@@ -701,6 +701,12 @@ class WizardScreen(Screen):
     def action_confirm(self) -> None:
         if self._phase != "setup":
             return
+        # Defensive: in CLI-flag auto-launch mode the screen mounts with
+        # steps=[] and flips to the "launch" phase from a worker scheduled in
+        # on_mount. An Enter processed in the tiny window before that worker
+        # runs (phase still "setup", _steps empty) would IndexError below.
+        if not self._steps:
+            return
         # Suppress confirmation while the splash row is showing for a
         # provider-driven multiselect — committing now would silently
         # commit only the step's static default_values (the live
