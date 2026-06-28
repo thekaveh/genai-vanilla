@@ -1960,6 +1960,26 @@ class _LogPaneWriter:
         raise OSError("LogPaneWriter has no fileno")
 
 
+class _NullSink:
+    """A no-op stand-in returned for any attribute the NullBanner does not
+    define (notably ``banner.console``). It swallows arbitrary attribute access
+    AND calls, so chained expressions like ``banner.console.print(...)`` are
+    safe no-ops while the real banner is swapped out inside the Textual app.
+
+    Returning a bare ``lambda`` from ``__getattr__`` (the previous behavior)
+    handled ``banner.foo()`` but crashed on ``banner.console.print(...)`` with
+    ``'function' object has no attribute 'print'`` — the pipeline reaches the
+    latter via ``starter.banner.console.print(...)`` (e.g. the embedding
+    dimension warning in ``apply_user_model_selections``).
+    """
+
+    def __call__(self, *args, **kwargs): return None
+    def __getattr__(self, name): return self
+
+
+_NULL_SINK = _NullSink()
+
+
 class _NullBanner:
     """Drop-in for ``starter.banner`` that swallows pipeline status messages
     so they don't print to stdout while we're inside the Textual app."""
@@ -1970,4 +1990,6 @@ class _NullBanner:
     def log(self, *args, **kwargs) -> None: ...
     def status(self, *args, **kwargs) -> None: ...
     def section(self, *args, **kwargs) -> None: ...
-    def __getattr__(self, name): return lambda *a, **k: None
+    # Undefined attributes (e.g. ``console``) resolve to a sink that swallows
+    # both further attribute access and calls — see _NullSink.
+    def __getattr__(self, name): return _NULL_SINK
