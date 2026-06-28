@@ -73,6 +73,47 @@ def test_content_step_default_config():
     )
 
 
+# ── regression: embedding models must NOT appear in the chat/content picker ──
+
+def test_content_step_excludes_embedding_models():
+    """Regression for the wizard listing embedding models under 'default for
+    chat'. Two failure modes are covered:
+      * tagged catalog embedding model (``nomic-embed-text:latest``) — the
+        catalog stores it bare (``nomic-embed-text``), so the old tag-sensitive
+        lookup missed it and fell through to the content-only default.
+      * non-catalog embedding model (``mxbai-embed-large:latest``) — not in the
+        curated catalog at all, so the synthesized fallback assumed content-only.
+    Both must be excluded from the content picker and routed to the embedding
+    picker instead.
+    """
+    from wizard.llm_steps import (
+        build_default_model_steps,
+        LLM_DEFAULT_CONTENT_TITLE,
+        LLM_DEFAULT_EMBED_TITLE,
+    )
+    models = (
+        "gemma4:31b,mxbai-embed-large:latest,nomic-embed-text:latest,"
+        "qwen3.6:35b-a3b-coding-mxfp8,qwen3.6:latest"
+    )
+    env = _default_env()
+    env["OLLAMA_USER_MODELS"] = models
+    steps = build_default_model_steps(env)
+    selections = _ollama_selections(models)
+
+    content = next(s for s in steps if s.title == LLM_DEFAULT_CONTENT_TITLE)
+    content_values = [o.value for o in content.options_provider(selections)]
+    assert "ollama/mxbai-embed-large:latest" not in content_values, content_values
+    assert "ollama/nomic-embed-text:latest" not in content_values, content_values
+    assert "ollama/qwen3.6:latest" in content_values
+    assert "ollama/qwen3.6:35b-a3b-coding-mxfp8" in content_values
+    assert "ollama/gemma4:31b" in content_values
+
+    embed = next(s for s in steps if s.title == LLM_DEFAULT_EMBED_TITLE)
+    embed_values = [o.value for o in embed.options_provider(selections)]
+    assert "ollama/mxbai-embed-large:latest" in embed_values, embed_values
+    assert "ollama/nomic-embed-text:latest" in embed_values, embed_values
+
+
 # ── test 3: embedding step default_value + caveat text ──────────────────────
 
 def test_embed_step_default_value_and_caveat():
