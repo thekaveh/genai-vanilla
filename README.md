@@ -57,6 +57,12 @@ The default configuration runs the full stack on CPU: chat UI, workflow automati
 # GPU acceleration
 ./start.sh --llm-provider-source ollama-container-gpu --comfyui-source container-gpu --stt-provider-source speaches-container-gpu
 
+# Custom project namespace (container family) — isolate from a base Atlas stack,
+# e.g. when running Atlas as a submodule. Persists to PROJECT_NAME in .env, so a
+# later bare ./stop.sh tears down exactly this stack (start & stop both honor it).
+./start.sh --project myproject     # or -p myproject
+./stop.sh                          # reads PROJECT_NAME=myproject from .env
+
 # Pick a different STT engine (Speaches is the default)
 ./start.sh --stt-provider-source parakeet-container-gpu   # SOTA NVIDIA (CC-BY-4.0)
 ./start.sh --stt-provider-source whisper-cpp-localhost    # Best on macOS — Metal + Core ML
