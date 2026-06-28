@@ -63,7 +63,7 @@ redis>=5.0.1
 hiredis>=2.2.3
 
 # Testing
-pytest>=9.1.0
+pytest>=9.1.1
 pytest-asyncio>=0.23.5
 
 # n8n integration
