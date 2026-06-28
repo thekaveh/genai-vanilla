@@ -22,7 +22,7 @@ images:
     container: redis
     notes: "Bumping the redis version: change this default and rerun ./start.sh."
   - var: REDIS_EXPORTER_IMAGE
-    default: "oliver006/redis_exporter:v1.62.0"
+    default: "oliver006/redis_exporter:v1.86.0"
     container: redis-exporter
     notes: "Prometheus exporter sidecar. Scales 1↔0 with PROMETHEUS_SOURCE (gated by _generate_prometheus_config)."
 

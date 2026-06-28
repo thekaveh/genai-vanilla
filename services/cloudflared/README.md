@@ -8,7 +8,7 @@ Egress-only public-edge service that terminates TLS at Cloudflare's global netwo
 
 The service is **egress-only**: it publishes no host port and has no Kong route. It connects to `backend-network` and reaches Kong by Docker DNS name.
 
-Image: `cloudflare/cloudflared:2025.8.1` (pin a dated tag; bump deliberately).
+Image: `cloudflare/cloudflared:2026.6.1` (pin a dated tag; bump deliberately).
 
 ## 2. Access
 
@@ -25,7 +25,7 @@ All public hostnames and routing rules are defined in the Cloudflare Zero Trust 
 ```bash
 CLOUDFLARED_SOURCE=disabled               # change to "container" to enable
 CLOUDFLARE_TUNNEL_TOKEN=                  # required when SOURCE=container; from Zero Trust > Networks > Tunnels
-CLOUDFLARED_IMAGE=cloudflare/cloudflared:2025.8.1
+CLOUDFLARED_IMAGE=cloudflare/cloudflared:2026.6.1
 # CLOUDFLARED_SCALE is auto-managed: 1 when SOURCE=container, 0 when disabled
 ```
 

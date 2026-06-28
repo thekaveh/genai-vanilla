@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: DOCLING_GPU_IMAGE
-    default: "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
+    default: "pytorch/pytorch:2.12.1-cuda12.6-cudnn9-runtime"
     container: docling-gpu
     notes: "Used as BASE_IMAGE in doc-processor/gpu/Dockerfile."
 

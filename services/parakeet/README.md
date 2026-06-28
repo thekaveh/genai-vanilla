@@ -10,7 +10,7 @@ user-facing description, source-variant table, and configuration reference.
 
 ## 1. Engine quick reference
 
-- **Image:** `nvcr.io/nvidia/pytorch:25.01-py3` (GPU only — Parakeet-TDT model)
+- **Image:** `nvcr.io/nvidia/pytorch:26.06-py3` (GPU only — Parakeet-TDT model)
 - **License:** CC-BY-4.0 (NVIDIA)
 - **Activation:** `STT_PROVIDER_SOURCE=parakeet-container-gpu` (or
   `parakeet-localhost` — Parakeet-MLX on macOS / native Linux)

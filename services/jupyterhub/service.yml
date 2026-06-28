@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: JUPYTERHUB_IMAGE
-    default: "jupyter/datascience-notebook:python-3.11"
+    default: "quay.io/jupyter/datascience-notebook:python-3.11.10"
     container: jupyterhub
 
 sources:

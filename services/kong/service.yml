@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: KONG_API_GATEWAY_IMAGE
-    default: "kong:3.9.0"
+    default: "kong:3.9.3"
     container: kong-api-gateway
 
 env:

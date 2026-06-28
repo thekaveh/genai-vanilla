@@ -20,7 +20,7 @@ containers:
 
 images:
   - var: PARAKEET_GPU_IMAGE
-    default: "nvcr.io/nvidia/pytorch:25.01-py3"
+    default: "nvcr.io/nvidia/pytorch:26.06-py3"
     container: parakeet-gpu
     notes: "Used as BASE_IMAGE in stt-provider/gpu/Dockerfile."
 

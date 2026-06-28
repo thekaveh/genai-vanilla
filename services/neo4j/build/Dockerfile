@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=${NEO4J_GRAPH_DB_IMAGE:-neo4j:5.19.0}
+ARG BASE_IMAGE=${NEO4J_GRAPH_DB_IMAGE:-neo4j:5.26.27}
 FROM ${BASE_IMAGE}
 
 # Copy backup and restore scripts

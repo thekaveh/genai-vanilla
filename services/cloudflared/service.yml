@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: CLOUDFLARED_IMAGE
-    default: "cloudflare/cloudflared:2025.8.1"
+    default: "cloudflare/cloudflared:2026.6.1"
     container: cloudflared
     notes: "Cloudflare Tunnel daemon. Pin a dated tag; bump deliberately."
 

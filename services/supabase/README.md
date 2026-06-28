@@ -157,7 +157,7 @@ The stack uses Supabase Auth (GoTrue) for user authentication and management wit
 
 ### 4.7 `postgres-exporter` (observability sidecar)
 
-**Image**: `prometheuscommunity/postgres-exporter:v0.18.1`
+**Image**: `prometheuscommunity/postgres-exporter:v0.19.1`
 **Access**: `http://localhost:${POSTGRES_EXPORTER_PORT}/metrics` (in-container `9187`)
 **Purpose**: Prometheus exporter exposing `pg_stat_*` views as a `/metrics` endpoint for the observability bundle.
 **Configuration**: connects to `supabase-db:5432` using `${SUPABASE_DB_USER}`/`${SUPABASE_DB_PASSWORD}` with `PG_EXPORTER_AUTO_DISCOVER_DATABASES=true` so every database on the cluster is scraped (including the `litellm` database).

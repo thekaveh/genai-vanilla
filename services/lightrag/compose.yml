@@ -4,7 +4,7 @@
 # the environment block below — memory: project_runtime_sc_vs_compose_env_dual_write.
 services:
   lightrag:
-    image: ${LIGHTRAG_IMAGE:-ghcr.io/hkuds/lightrag:v1.5.0}
+    image: ${LIGHTRAG_IMAGE:-ghcr.io/hkuds/lightrag:v1.5.4}
     container_name: ${PROJECT_NAME}-lightrag
     deploy:
       replicas: ${LIGHTRAG_SCALE:-0}
