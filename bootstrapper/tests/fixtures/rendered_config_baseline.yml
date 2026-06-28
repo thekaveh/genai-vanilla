@@ -2390,7 +2390,7 @@ services:
       GOTRUE_SMTP_PORT: '1025'
       GOTRUE_SMTP_SENDER_NAME: Supabase Auth
       GOTRUE_SMTP_USER: ''
-    image: supabase/gotrue:v2.171.0
+    image: supabase/gotrue:v2.191.0
     logging:
       driver: json-file
       options:
@@ -2418,7 +2418,7 @@ services:
       - CMD-SHELL
       - pg_isready -U supabase_admin -d postgres
       timeout: 5s
-    image: supabase/postgres:17.4.1.016
+    image: supabase/postgres:17.6.1.139
     logging:
       driver: json-file
       options:
@@ -2476,7 +2476,7 @@ services:
       PG_META_DB_PORT: '5432'
       PG_META_DB_USER: supabase_admin
       PG_META_PORT: '8080'
-    image: supabase/postgres-meta:v0.88.9
+    image: supabase/postgres-meta:v0.96.6
     logging:
       driver: json-file
       options:
@@ -2522,7 +2522,7 @@ services:
       RLIMIT_NOFILE: '65536'
       SECRET_KEY_BASE: ''
       SECURE_CHANNELS: 'true'
-    image: supabase/realtime:v2.33.72
+    image: supabase/realtime:v2.112.0
     logging:
       driver: json-file
       options:
@@ -2557,7 +2557,7 @@ services:
       SERVICE_KEY: ''
       STORAGE_BACKEND: file
       TENANT_ID: stub
-    image: supabase/storage-api:v1.22.7
+    image: supabase/storage-api:v1.61.5
     logging:
       driver: json-file
       options:
@@ -2619,7 +2619,7 @@ services:
       - CMD-SHELL
       - node -e 'require("net").createConnection({port:3000,host:"localhost"},()=>process.exit(0)).on("error",()=>process.exit(1))'
       timeout: 10s
-    image: supabase/studio:latest
+    image: supabase/studio:2026.06.22-sha-2207d7f
     logging:
       driver: json-file
       options:

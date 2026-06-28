@@ -50,10 +50,6 @@ CREATE SCHEMA vault;
 
 ALTER SCHEMA vault OWNER TO supabase_admin;
 
-CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA graphql;
-
-COMMENT ON EXTENSION pg_graphql IS 'pg_graphql: GraphQL support';
-
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions;
 
 COMMENT ON EXTENSION pg_stat_statements IS 'track planning and execution statistics of all SQL statements executed';
@@ -142,61 +138,50 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION extensions.grant_pg_cron_access() OWNER TO postgres;
+ALTER FUNCTION extensions.grant_pg_cron_access() OWNER TO supabase_admin;
 
 COMMENT ON FUNCTION extensions.grant_pg_cron_access() IS 'Grants access to pg_cron';
 
 CREATE FUNCTION extensions.grant_pg_graphql_access() RETURNS event_trigger
     LANGUAGE plpgsql
     AS $_$
-DECLARE
-    func_is_graphql_resolve bool;
-BEGIN
-    func_is_graphql_resolve = (
-        SELECT n.proname = 'resolve'
-        FROM pg_event_trigger_ddl_commands() AS ev
-        LEFT JOIN pg_catalog.pg_proc AS n
-        ON ev.objid = n.oid
-    );
+begin
+    if not exists (
+        select 1
+        from pg_event_trigger_ddl_commands() ev
+        join pg_catalog.pg_extension e on ev.objid = e.oid
+        where e.extname = 'pg_graphql'
+    ) then
+        return;
+    end if;
 
-    IF func_is_graphql_resolve
-    THEN
-        -- Update public wrapper to pass all arguments through to the pg_graphql resolve func
-        DROP FUNCTION IF EXISTS graphql_public.graphql;
-        create or replace function graphql_public.graphql(
-            "operationName" text default null,
-            query text default null,
-            variables jsonb default null,
-            extensions jsonb default null
-        )
-            returns jsonb
-            language sql
-        as $$
-            select graphql.resolve(
-                query := query,
-                variables := coalesce(variables, '{}'),
-                "operationName" := "operationName",
-                extensions := extensions
-            );
-        $$;
+    drop function if exists graphql_public.graphql;
+    create or replace function graphql_public.graphql(
+        "operationName" text default null,
+        query text default null,
+        variables jsonb default null,
+        extensions jsonb default null
+    )
+        returns jsonb
+        language sql
+    as $$
+        select graphql.resolve(
+            query := query,
+            variables := coalesce(variables, '{}'),
+            "operationName" := "operationName",
+            extensions := extensions
+        );
+    $$;
 
-        -- This hook executes when `graphql.resolve` is created. That is not necessarily the last
-        -- function in the extension so we need to grant permissions on existing entities AND
-        -- update default permissions to any others that are created after `graphql.resolve`
-        grant usage on schema graphql to postgres, anon, authenticated, service_role;
-        grant select on all tables in schema graphql to postgres, anon, authenticated, service_role;
-        grant execute on all functions in schema graphql to postgres, anon, authenticated, service_role;
-        grant all on all sequences in schema graphql to postgres, anon, authenticated, service_role;
-        alter default privileges in schema graphql grant all on tables to postgres, anon, authenticated, service_role;
-        alter default privileges in schema graphql grant all on functions to postgres, anon, authenticated, service_role;
-        alter default privileges in schema graphql grant all on sequences to postgres, anon, authenticated, service_role;
+    -- Attach the wrapper to the extension so DROP EXTENSION cascades to it,
+    -- which in turn triggers set_graphql_placeholder to reinstall the "not enabled" stub.
+    alter extension pg_graphql add function graphql_public.graphql(text, text, jsonb, jsonb);
 
-        -- Allow postgres role to allow granting usage on graphql and graphql_public schemas to custom roles
-        grant usage on schema graphql_public to postgres with grant option;
-        grant usage on schema graphql to postgres with grant option;
-    END IF;
-
-END;
+    grant usage on schema graphql to postgres, anon, authenticated, service_role;
+    grant execute on function graphql.resolve to postgres, anon, authenticated, service_role;
+    grant usage on schema graphql to postgres with grant option;
+    grant usage on schema graphql_public to postgres with grant option;
+end;
 $_$;
 
 ALTER FUNCTION extensions.grant_pg_graphql_access() OWNER TO supabase_admin;
@@ -249,7 +234,7 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION extensions.grant_pg_net_access() OWNER TO postgres;
+ALTER FUNCTION extensions.grant_pg_net_access() OWNER TO supabase_admin;
 
 COMMENT ON FUNCTION extensions.grant_pg_net_access() IS 'Grants access to pg_net';
 
@@ -367,17 +352,54 @@ ALTER FUNCTION extensions.set_graphql_placeholder() OWNER TO supabase_admin;
 
 COMMENT ON FUNCTION extensions.set_graphql_placeholder() IS 'Reintroduces placeholder function for graphql_public.graphql';
 
+CREATE FUNCTION graphql_public.graphql("operationName" text DEFAULT NULL::text, query text DEFAULT NULL::text, variables jsonb DEFAULT NULL::jsonb, extensions jsonb DEFAULT NULL::jsonb) RETURNS jsonb
+    LANGUAGE plpgsql
+    AS $$
+            DECLARE
+                server_version float;
+            BEGIN
+                server_version = (SELECT (SPLIT_PART((select version()), ' ', 2))::float);
+
+                IF server_version >= 14 THEN
+                    RETURN jsonb_build_object(
+                        'errors', jsonb_build_array(
+                            jsonb_build_object(
+                                'message', 'pg_graphql extension is not enabled.'
+                            )
+                        )
+                    );
+                ELSE
+                    RETURN jsonb_build_object(
+                        'errors', jsonb_build_array(
+                            jsonb_build_object(
+                                'message', 'pg_graphql is only available on projects running Postgres 14 onwards.'
+                            )
+                        )
+                    );
+                END IF;
+            END;
+        $$;
+
+ALTER FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) OWNER TO supabase_admin;
+
 CREATE FUNCTION pgbouncer.get_auth(p_usename text) RETURNS TABLE(username text, password text)
     LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-BEGIN
-    RAISE WARNING 'PgBouncer auth request: %', p_usename;
+    SET search_path TO ''
+    AS $_$
+begin
+    raise debug 'PgBouncer auth request: %', p_usename;
 
-    RETURN QUERY
-    SELECT usename::TEXT, passwd::TEXT FROM pg_catalog.pg_shadow
-    WHERE usename = p_usename;
-END;
-$$;
+    return query
+    select
+        rolname::text,
+        case when rolvaliduntil < now()
+            then null
+            else rolpassword::text
+        end
+    from pg_authid
+    where rolname=$1 and rolcanlogin;
+end;
+$_$;
 
 ALTER FUNCTION pgbouncer.get_auth(p_usename text) OWNER TO supabase_admin;
 
@@ -401,61 +423,6 @@ END;
 $$;
 
 ALTER FUNCTION public.update_updated_at_column() OWNER TO supabase_admin;
-
-CREATE FUNCTION storage.extension(name text) RETURNS text
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-_parts text[];
-_filename text;
-BEGIN
-    select string_to_array(name, '/') into _parts;
-    select _parts[array_length(_parts,1)] into _filename;
-    -- @todo return the last part instead of 2
-    return split_part(_filename, '.', 2);
-END
-$$;
-
-ALTER FUNCTION storage.extension(name text) OWNER TO supabase_storage_admin;
-
-CREATE FUNCTION storage.filename(name text) RETURNS text
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-_parts text[];
-BEGIN
-    select string_to_array(name, '/') into _parts;
-    return _parts[array_length(_parts,1)];
-END
-$$;
-
-ALTER FUNCTION storage.filename(name text) OWNER TO supabase_storage_admin;
-
-CREATE FUNCTION storage.foldername(name text) RETURNS text[]
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-_parts text[];
-BEGIN
-    select string_to_array(name, '/') into _parts;
-    return _parts[1:array_length(_parts,1)-1];
-END
-$$;
-
-ALTER FUNCTION storage.foldername(name text) OWNER TO supabase_storage_admin;
-
-CREATE FUNCTION storage.search(prefix text, bucketname text, limits integer DEFAULT 100, levels integer DEFAULT 1, offsets integer DEFAULT 0) RETURNS TABLE(name text, id uuid, updated_at timestamp with time zone, created_at timestamp with time zone, last_accessed_at timestamp with time zone, metadata jsonb)
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-_bucketId text;
-BEGIN
-    -- will be replaced by migrations when server starts
-    -- saving space for cloud-init
-END
-$$;
-
-ALTER FUNCTION storage.search(prefix text, bucketname text, limits integer, levels integer, offsets integer) OWNER TO supabase_storage_admin;
 
 SET default_tablespace = '';
 
@@ -702,22 +669,16 @@ CREATE TABLE storage.buckets (
     name text NOT NULL,
     owner uuid,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    file_size_limit bigint,
+    allowed_mime_types text[],
+    avif_autodetection boolean DEFAULT false
 );
 
-ALTER TABLE storage.buckets OWNER TO supabase_storage_admin;
-
-CREATE TABLE storage.migrations (
-    id integer NOT NULL,
-    name character varying(100) NOT NULL,
-    hash character varying(40) NOT NULL,
-    executed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
-
-ALTER TABLE storage.migrations OWNER TO supabase_storage_admin;
+ALTER TABLE storage.buckets OWNER TO supabase_admin;
 
 CREATE TABLE storage.objects (
-    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     bucket_id text,
     name text,
     owner uuid,
@@ -728,7 +689,7 @@ CREATE TABLE storage.objects (
     path_tokens text[] GENERATED ALWAYS AS (string_to_array(name, '/'::text)) STORED
 );
 
-ALTER TABLE storage.objects OWNER TO supabase_storage_admin;
+ALTER TABLE storage.objects OWNER TO supabase_admin;
 
 ALTER TABLE ONLY auth.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('auth.refresh_tokens_id_seq'::regclass);
 
@@ -789,12 +750,6 @@ ALTER TABLE ONLY public.users
 ALTER TABLE ONLY storage.buckets
     ADD CONSTRAINT buckets_pkey PRIMARY KEY (id);
 
-ALTER TABLE ONLY storage.migrations
-    ADD CONSTRAINT migrations_name_key UNIQUE (name);
-
-ALTER TABLE ONLY storage.migrations
-    ADD CONSTRAINT migrations_pkey PRIMARY KEY (id);
-
 ALTER TABLE ONLY storage.objects
     ADD CONSTRAINT objects_pkey PRIMARY KEY (id);
 
@@ -854,15 +809,11 @@ CREATE INDEX idx_research_sessions_user_id ON public.research_sessions USING btr
 
 CREATE INDEX idx_research_sources_session_id ON public.research_sources USING btree (session_id);
 
-CREATE UNIQUE INDEX bname ON storage.buckets USING btree (name);
+CREATE INDEX bname ON storage.buckets USING btree (name);
 
 CREATE INDEX bucket_id ON storage.objects USING btree (bucket_id);
 
-CREATE UNIQUE INDEX bucketid_objname ON storage.objects USING btree (bucket_id, name);
-
 CREATE INDEX name ON storage.objects USING btree (name);
-
-CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops);
 
 CREATE INDEX owner ON storage.buckets USING btree (owner);
 
@@ -909,7 +860,7 @@ ALTER TABLE ONLY storage.buckets
     ADD CONSTRAINT buckets_owner_fkey FOREIGN KEY (owner) REFERENCES auth.users(id);
 
 ALTER TABLE ONLY storage.objects
-    ADD CONSTRAINT "objects_bucketId_fkey" FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
+    ADD CONSTRAINT objects_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
 
 ALTER TABLE ONLY storage.objects
     ADD CONSTRAINT objects_owner_fkey FOREIGN KEY (owner) REFERENCES auth.users(id);
@@ -965,7 +916,7 @@ GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT ALL ON SCHEMA auth TO service_role;
 GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
 GRANT ALL ON SCHEMA auth TO dashboard_user;
-GRANT ALL ON SCHEMA auth TO postgres;
+GRANT USAGE ON SCHEMA auth TO postgres;
 
 GRANT USAGE ON SCHEMA extensions TO anon;
 GRANT USAGE ON SCHEMA extensions TO authenticated;
@@ -982,14 +933,15 @@ GRANT USAGE ON SCHEMA realtime TO anon;
 GRANT USAGE ON SCHEMA realtime TO authenticated;
 GRANT USAGE ON SCHEMA realtime TO service_role;
 
-GRANT ALL ON SCHEMA storage TO postgres;
+GRANT USAGE ON SCHEMA storage TO postgres WITH GRANT OPTION;
 GRANT USAGE ON SCHEMA storage TO anon;
 GRANT USAGE ON SCHEMA storage TO authenticated;
 GRANT ALL ON SCHEMA storage TO service_role;
-GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+GRANT ALL ON SCHEMA storage TO supabase_storage_admin WITH GRANT OPTION;
 GRANT ALL ON SCHEMA storage TO dashboard_user;
 
 GRANT USAGE ON SCHEMA vault TO postgres WITH GRANT OPTION;
+GRANT USAGE ON SCHEMA vault TO service_role;
 
 GRANT ALL ON FUNCTION public.box2d_in(cstring) TO postgres;
 GRANT ALL ON FUNCTION public.box2d_in(cstring) TO anon;
@@ -1479,14 +1431,14 @@ GRANT ALL ON FUNCTION extensions.gen_salt(text) TO postgres WITH GRANT OPTION;
 GRANT ALL ON FUNCTION extensions.gen_salt(text, integer) TO dashboard_user;
 GRANT ALL ON FUNCTION extensions.gen_salt(text, integer) TO postgres WITH GRANT OPTION;
 
-REVOKE ALL ON FUNCTION extensions.grant_pg_cron_access() FROM postgres;
-GRANT ALL ON FUNCTION extensions.grant_pg_cron_access() TO postgres WITH GRANT OPTION;
+REVOKE ALL ON FUNCTION extensions.grant_pg_cron_access() FROM supabase_admin;
+GRANT ALL ON FUNCTION extensions.grant_pg_cron_access() TO supabase_admin WITH GRANT OPTION;
 GRANT ALL ON FUNCTION extensions.grant_pg_cron_access() TO dashboard_user;
 
 GRANT ALL ON FUNCTION extensions.grant_pg_graphql_access() TO postgres WITH GRANT OPTION;
 
-REVOKE ALL ON FUNCTION extensions.grant_pg_net_access() FROM postgres;
-GRANT ALL ON FUNCTION extensions.grant_pg_net_access() TO postgres WITH GRANT OPTION;
+REVOKE ALL ON FUNCTION extensions.grant_pg_net_access() FROM supabase_admin;
+GRANT ALL ON FUNCTION extensions.grant_pg_net_access() TO supabase_admin WITH GRANT OPTION;
 GRANT ALL ON FUNCTION extensions.grant_pg_net_access() TO dashboard_user;
 
 GRANT ALL ON FUNCTION extensions.hmac(bytea, bytea, text) TO dashboard_user;
@@ -1602,9 +1554,10 @@ GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, v
 GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) TO authenticated;
 GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) TO service_role;
 
+GRANT ALL ON FUNCTION pg_catalog.pg_reload_conf() TO postgres WITH GRANT OPTION;
+
 REVOKE ALL ON FUNCTION pgbouncer.get_auth(p_usename text) FROM PUBLIC;
 GRANT ALL ON FUNCTION pgbouncer.get_auth(p_usename text) TO pgbouncer;
-GRANT ALL ON FUNCTION pgbouncer.get_auth(p_usename text) TO postgres;
 
 GRANT ALL ON FUNCTION public._postgis_deprecate(oldname text, newname text, version text) TO postgres;
 GRANT ALL ON FUNCTION public._postgis_deprecate(oldname text, newname text, version text) TO anon;
@@ -5361,35 +5314,14 @@ GRANT ALL ON FUNCTION public.vector_sub(public.vector, public.vector) TO anon;
 GRANT ALL ON FUNCTION public.vector_sub(public.vector, public.vector) TO authenticated;
 GRANT ALL ON FUNCTION public.vector_sub(public.vector, public.vector) TO service_role;
 
-GRANT ALL ON FUNCTION storage.extension(name text) TO anon;
-GRANT ALL ON FUNCTION storage.extension(name text) TO authenticated;
-GRANT ALL ON FUNCTION storage.extension(name text) TO service_role;
-GRANT ALL ON FUNCTION storage.extension(name text) TO dashboard_user;
-GRANT ALL ON FUNCTION storage.extension(name text) TO postgres;
-
-GRANT ALL ON FUNCTION storage.filename(name text) TO anon;
-GRANT ALL ON FUNCTION storage.filename(name text) TO authenticated;
-GRANT ALL ON FUNCTION storage.filename(name text) TO service_role;
-GRANT ALL ON FUNCTION storage.filename(name text) TO dashboard_user;
-GRANT ALL ON FUNCTION storage.filename(name text) TO postgres;
-
-GRANT ALL ON FUNCTION storage.foldername(name text) TO anon;
-GRANT ALL ON FUNCTION storage.foldername(name text) TO authenticated;
-GRANT ALL ON FUNCTION storage.foldername(name text) TO service_role;
-GRANT ALL ON FUNCTION storage.foldername(name text) TO dashboard_user;
-GRANT ALL ON FUNCTION storage.foldername(name text) TO postgres;
-
-GRANT ALL ON FUNCTION storage.search(prefix text, bucketname text, limits integer, levels integer, offsets integer) TO anon;
-GRANT ALL ON FUNCTION storage.search(prefix text, bucketname text, limits integer, levels integer, offsets integer) TO authenticated;
-GRANT ALL ON FUNCTION storage.search(prefix text, bucketname text, limits integer, levels integer, offsets integer) TO service_role;
-GRANT ALL ON FUNCTION storage.search(prefix text, bucketname text, limits integer, levels integer, offsets integer) TO dashboard_user;
-GRANT ALL ON FUNCTION storage.search(prefix text, bucketname text, limits integer, levels integer, offsets integer) TO postgres;
-
 GRANT ALL ON FUNCTION vault._crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea, nonce bytea) TO postgres WITH GRANT OPTION;
+GRANT ALL ON FUNCTION vault._crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea, nonce bytea) TO service_role;
 
 GRANT ALL ON FUNCTION vault.create_secret(new_secret text, new_name text, new_description text, new_key_id uuid) TO postgres WITH GRANT OPTION;
+GRANT ALL ON FUNCTION vault.create_secret(new_secret text, new_name text, new_description text, new_key_id uuid) TO service_role;
 
 GRANT ALL ON FUNCTION vault.update_secret(secret_id uuid, new_secret text, new_name text, new_description text, new_key_id uuid) TO postgres WITH GRANT OPTION;
+GRANT ALL ON FUNCTION vault.update_secret(secret_id uuid, new_secret text, new_name text, new_description text, new_key_id uuid) TO service_role;
 
 GRANT ALL ON FUNCTION public.avg(public.halfvec) TO postgres;
 GRANT ALL ON FUNCTION public.avg(public.halfvec) TO anon;
@@ -5534,8 +5466,6 @@ GRANT SELECT ON TABLE auth.refresh_tokens TO authenticated;
 GRANT ALL ON SEQUENCE auth.refresh_tokens_id_seq TO dashboard_user;
 GRANT ALL ON SEQUENCE auth.refresh_tokens_id_seq TO postgres;
 
-GRANT ALL ON TABLE auth.schema_migrations TO dashboard_user;
-GRANT ALL ON TABLE auth.schema_migrations TO postgres;
 GRANT SELECT ON TABLE auth.schema_migrations TO anon;
 GRANT SELECT ON TABLE auth.schema_migrations TO authenticated;
 
@@ -5603,24 +5533,19 @@ GRANT ALL ON TABLE public.users TO anon;
 GRANT ALL ON TABLE public.users TO authenticated;
 GRANT ALL ON TABLE public.users TO service_role;
 
-GRANT ALL ON TABLE storage.buckets TO anon;
-GRANT ALL ON TABLE storage.buckets TO authenticated;
 GRANT ALL ON TABLE storage.buckets TO service_role;
-GRANT ALL ON TABLE storage.buckets TO postgres;
+GRANT SELECT ON TABLE storage.buckets TO anon;
+GRANT SELECT ON TABLE storage.buckets TO authenticated;
 
-GRANT ALL ON TABLE storage.migrations TO anon;
-GRANT ALL ON TABLE storage.migrations TO authenticated;
-GRANT ALL ON TABLE storage.migrations TO service_role;
-GRANT ALL ON TABLE storage.migrations TO postgres;
-
-GRANT ALL ON TABLE storage.objects TO anon;
-GRANT ALL ON TABLE storage.objects TO authenticated;
 GRANT ALL ON TABLE storage.objects TO service_role;
-GRANT ALL ON TABLE storage.objects TO postgres;
+GRANT SELECT ON TABLE storage.objects TO anon;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE storage.objects TO authenticated;
 
-GRANT SELECT,DELETE ON TABLE vault.secrets TO postgres WITH GRANT OPTION;
+GRANT SELECT,REFERENCES,DELETE,TRUNCATE ON TABLE vault.secrets TO postgres WITH GRANT OPTION;
+GRANT SELECT,DELETE ON TABLE vault.secrets TO service_role;
 
-GRANT SELECT,DELETE ON TABLE vault.decrypted_secrets TO postgres WITH GRANT OPTION;
+GRANT SELECT,REFERENCES,DELETE,TRUNCATE ON TABLE vault.decrypted_secrets TO postgres WITH GRANT OPTION;
+GRANT SELECT,DELETE ON TABLE vault.decrypted_secrets TO service_role;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON SEQUENCES TO postgres;
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON SEQUENCES TO dashboard_user;
@@ -5751,7 +5676,7 @@ CREATE EVENT TRIGGER issue_pg_cron_access ON ddl_command_end
 ALTER EVENT TRIGGER issue_pg_cron_access OWNER TO supabase_admin;
 
 CREATE EVENT TRIGGER issue_pg_graphql_access ON ddl_command_end
-         WHEN TAG IN ('CREATE FUNCTION')
+         WHEN TAG IN ('CREATE EXTENSION')
    EXECUTE FUNCTION extensions.grant_pg_graphql_access();
 
 ALTER EVENT TRIGGER issue_pg_graphql_access OWNER TO supabase_admin;
@@ -5760,7 +5685,7 @@ CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end
          WHEN TAG IN ('CREATE EXTENSION')
    EXECUTE FUNCTION extensions.grant_pg_net_access();
 
-ALTER EVENT TRIGGER issue_pg_net_access OWNER TO postgres;
+ALTER EVENT TRIGGER issue_pg_net_access OWNER TO supabase_admin;
 
 CREATE EVENT TRIGGER pgrst_ddl_watch ON ddl_command_end
    EXECUTE FUNCTION extensions.pgrst_ddl_watch();
