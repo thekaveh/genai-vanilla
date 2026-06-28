@@ -10,10 +10,10 @@ containers:
 
 images:
   - var: OPENCLAW_IMAGE
-    default: "ghcr.io/openclaw/openclaw:latest"
+    default: "ghcr.io/openclaw/openclaw:2026.6.10"
     container: openclaw-gateway
   - var: OPENCLAW_INIT_IMAGE
-    default: "alpine:latest"
+    default: "alpine:3.24.1"
     container: openclaw-init
 
 sources:

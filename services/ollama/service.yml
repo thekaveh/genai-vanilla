@@ -10,10 +10,10 @@ containers:
 
 images:
   - var: LLM_PROVIDER_IMAGE
-    default: "ollama/ollama:latest"
+    default: "ollama/ollama:0.30.11"
     container: ollama
   - var: OLLAMA_PULL_IMAGE
-    default: "alpine:latest"
+    default: "alpine:3.24.1"
     container: ollama-pull
 
 sources:

@@ -1,7 +1,7 @@
 # services/openclaw/compose.yml — OpenClaw agent gateway + init
 services:
   openclaw-init:
-    image: ${OPENCLAW_INIT_IMAGE:-alpine:latest}
+    image: ${OPENCLAW_INIT_IMAGE:-alpine:3.24.1}
     container_name: ${PROJECT_NAME}-openclaw-init
     restart: "no"
     deploy:

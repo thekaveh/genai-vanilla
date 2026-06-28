@@ -6,7 +6,7 @@ n8n is also the only "agents"-tier service besides Hermes; the two are complemen
 
 ## 1. Overview
 
-Image: `n8nio/n8n:latest`. The web/API container handles HTTP + UI; the worker container handles execution. Both share state through Supabase Postgres (workflow definitions, executions history, credentials) and Redis (queue + execution coordination). The `n8n-init` container runs to completion on first start, then exits — `condition: service_completed_successfully` makes the web container wait for it.
+Image: `n8nio/n8n:2.28.2`. The web/API container handles HTTP + UI; the worker container handles execution. Both share state through Supabase Postgres (workflow definitions, executions history, credentials) and Redis (queue + execution coordination). The `n8n-init` container runs to completion on first start, then exits — `condition: service_completed_successfully` makes the web container wait for it.
 
 ## 2. Access
 

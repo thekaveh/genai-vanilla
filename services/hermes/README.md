@@ -80,7 +80,7 @@ degradation; no failure.
 
 ```bash
 HERMES_SOURCE=container             # container | localhost | disabled
-HERMES_IMAGE=nousresearch/hermes-agent:latest
+HERMES_IMAGE=nousresearch/hermes-agent:v2026.6.19
 HERMES_API_PORT=63061
 HERMES_DASHBOARD_PORT=63062
 HERMES_DASHBOARD_ENABLED=true
@@ -133,11 +133,12 @@ for scripted changes.
   configure per-platform allowlists (`TELEGRAM_ALLOWED_USERS=...`,
   `DISCORD_ALLOWED_USERS=...`) when wiring messaging channels through
   OpenClaw.
-- **Image tag scheme — `latest` + per-commit `sha-...`, no semver** —
-  upstream publishes only the moving `latest` tag and immutable
-  `sha-<commit>` tags (no `v0.13.0`-style semver). Default ships
-  `nousresearch/hermes-agent:latest` so first-run users get the current
-  release; production deployments should pin to a specific sha:
+- **Image tag scheme — moving `latest`, immutable `sha-...`, dated CalVer** —
+  upstream publishes the moving `latest` tag, immutable `sha-<commit>` tags,
+  and dated `vYYYY.M.D` release tags (no `v0.13.0`-style semver). The default
+  pins `nousresearch/hermes-agent:v2026.6.19` — a concrete dated release
+  rather than the moving `latest`, so rebuilds are reproducible; production
+  deployments can pin even tighter to a specific sha:
 
   ```bash
   # In .env — pin a specific build digest

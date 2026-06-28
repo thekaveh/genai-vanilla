@@ -102,7 +102,7 @@ services:
     restart: unless-stopped
 
   lightrag-init:
-    image: ${LIGHTRAG_INIT_IMAGE:-alpine:latest}
+    image: ${LIGHTRAG_INIT_IMAGE:-alpine:3.24.1}
     container_name: ${PROJECT_NAME}-lightrag-init
     deploy:
       replicas: ${LIGHTRAG_INIT_SCALE:-0}

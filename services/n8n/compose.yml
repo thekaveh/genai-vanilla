@@ -178,7 +178,7 @@ services:
       - backend-network
 
   n8n-init:
-    image: ${N8N_INIT_IMAGE:-alpine:latest}
+    image: ${N8N_INIT_IMAGE:-alpine:3.24.1}
     container_name: ${PROJECT_NAME}-n8n-init
     restart: "no"
     depends_on:
