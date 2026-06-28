@@ -9,13 +9,21 @@ worker replicas, RAY_ADDRESS pushed into Backend / JupyterHub).
 from __future__ import annotations
 
 
-def _service_config_instance():
-    """Build a ServiceConfig instance with no real env file — we only
-    test the pure hook function. Lazy-import to avoid module-load deps."""
+def _service_config_instance(env_on_disk=None):
+    """Build a ServiceConfig instance with a stub env file — we only
+    test the pure hook function. Lazy-import to avoid module-load deps.
+
+    ``env_on_disk`` simulates `.env` contents read via
+    ``config_parser.parse_env_file()`` (where RAY_WORKER_COUNT actually
+    lives). Defaults to empty so the existing tests exercise the
+    shared_env fallback path."""
+    from unittest.mock import MagicMock
     from services.service_config import ServiceConfig
     sc = ServiceConfig.__new__(ServiceConfig)
     # Minimal fields the hook reads; everything else stays uninitialized.
     sc.service_sources = {}
+    sc.config_parser = MagicMock()
+    sc.config_parser.parse_env_file.return_value = dict(env_on_disk or {})
     return sc
 
 
@@ -95,3 +103,33 @@ def test_invalid_worker_count_falls_back_to_default():
                     "RAY_GPU_IMAGE": "rayproject/ray:2.55.1-gpu"},
     )
     assert out["RAY_WORKER_SCALE"] == "2"
+
+
+def test_worker_count_read_from_disk_not_shared_env():
+    """Regression: RAY_WORKER_COUNT lives in `.env`, not in the freshly-built
+    shared_env the pipeline passes. The hook must read it from disk (like
+    SPARK_WORKER_COUNT) so the user's --ray-worker-count actually takes effect.
+    Previously the hook read shared_env only, so the override was silently
+    ignored and replicas were always 2."""
+    # Disk says 4; shared_env carries no RAY_WORKER_COUNT (the real pipeline
+    # never seeds it) — only the image pins.
+    sc = _service_config_instance(env_on_disk={"RAY_WORKER_COUNT": "4"})
+    out = sc._generate_ray_config(
+        source_value="ray-container-cpu",
+        shared_env={"RAY_IMAGE": "rayproject/ray:2.55.1",
+                    "RAY_GPU_IMAGE": "rayproject/ray:2.55.1-gpu"},
+    )
+    assert out["RAY_WORKER_SCALE"] == "4"
+
+
+def test_worker_count_disk_overrides_shared_env():
+    """When both disagree, the on-disk value wins (it's where the wizard/CLI
+    persists the override)."""
+    sc = _service_config_instance(env_on_disk={"RAY_WORKER_COUNT": "6"})
+    out = sc._generate_ray_config(
+        source_value="ray-container-cpu",
+        shared_env={"RAY_WORKER_COUNT": "2",
+                    "RAY_IMAGE": "rayproject/ray:2.55.1",
+                    "RAY_GPU_IMAGE": "rayproject/ray:2.55.1-gpu"},
+    )
+    assert out["RAY_WORKER_SCALE"] == "6"

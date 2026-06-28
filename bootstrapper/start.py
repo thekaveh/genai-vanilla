@@ -788,9 +788,12 @@ class AtlasStarter:
         # Every container-PORT slot the bootstrapper allocates. A stale
         # shell-exported value would shadow the freshly-computed value
         # on cold-start with a custom --base-port, so unset before we
-        # re-allocate. Localhost/exporter-only ports (*_LOCALHOST_PORT,
-        # CADVISOR_PORT, *_EXPORTER_PORT) don't enter the slot allocator
-        # and stay out of this list.
+        # re-allocate. Only *_LOCALHOST_PORT vars (host-side override
+        # ports) stay out of the slot allocator and out of this list;
+        # every slot-allocated *_PORT must appear here — including the
+        # cAdvisor / node / postgres / redis exporter ports, which DO
+        # recompute from BASE_PORT (test_port_unset_covers_topology guards
+        # this list against topology.port_defaults).
         port_variables = [
             'SUPABASE_DB_PORT',
             'REDIS_PORT',
@@ -839,6 +842,14 @@ class AtlasStarter:
             'ZEPPELIN_PORT',
             'PROMETHEUS_PORT',
             'GRAFANA_PORT',
+            # Observability exporters: all four are slot-allocated (recompute
+            # from BASE_PORT) and host-published, so a stale shell export
+            # shadows the fresh slot on a --base-port cold start just like any
+            # other port. They were missing here for several releases.
+            'CADVISOR_PORT',
+            'NODE_EXPORTER_PORT',
+            'POSTGRES_EXPORTER_PORT',
+            'REDIS_EXPORTER_PORT',
         ]
         
         self.banner.show_status_message("  • Unsetting potentially lingering port environment variables...", "info")
@@ -1371,9 +1382,16 @@ class AtlasStarter:
             
             # Display results
             all_valid = True
+            # STT_PROVIDER_SOURCE / TTS_PROVIDER_SOURCE use the per_source
+            # SERVICE_CHECKS shape (service_name lives inside each variant, not
+            # at the top level), so index via the per_source-aware resolver —
+            # raw SERVICE_CHECKS[source_var]['service_name'] KeyErrors for them.
+            service_sources = self.localhost_validator.config_parser.parse_service_sources()
             for source_var, (is_valid, messages) in results.items():
-                config = self.localhost_validator.SERVICE_CHECKS[source_var]
-                service_name = config['service_name']
+                config = self.localhost_validator._resolve_source_config(
+                    source_var, service_sources.get(source_var, "")
+                ) or {}
+                service_name = config.get('service_name', source_var)
                 level = "info" if is_valid else "warning"
 
                 self.banner.show_status_message(f"  • {service_name}:", level)

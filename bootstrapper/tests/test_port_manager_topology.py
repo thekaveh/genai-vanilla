@@ -128,3 +128,29 @@ def test_update_env_ports_rewrites_trailing_whitespace_lines(tmp_path, monkeypat
     pm = PortManager(str(real_root))
     assert pm.update_env_ports(new_base, create_backup=False) is True
     assert f"{var}={want}" in fixture_env.read_text()
+
+
+def test_port_unset_covers_topology():
+    """Every slot-allocated *_PORT in Topology.port_defaults must appear in
+    AtlasStarter.unset_port_environment_variables()'s list. A stale
+    shell-exported value of any allocated port shadows the freshly-computed
+    slot on a `--base-port` cold start, which is exactly what that function
+    exists to prevent. The exporter ports (cAdvisor/node/postgres/redis) were
+    missing for several releases; this guards against the next omission."""
+    import re
+    from services.topology import build_topology
+    from core.config_parser import DEFAULT_BASE_PORT
+
+    src = (_real_root() / "bootstrapper" / "start.py").read_text(encoding="utf-8")
+    m = re.search(r"port_variables\s*=\s*\[(.*?)\]", src, re.S)
+    assert m, "could not locate the port_variables list in start.py"
+    listed = set(re.findall(r"'([A-Z0-9_]+)'", m.group(1)))
+
+    topology = build_topology(_real_root() / "services", base_port=DEFAULT_BASE_PORT)
+    allocated = set(topology.port_defaults)
+
+    missing = sorted(allocated - listed)
+    assert not missing, (
+        f"slot-allocated ports missing from unset_port_environment_variables: "
+        f"{missing}"
+    )
