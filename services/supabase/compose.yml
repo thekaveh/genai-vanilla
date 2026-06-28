@@ -191,6 +191,12 @@ services:
       SECURE_CHANNELS: "true"
       IP_VERSION: ipv4
       SECRET_KEY_BASE: ${SUPABASE_JWT_SECRET}
+      # Required since realtime ~v2.3x: runtime.exs does an unconditional
+      # System.fetch_env!("METRICS_JWT_SECRET") at boot (it signs the JWT that
+      # guards the Prometheus /metrics endpoint). Without it v2.112.0 crash-loops
+      # with `(System.EnvError) ... "METRICS_JWT_SECRET" ... is not set`.
+      # Reuse SUPABASE_JWT_SECRET — same posture as JWT_SECRET / SECRET_KEY_BASE.
+      METRICS_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       RLIMIT_NOFILE: 65536
       ERL_AFLAGS: "-proto_dist inet_tcp"
       HOSTNAME: supabase-realtime
@@ -275,6 +281,13 @@ services:
     environment:
       DATA_SOURCE_NAME: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}?sslmode=disable"
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+      # Disable the built-in pg_settings collector. On supabase/postgres 17.6 a
+      # GUC row has a NULL short_desc, and the exporter's settings scrape can't
+      # map NULL→string → it logs `error scraping dsn … converting NULL to
+      # string is unsupported` every scrape interval (~5s) while still serving
+      # all other pg_* metrics. The pg_settings-as-metrics export is low value;
+      # turning it off removes the recurring error without losing useful series.
+      PG_EXPORTER_DISABLE_SETTINGS_METRICS: "true"
     ports:
       - "${HOST_BIND_IP:-}${POSTGRES_EXPORTER_PORT}:9187"
     depends_on:

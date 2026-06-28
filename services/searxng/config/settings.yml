@@ -489,11 +489,6 @@ engines:
     shortcut: arx
     timeout: 4.0
 
-  - name: ask
-    engine: ask
-    shortcut: ask
-    disabled: true
-
   # tmp suspended:  dh key too small
   # - name: base
   #   engine: base
@@ -662,12 +657,6 @@ engines:
   #   shortcut: cor
   #   # get your API key from: https://core.ac.uk/api-keys/register/
   #   api_key: 'unset'
-
-  - name: cppreference
-    engine: cppreference
-    shortcut: cpp
-    paging: false
-    disabled: true
 
   - name: crossref
     engine: crossref
@@ -1422,21 +1411,6 @@ engines:
       results: JSON
 
   # https://docs.searxng.org/dev/engines/online/mullvad_leta.html
-  - name: mullvadleta
-    engine: mullvad_leta
-    disabled: true
-    leta_engine: google
-    categories: [general, web]
-    shortcut: ml
-
-  - name: mullvadleta brave
-    engine: mullvad_leta
-    network: mullvadleta
-    disabled: true
-    leta_engine: brave
-    categories: [general, web]
-    shortcut: mlb
-
   - name: odysee
     engine: odysee
     shortcut: od
@@ -1639,10 +1613,6 @@ engines:
       # - https://pixiv.ducks.party
       # image proxy of https://pixiv.perennialte.ch
       # - https://pximg.perennialte.ch
-
-  - name: podcastindex
-    engine: podcastindex
-    shortcut: podcast
 
   # Required dependency: psychopg2
   #  - name: postgresql
@@ -1929,11 +1899,6 @@ engines:
     shortcut: pi
     categories: [it, q&a]
     base_url: 'https://discourse.pi-hole.net'
-    disabled: true
-
-  - name: searchcode code
-    engine: searchcode_code
-    shortcut: scc
     disabled: true
 
   # - name: searx
@@ -2504,13 +2469,6 @@ engines:
     categories: videos
     disabled: true
 
-  - name: livespace
-    engine: livespace
-    shortcut: ls
-    categories: videos
-    disabled: true
-    timeout: 5.0
-
   - name: wordnik
     engine: wordnik
     shortcut: wnik
@@ -2534,40 +2492,6 @@ engines:
       require_api_key: false
       results: HTML
       language: de
-
-  - name: seekr news
-    engine: seekr
-    shortcut: senews
-    categories: news
-    seekr_category: news
-    disabled: true
-
-  - name: seekr images
-    engine: seekr
-    network: seekr news
-    shortcut: seimg
-    categories: images
-    seekr_category: images
-    disabled: true
-
-  - name: seekr videos
-    engine: seekr
-    network: seekr news
-    shortcut: sevid
-    categories: videos
-    seekr_category: videos
-    disabled: true
-
-  - name: stract
-    engine: stract
-    shortcut: str
-    disabled: true
-
-  - name: svgrepo
-    engine: svgrepo
-    shortcut: svg
-    timeout: 10.0
-    disabled: true
 
   - name: tootfinder
     engine: tootfinder
