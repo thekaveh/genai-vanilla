@@ -18,8 +18,8 @@ Output shape (per service):
     LLM_PROVIDER_SOURCE=ollama-container-cpu
 
     # Image references
-    LLM_PROVIDER_IMAGE=ollama/ollama:latest
-    OLLAMA_PULL_IMAGE=alpine:latest
+    LLM_PROVIDER_IMAGE=ollama/ollama:0.30.11
+    OLLAMA_PULL_IMAGE=alpine:3.24.1
 
     # auto-managed (computed from LLM_PROVIDER_SOURCE)
     OLLAMA_SCALE=

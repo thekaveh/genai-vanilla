@@ -18,7 +18,7 @@ Drop-in replacement for the base `redis:7-alpine` image that bundles RediSearch,
 The stack uses Redis only as a key-value cache/queue today, leaving advanced workloads (embedding caches, semantic-response caches, BullMQ JSON payloads, agent tool-call dedup, request-rate time-series) to roll their own structures on top of plain strings. Redis Stack ships the four canonical modules in one image, so consumers gain `FT.SEARCH`, `JSON.*`, `BF.*`, and `TS.*` commands without operating a second datastore.
 
 ## Stack wiring sketch
-- Replace `REDIS_IMAGE` default in `services/redis/service.yml` from `redis:7.2-alpine` to `redis/redis-stack-server:7.4` behind a new `REDIS_VARIANT` toggle (`oss | stack`).
+- Replace `REDIS_IMAGE` default in `services/redis/service.yml` from `redis:7.2.14-alpine` to `redis/redis-stack-server:7.4` behind a new `REDIS_VARIANT` toggle (`oss | stack`).
 - backend → redis (Stack) via `FT.SEARCH` for lightweight semantic-cache lookups (avoid a full Weaviate hop for short-TTL queries).
 - weaviate ↔ redis (Stack) — Redis Stack's vector index is NOT a Weaviate replacement, but it's a fast L1 cache for embeddings (`SET emb:<sha> <vec>` with `FT.SEARCH` over a HNSW index).
 - n8n → redis (Stack) via the JSON.* commands for richer queue payloads than the current Bull encoding.
@@ -28,7 +28,7 @@ The stack uses Redis only as a key-value cache/queue today, leaving advanced wor
 small — Image swap + version bump; all existing consumers (kong, n8n, backend, litellm, open-webui, jupyterhub) continue to work because Redis Stack is wire-compatible with vanilla Redis. The work is one env var, one manifest note, and one CHANGELOG entry.
 
 ## Risks & open questions
-- Image is ~10× larger than `redis:7.2-alpine` (250 MB vs 30 MB); justify the gain.
+- Image is ~10× larger than `redis:7.2.14-alpine` (250 MB vs 30 MB); justify the gain.
 - License: Redis Stack uses the Redis Source Available License v2 (RSALv2) since Redis 7.4 — fine for self-hosting, blocks redistribution-as-a-service.
 - Existing `--appendonly yes` flag continues to work; module-specific persistence (FT indices) needs a brief audit.
 - AGPLv3 of some bundled modules vs RSALv2 of others — confirm before adoption.

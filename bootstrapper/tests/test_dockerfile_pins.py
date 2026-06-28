@@ -5,20 +5,22 @@ tracks the latest patch).
 
 A floating tag means rebuilds can pick up a future supply-chain-compromised
 or behaviorally-changed base image without lockstep visibility. Today the
-stack uses patch-version tags everywhere (e.g. `python:3.12.7-slim`,
-`apache/airflow:3.2.2`, `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime`).
+stack uses patch-version tags everywhere (e.g. `python:3.12.13-slim`,
+`apache/airflow:3.2.2`, `pytorch/pytorch:2.12.1-cuda12.6-cudnn9-runtime`).
 This test locks that posture in CI so a future contributor can't
 re-introduce a floating tag silently.
 
 ARG-defaulted FROMs (e.g. `FROM ${BASE_IMAGE}`) are exempt because the
 ARG is the user-facing override knob (compose injects `*_IMAGE` from
 .env at build time) — pin policy for those lives with the var defaults,
-not the Dockerfile. NOTE the honest caveat: several `*_IMAGE` defaults
-in `.env.example` currently float (`BACKEND_IMAGE=python:3.12`,
-`LOCAL_DEEP_RESEARCHER_IMAGE=python:3.11-slim`,
-`JUPYTERHUB_IMAGE=jupyter/datascience-notebook:python-3.11`). That is a
-known, deliberate posture (kept loose for arch portability), not
-something this guard verifies — tightening them is a product decision.
+not the Dockerfile. As of the 2026-06-28 image-pin sweep those `*_IMAGE`
+defaults are themselves patch-pinned (`BACKEND_IMAGE=python:3.12.13`,
+`LOCAL_DEEP_RESEARCHER_IMAGE=python:3.11.15-slim`,
+`JUPYTERHUB_IMAGE=quay.io/jupyter/datascience-notebook:python-3.11.10`),
+so the earlier "kept loose for arch portability" caveat no longer
+applies — though this guard still only verifies Dockerfile FROM lines,
+not the `*_IMAGE` var defaults (those are covered by the manifest +
+.env.example regen).
 """
 from __future__ import annotations
 
