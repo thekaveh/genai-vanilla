@@ -85,9 +85,11 @@ When any optional service is `disabled`, the corresponding backend feature degra
 
 **Init container:** none. The backend has no `backend-init`; one-time setup (DB migrations) is delegated to `supabase-db-init` which runs SQL scripts from `services/supabase/db/scripts/`.
 
+**Downstream plugin seam (`BACKEND_PLUGINS_DIR`):** after mounting its built-in routers, the app calls `load_plugins(app)` (`plugin_seam.py`). It scans `$BACKEND_PLUGINS_DIR` (default `/app/plugins`); each immediate subdirectory that is an importable package exposing a module-level `router` (a FastAPI `APIRouter`) is `include_router`'d into the app, and a `requirements.txt` in that directory is `pip install`'d first. It is a **no-op when the directory is absent**, so base Atlas is unaffected — the seam exists purely so a downstream consumer (e.g. one vendoring Atlas as a submodule) can add its own API routes without forking the backend. A plugin that fails to import is logged and skipped, never crashing the backend. Consumer-side walkthrough: [reusing-atlas.md §6.2](../../docs/deployment/reusing-atlas.md#62-adding-backend-api-routes-via-the-plugin-seam).
+
 ## 5. LightRAG integration
 
-When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and `LIGHTRAG_API_KEY` env vars. No `/rag` route is currently implemented; future PRs can add one without manifest changes.
+When `LIGHTRAG_SOURCE != disabled`, the backend receives `LIGHTRAG_ENDPOINT` and `LIGHTRAG_API_KEY` env vars. No `/rag` route is currently implemented; a downstream consumer can add one without manifest changes via the plugin seam described in §4 (mount a `rag` route package under `BACKEND_PLUGINS_DIR`).
 
 ## 6. Dependencies & Integrations
 
