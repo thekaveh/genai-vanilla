@@ -102,3 +102,29 @@ def test_hosts_removal_spares_commented_and_hyphenated_lines(tmp_path):
     assert "# 127.0.0.1 chat.localhost" in text          # comment spared
     assert "127.0.0.1 my-n8n.localhost" in text          # lookalike spared
     assert "unrelated.example" in text
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "source_var,source_value",
+    [
+        ("STT_PROVIDER_SOURCE", "parakeet-localhost"),
+        ("STT_PROVIDER_SOURCE", "whisper-cpp-localhost"),
+        ("TTS_PROVIDER_SOURCE", "chatterbox-localhost"),
+    ],
+)
+def test_per_source_service_name_only_via_resolver(tmp_path, source_var, source_value):
+    """Regression: the start.py localhost-validation display loop indexed
+    SERVICE_CHECKS[source_var]['service_name'] directly. For STT/TTS that
+    KeyErrors — their service_name lives inside per_source[<value>], not at the
+    top level — and the surrounding `except Exception` swallowed it, discarding
+    every service's reachability output. The loop must resolve via
+    _resolve_source_config(source_var, source_value)."""
+    v = _validator(tmp_path, "")
+    # The old, buggy direct access has no top-level service_name for these.
+    assert "service_name" not in v.SERVICE_CHECKS[source_var]
+    # The resolver (what the fixed loop uses) returns the per-source config.
+    cfg = v._resolve_source_config(source_var, source_value) or {}
+    assert cfg.get("service_name"), (source_var, source_value)

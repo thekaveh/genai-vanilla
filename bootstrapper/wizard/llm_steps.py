@@ -864,17 +864,9 @@ def build_default_model_steps(
             opts.append(PromptOption(value=litellm_id, label=name, hint=hint))
         return opts
 
-    def _default_for_content(selections: dict) -> str | None:
-        opts = _build_options_for_category(selections, "content")
-        return opts[0].value if opts else None
-
     def _default_for_embeddings(env_vars: Dict[str, str]) -> str:
         saved = (env_vars.get("LITELLM_EMBEDDING_MODEL", "") or "").strip()
         return saved if saved else "ollama/nomic-embed-text"
-
-    def _default_for_vision(selections: dict) -> str:
-        opts = _build_options_for_category(selections, "vision")
-        return opts[0].value if opts else ""
 
     def _has_vision_models(selections: dict) -> bool:
         return bool(_build_options_for_category(selections, "vision"))
@@ -882,6 +874,13 @@ def build_default_model_steps(
     # ── Step 1: default chat / content model ─────────────────────────
     def _content_options(selections: dict) -> List[PromptOption]:
         return _build_options_for_category(selections, "content")
+
+    def _skip_no_llm_or_no_content(selections: dict) -> bool:
+        # An options step with zero options traps the user: selected_option is
+        # None, so Enter is a silent no-op (only Esc/Ctrl+Q escape). A provider
+        # can be active yet contribute no content model (e.g. only an embedding
+        # model selected), so skip rather than render an empty, stuck step.
+        return _no_llm_active(selections) or not _content_options(selections)
 
     _embedding_default = _default_for_embeddings(env_vars)
 
@@ -898,6 +897,13 @@ def build_default_model_steps(
             key=lambda o: 0 if dim_for_model_id(o.value) == MEMORY_FACTS_EMBEDDING_DIM else 1,
         )
 
+    def _skip_no_llm_or_no_embed(selections: dict) -> bool:
+        # Same empty-options trap as content: a provider can be active with no
+        # embedding model selected (e.g. a cloud-only chat setup). Skip the step
+        # instead of stranding the user on a stuck, optionless prompt;
+        # LITELLM_EMBEDDING_MODEL keeps its existing value.
+        return _no_llm_active(selections) or not _embed_options(selections)
+
     # ── Step 3: default vision model ─────────────────────────────────
     def _vision_options(selections: dict) -> List[PromptOption]:
         none_opt = PromptOption(value="", label="— none / skip —")
@@ -907,16 +913,20 @@ def build_default_model_steps(
     def _skip_no_llm_or_no_vision(selections: dict) -> bool:
         return _no_llm_active(selections) or not _has_vision_models(selections)
 
-    # Compute default_value lazily via a sentinel trick: PromptStep.default_value
-    # is used for options steps. Since options_provider is lazy, we use a
-    # wrapper to compute the default from the final options list.
-    # For the WizardScreen, when default_value is None but options_provider
-    # is set, the screen re-computes it after calling options_provider.
-    # We pass a callable as default_value by using the first-option convention
-    # in the step — but PromptStep.default_value is a str|None. Instead we
-    # supply the current env value for embeddings (deterministic) and let
-    # the content/vision defaults also pre-fill via their first-qualifying option
-    # (same as how cloud steps pick default_values from existing or catalog).
+    # Pre-select the saved vision model on a re-run so confirming the step
+    # doesn't silently wipe LITELLM_VISION_MODEL. Empty (fresh setup) leaves
+    # the "— none / skip —" sentinel pre-selected. (Mirrors how the embedding
+    # step pre-fills from its saved value.)
+    _vision_default = (env_vars.get("LITELLM_VISION_MODEL", "") or "").strip()
+
+    # default_value semantics for these options steps:
+    #   - content: default_value=None → the WizardScreen pre-selects the FIRST
+    #     option (highest-priority content model) after options_provider runs.
+    #   - embedding: default_value=_embedding_default → the current saved value
+    #     (or the 768-dim safe default), deterministic at build time.
+    #   - vision: default_value=_vision_default → the saved LITELLM_VISION_MODEL
+    #     so a re-run doesn't wipe it; empty on a fresh setup (pre-selects the
+    #     "— none / skip —" sentinel). NOT the first option.
 
     return [
         PromptStep(
@@ -932,7 +942,7 @@ def build_default_model_steps(
             default_value=None,
             service_name="",
             kind="options",
-            skip_if_prev=_no_llm_active,
+            skip_if_prev=_skip_no_llm_or_no_content,
             options_provider=_content_options,
         ),
         PromptStep(
@@ -949,7 +959,7 @@ def build_default_model_steps(
             default_value=_embedding_default,
             service_name="",
             kind="options",
-            skip_if_prev=_no_llm_active,
+            skip_if_prev=_skip_no_llm_or_no_embed,
             options_provider=_embed_options,
         ),
         PromptStep(
@@ -958,11 +968,11 @@ def build_default_model_steps(
             heading="Which model should handle image/vision inputs?",
             subtitle=(
                 "This sets LITELLM_VISION_MODEL — used by the backend when an image is "
-                "attached to a request. Select '— none / skip —' to leave unset. "
-                "Pre-selected to the highest-priority vision-capable model from your selections."
+                "attached to a request. Pre-selected to your saved vision model, or "
+                "'— none / skip —' on a fresh setup. Choose '— none / skip —' to leave unset."
             ),
             options=[],
-            default_value="",
+            default_value=_vision_default,
             service_name="",
             kind="options",
             skip_if_prev=_skip_no_llm_or_no_vision,

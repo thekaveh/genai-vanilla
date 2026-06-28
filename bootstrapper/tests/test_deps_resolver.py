@@ -116,3 +116,26 @@ def test_cloud_providers_renders_as_edge_target():
     # And it should be category-tagged (llm)
     cp_edge = next(e for e in g.upstream if e.other == "cloud-providers")
     assert cp_edge.other_category == "llm"
+
+
+def test_aggregate_member_downstream_includes_role_consumers():
+    """Regression: an aggregate MEMBER (parakeet/chatterbox/speaches/docling)
+    is consumed via its role doc-folder name — kong/n8n/open-webui/hermes call
+    `stt-provider`/`tts-provider`, not `parakeet`. build_doc_graph must fold the
+    focus's containing doc folder into the downstream-match keys, otherwise the
+    member rendered a misleading "No downstream consumers". (deps_resolver.py
+    line ~168.)"""
+    from docs.deps_resolver import build_doc_graph
+
+    for member, expected in [
+        ("parakeet", {"kong", "n8n", "open-webui", "hermes"}),
+        ("chatterbox", {"kong", "n8n", "open-webui", "hermes"}),
+        ("docling", {"kong", "n8n", "lightrag"}),
+    ]:
+        g = build_doc_graph(member, SERVICES_DIR)
+        downstream = {e.other for e in g.downstream}
+        assert expected <= downstream, (
+            f"{member} downstream {downstream} missing {expected - downstream}"
+        )
+        # The focus must never appear as its own consumer (self-loop guard).
+        assert member not in downstream

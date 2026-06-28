@@ -90,3 +90,31 @@ def test_chain_is_idempotent_on_second_run(tmp_path):
 
     assert first == second
     assert not (needs_v1(env) or needs_v2(env) or needs_v3(env))
+
+
+def test_chain_preserves_pristine_v1_backup(tmp_path):
+    """Regression: in a full v1→v2→v3 chain the per-step backups must not
+    collide. v1 and v3 both named the backup ``.env.backup.<ts>`` at second
+    precision, so v3 — writing post-v1+v2 content — silently overwrote v1's
+    pristine snapshot, the one that matters for rollback. Version-stamped names
+    keep them distinct."""
+    env = _legacy_v0_env(tmp_path)
+    original = env.read_text(encoding="utf-8")
+    (tmp_path / ".env.example").write_text("BASE_PORT=63000\n", encoding="utf-8")
+    (tmp_path / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+
+    from start import AtlasStarter
+
+    starter = AtlasStarter()
+    starter.config_parser.env_file_path = env
+    starter.config_parser.env_example_path = tmp_path / ".env.example"
+    starter.run_port_migration(no_port_migrate=False)
+
+    v1_backups = list(tmp_path.glob(".env.backup.v1.*"))
+    v3_backups = list(tmp_path.glob(".env.backup.v3.*"))
+    assert len(v1_backups) == 1, "v1 must leave exactly one (un-clobbered) backup"
+    assert len(v3_backups) == 1
+    # The v1 backup holds the PRISTINE original, not post-migration content.
+    assert v1_backups[0].read_text(encoding="utf-8") == original
+    # Distinct files — no name collision.
+    assert v1_backups[0] != v3_backups[0]

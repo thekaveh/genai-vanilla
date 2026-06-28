@@ -238,6 +238,7 @@ def test_start_py_source_args_dict_includes_every_cli_source_flag() -> None:
 
     # Collect every --*-source flag declared via @click.option(...).
     cli_flags = set(re.findall(r"@click\.option\(\s*['\"](--[a-z0-9-]+-source)['\"]", start_py))
+    assert cli_flags, "regex matched no --*-source @click.option declarations — stale pattern?"
     # Skip the ROOT flag (--spark-source's parent doesn't exist; spark-workers
     # is a non-source plumbing flag handled separately).
     expected_keys = {flag[2:].replace("-", "_") for flag in cli_flags}

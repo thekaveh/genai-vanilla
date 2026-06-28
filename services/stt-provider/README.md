@@ -80,12 +80,22 @@ for the whisper.cpp walkthrough and Linux build instructions, or
 | `STT_PROVIDER_PORT` | `63042` | Wizard display port; bootstrapper rewrites to match the active container. |
 | `STT_ENDPOINT` | (auto) | Internal URL containers reach STT on. |
 | `STT_PROVIDER_SCALE` | (auto) | 1 when any container variant is active. |
-| `SPEACHES_STT_MODEL` | `Systran/faster-distil-whisper-large-v3` | HuggingFace repo of the active model. Faster-Whisper accepts any whisper-format checkpoint. |
+| `SPEACHES_STT_MODEL` | `Systran/faster-distil-whisper-large-v3` | HuggingFace repo of the model to preload. ⚠ Not wired into Open WebUI (it hardcodes `AUDIO_STT_MODEL: whisper-1`), and Speaches aliases `whisper-1` → `Systran/faster-whisper-large-v3` (the non-distil build) — so preload **that** id, not the distil one, to satisfy a `whisper-1` request. |
 | `PARAKEET_MODEL` | `nvidia/parakeet-tdt-0.6b-v3` | Or `…-v2` for English-only (slightly faster). |
 | `PARAKEET_GPU_IMAGE` | `nvcr.io/nvidia/pytorch:25.01-py3` | Base for the Parakeet GPU Dockerfile. |
 | `PARAKEET_LOCALHOST_PORT` | `63042` | Host port where a host-side Parakeet server listens (defaults to the freed `STT_PROVIDER_PORT` slot). URL is derived as `http://host.docker.internal:63042`. |
 | `WHISPER_CPP_LOCALHOST_PORT` | `63042` | Host port where a host-side whisper.cpp server listens (same freed slot as parakeet — the two modes are mutually exclusive). URL is derived as `http://host.docker.internal:63042`. |
 | `HUGGING_FACE_HUB_TOKEN` | (empty) | For gated models. |
+
+> ⚠ **Speaches ships with no preloaded models and does not auto-download them.**
+> Verified against `speaches @ v0.9.0-rc.3`: `/v1/audio/transcriptions` does a
+> cache-only model lookup and returns HTTP 404 ("Model is not installed locally")
+> when the model is absent. The compose default is `PRELOAD_MODELS: '[]'`, so
+> Speaches STT is inactive out of the box until you preload — set
+> `PRELOAD_MODELS` in `services/speaches/compose.yml` to a JSON array including
+> `Systran/faster-whisper-large-v3` (the `whisper-1` alias target), or `POST` it
+> to `/v1/models`. Parakeet and whisper.cpp are unaffected (single-checkpoint
+> engines that load their model directly).
 
 ## 5. OpenAI-compatible API
 
@@ -101,9 +111,12 @@ language=en               (optional)
 response_format=json      (optional: json, text, srt, verbose_json, vtt)
 ```
 
-The `model` field is largely ignored — every engine returns whatever
-checkpoint is loaded. Pass `whisper-1` for maximum compatibility with the
-OpenAI client library.
+For Parakeet and whisper.cpp the `model` field is largely ignored — each
+returns whatever checkpoint is loaded. **Speaches is the exception**: it
+resolves `model` against its executor registry and returns HTTP 404 if that
+model isn't installed locally (see the preload note above). `whisper-1` is the
+most compatible value — Speaches aliases it to `Systran/faster-whisper-large-v3`
+(which must be preloaded), and the OpenAI client library defaults to it.
 
 ## 6. Open WebUI integration
 
@@ -179,10 +192,12 @@ _No upstream calls._
 
 ## 10. Troubleshooting
 
-**`speaches` container fails its healthcheck** — `docker logs
-<project>-speaches`. First request triggers a model download (~466 MB for
-distil-large-v3); the healthcheck `start_period` is 120 s but slow networks
-may need more time.
+**`speaches` STT requests return 404 "Model is not installed locally"** — Speaches
+ships with no preloaded models and does not auto-download them (see the ⚠ preload
+note in §4). Download the `whisper-1` alias target once:
+`curl -X POST http://localhost:${STT_PROVIDER_PORT}/v1/models/Systran/faster-whisper-large-v3`,
+or set `PRELOAD_MODELS` in `services/speaches/compose.yml`. The healthcheck
+returns 200 as soon as Uvicorn is up (it does not wait for a model).
 
 **Open WebUI mic button does nothing** — verify the env vars:
 

@@ -1,9 +1,11 @@
-# services/supabase/service.yml — full Supabase stack (8 containers)
+# services/supabase/service.yml — full Supabase stack (9 containers)
 #
-# One manifest, one compose fragment, eight containers. The Supabase family
-# is treated as a single unit because the containers are tightly coupled
-# (same JWT secret, same database, lifecycle-linked via depends_on chain
-# through supabase-db-init).
+# One manifest, one compose fragment, nine containers: eight core Supabase
+# services (db, db-init, meta, storage, auth, api, realtime, studio) plus the
+# postgres-exporter observability sidecar (scales 1<->0 with PROMETHEUS_SOURCE).
+# The Supabase family is treated as a single unit because the containers are
+# tightly coupled (same JWT secret, same database, lifecycle-linked via
+# depends_on chain through supabase-db-init).
 name: supabase
 label: "Supabase (db, auth, api, storage, realtime, studio, meta)"
 category: data

@@ -144,7 +144,7 @@ prompt for every configurable service.
 
 ### 2.1 What is Atlas?
 
-Atlas is a self-hosted engineering platform — designed for the breadth of modern generative AI, ML, and data work. It bundles ~30 integrated services (LLM gateway + inference, vector + graph DBs, workflow + DAG automation, distributed compute, object storage, notebooks, observability) wired together via a Kong gateway and an adaptive FastAPI backend. Each service is independently switchable between `container`, `localhost`, or `disabled` (the LLM provider adds a cloud-API path via LiteLLM); the **tracks system** picks sensible defaults for the work you're doing:
+Atlas is a self-hosted engineering platform — designed for the breadth of modern generative AI, ML, and data work. It bundles 30+ integrated services (LLM gateway + inference, vector + graph DBs, workflow + DAG automation, distributed compute, object storage, notebooks, observability) wired together via a Kong gateway and an adaptive FastAPI backend. Each service is independently switchable between `container`, `localhost`, or `disabled` (the LLM provider adds a cloud-API path via LiteLLM); the **tracks system** picks sensible defaults for the work you're doing:
 
 - `gen-ai-rag` — retrieval-augmented generation (vectors, graph, reranker, doc ingest, web search)
 - `gen-ai-eng` — agentic apps + workflows with voice, vision, and search
@@ -206,7 +206,7 @@ pip install uv
 
 #### Quick install (recommended)
 ```bash
-git clone <repository-url>
+git clone https://github.com/thekaveh/atlas.git
 cd atlas
 ./start.sh
 ```
@@ -315,9 +315,9 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **Hermes Agent** | http://localhost:63061 (API), http://localhost:63062 (dashboard) | http://hermes.localhost:63000 | Programmable AI agent runtime (Nous Research) | `HERMES_API_KEY` (Bearer) |
 | **MinIO Console** | http://localhost:63019 | http://minio.localhost:63000 | S3-compatible object storage admin UI (gated on `MINIO_SOURCE != disabled`). S3 API at `:63018` is NOT aliased — S3 clients use the direct port. | `minioadmin` / `MINIO_ROOT_PASSWORD` |
 | **Ray Dashboard** | http://localhost:63002 | http://ray.localhost:63000 | Distributed-compute substrate (cluster head + workers). Disabled by default; opt-in via `--ray-source ray-container-cpu` / `ray-container-gpu`. | None |
-| **Apache Spark** | http://localhost:${SPARK_MASTER_UI_PORT} | http://spark.localhost:63000 | Standalone Spark cluster for batch / SQL / DataFrame work. Spark Connect on `:15002`. Disabled by default; opt-in via `--spark-source container --spark-workers N`. | None |
-| **Apache Zeppelin** | http://localhost:${ZEPPELIN_PORT} | http://zeppelin.localhost:63000 | Spark-first notebook UI. Spark interpreter pre-configured (master + Spark Connect + S3A); JDBC interpreter ships with credentials in env vars but needs a one-time UI-driven `postgres` profile setup. Requires Spark (gated). Disabled by default. | None |
-| **Apache Airflow** | http://localhost:${AIRFLOW_PORT} | http://airflow.localhost:63000 | Code-defined DAG orchestrator. LocalExecutor + AI/ML SDK with LiteLLM-wired LLM operators. Disabled by default. | `admin` / auto-generated `AIRFLOW_ADMIN_PASSWORD` |
+| **Apache Spark** | http://localhost:63024 | http://spark.localhost:63000 | Standalone Spark cluster for batch / SQL / DataFrame work. Spark Connect on `:15002`. Disabled by default; opt-in via `--spark-source container --spark-workers N`. | None |
+| **Apache Zeppelin** | http://localhost:63084 | http://zeppelin.localhost:63000 | Spark-first notebook UI. Spark interpreter pre-configured (master + Spark Connect + S3A); JDBC interpreter ships with credentials in env vars but needs a one-time UI-driven `postgres` profile setup. Requires Spark (gated). Disabled by default. | None |
+| **Apache Airflow** | http://localhost:63060 | http://airflow.localhost:63000 | Code-defined DAG orchestrator. LocalExecutor + AI/ML SDK with LiteLLM-wired LLM operators. Disabled by default. | `admin` / auto-generated `AIRFLOW_ADMIN_PASSWORD` |
 | **Prometheus** | http://localhost:63005 | http://prometheus.localhost:63000 | Metrics scraper + TSDB. Disabled by default; opt-in via `--prometheus-source container`. Bundled with `node-exporter` and `cAdvisor`. 13 scrape jobs cover the application + infra tiers — see [services/prometheus/README.md](services/prometheus/README.md). | None |
 | **Grafana** | http://localhost:63008 | http://grafana.localhost:63000 | Observability dashboards + unified alerting on top of Prometheus. Disabled by default; opt-in via `--grafana-source container`. 7 starter dashboards ship pre-provisioned. | `admin` / auto-generated `GRAFANA_ADMIN_PASSWORD` (first-run) |
 | **LightRAG** | `http://lightrag.localhost:${KONG_HTTP_PORT}` (WebUI), `http://localhost:${LIGHTRAG_API_PORT}/webui` | http://lightrag.localhost:63000 | Graph-augmented RAG server. KG + vector + multimodal ingestion. Disabled by default. | None |
@@ -451,8 +451,8 @@ Atlas is designed to back other projects (e.g. a RAG-showcase app) as shared inf
 The submodule path in brief:
 
 ```bash
-# Add as submodule in your project
-git submodule add <repository-url> infra
+# Add as submodule in your project (swap in your fork URL if you vendored one)
+git submodule add https://github.com/thekaveh/atlas.git infra
 
 # Configure and start
 cd infra
@@ -492,7 +492,7 @@ atlas/
 ├── bootstrapper/              # Python startup, SOURCE parsing, port/Kong generation, wizard
 │   ├── services/              # Manifest loader, validator, env_assembler, hooks, sc_synthesizer
 │   ├── schemas/               # JSON Schemas for service.yml manifests
-│   ├── tests/                 # 900+ tests (loader, validator, byte-equiv, source-permutation, hooks)
+│   ├── tests/                 # 1,300+ tests (loader, validator, byte-equiv, source-permutation, hooks)
 │   ├── tools/                 # validate_fragments CLI lint
 │   └── start.py / stop.py     # Entry points
 ├── services/                  # One folder per service family — single source of truth

@@ -53,7 +53,7 @@ COMFYUI_SCALE / COMFYUI_INIT_SCALE
 
 **Init flow** (`comfyui-init`): plain alpine + `apk add wget ca-certificates`. At bootstrapper start, `comfyui_resolver` (host-side, DB-free) computes the active model set from `COMFYUI_USER_MODELS` + `services/comfyui/custom-models.yaml` and writes `volumes/comfyui/selected-models.yaml` (full manifest) and `volumes/comfyui/active-models.tsv` (shell-consumable TSV). `comfyui-init` bind-mounts `volumes/comfyui/` and downloads each model listed in the TSV into the `comfyui-models` volume via wget (with optional SHA256 verification), in parallel to `ollama-pull`'s shape. Failure mode is non-fatal — ComfyUI starts even if downloads are incomplete, you just get model-not-found errors at workflow time. The former `comfyui-catalog-init` container and `public.comfyui_models` DB table have been removed.
 
-**Hard dependencies** (`depends_on.required`): `supabase`, `litellm`, `ollama`. The Supabase dep covers the Storage upload path; LiteLLM and Ollama are inherited from `runtime_adaptive` (ComfyUI custom nodes that call LLMs route through LiteLLM).
+**Hard dependencies** (`depends_on.required`): `supabase`, `litellm`, `ollama`. The Supabase dep covers the Storage upload path; LiteLLM and Ollama are listed for **canonical wizard/row ordering** (the topology backbone — see ollama/parakeet for the same convention), NOT because ComfyUI calls them at startup. ComfyUI's only `runtime_adaptive` entry is `adapts_to: comfyui`.
 
 **Volumes:** `comfyui-models` (checkpoints, VAEs, LoRAs), `comfyui-custom-nodes` (community nodes, currently unseeded), `comfyui-input` (input images at `/opt/ComfyUI/input`), `comfyui-output` (generated images, also uploaded to Supabase).
 

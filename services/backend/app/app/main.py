@@ -46,27 +46,6 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 
 
 @asynccontextmanager
-async def _db_conn():
-    """Yield an asyncpg connection to DATABASE_URL.
-
-    Raises HTTPException(500) when DATABASE_URL is unset, matching
-    the duplicated pattern previously inlined into each endpoint.
-    """
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        raise HTTPException(status_code=500, detail="DATABASE_URL not configured")
-    # timeout = connect-phase budget (default 60s would hold a uvicorn
-    # worker through a stale Postgres bouncer); command_timeout = per-
-    # query budget (default None = no limit, hung query takes the worker
-    # forever). 30s comfortably covers every query in this codebase.
-    conn = await asyncpg.connect(database_url, timeout=10, command_timeout=30)
-    try:
-        yield conn
-    finally:
-        await conn.close()
-
-
-@asynccontextmanager
 async def _lifespan(app: FastAPI):
     yield
     # Graceful shutdown: close the process-lifetime n8n client so httpx

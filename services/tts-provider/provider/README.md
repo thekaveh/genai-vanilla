@@ -15,8 +15,10 @@ them interchangeably.
 | `disabled` | none | — | — |
 
 The default for fresh installs is **`speaches-container-cpu`** — works on
-every platform with no localhost setup, downloads a small Kokoro model
-(~90 MB) on first request.
+every platform with no localhost setup. ⚠ Speaches ships with no preloaded
+models and does NOT auto-download them (verified against speaches v0.9.0-rc.3:
+`/v1/audio/*` does a cache-only lookup and 404s on a missing model), so you must
+preload Kokoro before the first synthesis (see the quick start below).
 
 For voice cloning (5-second zero-shot), pick a Chatterbox variant. For pure
 container-only setups on NVIDIA, `chatterbox-container-gpu`. For Apple
@@ -30,10 +32,12 @@ Speaches (default — already enabled in `.env.example`):
 
 ```bash
 ./start.sh
-# wait for the speaches container to come healthy (~60s on first run)
+# Speaches is healthy as soon as Uvicorn is up, but has no model yet —
+# download the Kokoro ONNX build first (one-time; persists in speaches-cache):
+curl -X POST http://localhost:63044/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
 curl http://localhost:63044/v1/audio/speech \
   -X POST -H "Content-Type: application/json" \
-  -d '{"model":"hexgrad/Kokoro-82M","input":"hello","voice":"af_heart"}' \
+  -d '{"model":"speaches-ai/Kokoro-82M-v1.0-ONNX","input":"hello","voice":"af_heart"}' \
   --output speech.wav
 ```
 
@@ -68,7 +72,7 @@ the chosen source:
 
 - `AUDIO_TTS_ENGINE=openai`
 - `AUDIO_TTS_OPENAI_API_BASE_URL=${TTS_ENDPOINT}/v1`
-- `AUDIO_TTS_MODEL=hexgrad/Kokoro-82M` (Speaches) or `chatterbox-tts-1` (Chatterbox)
+- `AUDIO_TTS_MODEL` = `SPEACHES_TTS_MODEL` (Speaches — use an executor-valid id like `speaches-ai/Kokoro-82M-v1.0-ONNX`) or `chatterbox-tts-1` (Chatterbox)
 - `AUDIO_TTS_VOICE=af_heart` or `alloy`
 
 You can override the model / voice in the Open WebUI admin panel after

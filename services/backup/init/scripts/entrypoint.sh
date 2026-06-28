@@ -1,0 +1,25 @@
+#!/bin/sh
+# Shared entrypoint for the backup runner.
+#
+# Ensures the MinIO client (`mc`) is present, then execs the requested script.
+# Running the bootstrap here (in the entrypoint, not in `command`) means it also
+# applies when the command is overridden for a restore:
+#
+#   docker compose run --rm backup /scripts/restore-postgres.sh
+#
+# If the bootstrap lived in `command` (as it used to), overriding the command to
+# run the restore script silently dropped it, so `mc` was never installed and
+# restore failed at the first `mc alias set` with `mc: not found`.
+#
+# Both this entrypoint and the target script are invoked via `sh` so they work
+# regardless of whether the bind-mounted files carry the executable bit (the
+# scripts are mounted read-only and git stores them mode 0644).
+#
+# Alpine's `minio-client` package installs the binary as `mcli`, not `mc`; we
+# symlink it so backup-all.sh / restore-postgres.sh can call `mc` unchanged.
+set -e
+if ! command -v mc >/dev/null 2>&1; then
+    apk add --no-cache minio-client
+    ln -sf /usr/bin/mcli /usr/local/bin/mc
+fi
+exec sh "$@"

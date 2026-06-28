@@ -57,11 +57,11 @@ litellm-init re-seed.
 
 ## 4. Usage
 
-### 4a. Web UI
+### 4.1 Web UI
 
 Browse `http://lightrag.localhost:${KONG_HTTP_PORT}` (after `--setup-hosts`) or `http://localhost:${LIGHTRAG_API_PORT}/webui`. Upload documents, view the KG, run queries.
 
-### 4b. Native API
+### 4.2 Native API
 
 ```bash
 # Insert a document
@@ -78,7 +78,7 @@ curl -sX POST http://localhost:${LIGHTRAG_API_PORT}/query \
 
 Query mode prefixes: `/hybrid`, `/local`, `/global`, `/naive`, `/mix`. Default is `/hybrid`.
 
-### 4c. Via LiteLLM (recommended for other stack services)
+### 4.3 Via LiteLLM (recommended for other stack services)
 
 LightRAG is registered with LiteLLM as the `lightrag` model when enabled. Any LiteLLM consumer (open-webui, openclaw, n8n, hermes, backend, local-deep-researcher, jupyterhub) can invoke it:
 
@@ -151,7 +151,7 @@ _No high-confidence opportunities identified._
 
 1. Waits for LiteLLM `/v1/models` (60 s timeout).
 2. Resolves `LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` / `LIGHTRAG_EMBEDDING_DIM` from LiteLLM.
-3. Polls Postgres until it accepts connections (a readiness gate — `supabase-db` is SOURCE-replaceable, so `lightrag-init` intentionally has no hard compose `depends_on` on it), then runs the idempotent pgvector migration. The Neo4j migration runs separately and is non-fatal (LightRAG creates the constraints on first write otherwise).
+3. Polls Postgres until it accepts connections (a readiness gate — `supabase-db` is SOURCE-replaceable, so `lightrag-init` intentionally has no hard compose `depends_on` on it), then runs the idempotent pgvector migration. The Neo4j migration runs separately and is non-fatal — it pre-creates the range index on `(:base).entity_id` that LightRAG otherwise creates on first write.
 
 ## 8. Troubleshooting
 

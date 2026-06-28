@@ -82,8 +82,12 @@ class RayClient:
         return self._ensure_client().stop_job(job_id)
 
     def cluster_status(self) -> dict:
-        # Hits the dashboard's /api/cluster_status (no auth required from inside
-        # backend-network — Kong basic-auth only protects host-facing access).
+        # Hits the Ray dashboard's /api/cluster_status directly over the internal
+        # backend-network (container-to-container); the Ray dashboard has no auth.
+        # NOTE: the backend's own Kong route (backend-api) carries only the cors
+        # plugin — it is NOT behind key-auth/basic-auth — so there is no gateway
+        # auth layer here. (Security follow-up: authenticate the backend's
+        # state-changing routes, esp. /api/ray/jobs/submit and /storage/upload.)
         import urllib.request, json
         self._ensure_client()
         with urllib.request.urlopen(f"{self._addr}/api/cluster_status", timeout=5) as resp:

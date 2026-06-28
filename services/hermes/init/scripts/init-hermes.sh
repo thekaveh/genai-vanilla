@@ -128,13 +128,17 @@ if [[ -z "${HERMES_DEFAULT_MODEL}" ]]; then
       fi
     done
     # If nothing on the priority list matched, fall back to the first
-    # model the gateway exposes that ISN'T ``hermes-agent`` itself
-    # (which would be a recursive loop — Hermes routing to Hermes).
+    # CHAT model the gateway exposes. Exclude: hermes-agent (Hermes routing
+    # to itself = recursive loop), lightrag (also self-loops), and any
+    # embedding model — /v1/models lists embeddings (e.g. ollama/nomic-embed-text)
+    # ahead of synthesized chat models, so a naive head -n1 could pick an
+    # embeddings-only route and 500 every Hermes request. Mirrors the LightRAG
+    # resolver's filter (services/lightrag/init/scripts/resolve-models.py).
     if [[ -z "${HERMES_DEFAULT_MODEL}" ]]; then
       HERMES_DEFAULT_MODEL=$(printf '%s\n' "${available_ids}" \
-        | grep -vx "hermes-agent" | head -n1)
+        | grep -vx "hermes-agent" | grep -vx "lightrag" | grep -ivE 'embed' | head -n1)
       if [[ -n "${HERMES_DEFAULT_MODEL}" ]]; then
-        log "  auto-selected ${HERMES_DEFAULT_MODEL} (first non-hermes model)"
+        log "  auto-selected ${HERMES_DEFAULT_MODEL} (first non-hermes chat model)"
       fi
     fi
   fi

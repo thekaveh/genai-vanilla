@@ -250,6 +250,25 @@ def test_apply_writes_backup_before_overwrite(tmp_path):
     assert result.backup_path.read_text() == original
     # The live file has been rewritten — backup ≠ current.
     assert env_path.read_text() != original
+    # Backup name is version-stamped so it can't collide with v2/v3 backups in a
+    # full migration chain.
+    assert ".backup.v1." in result.backup_path.name
+
+
+def test_apply_backup_inherits_restrictive_mode(tmp_path):
+    """Regression: the v1 backup must inherit the source .env's mode. By the
+    time migrations run .env holds generated secrets, so a user-chmod'd 0600
+    .env must not be backed up at the umask default (0644) — v3 clamped the
+    mode but v1 did not."""
+    import os
+    import stat
+    from services.migrations.migration_v1 import apply
+    env_path = _write_env(tmp_path, "LITELLM_PORT=63012\n")
+    os.chmod(env_path, 0o600)
+    result = apply(env_path, {"LITELLM_PORT": 63030}, base_port=63000)
+    assert result.backup_path is not None
+    mode = stat.S_IMODE(os.stat(result.backup_path).st_mode)
+    assert mode == 0o600, f"backup mode {oct(mode)} leaked (expected 0o600)"
 
 
 # ─── I15 regression — ATLAS_ENV_FILE override honored ───────────────

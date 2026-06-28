@@ -92,8 +92,10 @@ if [ -n "${LIGHTRAG_NEO4J_URI:-}" ]; then
   else
     echo "[lightrag-init] WARN: Neo4j migration returned HTTP $http_status" >&2
     echo "[lightrag-init] response: $(cat /tmp/neo4j-resp.json 2>/dev/null)" >&2
-    # Non-fatal — Neo4j may already have the constraints; LightRAG will
-    # create them on first write anyway via its NetworkXStorage fallback.
+    # Non-fatal — this only pre-creates an index. With the default
+    # Neo4JStorage, LightRAG creates the same range index itself on first write
+    # (CREATE INDEX ... IF NOT EXISTS); if Neo4j is disabled it falls back to
+    # in-memory NetworkXStorage. Either way a skipped migration costs nothing.
   fi
 fi
 

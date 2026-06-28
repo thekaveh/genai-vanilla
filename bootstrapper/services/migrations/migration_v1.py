@@ -10,7 +10,8 @@ This module:
     only rewrite ports the user has not customized.
   * Applies the rewrite: for each port_var, if .env[var] == BASE_PORT + v0_offset,
     rewrite to BASE_PORT + v1_offset. Otherwise leave alone.
-  * Backs up .env to .env.backup.<YYYYMMDDTHHMMSS> before any write.
+  * Backs up .env to .env.backup.v1.<YYYYMMDDTHHMMSS> before any write
+    (version-stamped so it can't collide with v2/v3 backups in one chain).
 
 This is the FROZEN snapshot from 2026-05-15. Do NOT edit when the layout
 changes again — author a sibling migration_v2.py with its own snapshot.
@@ -18,6 +19,7 @@ changes again — author a sibling migration_v2.py with its own snapshot.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -99,9 +101,18 @@ def apply(
     if not env_path.is_file():
         return MigrationResult({}, [], None)
 
+    # Version-stamp the backup name so it can't collide with a later migration's
+    # backup in the same chain (v1→v2→v3 all run sub-second; a shared
+    # ``.env.backup.<ts>`` name at second precision let v3 overwrite v1's
+    # pristine snapshot — the one that matters for rollback).
     backup_path = env_path.with_name(
-        f"{env_path.name}.backup.{datetime.now().strftime('%Y%m%dT%H%M%S')}"
+        f"{env_path.name}.backup.v1.{datetime.now().strftime('%Y%m%dT%H%M%S')}"
     )
+    # Clamp the backup to the source's mode BEFORE writing — by the time
+    # migrations run, .env holds generated secrets, and a user-chmod'd 0600 .env
+    # must not be backed up at the umask default (0644). (Mirrors migration_v3.)
+    backup_path.touch()
+    os.chmod(backup_path, os.stat(env_path).st_mode)
     backup_path.write_text(env_path.read_text(encoding="utf-8"), encoding="utf-8")
 
     lines = env_path.read_text(encoding="utf-8").splitlines(keepends=True)

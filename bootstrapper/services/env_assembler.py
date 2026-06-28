@@ -170,9 +170,13 @@ def _apply_model_resolver_defaults(text: str) -> str:
         # Replace the line `VAR_NAME=<anything>` with `VAR_NAME=<computed>`.
         # The line immediately follows the description comment lines and is
         # anchored at the start of a line.
+        # Function replacement so computed_value is spliced LITERALLY — a
+        # template like rf"\g<1>={computed_value}" would interpret backslashes /
+        # \g / \1 in the value (model ids are backslash-free today, but this
+        # keeps the .env-writing seam corruption-proof; same fix as docs/regen).
         text = re.sub(
             rf"^({re.escape(var_name)})=.*$",
-            rf"\g<1>={computed_value}",
+            lambda m, v=computed_value: f"{m.group(1)}={v}",
             text,
             flags=re.MULTILINE,
         )
@@ -208,9 +212,10 @@ def _apply_ollama_user_models_default(text: str) -> str:
         return text  # nothing to override with
 
     csv_value = ",".join(names)
+    # Function replacement (literal splice) — see _apply_model_resolver_defaults.
     text = re.sub(
         r"^(OLLAMA_USER_MODELS)=.*$",
-        rf"\g<1>={csv_value}",
+        lambda m: f"{m.group(1)}={csv_value}",
         text,
         flags=re.MULTILINE,
     )

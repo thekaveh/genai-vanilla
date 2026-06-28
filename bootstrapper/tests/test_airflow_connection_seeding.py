@@ -177,6 +177,7 @@ def test_init_script_env_refs_match_compose_environment():
     refs = set()
     for match in re.finditer(r'\$\{([A-Z][A-Z0-9_]*)\}', body):
         refs.add(match.group(1))
+    assert refs, "no ${VAR} references found in init-airflow.sh — regex stale or script syntax changed?"
 
     # Explicitly allowed: PGPASSWORD is set via `export PGPASSWORD=...`
     # before psql, then `unset PGPASSWORD` after — not from compose env.

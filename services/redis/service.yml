@@ -60,12 +60,12 @@ env:
     auto_managed: true
     description: "Set by _generate_prometheus_config() to 1 when PROMETHEUS_SOURCE=container, 0 otherwise."
 
-# Manifest-level depends_on is intentionally empty: redis's compose-level
-# depends_on (supabase-db-init, condition: service_completed_successfully)
-# is a STARTUP-ORDERING concern that lives in compose.yml. The validator's
-# logical-dependency closure check fires only against manifests we've
-# already carved out, so depending on `supabase` here today would error
-# until the supabase manifest exists (Phase C).
+# Manifest-level depends_on.required lists `supabase` for ORDERING / slot-pinning
+# only: the topology port allocator derives slot positions from depends_on, so
+# removing it would renumber later services' ports. Redis has NO functional
+# Postgres dependency, and compose.yml no longer gates redis startup on
+# supabase-db-init (PR #11 dropped that compose-level depends_on; only
+# redis-exporter waits on redis being healthy).
 depends_on:
   required:
     - supabase

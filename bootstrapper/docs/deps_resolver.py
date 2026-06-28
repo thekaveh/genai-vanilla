@@ -61,12 +61,6 @@ def _edge_sort_key(e: DepEdge) -> tuple[int, str]:
     return (_CATEGORY_RANK.get(e.other_category, 99), e.other)
 
 
-def _category_of(name: str, all_m: dict[str, Manifest]) -> str:
-    if name in all_m:
-        return all_m[name].category
-    return "external"
-
-
 def _calls_of(m: Manifest) -> list[str]:
     """Read m's data_flow.calls. Returns empty list if absent."""
     df = m.data_flow or {}
@@ -170,8 +164,13 @@ def _build_for_manifests(
                 )
 
     # Downstream — every other manifest whose data_flow.calls names focus,
-    # any member, or the doc folder containing the focus.
-    downstream_keys: set[str] = {focus, *member_names}
+    # any member, or the doc folder containing the focus. The last is
+    # load-bearing for aggregate MEMBERS: consumers call the role name
+    # (e.g. kong/n8n/open-webui/hermes call `stt-provider`, not `parakeet`),
+    # so without it a member like parakeet/chatterbox/speaches/docling
+    # rendered a misleading "No downstream consumers". The self-loop guard
+    # below keeps the focus's own folder from being drawn as a consumer.
+    downstream_keys: set[str] = {focus, *member_names, _manifest_to_doc_folder(focus)}
     downstream: dict[str, DepEdge] = {}
     for other_name, other_m in all_m.items():
         if other_name in member_names:

@@ -14,9 +14,9 @@ containers:
 
 images:
   - var: BACKUP_IMAGE
-    default: "postgres:15-alpine"
+    default: "postgres:17-alpine"
     container: backup
-    notes: "Provides pg_dump/pg_restore. Alpine minio-client (mcli) is installed inline via apk; entrypoint symlinks mcli -> mc so the backup scripts work unchanged."
+    notes: "Provides pg_dump/pg_restore; the major version must be >= the supabase-db server (17.x) or pg_dump aborts on a server-version mismatch. Alpine minio-client (mcli) is installed inline via apk; entrypoint symlinks mcli -> mc so the backup scripts work unchanged."
 
 sources:
   var: BACKUP_SOURCE

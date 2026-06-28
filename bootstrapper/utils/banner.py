@@ -67,28 +67,6 @@ class BannerDisplay:
         """
         return shutil.get_terminal_size().columns
 
-    def center_text(self, text: str, width: Optional[int] = None) -> str:
-        """
-        Center text based on terminal width.
-        Replicates the center_text() function from start.sh.
-
-        Args:
-            text: Text to center
-            width: Terminal width (uses current if None)
-
-        Returns:
-            str: Centered text with appropriate padding
-        """
-        if width is None:
-            width = self.get_terminal_width()
-
-        text_length = len(text)
-        if text_length >= width:
-            return text
-
-        padding = (width - text_length) // 2
-        return " " * padding + text
-
     def apply_enhanced_gradient(
         self, text: str, gradient_colors: Optional[List[str]] = None
     ) -> Text:
@@ -195,7 +173,6 @@ class BannerDisplay:
         if width < 80:
             return False
         from ui.textual.widgets.atlas_hero import load_hero, hero_rows
-        from rich.align import Align
         data = load_hero(width)
         if not data:
             return False
@@ -333,26 +310,3 @@ class BannerDisplay:
 
         status_text = Text(f"{label} {message}", style=color)
         self.console.print(status_text)
-
-    def show_service_table_header(self) -> None:
-        """Display the service status table header."""
-        self.console.print(
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        )
-        self.console.print("Atlas - Service Status")
-        self.console.print(
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        )
-
-        # Table header
-        header_format = "%-25s %-15s %-35s %-8s"
-        header_line = header_format % ("Service", "Source", "Endpoint", "Scale")
-        header_text = Text(header_line, style="bold bright_white underline")
-        self.console.print(header_text)
-        self.console.print("─" * 90)
-
-    def show_service_table_footer(self) -> None:
-        """Display the service status table footer."""
-        self.console.print(
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        )

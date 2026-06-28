@@ -14,22 +14,26 @@ services:
     deploy:
       replicas: ${SPEACHES_SCALE:-0}
     environment:
-      # Speaches lazy-loads models on the first /v1/audio/* request, so
-      # we ship with no preload by default. Two reasons:
-      #   1. PRELOAD_MODELS is typed ``list[str]`` on the upstream
-      #      Config; pydantic_settings' EnvSettingsSource decodes the
-      #      value through ``json.loads`` → it MUST be a JSON array
-      #      literal (``[]`` here for "none"). A bare CSV string blows
-      #      up at boot with ``JSONDecodeError: Expecting value``.
-      #   2. Names in PRELOAD_MODELS must match Speaches' internal
-      #      ``executor_registry`` ids, NOT raw HuggingFace ids — e.g.
-      #      ``kokoro`` not ``hexgrad/Kokoro-82M``. ``SPEACHES_TTS_MODEL``
-      #      / ``SPEACHES_STT_MODEL`` below are the model NAMES Open
-      #      WebUI sends to /v1/audio/* at request time, which is a
-      #      different namespace.
-      # To preload anyway, edit this line with a literal JSON array of
-      # registry-ids, e.g.
-      #   PRELOAD_MODELS: '["kokoro","Systran/faster-distil-whisper-large-v3"]'
+      # ⚠ Speaches does NOT auto-download models. Verified against
+      # speaches-ai/speaches @ v0.9.0-rc.3: the /v1/audio/* handlers resolve
+      # the requested model via cache-only lookups (get_model_card_data_or_raise
+      # → scan_cache_dir) and raise HTTP 404 "Model is not installed locally"
+      # when it is absent — "lazy-load" loads an already-DOWNLOADED model into
+      # memory, it never fetches one. So with PRELOAD_MODELS='[]' and an empty
+      # cache volume, every STT/TTS request 404s out of the box.
+      #
+      # To make STT/TTS work, preload the models. PRELOAD_MODELS is typed
+      # ``list[str]`` on the upstream Config and decoded via ``json.loads``, so
+      # it MUST be a JSON array literal (a bare CSV blows up at boot with
+      # ``JSONDecodeError``). Entries are HuggingFace repo ids that satisfy the
+      # executor filters — for Kokoro TTS that means the ONNX build
+      # ``speaches-ai/Kokoro-82M-v1.0-ONNX`` (the PyTorch ``hexgrad/Kokoro-82M``
+      # fails the onnx+{speaches,kokoro}-tags filter), e.g.
+      #   PRELOAD_MODELS: '["speaches-ai/Kokoro-82M-v1.0-ONNX","Systran/faster-whisper-large-v3"]'
+      # Note: preload downloads block startup and Speaches exits if a model
+      # fails — bump start_period and pin valid ids before enabling. Alternative:
+      # POST each id to /v1/models after boot. (Shipping a populated default is a
+      # pending decision — see the README; it changes boot time + image size.)
       PRELOAD_MODELS: '[]'
       HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
       NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
@@ -41,7 +45,8 @@ services:
       - backend-network
     # Healthcheck mirrors upstream's own compose.yaml — Speaches ships
     # curl and serves /health that returns 200 as soon as Uvicorn is up
-    # (lazy-load means models don't need to be ready). Verified against
+    # (it checks server liveness only, NOT model readiness — see the
+    # PRELOAD_MODELS note above). Verified against
     # speaches-ai/speaches @ 0.9.0-rc.3.
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]

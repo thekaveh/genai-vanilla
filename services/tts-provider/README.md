@@ -35,17 +35,25 @@ ratio. Pick Chatterbox when you specifically need voice cloning.
 
 ## 3. Quick start
 
-The default already runs:
+`./start.sh` launches Speaches, but it ships with **no preloaded models and does
+not auto-download them** (see the ⚠ note in §4) — so a TTS request 404s until you
+preload the Kokoro model:
 
 ```bash
 ./start.sh
-# wait ~60s for the speaches container to download Kokoro and become healthy
+# Speaches is healthy as soon as Uvicorn is up, but has no model yet.
+# Download the Kokoro ONNX build (one-time; persists in the speaches-cache volume):
+curl -X POST http://localhost:63046/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
+# Now synthesize:
 curl http://localhost:63046/v1/audio/speech \
   -X POST -H "Content-Type: application/json" \
-  -d '{"model":"hexgrad/Kokoro-82M","input":"hello world","voice":"af_heart"}' \
+  -d '{"model":"speaches-ai/Kokoro-82M-v1.0-ONNX","input":"hello world","voice":"af_heart"}' \
   --output /tmp/hello.wav
 file /tmp/hello.wav   # expect RIFF / WAVE audio
 ```
+
+To have the model ready at boot instead, set `PRELOAD_MODELS` in
+`services/speaches/compose.yml` (see §4).
 
 GPU acceleration (NVIDIA):
 
@@ -85,13 +93,23 @@ for the full Chatterbox-on-host walkthrough.
 | `TTS_PROVIDER_SCALE` | (auto) | 1 when any container variant is active, else 0. |
 | `SPEACHES_IMAGE` | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu` | Override to pin a different release. |
 | `SPEACHES_GPU_IMAGE` | `ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda` | CUDA build pin. |
-| `SPEACHES_TTS_MODEL` | `hexgrad/Kokoro-82M` | HuggingFace repo of the active TTS model. |
+| `SPEACHES_TTS_MODEL` | `hexgrad/Kokoro-82M` | Model id Open WebUI sends to Speaches' `/v1/audio/speech`. ⚠ The shipped default is the PyTorch Kokoro repo, which Speaches' Kokoro executor rejects (it requires the ONNX build `speaches-ai/Kokoro-82M-v1.0-ONNX`, or the alias `tts-1`). See the preload note below. |
 | `SPEACHES_PORT` | `63046` | Speaches container external port. |
 | `SPEACHES_SCALE` | (auto) | 1 when speaches is active. |
 | `CHATTERBOX_IMAGE` | `travisvn/chatterbox-tts-api:gpu` | GPU build tag. No version-locked GPU tag yet — pin to a digest for production. |
 | `CHATTERBOX_PORT` | `63045` | Chatterbox container external port. |
 | `CHATTERBOX_LOCALHOST_PORT` | `63044` | Port the stack reaches your host's chatterbox-tts-api on — defaults to the freed `TTS_PROVIDER_PORT` slot (the container `CHATTERBOX_PORT` is 63045). URL is derived as `http://host.docker.internal:${CHATTERBOX_LOCALHOST_PORT}` at compose-render time. |
-| `SPEACHES_PRELOAD_MODELS` | (derived from SPEACHES_TTS_MODEL+SPEACHES_STT_MODEL) | Comma-separated list of HF model IDs Speaches downloads at startup. Skips the first-request cold-start. |
+
+> ⚠ **Speaches ships with no preloaded models and does not auto-download them.**
+> Verified against `speaches @ v0.9.0-rc.3`: `/v1/audio/*` handlers do a
+> cache-only model lookup and return HTTP 404 ("Model is not installed locally")
+> when the model is absent — there is no `SPEACHES_PRELOAD_MODELS` Atlas var, and
+> the compose default is `PRELOAD_MODELS: '[]'`. So Speaches TTS/STT is inactive
+> out of the box until you preload. To preload, set `PRELOAD_MODELS` in
+> `services/speaches/compose.yml` to a **JSON array** of executor-valid HF repo
+> ids (e.g. `'["speaches-ai/Kokoro-82M-v1.0-ONNX","Systran/faster-whisper-large-v3"]'`),
+> or `POST` each id to `/v1/models` after boot. Chatterbox (the other TTS
+> variant) is unaffected — it pulls weights itself on first request.
 
 ## 5. OpenAI-compatible API
 
@@ -102,7 +120,7 @@ POST http://speaches:8000/v1/audio/speech
 Content-Type: application/json
 
 {
-  "model": "hexgrad/Kokoro-82M",
+  "model": "speaches-ai/Kokoro-82M-v1.0-ONNX",
   "input": "Hello world",
   "voice": "af_heart",
   "response_format": "wav"
@@ -150,7 +168,7 @@ on the source you picked:
 - `AUDIO_TTS_ENGINE=openai`
 - `AUDIO_TTS_OPENAI_API_BASE_URL=${TTS_ENDPOINT}/v1`
 - `AUDIO_TTS_OPENAI_API_KEY=sk-unused`
-- `AUDIO_TTS_MODEL` = `hexgrad/Kokoro-82M` (Speaches) or `chatterbox-tts-1` (Chatterbox)
+- `AUDIO_TTS_MODEL` = the value of `SPEACHES_TTS_MODEL` (Speaches — must be an executor-valid id such as `speaches-ai/Kokoro-82M-v1.0-ONNX`) or `chatterbox-tts-1` (Chatterbox)
 - `AUDIO_TTS_VOICE` = `af_heart` (Speaches) or `alloy` (Chatterbox)
 
 Open WebUI admin → Settings → Audio lets you change voice / model

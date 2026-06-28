@@ -16,6 +16,7 @@ from tracks import (
     normalize_service_key,
     format_track_list,
     UnknownTrackServiceError,
+    TracksLoadError,
 )
 
 
@@ -65,8 +66,9 @@ def test_load_tracks_all_sentinel(tmp_path: Path):
 def test_load_tracks_schema_violation_empty(tmp_path: Path):
     p = tmp_path / "t.yml"
     p.write_text(yaml.safe_dump({"tracks": []}))   # minItems: 1
-    with pytest.raises(Exception):
+    with pytest.raises(TracksLoadError) as ei:
         load_tracks(p)
+    assert "schema violation" in str(ei.value)
 
 
 def test_load_tracks_schema_violation_missing_key(tmp_path: Path):
@@ -76,8 +78,12 @@ def test_load_tracks_schema_violation_missing_key(tmp_path: Path):
             {"display_name": "X", "description": "d", "services": ["weaviate"]},
         ]
     }))
-    with pytest.raises(Exception):
+    # Must be caught by the jsonschema gate (TracksLoadError "schema violation"),
+    # NOT by the later `key = entry["key"]` KeyError — a bare pytest.raises
+    # (Exception) would pass even if the schema block were deleted.
+    with pytest.raises(TracksLoadError) as ei:
         load_tracks(p)
+    assert "schema violation" in str(ei.value)
 
 
 def test_load_tracks_schema_violation_bad_key_pattern(tmp_path: Path):
@@ -88,8 +94,9 @@ def test_load_tracks_schema_violation_bad_key_pattern(tmp_path: Path):
              "services": ["weaviate"]},
         ]
     }))
-    with pytest.raises(Exception):
+    with pytest.raises(TracksLoadError) as ei:
         load_tracks(p)
+    assert "schema violation" in str(ei.value)
 
 
 def test_load_tracks_duplicate_key_raises(tmp_path: Path):

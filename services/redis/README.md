@@ -41,7 +41,7 @@ Database-index convention (consumer-built URLs):
 
 ## 4. Architecture & wiring
 
-**Startup ordering.** Compose-level `depends_on` waits on `supabase-db-init: { condition: service_completed_successfully }`. This is purely a startup ordering hack so Redis starts after the Postgres init is done — there is no functional Postgres dependency.
+**Startup ordering.** The manifest's `depends_on.required: supabase` is **ordering / slot-pinning only** — the topology port allocator derives slot positions from `depends_on`, so removing it would renumber later services' ports. Redis has no functional Postgres dependency, and `compose.yml` no longer gates redis startup on supabase-db-init (PR #11 dropped that); the only compose-level `depends_on` is `redis-exporter` waiting on `redis` being healthy.
 
 **Consumers.** From the data-flow graph (§6.2): `litellm` (cache + budget tracking), `lightrag` (KV/doc-status), `open-webui` (WebSocket store), `airflow`, and `prometheus` (redis-exporter scrape) reach Redis at runtime. n8n, Kong, and JupyterHub consume it via compose env wiring (`QUEUE_BULL_REDIS_*` / `KONG_REDIS_HOST` / the notebook `REDIS_URL` on db `/3`) — modeled as compose-level wiring. The backend gets `REDIS_URL` injected but no backend code reads it today; Local Deep Researcher is unwired (future pair, §6.4).
 

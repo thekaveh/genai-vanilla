@@ -746,8 +746,11 @@ class ServiceConfig:
             source_value: Current RAY_SOURCE value (one of `ray-container-cpu`,
                 `ray-container-gpu`, `disabled`).
             shared_env: Env vars accumulated by earlier generators + manifest
-                defaults. We read `RAY_WORKER_COUNT`, `RAY_IMAGE`,
-                `RAY_GPU_IMAGE` from here.
+                defaults. We read `RAY_IMAGE` / `RAY_GPU_IMAGE` from here (the
+                image-pin refresher seeds them). `RAY_WORKER_COUNT` is NOT in
+                shared_env (the pipeline builds env_vars fresh and never adds
+                it), so it is read from `.env` on disk — mirroring how
+                _generate_spark_config reads SPARK_WORKER_COUNT.
 
         Returns:
             Dict of resolved env-var assignments. The caller merges this into
@@ -756,8 +759,13 @@ class ServiceConfig:
         cpu_image = shared_env.get("RAY_IMAGE", "rayproject/ray:2.55.1") or "rayproject/ray:2.55.1"
         gpu_image = shared_env.get("RAY_GPU_IMAGE", "rayproject/ray:2.55.1-gpu") or "rayproject/ray:2.55.1-gpu"
 
-        # Parse RAY_WORKER_COUNT with safe fallback to the manifest default (2).
-        raw_count = shared_env.get("RAY_WORKER_COUNT", "2")
+        # Read RAY_WORKER_COUNT from disk (where the wizard/CLI persists the
+        # user's --ray-worker-count) with a safe fallback to the manifest
+        # default (2). Reading shared_env here would silently ignore the
+        # override, since env_vars never carries RAY_WORKER_COUNT.
+        raw_count = self.config_parser.parse_env_file().get(
+            "RAY_WORKER_COUNT", shared_env.get("RAY_WORKER_COUNT", "2")
+        )
         try:
             worker_count = int(raw_count)
             if worker_count < 0:

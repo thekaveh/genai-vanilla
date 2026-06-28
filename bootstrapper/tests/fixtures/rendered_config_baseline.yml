@@ -332,14 +332,13 @@ services:
       type: bind
   backup:
     command:
-    - apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc &&
-      /scripts/backup-all.sh
+    - /scripts/backup-all.sh
     container_name: atlas-backup
     deploy:
       replicas: 0
     entrypoint:
     - sh
-    - -c
+    - /scripts/entrypoint.sh
     environment:
       BACKUP_BUCKET: atlas-backups
       BACKUP_S3_ALIAS_URL: http://minio:9000
@@ -348,7 +347,7 @@ services:
       SUPABASE_DB_NAME: postgres
       SUPABASE_DB_PASSWORD: password
       SUPABASE_DB_USER: supabase_admin
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     networks:
       backend-network: null
     restart: 'no'
@@ -2236,8 +2235,15 @@ services:
     restart: unless-stopped
   spark-init:
     command:
-    - "mc alias set minio http://minio:9000 minioadmin \nmc mb --ignore-existing minio/spark-history\n\
-      echo \"spark-init: spark-history bucket ready\"\n"
+    - 'set -e
+
+      mc alias set minio http://minio:9000 "minioadmin" ""
+
+      mc mb --ignore-existing minio/spark-history
+
+      echo "spark-init: spark-history bucket ready"
+
+      '
     container_name: atlas-spark-init
     depends_on:
       minio-init:

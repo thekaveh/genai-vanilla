@@ -831,7 +831,10 @@ def _selections_to_args(
     for provider in CLOUD_PROVIDERS:
         name, source_var, api_key_var = provider.name, provider.source_var, provider.api_key_var
         cli_arg = source_var.lower()       # CLOUD_OPENAI_SOURCE → cloud_openai_source
-        models_var = f"{name.upper()}_USER_MODELS"
+        # Use the manifest-declared var, NOT a display-name derivation — a
+        # multi-word provider name ("Open Router") would yield a broken
+        # "OPEN ROUTER_USER_MODELS" (cloud_providers.py warns against this).
+        models_var = provider.user_models_var
 
         secret_v = selections.get(cloud_secret_title(name))
         # Secret-step intent.
@@ -1169,9 +1172,15 @@ def run_launch_flow(
     # Map CLI source-arg keys (e.g. "llm_provider_source") onto the
     # corresponding display name from the wizard's services_info list,
     # so we can splice the override into the right ServiceRow.
+    # Multi-container families (ray-head, spark-master, airflow-webserver)
+    # surface their discovery-anchor key, but the CLI source flag uses the
+    # family stem (--ray-source, not --ray-head-source). Remap before lookup
+    # or these source overrides never show in the pre-launch overview.
+    from .screens.wizard_screen import _FAMILY_FLAG_STEM
     overrides_by_name: dict[str, str] = {}
     for svc in services_info:
-        cli_key = svc.key.replace("-", "_") + "_source"
+        stem = _FAMILY_FLAG_STEM.get(svc.key, svc.key)
+        cli_key = stem.replace("-", "_") + "_source"
         v = source_args.get(cli_key)
         if v:
             overrides_by_name[svc.display_name] = v
@@ -1193,6 +1202,12 @@ def run_launch_flow(
             category=r.category,
             pending=False,  # launch-flow rows are fully resolved before display
             off_track=r.off_track,
+            # Preserve hover-card metadata — CLI-flag launch mode must show the
+            # same S3 endpoints / source options / dependencies as wizard mode
+            # (mirrors recompute_ports_for_base, which carries the same comment).
+            tooltip_extra=r.tooltip_extra,
+            source_options=r.source_options,
+            depends_on=r.depends_on,
         ))
 
     # `state.services` already arrives in canonical topology order; the

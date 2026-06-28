@@ -78,12 +78,16 @@ JUPYTERHUB_TOKEN=               # Optional: authentication token
 | Notebook | Description |
 |----------|-------------|
 | `00_environment_check.ipynb` | Verify all service connections |
-| `01_ollama_basics.ipynb` | LLM integration via the LiteLLM gateway (Ollama upstream) |
+| `01_litellm_basics.ipynb` | LLM integration via the LiteLLM gateway (Ollama upstream) |
 | `02_langchain_rag.ipynb` | RAG pipeline with Weaviate |
 | `03_neo4j_graphs.ipynb` | Knowledge graph queries |
 | `04_supabase_data.ipynb` | Database and storage operations |
 | `05_comfyui_images.ipynb` | Image generation workflows |
 | `06_n8n_workflows.ipynb` | Workflow automation |
+| `07_ray_cluster.ipynb` | Distributed compute on the Ray cluster |
+| `08_scala_basics.ipynb` | Scala basics on the scala3 kernel |
+| `09_spark_connect.ipynb` | Spark Connect (gRPC) from Python |
+| `10_spark_scala.ipynb` | Spark with the Scala kernel |
 
 ## Service Integration
 

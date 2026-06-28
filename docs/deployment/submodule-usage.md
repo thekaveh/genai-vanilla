@@ -25,8 +25,8 @@ This guide explains how to use Atlas as a git submodule in your project, allowin
 In your project root, add atlas as a submodule in an `infra/` directory:
 
 ```bash
-# Add the submodule (replace with your repository URL)
-git submodule add <repository-url> infra
+# Add Atlas as the submodule (use your fork's URL if you maintain one)
+git submodule add https://github.com/thekaveh/atlas.git infra
 
 # Initialize and update the submodule
 git submodule init

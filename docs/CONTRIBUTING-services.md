@@ -168,7 +168,7 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 | `container` | Run as a Docker container alongside the stack | Always, for container-flavor services |
 | `container-cpu` / `container-gpu` | Split when the container has CPU/GPU variants | When you publish a GPU variant of the image |
 | `localhost` | Connect to a user-managed instance on the host | When users typically already have this software installed locally (e.g. Ollama, ComfyUI) |
-| `external` | Connect to a remote URL | **Currently disabled stack-wide** pending an authenticated-remote design (API keys, bearer tokens, mTLS). Do NOT add new `external` source variants until the auth design ships — see `docs/CHANGELOG.md` → [Unreleased] → Removed (breaking). |
+| `external` | Connect to a remote URL | **Currently disabled stack-wide** pending an authenticated-remote design (API keys, bearer tokens, mTLS). Do NOT add new `external` source variants until the auth design ships — see the `external`/`api` retirement entry in `docs/CHANGELOG.md`. |
 | `api` | Use a hosted cloud API (no container) | LLM gateways only |
 | `disabled` | Excluded from compose entirely | Always — every optional service must support this |
 | `<engine>-*` | Engine-specific sub-variants | For aggregator services that pick from multiple engines (STT/TTS) |
@@ -531,7 +531,7 @@ is advisory):
 
 | Job | What it catches |
 |---|---|
-| **Manifest lint + unit tests** | `validate_fragments` lint + 900+ pytest tests + the backend's own pytest suite (`services/backend/app/app/tests/`). Catches: manifest schema violations, dependency cycles, env-example drift, category overflow, backend route regressions. |
+| **Manifest lint + unit tests** | `validate_fragments` lint + 1,300+ pytest tests + the backend's own pytest suite (`services/backend/app/app/tests/`). Catches: manifest schema violations, dependency cycles, env-example drift, category overflow, backend route regressions. |
 | **Compose merge + byte-equivalence + source-permutation matrix** | Renders `docker compose config` for the merged fragment list + verifies it matches the golden baseline + tests every source variant of every service. Catches: compose-syntax errors, source-permutation regressions. |
 | **Docs drift + audit scripts** | `regen --all --check` + the 5 audit scripts (`check_doc_links` — incl. `#anchor` fragment validation, `check-compose-source-deps`, `check-docs-drift`, `check-kong-routes`, `validate_research_schema`) + a `uv lock --locked` gate for the docling localhost provider. Catches: stale per-service docs, missing `REQUIRED_DEPENDS_ON` entries, Kong route default drift, broken links/anchors, research-schema violations, stale provider locks. |
 | **Build-validation** (non-required) | `docker buildx build` for the four highest-churn build contexts (airflow, spark, jupyterhub, backend). Catches: unsatisfiable pip pins, broken Dockerfiles. |

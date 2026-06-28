@@ -40,6 +40,31 @@ def test_tooltip_pairs_omits_empty_url_and_dash_port():
     assert ServiceTable._tooltip_pairs(row) == [("Source", "container")]
 
 
+def test_launch_flow_row_rebuild_preserves_hover_metadata():
+    """Regression: run_launch_flow (CLI-flag launch mode) rebuilt each
+    ServiceRow without tooltip_extra / source_options / depends_on, dropping
+    the hover-card metadata that wizard mode shows. recompute_ports_for_base
+    already preserves all three; the launch-flow rebuild must too. Scoped
+    source check so it can't silently regress."""
+    import re
+    from pathlib import Path
+
+    src = (
+        Path(__file__).resolve().parent.parent
+        / "ui" / "textual" / "integration.py"
+    ).read_text(encoding="utf-8")
+    # Isolate the run_launch_flow function body (up to the next top-level def,
+    # or end-of-file — run_launch_flow is currently the last function).
+    m = re.search(r"\ndef run_launch_flow\(.*?(?=\ndef |\Z)", src, re.S)
+    assert m, "could not locate run_launch_flow in integration.py"
+    body = m.group(0)
+    for field in ("tooltip_extra=", "source_options=", "depends_on="):
+        assert field in body, (
+            f"run_launch_flow no longer preserves {field} on its ServiceRow "
+            f"rebuild — CLI-flag launch mode would drop hover-card metadata."
+        )
+
+
 def test_tooltip_pairs_appends_extra():
     row = _row("MinIO Console", source="container", alias="minio.localhost",
                alias_port="63000", port=":63019",

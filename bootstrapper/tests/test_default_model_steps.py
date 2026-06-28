@@ -443,3 +443,82 @@ def test_load_current_step_dispatches_options_provider_for_kind_options():
     assert len(fake._rendered_options) > 0, (
         "_render_step was called with empty options — provider was not dispatched"
     )
+
+
+# ── REGRESSION (#4): empty-options steps must be SKIPPED, not stranded ────────
+#
+# A kind="options" step with zero options traps the user: selected_option is
+# None, so Enter is a silent no-op (only Esc/Ctrl+Q escape). skip_if_prev must
+# skip content/embedding when the active provider contributes no model of that
+# category — not just when no provider is active at all.
+
+def test_skip_if_prev_content_skips_when_active_but_no_content_models():
+    from wizard.llm_steps import build_default_model_steps, LLM_DEFAULT_CONTENT_TITLE
+
+    steps = build_default_model_steps(_default_env())
+    content_step = next(s for s in steps if s.title == LLM_DEFAULT_CONTENT_TITLE)
+    # Ollama active, but ONLY an embedding model selected -> zero content options.
+    embed_only = _ollama_selections("nomic-embed-text")
+    assert content_step.options_provider(embed_only) == [], "precondition: no content options"
+    assert content_step.skip_if_prev(embed_only), (
+        "content step must be skipped when the active provider has no content models "
+        "(else it renders an empty, stuck prompt)"
+    )
+
+
+def test_skip_if_prev_embed_skips_when_active_but_no_embed_models():
+    from wizard.llm_steps import (
+        build_default_model_steps,
+        LLM_DEFAULT_EMBED_TITLE,
+        cloud_models_title,
+        cloud_secret_title,
+    )
+    from utils.llm_catalog import cloud_entries
+
+    openai_model = cloud_entries("openai")[0].name  # a chat model (see test 5)
+    env = {
+        "LLM_PROVIDER_SOURCE": "none", "OLLAMA_USER_MODELS": "",
+        "LITELLM_EMBEDDING_MODEL": "",
+        "CLOUD_OPENAI_SOURCE": "enabled", "OPENAI_API_KEY": "sk-test",
+        "OPENAI_USER_MODELS": openai_model,
+        "CLOUD_ANTHROPIC_SOURCE": "disabled", "ANTHROPIC_API_KEY": "",
+        "CLOUD_OPENROUTER_SOURCE": "disabled", "OPENROUTER_API_KEY": "",
+    }
+    steps = build_default_model_steps(env)
+    embed_step = next(s for s in steps if s.title == LLM_DEFAULT_EMBED_TITLE)
+    selections = {
+        "LLM Engine  ·  source": "none",
+        cloud_secret_title("OpenAI"): "sk-test",
+        cloud_models_title("OpenAI"): openai_model,
+    }
+    assert embed_step.options_provider(selections) == [], "precondition: no embed options"
+    assert embed_step.skip_if_prev(selections), (
+        "embedding step must be skipped for a cloud chat-only setup with no embedding model"
+    )
+
+
+# ── REGRESSION (#5): vision step pre-selects the saved model, doesn't wipe ────
+
+def test_vision_default_is_saved_value_on_rerun():
+    """The old code hardcoded default_value='' (the none/skip sentinel), so a
+    re-run with a saved LITELLM_VISION_MODEL silently wiped it on Enter."""
+    from wizard.llm_steps import build_default_model_steps, LLM_DEFAULT_VISION_TITLE
+
+    env = _default_env()
+    env["LITELLM_VISION_MODEL"] = "ollama/llava:latest"
+    steps = build_default_model_steps(env)
+    vision_step = next(s for s in steps if s.title == LLM_DEFAULT_VISION_TITLE)
+    assert vision_step.default_value == "ollama/llava:latest", (
+        f"vision default must pre-select the saved model, got {vision_step.default_value!r}"
+    )
+
+
+def test_vision_default_empty_on_fresh_setup():
+    from wizard.llm_steps import build_default_model_steps, LLM_DEFAULT_VISION_TITLE
+
+    env = _default_env()  # no LITELLM_VISION_MODEL key
+    steps = build_default_model_steps(env)
+    vision_step = next(s for s in steps if s.title == LLM_DEFAULT_VISION_TITLE)
+    assert vision_step.default_value == "", (
+        f"fresh setup must default to none/skip, got {vision_step.default_value!r}"
+    )
