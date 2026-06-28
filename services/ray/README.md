@@ -34,7 +34,7 @@ Active when `RAY_SOURCE ∈ {ray-container-cpu, ray-container-gpu}`. Authenticat
 - `ray-head` — the cluster controller. Runs `ray start --head`. Exposes ports 8265 (dashboard + REST), 6379 (GCS — Ray's internal cluster controller, *distinct from the project's Redis cache* despite both using Redis wire protocol), 10001 (client server). Healthcheck on `:8265/api/version`.
 - `ray-worker` — one or more replicas. Runs `ray start --address=ray-head:6379 --block`. No host ports.
 
-**Why two `tmp` volumes:** Ray spills object-store state to `/tmp/ray` per node. Separate volumes for head and workers prevent collision.
+**Why no `/tmp/ray` volume:** Ray spills object-store state to `/tmp/ray` per node, but the fragments deliberately mount **no** named volume there. The `rayproject/ray` image runs as the non-root `ray` user and doesn't pre-create `/tmp/ray`, so a named Docker volume would be initialized `root:root` and become unwritable by `ray` — Ray would then fail to start. Session state therefore lives in the container's writable layer (per-run, ephemeral), which is the intended behavior; `/dev/shm` is sized via `shm_size` to avoid the object-store spill in the first place.
 
 **Critical shared memory:** Both containers set `shm_size: 8gb` — Docker's default 64MB causes immediate crash because Ray's Plasma object store needs shared memory. If you see startup failures with "Connection refused" on port 8265 within 60 seconds, check shm size.
 
