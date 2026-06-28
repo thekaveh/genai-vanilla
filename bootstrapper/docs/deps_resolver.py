@@ -61,12 +61,6 @@ def _edge_sort_key(e: DepEdge) -> tuple[int, str]:
     return (_CATEGORY_RANK.get(e.other_category, 99), e.other)
 
 
-def _category_of(name: str, all_m: dict[str, Manifest]) -> str:
-    if name in all_m:
-        return all_m[name].category
-    return "external"
-
-
 def _calls_of(m: Manifest) -> list[str]:
     """Read m's data_flow.calls. Returns empty list if absent."""
     df = m.data_flow or {}
