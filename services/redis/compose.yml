@@ -40,12 +40,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9121/metrics"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    # No container healthcheck: oliver006/redis_exporter is a distroless image
+    # with NO shell and no wget/curl/nc, so a CMD healthcheck can't probe its
+    # own :9121/metrics endpoint (the previous `wget --spider` test always
+    # failed → permanent "unhealthy", a false signal). The exporter's real
+    # liveness is owned by Prometheus, which scrapes redis-exporter:9121/metrics
+    # directly; nothing depends_on this container's health.
     logging:
       driver: json-file
       options:

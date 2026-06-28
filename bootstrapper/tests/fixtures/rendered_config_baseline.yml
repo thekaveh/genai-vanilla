@@ -1888,6 +1888,7 @@ services:
     environment:
       DATA_SOURCE_NAME: postgresql://supabase_admin:password@supabase-db:5432/postgres?sslmode=disable
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: 'true'
+      PG_EXPORTER_DISABLE_SETTINGS_METRICS: 'true'
     healthcheck:
       interval: 30s
       retries: 3
@@ -2085,17 +2086,6 @@ services:
     environment:
       REDIS_ADDR: redis://redis:6379
       REDIS_PASSWORD: redis_password
-    healthcheck:
-      interval: 30s
-      retries: 3
-      start_period: 30s
-      test:
-      - CMD
-      - wget
-      - -q
-      - --spider
-      - http://localhost:9121/metrics
-      timeout: 10s
     image: oliver006/redis_exporter:v1.86.0
     logging:
       driver: json-file
@@ -2517,6 +2507,7 @@ services:
       IP_VERSION: ipv4
       JWT_ROLE: service_role
       JWT_SECRET: ''
+      METRICS_JWT_SECRET: ''
       PORT: '4000'
       REPLICATION_MODE: RLS
       RLIMIT_NOFILE: '65536'
