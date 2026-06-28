@@ -52,7 +52,7 @@ transformers>=4.39.3
 
 # Memory (LangMem-inspired persistent memory)
 pgvector>=0.3.0
-weaviate-client>=4.0.0
+weaviate-client>=4.22.0
 
 # Graph Database
 neo4j>=5.18.0
