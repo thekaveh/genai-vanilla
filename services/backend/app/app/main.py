@@ -116,6 +116,10 @@ storage_client = StorageClient(
 
 
 app.include_router(ray_router)
+# Generic downstream extension seam — no-op unless a consumer mounts
+# $BACKEND_PLUGINS_DIR with plugin packages. See plugin_seam.py.
+from plugin_seam import load_plugins  # noqa: E402
+load_plugins(app)
 
 
 class HealthResponse(BaseModel):
