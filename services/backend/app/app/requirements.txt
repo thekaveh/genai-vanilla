@@ -30,7 +30,7 @@ passlib>=1.7.4
 
 # AI/ML
 ollama>=0.6.2
-numpy>=1.26.0
+numpy>=2.5.0
 pytz>=2024.1
 apscheduler>=3.10.4
 scikit-learn>=1.9.0
