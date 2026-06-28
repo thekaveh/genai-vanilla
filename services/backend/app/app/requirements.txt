@@ -20,7 +20,7 @@ prometheus-fastapi-instrumentator>=7.0.0
 # Database
 sqlmodel>=0.0.16
 sqlalchemy>=2.0.28
-asyncpg>=0.29.0
+asyncpg>=0.31.0
 storage3>=0.7.0
 
 # Security
@@ -52,7 +52,7 @@ transformers>=4.39.3
 
 # Memory (LangMem-inspired persistent memory)
 pgvector>=0.3.0
-weaviate-client>=4.0.0
+weaviate-client>=4.22.0
 
 # Graph Database
 neo4j>=5.18.0
@@ -60,11 +60,11 @@ langchain-neo4j>=0.1.0
 
 # Redis
 redis>=5.0.1
-hiredis>=2.2.3
+hiredis>=3.4.0
 
 # Testing
-pytest>=9.1.0
-pytest-asyncio>=0.23.5
+pytest>=9.1.1
+pytest-asyncio>=1.4.0
 
 # n8n integration
 requests>=2.31.0
