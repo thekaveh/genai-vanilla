@@ -32,7 +32,7 @@ def test_stop_services_returns_true_on_success(monkeypatch):
 def test_main_exits_nonzero_when_stop_fails(monkeypatch):
     monkeypatch.setattr(
         stop_module.AtlasStopper, "show_configuration_info",
-        lambda self, cold, clean: "atlas",
+        lambda self, cold, clean, project_name_override=None: "atlas",
     )
     monkeypatch.setattr(
         stop_module.AtlasStopper, "stop_services",
@@ -45,7 +45,7 @@ def test_main_exits_nonzero_when_stop_fails(monkeypatch):
 def test_main_exits_zero_when_stop_succeeds(monkeypatch):
     monkeypatch.setattr(
         stop_module.AtlasStopper, "show_configuration_info",
-        lambda self, cold, clean: "atlas",
+        lambda self, cold, clean, project_name_override=None: "atlas",
     )
     monkeypatch.setattr(
         stop_module.AtlasStopper, "stop_services",

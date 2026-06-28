@@ -16,6 +16,7 @@ The wizard's question order isn't fixed — service-source steps are sorted by e
 
 ```
 first  Base port
+       Project name (Docker Compose namespace / container family → PROJECT_NAME)
 …      Service-source steps, sorted by resolved port
        (ComfyUI, LLM Engine, ollama-related, Weaviate, …)
 …      LLM cluster (spliced right after the LLM Engine step):
@@ -45,7 +46,7 @@ Each wizard step renders one of five prompt widgets, picked based on the questio
 | `number` | Numeric prompts (`Base port`). | Single-line input restricted to digits; range-validated. |
 | `secret` | API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`). | Masked password Input + a live char-count hint as you paste. When a key is already set, the hint shows the source-aware action: press Enter to keep the saved key, type a new key to replace, type `clear` + Enter to remove. No sentinel rows are rendered — the input field IS the prompt. |
 | `multiselect` | Cloud and Ollama model lists. | `[✓]` / `[ ]` rows in a scrollable viewport (capped height; the cursor follows the selection so a 230-row library scrape stays usable). Space toggles, Enter confirms. **Cloud** multiselect: default-active set (intersected with what your account actually returns) is pre-checked on first visit. **Ollama** multiselect: source-aware — container shows the library only, localhost shows a merged `[pulled]` + `[library]` view. Purely additive; the default-active baseline is baked into `services/ollama/models.yaml` with `default: true` and resolved by `model_resolver` on every `docker compose up`. |
-| `text` | Free-text additions (the Ollama "additional models to pull" step). | Comma-separated input; trimmed and merged into selections. |
+| `text` | Free-text entries — the **Project name** step (Docker Compose namespace, persisted to `PROJECT_NAME`; lower-cased + validated) and the Ollama "additional models to pull" step. | Single-line input; trimmed. The project-name step pre-fills with the current `PROJECT_NAME` and a bare Enter keeps it. |
 
 Throughout: `Up/Down` to move, `Enter` to confirm, `Space` to toggle multiselect rows, `Esc` returns to the previous step, `Ctrl+C` (or `Ctrl+Q`) quits.
 

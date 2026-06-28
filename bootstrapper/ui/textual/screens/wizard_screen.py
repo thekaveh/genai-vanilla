@@ -1399,6 +1399,15 @@ class WizardScreen(Screen):
         original_banner = getattr(starter, "banner", None)
         starter.banner = _NullBanner()
 
+        # Persist the wizard's chosen PROJECT_NAME (from the project-name step)
+        # BEFORE anything reads get_project_name() or runs compose, so the whole
+        # launch — and a later bare ./stop.sh — target this container family.
+        # (Banner is the NullBanner here, so the persist's status line is
+        # suppressed and doesn't corrupt the Textual chrome.)
+        _proj = (self._stack_options or {}).get("project_name")
+        if _proj:
+            starter._persist_project_name(_proj)
+
         # Tell the compose-line classifier the actual project name so
         # container names like ``<project>-supabase-db-1`` collapse to
         # ``supabase-db`` and don't appear as duplicate sources in the

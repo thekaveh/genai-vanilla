@@ -342,7 +342,26 @@ class AtlasStarter:
 
         return True
         
-    def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None) -> bool:
+    def _persist_project_name(self, project_name: Optional[str]) -> None:
+        """Persist ``PROJECT_NAME`` to .env so start AND stop (and every
+        ``docker compose -p``) target the same container family.
+
+        Sticky by design: a later bare ``./stop.sh`` reads PROJECT_NAME back
+        from .env and tears down exactly what ``./start.sh`` launched. Consumer
+        stacks reusing Atlas as a submodule just set this once (via --project or
+        by editing .env) to isolate their namespace from a base Atlas stack.
+        """
+        if not project_name:
+            return
+        if self.source_override_manager.update_env_file({"PROJECT_NAME": project_name}):
+            self.banner.show_status_message(
+                f"Project name set to '{project_name}' (persisted to .env "
+                f"PROJECT_NAME; container family: {project_name}-*)",
+                "info",
+            )
+
+    def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None,
+                       project_name: Optional[str] = None) -> bool:
         """
         Setup .env file from .env.example if needed.
         Supports custom .env file paths via ATLAS_ENV_FILE environment variable
@@ -352,6 +371,9 @@ class AtlasStarter:
         Args:
             cold_start: Whether this is a cold start
             base_port: Optional custom base port
+            project_name: Optional normalized PROJECT_NAME to persist (from
+                --project / -p). Written AFTER the .env is created/preserved so
+                a cold-start copy of .env.example doesn't reset it to the default.
 
         Returns:
             bool: True if successful
@@ -399,12 +421,14 @@ class AtlasStarter:
                     self.unset_port_environment_variables()
 
                 self.banner.show_status_message("Environment file setup completed", "success")
+                self._persist_project_name(project_name)
                 return True
 
             except Exception as e:
                 self.banner.show_status_message(f"Failed to create .env file: {e}", "error")
                 return False
 
+        self._persist_project_name(project_name)
         return True  # .env already exists and not cold start
 
     def backfill_missing_env_vars(self) -> bool:
@@ -1819,6 +1843,13 @@ class AtlasStarter:
 
 
 @click.command()
+@click.option('--project', '-p', 'project_name', type=str, default=None,
+              help='Docker Compose project name — the container-family namespace '
+                   '(every container/volume/network is prefixed <name>-…). Persists '
+                   'to .env as PROJECT_NAME, so a later ./stop.sh tears down exactly '
+                   'this stack. Defaults to PROJECT_NAME in .env (or "atlas"). Set it '
+                   'when running Atlas as a submodule so you do not collide with a '
+                   'base Atlas stack.')
 @click.option('--base-port', type=int, help=f'Base port for all services (default: {DEFAULT_BASE_PORT})')
 @click.option('--cold', is_flag=True, help='Perform cold start with cleanup')
 @click.option('--setup-hosts', is_flag=True, help='Setup hosts file entries (requires admin/sudo)')
@@ -1993,7 +2024,7 @@ class AtlasStarter:
                    'default observability ON, and hide dev-only (localhost) '
                    'sources. Does not bypass the wizard. (Resource limits are '
                    'always-on .env defaults, not profile-gated.)')
-def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provider_source,
+def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provider_source,
          cloud_openai_source, cloud_anthropic_source, cloud_openrouter_source,
          openai_api_key, anthropic_api_key, openrouter_api_key,
          openai_models, anthropic_models, openrouter_models,
@@ -2013,6 +2044,17 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
          airflow_source,
          no_tui, no_splash, no_port_migrate, profile):
     """Start Atlas — the self-hosted engineering platform."""
+
+    # ─── Project name (-p / --project) ───────────────────────────────
+    # Validate + normalize fail-fast, before any work. Persisted to .env
+    # inside setup_env_file so every compose -p and a later ./stop.sh agree.
+    if project_name is not None:
+        from core.config_parser import normalize_project_name
+        try:
+            project_name = normalize_project_name(project_name)
+        except ValueError as exc:
+            click.echo(f"start.sh: {exc}", err=True)
+            raise SystemExit(2)
 
     # ─── Track override warnings ─────────────────────────────────────
     # Fires when --track is set AND any explicit --*-source flag picks
@@ -2395,7 +2437,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
 
         if will_run_wizard:
             # Setup .env first so wizard can read current defaults.
-            if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+            if not starter.setup_env_file(cold_start=cold, base_port=base_port, project_name=project_name):
                 sys.exit(1)
             # Backfill any keys added to .env.example since the user's
             # .env was last written — run BEFORE the wizard reads it,
@@ -2501,7 +2543,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
             if _is_tui_capable(no_tui_flag=no_tui):
                 # Make sure .env exists so the launch screen can build
                 # the Stack overview.
-                if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+                if not starter.setup_env_file(cold_start=cold, base_port=base_port, project_name=project_name):
                     sys.exit(1)
                 # Backfill new .env.example keys before the launch
                 # screen renders the Stack overview from .env.
@@ -2567,7 +2609,7 @@ def main(base_port, track, list_tracks, cold, setup_hosts, skip_hosts, llm_provi
         starter.profile = profile
         starter.show_banner()
 
-        if not starter.setup_env_file(cold_start=cold, base_port=base_port):
+        if not starter.setup_env_file(cold_start=cold, base_port=base_port, project_name=project_name):
             sys.exit(1)
 
         # Pull in any keys added to .env.example since the user's .env
