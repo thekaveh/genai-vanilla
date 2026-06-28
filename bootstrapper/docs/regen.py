@@ -127,7 +127,14 @@ def _render_section_with_future(graph, existing_readme: str) -> str:
             + re.escape(PLACEHOLDER_LINE),
             re.MULTILINE,
         )
-        auto_section = placeholder_pattern.sub(r"\1" + body, auto_section, count=1)
+        # Use a function replacement so `body` (user-authored Future content)
+        # is spliced LITERALLY. A plain `r"\1" + body` template makes re.sub
+        # interpret escapes in body — a `\d` regex example or a Windows path
+        # like `C:\Users` raises re.error and aborts the whole --all/CI run,
+        # and a `\1` would splice the captured heading mid-body.
+        auto_section = placeholder_pattern.sub(
+            lambda m: m.group(1) + body, auto_section, count=1
+        )
     return auto_section
 
 

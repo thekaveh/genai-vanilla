@@ -67,3 +67,30 @@ def test_all_processes_21_doc_folders(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     written = sorted(p.name for p in tmp_path.iterdir() if p.is_dir())
     assert len(written) >= 20
+
+
+def test_future_block_with_backslash_splices_literally():
+    """Regression: user-authored Future content containing a backslash (a
+    `\\d` regex example or a Windows path like C:\\Users) must be spliced
+    verbatim. The old `re.sub(r"\\1" + body, ...)` template interpreted
+    escapes in `body` — `\\d` raised re.error and aborted the whole
+    --all/CI run, and a `\\1` would splice the captured heading mid-body."""
+    sys.path.insert(0, str(REPO_ROOT / "bootstrapper"))
+    from docs.regen import _render_section_with_future
+    from docs.deps_resolver import build_doc_graph
+
+    g = build_doc_graph("hermes", REPO_ROOT / "services")
+    body = "- Regex `\\d+` and Windows path `C:\\Users\\me` must survive verbatim."
+    existing = (
+        "## 5. Dependencies & Integrations\n\n"
+        "### 5.4 Future — Missing pair integrations\n\n"
+        f"{body}\n\n"
+        "### 5.5 Future — Candidate new services\n\n"
+        "_No high-confidence opportunities identified._\n\n"
+        "### 5.6 Future — Unused features in this service\n\n"
+        "_No high-confidence opportunities identified._\n"
+    )
+    # Must not raise re.error, and must splice the body literally.
+    out = _render_section_with_future(g, existing)
+    assert "`\\d+`" in out
+    assert r"C:\Users\me" in out

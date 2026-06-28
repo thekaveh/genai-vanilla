@@ -78,7 +78,7 @@ curl -sX POST http://localhost:${LIGHTRAG_API_PORT}/query \
 
 Query mode prefixes: `/hybrid`, `/local`, `/global`, `/naive`, `/mix`. Default is `/hybrid`.
 
-### 4c. Via LiteLLM (recommended for other stack services)
+### 4.3 Via LiteLLM (recommended for other stack services)
 
 LightRAG is registered with LiteLLM as the `lightrag` model when enabled. Any LiteLLM consumer (open-webui, openclaw, n8n, hermes, backend, local-deep-researcher, jupyterhub) can invoke it:
 
