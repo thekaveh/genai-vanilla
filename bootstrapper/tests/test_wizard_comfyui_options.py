@@ -290,6 +290,9 @@ def test_curated_entries_never_group():
         default_selected=set(),
     )
     # Curated entries are hand-picked — leave them flat for clarity.
+    # Non-empty guard: a vacuous `all(...)` over [] would pass even if curated
+    # entries silently vanished.
+    assert len([o for o in options if o.value.startswith("vae-")]) == 2
     assert all(not o.value.startswith("family:") for o in options)
 
 

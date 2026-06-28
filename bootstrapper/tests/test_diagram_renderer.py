@@ -70,8 +70,12 @@ def test_clusters_grouped_by_category():
     from docs.diagram_renderer import render_svg
     g = build_doc_graph("hermes", SERVICES_DIR)
     svg = render_svg(g)
-    assert "LLM" in svg or "llm" in svg
-    assert "MEDIA" in svg or "media" in svg
+    # Match the category HEADER text element specifically (>llm<, >media<), not
+    # any substring — the `litellm` pill contains "llm" and would satisfy a
+    # naive `"llm" in svg`, making this guard vacuous. ">llm<" is not a substring
+    # of ">litellm<".
+    assert ">llm<" in svg, "expected an 'llm' category cluster header"
+    assert ">media<" in svg, "expected a 'media' category cluster header"
 
 
 def test_no_required_sublabel():
@@ -89,7 +93,10 @@ def test_empty_lane_placeholder():
     from docs.diagram_renderer import render_svg
     g = DepGraph(focus="lonely", category="infra", port_var=None, source="single")
     svg = render_svg(g)
-    assert "none" in svg.lower()
+    # Assert the real placeholder text. A naive `"none" in svg.lower()` is
+    # vacuous — every SVG carries a background grid `<path fill="none" .../>`,
+    # so it would pass even if the placeholder were removed.
+    assert "— none —" in svg
 
 
 def test_one_edge_per_cluster_not_per_pill():
