@@ -192,10 +192,12 @@ _No upstream calls._
 
 ## 10. Troubleshooting
 
-**`speaches` container fails its healthcheck** — `docker logs
-<project>-speaches`. First request triggers a model download (~466 MB for
-distil-large-v3); the healthcheck `start_period` is 120 s but slow networks
-may need more time.
+**`speaches` STT requests return 404 "Model is not installed locally"** — Speaches
+ships with no preloaded models and does not auto-download them (see the ⚠ preload
+note in §4). Download the `whisper-1` alias target once:
+`curl -X POST http://localhost:${STT_PROVIDER_PORT}/v1/models/Systran/faster-whisper-large-v3`,
+or set `PRELOAD_MODELS` in `services/speaches/compose.yml`. The healthcheck
+returns 200 as soon as Uvicorn is up (it does not wait for a model).
 
 **Open WebUI mic button does nothing** — verify the env vars:
 

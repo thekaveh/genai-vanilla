@@ -154,7 +154,8 @@ def apply(env_path: Path) -> None:
     * Unions with any existing COMFYUI_USER_MODELS value.
     * Removes the old COMFYUI_MODEL_SET line (plus preceding comment block).
     * Appends COMFYUI_CUSTOM_MODELS_FILE if absent.
-    * Backs up .env to .env.backup.<YYYYMMDDTHHMMSS> before any write.
+    * Backs up .env to .env.backup.v3.<YYYYMMDDTHHMMSS> before any write
+      (version-stamped so it can't collide with v1/v2 backups in one chain).
     * Does nothing if sentinel is already >= 3.
     """
     if not env_path.is_file():

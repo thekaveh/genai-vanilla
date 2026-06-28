@@ -10,7 +10,8 @@ This module:
     only rewrite ports the user has not customized.
   * Applies the rewrite: for each port_var, if .env[var] == BASE_PORT + v0_offset,
     rewrite to BASE_PORT + v1_offset. Otherwise leave alone.
-  * Backs up .env to .env.backup.<YYYYMMDDTHHMMSS> before any write.
+  * Backs up .env to .env.backup.v1.<YYYYMMDDTHHMMSS> before any write
+    (version-stamped so it can't collide with v2/v3 backups in one chain).
 
 This is the FROZEN snapshot from 2026-05-15. Do NOT edit when the layout
 changes again — author a sibling migration_v2.py with its own snapshot.
