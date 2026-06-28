@@ -742,9 +742,23 @@ class KeyGenerator:
         # Infrastructure password placeholders shipped in `.env.example`.
         # Each rotator upgrades the well-known default value only — see
         # PLACEHOLDER_DEFAULTS. Hand-supplied real values stick.
-        results['SUPABASE_DB_PASSWORD'] = self.generate_and_update_supabase_db_password(force=False)
-        results['SUPABASE_DB_APP_PASSWORD'] = self.generate_and_update_supabase_db_app_password(force=False)
-        results['GRAPH_DB_PASSWORD'] = self.generate_and_update_graph_db_password(force=False)
+        #
+        # The three DB passwords below are baked into their data volume at
+        # initdb / first-boot (supabase_admin + app role into
+        # `supabase-db-data`; neo4j into `neo4j-graph-db-data`) and can't be
+        # changed by rewriting .env afterwards. So on a COLD start — where
+        # `perform_cold_start_cleanup` wipes those volumes BEFORE this runs —
+        # we MUST force a fresh password: the old baked value is gone, and a
+        # stale .env value would re-bake into the fresh volume only by luck
+        # (or, if .env drifted, produce `password authentication failed`).
+        # Passing `force=force_regenerate` (vs the previous hardcoded
+        # `force=False`) couples the password regen to the volume wipe, so a
+        # cold start always yields a consistent fresh (password, volume) pair.
+        # On a normal (non-cold) start force_regenerate is False, so real
+        # values still stick and the existing-volume guard still applies.
+        results['SUPABASE_DB_PASSWORD'] = self.generate_and_update_supabase_db_password(force=force_regenerate)
+        results['SUPABASE_DB_APP_PASSWORD'] = self.generate_and_update_supabase_db_app_password(force=force_regenerate)
+        results['GRAPH_DB_PASSWORD'] = self.generate_and_update_graph_db_password(force=force_regenerate)
         # GRAPH_DB_AUTH is rewritten as a side effect of the password rotator
         # (it embeds the password: "neo4j/<password>"). Track its de-placeholdering
         # explicitly so a partial side-effect write surfaces here rather than only
