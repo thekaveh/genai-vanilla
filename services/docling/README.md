@@ -11,7 +11,7 @@ and integration notes.
 
 ## 1. Engine quick reference
 
-- **Image (GPU):** `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime` (used as
+- **Image (GPU):** `pytorch/pytorch:2.12.1-cuda12.6-cudnn9-runtime` (used as
   `BASE_IMAGE` in the GPU provider Dockerfile)
 - **License:** MIT (IBM)
 - **Activation:** `DOC_PROCESSOR_SOURCE=docling-container-gpu` (or

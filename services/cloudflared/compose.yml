@@ -4,7 +4,7 @@
 
 services:
   cloudflared:
-    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2025.8.1}
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.6.1}
     container_name: ${PROJECT_NAME}-cloudflared
     restart: unless-stopped
     deploy:

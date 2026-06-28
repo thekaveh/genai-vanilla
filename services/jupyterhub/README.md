@@ -47,9 +47,12 @@ JUPYTERHUB_SOURCE=disabled
 
 ```bash
 JUPYTERHUB_SOURCE=container     # Options: container, disabled
-# Using python-3.11 tag for stable builds and Docker cache optimization
-# Note: :latest tag causes rebuilds every time (5-10 min). Use specific version for caching.
-JUPYTERHUB_IMAGE=jupyter/datascience-notebook:python-3.11
+# Base image is the maintained quay.io home of the Jupyter Docker Stacks.
+# The old Docker Hub jupyter/* images were frozen in 2023, so we migrated to
+# quay.io and pinned the python-3.11 line (patch 3.11.10) — same Python, just
+# the maintained registry. A moving :latest tag would force a full rebuild
+# (8-10 min) every start; a pinned patch keeps Docker-layer caching.
+JUPYTERHUB_IMAGE=quay.io/jupyter/datascience-notebook:python-3.11.10
 JUPYTERHUB_PORT=63081
 JUPYTERHUB_TOKEN=               # Optional: authentication token
 ```

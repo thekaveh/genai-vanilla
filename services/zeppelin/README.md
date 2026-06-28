@@ -4,7 +4,7 @@ Zeppelin runs as a single container in the stack's `apps` band. The Spark interp
 
 ## 1. Overview
 
-Image: `apache/zeppelin:0.12.0` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline. The image does NOT bundle a full Spark distribution — `/opt/zeppelin/interpreter/spark/` contains only the interpreter shim, so `%spark` cells must run against an external Spark driver via **Spark Connect** (configured once in the UI — see §1.2).
+Image: `apache/zeppelin:0.12.1` (Apache 2.0). All interpreters run in-process (no Kubernetes interpreter isolation). The Spark interpreter is the headline. The image does NOT bundle a full Spark distribution — `/opt/zeppelin/interpreter/spark/` contains only the interpreter shim, so `%spark` cells must run against an external Spark driver via **Spark Connect** (configured once in the UI — see §1.2).
 
 **Hard requirement:** Zeppelin is gated on `SPARK_SOURCE != disabled`. Picking `ZEPPELIN_SOURCE=container` without Spark surfaces an actionable error from the bootstrapper; the spec considers a Spark-less Zeppelin broken on purpose.
 
@@ -99,7 +99,7 @@ No authentication ships pre-configured. For real use, enable Shiro auth via `con
 
 ```bash
 ZEPPELIN_SOURCE=disabled           # container | disabled
-ZEPPELIN_IMAGE=apache/zeppelin:0.12.0
+ZEPPELIN_IMAGE=apache/zeppelin:0.12.1
 ZEPPELIN_PORT=                     # auto-assigned (apps band)
 ```
 

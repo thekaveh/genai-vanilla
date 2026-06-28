@@ -27,7 +27,7 @@ services:
       - backend-network
 
   redis-exporter:
-    image: ${REDIS_EXPORTER_IMAGE:-oliver006/redis_exporter:v1.62.0}
+    image: ${REDIS_EXPORTER_IMAGE:-oliver006/redis_exporter:v1.86.0}
     container_name: ${PROJECT_NAME}-redis-exporter
     restart: unless-stopped
     deploy:

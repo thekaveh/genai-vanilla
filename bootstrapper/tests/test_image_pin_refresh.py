@@ -49,11 +49,11 @@ def _make(fake_root):
 
 def test_refresh_picks_postgres_exporter_default(env_copy):
     """Pre-set .env's POSTGRES_EXPORTER_IMAGE to an old tag; refresh should
-    overwrite it with the current manifest default (v0.18.1 as of 2026-06-07)."""
+    overwrite it with the current manifest default (v0.19.1 as of 2026-06-28)."""
     env_path = env_copy / ".env"
     env_text = env_path.read_text(encoding="utf-8")
     env_text = env_text.replace(
-        "POSTGRES_EXPORTER_IMAGE=prometheuscommunity/postgres-exporter:v0.18.1",
+        "POSTGRES_EXPORTER_IMAGE=prometheuscommunity/postgres-exporter:v0.19.1",
         "POSTGRES_EXPORTER_IMAGE=prometheuscommunity/postgres-exporter:v0.16.0",
     )
     env_path.write_text(env_text, encoding="utf-8")
@@ -61,8 +61,8 @@ def test_refresh_picks_postgres_exporter_default(env_copy):
     sc = _make(env_copy)
     env = sc._refresh_image_pins_from_manifests()
     # Manifest default should win.
-    assert env.get("POSTGRES_EXPORTER_IMAGE", "").endswith(":v0.18.1"), \
-        f"expected v0.18.1, got {env.get('POSTGRES_EXPORTER_IMAGE')!r}"
+    assert env.get("POSTGRES_EXPORTER_IMAGE", "").endswith(":v0.19.1"), \
+        f"expected v0.19.1, got {env.get('POSTGRES_EXPORTER_IMAGE')!r}"
 
 
 def test_refresh_picks_lightrag_image_default(env_copy):

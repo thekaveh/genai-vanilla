@@ -34,7 +34,7 @@ services:
       - backend-network
 
   node-exporter:
-    image: ${NODE_EXPORTER_IMAGE:-prom/node-exporter:v1.8.2}
+    image: ${NODE_EXPORTER_IMAGE:-prom/node-exporter:v1.11.1}
     container_name: ${PROJECT_NAME}-node-exporter
     restart: unless-stopped
     deploy:
@@ -63,7 +63,7 @@ services:
       - backend-network
 
   cadvisor:
-    image: ${CADVISOR_IMAGE:-gcr.io/cadvisor/cadvisor:v0.49.1}
+    image: ${CADVISOR_IMAGE:-gcr.io/cadvisor/cadvisor:v0.55.1}
     container_name: ${PROJECT_NAME}-cadvisor
     restart: unless-stopped
     deploy:

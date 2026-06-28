@@ -1,6 +1,6 @@
 # Default mirrors JUPYTERHUB_IMAGE in service.yml — compose overrides via
 # build.args; CI build-validation builds with this default, so keep in sync.
-ARG BASE_IMAGE=jupyter/datascience-notebook:python-3.11
+ARG BASE_IMAGE=quay.io/jupyter/datascience-notebook:python-3.11.10
 FROM ${BASE_IMAGE}
 
 # Auto-populated by buildx (and `docker build` since v20.10) with the

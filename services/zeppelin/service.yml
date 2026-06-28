@@ -8,7 +8,7 @@ containers:
 
 images:
   - var: ZEPPELIN_IMAGE
-    default: "apache/zeppelin:0.12.0"
+    default: "apache/zeppelin:0.12.1"
     container: zeppelin
 
 sources:

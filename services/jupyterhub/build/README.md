@@ -37,7 +37,7 @@ Set in `.env` file:
 
 ```bash
 JUPYTERHUB_SOURCE=container     # Options: container, disabled
-JUPYTERHUB_IMAGE=jupyter/datascience-notebook:python-3.11
+JUPYTERHUB_IMAGE=quay.io/jupyter/datascience-notebook:python-3.11.10
 JUPYTERHUB_PORT=63081
 JUPYTERHUB_TOKEN=               # Optional: authentication token
 ```

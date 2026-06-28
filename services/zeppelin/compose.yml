@@ -1,7 +1,7 @@
 # services/zeppelin/compose.yml — Spark-first notebook UI
 services:
   zeppelin:
-    # Stock apache/zeppelin:0.12.0. The image does NOT bundle a full
+    # Stock apache/zeppelin:0.12.1. The image does NOT bundle a full
     # Spark distribution — its `interpreter/spark/` dir contains only
     # the interpreter shim (spark-interpreter-0.12.0.jar +
     # scala-2.13/), no spark-core, no SPARK_HOME. The %spark interpreter
@@ -16,7 +16,7 @@ services:
     # Zeppelin image directly; that path was wrong because Zeppelin
     # never runs Spark locally without SPARK_HOME. Pass 48 retired
     # the misguided Dockerfile.
-    image: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.0}
+    image: ${ZEPPELIN_IMAGE:-apache/zeppelin:0.12.1}
     container_name: ${PROJECT_NAME}-zeppelin
     restart: unless-stopped
     deploy:

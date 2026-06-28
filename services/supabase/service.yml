@@ -48,7 +48,7 @@ images:
     default: "supabase/studio:latest"
     container: supabase-studio
   - var: POSTGRES_EXPORTER_IMAGE
-    default: "prometheuscommunity/postgres-exporter:v0.18.1"
+    default: "prometheuscommunity/postgres-exporter:v0.19.1"
     container: postgres-exporter
     notes: "Prometheus exporter sidecar. Scales 1↔0 with PROMETHEUS_SOURCE (gated by _generate_prometheus_config)."
 

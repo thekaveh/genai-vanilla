@@ -85,7 +85,7 @@ curl -X POST http://localhost:63040/v1/document/convert \
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DOCLING_GPU_DEVICE` | Device type | `cuda` |
-| `DOCLING_GPU_IMAGE` | Docker base image | `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime` |
+| `DOCLING_GPU_IMAGE` | Docker base image | `pytorch/pytorch:2.12.1-cuda12.6-cudnn9-runtime` |
 | `DOCLING_GPU_SCALE` | Container replicas (set by bootstrapper) | `0` |
 
 ### 4.3 Processing Options

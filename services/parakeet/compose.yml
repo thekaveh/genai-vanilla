@@ -8,7 +8,7 @@ services:
       context: ./provider
       dockerfile: gpu/Dockerfile
       args:
-        BASE_IMAGE: ${PARAKEET_GPU_IMAGE:-nvcr.io/nvidia/pytorch:25.01-py3}
+        BASE_IMAGE: ${PARAKEET_GPU_IMAGE:-nvcr.io/nvidia/pytorch:26.06-py3}
     container_name: ${PROJECT_NAME}-parakeet-gpu
     restart: unless-stopped
     runtime: nvidia

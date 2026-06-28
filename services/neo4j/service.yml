@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: NEO4J_GRAPH_DB_IMAGE
-    default: "neo4j:5.19.0"
+    default: "neo4j:5.26.27"
     container: neo4j-graph-db
     notes: "Used as build-arg BASE_IMAGE in graph-db/Dockerfile."
 

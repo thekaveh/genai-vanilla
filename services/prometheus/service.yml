@@ -15,10 +15,10 @@ images:
     default: "prom/prometheus:v2.55.1"
     container: prometheus
   - var: NODE_EXPORTER_IMAGE
-    default: "prom/node-exporter:v1.8.2"
+    default: "prom/node-exporter:v1.11.1"
     container: node-exporter
   - var: CADVISOR_IMAGE
-    default: "gcr.io/cadvisor/cadvisor:v0.49.1"
+    default: "gcr.io/cadvisor/cadvisor:v0.55.1"
     container: cadvisor
 
 sources:

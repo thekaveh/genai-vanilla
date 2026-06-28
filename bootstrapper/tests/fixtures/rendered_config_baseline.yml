@@ -376,7 +376,7 @@ services:
     container_name: atlas-cadvisor
     deploy:
       replicas: 0
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     logging:
       driver: json-file
       options:
@@ -443,7 +443,7 @@ services:
       - 0.0.0.0:2000
       - ready
       timeout: 10s
-    image: cloudflare/cloudflared:2025.8.1
+    image: cloudflare/cloudflared:2026.6.1
     logging:
       driver: json-file
       options:
@@ -739,7 +739,7 @@ services:
   jupyterhub:
     build:
       args:
-        BASE_IMAGE: jupyter/datascience-notebook:python-3.11
+        BASE_IMAGE: quay.io/jupyter/datascience-notebook:python-3.11.10
       context: '{REPO_ROOT}/services/jupyterhub/build'
       dockerfile: Dockerfile
     command:
@@ -892,7 +892,7 @@ services:
       - CMD-SHELL
       - kong health
       timeout: 10s
-    image: kong:3.9.0
+    image: kong:3.9.3
     logging:
       driver: json-file
       options:
@@ -984,7 +984,7 @@ services:
       - import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:9621/health',
         timeout=5).status == 200 else 1)
       timeout: 8s
-    image: ghcr.io/hkuds/lightrag:v1.5.0
+    image: ghcr.io/hkuds/lightrag:v1.5.4
     logging:
       driver: json-file
       options:
@@ -1530,7 +1530,7 @@ services:
   neo4j-graph-db:
     build:
       args:
-        BASE_IMAGE: neo4j:5.19.0
+        BASE_IMAGE: neo4j:5.26.27
       context: '{REPO_ROOT}/services/neo4j/build'
       dockerfile: Dockerfile
     container_name: atlas-neo4j-graph-db
@@ -1585,7 +1585,7 @@ services:
     container_name: atlas-node-exporter
     deploy:
       replicas: 0
-    image: prom/node-exporter:v1.8.2
+    image: prom/node-exporter:v1.11.1
     logging:
       driver: json-file
       options:
@@ -1899,7 +1899,7 @@ services:
       - --spider
       - http://localhost:9187/metrics
       timeout: 10s
-    image: prometheuscommunity/postgres-exporter:v0.18.1
+    image: prometheuscommunity/postgres-exporter:v0.19.1
     logging:
       driver: json-file
       options:
@@ -2096,7 +2096,7 @@ services:
       - --spider
       - http://localhost:9121/metrics
       timeout: 10s
-    image: oliver006/redis_exporter:v1.62.0
+    image: oliver006/redis_exporter:v1.86.0
     logging:
       driver: json-file
       options:
@@ -2733,7 +2733,7 @@ services:
       - -q
       - http://localhost:8080/v1/.well-known/ready
       timeout: 5s
-    image: cr.weaviate.io/semitechnologies/weaviate:1.27.5
+    image: cr.weaviate.io/semitechnologies/weaviate:1.38.2
     logging:
       driver: json-file
       options:
@@ -2833,7 +2833,7 @@ services:
       - -fsS
       - http://localhost:8080/
       timeout: 10s
-    image: apache/zeppelin:0.12.0
+    image: apache/zeppelin:0.12.1
     logging:
       driver: json-file
       options:
