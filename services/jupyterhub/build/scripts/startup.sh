@@ -78,6 +78,8 @@ Check the `examples/` directory for sample notebooks demonstrating:
 - `06_n8n_workflows.ipynb` - Workflow automation with n8n
 - `07_ray_cluster.ipynb` - Distributed compute on the Ray cluster
 - `08_scala_basics.ipynb` - Scala basics on the scala3 kernel
+- `09_spark_connect.ipynb` - Spark Connect (gRPC) from Python
+- `10_spark_scala.ipynb` - Spark with the Scala kernel
 
 ## Available Services
 
