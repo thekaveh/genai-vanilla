@@ -57,11 +57,11 @@ litellm-init re-seed.
 
 ## 4. Usage
 
-### 4a. Web UI
+### 4.1 Web UI
 
 Browse `http://lightrag.localhost:${KONG_HTTP_PORT}` (after `--setup-hosts`) or `http://localhost:${LIGHTRAG_API_PORT}/webui`. Upload documents, view the KG, run queries.
 
-### 4b. Native API
+### 4.2 Native API
 
 ```bash
 # Insert a document

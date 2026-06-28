@@ -258,7 +258,7 @@ Spark worker-count inputs are wired directly in the wizard code
 
 ## 7. Stack Options
 
-After service configuration, the wizard prompts for:
+The wizard also collects these stack-level (non-service-source) options — **base port first**, before any service-source prompts; the cold-start and hosts-file options come last:
 
 - **Base port** for all services (default: 63000) — collected at the very start of the wizard so all subsequent port displays reflect the chosen base.
 - **Cold start** option to remove volumes and rebuild from scratch.
