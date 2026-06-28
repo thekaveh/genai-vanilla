@@ -69,7 +69,7 @@ def test_emits_image_vars(services_root, write_manifest, full_manifest_dict):
     write_manifest("ollama", full_manifest_dict("ollama"))
     manifests = load_manifests(services_root)
     out = assemble_env_example(manifests)
-    assert "LLM_PROVIDER_IMAGE=ollama/ollama:latest" in out
+    assert "LLM_PROVIDER_IMAGE=ollama/ollama:0.30.11" in out
     assert "OLLAMA_PULL_IMAGE=alpine/curl:latest" in out
 
 

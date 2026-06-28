@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: SEARXNG_IMAGE
-    default: "searxng/searxng:latest"
+    default: "searxng/searxng:2026.6.28-357662d86"
     container: searxng
 
 sources:

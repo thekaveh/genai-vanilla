@@ -14,7 +14,7 @@ images:
     container: comfyui
     notes: "Use latest-cuda for GPU."
   - var: COMFYUI_INIT_IMAGE
-    default: "alpine:latest"
+    default: "alpine:3.24.1"
     container: comfyui-init
 
 sources:

@@ -109,7 +109,7 @@ OPENCLAW_SOURCE=disabled
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `OPENCLAW_SOURCE` | Service source (container, localhost, disabled) | `disabled` |
-| `OPENCLAW_IMAGE` | Docker image | `ghcr.io/openclaw/openclaw:latest` |
+| `OPENCLAW_IMAGE` | Docker image | `ghcr.io/openclaw/openclaw:2026.6.10` |
 | `OPENCLAW_GATEWAY_PORT` | Gateway HTTP port | `63065` |
 | `OPENCLAW_BRIDGE_PORT` | Bridge port | `63066` |
 | `OPENCLAW_GATEWAY_TOKEN` | Optional token for securing gateway API | `` |
@@ -309,7 +309,7 @@ No OpenClaw agent (default).
 
 **Solution**:
 1. Check logs: `docker logs ${PROJECT_NAME}-openclaw-gateway`
-2. Verify image is available: `docker pull ghcr.io/openclaw/openclaw:latest`
+2. Verify image is available: `docker pull ghcr.io/openclaw/openclaw:2026.6.10`
 3. Ensure ports 63065/63066 (the canonical gateway/bridge slots — overridable via `OPENCLAW_GATEWAY_PORT` / `OPENCLAW_BRIDGE_PORT`) are not in use
 4. Check Docker has sufficient memory (2GB+ recommended)
 

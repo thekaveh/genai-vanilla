@@ -34,7 +34,7 @@ The database initialization follows a two-stage process managed by Docker Compos
 
 ### 2.2 Custom Post-Initialization (`supabase-db-init` service)
 
-- A dedicated, short-lived service using `postgres:15-alpine` image
+- A dedicated, short-lived service using `postgres:15.18-alpine` image
 - Depends on `supabase-db` and waits until it's ready using `pg_isready`
 - Executes all `.sql` files from `./services/supabase/db/scripts/` directory in alphabetical order
 - Custom scripts handle project-specific setup.

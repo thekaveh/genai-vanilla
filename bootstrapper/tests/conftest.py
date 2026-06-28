@@ -69,7 +69,7 @@ def full_manifest_dict():
             "images": [
                 {
                     "var": "LLM_PROVIDER_IMAGE",
-                    "default": "ollama/ollama:latest",
+                    "default": "ollama/ollama:0.30.11",
                     "container": "ollama",
                     "notes": "Used for container-cpu and container-gpu sources.",
                 },

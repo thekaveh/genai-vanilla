@@ -27,7 +27,7 @@ images:
     default: "supabase/postgres:17.4.1.016"
     container: supabase-db
   - var: SUPABASE_DB_INIT_IMAGE
-    default: "postgres:15-alpine"
+    default: "postgres:15.18-alpine"
     container: supabase-db-init
   - var: SUPABASE_META_IMAGE
     default: "supabase/postgres-meta:v0.88.9"

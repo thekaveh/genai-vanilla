@@ -2,11 +2,11 @@
 
 Privacy-preserving metasearch engine. SearXNG aggregates results from 200+ upstream engines (Google, Bing, DuckDuckGo, Brave, Wikipedia, arXiv, Crossref, etc.) without keeping logs, fingerprinting users, or sending API keys. The stack uses it as the default search backend for Local Deep Researcher, Hermes, Open WebUI's "Web Search" toggle, and n8n's seeded `searxng-research-workflow.json`.
 
-The container runs `searxng/searxng:latest` with stack-tuned config under `services/searxng/config/settings.yml` — JSON output enabled (so it's machine-readable), public-instance mode off, metrics on, and a generated `SEARXNG_SECRET` (auto-rotated at first start). The limiter and bot-detection store are off (`valkey.url: false`) — no Redis/Valkey is wired; see Future — Unused features for the enable path.
+The container runs `searxng/searxng:2026.6.28-357662d86` with stack-tuned config under `services/searxng/config/settings.yml` — JSON output enabled (so it's machine-readable), public-instance mode off, metrics on, and a generated `SEARXNG_SECRET` (auto-rotated at first start). The limiter and bot-detection store are off (`valkey.url: false`) — no Redis/Valkey is wired; see Future — Unused features for the enable path.
 
 ## 1. Overview
 
-Image: `searxng/searxng:latest`. Container port: `8080`. Source variants: `container` or `disabled`. Configuration is split between `service.yml` env vars (consumed by the bootstrapper to substitute into compose) and the static `settings.yml` (consumed by SearXNG itself); the bootstrapper writes `SEARXNG_SECRET` into `settings.yml` at startup.
+Image: `searxng/searxng:2026.6.28-357662d86`. Container port: `8080`. Source variants: `container` or `disabled`. Configuration is split between `service.yml` env vars (consumed by the bootstrapper to substitute into compose) and the static `settings.yml` (consumed by SearXNG itself); the bootstrapper writes `SEARXNG_SECRET` into `settings.yml` at startup.
 
 ## 2. Access
 

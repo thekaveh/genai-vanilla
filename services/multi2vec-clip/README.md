@@ -6,7 +6,7 @@ The default model is `sentence-transformers-clip-ViT-B-32` (English-only ViT-B/3
 
 ## 1. Overview
 
-Image: `semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32` (the canonical `MULTI2VEC_CLIP_IMAGE` value in `.env.example`; no version-suffix tag — Weaviate's CLIP module pins by model name, not semver). Container port: `8080` (internal-only — no host port published). The container runs CUDA-off by default (`ENABLE_CUDA=0`); a GPU variant exists in the manifest but is undocumented and untested.
+Image: `semitechnologies/multi2vec-clip:sentence-transformers-clip-ViT-B-32-1.5.1` (the canonical `MULTI2VEC_CLIP_IMAGE` value in `.env.example`). Weaviate's CLIP module tags by model name; the `-1.5.1` suffix pins the inference-server build so rebuilds are reproducible (the un-suffixed `…-ViT-B-32` tag floats to the newest build). Container port: `8080` (internal-only — no host port published). The container runs CUDA-off by default (`ENABLE_CUDA=0`); a GPU variant exists in the manifest but is undocumented and untested.
 
 ## 2. Access
 

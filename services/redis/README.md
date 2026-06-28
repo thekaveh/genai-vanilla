@@ -6,7 +6,7 @@ The stack convention partitions Redis by **database index**, not by service. As 
 
 ## 1. Overview
 
-Image: `redis:7.2-alpine`. Persistence: AOF (`--appendonly yes`). Auth: a single shared password (`REDIS_PASSWORD`) — there are no ACL users today. The container exposes the standard `6379` port internally; the host port (default `63022`) is published only for debugging. Inside the stack, every consumer talks to `redis:6379` via the Docker DNS name on `backend-network`.
+Image: `redis:7.2.14-alpine`. Persistence: AOF (`--appendonly yes`). Auth: a single shared password (`REDIS_PASSWORD`) — there are no ACL users today. The container exposes the standard `6379` port internally; the host port (default `63022`) is published only for debugging. Inside the stack, every consumer talks to `redis:6379` via the Docker DNS name on `backend-network`.
 
 Volume: `${PROJECT_NAME}-redis-data` (AOF append log). `./stop.sh --cold` removes it.
 

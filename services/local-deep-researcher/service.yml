@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: LOCAL_DEEP_RESEARCHER_IMAGE
-    default: "python:3.11-slim"
+    default: "python:3.11.15-slim"
     container: local-deep-researcher
 
 sources:

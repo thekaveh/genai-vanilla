@@ -1,6 +1,6 @@
 # Fallback mirrors BACKEND_IMAGE in service.yml — compose overrides via
 # build.args; CI build-validation builds with this default, so keep in sync.
-ARG BASE_IMAGE=${BACKEND_IMAGE:-python:3.12}
+ARG BASE_IMAGE=${BACKEND_IMAGE:-python:3.12.13}
 FROM ${BASE_IMAGE}
 
 WORKDIR /app

@@ -6,7 +6,7 @@ LDR is **completely local** by design — it relies on the stack's LiteLLM gatew
 
 ## 1. Overview
 
-Image: `python:3.11-slim` (the build script clones the upstream repo and runs `pip install -e .` at startup). Source variants are minimal — `container` or `disabled`. There is no GPU path; LDR doesn't run inference itself, it orchestrates LiteLLM.
+Image: `python:3.11.15-slim` (the build script clones the upstream repo and runs `pip install -e .` at startup). Source variants are minimal — `container` or `disabled`. There is no GPU path; LDR doesn't run inference itself, it orchestrates LiteLLM.
 
 ## 2. Access
 

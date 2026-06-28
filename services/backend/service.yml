@@ -9,7 +9,7 @@ containers:
 
 images:
   - var: BACKEND_IMAGE
-    default: "python:3.12"
+    default: "python:3.12.13"
     container: backend
 
 env:
