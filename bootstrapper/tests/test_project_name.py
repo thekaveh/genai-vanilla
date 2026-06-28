@@ -14,8 +14,13 @@ stack by setting their own name. These tests pin:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
+
+# Repo root (parent of bootstrapper/) — so the wizard test finds services/
+# regardless of the pytest working directory (CI runs from bootstrapper/).
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 from core.config_parser import (
     ConfigParser,
@@ -107,7 +112,9 @@ def test_wizard_project_name_step_and_mapping(tmp_path, monkeypatch):
     from utils.hosts_manager import HostsManager
     from ui.textual.integration import _build_steps_and_rows, _selections_to_args
 
-    cp = ConfigParser(".")
+    # Repo root so service discovery finds services/ (CI runs from bootstrapper/);
+    # ATLAS_ENV_FILE (set above) still points parse_env_file at the temp .env.
+    cp = ConfigParser(str(REPO_ROOT))
     steps, _rows, info, cbp, _state, _cs = _build_steps_and_rows(cp, HostsManager())
     proj_steps = [s for s in steps if "Project name" in s.title]
     assert len(proj_steps) == 1, "expected exactly one Project name step"
