@@ -333,11 +333,14 @@ def render_model_list(active_rows: list[tuple[str, str]]) -> list[dict[str, Any]
             # (``ollama_chat/`` rejects embedding requests with
             # ``Unmapped LLM provider for this endpoint``). So:
             # embeddings get ``ollama/``, chat models get
-            # ``ollama_chat/``. Detection is name-based: every model
-            # in ``bootstrapper/utils/llm_catalog.py`` with role
-            # ``embeddings`` has "embed" in its name (nomic-embed-text,
-            # qwen3-embedding:0.6b, bge-*, e5-*, mxbai-embed-*, ...).
-            # See services/litellm/README.md → "Ollama adapter choice".
+            # ``ollama_chat/``. Detection is name-based ("embed" substring).
+            # The curated catalog embeddings all carry it (nomic-embed-text,
+            # qwen3-embedding:0.6b), so defaults are correct. CAVEAT: a
+            # user-added embedding model WITHOUT "embed" in its name (e.g.
+            # ``bge-m3``, ``e5-large``) would be mis-registered as a chat model
+            # and fail /v1/embeddings — the resolver discards role info, so the
+            # name is the only signal here. See services/litellm/README.md →
+            # "Ollama adapter choice".
             #
             # ``think: false`` is set on chat entries only — it
             # defaults thinking-capable models to write their answer

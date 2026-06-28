@@ -45,7 +45,8 @@ services:
       - backend-network
     # Healthcheck mirrors upstream's own compose.yaml — Speaches ships
     # curl and serves /health that returns 200 as soon as Uvicorn is up
-    # (lazy-load means models don't need to be ready). Verified against
+    # (it checks server liveness only, NOT model readiness — see the
+    # PRELOAD_MODELS note above). Verified against
     # speaches-ai/speaches @ 0.9.0-rc.3.
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
