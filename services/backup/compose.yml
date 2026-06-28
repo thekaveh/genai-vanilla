@@ -11,7 +11,7 @@
 # Volumes must already exist (owning services started at least once).
 services:
   backup:
-    image: ${BACKUP_IMAGE:-postgres:15-alpine}
+    image: ${BACKUP_IMAGE:-postgres:17-alpine}
     container_name: ${PROJECT_NAME}-backup
     restart: "no"
     deploy:

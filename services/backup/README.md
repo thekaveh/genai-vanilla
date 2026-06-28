@@ -17,7 +17,7 @@ BACKUP_TIMESTAMP=20240101_120000 docker compose run --rm backup /scripts/restore
 
 ## 1. Overview
 
-Image: `postgres:15-alpine` (provides `pg_dump` / `pg_restore`). MinIO client (`mcli`, Alpine package `minio-client`) is installed at container startup and symlinked to `mc` so the scripts work unchanged. Volume snapshots are tar.gz archives of the bind-mounted read-only volumes at `/volumes/*`.
+Image: `postgres:17-alpine` (provides `pg_dump` / `pg_restore`; the major version must be >= the `supabase-db` server, currently 17.x, or `pg_dump` aborts on a server-version mismatch). MinIO client (`mcli`, Alpine package `minio-client`) is installed at container startup and symlinked to `mc` so the scripts work unchanged. Volume snapshots are tar.gz archives of the bind-mounted read-only volumes at `/volumes/*`.
 
 Scripts live under `services/backup/init/scripts/`:
 - `backup-all.sh` — Postgres dump + volume tarballs -> S3 prefix `s3/<bucket>/<timestamp>/`.
@@ -38,7 +38,7 @@ The backup runner has no published port and no Kong route. It is invoked directl
 BACKUP_SOURCE=disabled          # set to container to enable
 BACKUP_BUCKET=atlas-backups     # target bucket
 BACKUP_S3_ALIAS_URL=http://minio:9000  # S3 endpoint; swap for external S3
-BACKUP_IMAGE=postgres:15-alpine        # image providing pg_dump
+BACKUP_IMAGE=postgres:17-alpine        # image providing pg_dump (major >= supabase-db server)
 ```
 
 Set `BACKUP_S3_ALIAS_URL` to an AWS S3 or compatible endpoint (e.g. `https://s3.us-east-1.amazonaws.com`) for offsite backups. Credentials are shared with MinIO (`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`); for external S3 set these to the IAM access key / secret.

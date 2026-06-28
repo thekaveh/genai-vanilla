@@ -228,7 +228,8 @@ services:
     entrypoint: ["sh", "-c"]
     command:
       - |
-        mc alias set minio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+        set -e
+        mc alias set minio http://minio:9000 "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
         mc mb --ignore-existing minio/spark-history
         echo "spark-init: spark-history bucket ready"
     networks:
