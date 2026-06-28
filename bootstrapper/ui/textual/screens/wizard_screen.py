@@ -1576,6 +1576,20 @@ class WizardScreen(Screen):
              lambda: (starter.unset_port_environment_variables() or True)),
             ("Configure ports",
              lambda: starter.handle_port_configuration(base_port)),
+            # Secrets MUST be generated/rotated BEFORE any step that bakes a
+            # secret into a derived config value. generate_service_configuration
+            # embeds SUPABASE_DB_PASSWORD / GRAPH_DB_PASSWORD / REDIS_PASSWORD into
+            # LIGHTRAG_PG_URI / LIGHTRAG_NEO4J_PASSWORD / LIGHTRAG_REDIS_URI, and
+            # generate_kong/litellm configuration embed their own keys. If those
+            # ran first and a password then rotated (cold start, or a first-run
+            # placeholder→real upgrade), the derived value would carry the STALE
+            # secret while the DB volume is initdb'd with the NEW one — the
+            # client (e.g. lightrag-init) then hits "password authentication
+            # failed for user supabase_admin" against a perfectly fresh volume.
+            ("Validate Supabase keys",
+             lambda: starter.validate_supabase_keys(cold_start=cold)),
+            ("Generate encryption keys",
+             lambda: starter.generate_encryption_keys(cold_start=cold)),
             ("Generate service configuration",
              starter.generate_service_configuration),
             ("Check service dependencies",
@@ -1586,12 +1600,8 @@ class WizardScreen(Screen):
              starter.generate_litellm_configuration),
             ("Generate ComfyUI manifest",
              starter.generate_comfyui_manifest),
-            ("Validate Supabase keys",
-             lambda: starter.validate_supabase_keys(cold_start=cold)),
             ("Configure hosts",
              lambda: starter.handle_hosts_configuration(setup_hosts, skip_hosts)),
-            ("Generate encryption keys",
-             lambda: starter.generate_encryption_keys(cold_start=cold)),
             # Prod-launch gate: refuse to start under --profile prod if any
             # managed secret still equals its placeholder. After key gen, so
             # first-run auto-rotation passes cleanly. No-op for non-prod.

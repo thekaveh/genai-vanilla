@@ -2681,14 +2681,33 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
         if not starter.handle_port_configuration(base_port):
             sys.exit(1)
         
+        # Secrets MUST be generated/rotated BEFORE any config-gen step that
+        # bakes a secret into a derived value. generate_service_configuration
+        # embeds SUPABASE_DB_PASSWORD / GRAPH_DB_PASSWORD / REDIS_PASSWORD into
+        # LIGHTRAG_PG_URI / LIGHTRAG_NEO4J_PASSWORD / LIGHTRAG_REDIS_URI; the
+        # Kong/LiteLLM configs embed their own keys. If those ran first and a
+        # password then rotated (cold start, or a first-run placeholder→real
+        # upgrade), the derived value would carry the STALE secret while the DB
+        # volume is initdb'd with the NEW one → "password authentication failed
+        # for user supabase_admin" from lightrag-init against a fresh volume.
+
+        # Step 3.9a: Validate Supabase keys (auto-generate for cold start)
+        if not starter.validate_supabase_keys(cold_start=cold):
+            sys.exit(1)
+
+        # Step 3.9b: Generate encryption keys — rotate/ensure ALL secrets before
+        # any derived-config step below reads them.
+        if not starter.generate_encryption_keys(cold_start=cold):
+            sys.exit(1)
+
         # Step 4: Generate service configuration
         if not starter.generate_service_configuration():
             sys.exit(1)
-            
+
         # Step 4.1: Check service dependencies
         if not starter.check_service_dependencies():
             sys.exit(1)
-        
+
         # Step 4.5: Generate dynamic Kong configuration
         if not starter.generate_kong_configuration():
             sys.exit(1)
@@ -2705,16 +2724,8 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
         if not starter.generate_comfyui_manifest():
             sys.exit(1)
 
-        # Step 4.6: Validate Supabase keys (auto-generate for cold start)
-        if not starter.validate_supabase_keys(cold_start=cold):
-            sys.exit(1)
-        
         # Step 5: Handle hosts configuration
         if not starter.handle_hosts_configuration(setup_hosts, skip_hosts):
-            sys.exit(1)
-        
-        # Step 6: Generate encryption keys (improved behavior - always ensures keys exist)
-        if not starter.generate_encryption_keys(cold_start=cold):
             sys.exit(1)
 
         # Step 6.1: Prod-launch gate — refuse to start if any managed secret
