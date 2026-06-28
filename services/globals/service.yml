@@ -64,12 +64,14 @@ env:
 
   # GPU + production-tuning vars — system-wide knobs not owned by any one
   # service. NVIDIA_VISIBLE_DEVICES is read by every GPU-aware container
-  # (parakeet, speaches, chatterbox, docling). PROD_ENV_* are reserved
-  # deploy.resources cap defaults — NOT currently consumed by any compose
-  # fragment (backend / n8n run unbounded; wiring them is a deferred
-  # prod-profile follow-up). Services that DO cap resources use their own
-  # <SVC>_MEMORY_LIMIT / <SVC>_CPU_LIMIT vars in their compose.yml (e.g.
-  # comfyui via COMFYUI_MEMORY_LIMIT / COMFYUI_CPU_LIMIT).
+  # (parakeet, speaches, chatterbox, docling). Most PROD_ENV_* are reserved
+  # deploy.resources cap defaults NOT yet consumed by any compose fragment
+  # (the generic CPUS/MEM_LIMIT pair and the BACKEND/N8N pairs — backend / n8n
+  # run unbounded; wiring them is a deferred prod-profile follow-up). The
+  # EXCEPTION is PROD_ENV_COMFYUI_CPUS / PROD_ENV_COMFYUI_MEM_LIMIT, which ARE
+  # live — comfyui's container-gpu runtime_sc slice caps deploy.resources with
+  # them (services/comfyui/service.yml). comfyui's CPU variant caps separately
+  # via COMFYUI_CPU_LIMIT / COMFYUI_MEMORY_LIMIT in services/comfyui/compose.yml.
   - name: NVIDIA_VISIBLE_DEVICES
     default: all
     description: "Host-side GPU visibility. Forwarded into every NVIDIA-runtime container."

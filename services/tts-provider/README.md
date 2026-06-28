@@ -35,17 +35,25 @@ ratio. Pick Chatterbox when you specifically need voice cloning.
 
 ## 3. Quick start
 
-The default already runs:
+`./start.sh` launches Speaches, but it ships with **no preloaded models and does
+not auto-download them** (see the ⚠ note in §4) — so a TTS request 404s until you
+preload the Kokoro model:
 
 ```bash
 ./start.sh
-# wait ~60s for the speaches container to download Kokoro and become healthy
+# Speaches is healthy as soon as Uvicorn is up, but has no model yet.
+# Download the Kokoro ONNX build (one-time; persists in the speaches-cache volume):
+curl -X POST http://localhost:63046/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
+# Now synthesize:
 curl http://localhost:63046/v1/audio/speech \
   -X POST -H "Content-Type: application/json" \
   -d '{"model":"speaches-ai/Kokoro-82M-v1.0-ONNX","input":"hello world","voice":"af_heart"}' \
   --output /tmp/hello.wav
 file /tmp/hello.wav   # expect RIFF / WAVE audio
 ```
+
+To have the model ready at boot instead, set `PRELOAD_MODELS` in
+`services/speaches/compose.yml` (see §4).
 
 GPU acceleration (NVIDIA):
 

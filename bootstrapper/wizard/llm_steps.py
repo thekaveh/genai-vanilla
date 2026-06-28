@@ -919,16 +919,14 @@ def build_default_model_steps(
     # step pre-fills from its saved value.)
     _vision_default = (env_vars.get("LITELLM_VISION_MODEL", "") or "").strip()
 
-    # Compute default_value lazily via a sentinel trick: PromptStep.default_value
-    # is used for options steps. Since options_provider is lazy, we use a
-    # wrapper to compute the default from the final options list.
-    # For the WizardScreen, when default_value is None but options_provider
-    # is set, the screen re-computes it after calling options_provider.
-    # We pass a callable as default_value by using the first-option convention
-    # in the step — but PromptStep.default_value is a str|None. Instead we
-    # supply the current env value for embeddings (deterministic) and let
-    # the content/vision defaults also pre-fill via their first-qualifying option
-    # (same as how cloud steps pick default_values from existing or catalog).
+    # default_value semantics for these options steps:
+    #   - content: default_value=None → the WizardScreen pre-selects the FIRST
+    #     option (highest-priority content model) after options_provider runs.
+    #   - embedding: default_value=_embedding_default → the current saved value
+    #     (or the 768-dim safe default), deterministic at build time.
+    #   - vision: default_value=_vision_default → the saved LITELLM_VISION_MODEL
+    #     so a re-run doesn't wipe it; empty on a fresh setup (pre-selects the
+    #     "— none / skip —" sentinel). NOT the first option.
 
     return [
         PromptStep(
