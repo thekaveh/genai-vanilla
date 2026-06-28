@@ -246,3 +246,59 @@ def test_volume_check_false_without_project_name(tmp_path):
     _seed_env(tmp_path, "SUPABASE_DB_PASSWORD=password\n")
     kg = KeyGenerator(str(tmp_path))
     assert kg._supabase_db_volume_exists() is False
+
+
+# ── Cold start force-regenerates the volume-baked DB passwords ────────────────
+# These three are baked into their data volume at initdb/first-boot. A cold
+# start wipes those volumes (perform_cold_start_cleanup, BEFORE this runs), so
+# the password MUST be regenerated to stay in sync with the fresh initdb —
+# otherwise a stale .env value drifts and yields
+# "password authentication failed for user supabase_admin". generate_missing_keys
+# must therefore pass the cold flag through (force=force_regenerate), not the
+# old hardcoded force=False.
+
+_VOLUME_BAKED_DB_PWS = {
+    "SUPABASE_DB_PASSWORD": "real-admin-pw-aaaaaaaa",
+    "SUPABASE_DB_APP_PASSWORD": "real-app-pw-bbbbbbbb",
+    "GRAPH_DB_PASSWORD": "real-neo4j-pw-cccccccc",
+}
+
+
+def _seed_real_db_pws(tmp_path):
+    body = "PROJECT_NAME=atlas\nGRAPH_DB_USER=neo4j\n" + "".join(
+        f"{k}={v}\n" for k, v in _VOLUME_BAKED_DB_PWS.items()
+    )
+    _seed_env(tmp_path, body)
+
+
+def test_cold_start_force_regenerates_volume_baked_db_passwords(tmp_path, monkeypatch):
+    """COLD (force_regenerate=True): rotate the volume-baked DB passwords even
+    when they hold a real value AND the volume still appears to exist. The cold
+    wipe makes the old baked value obsolete; a fresh .env value re-bakes into
+    the recreated volume. (Regression: these were hardcoded force=False and
+    survived a cold start, drifting from the wiped+re-initdb'd volume.)"""
+    _seed_real_db_pws(tmp_path)
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_supabase_db_volume_exists", lambda: True)
+    kg.generate_missing_keys(force_regenerate=True)
+    for var, old in _VOLUME_BAKED_DB_PWS.items():
+        assert kg.get_current_env_value(var) != old, (
+            f"{var} must be force-regenerated on a cold start, not preserved"
+        )
+    # GRAPH_DB_AUTH must track the rotated neo4j password.
+    assert (kg.get_current_env_value("GRAPH_DB_AUTH") or "").endswith(
+        kg.get_current_env_value("GRAPH_DB_PASSWORD")
+    )
+
+
+def test_non_cold_preserves_real_volume_baked_db_passwords(tmp_path, monkeypatch):
+    """Non-cold (force_regenerate=False): a real volume-baked DB password must
+    be preserved so .env stays in sync with the existing volume."""
+    _seed_real_db_pws(tmp_path)
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_supabase_db_volume_exists", lambda: True)
+    kg.generate_missing_keys(force_regenerate=False)
+    for var, old in _VOLUME_BAKED_DB_PWS.items():
+        assert kg.get_current_env_value(var) == old, (
+            f"{var} must be preserved on a non-cold start"
+        )
