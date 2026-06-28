@@ -110,6 +110,7 @@ def build_research_prompt(doc_folder: str) -> str:
     )
 
     others_table = _other_services_table(doc_folder)
+    others_count = len([f for f in _all_doc_folders() if f != doc_folder])
 
     primary_manifest = members[0] if members else "(none)"
 
@@ -135,13 +136,13 @@ Three research deliverables, in order:
 
 ## Do NOT propose these (already wired)
 
-The following services are already connected to {doc_folder} via the manifest's `depends_on.required`, `runtime_adaptive.adapts_to`, or `runtime_deps.optional`. Do not propose new wiring with these — your job is to find GAPS, not duplicate existing edges.
+The following services are already wired to {doc_folder} in the manifest's `data_flow.calls` dependency graph (its upstream and downstream edges). Do not propose new wiring with these — your job is to find GAPS, not duplicate existing edges.
 
 {dnp_block}
 
 ## Other services in the stack
 
-These are the 20 other doc folders. Each pair (`{doc_folder}` × <other>) is a candidate for "missing-pair integration" if not already wired.
+These are the {others_count} other doc folders. Each pair (`{doc_folder}` × <other>) is a candidate for "missing-pair integration" if not already wired.
 
 {others_table}
 

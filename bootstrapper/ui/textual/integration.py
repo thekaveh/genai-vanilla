@@ -1202,6 +1202,12 @@ def run_launch_flow(
             category=r.category,
             pending=False,  # launch-flow rows are fully resolved before display
             off_track=r.off_track,
+            # Preserve hover-card metadata — CLI-flag launch mode must show the
+            # same S3 endpoints / source options / dependencies as wizard mode
+            # (mirrors recompute_ports_for_base, which carries the same comment).
+            tooltip_extra=r.tooltip_extra,
+            source_options=r.source_options,
+            depends_on=r.depends_on,
         ))
 
     # `state.services` already arrives in canonical topology order; the
