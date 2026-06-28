@@ -1,0 +1,34 @@
+# services/ollama/models.yaml
+# Curated Ollama default catalog (maintainer-editable). Section = role,
+# order = priority (first entry = highest priority), default: pre-selected
+# in the wizard. The wizard also live-scrapes ollama.com/library for the
+# full picker; this file provides the default trio and serves as the
+# scrape-failure fallback.
+#
+# Schema: bootstrapper/schemas/models.schema.json (flat-sections variant).
+# Sections: content | embeddings | vision
+content:
+  - name: qwen3.6:latest
+    default: true
+    description: "Qwen3.6 multimodal — strong content + vision, default content model"
+    badges: [default]
+# `dim:` is the model's output vector dimension. The wizard pre-selects the
+# embedding model whose dim matches the consumer's required dimension — the
+# backend memory_facts vector(768) column (model_resolver.MEMORY_FACTS_EMBEDDING_DIM).
+# So nomic-embed-text (dim 768) is the auto-matched default; list-order is only a
+# tiebreaker among same-dim models. qwen3-embedding:0.6b (dim 1536) stays available
+# but selecting it triggers a warning unless that column is migrated. See
+# bootstrapper/utils/model_resolver.embedding_dim_warning.
+embeddings:
+  - name: nomic-embed-text
+    dim: 768
+    default: true
+    description: "Nomic text embeddings — small, fast"
+    badges: [default, embeddings]
+  - name: qwen3-embedding:0.6b
+    dim: 1536
+    default: true
+    description: "Qwen3 embeddings, 0.6B — top of MTEB multilingual leaderboard"
+    badges: [default, embeddings]
+vision:
+  - name: qwen3.6:latest

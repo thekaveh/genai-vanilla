@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComfyUI curated model catalog",
+  "description": "Validates services/comfyui/models.yaml — the curated SoT for ComfyUI models. The wizard ALSO live-scrapes HuggingFace and civitai; user additions go in services/comfyui/custom-models.yaml.",
+  "type": "object",
+  "required": ["models"],
+  "additionalProperties": false,
+  "properties": {
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/model_entry"
+      }
+    }
+  },
+  "definitions": {
+    "model_entry": {
+      "type": "object",
+      "required": ["name", "category", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable unique identifier used as the catalog key and DB name column."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "checkpoint",
+            "vae",
+            "lora",
+            "controlnet",
+            "ipadapter",
+            "instantid",
+            "upscaler",
+            "embedding",
+            "clip",
+            "animatediff",
+            "motion_lora",
+            "video_model",
+            "voice_model",
+            "audio_model",
+            "mesh_model"
+          ],
+          "description": "Category drives the in-container target directory (CATEGORY_TARGET_DIR) and wizard display group."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "Direct download URL (HuggingFace resolve URL, signed civitai URL, or similar)."
+        },
+        "family": {
+          "type": "string",
+          "description": "Display family label (e.g. 'SDXL', 'AnimateDiff'). Defaults to name if absent."
+        },
+        "size_gb": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Approximate disk size in GB. Surfaced in wizard; used for disk-space warnings."
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "description": "Hex SHA-256 digest. Verified by comfyui-init when present."
+        },
+        "target_dir": {
+          "type": "string",
+          "description": "Override in-container subdirectory under /models. Defaults to CATEGORY_TARGET_DIR[category] when absent."
+        },
+        "min_vram_gb": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Minimum GPU VRAM in GB. Adds a badge when the host has less."
+        },
+        "cpu_supported": {
+          "type": "boolean",
+          "description": "If false, adds a 'requires GPU' badge. Defaults to true."
+        },
+        "requires_custom_node": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "ComfyUI custom-node repo names required to use this model (warn-only badges)."
+        },
+        "popularity": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Approximate popularity score (0-100). Used for wizard sort order."
+        },
+        "cloud_only": {
+          "type": "boolean",
+          "description": "If true, the model is only available via cloud API, not for local download."
+        },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "One-line subtitle shown in the wizard option row."
+        },
+        "filename": {
+          "type": ["string", "null"],
+          "description": "Explicit on-disk filename. Required for civitai URLs whose URL path carries no real filename."
+        },
+        "essential": {
+          "type": "boolean",
+          "description": "If true, this entry is activated by default when COMFYUI_USER_MODELS is empty (DB-free replacement for the former essential column in public.comfyui_models)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComfyUI active-model manifest",
+  "description": "Validates the manifest YAML written by bootstrapper/utils/comfyui_resolver.py. Consumed by comfyui-init (download_models.sh: name, type, filename, download_url, sha256) and the backend GET /comfyui/db/models (full row as JSON). additionalProperties: false is intentional — any typo in field names must be caught before the downloader runs.",
+  "type": "object",
+  "required": ["models"],
+  "additionalProperties": false,
+  "properties": {
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/manifest_entry"
+      }
+    }
+  },
+  "definitions": {
+    "manifest_entry": {
+      "type": "object",
+      "required": ["name", "type", "filename", "download_url"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable unique identifier — matches the catalog name column."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "checkpoint",
+            "vae",
+            "lora",
+            "controlnet",
+            "ipadapter",
+            "instantid",
+            "upscaler",
+            "embedding",
+            "clip",
+            "animatediff",
+            "motion_lora",
+            "video_model",
+            "voice_model",
+            "audio_model",
+            "mesh_model"
+          ],
+          "description": "Model category. Mapped from ComfyUILibraryEntry.category (category→type). Drives the in-container target directory."
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "description": "On-disk filename inside the target directory. Derived from ComfyUILibraryEntry.filename or the URL path. Used by download_models.sh to name the downloaded file and by ComfyUI's extension scanner to list it."
+        },
+        "download_url": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "Direct download URL. Mapped from ComfyUILibraryEntry.url (url→download_url). Used by download_models.sh's curl/wget call."
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "description": "Hex SHA-256 digest. Verified by download_models.sh when present and non-null."
+        },
+        "file_size_gb": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Approximate disk size in GB. Mapped from ComfyUILibraryEntry.size_gb (size_gb→file_size_gb). Surfaced in the backend GET response and used for disk-space warnings."
+        },
+        "family": {
+          "type": ["string", "null"],
+          "description": "Display family label (e.g. 'SDXL', 'AnimateDiff'). Passed through from ComfyUILibraryEntry.family."
+        },
+        "target_dir": {
+          "type": ["string", "null"],
+          "description": "In-container subdirectory under /models where the file is placed. Passed through from ComfyUILibraryEntry.target_dir."
+        },
+        "min_vram_gb": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Minimum GPU VRAM in GB. Passed through from ComfyUILibraryEntry.min_vram_gb."
+        },
+        "cpu_supported": {
+          "type": "boolean",
+          "description": "Whether the model runs on CPU. Passed through from ComfyUILibraryEntry.cpu_supported."
+        },
+        "requires_custom_node": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "ComfyUI custom-node repo names required to use this model. Passed through from ComfyUILibraryEntry.requires_custom_node."
+        },
+        "popularity": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Approximate popularity score. Passed through from ComfyUILibraryEntry.popularity."
+        },
+        "source": {
+          "type": ["string", "null"],
+          "description": "Catalog origin: 'huggingface' | 'civitai' | 'curated' | 'fallback' | 'custom'. Passed through from ComfyUILibraryEntry.source."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Always true for manifest entries — every row in the manifest is an active model. Written as true by manifest_dict()."
+        },
+        "essential": {
+          "type": "boolean",
+          "description": "Whether this is an essential model (activated even with empty COMFYUI_USER_MODELS). Always false in manifest rows — essential is a catalog attribute, not a manifest attribute. Written as false by manifest_dict()."
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Human-readable notes. Mapped from ComfyUILibraryEntry.notes (notes→description). Returned in the backend GET /comfyui/db/models JSON row."
+        }
+      }
+    }
+  }
+}

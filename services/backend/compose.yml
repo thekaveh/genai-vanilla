@@ -48,6 +48,7 @@ services:
       N8N_BASE_URL: http://n8n:5678
       COMFYUI_BASE_URL: ${COMFYUI_ENDPOINT:-http://comfyui:18188}
       COMFYUI_ENABLED: true
+      COMFYUI_MANIFEST_PATH: /comfyui-manifest/selected-models.yaml
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       # Vector database integration
@@ -87,6 +88,7 @@ services:
       - ./app/app:/app
       - backend-data:/app/data
       - weaviate-shared-config:/shared
+      - ../../volumes/comfyui:/comfyui-manifest:ro
     ports:
       - "${HOST_BIND_IP:-}${BACKEND_PORT}:8000"
     logging:

@@ -190,3 +190,59 @@ def test_graph_db_auth_split_state_is_surfaced(tmp_path):
     with pytest.raises(RuntimeError) as ei:
         kg.assert_no_placeholders_remaining()
     assert "GRAPH_DB_AUTH" in str(ei.value)
+
+
+# ── Existing-volume guard (stale-volume / password-drift foot-gun) ───────────
+#
+# The supabase_admin / app role passwords are baked into the supabase-db-data
+# volume at initdb. If that volume already exists, rotating the .env placeholder
+# to a fresh random value makes every client authenticate with a value the role
+# does not have → "password authentication failed for user supabase_admin".
+# The rotators must SKIP rotation (and warn) when the project's volume exists.
+
+_DB_PW_ROTATORS = [
+    ("SUPABASE_DB_PASSWORD", "password", "generate_and_update_supabase_db_password"),
+    ("SUPABASE_DB_APP_PASSWORD", "app_password", "generate_and_update_supabase_db_app_password"),
+]
+
+
+@pytest.mark.parametrize("var,placeholder,method", _DB_PW_ROTATORS)
+def test_rotation_skipped_when_db_volume_exists(tmp_path, monkeypatch, var, placeholder, method):
+    _seed_env(tmp_path, f"PROJECT_NAME=atlas\n{var}={placeholder}\n")
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_supabase_db_volume_exists", lambda: True)
+    # Returns True (handled, not an error) but leaves the value UNCHANGED.
+    assert getattr(kg, method)() is True
+    assert kg.get_current_env_value(var) == placeholder, (
+        f"{var}: rotation must be skipped when the data volume already exists"
+    )
+
+
+@pytest.mark.parametrize("var,placeholder,method", _DB_PW_ROTATORS)
+def test_rotation_proceeds_when_no_db_volume(tmp_path, monkeypatch, var, placeholder, method):
+    _seed_env(tmp_path, f"PROJECT_NAME=atlas\n{var}={placeholder}\n")
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_supabase_db_volume_exists", lambda: False)
+    assert getattr(kg, method)() is True
+    assert kg.get_current_env_value(var) != placeholder, (
+        f"{var}: first-run rotation must still happen when no volume exists"
+    )
+
+
+@pytest.mark.parametrize("var,placeholder,method", _DB_PW_ROTATORS)
+def test_force_rotates_even_with_existing_volume(tmp_path, monkeypatch, var, placeholder, method):
+    """force=True is an explicit override and bypasses the volume guard."""
+    _seed_env(tmp_path, f"PROJECT_NAME=atlas\n{var}={placeholder}\n")
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_supabase_db_volume_exists", lambda: True)
+    assert getattr(kg, method)(force=True) is True
+    assert kg.get_current_env_value(var) != placeholder
+
+
+def test_volume_check_false_without_project_name(tmp_path):
+    """No PROJECT_NAME → cannot scope the volume → returns False without ever
+    shelling out to docker, so a fresh install (and the rotation tests above)
+    are never blocked."""
+    _seed_env(tmp_path, "SUPABASE_DB_PASSWORD=password\n")
+    kg = KeyGenerator(str(tmp_path))
+    assert kg._supabase_db_volume_exists() is False

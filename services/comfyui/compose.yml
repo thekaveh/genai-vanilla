@@ -1,65 +1,28 @@
 # services/comfyui/compose.yml — ComfyUI + init pipeline
 services:
-  comfyui-catalog-init:
-    # Mirrors services/litellm/compose.yml::llm-catalog-init. Single
-    # source of truth for public.comfyui_models — UPSERTs the live
-    # HF/civitai/curated catalog + sidecar YAML, then applies
-    # COMFYUI_USER_MODELS as the activation set. Must complete before
-    # comfyui-init's psql-driven download loop runs (see depends_on
-    # below). The bind-mounted bootstrapper/utils sibling delivers
-    # comfyui_library.py to the container.
-    build: ./catalog-init
-    container_name: ${PROJECT_NAME}-comfyui-catalog-init
-    restart: "no"
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-    environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
-      COMFYUI_USER_MODELS: ${COMFYUI_USER_MODELS:-}
-      COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml
-    volumes:
-      - ./catalog-init/scripts:/scripts:ro
-      - ./custom-models.yaml:/custom-models.yaml:ro
-      # Sibling mount of bootstrapper/utils — same rationale as
-      # llm-catalog-init's /catalog mount. The catalog module
-      # (comfyui_library.py) is imported via the importlib spec at
-      # /catalog/comfyui_library.py inside sync-catalog.py.
-      - ../../bootstrapper/utils:/catalog:ro
-    deploy:
-      replicas: ${COMFYUI_CATALOG_INIT_SCALE:-1}
-    networks:
-      - backend-network
-
   comfyui-init:
     image: ${COMFYUI_INIT_IMAGE}
     container_name: ${PROJECT_NAME}-comfyui-init
     restart: "no"
     depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-      comfyui-catalog-init:
-        # comfyui-catalog-init owns public.comfyui_models; this init's
-        # psql SELECT depends on its UPSERT having completed.
-        condition: service_completed_successfully
       ollama-pull:
         condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
       COMFYUI_MODELS_PATH: /models
+      # Path to the bootstrapper-generated active-models TSV
+      # (volumes/comfyui/active-models.tsv → bind-mounted at /comfyui-manifest).
+      # download_models.sh reads this instead of the former public.comfyui_models DB query.
+      COMFYUI_MANIFEST_TSV: /comfyui-manifest/active-models.tsv
     volumes:
       - ./init/scripts:/scripts
       - comfyui-models:/models
+      # Bootstrapper-generated manifest dir (written at start by
+      # bootstrapper/utils/comfyui_manifest_generator.py via comfyui_resolver).
+      # Contains selected-models.yaml (canonical SoT) and active-models.tsv
+      # (shell-consumable TSV for download_models.sh).
+      - ../../volumes/comfyui:/comfyui-manifest:ro
     entrypoint: ["/scripts/download_models.sh"]
     deploy:
       replicas: ${COMFYUI_INIT_SCALE:-1}

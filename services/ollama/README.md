@@ -44,7 +44,7 @@ Use `./start.sh` for the guided wizard, or pass a targeted flag for scripted cha
 The Ollama service participates in the Docker Compose network and is consumed exclusively by:
 
 - **LiteLLM** — for chat completions and embeddings via the OpenAI-compatible proxy.
-- **`ollama-pull`** — init container that reads `SELECT name FROM public.llms WHERE provider='ollama' AND active=true` and pulls each row via `/api/pull` (not OpenAI-compatible, so this bypasses LiteLLM by design). The wizard's `OLLAMA_USER_MODELS` / `OLLAMA_CUSTOM_MODELS` env vars feed into this set indirectly: `llm-catalog-init` activates the matching rows on every `docker compose up`, and `ollama-pull` then fetches whatever is active. Runs only when `LLM_PROVIDER_SOURCE` starts with `ollama-container-` (host-side Ollama instances are not pull-controllable from the stack).
+- **`ollama-pull`** — init container that reads `OLLAMA_USER_MODELS` and `OLLAMA_CUSTOM_MODELS` (resolved from the YAML catalogs + env by `model_resolver`) and pulls each named model via `/api/pull` (not OpenAI-compatible, so this bypasses LiteLLM by design). Each pull is retried up to 3× with linear backoff so a transient registry/network blip self-heals; a model that still fails logs a non-fatal ERROR and the remaining models are pulled regardless. Runs only when `LLM_PROVIDER_SOURCE` starts with `ollama-container-` (host-side Ollama instances are not pull-controllable from the stack).
 
 If `LLM_PROVIDER_SOURCE=none`, the stack still starts as long as at least one of `CLOUD_OPENAI_SOURCE`, `CLOUD_ANTHROPIC_SOURCE`, or `CLOUD_OPENROUTER_SOURCE` is `enabled`. The bootstrapper refuses to start when all four are `none`/`disabled`.
 
@@ -81,16 +81,18 @@ Failure modes degrade gracefully:
 - `/api/tags` unreachable → merged view degrades to library-only with a warning. Logged.
 - Both down → placeholder row explains what to fix.
 
-The default-active baseline is already activated in `public.llms` from `08-seed-data.sql`, so the multi-select is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour: on first visit (`OLLAMA_USER_MODELS` empty), the wizard pre-checks the default-active baseline so the user sees it already ticked. On subsequent visits, the saved `OLLAMA_USER_MODELS` selection is restored, intersected with the visible options.
+The default-active baseline (qwen3.6:latest, qwen3-embedding:0.6b, nomic-embed-text) is baked into `services/ollama/models.yaml` with `default_active: true`, so the multi-select is **purely additive** — leaving everything unchecked still leaves the baseline active. Pre-checking behaviour: on first visit (`OLLAMA_USER_MODELS` empty), the wizard pre-checks the default-active baseline so the user sees it already ticked. On subsequent visits, the saved `OLLAMA_USER_MODELS` selection is restored, intersected with the visible options.
 
-The third step — **Ollama  ·  additional models to pull** — is a free-text comma-separated list. Shown only for `ollama-container-*` sources; persists as `OLLAMA_CUSTOM_MODELS`. `llm-catalog-init` registers each entry as a row in `public.llms` (with `active=true`) for **every** Ollama source; `ollama-pull` then fetches the active set for `ollama-container-*` only. For `ollama-localhost`, you must `ollama pull <name>` on your host yourself.
+When adding an **embedding** model to `services/ollama/models.yaml`, declare its output vector dimension with `dim:` (e.g. `dim: 768` for `nomic-embed-text`). The wizard's embedding-default step pre-selects whichever model's `dim` equals `MEMORY_FACTS_EMBEDDING_DIM` (768 — the backend `memory_facts vector(768)` column), and `model_resolver.embedding_dim_warning` flags a non-matching pick at `.env`-write time. See the header comments in `services/ollama/models.yaml`.
 
-For `ollama-container-*` sources, `ollama-pull` reads the active set from `public.llms` and pulls each one (`OLLAMA_USER_MODELS` ∪ `OLLAMA_CUSTOM_MODELS` flowing through `llm-catalog-init`'s UPSERT and live-only INSERT path). For `ollama-localhost`, the wizard only registers entries in `public.llms` — you still need to `ollama pull <name>` on your host before requests will succeed.
+The third step — **Ollama  ·  additional models to pull** — is a free-text comma-separated list. Shown only for `ollama-container-*` sources; persists as `OLLAMA_CUSTOM_MODELS`. `model_resolver` includes these entries in the active model set for every Ollama source; `ollama-pull` fetches the active set for `ollama-container-*` only. For `ollama-localhost`, you must `ollama pull <name>` on your host yourself.
+
+For `ollama-container-*` sources, `ollama-pull` reads the active set from `OLLAMA_USER_MODELS` ∪ `OLLAMA_CUSTOM_MODELS` (resolved by `model_resolver` from the YAML catalog + env) and pulls each one. For `ollama-localhost`, the wizard records the selection in `.env` — you still need to `ollama pull <name>` on your host before requests will succeed.
 
 | Variable | Set by | Consumed by |
 |---|---|---|
-| `OLLAMA_USER_MODELS` | Single unified Ollama models multi-select. | `llm-catalog-init` for every source (registers + activates rows in `public.llms`, INSERTing live-only names that aren't in the curated catalog); `ollama-pull` for container sources only. |
-| `OLLAMA_CUSTOM_MODELS` | Wizard "additional models to pull" text step. | `llm-catalog-init` for every source (registers row + warns for host-side); `ollama-pull` for container sources only. |
+| `OLLAMA_USER_MODELS` | Single unified Ollama models multi-select. | `model_resolver` (active set computation from YAML catalogs + env, used by `litellm-init` and `ollama-pull`); `ollama-pull` for container sources only. |
+| `OLLAMA_CUSTOM_MODELS` | Wizard "additional models to pull" text step. | `model_resolver` (merged into active set); `ollama-pull` for container sources only. For `ollama-localhost`, you must `ollama pull <name>` on your host yourself. |
 
 ## 6. Dependencies & Integrations
 

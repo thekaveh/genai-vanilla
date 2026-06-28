@@ -4,7 +4,7 @@
 
 LiteLLM is the always-on OpenAI-compatible front door for every LLM provider in the stack. Every consumer service (Backend, Open WebUI, n8n, JupyterHub, Local Deep Researcher, OpenClaw, Weaviate vectorization) talks to **one URL** and **one API key** — `LITELLM_BASE_URL` / `LITELLM_API_KEY` — and LiteLLM routes each request to the right upstream based on the model name.
 
-When [Hermes Agent](../hermes/README.md) is enabled, `services/litellm/init/scripts/init.py` appends a `hermes-agent` row to `model_list` whose `api_base` is `${HERMES_ENDPOINT}/v1`. The entry is NOT sourced from `public.llms` (Hermes is a service/runtime, not a model provider type), so it lives outside the LLM catalog taxonomy but uses the same `os.environ/HERMES_API_KEY` bearer token. Effect: Open WebUI, n8n, backend, jupyterhub, openclaw all see `hermes-agent` in the dropdown with no per-consumer wiring.
+When [Hermes Agent](../hermes/README.md) is enabled, `services/litellm/init/scripts/init.py` appends a `hermes-agent` row to `model_list` whose `api_base` is `${HERMES_ENDPOINT}/v1`. The entry is NOT sourced from the YAML model catalogs (Hermes is a service/runtime, not a model provider type), so it lives outside the catalog taxonomy but uses the same `os.environ/HERMES_API_KEY` bearer token. Effect: Open WebUI, n8n, backend, jupyterhub, openclaw all see `hermes-agent` in the dropdown with no per-consumer wiring.
 
 ## 2. Image and ports
 
@@ -39,28 +39,17 @@ Consumers ──► litellm:4000 ──► Local engine (Ollama) and/or Cloud pr
 
 ## 5. Configuration
 
-`public.llms` (in the Supabase Postgres schema) is the single source of truth for which models LiteLLM exposes.
+The YAML model catalogs are the single source of truth for which models LiteLLM exposes.
 
 ```
-wizard / psql ──► public.llms (active=true) ──► litellm-init renders /app/config.yaml ──► litellm reads model_list
+services/ollama/models.yaml  ─┐
+services/litellm/models.yaml  ├──► model_resolver.active_models(env) ──► litellm-init renders /app/config.yaml ──► litellm reads model_list
+wizard selections in .env    ─┘
 ```
 
-Two init containers cooperate on every `docker compose up`:
+On every `docker compose up`, **`litellm-init`** calls `model_resolver.active_models()` — which reads the YAML catalogs and the wizard's env vars (`LLM_PROVIDER_SOURCE`, `OLLAMA_USER_MODELS`, `OLLAMA_CUSTOM_MODELS`, `LITELLM_*_ENABLED`, cloud `*_API_KEY`, `*_USER_MODELS`) — and renders `volumes/litellm/config.yaml` with per-provider routing rules baked into the init script (see bullet list below). For `ollama-localhost` sources with `OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true`, `litellm-init` also queries the upstream `/api/tags` and unions any host-pulled models into the active set. The bootstrapper writes only a stub before `docker compose up` to satisfy the bind mount; the real `model_list` is filled in by `services/litellm/init/scripts/init.py` before the LiteLLM proxy starts. No database query is involved in config rendering.
 
-1. **`llm-catalog-init`** UPSERTs the curated catalog (`bootstrapper/utils/llm_catalog.py`) into `public.llms` and registers every entry from the wizard's `*_USER_MODELS` env vars (see below). Capability flags (content / structured_content / vision / embeddings) and immutable model facts (context_window, size_gb) refresh from the catalog on every run; existing `active` and `description` edits in the DB are preserved on conflict, so wizard selections and hand-edited notes survive re-runs.
-2. **`litellm-init`** queries `SELECT provider, name FROM public.llms WHERE active = true` and renders `volumes/litellm/config.yaml` using per-provider routing rules baked into the init script (see the bullet list below). It does **not** join catalog metadata at render time — capability flags exist solely to drive wizard / backend behavior, not LiteLLM routing. The bootstrapper writes only a stub before `docker compose up` to satisfy the bind mount; the real `model_list` is filled in by `services/litellm/init/scripts/init.py` before the LiteLLM proxy starts.
-
-The DB is the editable surface — change models via the wizard, or by hand. Note that `public.llms` is unique on `(provider, name)` (see `services/supabase/db/scripts/05a-public-tables-migrations.sql`), so every direct SQL edit must qualify the row by provider:
-
-```bash
-# Enable an OpenAI model
-psql -h localhost -p ${SUPABASE_DB_PORT} -U postgres -d postgres -c \
-  "UPDATE public.llms SET active = true WHERE provider = 'openai' AND name = 'gpt-5';"
-
-# Enable an Ollama model
-psql -h localhost -p ${SUPABASE_DB_PORT} -U postgres -d postgres -c \
-  "UPDATE public.llms SET active = true WHERE provider = 'ollama' AND name = 'qwen3.6:latest';"
-```
+To change which models are exposed, run the wizard (`./start.sh`) or edit the relevant env var in `.env` and restart. To add a model not in the curated catalog, either set `OLLAMA_CUSTOM_MODELS` or add a new entry to the appropriate YAML file. For an **embedding** entry, declare its output dimension with `dim:` — the wizard auto-selects the embedding model whose `dim` matches the backend's required dimension (`memory_facts vector(768)`), and `model_resolver.embedding_dim_warning` flags any non-matching pick.
 
 `volumes/litellm/config.yaml` is rebuilt on every run, so direct edits there are overwritten. Per-provider routing rules baked into `litellm-init`:
 
@@ -75,15 +64,31 @@ The wizard's multiselect choices persist as comma-separated lists in `.env` so t
 
 | Env var | Set by | Notes |
 |---|---|---|
-| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware — container shows the library scrape only; localhost shows a merged view where rows are badged `[pulled]` if already on the upstream and `[library]` if catalog-only). | `llm-catalog-init` activates the matching rows in `public.llms` (every source). `ollama-pull` then pulls the active set from `public.llms` for container sources — note the indirection: `ollama-pull` reads the DB, not this env var directly. |
-| `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | `llm-catalog-init` UPSERTs each entry as a row in `public.llms` with `active=true` for **every** Ollama source. For container sources, `ollama-pull` then fetches them. For `ollama-localhost`, the row exists for LiteLLM routing but you must `ollama pull <name>` on your host yourself. |
-| `OPENAI_USER_MODELS` | OpenAI multiselect (after live `/v1/models` fetch). | `llm-catalog-init` activates matching rows; live-only names not in the curated catalog get INSERTed with generic capability defaults. |
-| `ANTHROPIC_USER_MODELS` | Anthropic multiselect (after live `/v1/models` fetch). | Same INSERT-on-missing handling as OpenAI. |
-| `OPENROUTER_USER_MODELS` | OpenRouter multiselect (after live `/api/v1/models` fetch). | Same INSERT-on-missing handling. |
+| `OLLAMA_USER_MODELS` | Single unified Ollama models multiselect (source-aware — container shows the library scrape only; localhost shows a merged view where rows are badged `[pulled]` if already on the upstream and `[library]` if catalog-only). | `model_resolver` computes the active set (every source); `ollama-pull` then pulls those models for container sources. |
+| `OLLAMA_CUSTOM_MODELS` | Ollama "additional models to pull" free-text step. | Merged into the active set by `model_resolver` for every Ollama source. `ollama-pull` fetches them for container sources. For `ollama-localhost`, you must `ollama pull <name>` on your host yourself. |
+| `OPENAI_USER_MODELS` | OpenAI multiselect (after live `/v1/models` fetch). | `model_resolver` activates matching catalog entries; names not in the curated catalog are synthesized with generic capability defaults. |
+| `ANTHROPIC_USER_MODELS` | Anthropic multiselect (after live `/v1/models` fetch). | Same synthesize-on-missing handling as OpenAI. |
+| `OPENROUTER_USER_MODELS` | OpenRouter multiselect (after live `/api/v1/models` fetch). | Same synthesize-on-missing handling. |
 
-Because these lists round-trip through `public.llms`, you can also extend them without re-running the wizard: `INSERT INTO public.llms (provider, name, active, ...) VALUES (...)` and the next `docker compose up` will pick up the row.
+To add a model outside the curated catalogs without re-running the wizard: set the relevant `*_USER_MODELS` or `OLLAMA_CUSTOM_MODELS` env var in `.env` and run `docker compose up` — `model_resolver` + `litellm-init` pick it up automatically.
 
-> Note: `llm-catalog-init` UPSERTs every row from `bootstrapper/utils/llm_catalog.py` into `public.llms` regardless of whether the matching provider is currently enabled. Disabled providers' rows still exist in the table — they just have `active=false`. Don't be surprised to see e.g. OpenAI rows after disabling the OpenAI tile; what controls whether LiteLLM exposes a model is the `active` flag, not row presence.
+> Note: `model_resolver` considers only providers that are both enabled (e.g. `LITELLM_OPENAI_ENABLED=true`) and keyed (`OPENAI_API_KEY` non-empty). Disabling a provider in `.env` causes `model_resolver` to produce zero active entries for that provider, so LiteLLM stops routing to it.
+
+### 5.2 How `litellm-init` loads the catalog (container wiring)
+
+`litellm-init` renders `volumes/litellm/config.yaml` at startup. Two things are bind-mounted into the container, deliberately **kept in separate dirs**:
+
+| Mount | Holds | Env var (default) | Resolved by |
+|---|---|---|---|
+| `bootstrapper/utils` → `/catalog:ro` | resolver **modules** (`model_resolver.py`, `llm_catalog.py`, `cloud_providers.py`, `litellm_settings.py`, …) | `ATLAS_CATALOG_DIR` (`/catalog`) | `init.py::_catalog_dir()` |
+| `services/{ollama,litellm}/models.yaml` → `/atlas-models/<svc>-models.yaml:ro` | model **catalogs** (flat `<svc>-models.yaml` layout) | `ATLAS_MODELS_DIR` (`/atlas-models`) | `llm_catalog._find_models_dir()` → `_find_yaml()` |
+
+Two non-obvious constraints make this split load-bearing — each one previously caused a `docker compose up` abort:
+
+- **The YAMLs are NOT mounted inside `/catalog`.** `/catalog` is a read-only bind mount, and runc on Docker 29.x / macOS cannot create a mountpoint file inside a `:ro` bind mount (`make mountpoint … read-only file system`). The catalogs therefore live in their own writable `/atlas-models` dir, found via the flat `<dir>/<svc>-models.yaml` form.
+- **`/catalog` is placed on `sys.path`.** `init.py` exec-loads `model_resolver` via `importlib`; inside the container there is no `utils` package, so `model_resolver` falls back to loose sibling imports (`import llm_catalog`, `from cloud_providers import …`). `importlib.exec_module` does not add the module's own directory to `sys.path`, so `_catalog_dir()` inserts `/catalog` there — without it those loose imports raise `ModuleNotFoundError` and `litellm-init` exits 1.
+
+When you add a new resolver module that `litellm-init` exec-loads, keep the dual-context import shape — `try: from utils import X` / `except ImportError: import X` — so it works both in the bootstrapper venv (package context) and the container (`/catalog` loose modules). Coverage: `bootstrapper/tests/test_litellm_init_loose_imports.py` (loose import, both catalog layouts) and `test_compose_nested_mounts.py` (no file mounted inside a `:ro` parent).
 
 ## 6. Access
 

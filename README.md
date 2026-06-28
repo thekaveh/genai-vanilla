@@ -501,15 +501,15 @@ atlas/
 │   │   ├── service.yml        # Manifest: env vars, source variants, deps, runtime_sc slice
 │   │   ├── compose.yml        # Compose fragment for the family
 │   │   └── db/                # SQL init scripts + snapshots (bind-mounted into supabase-db-init)
-│   ├── litellm/               # LiteLLM gateway + init + catalog-init
+│   ├── litellm/               # LiteLLM gateway + init
 │   │   ├── service.yml
 │   │   ├── compose.yml
 │   │   ├── init/              # litellm-init Dockerfile + scripts (config.yaml renderer)
-│   │   └── catalog-init/      # llm-catalog-init Dockerfile + scripts (public.llms UPSERT)
-│   ├── ollama/                # ollama + ollama-pull (with pull/ scripts subfolder)
+│   │   └── models.yaml        # Curated cloud-provider model catalog (per-service SoT)
+│   ├── ollama/                # ollama + ollama-pull (pull/ scripts); models.yaml = Ollama catalog SoT
 │   ├── redis/                 # Redis cache/queue substrate (AOF persistence, shared by n8n/Kong/LiteLLM/owui/LightRAG)
 │   ├── weaviate/              # weaviate + multi2vec-clip + weaviate-init
-│   ├── comfyui/               # comfyui + comfyui-init (with init/ scripts subfolder)
+│   ├── comfyui/               # comfyui + comfyui-init (init/ scripts); models.yaml + custom-models.yaml = ComfyUI catalog SoT
 │   ├── n8n/                   # n8n + n8n-worker + n8n-init (with init/ assets, workflows-stage/)
 │   ├── open-webui/            # open-web-ui + open-webui-init (with extras/ tools+functions)
 │   ├── hermes/                # hermes + hermes-init (with init/ scripts & templates)

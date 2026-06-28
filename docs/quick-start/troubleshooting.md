@@ -117,13 +117,13 @@ ollama pull qwen3:1.7b  # Smaller model
 
 **Models downloading slowly or missing:**
 ```bash
-# Catalog-init UPSERTs the curated catalog + flips active=true for the
-# names in COMFYUI_USER_MODELS. If models you picked never show up, check
-# this log first — typo'd names get warned here.
-docker logs ${PROJECT_NAME}-comfyui-catalog-init
-
-# Check ComfyUI init progress (downloads each active row via psql + wget)
+# The bootstrapper resolves COMFYUI_USER_MODELS at start and writes
+# volumes/comfyui/active-models.tsv. comfyui-init downloads each entry
+# via wget. If models you picked never show up, check these logs:
 docker logs ${PROJECT_NAME}-comfyui-init -f
+
+# Verify the manifest was written at start (check volumes/comfyui/):
+ls volumes/comfyui/
 
 # Check ComfyUI service status
 docker logs ${PROJECT_NAME}-comfyui -f
@@ -182,6 +182,15 @@ docker exec ${PROJECT_NAME}-supabase-db pg_isready
 # Check connection from another service
 docker exec ${PROJECT_NAME}-backend python -c "import psycopg2; print('DB OK')"
 ```
+
+**`password authentication failed for user "supabase_admin"`:** the `supabase_admin` role password is baked into the `supabase-db-data` volume **once**, at first init, and is never re-synced. `SUPABASE_DB_PASSWORD` ships as the placeholder `password` and auto-rotates to a random value on the first `./start.sh`. If the volume later persists across a `.env` password change (e.g. `.env` regenerated from `.env.example` while an old volume is still around — `./stop.sh` without `--cold` keeps volumes), every client authenticates with the new value while the role still holds the old → this error. The bootstrapper now **skips** rotation and warns when it detects an existing `${PROJECT_NAME}-supabase-db-data` volume, so it won't silently drift `.env`. To recover:
+```bash
+# Option A — start fresh (removes volumes, reinitializes role + .env together)
+./stop.sh --cold && ./start.sh
+# Option B — keep your data: set SUPABASE_DB_PASSWORD in .env back to the
+#            value the volume was created with, then restart.
+```
+See `services/supabase/README.md` §2.1 for the full explanation.
 
 ### 4.5 Kong Gateway Issues
 

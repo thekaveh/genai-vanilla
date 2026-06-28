@@ -1,0 +1,2 @@
+Basic Text to Image|Simple text-to-image workflow using SD1.5|basic|t
+SDXL Text to Image|High-quality text-to-image workflow using SDXL|basic|t

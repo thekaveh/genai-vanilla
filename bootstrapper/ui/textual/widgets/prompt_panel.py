@@ -700,9 +700,9 @@ class PromptPanel(Container):
             }
             # Auto-pre-check every variant the upstream Ollama has
             # already pulled, in addition to explicit defaults. This
-            # mirrors the runtime catalog-init auto-import behaviour
+            # mirrors the runtime litellm-init auto-import behaviour
             # (``OLLAMA_AUTO_IMPORT_LOCAL_MODELS``) so the wizard's UI
-            # tells the same story as ``public.llms`` will after
+            # tells the same story as the rendered config will after
             # confirmation: "if it's on your host, it's in the stack".
             # Operators who want a model hidden can still uncheck it
             # — the post-confirm CSV is the final word.

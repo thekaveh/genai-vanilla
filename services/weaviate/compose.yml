@@ -14,11 +14,9 @@ services:
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
-      PGHOST: supabase-db
-      PGPORT: 5432
-      PGDATABASE: ${SUPABASE_DB_NAME}
-      PGUSER: ${SUPABASE_DB_USER}
-      PGPASSWORD: ${SUPABASE_DB_PASSWORD}
+      # Embedding model — value is already fully-qualified (e.g. ollama/nomic-embed-text).
+      # init-weaviate.sh writes it through unchanged into /shared/weaviate-config.env.
+      LITELLM_EMBEDDING_MODEL: ${LITELLM_EMBEDDING_MODEL:-ollama/nomic-embed-text}
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
     volumes:

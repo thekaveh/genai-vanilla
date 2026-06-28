@@ -1,30 +1,40 @@
 #!/bin/sh
 # services/comfyui/init/scripts/download_models.sh
 #
-# Queries public.comfyui_models (UPSERTed by comfyui-catalog-init) for
-# every active row and downloads the file into the correct subdirectory
-# of /opt/ComfyUI/models. Mirrors services/ollama/pull/scripts/pull.sh's
-# structure: psql tab-separated SELECT + tempfile loop + wget.
+# Downloads active ComfyUI models into the correct subdirectory of
+# /opt/ComfyUI/models (or $COMFYUI_MODELS_PATH).
 #
-# Failures are non-fatal: bad rows / failed wgets increment FAIL_COUNT
-# and the script still exits 0 + writes the .download_complete marker
-# so ComfyUI can start (workflows referencing missing models just fail
-# at render time — the historical behavior).
+# MANIFEST SOURCE (no DB):
+#   The bootstrapper writes volumes/comfyui/active-models.tsv at startup via
+#   bootstrapper/utils/comfyui_manifest_generator.py (wrapping C2's
+#   comfyui_resolver.active_comfyui_models).  That file is bind-mounted into
+#   this container at /comfyui-manifest/active-models.tsv (see compose.yml).
+#   This script reads it via $MANIFEST_TSV (default:
+#   /comfyui-manifest/active-models.tsv).
 #
-# Required apk packages on alpine: wget ca-certificates postgresql-client
-# — installed inline below.
+# TSV FORMAT (set by comfyui_manifest_generator._row_tsv):
+#   name TAB type TAB filename TAB download_url TAB sha256
+#   (sha256 is empty string when null — same as the old COALESCE(sha256,''))
+#   No header row.  The while-read loop below is UNCHANGED from the former
+#   psql-driven version: same columns, same order, same tempfile approach.
+#
+# EMPTY / MISSING MANIFEST:
+#   Missing or empty $MANIFEST_TSV → download nothing, exit 0 (mirrors the
+#   old "no active comfyui_models rows" path).
+#
+# Failures are non-fatal: bad rows / failed wgets increment FAIL_COUNT and
+# the script still exits 0 + writes the .download_complete marker so ComfyUI
+# can start (workflows referencing missing models just fail at render time —
+# the historical behavior).
+#
+# Required apk packages on alpine: wget ca-certificates
+# — installed inline below (postgresql-client no longer needed).
 set -e
 
-apk add --no-cache wget ca-certificates postgresql-client
+apk add --no-cache wget ca-certificates
 
 MODELS_ROOT="${COMFYUI_MODELS_PATH:-/models}"
-
-# Required env vars — same shape as services/ollama/pull/scripts/pull.sh.
-if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ] || [ -z "$PGDATABASE" ]; then
-  echo "comfyui-init: Error: One or more required PG env vars are not set."
-  echo "PGHOST=$PGHOST, PGUSER=$PGUSER, PGPASSWORD=[set], PGDATABASE=$PGDATABASE"
-  exit 1
-fi
+MANIFEST_TSV="${COMFYUI_MANIFEST_TSV:-/comfyui-manifest/active-models.tsv}"
 
 # 1. Materialize per-category directories (idempotent on every run).
 for d in checkpoints vae loras controlnet ipadapter instantid \
@@ -100,22 +110,24 @@ download_one() {
   fi
 }
 
-# 2. Pull the active set from Postgres.
-# Tab-separated, header-less, tuples-only — mirrors ollama-pull's pattern.
+# 2. Read the active set from the bootstrapper-generated manifest TSV.
+# Tab-separated, header-less, tuples-only — same shape as the former psql output.
 # Use a tempfile rather than a pipe so the while-loop body runs in the
 # current shell, not a subshell. A piped `cmd | while read` forks a
 # subshell for the loop body on POSIX sh / Alpine ash, causing counter
 # mutations (OK_COUNT etc.) to be lost when the loop exits.
-echo "comfyui-init: Fetching active ComfyUI models from $PGDATABASE on $PGHOST..."
-PGPASSWORD="$PGPASSWORD" psql \
-  -h "$PGHOST" -p "${PGPORT:-5432}" -d "$PGDATABASE" -U "$PGUSER" \
-  -A -F $'\t' -t \
-  -c "SELECT name, type, filename, download_url, COALESCE(sha256, '') FROM public.comfyui_models WHERE active = true ORDER BY name;" \
-  > /tmp/_comfy_active 2>/tmp/_comfy_psql_err \
-  || { echo "✗ psql query failed:"; cat /tmp/_comfy_psql_err; FAIL_COUNT=$((FAIL_COUNT + 1)); > /tmp/_comfy_active; }
+echo "comfyui-init: Reading active ComfyUI models from $MANIFEST_TSV..."
+if [ ! -f "$MANIFEST_TSV" ] || [ ! -s "$MANIFEST_TSV" ]; then
+  echo "(no active-models.tsv or empty manifest — nothing to download)"
+  echo "--- summary: $OK_COUNT downloaded, $SKIP_COUNT cached, $FAIL_COUNT failed ---"
+  touch "$MODELS_ROOT/.download_complete"
+  exit 0
+fi
+
+cp "$MANIFEST_TSV" /tmp/_comfy_active
 
 if [ ! -s /tmp/_comfy_active ]; then
-  echo "(no active comfyui_models rows — nothing to download)"
+  echo "(no active comfyui models in manifest — nothing to download)"
 else
   row_count=$(wc -l < /tmp/_comfy_active | tr -d ' ')
   echo "--- found $row_count active row(s) ---"
@@ -133,14 +145,14 @@ else
       continue
     fi
     # Filename column is authoritative; fall back to a URL-derived
-    # basename only if the DB row is empty.
+    # basename only if the manifest row is empty.
     if [ -z "$filename" ]; then
       filename=$(basename "$url" | cut -d '?' -f 1)
     fi
     download_one "$name" "$url" "$MODELS_ROOT/$dir/$filename" "$sha"
   done < /tmp/_comfy_active
 fi
-rm -f /tmp/_comfy_active /tmp/_comfy_psql_err
+rm -f /tmp/_comfy_active
 
 echo "--- summary: $OK_COUNT downloaded, $SKIP_COUNT cached, $FAIL_COUNT failed ---"
 touch "$MODELS_ROOT/.download_complete"

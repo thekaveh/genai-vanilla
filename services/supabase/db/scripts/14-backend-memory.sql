@@ -1,6 +1,8 @@
--- 10-langmem-tables.sql
--- Memory service tables for LangMem integration
--- Provides persistent conversation memory with fact extraction, recall, and consolidation
+-- 14-backend-memory.sql
+-- OWNER: backend — memory_* tables + their idempotent migrations. user_id FKs
+-- reference public.users (slice 10, sorts first). Only this service's objects
+-- belong here. Assembled from the former 10-langmem-tables.sql and
+-- 10a-langmem-migrations.sql (appended below).
 
 -- Core memory facts table - stores extracted facts from conversations
 CREATE TABLE IF NOT EXISTS public.memory_facts (
@@ -68,7 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_memory_consolidation_user_id ON public.memory_con
 CREATE INDEX IF NOT EXISTS idx_memory_facts_embedding ON public.memory_facts
     USING hnsw (embedding vector_cosine_ops);
 
--- Apply updated_at trigger (reusing function from 09-research-tables.sql)
+-- Apply updated_at trigger (reusing function from 07-functions.sql)
 DROP TRIGGER IF EXISTS update_memory_facts_updated_at ON public.memory_facts;
 CREATE TRIGGER update_memory_facts_updated_at
     BEFORE UPDATE ON public.memory_facts
@@ -107,3 +109,55 @@ CREATE POLICY "Service role can access all consolidation logs" ON public.memory_
 GRANT ALL ON public.memory_facts TO service_role;
 GRANT ALL ON public.memory_sessions TO service_role;
 GRANT ALL ON public.memory_consolidation_log TO service_role;
+
+-- ── Migrations (formerly 10a-langmem-migrations.sql) ───────────────────────
+-- Idempotent: converts legacy VARCHAR(255) user_id → UUID and re-points the FK
+-- at public.users(id). Safe to re-run; no-op on fresh installs.
+DO $$
+DECLARE
+    tbl text;
+    legacy_fk text;
+BEGIN
+    FOREACH tbl IN ARRAY ARRAY[
+        'memory_facts',
+        'memory_sessions',
+        'memory_consolidation_log'
+    ]
+    LOOP
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = tbl
+               AND column_name = 'user_id'
+               AND data_type = 'character varying'
+        ) THEN
+            CONTINUE;
+        END IF;
+
+        SELECT conname
+          INTO legacy_fk
+          FROM pg_constraint
+         WHERE conrelid = ('public.' || tbl)::regclass
+           AND contype = 'f'
+           AND array_length(conkey, 1) = 1
+           AND (SELECT attname FROM pg_attribute
+                 WHERE attrelid = conrelid
+                   AND attnum  = conkey[1]) = 'user_id';
+        IF legacy_fk IS NOT NULL THEN
+            EXECUTE format('ALTER TABLE public.%I DROP CONSTRAINT %I', tbl, legacy_fk);
+            RAISE NOTICE 'public.%: dropped legacy user_id FK %', tbl, legacy_fk;
+        END IF;
+
+        EXECUTE format(
+            'ALTER TABLE public.%I ALTER COLUMN user_id TYPE uuid USING user_id::uuid',
+            tbl
+        );
+
+        EXECUTE format(
+            'ALTER TABLE public.%I ADD CONSTRAINT %I FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE',
+            tbl, tbl || '_user_id_fkey'
+        );
+
+        RAISE NOTICE 'public.%: user_id migrated VARCHAR(255) → UUID, FK → public.users(id)', tbl;
+    END LOOP;
+END $$;

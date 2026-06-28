@@ -1,16 +1,22 @@
 """
-End-to-end integration tests for the Ollama → LiteLLM catalog sync.
+End-to-end integration tests for the Ollama → LiteLLM model registration flow.
 
 These tests query the **actual running stack** (host Ollama + LiteLLM
-proxy) and assert the user-facing invariants the recent fixes
-established:
+proxy) and assert the user-facing invariants of the current architecture:
 
   * Every model on the host's Ollama appears in LiteLLM's
-    ``/v1/models`` response. Covers the auto-import fix in
-    ``services/litellm/catalog-init/scripts/sync-catalog.py`` —
-    when ``LLM_PROVIDER_SOURCE=ollama-localhost`` and
-    ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true``, the catalog should
-    contain every host /api/tags entry without any wizard run.
+    ``/v1/models`` response. Under the current flow, ``litellm-init``
+    (``services/litellm/init/scripts/init.py``) computes the active
+    model set from the YAML catalogs (``services/ollama/models.yaml``,
+    ``services/litellm/models.yaml``) and env vars via
+    ``bootstrapper/utils/model_resolver.py``. When
+    ``LLM_PROVIDER_SOURCE=ollama-localhost`` and
+    ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true``, ``litellm-init`` also
+    queries the host's ``/api/tags`` via
+    ``bootstrapper/utils/ollama_discovery.py`` and unions those locally-
+    pulled models into the rendered ``config.yaml``. There is no DB /
+    ``public.llms`` table involved — the YAML catalogs + env are the
+    sole source of truth.
 
   * The wizard's options_provider, fed against the live Ollama,
     produces a PromptOption list where ``pulled_variants`` for each
@@ -82,7 +88,7 @@ def _http_get_json(url: str, *, headers=None, timeout: float = 3.0):
 
 
 def _ollama_upstream_url() -> str:
-    """Return the URL the wizard / catalog-init would query for
+    """Return the URL that litellm-init / the wizard would query for
     /api/tags. Localhost mode is hardcoded to 11434 in the wizard;
     container and `none` sources return empty (no host-side upstream
     to probe)."""
@@ -160,10 +166,12 @@ def _skip_unless_stack_up():
 def test_every_host_ollama_model_is_published_by_litellm():
     """The user's concrete bug: a model pulled on the host
     (``qwen3.6:35b-a3b-coding-mxfp8``) didn't appear in LiteLLM's
-    ``/v1/models``. After the auto-import fix in
-    ``apply_ollama_selection``, every host /api/tags entry must show
+    ``/v1/models``. Under the current flow, ``litellm-init`` fetches
+    host ``/api/tags`` via ``ollama_discovery.list_pulled_models()``
+    (when ``OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true``) and includes those
+    models in the rendered ``config.yaml``, so every host tag must show
     up in LiteLLM as ``ollama/<name>`` AND ``<name>`` (the bare alias
-    LiteLLM-init publishes for backward compat).
+    litellm-init publishes for backward compat).
 
     The test compares the SET of names, so the order LiteLLM
     publishes them in (sorted by catalog vs by /api/tags) doesn't
@@ -186,8 +194,8 @@ def test_every_host_ollama_model_is_published_by_litellm():
         f"LiteLLM's /v1/models does not include every host Ollama "
         f"model. Missing: {sorted(missing)}.\n\n"
         f"This usually means OLLAMA_AUTO_IMPORT_LOCAL_MODELS=false in "
-        f".env, or llm-catalog-init couldn't reach the host's /api/tags "
-        f"at boot (check `docker logs atlas-llm-catalog-init`).\n\n"
+        f".env, or litellm-init couldn't reach the host's /api/tags "
+        f"at boot (check `docker logs atlas-litellm-init`).\n\n"
         f"Host /api/tags returned: {sorted(host_tags)}\n"
         f"LiteLLM /v1/models returned: {sorted(litellm_set)}"
     )
@@ -201,9 +209,13 @@ def test_litellm_doesnt_advertise_phantom_ollama_models():
 
     This guards against drift in the other direction: if the wizard
     once selected a model and the operator later deleted it from the
-    host, LiteLLM shouldn't keep advertising it. Currently this is
-    not strictly enforced (active=true rows persist across pulls),
-    so the test is informational — it doesn't fail on stale rows but
+    host, LiteLLM shouldn't keep advertising it. Under the YAML flow,
+    model_resolver computes the active set from the YAML catalogs +
+    env; OLLAMA_AUTO_IMPORT_LOCAL_MODELS=true unions in /api/tags at
+    litellm-init time. A stale model would persist only if it's still
+    in OLLAMA_USER_MODELS or OLLAMA_CUSTOM_MODELS (env-level overrides
+    the operator controls) — there is no DB table to clean up.
+    The test is informational — it doesn't fail on stale rows but
     surfaces them in the pytest output for the operator to triage.
     """
     host_tags, litellm_models = _skip_unless_stack_up()
@@ -251,11 +263,15 @@ def test_litellm_doesnt_advertise_phantom_ollama_models():
         pytest.fail(
             f"LiteLLM advertises Ollama models that are neither on the "
             f"host nor declared in OLLAMA_USER_MODELS / "
-            f"OLLAMA_CUSTOM_MODELS — stale catalog rows:\n  "
+            f"OLLAMA_CUSTOM_MODELS — stale model_resolver entries:\n  "
             f"{', '.join(unexplained)}\n\n"
-            f"Resolve by either re-running the wizard, manually "
-            f"updating OLLAMA_USER_MODELS, or directly UPDATE-ing "
-            f"public.llms.active = false for the stale rows."
+            f"A phantom Ollama model in /v1/models means it isn't "
+            f"present on the host (/api/tags) AND isn't listed in "
+            f"OLLAMA_USER_MODELS or OLLAMA_CUSTOM_MODELS — litellm-init's "
+            f"active-set computation (model_resolver) included a stale "
+            f"name from the YAML catalogs or env. Resolve by re-running "
+            f"the wizard (which rewrites .env) or updating "
+            f"OLLAMA_USER_MODELS in .env to remove the stale name."
         )
 
 

@@ -263,6 +263,7 @@ services:
     environment:
       COMFYUI_BASE_URL: http://comfyui:18188
       COMFYUI_ENABLED: 'true'
+      COMFYUI_MANIFEST_PATH: /comfyui-manifest/selected-models.yaml
       DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       DOCLING_ENDPOINT: ''
       HERMES_API_KEY: ''
@@ -279,7 +280,7 @@ services:
       LIGHTRAG_ENDPOINT: ''
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
-      LITELLM_DEFAULT_MODEL: ''
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
       N8N_API_KEY: ''
       N8N_BASE_URL: http://n8n:5678
@@ -324,6 +325,11 @@ services:
       target: /shared
       type: volume
       volume: {}
+    - bind: {}
+      read_only: true
+      source: '{REPO_ROOT}/volumes/comfyui'
+      target: /comfyui-manifest
+      type: bind
   backup:
     command:
     - apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc &&
@@ -527,54 +533,10 @@ services:
       source: '{HOME}/Documents/ComfyUI/models'
       target: /host_models
       type: bind
-  comfyui-catalog-init:
-    build:
-      context: '{REPO_ROOT}/services/comfyui/catalog-init'
-      dockerfile: Dockerfile
-    container_name: atlas-comfyui-catalog-init
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
-    deploy:
-      replicas: 1
-    environment:
-      COMFYUI_CUSTOM_MODELS_FILE: /custom-models.yaml
-      COMFYUI_USER_MODELS: ''
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
-    networks:
-      backend-network: null
-    restart: 'no'
-    volumes:
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/services/comfyui/catalog-init/scripts'
-      target: /scripts
-      type: bind
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/services/comfyui/custom-models.yaml'
-      target: /custom-models.yaml
-      type: bind
-    - bind: {}
-      read_only: true
-      source: '{REPO_ROOT}/bootstrapper/utils'
-      target: /catalog
-      type: bind
   comfyui-init:
     container_name: atlas-comfyui-init
     depends_on:
-      comfyui-catalog-init:
-        condition: service_completed_successfully
-        required: true
       ollama-pull:
-        condition: service_completed_successfully
-        required: true
-      supabase-db-init:
         condition: service_completed_successfully
         required: true
     deploy:
@@ -582,12 +544,8 @@ services:
     entrypoint:
     - /scripts/download_models.sh
     environment:
+      COMFYUI_MANIFEST_TSV: /comfyui-manifest/active-models.tsv
       COMFYUI_MODELS_PATH: /models
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
     extra_hosts:
     - host.docker.internal=
     image: alpine:latest
@@ -603,6 +561,11 @@ services:
       target: /models
       type: volume
       volume: {}
+    - bind: {}
+      read_only: true
+      source: '{REPO_ROOT}/volumes/comfyui'
+      target: /comfyui-manifest
+      type: bind
   grafana:
     container_name: atlas-grafana
     depends_on:
@@ -1063,7 +1026,7 @@ services:
       LIGHTRAG_PG_URI: ''
       LIGHTRAG_REDIS_URI: ''
       LIGHTRAG_SOURCE: disabled
-      LITELLM_DEFAULT_MODEL: ''
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
       LITELLM_MASTER_KEY: ''
     image: alpine:latest
@@ -1155,28 +1118,40 @@ services:
       dockerfile: Dockerfile
     container_name: atlas-litellm-init
     depends_on:
-      llm-catalog-init:
-        condition: service_completed_successfully
-        required: true
       supabase-db:
         condition: service_healthy
         required: true
     deploy:
       replicas: 1
     environment:
+      ANTHROPIC_API_KEY: ''
+      ANTHROPIC_USER_MODELS: ''
+      ATLAS_MODELS_DIR: /atlas-models
       HERMES_ENDPOINT: ''
       HERMES_SOURCE: container
       LIGHTRAG_API_KEY: ''
       LIGHTRAG_ENDPOINT: ''
       LIGHTRAG_SOURCE: disabled
+      LITELLM_ANTHROPIC_ENABLED: 'false'
       LITELLM_CONFIG_OUT: /litellm-config/config.yaml
       LITELLM_DB_NAME: litellm
       LITELLM_OLLAMA_UPSTREAM: ''
-      PGDATABASE: postgres
+      LITELLM_OPENAI_ENABLED: 'false'
+      LITELLM_OPENROUTER_ENABLED: 'false'
+      LLM_PROVIDER_SOURCE: ollama-container-cpu
+      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: 'true'
+      OLLAMA_CUSTOM_MODELS: ''
+      OLLAMA_USER_MODELS: qwen3.6:latest,nomic-embed-text,qwen3-embedding:0.6b
+      OPENAI_API_KEY: ''
+      OPENAI_USER_MODELS: ''
+      OPENROUTER_API_KEY: ''
+      OPENROUTER_USER_MODELS: ''
       PGHOST: supabase-db
       PGPASSWORD: password
       PGPORT: '5432'
       PGUSER: supabase_admin
+    extra_hosts:
+    - host.docker.internal=
     networks:
       backend-network: null
     restart: 'no'
@@ -1195,50 +1170,15 @@ services:
       source: '{REPO_ROOT}/bootstrapper/utils'
       target: /catalog
       type: bind
-  llm-catalog-init:
-    build:
-      context: '{REPO_ROOT}/services/litellm/catalog-init'
-      dockerfile: Dockerfile
-    container_name: atlas-llm-catalog-init
-    depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
-    environment:
-      ANTHROPIC_API_KEY: ''
-      ANTHROPIC_USER_MODELS: ''
-      LITELLM_ANTHROPIC_ENABLED: 'false'
-      LITELLM_OLLAMA_UPSTREAM: ''
-      LITELLM_OPENAI_ENABLED: 'false'
-      LITELLM_OPENROUTER_ENABLED: 'false'
-      LLM_PROVIDER_SOURCE: ollama-container-cpu
-      OLLAMA_AUTO_IMPORT_LOCAL_MODELS: 'true'
-      OLLAMA_CUSTOM_MODELS: ''
-      OLLAMA_USER_MODELS: ''
-      OPENAI_API_KEY: ''
-      OPENAI_USER_MODELS: ''
-      OPENROUTER_API_KEY: ''
-      OPENROUTER_USER_MODELS: ''
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
-    extra_hosts:
-    - host.docker.internal=
-    networks:
-      backend-network: null
-    restart: 'no'
-    volumes:
     - bind: {}
       read_only: true
-      source: '{REPO_ROOT}/services/litellm/catalog-init/scripts'
-      target: /scripts
+      source: '{REPO_ROOT}/services/ollama/models.yaml'
+      target: /atlas-models/ollama-models.yaml
       type: bind
     - bind: {}
       read_only: true
-      source: '{REPO_ROOT}/bootstrapper/utils'
-      target: /catalog
+      source: '{REPO_ROOT}/services/litellm/models.yaml'
+      target: /atlas-models/litellm-models.yaml
       type: bind
   local-deep-researcher:
     build:
@@ -1254,15 +1194,12 @@ services:
       searxng:
         condition: service_healthy
         required: true
-      supabase-db-init:
-        condition: service_completed_successfully
-        required: true
     deploy:
       replicas: 1
     environment:
-      DATABASE_URL: postgresql://supabase_admin:password@supabase-db:5432/postgres
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       LOCAL_DEEP_RESEARCHER_WORKERS: '3'
       MAX_WEB_RESEARCH_LOOPS: '3'
       SEARCH_API: searxng
@@ -1429,6 +1366,7 @@ services:
       LIGHTRAG_ENDPOINT: ''
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       N8N_ALLOW_CONNECTIONS_FROM: http://n8n.localhost:63000
       N8N_AUTH_ENABLED: 'true'
       N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: 'true'
@@ -1560,6 +1498,7 @@ services:
       LIGHTRAG_ENDPOINT: ''
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_DEFAULT_MODEL: ollama/qwen3.6:latest
       N8N_ENCRYPTION_KEY: your-random-encryption-key
       N8N_METRICS: 'true'
       N8N_METRICS_INCLUDE_DEFAULT_METRICS: 'true'
@@ -1700,9 +1639,6 @@ services:
   ollama-pull:
     container_name: atlas-ollama-pull
     depends_on:
-      llm-catalog-init:
-        condition: service_completed_successfully
-        required: true
       ollama:
         condition: service_started
         required: true
@@ -1714,12 +1650,9 @@ services:
     entrypoint:
     - /scripts/pull.sh
     environment:
+      OLLAMA_CUSTOM_MODELS: ''
       OLLAMA_HOST_URL: ''
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
+      OLLAMA_USER_MODELS: qwen3.6:latest,nomic-embed-text,qwen3-embedding:0.6b
     extra_hosts:
     - host.docker.internal=
     image: alpine:latest
@@ -1927,9 +1860,9 @@ services:
       PATCH='{\"gateway\":{\"controlUi\":{\"dangerouslyAllowHostHeaderOriginFallback\"\
       :true}}}'\n# Write via tmp + mv on BOTH branches: `> \"$$CONFIG\"` truncates\n\
       # the target before jq runs, so a missing/failed jq used to\n# leave a 0-byte\
-      \ config the gateway chokes on (and re-runs\n# could not self-heal \u2014 jq\
-      \ errors on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch\
-      \ \"$$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\"\
+      \ config the gateway chokes on (and re-runs\n# could not self-heal — jq errors\
+      \ on the empty file).\nif [ -s \"$$CONFIG\" ]; then\n  jq --argjson patch \"\
+      $$PATCH\" '. * $$patch' \"$$CONFIG\" > \"$$CONFIG.tmp\" && mv \"$$CONFIG.tmp\"\
       \ \"$$CONFIG\"\nelse\n  echo \"$$PATCH\" | jq . > \"$$CONFIG.tmp\" && mv \"\
       $$CONFIG.tmp\" \"$$CONFIG\"\nfi\nchown -R 1000:1000 /home/node/.openclaw\n"
     image: alpine:latest
@@ -2841,11 +2774,7 @@ services:
     environment:
       LITELLM_API_KEY: ''
       LITELLM_BASE_URL: http://litellm:4000
-      PGDATABASE: postgres
-      PGHOST: supabase-db
-      PGPASSWORD: password
-      PGPORT: '5432'
-      PGUSER: supabase_admin
+      LITELLM_EMBEDDING_MODEL: ollama/nomic-embed-text
     extra_hosts:
     - host.docker.internal=
     image: alpine:latest

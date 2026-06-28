@@ -4,19 +4,15 @@ FROM ${BASE_IMAGE}
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (LDR is DB-free — no postgresql-client/psql).
 RUN apt-get update && apt-get install -y \
     git \
     curl \
-    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for faster Python package management (pinned so the dependency
 # installer itself is deterministic across rebuilds).
 RUN pip install --no-cache-dir uv==0.11.19
-
-# Install additional dependencies for our custom integration scripts
-RUN uv pip install --system psycopg2-binary==2.9.9
 
 # Create necessary directories
 RUN mkdir -p /app/data /app/config /app/repo

@@ -40,7 +40,7 @@ env:
     default: 1000
   - name: LANGMEM_EXTRACTION_MODEL
     default: ""
-    description: "LiteLLM model id (empty = highest-priority active content model from public.llms)."
+    description: "LiteLLM model id (empty = highest-priority active content model resolved by model_resolver from YAML catalogs + env)."
   - name: LANGMEM_EMBEDDING_MODEL
     default: ""
 

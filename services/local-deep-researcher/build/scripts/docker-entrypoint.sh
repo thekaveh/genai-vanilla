@@ -43,12 +43,12 @@ echo "Local Deep Researcher: Installing dependencies..."
 uv pip install --system -r /app/pyproject.toml
 
 # -------------------------------------------------------------------
-# Initialize configuration from database
+# Initialize configuration from env vars (LITELLM_DEFAULT_MODEL, etc.)
 # -------------------------------------------------------------------
-echo "Local Deep Researcher: Initializing configuration from database..."
+echo "Local Deep Researcher: Initializing configuration from env vars..."
 if ! python3 /app/scripts/init-config.py; then
     echo "Local Deep Researcher: ERROR - Failed to initialize configuration"
-    echo "Local Deep Researcher: Check database connectivity and dependencies"
+    echo "Local Deep Researcher: Ensure LITELLM_DEFAULT_MODEL is set and dependencies are installed"
     exit 1
 fi
 

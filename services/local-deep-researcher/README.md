@@ -38,7 +38,7 @@ TTS_ENDPOINT=...
 DOCLING_ENDPOINT=...
 ```
 
-**Required hard dependencies** (`depends_on.required`): `supabase`, `searxng`, `litellm`. Without SearXNG, LDR has no search backend; without LiteLLM, no LLM to summarize.
+**Required hard dependencies** (`depends_on.required`): `searxng`, `litellm`. Without SearXNG, LDR has no search backend; without LiteLLM, no LLM to summarize. LDR is **DB-free** — it does not connect to Supabase. Research sessions are persisted to `public.research_*` by the **backend** (`research_service.py`), which calls this LangGraph server over HTTP; that supabase dependency belongs to the backend, not LDR.
 
 **Optional adaptive** (`runtime_deps.local-deep-researcher.optional`): `neo4j-graph-db`, `n8n`, `weaviate`, the media providers. Wiring exists in the manifest but nothing in the LDR code consumes them today — these are forward-looking hooks.
 
@@ -72,7 +72,6 @@ DOCLING_ENDPOINT=...
 
 | Service | Category |
 |---|---|
-| supabase | data |
 | litellm | llm |
 | searxng | media |
 

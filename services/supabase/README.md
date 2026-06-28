@@ -30,20 +30,30 @@ The database initialization follows a two-stage process managed by Docker Compos
 
 **IMPORTANT**: The `SUPABASE_DB_USER` in your `.env` file must be set to `supabase_admin`. This is required by the base image's internal scripts.
 
+**Password is baked at initdb (`password authentication failed for user "supabase_admin"`).** The `supabase_admin` role's password is set **once**, when the `supabase-db-data` volume is first created, and is never re-synced afterward. `SUPABASE_DB_PASSWORD` ships as the placeholder `password` and is auto-rotated to a random value on the first `./start.sh`. If the data volume later persists across a `.env` password change (e.g. `.env` regenerated from `.env.example` against a retained volume — `./stop.sh` without `--cold` keeps volumes), clients authenticate with the new value while the role still holds the old one → `password authentication failed`. The bootstrapper now **skips** rotation and warns when it detects an existing `<project>_supabase-db-data` volume, so it won't silently rotate `.env` out of sync. To recover a drifted stack, either set `SUPABASE_DB_PASSWORD` back to the volume's original value, or run `./stop.sh --cold` (removes volumes) then `./start.sh` to reinitialize the role and `.env` together.
+
 ### 2.2 Custom Post-Initialization (`supabase-db-init` service)
 
 - A dedicated, short-lived service using `postgres:15-alpine` image
 - Depends on `supabase-db` and waits until it's ready using `pg_isready`
 - Executes all `.sql` files from `./services/supabase/db/scripts/` directory in alphabetical order
-- Custom scripts handle project-specific setup:
-  - Ensuring extensions like `vector` and `postgis` are enabled (`01-extensions.sql`)
-  - Ensuring schemas like `auth` and `storage` exist (`02-schemas.sql`)
-  - Creating necessary custom types for Supabase Auth (`03-auth-types.sql`)
+- Custom scripts handle project-specific setup.
+
+The seeding layout follows a two-tier convention: core scaffolding lives in the `0x`-prefixed files; per-service "vertical slice" files (`10`–`14`) each own one service's tables, migrations, and seeds. All files are executed in alphabetical order by `db-init-runner.sh`, which means slice-to-slice FK references work as long as a lower-numbered slice creates the referenced table first (e.g. `public.users` in `10` is referenced by slices `13` and `14`).
+
+  - Enabling extensions: `vector`, `postgis`, `pgcrypto` (`01-extensions.sql`)
+  - Ensuring schemas `auth` and `storage` exist (`02-schemas.sql`)
+  - Creating custom types for Supabase Auth / GoTrue (`03-auth-types.sql`)
+  - GoTrue migration sync shim (`03b-gotrue-migration-sync.sql`)
   - Setting up storage schema and tables (`04-storage.sql`)
-  - Creating custom public tables like `users` and `llms` (`05-public-tables.sql`)
   - Granting appropriate permissions to standard roles (`06-permissions.sql`)
-  - Creating custom functions like `public.health` (`07-functions.sql`)
-  - Inserting seed data like default LLMs (`08-seed-data.sql`)
+  - Creating shared functions like `public.health` and `update_updated_at_column()` (`07-functions.sql`)
+  - **`10-users.sql`** — `public.users` table (shared user identity, referenced by downstream slices)
+  - **`12-comfyui.sql`** — `public.comfyui_workflows` and `public.comfyui_generations` tables (runtime app state), their indexes, and the default workflow seed rows. `public.comfyui_models` was decommissioned — its DDL was removed from this file and a guarded DROP lives in `16-decommission-comfyui-models.sql`.
+  - **`13-backend-research.sql`** — `research` schema and research tables (`public.research_sessions`, `public.research_results`, `public.research_sources`, `public.research_logs`) (owned by backend / local-deep-researcher)
+  - **`14-backend-memory.sql`** — LangMem memory tables (`public.memory_facts`, `public.memory_sessions`, `public.memory_consolidation_log`) plus their idempotent column migrations (owned by backend / LangMem)
+  - **`15-decommission-llms.sql`** — decommission migration: drops the former `public.llms` catalog table on pre-existing volumes (idempotent `DROP TABLE IF EXISTS`). Fresh installs never create `public.llms` (the former `11-litellm.sql` was removed). The LLM model source-of-truth now lives in `services/ollama/models.yaml` and `services/litellm/models.yaml`, resolved by `bootstrapper/utils/model_resolver.py`.
+  - **`16-decommission-comfyui-models.sql`** — decommission migration: drops the former `public.comfyui_models` catalog table on pre-existing volumes (idempotent `DROP TABLE IF EXISTS`). Fresh installs never create `public.comfyui_models` (its DDL left `12-comfyui.sql`). The ComfyUI model source-of-truth now lives in `services/comfyui/models.yaml` (and the `custom-models.yaml` sidecar), resolved by `bootstrapper/utils/comfyui_resolver.py` into a manifest at start. `public.comfyui_workflows` and `public.comfyui_generations` are RUNTIME app state and are NOT affected.
 
 All custom SQL scripts use `IF NOT EXISTS` logic to allow safe re-runs.
 
@@ -253,7 +263,6 @@ _No upstream calls._
 | n8n | agents |
 | backend | apps |
 | jupyterhub | apps |
-| local-deep-researcher | apps |
 | open-webui | apps |
 | zeppelin | apps |
 

@@ -10,8 +10,10 @@ services:
     deploy:
       replicas: ${LOCAL_DEEP_RESEARCHER_SCALE:-1}
     depends_on:
-      supabase-db-init:
-        condition: service_completed_successfully
+      # No supabase dependency: LDR is DB-free. The research_* tables are
+      # written by the BACKEND (services/backend/app/app/research_service.py),
+      # which calls this LangGraph server over HTTP and persists sessions
+      # itself. LDR only needs its search backend and the LLM gateway.
       searxng:
         condition: service_healthy
       litellm:
@@ -19,9 +21,10 @@ services:
     extra_hosts:
       - "host.docker.internal:${HOST_GATEWAY_IP}"
     environment:
-      DATABASE_URL: postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY}
+      # Default content LLM — init-config.py reads this directly (no DB query).
+      LITELLM_DEFAULT_MODEL: ${LITELLM_DEFAULT_MODEL:-ollama/qwen3.6:latest}
       SEARCH_API: ${LOCAL_DEEP_RESEARCHER_SEARCH_API:-searxng}
       SEARXNG_URL: http://searxng:8080
       MAX_WEB_RESEARCH_LOOPS: ${LOCAL_DEEP_RESEARCHER_LOOPS:-3}
