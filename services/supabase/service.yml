@@ -24,28 +24,28 @@ containers:
 
 images:
   - var: SUPABASE_DB_IMAGE
-    default: "supabase/postgres:17.4.1.016"
+    default: "supabase/postgres:17.6.1.139"
     container: supabase-db
   - var: SUPABASE_DB_INIT_IMAGE
     default: "postgres:15.18-alpine"
     container: supabase-db-init
   - var: SUPABASE_META_IMAGE
-    default: "supabase/postgres-meta:v0.88.9"
+    default: "supabase/postgres-meta:v0.96.6"
     container: supabase-meta
   - var: SUPABASE_STORAGE_IMAGE
-    default: "supabase/storage-api:v1.22.7"
+    default: "supabase/storage-api:v1.61.5"
     container: supabase-storage
   - var: SUPABASE_AUTH_IMAGE
-    default: "supabase/gotrue:v2.171.0"
+    default: "supabase/gotrue:v2.191.0"
     container: supabase-auth
   - var: SUPABASE_API_IMAGE
     default: "postgrest/postgrest:v12.2.10"
     container: supabase-api
   - var: SUPABASE_REALTIME_IMAGE
-    default: "supabase/realtime:v2.33.72"
+    default: "supabase/realtime:v2.112.0"
     container: supabase-realtime
   - var: SUPABASE_STUDIO_IMAGE
-    default: "supabase/studio:latest"
+    default: "supabase/studio:2026.06.22-sha-2207d7f"
     container: supabase-studio
   - var: POSTGRES_EXPORTER_IMAGE
     default: "prometheuscommunity/postgres-exporter:v0.19.1"

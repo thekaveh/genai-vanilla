@@ -28,7 +28,7 @@ SCHEMA_GOLDEN = FIXTURES / "seed_schema_golden.sql"
 ROWS_GOLDEN = FIXTURES / "seed_rows_golden.txt"
 
 # Mirrors .env.example SUPABASE_DB_IMAGE / SUPABASE_DB_USER / SUPABASE_DB_NAME.
-DB_IMAGE = "supabase/postgres:17.4.1.016"
+DB_IMAGE = "supabase/postgres:17.6.1.139"
 DB_USER = "supabase_admin"
 DB_NAME = "postgres"
 
@@ -53,10 +53,18 @@ def docker_available() -> bool:
 
 def _normalize(dump: str) -> str:
     """Drop pg_dump's comment lines (version banners etc.) and collapse blank
-    lines, so the comparison is structural and image-patch-stable."""
+    lines, so the comparison is structural and image-patch-stable.
+
+    Also drops the `\\restrict` / `\\unrestrict` psql meta-commands that
+    pg_dump >= 17.5 emits around the dump body: each carries a freshly
+    randomized nonce token, so leaving them in would make every dump differ
+    from the last (breaking idempotency) and from the golden. They guard
+    psql's restricted mode, not schema content."""
     out: list[str] = []
     for line in dump.splitlines():
         if line.startswith("--"):
+            continue
+        if line.startswith("\\restrict") or line.startswith("\\unrestrict"):
             continue
         if line.strip() == "" and (not out or out[-1] == ""):
             continue
