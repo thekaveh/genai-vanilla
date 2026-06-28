@@ -156,6 +156,26 @@ Results in:
 
 This allows multiple projects to use atlas simultaneously without conflicts.
 
+**start and stop both honor it.** `./start.sh` and `./stop.sh` both read
+`PROJECT_NAME` from `.env` and pass it as `docker compose -p <name>`, so a bare
+`./infra/stop.sh` tears down **exactly** the family `./infra/start.sh` launched —
+not a base Atlas stack. As a submodule consumer you only need to set
+`PROJECT_NAME` once in `infra/.env`.
+
+You can also pass it explicitly (it persists back to `.env`, so the next bare
+start/stop keeps agreeing):
+
+```bash
+./infra/start.sh --project myproject     # or -p myproject
+./infra/stop.sh                          # reads PROJECT_NAME=myproject from .env
+./infra/stop.sh --project myproject      # or be explicit
+```
+
+The name is lower-cased and must match Docker Compose's project-name rules
+(`[a-z0-9][a-z0-9_-]*`); an invalid name is rejected up front. The interactive
+wizard also has a **Project name** step (defaults to the current value) that
+writes it to `.env`.
+
 ### 5.2 Custom Environment File Location (Advanced)
 
 If you prefer to manage your infrastructure configuration from the parent project, you can use the `ATLAS_ENV_FILE` environment variable (the legacy name `GENAI_ENV_FILE` is still honored as a deprecated alias with a one-shot stderr warning):

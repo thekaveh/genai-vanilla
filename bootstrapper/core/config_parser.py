@@ -16,6 +16,38 @@ from pathlib import Path
 # Mirrors the BASE_PORT default from the original start.sh.
 DEFAULT_BASE_PORT = 63000
 
+# The default Docker Compose project name / container-family namespace when
+# PROJECT_NAME is unset. Every container, volume, and the network are prefixed
+# with the resolved PROJECT_NAME (``<name>-<service>``, ``<name>-network``).
+DEFAULT_PROJECT_NAME = "atlas"
+
+# Docker Compose project names must be lowercase and match this pattern (it is
+# what `docker compose -p` accepts; consumer stacks reusing Atlas as a submodule
+# set their own via PROJECT_NAME / --project so start & stop target the right
+# family of containers).
+_PROJECT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
+def normalize_project_name(raw: str) -> str:
+    """Validate + normalize a Compose project name.
+
+    Lower-cases the input (Docker Compose does too) and enforces the
+    ``[a-z0-9][a-z0-9_-]*`` shape. Raises ``ValueError`` with an actionable
+    message on an empty or otherwise invalid name, so ``--project`` /
+    ``PROJECT_NAME`` fail fast with a clear error instead of a cryptic
+    ``docker compose`` rejection later.
+    """
+    name = (raw or "").strip().lower()
+    if not name:
+        raise ValueError("project name must not be empty")
+    if not _PROJECT_NAME_RE.match(name):
+        raise ValueError(
+            f"invalid project name {raw!r}: must start with a letter or digit and "
+            f"contain only lowercase letters, digits, '-' or '_' "
+            f"(Docker Compose project-name rules)"
+        )
+    return name
+
 
 # Module-level flag: GENAI_ENV_FILE deprecation warning fires once
 # per process, not once per ConfigParser instance.
@@ -242,7 +274,7 @@ class ConfigParser:
             str: Project name, defaults to 'atlas' if not found
         """
         env_vars = self.parse_env_file()
-        return env_vars.get('PROJECT_NAME', 'atlas')
+        return env_vars.get('PROJECT_NAME', DEFAULT_PROJECT_NAME)
     
     def env_file_exists(self) -> bool:
         """

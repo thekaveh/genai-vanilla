@@ -220,7 +220,7 @@ def _build_steps_and_rows(
     """Build the wizard steps + service rows from real config."""
     from wizard.service_discovery import ServiceDiscovery
     from ui.state_builder import build_app_state
-    from core.config_parser import DEFAULT_BASE_PORT
+    from core.config_parser import DEFAULT_BASE_PORT, DEFAULT_PROJECT_NAME
     from .widgets.prompt_panel import PromptOption, PromptStep
     from .widgets.service_table import ServiceRow
     from services.manifests import load_manifests as _load_manifests, option_in_profile as _option_in_profile
@@ -248,6 +248,11 @@ def _build_steps_and_rows(
         current_base_port = int(_raw) if _raw else DEFAULT_BASE_PORT
     except ValueError:
         current_base_port = DEFAULT_BASE_PORT
+
+    # Current Docker Compose project name (container-family namespace). The
+    # wizard's project-name step pre-fills with this so an existing PROJECT_NAME
+    # (e.g. a submodule consumer's) isn't reset to the default on a bare Enter.
+    current_project_name = (env_vars.get("PROJECT_NAME") or "").strip() or DEFAULT_PROJECT_NAME
 
     # Build canonical order index once — shared by both sorts below.
     from services.topology import get_topology
@@ -391,6 +396,23 @@ def _build_steps_and_rows(
         kind="number",
         number_min=1024,
         number_max=65000,
+    ))
+
+    # Project name (Docker Compose namespace). Persisted to .env as
+    # PROJECT_NAME, so start AND stop target this container family. A submodule
+    # consumer sets a unique name here to avoid colliding with a base Atlas
+    # stack; pressing Enter keeps the current value.
+    steps.append(PromptStep(
+        title="Project name  ·  namespace", step_index=2, step_total=total,
+        heading="What should the project (container family) be named?",
+        subtitle="Every container, volume, and the network are prefixed "
+                 "<name>-… (lowercase letters/digits/-/_). Persisted to .env as "
+                 "PROJECT_NAME so start and stop agree. Press Enter to keep the "
+                 "current value.",
+        options=[],
+        default_value=current_project_name,
+        service_name="",
+        kind="text",
     ))
 
     # LLM cluster steps (Ollama variants + cloud secret/multiselect
@@ -956,6 +978,22 @@ def _selections_to_args(
         base_port_val = int(bp) if bp else current_base_port
     except ValueError:
         base_port_val = current_base_port
+
+    # Project name → PROJECT_NAME. Normalize (lowercase + validate); on an
+    # empty or invalid entry, fall back to the current .env value so a stray
+    # answer never resets the namespace. Only emit it when it actually differs
+    # from the current value (avoids a no-op .env write every launch).
+    project_name_val = None
+    pn_raw = selections.get("Project name  ·  namespace")
+    if pn_raw:
+        from core.config_parser import normalize_project_name
+        try:
+            _pn = normalize_project_name(pn_raw)
+        except ValueError:
+            _pn = None
+        _current_pn = ((env_vars or {}).get("PROJECT_NAME") or "").strip().lower()
+        if _pn and _pn != _current_pn:
+            project_name_val = _pn
     cold = selections.get("Cold start  ·  rebuild") == "yes"
     hosts = selections.get("Hosts setup  ·  /etc/hosts", "default")
     launch = selections.get("Confirm  ·  launch the stack") == "yes"
@@ -963,7 +1001,7 @@ def _selections_to_args(
     # Falls back to "default" when the step was never visited.
     resolved_profile = (selections.get(PROFILE_STEP_TITLE) or "default").strip()
     return source_args, {
-        "base_port": base_port_val, "cold": cold,
+        "base_port": base_port_val, "project_name": project_name_val, "cold": cold,
         "setup_hosts": (hosts == "setup"), "skip_hosts": (hosts == "skip"),
         "launch_confirmed": launch,
         "cloud_api_keys": cloud_api_keys,

@@ -31,7 +31,19 @@ class AtlasStopper:
         self.hosts_manager = HostsManager()
         self.config_parser = ConfigParser(str(self.root_dir))
         self.docker_manager = DockerManager(str(self.root_dir))
-        
+
+    def persist_project_name(self, project_name: str) -> None:
+        """Best-effort persist PROJECT_NAME to .env so this teardown — and the
+        next bare start/stop — target the same container family. No-op if .env
+        is absent (nothing to tear down anyway); the resolved name is still used
+        for this invocation."""
+        if not project_name or not self.config_parser.env_file_exists():
+            return
+        from utils.source_override_manager import SourceOverrideManager
+        SourceOverrideManager(self.config_parser).update_env_file(
+            {"PROJECT_NAME": project_name}
+        )
+
     def show_usage(self):
         """Display usage information."""
         usage_text = """
@@ -50,21 +62,26 @@ Examples:
 """
         print(usage_text)
         
-    def show_configuration_info(self, cold_stop: bool, clean_hosts: bool):
-        """Display environment configuration information."""
+    def show_configuration_info(self, cold_stop: bool, clean_hosts: bool,
+                                project_name_override: str = None):
+        """Display environment configuration information.
+
+        ``project_name_override`` (from --project / -p) wins over the .env value
+        so the teardown targets exactly the requested container family.
+        """
         self.banner.show_section_header("Environment Configuration", "📋")
-        
+
         # Check .env file
         if self.config_parser.env_file_exists():
             timestamp = self.config_parser.get_env_file_timestamp()
             self.banner.show_status_message(f"Found .env file with timestamp: {timestamp}", "info")
-            
+
             # Get project name
-            project_name = self.config_parser.get_project_name()
+            project_name = project_name_override or self.config_parser.get_project_name()
             self.banner.show_status_message(f"Project name: {project_name}", "info")
         else:
             self.banner.show_status_message(".env file not found. Using default configuration.", "warning")
-            project_name = self.config_parser.get_project_name()
+            project_name = project_name_override or self.config_parser.get_project_name()
             
         # Show Docker compose command
         compose_cmd = self.docker_manager.get_compose_command_display()
@@ -159,25 +176,45 @@ Examples:
 
 
 @click.command()
+@click.option('--project', '-p', 'project_name', type=str, default=None,
+              help='Docker Compose project name — the container family to tear '
+                   'down (every container/volume/network is prefixed <name>-…). '
+                   'Defaults to PROJECT_NAME in .env (or "atlas"), so a bare '
+                   './stop.sh tears down exactly what ./start.sh launched. Pass '
+                   'this (or set PROJECT_NAME in .env) to stop a specific stack '
+                   'when running Atlas as a submodule; it persists to .env.')
 @click.option('--cold', is_flag=True, help='Remove volumes (data will be lost)')
 @click.option('--clean-hosts', is_flag=True, help='Remove Atlas hosts file entries (requires sudo/admin)')
 @click.option('--help-usage', is_flag=True, help='Show detailed usage information')
-def main(cold, clean_hosts, help_usage):
+def main(project_name, cold, clean_hosts, help_usage):
     """Stop Atlas — the self-hosted engineering platform."""
-    
+
     stopper = AtlasStopper()
-    
+
     if help_usage:
         stopper.show_usage()
         return
-    
+
+    # ─── Project name (-p / --project) ───────────────────────────────
+    # Validate fail-fast, persist to .env (so the next bare start/stop agrees),
+    # and use it as the authoritative teardown target for THIS run.
+    if project_name is not None:
+        from core.config_parser import normalize_project_name
+        try:
+            project_name = normalize_project_name(project_name)
+        except ValueError as exc:
+            click.echo(f"stop.sh: {exc}", err=True)
+            raise SystemExit(2)
+        stopper.persist_project_name(project_name)
+
     # Show initial message
     stopper.banner.show_status_message("Stopping Atlas...", "info")
     print()
-    
+
     try:
         # Step 1: Show configuration information
-        project_name = stopper.show_configuration_info(cold, clean_hosts)
+        project_name = stopper.show_configuration_info(cold, clean_hosts,
+                                                       project_name_override=project_name)
         
         # Step 2: Stop Docker services. Keep going on failure so hosts
         # cleanup and the final status still run, but exit non-zero at the
