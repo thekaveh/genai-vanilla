@@ -332,14 +332,13 @@ services:
       type: bind
   backup:
     command:
-    - apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc &&
-      /scripts/backup-all.sh
+    - /scripts/backup-all.sh
     container_name: atlas-backup
     deploy:
       replicas: 0
     entrypoint:
     - sh
-    - -c
+    - /scripts/entrypoint.sh
     environment:
       BACKUP_BUCKET: atlas-backups
       BACKUP_S3_ALIAS_URL: http://minio:9000

@@ -20,6 +20,7 @@ BACKUP_TIMESTAMP=20240101_120000 docker compose run --rm backup /scripts/restore
 Image: `postgres:17-alpine` (provides `pg_dump` / `pg_restore`; the major version must be >= the `supabase-db` server, currently 17.x, or `pg_dump` aborts on a server-version mismatch). MinIO client (`mcli`, Alpine package `minio-client`) is installed at container startup and symlinked to `mc` so the scripts work unchanged. Volume snapshots are tar.gz archives of the bind-mounted read-only volumes at `/volumes/*`.
 
 Scripts live under `services/backup/init/scripts/`:
+- `entrypoint.sh` — installs `mc` then execs the requested script (runs for both backup and restore).
 - `backup-all.sh` — Postgres dump + volume tarballs -> S3 prefix `s3/<bucket>/<timestamp>/`.
 - `restore-postgres.sh` — pull `postgres.dump` from S3 and `pg_restore --clean`.
 
@@ -57,7 +58,7 @@ Timed execution: the runner has no internal scheduler. Wire it to the Airflow DA
 
 Postgres data lives in `supabase-db-data` but is captured via `pg_dump` (not volume tar), so the dump is consistent and portable across Postgres versions.
 
-**mc binary.** Alpine's `minio-client` package installs the binary as `mcli`. The entrypoint runs `ln -sf /usr/bin/mcli /usr/local/bin/mc` before the backup script so scripts can call `mc` directly.
+**mc binary.** Alpine's `minio-client` package installs the binary as `mcli`. The shared entrypoint (`init/scripts/entrypoint.sh`) installs the package and runs `ln -sf /usr/bin/mcli /usr/local/bin/mc` before exec'ing the target script — so both `backup-all.sh` and `restore-postgres.sh` can call `mc` directly, including when the command is overridden for a restore. The entrypoint and the target script are invoked via `sh`, so they do not depend on the bind-mounted (read-only, mode 0644) scripts carrying an executable bit.
 
 **Network.** Attached to `backend-network` only — reaches `supabase-db:5432` and `minio:9000` via Docker DNS.
 
@@ -99,7 +100,7 @@ _No downstream consumers._
 
 ## 6. Troubleshooting
 
-**`mc: not found`.** The `apk add minio-client` step failed or the symlink was not created. Run `docker compose run --rm --entrypoint sh backup -c "apk add --no-cache minio-client && ls /usr/bin/mcli"` to verify the package installs.
+**`mc: not found`.** The shared entrypoint's `apk add minio-client` step failed (e.g. no network to the Alpine mirror) or the symlink was not created. Run `docker compose run --rm --entrypoint sh backup -c "apk add --no-cache minio-client && ls /usr/bin/mcli"` to verify the package installs.
 
 **`pg_dump: connection refused`.** `supabase-db` is not healthy. Check `docker compose ps supabase-db` and wait for the health check to pass before running the backup.
 

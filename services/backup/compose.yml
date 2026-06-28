@@ -2,8 +2,11 @@
 #   docker compose run --rm backup
 #
 # mc validation note: Alpine's minio-client package installs the binary as
-# `mcli`, not `mc`. The entrypoint symlinks mcli -> mc so backup-all.sh
-# and restore-postgres.sh work without modification.
+# `mcli`, not `mc`. The shared entrypoint (init/scripts/entrypoint.sh) installs
+# minio-client and symlinks mcli -> mc, then execs the requested script. Living
+# in the entrypoint (not `command`) means the bootstrap also runs when the
+# command is overridden for a restore, e.g.
+#   docker compose run --rm backup /scripts/restore-postgres.sh
 #
 # Cross-fragment volumes: supabase-storage-data, graph-db-data, and
 # weaviate-data are owned by their respective fragments. Redeclared here
@@ -16,9 +19,8 @@ services:
     restart: "no"
     deploy:
       replicas: ${BACKUP_SCALE:-0}
-    entrypoint: ["sh", "-c"]
-    command:
-      - "apk add --no-cache minio-client && ln -sf /usr/bin/mcli /usr/local/bin/mc && /scripts/backup-all.sh"
+    entrypoint: ["sh", "/scripts/entrypoint.sh"]
+    command: ["/scripts/backup-all.sh"]
     environment:
       SUPABASE_DB_USER: ${SUPABASE_DB_USER}
       SUPABASE_DB_PASSWORD: ${SUPABASE_DB_PASSWORD}
