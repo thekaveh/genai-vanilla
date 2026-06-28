@@ -132,6 +132,7 @@ Pin the submodule to a release **tag** rather than tracking `main`, so infra upg
 | **`*_SOURCE`** | Enable/disable each service or pick its backend (`container` / `container-gpu` / `localhost` / `disabled`). LLMs use `ollama-container-*` / `ollama-localhost` / `none`; cloud providers toggle via the separate `CLOUD_*_SOURCE` vars. Disable what your showcase doesn't use. | `.env` / `--<svc>-source` |
 | **`--track`** | Start a curated subset (`gen-ai-rag`, `gen-ai-eng`, `gen-ai-creative`, `ml-eng`, `data-eng`, `all`). `--track gen-ai-rag` is the natural fit for a RAG showcase. | flag |
 | **`services/_user/` overlay** | Drop your own co-located service into `services/_user/<name>/compose.yml` (gitignored upstream, so it never leaks into Atlas PRs); the bootstrapper auto-merges and launches it. | [§6.1](#61-extending-the-stack-via-services_user) |
+| **`BACKEND_PLUGINS_DIR` plugin seam** | Mount a directory of FastAPI route packages into the backend app to add your own API routes — no fork of `services/backend/` required. | [§6.2](#62-adding-backend-api-routes-via-the-plugin-seam) |
 
 Full source/customization matrix: [source-configuration.md](source-configuration.md).
 
@@ -163,6 +164,44 @@ networks:
 ```
 
 **Scope note:** overlay services *launch*, but they are intentionally **not** wired into Atlas's wizard, topology port-allocator, or generated `.env.example` — you manage their image/ports/env directly in the fragment (use `${HOST_BIND_IP:-}` on published ports to inherit the `--profile prod` localhost-binding behavior). If you'd rather keep your service in its *own* repo entirely, use Method A instead (it joins the same network from outside).
+
+### 6.2 Adding backend API routes via the plugin seam
+
+The FastAPI backend exposes a **generic plugin seam** so you can mount your own API routes *into* it without forking `services/backend/`. On startup the backend calls `load_plugins(app)`, which scans `$BACKEND_PLUGINS_DIR` (default `/app/plugins`) and, for each immediate subdirectory that is an importable Python package exposing a module-level `router` (a FastAPI `APIRouter`), includes that router into the running app. If the directory holds a `requirements.txt`, it's `pip install`'d first. The seam is a **no-op when the directory doesn't exist** (so base Atlas is unaffected), and a plugin that fails to import is logged and skipped — one bad plugin never crashes the backend.
+
+To use it, mount a plugins directory into the backend container and (optionally) point `BACKEND_PLUGINS_DIR` at it. With a submodule/overlay layout you extend Atlas's `backend` service from your parent Compose:
+
+```yaml
+# your parent docker-compose.yml — overlay onto Atlas's backend
+services:
+  backend:
+    volumes:
+      - ./my-plugins:/app/plugins:ro
+    environment:
+      BACKEND_PLUGINS_DIR: /app/plugins   # the default; shown for clarity
+```
+
+Each plugin is a package directory exposing `router`:
+
+```
+my-plugins/
+  rag_routes/
+    __init__.py          # exposes `router = APIRouter(prefix="/rag", ...)`
+    requirements.txt     # optional; pip-installed before the package is imported
+```
+
+```python
+# my-plugins/rag_routes/__init__.py
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/rag", tags=["rag"])
+
+@router.get("/health")
+def health():
+    return {"ok": True}
+```
+
+Your routes are then served by the same backend — reachable at `backend:8000` in-network, or via Kong at `api.localhost/...`. This is the recommended way to add backend endpoints (e.g. a `/rag` surface) for a downstream showcase without maintaining a fork. See [`services/backend/README.md` §4](../../services/backend/README.md) for the backend-side description.
 
 ---
 
