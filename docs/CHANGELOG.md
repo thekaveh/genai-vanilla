@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — 2026-06-29 — SearXNG: thin `use_default_settings` override instead of a forked settings.yml
+
+- Replaced the ~2800-line forked `services/searxng/config/settings.yml` (a full copy of SearXNG's defaults incl. the ~250-engine list) with a ~40-line **thin override** built on `use_default_settings`. The fork drifted from the pinned image on every bump — engines lost their modules (`Cannot load engine …: FileNotFoundError`) or changed config APIs (`Engine setup was not successful`), spamming startup errors (this is the durable fix for the searxng follow-up from the #176 cleanup, which had removed 8 dead-module engines but left 7 config-drift ones). The override now carries only what the stack needs: `search.formats: [html, json]` (JSON is off in the default; the backend/n8n/LDR/Hermes all use the JSON API) and `use_default_settings.engines.remove: [ahmia, torch]` (Tor-only engines that need a Tor proxy we don't wire). Everything else — full engine list with correct per-engine config, `server.limiter: false`, `valkey.url: false`, `enable_metrics: true`, and the `secret_key` placeholder — is inherited from the image and stays version-matched on future bumps. `SEARXNG_SECRET` is applied via the SearXNG-native env var (compose), not written into the file (the README's old "bootstrapper writes SEARXNG_SECRET into settings.yml" note was wrong and is corrected). Verified live: SearXNG boots with **0** engine-load errors (was 21+) and the JSON search API returns results. README updated.
+
 ### Fixed — 2026-06-28 — post-launch service error-log cleanup (realtime crash + 3 noisy services)
 
 A full audit of a freshly-launched stack surfaced one crash-loop and three sources of recurring error logs; all fixed and verified live:
