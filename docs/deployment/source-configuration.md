@@ -413,6 +413,17 @@ LightRAG runs out-of-process as either an in-stack container or a host-installed
 - **`localhost`** — Expects an existing LightRAG running on the host at `LIGHTRAG_LOCALHOST_PORT` (default 63068). Backend-network consumers reach it via `host.docker.internal`.
 - **`disabled`** — `LIGHTRAG_ENDPOINT` empties; hermes/n8n/backend skip the LightRAG capability; LiteLLM's `model_list` omits the `lightrag` entry.
 
+Role-specific LLM overrides are optional and preserve the single-model fallback when left empty:
+
+```bash
+LIGHTRAG_LLM_MODEL=qwen3.6:latest
+LIGHTRAG_EXTRACT_LLM_MODEL=mistral-small3.2:24b
+LIGHTRAG_KEYWORD_LLM_MODEL=mistral-small3.2:24b
+LIGHTRAG_QUERY_LLM_MODEL=qwen3.6:latest
+```
+
+Use `EXTRACT` and `KEYWORD` for high-volume structured extraction work and `QUERY` for final answer generation. For local Ollama deployments, a cheaper non-reasoning extraction model usually keeps indexing responsive while allowing query answering to use the project-selected stronger model. Empty role-specific values inherit the base `LLM_MODEL`, so existing deployments do not need to set these variables.
+
 ### 4.8 RAY_SOURCE
 
 Ray is the stack's distributed-compute substrate (head + worker containers, `infra` category). Consumers reach it via `RAY_ADDRESS` set per source by the bootstrapper's `_generate_ray_config()` hook. See [Ray service README](../../services/ray/README.md) for the full configuration reference.
@@ -524,7 +535,7 @@ Cross-encoder reranker inference server (default model `mixedbread-ai/mxbai-rera
 - **`container-cpu`** — `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9`. Runs anywhere; ~150 ms per pair latency.
 - **`container-gpu`** — `:1.9` image with NVIDIA reservation. ~15 ms per pair on RTX-class GPU.
 - **`localhost`** — Existing TEI process on host at `TEI_RERANKER_LOCALHOST_PORT` (default 63031).
-- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is blank.
+- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is emitted as `null` so LightRAG disables reranking instead of crashing on an empty binding.
 
 ### 4.13 ZEPPELIN_SOURCE
 
