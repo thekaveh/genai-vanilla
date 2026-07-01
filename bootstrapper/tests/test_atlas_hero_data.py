@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 ASSETS = Path(__file__).resolve().parent.parent / "ui" / "textual" / "assets"
-BREAKPOINTS = (80, 100, 120, 160)
+BREAKPOINTS = (60, 80, 100, 120, 160)
 POSTER_BREAKPOINTS = (60, 80, 100, 120, 160)
 _HEX = re.compile(r"^#[0-9a-f]{6}$")
 

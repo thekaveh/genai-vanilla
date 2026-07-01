@@ -7,6 +7,7 @@ from ui.textual.widgets.atlas_hero import load_hero, hero_rows
 @pytest.mark.parametrize("width,expected_cols", [
     (200, 160), (160, 160), (159, 120), (120, 120),
     (110, 100), (100, 100), (90, 80), (80, 80),
+    (79, 60), (60, 60),
 ])
 def test_load_hero_picks_largest_fitting_breakpoint(width, expected_cols):
     data = load_hero(width)
@@ -14,7 +15,7 @@ def test_load_hero_picks_largest_fitting_breakpoint(width, expected_cols):
 
 
 def test_load_hero_returns_none_below_min():
-    assert load_hero(79) is None
+    assert load_hero(59) is None
 
 
 def test_hero_rows_render_one_text_per_row_full_width():
@@ -41,3 +42,20 @@ def test_atlas_hero_render_returns_renderable():
     from ui.textual.widgets.atlas_hero import AtlasHero
     hero = AtlasHero(100)
     assert hero.render() is not None
+
+
+def test_atlas_hero_centering_padding_uses_image_background():
+    from rich.align import Align
+    from rich.console import Group
+    from ui.textual.widgets.atlas_hero import AtlasHero, HERO_BACKGROUND
+
+    renderable = AtlasHero(60).render()
+
+    assert isinstance(renderable, Group)
+    rows = list(renderable.renderables)
+    assert rows
+    assert all(isinstance(row, Align) for row in rows)
+    assert all(row.style.bgcolor is not None for row in rows)
+    assert {row.style.bgcolor.triplet for row in rows} == {
+        HERO_BACKGROUND.bgcolor.triplet,
+    }
