@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Precondition: run against a disposable or development Atlas stack.
+# Precondition: .env has LIGHTRAG_SOURCE=container and role model variables set.
+# Precondition: the configured models are available through LiteLLM.
 set -euo pipefail
 
 project="${PROJECT_NAME:-atlas}"
@@ -48,7 +51,7 @@ curl -fsS -X POST "$lightrag_url/query" \
 
 echo "[smoke] recent LiteLLM log lines mentioning expected models:"
 docker compose -p "$project" logs --since=10m litellm \
-  | grep -E "$extract_model|$query_model" \
+  | grep -F -e "$extract_model" -e "$query_model" \
   | tail -40 || true
 
 echo "[smoke] upload response: /tmp/lightrag-upload-response.json"
