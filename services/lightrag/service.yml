@@ -62,6 +62,63 @@ env:
   - name: LIGHTRAG_LLM_MODEL
     default: ""
     description: "Empty = lightrag-init resolves from LITELLM_DEFAULT_MODEL."
+  - name: LIGHTRAG_EXTRACT_LLM_MODEL
+    default: ""
+    description: "Optional LightRAG EXTRACT role model. Empty = inherit LLM_MODEL."
+  - name: LIGHTRAG_KEYWORD_LLM_MODEL
+    default: ""
+    description: "Optional LightRAG KEYWORD role model. Empty = inherit LLM_MODEL."
+  - name: LIGHTRAG_QUERY_LLM_MODEL
+    default: ""
+    description: "Optional LightRAG QUERY role model. Empty = inherit LLM_MODEL."
+  - name: LIGHTRAG_EXTRACT_LLM_BINDING
+    default: ""
+    description: "Optional EXTRACT role provider binding. Empty = inherit LLM_BINDING."
+  - name: LIGHTRAG_KEYWORD_LLM_BINDING
+    default: ""
+    description: "Optional KEYWORD role provider binding. Empty = inherit LLM_BINDING."
+  - name: LIGHTRAG_QUERY_LLM_BINDING
+    default: ""
+    description: "Optional QUERY role provider binding. Empty = inherit LLM_BINDING."
+  - name: LIGHTRAG_EXTRACT_LLM_BINDING_HOST
+    default: ""
+    description: "Optional EXTRACT role provider endpoint. Empty = inherit LLM_BINDING_HOST."
+  - name: LIGHTRAG_KEYWORD_LLM_BINDING_HOST
+    default: ""
+    description: "Optional KEYWORD role provider endpoint. Empty = inherit LLM_BINDING_HOST."
+  - name: LIGHTRAG_QUERY_LLM_BINDING_HOST
+    default: ""
+    description: "Optional QUERY role provider endpoint. Empty = inherit LLM_BINDING_HOST."
+  - name: LIGHTRAG_EXTRACT_LLM_BINDING_API_KEY
+    default: ""
+    secret: true
+    description: "Optional EXTRACT role provider API key. Empty = inherit LLM_BINDING_API_KEY for same-provider roles."
+  - name: LIGHTRAG_KEYWORD_LLM_BINDING_API_KEY
+    default: ""
+    secret: true
+    description: "Optional KEYWORD role provider API key. Empty = inherit LLM_BINDING_API_KEY for same-provider roles."
+  - name: LIGHTRAG_QUERY_LLM_BINDING_API_KEY
+    default: ""
+    secret: true
+    description: "Optional QUERY role provider API key. Empty = inherit LLM_BINDING_API_KEY for same-provider roles."
+  - name: LIGHTRAG_EXTRACT_MAX_ASYNC_LLM
+    default: ""
+    description: "Optional EXTRACT role LLM concurrency. Empty = inherit MAX_ASYNC_LLM."
+  - name: LIGHTRAG_KEYWORD_MAX_ASYNC_LLM
+    default: ""
+    description: "Optional KEYWORD role LLM concurrency. Empty = inherit MAX_ASYNC_LLM."
+  - name: LIGHTRAG_QUERY_MAX_ASYNC_LLM
+    default: ""
+    description: "Optional QUERY role LLM concurrency. Empty = inherit MAX_ASYNC_LLM."
+  - name: LIGHTRAG_EXTRACT_LLM_TIMEOUT
+    default: ""
+    description: "Optional EXTRACT role LLM timeout in seconds. Empty = inherit LLM_TIMEOUT."
+  - name: LIGHTRAG_KEYWORD_LLM_TIMEOUT
+    default: ""
+    description: "Optional KEYWORD role LLM timeout in seconds. Empty = inherit LLM_TIMEOUT."
+  - name: LIGHTRAG_QUERY_LLM_TIMEOUT
+    default: ""
+    description: "Optional QUERY role LLM timeout in seconds. Empty = inherit LLM_TIMEOUT."
   - name: LIGHTRAG_EMBEDDING_BINDING
     default: openai
   - name: LIGHTRAG_EMBEDDING_BINDING_HOST
