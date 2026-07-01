@@ -119,6 +119,18 @@ env:
   - name: LIGHTRAG_QUERY_LLM_TIMEOUT
     default: ""
     description: "Optional QUERY role LLM timeout in seconds. Empty = inherit LLM_TIMEOUT."
+  - name: LIGHTRAG_QUERY_ENABLE_RERANK
+    default: "false"
+    description: "LightRAG query default for reranking. Atlas keeps this false by default because direct LightRAG→TEI rerank payloads are incompatible without an adapter."
+  - name: LIGHTRAG_QUERY_TOP_K
+    default: ""
+    description: "Optional LightRAG query TOP_K. Empty = LightRAG default."
+  - name: LIGHTRAG_QUERY_CHUNK_TOP_K
+    default: ""
+    description: "Optional LightRAG query CHUNK_TOP_K. Empty = LightRAG default."
+  - name: LIGHTRAG_QUERY_MAX_TOTAL_TOKENS
+    default: ""
+    description: "Optional LightRAG query MAX_TOTAL_TOKENS. Empty = LightRAG default."
   - name: LIGHTRAG_EMBEDDING_BINDING
     default: openai
   - name: LIGHTRAG_EMBEDDING_BINDING_HOST
@@ -150,7 +162,7 @@ env:
     auto_managed: true
   - name: LIGHTRAG_RERANK_BINDING
     auto_managed: true
-    description: "jina when the TEI reranker endpoint is set, null (reranking off) when disabled. Computed by _generate_lightrag_config(); LightRAG crashes on an empty value."
+    description: "Always null by default. Direct LightRAG→TEI rerank payloads are incompatible without an adapter, and LightRAG crashes on an empty value."
   - name: LIGHTRAG_DOCLING_ENDPOINT
     auto_managed: true
   - name: LIGHTRAG_PG_URI
@@ -172,7 +184,6 @@ depends_on:
     - neo4j
     - redis
     - docling
-    - tei-reranker
 
 rows:
   - display_name: "LightRAG"
@@ -223,18 +234,16 @@ runtime_adaptive:
   lightrag:
     adapts_to:
       - doc_processor
-      - tei_reranker
       - supabase
       - neo4j
       - redis
     environment_adaptation:
       LIGHTRAG_DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
-      # LightRAG's `jina` binding POSTs directly to the host URL with no
-      # path appending, so the env value must already include the full
-      # `/rerank` endpoint. _generate_lightrag_config() in service_config.py
-      # appends `/rerank` imperatively; keep the manifest in sync so the
-      # two sources of truth never drift.
-      LIGHTRAG_RERANK_BINDING_HOST: "${TEI_RERANKER_ENDPOINT}/rerank"
+      # Direct LightRAG->TEI rerank is intentionally disabled: LightRAG's
+      # jina/cohere clients send `{query, documents}`, while TEI's /rerank
+      # endpoint expects `{query, texts}`. Keep this blank until Atlas ships
+      # an adapter or a compatible rerank binding.
+      LIGHTRAG_RERANK_BINDING_HOST: ""
       LIGHTRAG_PG_URI: "postgresql://${SUPABASE_DB_USER}:${SUPABASE_DB_PASSWORD}@supabase-db:5432/${SUPABASE_DB_NAME}"
       # Neo4j compose service id is `neo4j-graph-db`, not `neo4j` (memory:
       # reference_kong_compose_service_id documents the same pattern for Kong).
@@ -243,7 +252,7 @@ runtime_adaptive:
       LIGHTRAG_NEO4J_PASSWORD: ${GRAPH_DB_PASSWORD}
       LIGHTRAG_REDIS_URI: "redis://:${REDIS_PASSWORD}@redis:6379/2"
     extra_hosts_adaptation: none
-    failure_mode: "Storage falls back to NanoVectorDB / NetworkX / JsonKV when supabase/neo4j/redis source is disabled. Reranker omitted when disabled. Docling skipped → multimodal images become text-only."
+    failure_mode: "Storage falls back to NanoVectorDB / NetworkX / JsonKV when supabase/neo4j/redis source is disabled. Reranking remains off unless a compatible adapter is configured. Docling skipped → multimodal images become text-only."
   lightrag-init:
     adapts_to:
       - llm_provider
@@ -261,7 +270,6 @@ runtime_deps:
       - neo4j
       - redis
       - docling
-      - tei-reranker
     info_message: "LightRAG enabled — will wire optional storage and capability services when available."
 
 data_flow:
@@ -271,4 +279,3 @@ data_flow:
     - neo4j
     - redis
     - docling
-    - tei-reranker

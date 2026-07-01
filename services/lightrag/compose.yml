@@ -57,6 +57,14 @@ services:
       EXTRACT_LLM_TIMEOUT: ${LIGHTRAG_EXTRACT_LLM_TIMEOUT:-}
       KEYWORD_LLM_TIMEOUT: ${LIGHTRAG_KEYWORD_LLM_TIMEOUT:-}
       QUERY_LLM_TIMEOUT: ${LIGHTRAG_QUERY_LLM_TIMEOUT:-}
+      # Query defaults. Empty numeric values intentionally defer to
+      # LightRAG's own defaults. Rerank defaults false because Atlas's TEI
+      # /rerank endpoint expects `{query, texts}`, while LightRAG's direct
+      # jina/cohere clients send `{query, documents}`.
+      RERANK_BY_DEFAULT: ${LIGHTRAG_QUERY_ENABLE_RERANK:-false}
+      TOP_K: ${LIGHTRAG_QUERY_TOP_K:-}
+      CHUNK_TOP_K: ${LIGHTRAG_QUERY_CHUNK_TOP_K:-}
+      MAX_TOTAL_TOKENS: ${LIGHTRAG_QUERY_MAX_TOTAL_TOKENS:-}
       # LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM are intentionally NOT
       # set here — lightrag-init resolves them from LiteLLM /v1/models at
       # boot and writes them to /app/data/.env, which the entrypoint
@@ -88,11 +96,10 @@ services:
       LIGHTRAG_PARSER: "*:native-teP,*:legacy-R"
       DOCLING_ENDPOINT: ${LIGHTRAG_DOCLING_ENDPOINT}
       # LightRAG v1.5.0 only accepts cohere/jina/aliyun/null for RERANK_BINDING
-      # and HARD-CRASHES on an empty string. TEI's /rerank endpoint is
-      # wire-compatible with the Jina/Cohere payload, so service_config.py sets
-      # LIGHTRAG_RERANK_BINDING=jina when the reranker endpoint is set and =null
-      # when it's disabled (reranking off — graceful degradation). The :-null
-      # default covers a blank/absent var so the container can never boot-loop.
+      # and hard-crashes on an empty string. Atlas emits the literal `null`
+      # because direct LightRAG->TEI rerank payloads are incompatible without
+      # an adapter. The :-null default covers a blank/absent var so the
+      # container can never boot-loop.
       RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING:-null}
       RERANK_BINDING_HOST: ${LIGHTRAG_RERANK_BINDING_HOST}
       RERANK_MODEL: mixedbread-ai/mxbai-rerank-base-v1

@@ -1137,20 +1137,13 @@ class ServiceConfig:
         if lightrag_source != 'disabled':
             lightrag_raw_env = self.config_parser.parse_env_file()
 
-            # Reranker — mirror TEI_RERANKER_ENDPOINT and append the /rerank
-            # path. LightRAG's `jina` binding POSTs directly to the host URL
-            # (no path-appending), so the env value must already include the
-            # full endpoint. A blank/disabled endpoint leaves the host empty,
-            # which disables reranking.
-            tei_endpoint = parent_vars.get('TEI_RERANKER_ENDPOINT', '')
-            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = (
-                f'{tei_endpoint.rstrip("/")}/rerank' if tei_endpoint else ''
-            )
-            # LightRAG (v1.5.0) only accepts cohere/jina/aliyun/null for
-            # RERANK_BINDING and HARD-CRASHES on an empty string. When the TEI
-            # reranker is disabled we must emit the literal `null` (reranking
-            # off) rather than blank — graceful degradation, not a boot loop.
-            env_vars['LIGHTRAG_RERANK_BINDING'] = 'jina' if tei_endpoint else 'null'
+            # Reranker — keep direct LightRAG->TEI rerank disabled. LightRAG's
+            # jina/cohere clients POST `{query, documents}`, while Atlas's TEI
+            # /rerank endpoint expects `{query, texts}`. Emit the literal
+            # `null` rather than blank because LightRAG hard-crashes on an
+            # empty RERANK_BINDING value.
+            env_vars['LIGHTRAG_RERANK_BINDING_HOST'] = ''
+            env_vars['LIGHTRAG_RERANK_BINDING'] = 'null'
 
             # Docling — mirror DOCLING_ENDPOINT.
             env_vars['LIGHTRAG_DOCLING_ENDPOINT'] = parent_vars.get('DOCLING_ENDPOINT', '')

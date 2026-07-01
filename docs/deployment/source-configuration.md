@@ -31,7 +31,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `OPENCLAW_SOURCE` | `disabled` | `container`, `localhost`, `disabled` | User-facing | AI messaging agent. |
 | `HERMES_SOURCE` | `container` | `container`, `localhost`, `disabled` | User-facing | Programmable AI agent runtime (Nous Research). Routes reasoning through LiteLLM and appears as the `hermes-agent` model to every consumer. |
 | `STT_PROVIDER_SOURCE` | `speaches-container-cpu` | `speaches-container-cpu`, `speaches-container-gpu`, `parakeet-container-gpu`, `parakeet-localhost`, `whisper-cpp-localhost`, `disabled` | User-facing optional | Speech-to-text provider. Speaches is the CPU-friendly default; Parakeet remains for SOTA NVIDIA; whisper.cpp is the best Apple Silicon native option. |
-| `TEI_RERANKER_SOURCE` | `disabled` | `container-cpu`, `container-gpu`, `localhost`, `disabled` | User-facing optional | Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift. Consumed optionally by LightRAG. |
+| `TEI_RERANKER_SOURCE` | `disabled` | `container-cpu`, `container-gpu`, `localhost`, `disabled` | User-facing optional | Cross-encoder reranker (default `mxbai-rerank-base-v1`) for RAG quality lift. LightRAG direct wiring is disabled until a compatible adapter exists. |
 | `TTS_PROVIDER_SOURCE` | `speaches-container-cpu` | `speaches-container-cpu`, `speaches-container-gpu`, `chatterbox-container-gpu`, `chatterbox-localhost`, `disabled` | User-facing optional | Text-to-speech provider. Speaches serves Kokoro/Piper voices; Chatterbox adds 5-sec zero-shot voice cloning. |
 | `DOC_PROCESSOR_SOURCE` | `disabled` | `docling-container-gpu`, `docling-localhost`, `disabled` | User-facing optional | Document processing provider. |
 | `JUPYTERHUB_SOURCE` | `container` | `container`, `disabled` | User-facing optional | Data science notebooks; adaptive integrations. |
@@ -420,9 +420,15 @@ LIGHTRAG_LLM_MODEL=qwen3.6:latest
 LIGHTRAG_EXTRACT_LLM_MODEL=mistral-small3.2:24b
 LIGHTRAG_KEYWORD_LLM_MODEL=mistral-small3.2:24b
 LIGHTRAG_QUERY_LLM_MODEL=qwen3.6:latest
+LIGHTRAG_QUERY_ENABLE_RERANK=false
+LIGHTRAG_QUERY_TOP_K=10
+LIGHTRAG_QUERY_CHUNK_TOP_K=5
+LIGHTRAG_QUERY_MAX_TOTAL_TOKENS=12000
 ```
 
 Use `EXTRACT` and `KEYWORD` for high-volume structured extraction work and `QUERY` for final answer generation. For local Ollama deployments, a cheaper non-reasoning extraction model usually keeps indexing responsive while allowing query answering to use the project-selected stronger model. Empty role-specific values inherit the base `LLM_MODEL`, so existing deployments do not need to set these variables.
+
+The `LIGHTRAG_QUERY_*` knobs map to LightRAG's native query defaults. Numeric query defaults can stay empty to preserve upstream behavior. `LIGHTRAG_QUERY_ENABLE_RERANK` defaults to `false` because LightRAG's built-in Jina/Cohere rerank clients send `{query, documents}`, while TEI's `/rerank` route expects `{query, texts}`. Keep it off unless routing LightRAG through a compatible adapter or custom rerank binding.
 
 ### 4.8 RAY_SOURCE
 
@@ -530,12 +536,12 @@ SPARK_WORKER_COUNT=2     # number of spark-worker replicas; 1..8 — wizard prom
 
 ### 4.12 TEI_RERANKER_SOURCE
 
-Cross-encoder reranker inference server (default model `mixedbread-ai/mxbai-rerank-base-v1`). Used by LightRAG as an optional reranker.
+Cross-encoder reranker inference server (default model `mixedbread-ai/mxbai-rerank-base-v1`). Exposes TEI's `/rerank` endpoint for consumers that send TEI-compatible request bodies.
 
 - **`container-cpu`** — `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9`. Runs anywhere; ~150 ms per pair latency.
 - **`container-gpu`** — `:1.9` image with NVIDIA reservation. ~15 ms per pair on RTX-class GPU.
 - **`localhost`** — Existing TEI process on host at `TEI_RERANKER_LOCALHOST_PORT` (default 63031).
-- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is emitted as `null` so LightRAG disables reranking instead of crashing on an empty binding.
+- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties. LightRAG's `RERANK_BINDING` is emitted as `null` in all stock SOURCE combinations so LightRAG disables reranking instead of crashing on an empty binding; direct LightRAG-to-TEI reranking requires an adapter because the request bodies differ.
 
 ### 4.13 ZEPPELIN_SOURCE
 

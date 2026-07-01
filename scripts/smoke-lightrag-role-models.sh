@@ -30,6 +30,7 @@ docker compose -p "$project" exec -T lightrag sh -lc \
   'env | sort | grep -E "^(LLM_MODEL|EXTRACT_LLM_MODEL|KEYWORD_LLM_MODEL|QUERY_LLM_MODEL|EXTRACT_MAX_ASYNC_LLM|QUERY_LLM_TIMEOUT)="'
 
 tmp_doc="$(mktemp)"
+trap 'rm -f "$tmp_doc"' EXIT
 cat > "$tmp_doc" <<'DOC'
 Atlas is a self-hosted engineering platform. LightRAG is the graph-augmented RAG service. Role-specific LLM configuration lets extraction use a fast model while answers use a stronger model.
 DOC
@@ -50,10 +51,23 @@ curl -fsS -X POST "$lightrag_url/query" \
   >/tmp/lightrag-query-response.json
 
 echo "[smoke] recent LiteLLM log lines mentioning expected models:"
-docker compose -p "$project" logs --since=10m litellm \
-  | grep -F -e "$extract_model" -e "$query_model" \
-  | tail -40 || true
+litellm_model_logs="$(
+  docker compose -p "$project" logs --since=10m litellm \
+    | grep -F -e "$extract_model" -e "$query_model" \
+    | tail -40 || true
+)"
+printf '%s\n' "$litellm_model_logs"
+
+if ! printf '%s\n' "$litellm_model_logs" | grep -Fq "$extract_model"; then
+  echo "[smoke] missing expected EXTRACT model in LiteLLM logs: $extract_model" >&2
+  exit 1
+fi
+
+if ! printf '%s\n' "$litellm_model_logs" | grep -Fq "$query_model"; then
+  echo "[smoke] missing expected QUERY model in LiteLLM logs: $query_model" >&2
+  exit 1
+fi
 
 echo "[smoke] upload response: /tmp/lightrag-upload-response.json"
 echo "[smoke] query response: /tmp/lightrag-query-response.json"
-echo "[smoke] pass criteria: the runtime env shows EXTRACT/QUERY values, and LiteLLM logs show requests for both expected models."
+echo "[smoke] passed: runtime env shows EXTRACT/QUERY values, and LiteLLM logs show requests for both expected models."
