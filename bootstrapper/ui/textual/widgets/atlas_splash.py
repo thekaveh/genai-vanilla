@@ -1,14 +1,15 @@
 """Atlas opening splash.
 
-A full-screen overlay tinted to the poster's own dark navy (the wizard shows
-through dimmed) with the landscape poster artwork centered on top; holds
+A full-screen overlay tinted to the hero's own dark navy (the wizard shows
+through dimmed) with the landscape Atlas artwork centered on top; holds
 briefly, then removes itself to reveal the wizard. Any key or mouse press skips.
 
-The artwork (``assets/atlas-poster.png`` — landscape, with the ATLAS-PLATFORM
-wordmark) renders SMOOTHLY via the terminal's inline-image protocol on
+The artwork (``assets/atlas-source.png`` — landscape, image-only Atlas hero)
+renders SMOOTHLY via the terminal's inline-image protocol on
 image-capable terminals (iTerm2, Kitty, WezTerm, Ghostty). On terminals that
 garble that protocol inside a TUI (Warp, Apple Terminal, VS Code) it renders
-the SAME artwork as a committed colored block-art cell-grid (``AtlasHero``) —
+the same image-only hero as a committed colored block-art cell-grid
+(``AtlasHero``) —
 pure Rich text, so it always shows, never blank, garbled, or crashing.
 """
 from __future__ import annotations
@@ -21,8 +22,9 @@ from textual import events
 from textual.app import ComposeResult
 from textual.containers import Container
 
-# Repo-root assets/atlas-poster.png (landscape artwork + ATLAS-PLATFORM wordmark).
-POSTER = Path(__file__).resolve().parents[4] / "assets" / "atlas-poster.png"
+# Repo-root image-only Atlas hero used for the TUI splash. The README/social
+# poster adds the ATLAS-PLATFORM wordmark separately in the asset generator.
+POSTER = Path(__file__).resolve().parents[4] / "assets" / "atlas-source.png"
 
 
 def should_show_splash(no_splash: bool) -> bool:
@@ -99,7 +101,7 @@ class AtlasSplash(Container):
         from ui.textual.widgets.atlas_hero import AtlasHero
         avail_w = max(60, int((self.app.size.width or 100) * 0.85))
         avail_h = max(10, int((self.app.size.height or 30) * 0.82))
-        return AtlasHero(avail_w, height=avail_h, prefix="atlas_poster")
+        return AtlasHero(avail_w, height=avail_h, prefix="atlas_hero")
 
     def _fit(self, img) -> None:
         """Explicit, aspect-correct, contained size so the artwork paints

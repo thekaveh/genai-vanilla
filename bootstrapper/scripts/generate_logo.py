@@ -24,7 +24,7 @@ POSTER = REPO / "assets" / "atlas-poster.png"
 PROFILE = REPO / "assets" / "atlas-profile.png"
 SOCIAL = REPO / "assets" / "atlas-social-preview.png"
 OUT_DIR = REPO / "bootstrapper" / "ui" / "textual" / "assets"
-BREAKPOINTS = (160, 120, 100, 80)
+BREAKPOINTS = (160, 120, 100, 80, 60)
 
 # Reuse the canonical ATLAS-PLATFORM block-art rows + blue gradient so the
 # poster wordmark always matches the in-app title lockup (single dash, etc.).

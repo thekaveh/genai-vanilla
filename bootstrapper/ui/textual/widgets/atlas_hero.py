@@ -15,7 +15,8 @@ from rich.text import Text
 from textual.widget import Widget
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
-_BREAKPOINTS = (160, 120, 100, 80)  # descending
+_BREAKPOINTS = (160, 120, 100, 80, 60)  # descending
+HERO_BACKGROUND = Style(bgcolor="#000412")
 
 
 def _available(prefix: str) -> list[int]:
@@ -74,4 +75,4 @@ class AtlasHero(Widget):
     def render(self) -> RenderableType:
         if not self._data:
             return Text("")
-        return Group(*[Align.center(t) for t in hero_rows(self._data)])
+        return Group(*[Align.center(t, style=HERO_BACKGROUND) for t in hero_rows(self._data)])
