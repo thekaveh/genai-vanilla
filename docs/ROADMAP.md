@@ -130,8 +130,6 @@ _Delivered — see "Completed" section below for the LiteLLM gateway entry._
 - ⏳ Future: Loki (logs) + Tempo (traces) + OpenTelemetry collector for the full observability triangle.
 
 **Enhanced security features**
-
-**Enhanced security features**
 - Service-to-service authentication
 - API rate limiting enhancements
 - Audit logging capabilities
