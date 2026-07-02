@@ -40,20 +40,17 @@ def test_jupyterhub_notebook_inventory_matches_docs_and_starter_notebook():
 def test_jupyterhub_notebook_cell_ids_are_nbformat_45_complete_and_unique():
     for path in sorted(NOTEBOOK_DIR.glob("*.ipynb")):
         notebook = json.loads(path.read_text(encoding="utf-8"))
+        assert notebook.get("nbformat") == 4
+        assert notebook.get("nbformat_minor", 0) >= 5, (
+            f"{path} must declare nbformat 4.5+ so cell IDs are part of "
+            "the file contract"
+        )
         cells = notebook.get("cells", [])
         ids = [cell.get("id") for cell in cells]
-        has_cell_ids = any(cell_id is not None for cell_id in ids)
-        if has_cell_ids:
-            assert notebook.get("nbformat") == 4
-            assert notebook.get("nbformat_minor", 0) >= 5, (
-                f"{path} has cell IDs but declares nbformat_minor "
-                f"{notebook.get('nbformat_minor')}; cell IDs require 4.5+"
-            )
-        if notebook.get("nbformat") == 4 and notebook.get("nbformat_minor", 0) >= 5:
-            assert all(isinstance(cell_id, str) and cell_id for cell_id in ids), (
-                f"{path} declares nbformat 4.5+ but has cells without IDs"
-            )
-            assert len(ids) == len(set(ids)), f"{path} has duplicate cell IDs"
+        assert all(isinstance(cell_id, str) and cell_id for cell_id in ids), (
+            f"{path} has cells without IDs"
+        )
+        assert len(ids) == len(set(ids)), f"{path} has duplicate cell IDs"
 
 
 def test_jupyterhub_allow_origin_flag_uses_env_knob():
