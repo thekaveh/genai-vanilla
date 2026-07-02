@@ -26,3 +26,13 @@ def test_n8n_install_nodes_fails_when_required_nodes_fail() -> None:
     failure_block = script[failure_block_start:failure_block_end]
 
     assert "exit 1" in failure_block
+
+
+def test_n8n_install_nodes_skips_after_owner_setup_auth_gate() -> None:
+    script = (
+        REPO_ROOT / "services" / "n8n" / "init" / "scripts" / "install-nodes.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "401|403)" in script
+    assert "Assuming owner setup already completed" in script
+    assert "skipping first-boot community-node init" in script

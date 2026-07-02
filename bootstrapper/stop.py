@@ -44,6 +44,20 @@ class AtlasStopper:
             {"PROJECT_NAME": project_name}
         )
 
+    def validate_persisted_project_name(self, project_name_override: str = None) -> bool:
+        """Validate the stored PROJECT_NAME before Docker or compose preflights."""
+        if project_name_override is not None or not self.config_parser.env_file_exists():
+            return True
+        try:
+            self.config_parser.get_project_name()
+        except ValueError as exc:
+            click.echo(
+                f"stop.sh: invalid PROJECT_NAME in {self.config_parser.env_file_path}: {exc}",
+                err=True,
+            )
+            return False
+        return True
+
     def show_usage(self):
         """Display usage information."""
         usage_text = """
@@ -229,6 +243,9 @@ def main(project_name, cold, clean_hosts, help_usage):
     print()
 
     try:
+        if not stopper.validate_persisted_project_name(project_name):
+            sys.exit(2)
+
         # Step 1: Show configuration information
         project_name = stopper.show_configuration_info(cold, clean_hosts,
                                                        project_name_override=project_name)

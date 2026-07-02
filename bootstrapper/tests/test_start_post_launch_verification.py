@@ -78,7 +78,7 @@ def test_one_shot_init_failure_fails_startup(monkeypatch):
     monkeypatch.setattr(
         starter.docker_manager,
         "failed_one_shot_services",
-        lambda services: [("n8n-init", "exit 1")],
+        lambda services, **_kwargs: [("n8n-init", "exit 1")],
     )
 
     assert starter.verify_one_shot_init_containers() is False
@@ -91,15 +91,53 @@ def test_one_shot_init_skipped_when_scale_zero(monkeypatch):
     monkeypatch.setattr(
         starter.config_parser,
         "parse_env_file",
-        lambda: {"N8N_INIT_SCALE": "0"},
+        lambda: {
+            "N8N_INIT_SCALE": "0",
+            "OPEN_WEB_UI_INIT_SCALE": "0",
+            "COMFYUI_INIT_SCALE": "0",
+        },
     )
 
-    def fail_if_called(_services):
+    def fail_if_called(_services, **_kwargs):
         raise AssertionError("disabled init container should not be inspected")
 
     monkeypatch.setattr(starter.docker_manager, "failed_one_shot_services", fail_if_called)
 
     assert starter.verify_one_shot_init_containers() is True
+
+
+def test_one_shot_init_checks_enabled_post_start_init_services(monkeypatch):
+    import start as start_module
+
+    starter = start_module.AtlasStarter()
+    monkeypatch.setattr(
+        starter.config_parser,
+        "parse_env_file",
+        lambda: {
+            "N8N_INIT_SCALE": "1",
+            "OPEN_WEB_UI_INIT_SCALE": "1",
+            "COMFYUI_INIT_SCALE": "1",
+        },
+    )
+    calls = []
+
+    def fake_failed_one_shot_services(services, **kwargs):
+        calls.append((services, kwargs))
+        return []
+
+    monkeypatch.setattr(
+        starter.docker_manager,
+        "failed_one_shot_services",
+        fake_failed_one_shot_services,
+    )
+
+    assert starter.verify_one_shot_init_containers() is True
+    assert calls == [
+        (
+            ["n8n-init", "open-webui-init", "comfyui-init"],
+            {"timeout_seconds": 900.0, "poll_interval_seconds": 5.0},
+        )
+    ]
 
 
 def test_one_shot_waits_for_terminal_failure(monkeypatch):

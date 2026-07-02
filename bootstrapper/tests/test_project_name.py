@@ -125,6 +125,27 @@ def test_start_setup_env_aborts_when_project_name_persist_fails(tmp_path, monkey
     assert starter.setup_env_file(False, project_name="myshowcase") is False
 
 
+def test_start_setup_env_rejects_invalid_persisted_project_before_mutation(tmp_path, monkeypatch):
+    import start as start_module
+
+    env = tmp_path / ".env"
+    env.write_text("PROJECT_NAME=bad.name\n", encoding="utf-8")
+    (tmp_path / ".env.example").write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+
+    starter = start_module.AtlasStarter()
+    starter.config_parser.env_file_path = env
+    starter.config_parser.env_example_path = tmp_path / ".env.example"
+
+    def fail_if_called(_overrides):
+        raise AssertionError("invalid persisted PROJECT_NAME should fail before .env mutation")
+
+    monkeypatch.setattr(starter.source_override_manager, "update_env_file", fail_if_called)
+
+    assert starter.setup_env_file(False) is False
+    assert env.read_text(encoding="utf-8") == "PROJECT_NAME=bad.name\n"
+
+
 # ── stop.py override ─────────────────────────────────────────────────────────
 
 def test_stop_show_configuration_info_honors_override(tmp_path, monkeypatch):

@@ -75,7 +75,7 @@ services:
     # GOTCHA: compose's `command:` REPLACES the Dockerfile's CMD, it never
     # extends it. `start-notebook.sh` MUST stay as element 0 of the list —
     # if you drop it, startup.sh will exec the first flag literally and the
-    # container will restart-loop with `exec: --ServerApp.allow_origin=*:
+    # container will restart-loop with `exec: --ServerApp.allow_origin=...:
     # not found`.
     #
     # Token auth still gates every request, so allow_origin='*' is safe as
@@ -83,7 +83,7 @@ services:
     # flag's mechanism in detail.
     command:
       - start-notebook.sh
-      - --ServerApp.allow_origin=*
+      - --ServerApp.allow_origin=${JUPYTER_ALLOW_ORIGIN:-*}
       - --ServerApp.allow_remote_access=True
       - --ServerApp.disable_check_xsrf=False
     ports:

@@ -40,7 +40,20 @@ echo "n8n-init: n8n API is ready."
 echo "n8n-init: Waiting for n8n community-packages endpoint to be ready..."
 pkg_timeout=120
 pkg_elapsed=0
-while ! curl -s --fail --max-time 5 "$N8N_API_URL/rest/community-packages" -H "Content-Type: application/json" >/dev/null 2>&1; do
+community_packages_response="/tmp/n8n-community-packages.json"
+community_packages_status="000"
+while true; do
+  community_packages_status=$(curl -s -o "$community_packages_response" -w "%{http_code}" --max-time 5 "$N8N_API_URL/rest/community-packages" -H "Content-Type: application/json" 2>/dev/null || true)
+  case "$community_packages_status" in
+    2*)
+      break
+      ;;
+    401|403)
+      echo "n8n-init: /rest/community-packages requires an authenticated session."
+      echo "n8n-init: Assuming owner setup already completed; skipping first-boot community-node init."
+      exit 0
+      ;;
+  esac
   if [ $pkg_elapsed -ge $pkg_timeout ]; then
     echo "n8n-init: WARNING - /rest/community-packages still not ready after ${pkg_timeout}s; proceeding anyway."
     break
@@ -95,8 +108,21 @@ while IFS= read -r node_name; do
   # non-zero on HTTP 4xx/5xx so the `|| echo "[]"` fallback fires (matching
   # the readiness curls at lines 24 and 43); without it, an error-page body
   # would be fed to jq and silently fail to parse the same way.
-  installed_check=$(curl -s --fail --max-time 15 -X GET "$N8N_API_URL/rest/community-packages" \
-    -H "Content-Type: application/json" 2>/dev/null || echo "[]")
+  installed_response="/tmp/n8n-installed-packages.json"
+  installed_status=$(curl -s -o "$installed_response" -w "%{http_code}" --max-time 15 -X GET "$N8N_API_URL/rest/community-packages" \
+    -H "Content-Type: application/json" 2>/dev/null || true)
+  case "$installed_status" in
+    2*)
+      installed_check=$(cat "$installed_response")
+      ;;
+    401|403)
+      echo "n8n-init: /rest/community-packages now requires login; skipping first-boot community-node init."
+      exit 0
+      ;;
+    *)
+      installed_check="[]"
+      ;;
+  esac
 
   # Check if node is already installed. n8n's internal /rest API wraps
   # list payloads in a {"data": [...]} envelope — unwrap it, falling back

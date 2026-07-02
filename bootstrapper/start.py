@@ -375,6 +375,18 @@ class AtlasStarter:
         )
         return False
 
+    def validate_persisted_project_name(self) -> bool:
+        """Fail before mutating .env when its stored PROJECT_NAME is invalid."""
+        try:
+            self.config_parser.get_project_name()
+        except ValueError as e:
+            self.banner.show_status_message(
+                f"Invalid PROJECT_NAME in {self.config_parser.env_file_path}: {e}",
+                "error",
+            )
+            return False
+        return True
+
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None,
                        project_name: Optional[str] = None) -> bool:
         """
@@ -403,6 +415,10 @@ class AtlasStarter:
                 f"Using custom env file: {env_file_path}",
                 "info"
             )
+
+        if project_name is None and env_file_path.exists() and not cold_start:
+            if not self.validate_persisted_project_name():
+                return False
 
         # Check if .env exists, if not or if cold start is requested, create from .env.example
         if not env_file_path.exists() or cold_start:
@@ -1497,10 +1513,18 @@ class AtlasStarter:
         services: list[str] = []
         if env_vars.get("N8N_INIT_SCALE", "0") != "0":
             services.append("n8n-init")
+        if env_vars.get("OPEN_WEB_UI_INIT_SCALE", "0") != "0":
+            services.append("open-webui-init")
+        if env_vars.get("COMFYUI_INIT_SCALE", "0") != "0":
+            services.append("comfyui-init")
         if not services:
             return True
 
-        failures = self.docker_manager.failed_one_shot_services(services)
+        failures = self.docker_manager.failed_one_shot_services(
+            services,
+            timeout_seconds=900.0,
+            poll_interval_seconds=5.0,
+        )
         if not failures:
             return True
 
