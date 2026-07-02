@@ -2,11 +2,28 @@
 
 ## 1. Executive Summary
 
-Task 1 placeholder. Later tasks should replace this section with the final strategy summary, decision framing, and top recommendations.
+Atlas' strategic position is strongest when it is framed as a self-hosted AI engineering platform, not as another chat UI, model runtime, RAG framework, or one-click app launcher. Its durable advantage is the integrated substrate: SOURCE-configurable services, Kong routing, tracks, manifests, generated docs, notebooks, automation, vector and graph stores, object storage, and observability primitives in one repeatable local stack. Its main weakness is that the product surface has not caught up with the platform architecture.
+
+The top recommendation is to make Atlas easier to enter, observe, and extend before adding heavier vertical engines. The first vNext wave should build the missing product entrypoint and shared tooling layer, then improve ingestion, traces, and long-running job execution.
+
+Top 5 vNext candidates:
+
+1. **Atlas root dashboard:** replace the Kong root's Supabase Studio fallback with an Atlas service directory and health dashboard.
+2. **Curated MCP package:** ship a small Postgres, Neo4j, and SearXNG tool package first, then add Docling MCP as the first specialist tool.
+3. **Langfuse:** add LLM traces, prompt/eval visibility, and cost/latency attribution beginning with LiteLLM-routed calls.
+4. **Crawl4AI:** improve RAG and research quality with full-page web extraction before adding heavier browser infrastructure.
+5. **Celery + Flower worker tier:** move one long-running backend flow out of the FastAPI request loop and establish the async-job pattern.
+
+Decision verdicts:
+
+- **MCP:** build a phased hybrid, not one MCP server per service. Start curated and direct-to-native consumers; add MetaMCP later when namespacing and policy justify it.
+- **Kong dashboard:** build now. The root route should become the Atlas entrypoint, while Supabase Studio moves to its own explicit route.
+- **3D/game generation:** pursue a 3D asset pipeline later, centered on glTF processing and a disabled localhost-only Blender MCP profile, not a default "generate a whole game" promise.
+- **Trading/financial AI:** pursue financial research and paper trading later, with read-only data, sandbox modes, secrets management, audit logs, and no live trading by default.
 
 ## 2. Current-State Assessment
 
-Task 1 internal evidence inventory:
+Current-state evidence inventory:
 
 - Repo inventory snapshot for this report pass: `34` `services/*/service.yml` manifests, `21` integration research row files in `docs/research/rows/`, and `34` candidate one-pagers in `docs/research/candidates/`.
 - `docs/research/integration-matrix.md` currently indexes `21` service research rows across categories and `34` candidate services, which gives later sections a repo-local starting point before any external validation.
@@ -93,7 +110,17 @@ That position is defensible if Atlas behaves like the control plane for small te
 
 ## 4. Strategic Gaps
 
-Task 1 placeholder. Later tasks should replace this section with the key platform and product gaps.
+Atlas' strategic gaps cluster around productization, trust, and operational readiness rather than raw service count. The stack already has enough breadth to support serious AI, RAG, creative, ML, and data workflows; the next work is turning that breadth into safer default paths.
+
+- **Product entrypoint:** the bare Kong root still opens Supabase Studio, so Atlas lacks a first-screen product surface that explains what is running, which track is active, what is healthy, and where a user should go next.
+- **Identity/auth:** service authentication is fragmented across local accounts, basic auth, bearer tokens, admin passwords, optional notebook tokens, and unauthenticated local/dev routes. SSO should start as a pilot, not a full-stack migration.
+- **MCP/tooling:** MCP is now strategically real across current consumers, but Atlas does not yet have a shared curated tool package, namespacing story, or policy threshold for adding an aggregator.
+- **LLM observability/traces:** Prometheus and Grafana cover infrastructure better than Atlas covers LLM behavior. The missing layer is gateway-level tracing, prompt/eval history, latency/cost attribution, and eventually cross-service trace correlation.
+- **Ingestion quality:** RAG quality depends on reliable extraction, provenance, and fallbacks. Atlas has strong primitives, but needs a clearer path from search and document upload through extraction, storage, vector/graph indexing, and cited retrieval.
+- **Async jobs:** long-running backend work should not stay tied to request lifetimes. Atlas needs a worker tier for retries, progress, scheduled work, and operational visibility before deeper automation flows pile up.
+- **Data/ML lifecycle:** the ML/data tracks have notebooks, storage, compute, and orchestration, but still lack first-class experiment tracking, labeling/review loops, artifact analytics, and connection pooling for the next wave of Postgres-backed apps.
+- **Vertical track readiness:** 3D/game generation and trading/financial AI are plausible Atlas extensions, but both need guardrails before they become selectable product tracks. The first should be an asset pipeline; the second should be research and paper trading.
+- **Operational guardrails:** secrets management, SSO, trace/log correlation, route health, resource limits, extractor safety, and explicit reject/defer criteria should come before higher-risk defaults such as live trading, editor-automation routes, or heavyweight model services.
 
 ## 5. MCP Recommendation
 
