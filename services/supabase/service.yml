@@ -68,7 +68,7 @@ env:
     default: postgres
   - name: SUPABASE_DB_APP_USER
     default: app_user
-    description: "Application-tier user (created by supabase-db-init scripts)."
+    description: "Reserved for a future least-privilege application-tier database user; not created by init scripts today."
   - name: SUPABASE_DB_APP_PASSWORD
     default: app_password
     secret: true

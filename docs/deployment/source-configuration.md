@@ -119,7 +119,7 @@ LLM access in this stack is split between **LiteLLM** (the always-on OpenAI-comp
 
 #### 4.1.1 `LLM_PROVIDER_SOURCE` — Ollama upstream (single-select)
 
-##### `ollama-container-cpu` (Default)
+##### 4.1.1.1 `ollama-container-cpu` (Default)
 ```bash
 LLM_PROVIDER_SOURCE=ollama-container-cpu
 ```
@@ -128,7 +128,7 @@ LLM_PROVIDER_SOURCE=ollama-container-cpu
 - **Cons**: Higher memory usage, slower model loading
 - **Requirements**: None
 
-##### `ollama-container-gpu`
+##### 4.1.1.2 `ollama-container-gpu`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-container-gpu
 ```
@@ -137,7 +137,7 @@ LLM_PROVIDER_SOURCE=ollama-container-gpu
 - **Cons**: Requires NVIDIA GPU + Docker GPU support
 - **Requirements**: NVIDIA Container Toolkit
 
-##### `ollama-localhost`
+##### 4.1.1.3 `ollama-localhost`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-localhost
 ```
@@ -159,7 +159,7 @@ ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
-##### `none`
+##### 4.1.1.4 `none`
 ```bash
 LLM_PROVIDER_SOURCE=none
 ```

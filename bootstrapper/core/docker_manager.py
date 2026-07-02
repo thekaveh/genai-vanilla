@@ -10,6 +10,7 @@ import json
 import re
 import signal
 import subprocess
+import time
 from typing import Callable, List, Optional
 from pathlib import Path
 from core.config_parser import ConfigParser
@@ -517,7 +518,7 @@ class DockerManager:
         """
         try:
             cmd = self.get_compose_command()
-            project_name = self.config_parser.get_project_name()
+            project_name = self.project_name_override or self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
                 cmd.append(f'--env-file={self.config_parser.env_file_path}')
@@ -544,69 +545,117 @@ class DockerManager:
         except (subprocess.SubprocessError, OSError):
             return ""
 
-    def failed_one_shot_services(self, services: list[str]) -> list[tuple[str, str]]:
-        """Return enabled one-shot services that exited nonzero after launch."""
+    def failed_one_shot_services(
+        self,
+        services: list[str],
+        *,
+        timeout_seconds: float = 60.0,
+        poll_interval_seconds: float = 2.0,
+    ) -> list[tuple[str, str]]:
+        """Return enabled one-shot services that fail or never finish."""
         failures: list[tuple[str, str]] = []
         if not services:
             return failures
 
-        for service in services:
-            try:
-                cmd = self.get_compose_command()
-                project_name = self.project_name_override or self.config_parser.get_project_name()
-                cmd.extend(['-p', project_name])
-                if self.config_parser.env_file_exists():
-                    cmd.append(f'--env-file={self.config_parser.env_file_path}')
-                cmd.extend(self._compose_file_args())
-                cmd.extend(['ps', '-a', '--format', 'json', service])
-                result = subprocess.run(
-                    cmd,
-                    cwd=str(self.root_dir),
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=10,
-                )
-            except (subprocess.SubprocessError, OSError, ValueError) as exc:
-                failures.append((service, f"could not inspect container: {exc}"))
-                continue
+        pending = set(services)
+        last_reason = {service: "container not observed yet" for service in services}
+        deadline = time.monotonic() + timeout_seconds
 
-            if result.returncode != 0:
-                failures.append((service, result.stderr.strip() or "docker compose ps failed"))
-                continue
+        while pending:
+            for service in list(pending):
+                rows, error = self._compose_ps_json(service)
+                if error is not None:
+                    failures.append((service, error))
+                    pending.remove(service)
+                    continue
 
-            rows: list[dict] = []
-            payload = result.stdout.strip()
-            if not payload:
-                continue
-            try:
-                parsed = json.loads(payload)
-                rows = parsed if isinstance(parsed, list) else [parsed]
-            except json.JSONDecodeError:
-                for line in payload.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        row = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if isinstance(row, dict):
-                        rows.append(row)
+                if not rows:
+                    last_reason[service] = "container not observed yet"
+                    continue
 
-            for row in rows:
-                exit_code = str(row.get("ExitCode", "")).strip()
-                state = str(row.get("State", "")).strip().lower()
-                status = str(row.get("Status", "")).strip()
-                if exit_code and exit_code not in {"0", "<nil>", "None"}:
-                    failures.append((service, f"exit {exit_code}: {status or state or 'exited'}"))
-                elif state == "exited":
+                all_exited_zero = True
+                for row in rows:
+                    exit_code = str(row.get("ExitCode", "")).strip()
+                    state = str(row.get("State", "")).strip().lower()
+                    status = str(row.get("Status", "")).strip()
                     status_lower = status.lower()
-                    if "exit 0" not in status_lower and "exited (0)" not in status_lower:
+
+                    if exit_code and exit_code not in {"0", "<nil>", "None"}:
+                        failures.append((service, f"exit {exit_code}: {status or state or 'exited'}"))
+                        pending.remove(service)
+                        all_exited_zero = False
+                        break
+                    if state == "exited":
+                        if exit_code == "0" or "exit 0" in status_lower or "exited (0)" in status_lower:
+                            continue
                         failures.append((service, status or state))
+                        pending.remove(service)
+                        all_exited_zero = False
+                        break
+
+                    all_exited_zero = False
+                    last_reason[service] = status or state or "not exited yet"
+
+                if service in pending and all_exited_zero:
+                    pending.remove(service)
+
+            if not pending:
+                return failures
+            if time.monotonic() >= deadline:
+                for service in sorted(pending):
+                    failures.append(
+                        (service, f"timed out waiting for terminal state ({last_reason[service]})")
+                    )
+                return failures
+            time.sleep(min(poll_interval_seconds, max(0.0, deadline - time.monotonic())))
+
         return failures
+
+    def _compose_ps_json(self, service: str) -> tuple[list[dict], str | None]:
+        """Inspect one compose service via ``docker compose ps --format json``."""
+        try:
+            cmd = self.get_compose_command()
+            project_name = self.project_name_override or self.config_parser.get_project_name()
+            cmd.extend(['-p', project_name])
+            if self.config_parser.env_file_exists():
+                cmd.append(f'--env-file={self.config_parser.env_file_path}')
+            cmd.extend(self._compose_file_args())
+            cmd.extend(['ps', '-a', '--format', 'json', service])
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                check=False,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+        except (subprocess.SubprocessError, OSError, ValueError) as exc:
+            return [], f"could not inspect container: {exc}"
+
+        if result.returncode != 0:
+            return [], result.stderr.strip() or "docker compose ps failed"
+
+        rows: list[dict] = []
+        payload = result.stdout.strip()
+        if not payload:
+            return rows, None
+        try:
+            parsed = json.loads(payload)
+            rows = parsed if isinstance(parsed, list) else [parsed]
+        except json.JSONDecodeError:
+            for line in payload.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+        return rows, None
     
     def show_container_logs(self, follow: bool = True) -> int:
         """

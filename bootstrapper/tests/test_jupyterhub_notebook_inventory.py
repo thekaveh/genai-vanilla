@@ -32,3 +32,15 @@ def test_jupyterhub_notebook_inventory_matches_docs_and_starter_notebook():
     assert readme_mentions == notebooks
     assert build_readme_mentions == notebooks
     assert starter_mentions == notebooks
+
+
+def test_jupyterhub_notebook_cell_ids_require_nbformat_45():
+    for path in sorted(NOTEBOOK_DIR.glob("*.ipynb")):
+        notebook = json.loads(path.read_text(encoding="utf-8"))
+        has_cell_ids = any("id" in cell for cell in notebook.get("cells", []))
+        if has_cell_ids:
+            assert notebook.get("nbformat") == 4
+            assert notebook.get("nbformat_minor", 0) >= 5, (
+                f"{path} has cell IDs but declares nbformat_minor "
+                f"{notebook.get('nbformat_minor')}; cell IDs require 4.5+"
+            )

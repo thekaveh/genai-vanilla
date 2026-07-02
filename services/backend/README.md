@@ -72,7 +72,7 @@ Adaptive listing comes from `runtime_adaptive.backend.adapts_to` in `services/ba
 4. LiteLLM dispatches to the registered provider (Ollama, Anthropic, OpenAI, etc.).
 
 **Required hard dependencies** (from `depends_on.required`):
-- `supabase` — Postgres (LangMem facts, public tables), Auth (JWT), Storage (file uploads ≤50 MB), Realtime (declared via compose).
+- `supabase` — Postgres (LangMem facts, public tables) and Storage (file uploads ≤50 MB). The backend uses Supabase service credentials for outbound storage/database work, but it does **not** validate inbound Supabase JWTs today; add gateway or application auth before exposing backend routes beyond a trusted local host.
 - `redis` — declared required (ordering + future use); `REDIS_URL` is injected into the container but no backend code consumes it today.
 - `litellm` — gated `service_healthy` in compose; backend's startup performs first-call probes against the gateway.
 
