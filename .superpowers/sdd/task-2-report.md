@@ -108,3 +108,16 @@ Passed the task-specific self-review:
 ## Commit
 
 Task committed after validation. See git history for the final SHA and subject.
+
+## Review fix pass
+
+Applied the requested review-only corrections in `docs/strategy/atlas-vnext-strategy-report.md` without broadening Task 2 scope:
+
+- Reworded section 2 comparative phrases into repo-internal observations so the prose stays within the "repo evidence only" boundary.
+- Added `services/*/service.yml` to appendix source notes because section 2 relies on the manifest inventory and recurring SOURCE patterns.
+- Added `services/prometheus/README.md` to appendix source notes because the observability weakness cites current scrape-target scope and future gaps from the Prometheus/Grafana service docs.
+
+Focused validation rerun:
+
+- Command: `rg -n "strength|weakness|SOURCE|Kong|MCP|dashboard|auth|track" docs/strategy/atlas-vnext-strategy-report.md`
+- Result summary: required Task 2 themes are still present after the review-fix wording changes, including SOURCE, Kong, MCP, dashboard, auth, and track coverage in section 2 and appendix notes.
