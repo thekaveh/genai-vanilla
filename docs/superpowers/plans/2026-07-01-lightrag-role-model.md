@@ -8,6 +8,8 @@
 
 **Tech Stack:** Docker Compose fragments, Atlas service manifests, Python pytest, PyYAML, LightRAG v1.5.4 environment contract, generated `.env.example`, generated compose baseline.
 
+**Supersession note (2026-07-01):** The plan's corrective TEI note is now implemented in current runtime docs. Atlas emits `LIGHTRAG_RERANK_BINDING=null` and leaves `LIGHTRAG_RERANK_BINDING_HOST` empty by default because direct stock LightRAG-to-TEI rerank payloads are incompatible without an adapter.
+
 ## Global Constraints
 
 - Preserve existing Atlas behavior when every role-specific variable is unset.
@@ -39,7 +41,7 @@
 - Modify `.env.example`: generated from manifests; should gain the new blank role variables under the LightRAG section.
 - Modify `bootstrapper/tests/fixtures/rendered_config_baseline.yml`: generated compose baseline; should gain native role env entries in the rendered `lightrag.environment` block and Atlas-prefixed inputs in `lightrag-init.environment` only if deliberately added there.
 - Modify `services/lightrag/README.md`: document role model variables and local Ollama recommendation.
-- Modify `docs/deployment/source-configuration.md`: add a concise role-specific LightRAG subsection and fix the existing TEI reranker note that says LightRAG's `RERANK_BINDING` is blank when disabled; code emits `null`.
+- Modify `docs/deployment/source-configuration.md`: add a concise role-specific LightRAG subsection and replace the obsolete disabled-rerank wording with the current `RERANK_BINDING=null` behavior.
 
 ---
 
@@ -495,15 +497,9 @@ LIGHTRAG_QUERY_LLM_MODEL=qwen3.6:latest
 Use `EXTRACT` and `KEYWORD` for high-volume structured extraction work and `QUERY` for final answer generation. For local Ollama deployments, a cheaper non-reasoning extraction model usually keeps indexing responsive while allowing query answering to use the project-selected stronger model. Empty role-specific values inherit the base `LLM_MODEL`, so existing deployments do not need to set these variables.
 ````
 
-- [ ] **Step 5: Fix the stale TEI reranker note while editing the same doc**
+- [ ] **Step 5: Keep the TEI reranker note aligned while editing the same doc**
 
-In `docs/deployment/source-configuration.md`, replace:
-
-```markdown
-- **`disabled`** - `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is blank.
-```
-
-with:
+In `docs/deployment/source-configuration.md`, ensure the disabled-source note reads:
 
 ```markdown
 - **`disabled`** - `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is emitted as `null` so LightRAG disables reranking instead of crashing on an empty binding.

@@ -10,7 +10,7 @@ HuggingFace `text-embeddings-inference` running `mixedbread-ai/mxbai-rerank-base
 
 **Why this model:** mxbai-rerank-base-v1 ships ONNX out of the box (so the amd64 ORT backend in `cpu-1.9` loads it cleanly) AND is light enough (~184 M params) that the arm64 candle backend in `cpu-arm64-latest` completes warmup successfully on Apple Silicon. BGE-reranker-v2-m3 was the original spec'd model but its safetensors-only distribution + ~560 M params caused the arm64 candle backend to crash silently during warmup (RestartCount climbed in live smoke until the model was swapped 2026-06-07).
 
-The default stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's `RERANK_BINDING` points at `${TEI_RERANKER_ENDPOINT}`). The service is reusable: any consumer with an OpenAI-style request body can call it directly.
+The service is reusable by consumers that send TEI's request body shape (`query` plus `texts`). Atlas does not directly wire stock LightRAG to TEI today because LightRAG's built-in Jina/Cohere rerank clients send `query` plus `documents`, which TEI rejects without an adapter.
 
 ## 2. Source variants
 
@@ -19,7 +19,7 @@ The default stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's 
 | `container-cpu` | 1 | `http://tei-reranker:80` | Default CPU image; runs on any host |
 | `container-gpu` | 1 | `http://tei-reranker:80` | CUDA image; needs NVIDIA |
 | `localhost` | 0 | `http://host.docker.internal:${TEI_RERANKER_LOCALHOST_PORT}` | Host-installed TEI |
-| `disabled` | 0 | `""` | LightRAG runs without reranking |
+| `disabled` | 0 | `""` | Reranker service off |
 
 ## 3. Configuration
 
@@ -65,7 +65,6 @@ _No upstream calls._
 | Service | Category |
 |---|---|
 | kong | infra |
-| lightrag | agents |
 
 ### 5.3 Architecture diagram
 
@@ -95,6 +94,7 @@ Container `start_period` is 120 s (first run downloads the model).
 
 ## 7. Troubleshooting
 
+- **First boot logs optional HuggingFace artifact 404s** — expected for some reranker models. TEI probes optional Sentence Transformers files, logs 404 warnings when they are absent, then continues with the model artifacts it needs.
 - **Out of memory on CPU variant** — bump `TEI_RERANKER_MEMORY_LIMIT`. mxbai-rerank-base-v1 needs ~1.5 GB on CPU; the originally spec'd BGE-reranker-v2-m3 needed ~3 GB.
 - **Slow inference** — switch to `container-gpu` if NVIDIA is available; CPU latency is ~150 ms per pair vs ~15 ms on GPU.
 - **Model not found** — verify `TEI_RERANKER_MODEL_ID` matches a public HF repo. Private repos need an `HF_TOKEN` env var (not wired by default; hand-add to the compose env block).

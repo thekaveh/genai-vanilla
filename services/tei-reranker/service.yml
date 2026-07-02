@@ -66,7 +66,7 @@ env:
     auto_managed: true
   - name: TEI_RERANKER_ENDPOINT
     auto_managed: true
-    description: "Resolved per TEI_RERANKER_SOURCE. Consumed by LightRAG runtime_adaptive."
+    description: "Resolved per TEI_RERANKER_SOURCE. Exposes TEI's rerank endpoint to compatible consumers."
   - name: TEI_RERANKER_IMAGE_RESOLVED
     auto_managed: true
     description: "Image picked per source variant (CPU vs GPU)."

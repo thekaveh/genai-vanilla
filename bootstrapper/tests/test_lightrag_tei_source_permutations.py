@@ -60,19 +60,18 @@ def test_tei_reranker_env_generation_each_source(env_with_overrides, tei_source)
         assert env["TEI_RERANKER_SCALE"] == "1"
 
 
-def test_lightrag_adaptive_picks_up_tei_endpoint(env_with_overrides):
+def test_lightrag_adaptive_disables_direct_tei_rerank_when_tei_enabled(env_with_overrides):
     sc = _sc(env_with_overrides({
         "LIGHTRAG_SOURCE": "container",
         "TEI_RERANKER_SOURCE": "container-cpu",
     }))
     env = sc.generate_service_environment()
-    # LIGHTRAG_RERANK_BINDING_HOST should mirror TEI_RERANKER_ENDPOINT
-    # plus the /rerank path — LightRAG's `jina` rerank binding POSTs to
-    # the host URL as-is without auto-appending any path.
-    assert env.get("LIGHTRAG_RERANK_BINDING_HOST") == "http://tei-reranker:80/rerank"
-    # Binding word must be `jina` when the reranker is on — LightRAG's only
-    # TEI-compatible binding.
-    assert env.get("LIGHTRAG_RERANK_BINDING") == "jina"
+    # Atlas's TEI endpoint expects {query, texts}; LightRAG's jina/cohere
+    # clients send {query, documents}. Until Atlas ships an adapter, do not
+    # auto-wire LightRAG query rerank directly to TEI.
+    assert env.get("TEI_RERANKER_ENDPOINT") == "http://tei-reranker:80"
+    assert env.get("LIGHTRAG_RERANK_BINDING_HOST", "") == ""
+    assert env.get("LIGHTRAG_RERANK_BINDING") == "null"
 
 
 def test_lightrag_adaptive_blanks_rerank_when_tei_disabled(env_with_overrides):

@@ -86,7 +86,7 @@ The stack now orchestrates 34 service families (31 containerized + 3 virtual) ac
 **TEI Reranker (Text Embeddings Inference + reranker mode)** — shipped 2026-06-05
 - HuggingFace's high-performance embedding and reranking inference server (Apache-2.0; Rust/CUDA core)
 - OpenAI-compatible `/embeddings` + dedicated `/rerank` routes; `TEI_RERANKER_SOURCE` variants: `container-cpu`, `container-gpu`, `localhost`, `disabled`
-- Default model: `mixedbread-ai/mxbai-rerank-base-v1` (arm64-compatible; the originally spec'd BGE-reranker-v2-m3 crashed the arm64 candle backend on warmup, swapped 2026-06-07); LightRAG wires `RERANK_BINDING_HOST` to `${TEI_RERANKER_ENDPOINT}/rerank` when both services are enabled
+- Default model: `mixedbread-ai/mxbai-rerank-base-v1` (arm64-compatible; the originally spec'd BGE-reranker-v2-m3 crashed the arm64 candle backend on warmup, swapped 2026-06-07); LightRAG direct reranking remains disabled by default because LightRAG's built-in rerank clients and TEI's `/rerank` endpoint use different request body shapes
 - Kong host-alias `rerank.localhost` (HTTP at `TEI_RERANKER_PORT`, default 63031); model weights cached in a named volume
 
 ---
