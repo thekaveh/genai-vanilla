@@ -128,3 +128,16 @@ External suggestions from the brief were either ranked, folded into track plans,
 - Internal docs link check:
   - `python scripts/check_doc_links.py`
   - Result: no output, exit 0.
+
+## Review Fix Follow-Up
+
+- Added explicit decision dispositions in section 9 for the three candidates the reviewer flagged: `Supabase Edge Functions`, `OpenLIT`, and `Unmute`.
+- Kept the top 20 ordering unchanged; the update only clarifies where those appendix-listed candidates land in the decision flow.
+- Re-checked the appendix-vs-decision coverage path while editing so the newly added one-line dispositions sit in sections 8/9 rather than only in source notes.
+
+### Follow-Up Validation
+
+- `rg -n "Supabase Edge Functions|Unmute|OpenLIT" docs/strategy/atlas-vnext-strategy-report.md`
+  - Result: all three candidates now appear in decision sections with explicit defer dispositions.
+- `rg -n "### 8\.1|### 8\.2|### 8\.3|### 8\.4|### 9\.1|### 9\.2|### 9\.3|### 9\.4" docs/strategy/atlas-vnext-strategy-report.md`
+  - Result: all eight required section anchors still present.

@@ -351,7 +351,7 @@ Build next means valuable but dependent on the first wave's foundations, especia
 2. **Secrets manager:** Infisical optional service for new high-risk credentials; OpenBao remains the Vault-lineage watchlist option.
 3. **OpenTelemetry Collector + Tempo + Loki:** traces first, logs second, short retention by default.
 4. **MLflow:** notebook experiment tracking and MinIO-backed artifacts.
-5. **Open WebUI Pipelines:** one curated middleware path for redaction/tracing/routing.
+5. **Open WebUI Pipelines:** one curated middleware path for redaction/tracing/routing, with OpenLIT deferred in favor of the Langfuse plus OTel stack rather than adding a second observability UI now.
 6. **Neo4j LLM Knowledge Graph Builder and Verba:** reference GraphRAG/RAG UIs after MCP and ingestion basics exist.
 7. **Label Studio:** dataset review loop for ML/RAG/creative outputs.
 
@@ -371,10 +371,12 @@ Build later means useful, but the prerequisites or product commitments are not m
 
 - **Firecrawl:** defer in favor of Crawl4AI because AGPL plus a larger worker/Playwright footprint is not worth it for the first ingestion slice.
 - **Browserless:** defer until Crawl4AI proves insufficient for JavaScript-heavy workflows; SSPL and Chromium memory cost keep it out of the default plan.
+- **Supabase Edge Functions:** defer because Atlas already has backend, n8n, and Celery for server-side execution; a second Deno function surface adds overlap before there is an edge-specific need.
+- **OpenLIT:** defer as a standalone candidate because Langfuse plus the OTel Collector/Tempo/Loki path already covers the first observability slice with less UI overlap.
 - **Live trading services:** defer Hummingbot, Freqtrade, and NautilusTrader live execution. Reconsider only after paper mode, secrets, audit logs, and explicit operator risk controls exist.
 - **FinRL and FinGPT:** keep in notebooks/research. Do not present them as production trading intelligence.
 - **Hunyuan3D, TRELLIS/TRELLIS.2, Nerfstudio, Unreal MCP, and LiveKit:** watchlist for the 3D/game track, but not before the asset pipeline and MCP safety posture are real.
-- **Voicebox and OmniVoice:** defer as their own candidate notes recommend; Voicebox lacks the OpenAI-compatible endpoint Atlas needs, and OmniVoice would require Atlas to own a young HTTP wrapper.
+- **Voicebox, OmniVoice, and Unmute:** defer as voice-stack watchlist items; Voicebox lacks the OpenAI-compatible endpoint Atlas needs, OmniVoice would require Atlas to own a young HTTP wrapper, and Unmute is still too early for Atlas to standardize on as a core realtime speech layer.
 - **Honcho:** defer because Atlas already has LangMem and Graphiti is a lighter first experiment; Honcho's AGPL posture and separate memory service are not yet justified.
 - **Redis Stack and RedisInsight:** defer until a concrete Redis module or GUI workflow beats the license/image-size cost.
 - **Perplexica/Vane:** defer because it overlaps with Open WebUI plus Local Deep Researcher unless a distinct "single-shot cited answer" product surface becomes a priority.
