@@ -79,41 +79,51 @@ env:
   - name: MINIO_COMFYUI_ACCESS_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO access key for the comfyui bucket."
   - name: MINIO_COMFYUI_SECRET_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO secret key for the comfyui bucket."
   - name: MINIO_BUCKET_BACKEND
     default: backend
   - name: MINIO_BACKEND_ACCESS_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO access key for the backend bucket."
   - name: MINIO_BACKEND_SECRET_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO secret key for the backend bucket."
   - name: MINIO_BUCKET_N8N
     default: n8n
   - name: MINIO_N8N_ACCESS_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO access key for the n8n bucket."
   - name: MINIO_N8N_SECRET_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO secret key for the n8n bucket."
   - name: MINIO_BUCKET_JUPYTER
     default: jupyter
   - name: MINIO_JUPYTER_ACCESS_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO access key for the jupyter bucket."
   - name: MINIO_JUPYTER_SECRET_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO secret key for the jupyter bucket."
   - name: MINIO_BUCKET_DOCLING
     default: docling
   - name: MINIO_DOCLING_ACCESS_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO access key for the docling bucket."
   - name: MINIO_DOCLING_SECRET_KEY
     default: ""
     secret: true
+    description: "Auto-generated scoped MinIO secret key for the docling bucket."
 
 depends_on:
   # ORDERING-ONLY: the compose fragment has no supabase depends_on and
