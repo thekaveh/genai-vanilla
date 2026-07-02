@@ -205,15 +205,180 @@ In short: **use the Kong root as the Atlas entrypoint, and make v1 a service dir
 
 ## 7. vNext Top 20
 
-Task 1 placeholder. Later tasks should replace this section with the ranked top 20 candidate list.
+Ranking principle: Atlas should prefer additions that make the existing stack more usable, safer, and more observable before adding shiny vertical engines. The scoring pass considered strategic fit, reuse of Atlas primitives, user value, effort, operational cost, security risk, license fit, maintenance burden, dependency blast radius, and upstream maturity. The result is deliberately conservative: product entrypoints, MCP, ingestion, observability, identity, secrets, and async execution outrank novelty.
+
+| Rank | vNext candidate | Rationale | Effort | Risk | Key dependencies | First slice |
+|---:|---|---|---|---|---|---|
+| 1 | **Atlas root dashboard** | The Kong root is the clearest product gap and has the best value-to-risk ratio: it turns service sprawl into a navigable platform surface without adding a new datastore. | Medium | Low | Kong route metadata, topology, resolved SOURCE state, lightweight health checks | Replace bare-root Supabase Studio fallback with a generated service directory showing active services, URLs, auth notes, and disabled-by-track state. |
+| 2 | **Curated MCP package** | Sections 5.1-5.4 already establish that MCP is now real across Open WebUI, LiteLLM, Hermes, and Docling. A curated package creates shared agent tools without one-off Hermes skills or one-MCP-server-per-service sprawl. | Medium | Medium | Supabase/Postgres, Neo4j, SearXNG, Docling MCP, Hermes/Open WebUI/LiteLLM client config | Ship Postgres, Neo4j, and SearXNG MCP servers first; add Docling MCP next once auth and namespacing are settled. |
+| 3 | **Langfuse** | LLM observability is the biggest operational blind spot after the dashboard. LiteLLM has a direct Langfuse integration, and Langfuse self-hosting now expects Redis, S3, and ClickHouse-style ingestion, all near Atlas primitives. | Medium | Medium | LiteLLM callback, Redis, MinIO, Postgres, likely ClickHouse for current Langfuse | Trace all LiteLLM-routed calls first; defer direct ComfyUI/Hermes custom spans until gateway traces are working. |
+| 4 | **Crawl4AI** | RAG and research quality depends on extracting real page content, not snippets. Crawl4AI is Apache-2.0, lower license risk than Firecrawl, and fits the existing SearXNG -> extract -> Docling/Weaviate path. | Small | Medium | SearXNG, Local Deep Researcher, n8n, backend, Weaviate | Add disabled-by-default `crawl4ai` service and wire Local Deep Researcher full-page fetch to it behind one env flag. |
+| 5 | **Celery + Flower worker tier** | Long-running backend calls are already a mismatch for the FastAPI request loop. Redis is present, so async jobs, retries, scheduled consolidation, and a Flower monitor are high leverage. | Small | Medium | Redis, backend code sharing, LiteLLM, Weaviate, ComfyUI | Move one backend long-running endpoint, ideally memory consolidation or research start, to a Celery task and expose Flower as dev-only. |
+| 6 | **SSO pilot: Authentik-first, Keycloak as enterprise alternative** | Identity fragmentation is a platform weakness. Keycloak has the broadest ecosystem but a heavier JVM footprint; Authentik's OIDC and proxy-provider docs make it a better Atlas-first pilot for mixed apps and reverse-proxy auth. | Large | High | Kong, Open WebUI, JupyterHub, n8n, MinIO, Neo4j, Supabase Auth decisions | Protect one non-critical route behind Authentik forward auth, document the Keycloak tradeoff, and do not migrate all services in one pass. |
+| 7 | **Secrets manager: Infisical-first, OpenBao watchlist** | Trading, MCP, 3D model downloads, and multi-user tracks all increase secret sprawl. Infisical is developer-friendly and self-hostable; OpenBao is the stronger Vault-lineage option but heavier to operate. | Medium | High | Bootstrapper env injection, service startup order, Postgres/Redis or dedicated storage | Add Infisical as optional, disabled by default, and move only new high-risk credentials there before touching existing `.env` flows. |
+| 8 | **Supavisor** | Postgres connection pressure will grow as Langfuse, MLflow, Label Studio, OpenBB, and user notebooks arrive. Supavisor is a focused Supabase-native pressure valve. | Medium | Medium | Supabase Postgres, consumer DB clients, transaction-mode audit | Route backend and n8n through Supavisor first; leave PostgREST and Realtime direct until session-mode behavior is proven. |
+| 9 | **Apache Tika fallback** | Docling is the high-quality path, but Atlas still needs a long-tail extractor for EML, MSG, RTF, ODT, ZIP, and obscure MIME types. Tika is boring in the best way. | Small | Medium | Doc processor, backend, n8n, malware/resource limits | Add disabled-by-default Tika and call it only when Docling returns unsupported-format. |
+| 10 | **OpenTelemetry Collector + Tempo + Loki** | Prometheus/Grafana are shipped, but traces and queryable logs are still missing. The OTel Collector is the vendor-neutral ingest point; Tempo and Loki complete the Grafana-native observability triangle. | Medium | Medium | Grafana, Prometheus, Kong request IDs, backend/LiteLLM/Hermes instrumentation, MinIO for Tempo object storage | Start with OTel Collector and Tempo for backend/LiteLLM traces, then add Loki log shipping with short default retention. |
+| 11 | **MLflow** | The ML track has notebooks, Ray, Spark, MinIO, and Postgres but no durable experiment or model registry. MLflow reuses MinIO and Supabase cleanly. | Medium | Medium | JupyterHub, MinIO, Supabase schema, backend/n8n REST consumers | Expose MLflow tracking URI to JupyterHub and create a MinIO-backed artifact store; leave model promotion automations for later. |
+| 12 | **Open WebUI Pipelines** | Pipelines gives Atlas a request-time middleware layer for filters, routing, redaction, and tracing without forking Open WebUI. It is useful only if its place relative to LiteLLM is explicit. | Medium | Medium | Open WebUI, LiteLLM, curated pipeline scripts, Langfuse | Ship one tracing/redaction pipeline as a disabled option and document whether it sits before or behind LiteLLM. |
+| 13 | **Neo4j LLM Knowledge Graph Builder** | Atlas already ships Neo4j, LiteLLM, MinIO, and Docling; this is the most direct path to a visible GraphRAG workflow. | Medium | Medium | Neo4j, LiteLLM, MinIO, Docling, Kong | Add the UI/backend pair disabled by default, configured against existing Neo4j and LiteLLM, with a sample document-to-graph path. |
+| 14 | **Verba** | Verba provides a vendor-native Weaviate RAG UI. It is less strategic than MCP/ingestion but valuable as an end-to-end demo of Weaviate + LiteLLM + Docling. | Medium | Medium | Weaviate, LiteLLM, optional Docling, Kong auth | Add Verba with a namespaced Weaviate collection and one documented sample ingest. |
+| 15 | **Label Studio** | Atlas can generate, transcribe, and retrieve data, but it cannot curate labels or review datasets as a product workflow. Label Studio complements MLflow and MinIO. | Medium | Medium | MinIO, Supabase schema, JupyterHub SDK, optional backend active-learning loop | Ship Label Studio disabled by default with S3-backed media storage and a notebook showing export to Weaviate/MLflow. |
+| 16 | **Graphiti** | Temporal graph memory fits Atlas' agent story and reuses Neo4j and LiteLLM. It should augment LangMem for advanced agent memory, not replace it. | Small | Medium | Hermes/backend Python deps, Neo4j schema, LiteLLM embeddings | Add a backend-only experiment with strict `group_id` namespacing before exposing it to Hermes or OpenClaw. |
+| 17 | **SigLIP 2 vectorizer upgrade path** | Multimodal retrieval quality matters for creative/RAG tracks, and Weaviate supports SigLIP 2-family multi2vec images. This is high payoff but requires revectorization planning. | Small | Medium | Weaviate multi2vec-clip, existing collection dimensions, GPU option | Add a second opt-in image/env value and a migration note; do not silently change existing vector dimensions. |
+| 18 | **Iceberg + DuckDB, with Lakekeeper evaluated as the catalog** | MinIO needs a queryable analytics layer. DuckDB and Iceberg are a natural local-first fit; current DuckDB REST-catalog support makes Lakekeeper worth evaluating against a minimal catalog. | Medium | Medium | MinIO analytics bucket, Supabase or catalog storage, JupyterHub, optional Trino later | Create an `analytics` bucket and one notebook that writes/reads Iceberg tables via DuckDB before adding Trino or Superset. |
+| 19 | **OpenBB + CCXT financial research kit** | A financial track should start with data and research, not live trading. OpenBB provides finance data/application APIs and CCXT provides a unified crypto exchange library, both notebook-friendly. | Medium | High | JupyterHub, LiteLLM, MinIO datasets, Infisical for API keys, optional TimescaleDB | Add notebooks and env scaffolding for read-only market data and paper portfolios; explicitly block live exchange keys in the first slice. |
+| 20 | **Blender MCP + glTF-Transform asset bridge** | The 3D track should first automate a host desktop tool and optimize assets, not ship large 3D foundation models. Blender MCP is useful but unsafe by default; glTF-Transform is a safer first server-side asset utility. | Medium | High | Host Blender, MCP clients, MinIO asset buckets, ComfyUI, imgproxy, optional Godot | Add a disabled localhost-only Blender MCP profile plus a containerized glTF-Transform postprocess job for GLB inspection/optimization. |
+
+Strong candidates intentionally below the top 20: `imgproxy` is small and useful but follows the dashboard/asset-browser work; `NocoDB` is attractive for human-in-the-loop queues but waits on SSO; `NeoDash` waits until more services write useful graph data; `WhisperX` waits until meeting/audio ingestion becomes a first-class RAG flow; `Dagster`, `Trino`, and `Superset` wait until the MinIO/Iceberg foundation has proven demand; `TimescaleDB` is best treated as part of the trading data slice rather than a standalone platform bet.
 
 ## 8. Track Expansion
 
-Task 1 placeholder. Later tasks should replace this section with track-expansion recommendations, including any new verticals.
+### 8.1 3D / Game-Generation Track
+
+Recommendation: build a **3D asset pipeline track**, not a "generate a whole game" track. Atlas already has ComfyUI, MinIO, Weaviate multimodal search, notebooks, and soon a root dashboard; the first 3D expansion should make assets inspectable, transformable, searchable, and agent-assistable.
+
+First wave:
+
+- Add `imgproxy` after the dashboard or asset-browser work so generated images and thumbnails are cheap to browse.
+- Add glTF-Transform as a postprocess utility for GLB inspection, optimization, texture compression, and metadata extraction.
+- Add a disabled-by-default, localhost-only Blender MCP profile. Blender's own MCP page warns that LLM-generated code executes in Blender without guards, so this cannot be a default-on container service.
+- Add a Godot export/template note before adding engine automation. Godot is MIT-licensed and useful for starter projects, but Atlas should not imply it can author production games automatically.
+
+Later wave:
+
+- Evaluate Hunyuan3D and TRELLIS/TRELLIS.2 as local or localhost GPU model integrations after Atlas has the asset store, thumbnails, and glTF processing path. These models are promising, but they are large, fast-moving, and operationally heavier than the platform should absorb first.
+- Evaluate Nerfstudio for reconstruction/scanning workflows, not general asset generation.
+- Evaluate LiveKit for collaborative realtime review or voice-driven creator workflows only after the voice/audio stack has a clear product use case.
+- Evaluate Unreal MCP only as a local developer option. Epic's Unreal MCP is real, but editor automation has the same code-execution risk class as Blender and a heavier workstation assumption.
+
+Safety/defer notes:
+
+- Do not rank 3D novelty above sandboxing, artifact lineage, and asset portability.
+- Do not expose Blender or Unreal MCP routes through Kong by default.
+- Do not ship Hunyuan3D/TRELLIS as default track members until license, VRAM, model-cache size, and output-format contracts are pinned.
+
+### 8.2 Trading / Financial-AI Track
+
+Recommendation: build a **financial research and paper-trading track** first. Atlas should be candid that live trading is a regulated, high-loss-risk domain and should not be enabled by default.
+
+First wave:
+
+- Add OpenBB and CCXT as notebook/backend libraries for read-only data acquisition, research, and portfolio analysis.
+- Add an explicit paper-trading notebook path using JupyterHub, MinIO datasets, MLflow experiment runs, and LiteLLM summaries.
+- Add Infisical before any exchange-key workflow so credentials are not scattered through `.env`, notebooks, and n8n nodes.
+- Evaluate TimescaleDB as a Postgres extension path for tick/order-book/time-series storage; prefer isolated schemas and clear retention policies.
+
+Later wave:
+
+- Evaluate NautilusTrader for deterministic backtesting and multi-venue strategy simulation. It is stronger than ad hoc notebooks for serious quants, but it should come after data acquisition, secrets, and paper-run guardrails.
+- Evaluate Hummingbot and Freqtrade only as sandbox/paper-trading services. Their live-trading value is real, but so is their operational and user-harm risk.
+- Keep FinRL and FinGPT in research notebooks until Atlas has curated datasets, eval criteria, and disclaimers. These should not become "push-button trading AI" surfaces.
+
+Safety/defer notes:
+
+- No live exchange trading in the first financial track.
+- Default to read-only API keys, sandbox venues, and explicit paper modes.
+- Require secrets manager integration, audit logs, and clear "not financial advice" docs before any live-trading connector is selectable.
+- Do not let n8n workflows hold unrestricted exchange keys by default.
+
+### 8.3 RAG And Content-Ingestion Track
+
+Recommendation: make RAG ingestion a first-class product path. Atlas already has Docling, LightRAG, Weaviate, Neo4j, SearXNG, MinIO, and LiteLLM; the gap is robust extraction, agent access, and a visible RAG/GraphRAG workflow.
+
+First wave:
+
+- Add Crawl4AI as the default web-page extraction path for Local Deep Researcher and n8n ingestion flows.
+- Add Apache Tika as a degraded fallback for long-tail document formats that Docling does not target.
+- Add Docling MCP after the first curated MCP package so agents can read PDFs and office documents without bespoke HTTP upload code.
+- Add Verba and/or Neo4j LLM Knowledge Graph Builder as visible reference UIs, but keep their collections/namespaces isolated.
+
+Later wave:
+
+- Add Browserless only if Crawl4AI leaves important JavaScript-rendered workflows uncovered. Its SSPL posture and Chromium footprint make it a second choice, not a default.
+- Add WhisperX when audio/video meeting ingestion becomes a named workflow. Diarization is useful, but the pyannote token/model-terms path needs a separate adoption note.
+- Add Graphiti when cross-session temporal graph memory has a concrete Hermes/backend workflow. It should not replace LangMem prematurely.
+
+Safety/defer notes:
+
+- Keep crawler and parser services disabled by default where resource usage or document-security risk is high.
+- Put size limits, timeout limits, and content-type routing rules around every extraction path.
+- Preserve citations, source URLs, and document provenance in MinIO/Weaviate/Neo4j so RAG quality can be audited.
+
+### 8.4 Data / ML Platform Track
+
+Recommendation: strengthen the ML/data substrate in layers: experiment tracking, labeling, artifact analytics, then optional BI/orchestration expansions. Atlas already ships Airflow, Spark, Ray, MinIO, Supabase, JupyterHub, and Zeppelin; it does not need to add every modern data product at once.
+
+First wave:
+
+- Add MLflow for experiment tracking and model artifacts using Supabase plus MinIO.
+- Add Label Studio for dataset labeling and review loops, wired to MinIO and JupyterHub.
+- Add Iceberg + DuckDB as the local analytics path over MinIO artifacts, evaluating Lakekeeper as the REST catalog if write/concurrency needs justify it.
+- Add Supavisor before several new Postgres-backed apps land.
+
+Later wave:
+
+- Evaluate Dagster as an asset-aware orchestrator only after deciding how it coexists with Airflow. It should not become a second scheduler with no clear ownership.
+- Evaluate Trino once Iceberg tables exist and users need multi-user SQL over object storage. Until then, DuckDB in notebooks is enough.
+- Evaluate Superset after Trino/Iceberg or Postgres analytics schemas have useful datasets and SSO is available.
+- Evaluate Redpanda only when event streaming becomes a demonstrated bottleneck. Kafka-compatible streaming is powerful but too large as a speculative default.
+
+Safety/defer notes:
+
+- Do not duplicate Airflow with Dagster without a migration or separation story.
+- Do not add BI surfaces before identity/permissions are credible.
+- Keep lakehouse work grounded in MinIO artifact queries, not abstract "big data" positioning.
 
 ## 9. Implementation Waves
 
-Task 1 placeholder. Later tasks should replace this section with phased implementation waves derived from the strategy findings.
+### 9.1 Build Now
+
+Build now means high strategic value, strong reuse of existing primitives, and tolerable blast radius.
+
+1. **Atlas root dashboard:** one generated service directory/health page at Kong root.
+2. **Curated MCP package:** Postgres, Neo4j, and SearXNG MCP servers, then Docling MCP as the first specialist.
+3. **Langfuse gateway tracing:** LiteLLM callback first; defer deeper span fan-out.
+4. **Crawl4AI:** Local Deep Researcher and n8n web extraction path.
+5. **Celery + Flower:** backend async worker for one long-running endpoint.
+6. **Supavisor:** transaction-mode pooler for backend/n8n first.
+7. **Apache Tika:** Docling fallback for unsupported formats.
+
+### 9.2 Build Next
+
+Build next means valuable but dependent on the first wave's foundations, especially dashboard, observability, secrets, and auth.
+
+1. **SSO pilot:** Authentik-first route protection, with Keycloak documented as the heavier alternative for enterprise OIDC/SAML needs.
+2. **Secrets manager:** Infisical optional service for new high-risk credentials; OpenBao remains the Vault-lineage watchlist option.
+3. **OpenTelemetry Collector + Tempo + Loki:** traces first, logs second, short retention by default.
+4. **MLflow:** notebook experiment tracking and MinIO-backed artifacts.
+5. **Open WebUI Pipelines:** one curated middleware path for redaction/tracing/routing.
+6. **Neo4j LLM Knowledge Graph Builder and Verba:** reference GraphRAG/RAG UIs after MCP and ingestion basics exist.
+7. **Label Studio:** dataset review loop for ML/RAG/creative outputs.
+
+### 9.3 Build Later
+
+Build later means useful, but the prerequisites or product commitments are not mature enough yet.
+
+1. **Graphiti:** temporal graph memory after a concrete Hermes/backend workflow is selected.
+2. **SigLIP 2 vectorizer upgrade:** opt-in migration path after revectorization tooling is clear.
+3. **Iceberg + DuckDB + Lakekeeper evaluation:** after MinIO artifact analytics has sample data and ownership.
+4. **OpenBB + CCXT financial research kit:** after secrets handling and read-only/paper guardrails are ready.
+5. **Blender MCP + glTF-Transform:** after asset storage, dashboard links, and safety notes are in place.
+6. **imgproxy, NocoDB, NeoDash, WhisperX:** each is useful, but each benefits from an earlier dashboard/auth/data-foundation pass.
+7. **Dagster, Trino, Superset:** wait for real lakehouse demand and a clear Airflow coexistence model.
+
+### 9.4 Reject Or Defer For Now
+
+- **Firecrawl:** defer in favor of Crawl4AI because AGPL plus a larger worker/Playwright footprint is not worth it for the first ingestion slice.
+- **Browserless:** defer until Crawl4AI proves insufficient for JavaScript-heavy workflows; SSPL and Chromium memory cost keep it out of the default plan.
+- **Live trading services:** defer Hummingbot, Freqtrade, and NautilusTrader live execution. Reconsider only after paper mode, secrets, audit logs, and explicit operator risk controls exist.
+- **FinRL and FinGPT:** keep in notebooks/research. Do not present them as production trading intelligence.
+- **Hunyuan3D, TRELLIS/TRELLIS.2, Nerfstudio, Unreal MCP, and LiveKit:** watchlist for the 3D/game track, but not before the asset pipeline and MCP safety posture are real.
+- **Voicebox and OmniVoice:** defer as their own candidate notes recommend; Voicebox lacks the OpenAI-compatible endpoint Atlas needs, and OmniVoice would require Atlas to own a young HTTP wrapper.
+- **Honcho:** defer because Atlas already has LangMem and Graphiti is a lighter first experiment; Honcho's AGPL posture and separate memory service are not yet justified.
+- **Redis Stack and RedisInsight:** defer until a concrete Redis module or GUI workflow beats the license/image-size cost.
+- **Perplexica/Vane:** defer because it overlaps with Open WebUI plus Local Deep Researcher unless a distinct "single-shot cited answer" product surface becomes a priority.
+- **Redpanda:** defer until event-streaming demand is proven. It is too large for speculative inclusion in a Docker Compose-first stack.
 
 ## 10. Appendices
 
@@ -247,3 +412,11 @@ Task 4 MCP and dashboard notes (official/current sources checked July 2, 2026):
 - Hermes current MCP position: the bundled-skill / CLI reference showing [`hermes mcp serve`](https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent), the [Codex app-server runtime docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/codex-app-server-runtime) showing Hermes "registers itself as an MCP server", the broader [feature docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp), the [usage guide](https://hermes-agent.nousresearch.com/docs/guides/use-mcp-with-hermes), the [closed issue #342](https://github.com/NousResearch/hermes-agent/issues/342), and the [official Hermes repo](https://github.com/NousResearch/hermes-agent).
 - Docling MCP current capabilities: the [official Docling MCP repo](https://github.com/docling-project/docling-mcp) and [docling-serve releases](https://github.com/DS4SD/docling-serve/releases) for current bundled versions.
 - Atlas-internal evidence used for the Kong-root recommendation: [ports-and-routes](../deployment/ports-and-routes.md), [Kong README](../../services/kong/README.md), [Open WebUI README](../../services/open-webui/README.md), [LiteLLM README](../../services/litellm/README.md), [Hermes README](../../services/hermes/README.md), and the current [ROADMAP](../ROADMAP.md).
+
+Task 5 vNext ranking notes (candidate corpus plus current outside sources checked July 2, 2026):
+
+- Existing one-pagers considered for ranking: [Apache Tika](../research/candidates/apache-tika.md), [Browserless](../research/candidates/browserless.md), [Celery + Flower](../research/candidates/celery-flower.md), [Crawl4AI](../research/candidates/crawl4ai.md), [Docling MCP](../research/candidates/docling-mcp.md), [Firecrawl](../research/candidates/firecrawl.md), [Grafana Loki](../research/candidates/grafana-loki.md), [Graphiti](../research/candidates/graphiti.md), [Honcho](../research/candidates/honcho.md), [Iceberg + DuckDB](../research/candidates/iceberg-duckdb.md), [imgproxy](../research/candidates/imgproxy.md), [Keycloak](../research/candidates/keycloak.md), [Label Studio](../research/candidates/label-studio.md), [Langfuse](../research/candidates/langfuse.md), [MCP Gateway](../research/candidates/mcp-gateway.md), [mcpo](../research/candidates/mcpo.md), [MLflow](../research/candidates/mlflow.md), [Neo4j LLM Knowledge Graph Builder](../research/candidates/neo4j-llm-graph-builder.md), [NeoDash](../research/candidates/neodash.md), [NocoDB](../research/candidates/nocodb.md), [OmniVoice](../research/candidates/omnivoice.md), [Open WebUI Pipelines](../research/candidates/open-webui-pipelines.md), [OpenLIT](../research/candidates/openlit.md), [Perplexica/Vane](../research/candidates/perplexica.md), [Prometheus](../research/candidates/prometheus.md), [Redis Stack](../research/candidates/redis-stack.md), [RedisInsight](../research/candidates/redisinsight.md), [SigLIP 2 Vectorizer](../research/candidates/siglip2-vectorizer.md), [Supabase Edge Functions](../research/candidates/supabase-edge-functions.md), [Supavisor](../research/candidates/supavisor.md), [Unmute](../research/candidates/unmute.md), [Verba](../research/candidates/verba.md), [Voicebox](../research/candidates/voicebox.md), and [WhisperX](../research/candidates/whisperx.md).
+- Platform/security outside sources: [Authentik OAuth2/OIDC provider docs](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/), [Authentik proxy-provider docs](https://docs.goauthentik.io/add-secure-apps/providers/proxy/), [Infisical introduction](https://infisical.com/docs/documentation/getting-started/introduction), [Infisical self-hosting overview](https://infisical.com/docs/self-hosting/overview), [OpenBao official site](https://openbao.org/), [OpenTelemetry Collector install docs](https://opentelemetry.io/docs/collector/install/), [OpenTelemetry Collector Docker docs](https://opentelemetry.io/docs/collector/install/docker/), [Grafana Tempo docs](https://grafana.com/docs/tempo/latest/), [Trino docs/site](https://trino.io/), [Apache Superset docs/site](https://superset.apache.org/), [Dagster docs](https://docs.dagster.io/), and [Lakekeeper docs](https://docs.lakekeeper.io/).
+- 3D/game outside sources: [Blender MCP server page](https://www.blender.org/lab/mcp-server/), [BlenderMCP community repo](https://github.com/ahujasid/blender-mcp), [Unreal Engine MCP docs](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor?lang=en-US), [Godot docs](https://docs.godotengine.org/), [Godot license](https://godotengine.org/license/), [Hunyuan3D 2 repo](https://github.com/Tencent-Hunyuan/Hunyuan3D-2), [Hunyuan3D 2.1 repo](https://github.com/tencent-hunyuan/hunyuan3d-2.1), [TRELLIS.2 project page](https://microsoft.github.io/TRELLIS.2/), [Nerfstudio docs](https://docs.nerf.studio/), [glTF-Transform CLI docs](https://gltf-transform.dev/cli), and [LiveKit Agents docs](https://docs.livekit.io/agents/).
+- Trading/financial-AI outside sources: [OpenBB GitHub repo](https://github.com/OpenBB-finance/OpenBB), [OpenBB docs](https://docs.openbb.co/), [CCXT docs](https://docs.ccxt.com/), [Hummingbot docs](https://hummingbot.org/docs/), [Freqtrade docs](https://www.freqtrade.io/en/stable/), [NautilusTrader docs](https://nautilustrader.io/docs/latest/), [TimescaleDB GitHub repo](https://github.com/timescale/timescaledb), [Redpanda docs](https://docs.redpanda.com/home/), [FinRL repo](https://github.com/AI4Finance-Foundation/FinRL), [FinRL-Trading repo](https://github.com/AI4Finance-Foundation/FinRL-Trading), and [FinGPT repo](https://github.com/ai4finance-foundation/fingpt).
+- Current maturity adjustment: Langfuse self-hosting now documents queued ingestion through S3/Redis into ClickHouse, so the older candidate note about avoiding ClickHouse with v2 should be treated as stale for current vNext planning ([Langfuse self-hosting](https://langfuse.com/self-hosting), [Langfuse configuration](https://langfuse.com/self-hosting/configuration)).
