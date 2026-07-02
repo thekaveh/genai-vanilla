@@ -449,3 +449,42 @@ Task 5 vNext ranking notes (candidate corpus plus current outside sources checke
 - 3D/game outside sources: [Blender MCP server page](https://www.blender.org/lab/mcp-server/), [BlenderMCP community repo](https://github.com/ahujasid/blender-mcp), [Unreal Engine MCP docs](https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor?lang=en-US), [Godot docs](https://docs.godotengine.org/), [Godot license](https://godotengine.org/license/), [Hunyuan3D 2 repo](https://github.com/Tencent-Hunyuan/Hunyuan3D-2), [Hunyuan3D 2.1 repo](https://github.com/tencent-hunyuan/hunyuan3d-2.1), [TRELLIS.2 project page](https://microsoft.github.io/TRELLIS.2/), [Nerfstudio docs](https://docs.nerf.studio/), [glTF-Transform CLI docs](https://gltf-transform.dev/cli), and [LiveKit Agents docs](https://docs.livekit.io/agents/).
 - Trading/financial-AI outside sources: [OpenBB GitHub repo](https://github.com/OpenBB-finance/OpenBB), [OpenBB docs](https://docs.openbb.co/), [CCXT docs](https://docs.ccxt.com/), [Hummingbot docs](https://hummingbot.org/docs/), [Freqtrade docs](https://www.freqtrade.io/en/stable/), [NautilusTrader docs](https://nautilustrader.io/docs/latest/), [TimescaleDB GitHub repo](https://github.com/timescale/timescaledb), [Redpanda docs](https://docs.redpanda.com/home/), [FinRL repo](https://github.com/AI4Finance-Foundation/FinRL), [FinRL-Trading repo](https://github.com/AI4Finance-Foundation/FinRL-Trading), and [FinGPT repo](https://github.com/ai4finance-foundation/fingpt).
 - Current maturity adjustment: Langfuse self-hosting now documents queued ingestion through S3/Redis into ClickHouse, so the older candidate note about avoiding ClickHouse with v2 should be treated as stale for current vNext planning ([Langfuse self-hosting](https://langfuse.com/self-hosting), [Langfuse configuration](https://langfuse.com/self-hosting/configuration)).
+
+### 10.2 Scoring Rubric
+
+- The ranking in section 7 weighted strategic fit, reuse of Atlas primitives, user value, implementation effort, operational cost, security risk, license fit, maintenance burden, dependency blast radius, and upstream maturity.
+- Higher scores went to candidates that compound Atlas' existing strengths: Kong-root entrypoint cleanup, SOURCE-friendly service packaging, reuse of Supabase/Redis/MinIO/LiteLLM/Open WebUI, and clear leverage across multiple tracks.
+- Lower scores went to novelty-only expansions, services that duplicate already-shipped capability, and candidates that add large operational or security surface before Atlas has a clearer user-facing workflow to justify them.
+
+### 10.3 Rejected / Deferred Candidates
+
+| Candidate(s) | Disposition | Why it stayed out of vNext |
+| --- | --- | --- |
+| Firecrawl | Deferred | Crawl4AI is the first ingestion bet because it fits the current stack with less license and worker-footprint risk. |
+| Browserless | Deferred | Only needed if Crawl4AI leaves important JavaScript-rendered gaps; SSPL plus Chromium cost keeps it out of the base plan. |
+| Supabase Edge Functions | Deferred | Atlas already has backend, n8n, and Airflow for the first server-side workflow slices, so this is not the next leverage point. |
+| OpenLIT | Deferred | Langfuse and the OTel/Tempo/Loki path cover the near-term observability gap with a clearer product fit. |
+| Hummingbot, Freqtrade, NautilusTrader | Rejected for now | The approved trading posture is research and paper workflows first, not live execution services. |
+| FinRL, FinGPT | Deferred to notebooks | Useful as research inputs, but not mature enough for a default production trading layer in Atlas. |
+| Hunyuan3D, TRELLIS/TRELLIS.2, Nerfstudio, Unreal MCP, LiveKit | Deferred | The 3D/game track should start with asset pipeline and MCP safety before heavier model, engine, or realtime infrastructure bets. |
+| Voicebox, OmniVoice, Unmute | Deferred | Voice remains a watchlist area until Atlas has a clearer realtime speech workflow and safer integration story. |
+| Honcho | Deferred | LangMem and Graphiti are lighter first memory experiments; Honcho adds more service and license weight than the current plan needs. |
+| Redis Stack, RedisInsight | Deferred | Atlas should wait for a concrete Redis-module or GUI workflow that beats the extra image, license, and maintenance cost. |
+| Perplexica/Vane | Deferred | It overlaps with Open WebUI plus Local Deep Researcher unless Atlas decides to build a distinct cited-answer surface. |
+| Redpanda | Deferred | Event streaming is still speculative for Atlas; the stack does not yet justify a Kafka-class default dependency. |
+
+### 10.4 Watchlist / Already Shipped
+
+| Candidate | Disposition | Note |
+| --- | --- | --- |
+| imgproxy | Watchlist | Strong follow-on once dashboard and asset-browsing work lands. |
+| NocoDB | Watchlist | Attractive for human-in-the-loop queues, but benefits from earlier auth and workflow cleanup. |
+| NeoDash | Watchlist | Useful once Atlas has richer graph-native application data to present. |
+| WhisperX | Watchlist | Worth revisiting when meeting/audio ingestion becomes a first-class RAG workflow. |
+| Dagster | Watchlist | Strong orchestrator, but waits on proven lakehouse demand and a clean coexistence story with Airflow. |
+| Trino | Watchlist | Follows Iceberg plus DuckDB once multi-user SQL over object storage becomes real. |
+| Superset | Watchlist | Best added after Trino or analytics schemas have meaningful datasets and SSO. |
+| TimescaleDB | Watchlist | Best treated as part of a later trading-data slice, not a standalone platform bet. |
+| OpenBao | Watchlist | Stronger Vault-lineage option than Atlas needs in the first secrets-management slice. |
+| Lakekeeper | Watchlist | Evaluate as the Iceberg catalog only if the MinIO analytics path proves real write/concurrency pressure. |
+| Prometheus | Already shipped / not vNext | Keep as current-state observability baseline; vNext work is the missing traces/logs layer around it, not Prometheus itself. |
