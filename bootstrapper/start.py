@@ -180,7 +180,14 @@ class AtlasStarter:
         # Show detected Docker compose command
         compose_cmd = self.docker_manager.get_compose_command_display()
         self.banner.show_status_message(f"Using Docker Compose command: {compose_cmd}", "info")
-        
+        compose_ok, compose_message = self.docker_manager.check_compose_version()
+        self.banner.show_status_message(
+            compose_message,
+            "success" if compose_ok else "error",
+        )
+        if not compose_ok:
+            return False
+
         # Check docker-compose.yml exists
         compose_file = self.root_dir / "docker-compose.yml"
         if not compose_file.exists():
@@ -2341,9 +2348,12 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
         no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
         no_model_flags = not user_model_selections
         no_key_flags = not cloud_api_keys
-        will_run_wizard = (
+        wizard_requested = (
             no_source_flags and no_stack_flags
             and no_model_flags and no_key_flags
+        )
+        will_run_wizard = (
+            wizard_requested
             and sys.stdin.isatty()
         )
 
@@ -2365,31 +2375,17 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
         if track is not None:
             try:
                 from tracks import load_tracks as _ld
-                from tracks import is_in_track as _ii
+                from tracks import synthesize_track_source_args as _synth
                 _rg2 = _ld()
             except Exception:  # noqa: BLE001
                 _rg2 = None
             if _rg2 is not None:
-                _t2 = _rg2.by_key.get(track)
-                if _t2 is not None and _t2.services is not None:
-                    # 'all' track → services is None → no synthesis, no
-                    # overrides to track. Same source_args as today.
-                    for cli_key in list(source_args.keys()):
-                        if cli_key.startswith("cloud_"):
-                            continue  # cloud keys are always-on
-                        svc_key = cli_key.removesuffix("_source").replace("_", "-")
-                        is_in = _ii(
-                            _t2, svc_key, always_on=_rg2.always_on,
-                        )
-                        if is_in:
-                            continue
-                        # Off-track service. If the user passed a CLI flag
-                        # for it (non-None), record the override; otherwise
-                        # force-disable (non-wizard paths only).
-                        if source_args.get(cli_key) is not None:
-                            overridden_services.add(svc_key)
-                        elif not will_run_wizard:
-                            source_args[cli_key] = "disabled"
+                overridden_services |= _synth(
+                    source_args,
+                    track_key=track,
+                    registry=_rg2,
+                    force_disable=not wizard_requested,
+                )
 
         # Detect legacy `external` source values left in .env from versions
         # before PR #(observability bundle). These options have been removed
@@ -2433,8 +2429,12 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             if not starter.docker_manager.check_docker_available():
                 print("❌ Docker is not available. Please install Docker and ensure it's running.")
                 sys.exit(1)
+            compose_ok, compose_message = starter.docker_manager.check_compose_version()
+            if not compose_ok:
+                print(f"❌ {compose_message}")
+                sys.exit(1)
 
-        if will_run_wizard:
+        if wizard_requested:
             # Setup .env first so wizard can read current defaults.
             if not starter.setup_env_file(cold_start=cold, base_port=base_port, project_name=project_name):
                 sys.exit(1)
@@ -2452,7 +2452,7 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             # narrow terminals) skip the wizard and use the user's .env
             # defaults plus any CLI flags they passed.
             from ui.term_caps import is_tui_capable as _is_tui_capable
-            if _is_tui_capable(no_tui_flag=no_tui):
+            if will_run_wizard and _is_tui_capable(no_tui_flag=no_tui):
                 # Single-Textual-app flow: wizard + pipeline + docker
                 # compose log streaming all run inside one App. start.py
                 # exits when the user detaches.
@@ -2514,19 +2514,13 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             # recorded as overrides. No-op for the 'all' track (services is None).
             if _reg is not None and track is not None:
                 try:
-                    from tracks import is_in_track as _ii
-                    _t2 = _reg.by_key.get(track)
-                    if _t2 is not None and _t2.services is not None:
-                        for cli_key in list(source_args.keys()):
-                            if cli_key.startswith("cloud_"):
-                                continue
-                            svc_key = cli_key.removesuffix("_source").replace("_", "-")
-                            if _ii(_t2, svc_key, always_on=_reg.always_on):
-                                continue
-                            if source_args.get(cli_key) is not None:
-                                overridden_services.add(svc_key)
-                            else:
-                                source_args[cli_key] = "disabled"
+                    from tracks import synthesize_track_source_args as _synth
+                    overridden_services |= _synth(
+                        source_args,
+                        track_key=track,
+                        registry=_reg,
+                        force_disable=True,
+                    )
                 except Exception:  # noqa: BLE001
                     pass
 

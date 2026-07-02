@@ -3,7 +3,7 @@ category-fit: media
 generated: 2026-06-22
 license: MIT
 name: Voicebox (jamiepine)
-referenced-by: [hermes, tts-provider, stt-provider]
+referenced-by: []
 slug: voicebox
 type: external-service
 upstream: https://github.com/jamiepine/voicebox

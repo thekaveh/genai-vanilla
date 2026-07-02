@@ -151,7 +151,8 @@ echo "n8n-init: - Successful installations: $success_count"
 echo "n8n-init: - Failed installations: $failure_count"
 
 if [ $failure_count -gt 0 ]; then
-  echo "n8n-init: WARNING - Some node installations failed. Check logs above."
+  echo "n8n-init: ERROR - Some node installations failed. Check logs above."
+  exit 1
 else
   echo "n8n-init: ✓ All nodes installed successfully!"
 fi

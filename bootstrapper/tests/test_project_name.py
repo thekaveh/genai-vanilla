@@ -120,6 +120,35 @@ def test_stop_services_uses_project_override_for_compose(monkeypatch):
     assert stopper.docker_manager.project_name_override is None
 
 
+def test_cold_stop_uses_project_override_for_compose_and_networks(monkeypatch):
+    import stop as stop_module
+
+    stopper = stop_module.AtlasStopper()
+    calls = []
+    networks = []
+
+    def fake_execute_compose_command(args, *, use_env_file=True, project_name=None):
+        calls.append((args, project_name))
+        return 0
+
+    monkeypatch.setattr(
+        stopper.docker_manager,
+        "execute_compose_command",
+        fake_execute_compose_command,
+    )
+    monkeypatch.setattr(
+        stopper.docker_manager,
+        "remove_project_networks",
+        lambda project_name: networks.append(project_name) or True,
+    )
+    monkeypatch.setattr(stopper.docker_manager, "prune_system", lambda **kwargs: 0)
+
+    assert stopper.stop_services(cold_stop=True, project_name="myshowcase") is True
+    assert calls == [(["down", "--volumes", "--remove-orphans"], "myshowcase")]
+    assert networks == ["myshowcase"]
+    assert stopper.docker_manager.project_name_override is None
+
+
 # ── wizard "Project name" step ───────────────────────────────────────────────
 
 def test_wizard_project_name_step_and_mapping(tmp_path, monkeypatch):

@@ -6,7 +6,51 @@ from __future__ import annotations
 
 import pytest
 
-from tracks import load_tracks, is_in_track
+from tracks import load_tracks, is_in_track, synthesize_track_source_args
+
+
+def test_shared_track_synthesis_preserves_overrides_and_disables_off_track():
+    """Production helper covers the no-wizard/no-TUI track contract."""
+    source_args = {
+        "comfyui_source": "container",
+        "weaviate_source": None,
+        "airflow_source": None,
+        "cloud_openai_source": None,
+    }
+    reg = load_tracks()
+
+    overridden = synthesize_track_source_args(
+        source_args,
+        track_key="gen-ai-rag",
+        registry=reg,
+        force_disable=True,
+    )
+
+    assert source_args["comfyui_source"] == "container"
+    assert source_args["weaviate_source"] is None
+    assert source_args["airflow_source"] == "disabled"
+    assert source_args["cloud_openai_source"] is None
+    assert overridden == {"comfyui"}
+
+
+def test_shared_track_synthesis_wizard_mode_records_overrides_without_disabling():
+    """Wizard mode must not pre-fill source_args with disabled values."""
+    source_args = {
+        "comfyui_source": "container",
+        "airflow_source": None,
+    }
+    reg = load_tracks()
+
+    overridden = synthesize_track_source_args(
+        source_args,
+        track_key="gen-ai-rag",
+        registry=reg,
+        force_disable=False,
+    )
+
+    assert source_args["comfyui_source"] == "container"
+    assert source_args["airflow_source"] is None
+    assert overridden == {"comfyui"}
 
 
 def test_off_track_flag_in_overridden_set():

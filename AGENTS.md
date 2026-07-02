@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-Atlas (formerly GenAI Vanilla Stack) is a self-hosted, source-configurable engineering platform orchestrating 30+ containerized services via Docker Compose. It spans generative AI, RAG, creative AI, ML engineering, and data engineering workloads via the tracks system (`gen-ai-eng` / `gen-ai-rag` / `gen-ai-creative` / `ml-eng` / `data-eng` / `all`). Services include LLM inference (Ollama + cloud-provider passthroughs via LiteLLM), chat UI (Open WebUI), workflow + DAG automation (n8n + Airflow), vector + graph DBs (Weaviate + Neo4j), distributed compute (Ray + Spark), notebooks (JupyterHub + Zeppelin), object storage (MinIO), observability (Prometheus + Grafana) — all configurable for CPU, GPU, localhost, external, or disabled per service.
+Atlas (formerly GenAI Vanilla Stack) is a self-hosted, source-configurable engineering platform orchestrating 30+ containerized services via Docker Compose. It spans generative AI, RAG, creative AI, ML engineering, and data engineering workloads via the tracks system (`gen-ai-eng` / `gen-ai-rag` / `gen-ai-creative` / `ml-eng` / `data-eng` / `all`). Services include LLM inference (Ollama + cloud-provider passthroughs via LiteLLM), chat UI (Open WebUI), workflow + DAG automation (n8n + Airflow), vector + graph DBs (Weaviate + Neo4j), distributed compute (Ray + Spark), notebooks (JupyterHub + Zeppelin), object storage (MinIO), observability (Prometheus + Grafana) — all configurable for container, localhost, or disabled modes, with CPU/GPU variants where a service supports them.
 
 ## Editing Rules
 
@@ -72,11 +72,12 @@ Integration flow: branch (typically a worktree under `.Codex/worktrees/<name>`) 
 ### SOURCE-Based Configuration System
 
 The central design pattern: each service has a `*_SOURCE` env var (in `.env`) controlling its deployment mode:
-- `container` — runs in Docker (default)
-- `localhost` — connects to host-running instance
-- `external` — connects to remote instance
+- `container` / service-specific container variants — runs in Docker
+- `localhost` / service-specific localhost variants — connects to a host-running instance
 - `disabled` — excluded from compose
-- `api` — uses cloud API (LLM only)
+- `none` — LLM-provider mode for cloud-only operation through LiteLLM
+
+Legacy `external` and `api` source values are retired. Cloud providers are configured with `CLOUD_*_SOURCE=enabled|disabled` plus their API keys, while `LLM_PROVIDER_SOURCE=none` disables local Ollama when using only cloud passthroughs.
 
 **Adaptive services** (backend, open-webui) auto-configure their features based on which upstream services are enabled.
 
@@ -134,7 +135,7 @@ Key modules:
 
 Dependencies managed via `uv` (falls back to pip). Config: `bootstrapper/pyproject.toml` — current deps are `pyyaml`, `rich`, `click`, `requests`, `urllib3`, `jsonschema`, `textual` (the TUI framework). Python `>=3.10`.
 
-**Brand customization.** The wizard's brand panel and info box (brand name, tagline, version, author, author email, license, repo URL) is configurable via `BRAND_*` env vars in `.env`. Defaults are GenAI Vanilla; forks can rebrand by setting these. See the `BRAND_*` block in `.env.example`.
+**Brand customization.** The wizard's brand panel and info box (brand name, tagline, version, author, author email, license, repo URL) is configurable via `BRAND_*` env vars in `.env`. Defaults are Atlas; forks can rebrand by setting these. See the `BRAND_*` block in `.env.example`.
 
 ### Backend (`/backend/`)
 

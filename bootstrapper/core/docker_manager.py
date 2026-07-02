@@ -414,7 +414,7 @@ class DockerManager:
 
         Returns True if every step succeeded.
         """
-        project_name = self.config_parser.get_project_name()
+        project_name = self.project_name_override or self.config_parser.get_project_name()
         all_successful = True
         
         print("    - Stopping containers and removing volumes...")

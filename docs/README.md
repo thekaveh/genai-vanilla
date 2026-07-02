@@ -53,6 +53,7 @@ Documentation index for Atlas.
 ### 1.4 Contributors
 - [Adding a service runbook](CONTRIBUTING-services.md) — six-decision walkthrough + the regen + lint chain
 - [Security policy](../SECURITY.md) — threat tiers, supported versions, responsible-disclosure address
+- [External dependency contract ledger](maintenance/external-contract-ledger.md) — durable record of consumed external API/CLI/config contract checks from maintenance passes
 
 ### 1.5 Architecture diagrams
 - [Diagrams README](diagrams/README.md) — top-level diagram update workflow + the per-service auto-generation chain

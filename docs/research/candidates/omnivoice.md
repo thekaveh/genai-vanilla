@@ -3,7 +3,7 @@ category-fit: media
 generated: 2026-06-03
 license: Apache-2.0 (OSS) / proprietary (SaaS at omnivoice.app)
 name: OmniVoice (k2-fsa)
-referenced-by: [tts-provider]
+referenced-by: []
 slug: omnivoice
 type: external-service
 upstream: https://github.com/k2-fsa/OmniVoice
@@ -73,7 +73,7 @@ Not now. The library is too young for the stack to absorb upstream-maintenance r
 2. A community FastAPI wrapper for k2-fsa/OmniVoice appears on GitHub with maintenance activity (a `omnivoice-container-gpu` source variant becomes feasible without the stack owning the shim).
 3. Speaches adds OmniVoice as a supported backend (Speaches already abstracts Kokoro + Piper; OmniVoice would be a natural third — zero stack work).
 
-In the meantime, users who specifically need OmniVoice today can run it as `tts-provider-source=external-localhost` once the wrapper exists locally on their host.
+In the meantime, Atlas has no supported OmniVoice source value. Users who specifically need OmniVoice today would need a future wrapper plus a future `TTS_PROVIDER_SOURCE` variant before it can be selected through the stack.
 
 ## Upstream evidence
 
