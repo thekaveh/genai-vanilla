@@ -937,7 +937,7 @@ services:
     - -c
     - set -a; [ -f /app/data/.env ] && . /app/data/.env; set +a; exec python -m lightrag.api.lightrag_server
     environment:
-      CHUNK_TOP_K: ''
+      CHUNK_TOP_K: '5'
       DOCLING_ENDPOINT: ''
       EMBEDDING_BINDING: openai
       EMBEDDING_BINDING_API_KEY: ''
@@ -965,7 +965,7 @@ services:
       LLM_BINDING: openai
       LLM_BINDING_API_KEY: ''
       LLM_BINDING_HOST: http://litellm:4000/v1
-      MAX_TOTAL_TOKENS: ''
+      MAX_TOTAL_TOKENS: '12000'
       NEO4J_DATABASE: neo4j
       NEO4J_PASSWORD: ''
       NEO4J_URI: ''
@@ -990,7 +990,7 @@ services:
       RERANK_BY_DEFAULT: 'false'
       RERANK_MODEL: mixedbread-ai/mxbai-rerank-base-v1
       TOKEN_SECRET: ''
-      TOP_K: ''
+      TOP_K: '10'
       VLM_PROCESS_ENABLE: 'true'
       WORKERS: '2'
     extra_hosts:

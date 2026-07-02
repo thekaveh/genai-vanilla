@@ -57,14 +57,14 @@ services:
       EXTRACT_LLM_TIMEOUT: ${LIGHTRAG_EXTRACT_LLM_TIMEOUT:-}
       KEYWORD_LLM_TIMEOUT: ${LIGHTRAG_KEYWORD_LLM_TIMEOUT:-}
       QUERY_LLM_TIMEOUT: ${LIGHTRAG_QUERY_LLM_TIMEOUT:-}
-      # Query defaults. Empty numeric values intentionally defer to
-      # LightRAG's own defaults. Rerank defaults false because Atlas's TEI
+      # Query defaults. Numeric values must stay concrete because LightRAG
+      # parses the env vars as ints. Rerank defaults false because Atlas's TEI
       # /rerank endpoint expects `{query, texts}`, while LightRAG's direct
       # jina/cohere clients send `{query, documents}`.
       RERANK_BY_DEFAULT: ${LIGHTRAG_QUERY_ENABLE_RERANK:-false}
-      TOP_K: ${LIGHTRAG_QUERY_TOP_K:-}
-      CHUNK_TOP_K: ${LIGHTRAG_QUERY_CHUNK_TOP_K:-}
-      MAX_TOTAL_TOKENS: ${LIGHTRAG_QUERY_MAX_TOTAL_TOKENS:-}
+      TOP_K: ${LIGHTRAG_QUERY_TOP_K:-10}
+      CHUNK_TOP_K: ${LIGHTRAG_QUERY_CHUNK_TOP_K:-5}
+      MAX_TOTAL_TOKENS: ${LIGHTRAG_QUERY_MAX_TOTAL_TOKENS:-12000}
       # LLM_MODEL / EMBEDDING_MODEL / EMBEDDING_DIM are intentionally NOT
       # set here — lightrag-init resolves them from LiteLLM /v1/models at
       # boot and writes them to /app/data/.env, which the entrypoint

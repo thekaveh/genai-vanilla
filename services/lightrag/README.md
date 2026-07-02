@@ -44,16 +44,16 @@ LIGHTRAG_QUERY_LLM_MODEL=                           # empty = inherit LLM_MODEL
 LIGHTRAG_EXTRACT_MAX_ASYNC_LLM=                     # empty = inherit MAX_ASYNC_LLM
 LIGHTRAG_QUERY_LLM_TIMEOUT=                         # empty = inherit LLM_TIMEOUT
 LIGHTRAG_QUERY_ENABLE_RERANK=false                  # direct TEI rerank needs an adapter
-LIGHTRAG_QUERY_TOP_K=                               # empty = LightRAG default
-LIGHTRAG_QUERY_CHUNK_TOP_K=                         # empty = LightRAG default
-LIGHTRAG_QUERY_MAX_TOTAL_TOKENS=                    # empty = LightRAG default
+LIGHTRAG_QUERY_TOP_K=10                             # graph query KG top-k
+LIGHTRAG_QUERY_CHUNK_TOP_K=5                        # graph query chunk top-k
+LIGHTRAG_QUERY_MAX_TOTAL_TOKENS=12000               # graph query context budget
 LIGHTRAG_EMBEDDING_MODEL=                           # empty = inherit LITELLM_EMBEDDING_MODEL
 LIGHTRAG_VLM_PROCESS_ENABLE=true                    # vision LLM for images/figures
 ```
 
 LightRAG v1.5 supports role-specific LLM settings for extraction, keyword extraction, and final query answering. Atlas exposes those as `LIGHTRAG_EXTRACT_*`, `LIGHTRAG_KEYWORD_*`, and `LIGHTRAG_QUERY_*` inputs, then maps them to LightRAG's native `EXTRACT_*`, `KEYWORD_*`, and `QUERY_*` runtime environment names. Leave a role value empty to inherit the base LightRAG runtime `LLM_*` settings; the base model name itself is resolved by `lightrag-init` when `LIGHTRAG_LLM_MODEL` is empty.
 
-Atlas also exposes LightRAG's query defaults as `LIGHTRAG_QUERY_ENABLE_RERANK`, `LIGHTRAG_QUERY_TOP_K`, `LIGHTRAG_QUERY_CHUNK_TOP_K`, and `LIGHTRAG_QUERY_MAX_TOTAL_TOKENS`. Numeric values can stay empty to preserve upstream defaults. `LIGHTRAG_QUERY_ENABLE_RERANK` defaults to `false` because direct LightRAG-to-TEI reranking is not wire-compatible yet: LightRAG sends `{query, documents}` through its Jina/Cohere clients, while TEI expects `{query, texts}`. Re-enable reranking only when routing through a compatible adapter or custom rerank binding.
+Atlas also exposes LightRAG's query defaults as `LIGHTRAG_QUERY_ENABLE_RERANK`, `LIGHTRAG_QUERY_TOP_K`, `LIGHTRAG_QUERY_CHUNK_TOP_K`, and `LIGHTRAG_QUERY_MAX_TOTAL_TOKENS`. Numeric query values default to concrete integers because LightRAG v1.5 parses those env vars as integers and does not accept empty strings. `LIGHTRAG_QUERY_ENABLE_RERANK` defaults to `false` because direct LightRAG-to-TEI reranking is not wire-compatible yet: LightRAG sends `{query, documents}` through its Jina/Cohere clients, while TEI expects `{query, texts}`. Re-enable reranking only when routing through a compatible adapter or custom rerank binding.
 
 For local Ollama graph RAG, use a fast non-reasoning model for `EXTRACT` and `KEYWORD`, and reserve the stronger answer model for `QUERY`:
 

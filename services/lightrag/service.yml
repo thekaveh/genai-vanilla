@@ -123,14 +123,14 @@ env:
     default: "false"
     description: "LightRAG query default for reranking. Atlas keeps this false by default because direct LightRAG→TEI rerank payloads are incompatible without an adapter."
   - name: LIGHTRAG_QUERY_TOP_K
-    default: ""
-    description: "Optional LightRAG query TOP_K. Empty = LightRAG default."
+    default: "10"
+    description: "LightRAG query TOP_K. Atlas defaults this to a concrete integer because LightRAG v1.5.4 crashes when this env var is present but empty."
   - name: LIGHTRAG_QUERY_CHUNK_TOP_K
-    default: ""
-    description: "Optional LightRAG query CHUNK_TOP_K. Empty = LightRAG default."
+    default: "5"
+    description: "LightRAG query CHUNK_TOP_K. Atlas defaults this to a concrete integer because LightRAG v1.5.4 crashes when this env var is present but empty."
   - name: LIGHTRAG_QUERY_MAX_TOTAL_TOKENS
-    default: ""
-    description: "Optional LightRAG query MAX_TOTAL_TOKENS. Empty = LightRAG default."
+    default: "12000"
+    description: "LightRAG query MAX_TOTAL_TOKENS. Atlas defaults this to a concrete integer because LightRAG v1.5.4 crashes when this env var is present but empty."
   - name: LIGHTRAG_EMBEDDING_BINDING
     default: openai
   - name: LIGHTRAG_EMBEDDING_BINDING_HOST

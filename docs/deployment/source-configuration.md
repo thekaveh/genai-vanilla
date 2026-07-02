@@ -428,7 +428,7 @@ LIGHTRAG_QUERY_MAX_TOTAL_TOKENS=12000
 
 Use `EXTRACT` and `KEYWORD` for high-volume structured extraction work and `QUERY` for final answer generation. For local Ollama deployments, a cheaper non-reasoning extraction model usually keeps indexing responsive while allowing query answering to use the project-selected stronger model. Empty role-specific values inherit the base `LLM_MODEL`, so existing deployments do not need to set these variables.
 
-The `LIGHTRAG_QUERY_*` knobs map to LightRAG's native query defaults. Numeric query defaults can stay empty to preserve upstream behavior. `LIGHTRAG_QUERY_ENABLE_RERANK` defaults to `false` because LightRAG's built-in Jina/Cohere rerank clients send `{query, documents}`, while TEI's `/rerank` route expects `{query, texts}`. Keep it off unless routing LightRAG through a compatible adapter or custom rerank binding.
+The `LIGHTRAG_QUERY_*` knobs map to LightRAG's native query defaults. Numeric query defaults stay concrete because LightRAG parses these env vars as integers and does not accept empty strings. `LIGHTRAG_QUERY_ENABLE_RERANK` defaults to `false` because LightRAG's built-in Jina/Cohere rerank clients send `{query, documents}`, while TEI's `/rerank` route expects `{query, texts}`. Keep it off unless routing LightRAG through a compatible adapter or custom rerank binding.
 
 ### 4.8 RAY_SOURCE
 

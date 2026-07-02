@@ -45,18 +45,18 @@ QUERY_INPUTS = {
     },
     "LIGHTRAG_QUERY_TOP_K": {
         "native": "TOP_K",
-        "default": "",
-        "compose": "${LIGHTRAG_QUERY_TOP_K:-}",
+        "default": "10",
+        "compose": "${LIGHTRAG_QUERY_TOP_K:-10}",
     },
     "LIGHTRAG_QUERY_CHUNK_TOP_K": {
         "native": "CHUNK_TOP_K",
-        "default": "",
-        "compose": "${LIGHTRAG_QUERY_CHUNK_TOP_K:-}",
+        "default": "5",
+        "compose": "${LIGHTRAG_QUERY_CHUNK_TOP_K:-5}",
     },
     "LIGHTRAG_QUERY_MAX_TOTAL_TOKENS": {
         "native": "MAX_TOTAL_TOKENS",
-        "default": "",
-        "compose": "${LIGHTRAG_QUERY_MAX_TOTAL_TOKENS:-}",
+        "default": "12000",
+        "compose": "${LIGHTRAG_QUERY_MAX_TOTAL_TOKENS:-12000}",
     },
 }
 
@@ -119,6 +119,8 @@ def test_lightrag_role_smoke_fails_when_model_evidence_is_missing():
     assert "missing expected EXTRACT model" in script
     assert "missing expected QUERY model" in script
     assert "pass criteria:" not in script
+    assert "--since=10m" not in script
+    assert "--since=\"$smoke_started_at\"" in script
 
 
 def _docker_available() -> bool:

@@ -24,6 +24,7 @@ fi
 echo "[smoke] LightRAG URL: $lightrag_url"
 echo "[smoke] expected EXTRACT model: $extract_model"
 echo "[smoke] expected QUERY model: $query_model"
+smoke_started_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 echo "[smoke] runtime role environment:"
 docker compose -p "$project" exec -T lightrag sh -lc \
@@ -52,7 +53,7 @@ curl -fsS -X POST "$lightrag_url/query" \
 
 echo "[smoke] recent LiteLLM log lines mentioning expected models:"
 litellm_model_logs="$(
-  docker compose -p "$project" logs --since=10m litellm \
+  docker compose -p "$project" logs --since="$smoke_started_at" litellm \
     | grep -F -e "$extract_model" -e "$query_model" \
     | tail -40 || true
 )"

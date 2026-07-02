@@ -1393,7 +1393,7 @@ now propagate.
 
 ### Added (TEI Reranker service)
 - New `services/tei-reranker/` manifest: HF text-embeddings-inference running BAAI/bge-reranker-v2-m3. Default `disabled`. Four source variants: `container-cpu`, `container-gpu`, `localhost`, `disabled`.
-- Consumed optionally by LightRAG (`RERANK_BINDING_HOST`); reusable by any future service.
+- Reusable by compatible consumers through its REST endpoint. Direct LightRAG-to-TEI reranking is disabled by default because their rerank payload shapes are incompatible without an adapter.
 - Kong route `rerank.localhost`.
 
 ### Added — Apache Airflow + Apache Spark cluster + Apache Zeppelin (data / apps / agents bands)
