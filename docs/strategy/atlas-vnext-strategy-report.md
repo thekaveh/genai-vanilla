@@ -97,11 +97,111 @@ Task 1 placeholder. Later tasks should replace this section with the key platfor
 
 ## 5. MCP Recommendation
 
-Task 1 placeholder. Later tasks should replace this section with the MCP architecture recommendation and rationale.
+Atlas should adopt a **phased hybrid** MCP strategy: start with a small curated package of high-value MCP servers, let the MCP-native consumers talk to those servers directly, add an aggregator only once Atlas has enough servers and per-consumer policy needs to justify it, and avoid one-MCP-server-per-service cargo culting.
+
+### 5.1 What Current Sources Actually Confirm
+
+The current official MCP landscape is materially better than the repo's earlier assumptions, but it is also more uneven than "just add an MCP gateway everywhere."
+
+- The current [Model Context Protocol specification](https://modelcontextprotocol.io/specification/2025-06-18) defines MCP as an open protocol between hosts, clients, and servers with a strong emphasis on consent, authorization, and tool safety. That matters because Atlas is not choosing a mere adapter format; it is choosing an execution surface that can reach databases, files, and internal APIs.
+- [Open WebUI now natively supports MCP Streamable HTTP starting in v0.6.31](https://docs.openwebui.com/features/extensibility/mcp/). Its own docs also say to use [mcpo](https://github.com/open-webui/mcpo) only when the target server is not directly consumable over HTTP or when an OpenAPI surface is the more practical client contract ([Open WebUI MCP FAQ](https://docs.openwebui.com/faq/), [mcpo docs](https://docs.openwebui.com/features/extensibility/plugin/tools/openapi-servers/mcp/)). That means Atlas no longer needs an OpenAPI bridge just to give chat access to a well-behaved HTTP MCP server.
+- [LiteLLM now ships an MCP gateway](https://docs.litellm.ai/docs/mcp) with a fixed endpoint, support for Streamable HTTP, SSE, and stdio, per-key/team/org permissions, and even [OpenAPI-to-MCP conversion](https://docs.litellm.ai/docs/mcp_openapi). This is verified current support, not roadmap. It makes LiteLLM a real MCP consumer and policy surface, but it does not automatically make LiteLLM the best Atlas-wide MCP control plane.
+- [Hermes Agent is currently a strong MCP client](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp): its docs explicitly cover local stdio servers, remote HTTP MCP servers, tool filtering, and namespaced tool registration. In this pass, the verified current support is **client-side**. A [public Hermes issue still tracks "Hermes as MCP server"](https://github.com/NousResearch/hermes-agent/issues/342), so Atlas should treat Hermes server-mode as future work rather than current capability.
+- [MetaMCP](https://docs.metamcp.com/en) is a genuine aggregator layer, not just a transport shim. Its docs verify [namespaces](https://docs.metamcp.com/en/concepts/namespaces), [public endpoints that can expose SSE, Streamable HTTP, and OpenAPI](https://docs.metamcp.com/en/concepts/endpoints), and a documented [Open WebUI integration path](https://docs.metamcp.com/en/integrations/open-web-ui). That makes it the strongest fit when Atlas needs one curated surface with per-consumer scoping.
+- [Docker MCP Gateway](https://docs.docker.com/ai/mcp-catalog-and-toolkit/mcp-gateway/) is also real and open source, but Docker's docs position the managed AI Governance path as invite-only and frame the gateway around dynamically launching MCP server containers from Docker-managed profiles and catalogs. Its official tooling and repo are excellent for broad connector catalogs and Docker-centered lifecycle control, but that is a worse default fit for Atlas' mostly internal, already-composed services.
+- [Docling MCP](https://github.com/docling-project/docling-mcp) is now especially relevant for Atlas because v2 added remote mode and `streamable-http`, so it can front an existing Docling service instead of forcing Atlas to co-locate conversion models with every MCP process.
+
+The practical consequence is straightforward: Atlas should not choose between "pure sidecars" and "always-on aggregator" as a religion. It should use direct sidecars where the value is immediate, then introduce aggregation when the number of servers and policy splits make it worthwhile.
+
+### 5.2 MCP Target / Consumer Matrix
+
+| Atlas service | MCP role | Recommendation | Rationale |
+|---|---|---|---|
+| Supabase / Postgres | Target | **Phase 1 curated server** | High-value structured data surface; Atlas already centralizes product state in Postgres and the roadmap already expects a Postgres MCP path. |
+| Neo4j | Target | **Phase 1 curated server** | Graph queries are highly agent-friendly and Hermes/Open WebUI benefit from a graph-native tool more than from bespoke HTTP glue. |
+| Weaviate | Target | **Phase 2 curated server** | Valuable, but lower priority than Postgres/Neo4j/SearXNG because Atlas already has non-MCP retrieval paths and community MCP quality should be evaluated before pinning. |
+| SearXNG | Target | **Phase 1 curated server** | Clean web-search tool surface with obvious cross-consumer value and low architectural risk. |
+| MinIO | Target | **Phase 2 curated server** | Good fit through an S3-shaped MCP server, but the write/delete blast radius is larger, so it should wait for scoped credentials and clearer policy. |
+| n8n | Both, but defer | **Phase 2 target/consumer** | Atlas research suggests useful MCP-trigger and workflow-as-tool patterns, but Atlas does not need them to justify the initial architecture; treat as a later expansion. |
+| Backend | Both, but mostly target | **Phase 2 custom Atlas MCP server** | A thin first-party MCP wrapper around LangMem and Atlas-specific routes is better than exposing the full backend surface ad hoc. |
+| Docling | Target | **Early specialist addition** | Verified current [Docling MCP](https://github.com/docling-project/docling-mcp) remote mode makes document conversion a strong high-signal tool for agents without duplicate model loading. |
+| Open WebUI | Consumer | **Use as direct MCP client** | Verified current native Streamable HTTP support means Atlas should connect Open WebUI directly to curated MCP servers or a later aggregator, not force mcpo in front of every server. |
+| Hermes | Consumer | **Use as direct MCP client** | Verified current Hermes MCP support is mature on the client side, with tool filtering and mixed stdio/HTTP support. |
+| OpenClaw | Consumer (inferred, not re-verified externally in this pass) | **Treat as a later consumer** | Atlas' internal research says OpenClaw has MCP CLI / external-server support, but the initial decision does not need that path to be live. |
+| LiteLLM | Consumer and optional policy gateway | **Consume MCP; do not make it the sole Atlas aggregator yet** | Verified current MCP support is real, but Atlas should avoid coupling every tool-governance concern to its already-critical LLM gateway on day one. |
+| Ollama | Neither practical target nor priority consumer | **Do not MCP-wrap** | Ollama is already the model-serving layer; adding MCP around it would be circular and adds little user value. |
+| Kong | Infra proxy, not MCP target | **Proxy selected MCP HTTP routes later; do not turn Kong into the MCP brain** | Kong is useful for stable aliases and auth fronts, but Atlas should keep MCP tool semantics in MCP-aware components, not in the HTTP gateway itself. |
+| STT / TTS providers | Usually non-target | **Do not wrap current providers in MCP** | Atlas already reaches these services through OpenAI-compatible HTTP. MCP only becomes interesting when a provider's native value is MCP-first, such as the repo's Voicebox research. |
+| Virtual services (`cloud-providers`, `globals`, provider virtual manifests) | Neither | **Do not MCP-wrap** | These are configuration surfaces, not runtime tool surfaces. |
+
+### 5.3 Recommended Architecture
+
+The best answer is not "aggregator" or "service-by-service sidecars" in isolation. It is:
+
+1. **Phase 1: curated package, no heavyweight aggregator**
+   Stand up a small set of MCP servers with the clearest cross-stack payoff:
+   `Postgres`, `Neo4j`, `SearXNG`, and then `Docling MCP` as the first specialist expansion. Keep them as explicit, reviewable services rather than auto-spawning a server for every Atlas service.
+
+2. **Connect native consumers directly first**
+   Let Open WebUI and Hermes talk to those MCP servers directly over Streamable HTTP where possible. Let LiteLLM consume them only where Atlas explicitly wants model-facing tool access under LiteLLM policy. This keeps the first rollout simple and proves real demand before Atlas adds another control plane.
+
+3. **Add an aggregator when Atlas crosses the "policy and namespacing" threshold**
+   Once Atlas has roughly four or more internal MCP servers, or once chat, agents, and automation need different tool visibility, add **MetaMCP** in front of the curated set. MetaMCP is the best fit for that step because it combines namespaces, public endpoints, and OpenAPI exposure in one place. At that point Atlas can expose one namespace to Open WebUI, a narrower one to Hermes, and a more controlled one to automation clients.
+
+4. **Use `mcpo` as a translator, not as the architecture center**
+   `mcpo` is still useful when Atlas needs OpenAPI for a consumer that is not MCP-native, or when a desired MCP server is stdio-only. It should be treated as an edge adapter, not as the long-term Atlas MCP control plane.
+
+5. **Reserve Docker MCP Gateway for a different problem**
+   Docker MCP Gateway becomes attractive if Atlas later wants a large SaaS/vendor connector catalog with Docker-managed lifecycle and catalog distribution. That is a legitimate future path, but it is not the right default for Atlas' internal-service-first topology today.
+
+### 5.4 Bottom-Line Decision
+
+Atlas should **not** do one-MCP-server-per-service, should **not** default to Docker MCP Gateway, and should **not** force every tool through `mcpo`. Atlas should use a **phased hybrid**: a curated package of high-value MCP servers now, direct native consumption first, and MetaMCP later when namespacing, policy, and endpoint consolidation become worth the extra operational layer.
 
 ## 6. Kong Root Dashboard Recommendation
 
-Task 1 placeholder. Later tasks should replace this section with the recommendation for the main Kong-root Atlas entrypoint experience.
+Yes: the **Kong root** should become an Atlas product entrypoint. But the first version should be a lightweight **service directory** and **health dashboard**, not a replacement for Grafana, Supabase Studio, or the setup wizard.
+
+### 6.1 Why The Root Should Change
+
+Today, Atlas' own route docs and Kong README both say that the bare `localhost` root falls through to Supabase Studio ([ports-and-routes](../deployment/ports-and-routes.md), [Kong README](../../services/kong/README.md)). That is useful for operators who already know Atlas, but it is the wrong first impression for a multi-service platform. The front door currently lands on one subsystem's admin console instead of on Atlas itself.
+
+Atlas' biggest onboarding weakness is not lack of services; it is lack of orientation. A root dashboard solves that directly by answering the first-run questions users actually have:
+
+- What is running right now?
+- Which URLs should I use?
+- Which services are intentionally disabled by the current track?
+- Which credentials or auth modes apply?
+- What should I open first?
+
+### 6.2 Minimum Viable Dashboard
+
+The minimum viable dashboard should stay narrow and operationally boring:
+
+- **Service directory:** one row per active service showing display name, category, current SOURCE, Kong URL, direct URL, and a short auth note.
+- **Health dashboard:** clear `healthy / degraded / disabled` status, derived from the same resolved SOURCE state and lightweight reachability checks Atlas already uses for routing. This should be an orientation surface, not a Grafana clone.
+- **Track context:** show the active track and which services are disabled by track policy versus manually disabled by the operator.
+- **Common actions:** prominent launch links for the highest-traffic surfaces such as Open WebUI, LiteLLM, n8n, JupyterHub, Supabase Studio, and any enabled observability pages.
+- **Warnings:** disabled dependencies, localhost-mode services that are unreachable, missing `--setup-hosts` state, and services whose route exists but whose upstream is degraded.
+- **Docs links:** quick links to the route table, troubleshooting, and the quick-start flow so the dashboard helps users recover rather than merely report failure.
+
+### 6.3 What The First Version Should Explicitly Not Be
+
+The first version should **not** try to become:
+
+- a replacement for Grafana metrics and alerts
+- a replacement for Supabase Studio or LiteLLM admin surfaces
+- a control plane for editing SOURCE values
+- a second setup wizard
+- a giant SPA with its own persistence model
+
+Atlas already has several specialist UIs. The root page should be the map, not every destination at once.
+
+### 6.4 Product Recommendation
+
+Atlas should move the root route to an Atlas-branded landing page and keep Supabase Studio on `studio.localhost`. The first implementation should be a small, generated dashboard built from the same topology, route, and auth metadata Atlas already maintains, so it stays consistent with the rest of the stack instead of becoming a second, drifting inventory.
+
+In short: **use the Kong root as the Atlas entrypoint, and make v1 a service directory plus health dashboard.** That is the smallest change that meaningfully improves onboarding, navigation, and day-two usability without overreaching into a new control plane.
 
 ## 7. vNext Top 20
 
@@ -136,3 +236,14 @@ Task 3 external competitor notes (official sources checked July 2, 2026):
 - RAG and framework products: [RAGFlow docs](https://ragflow.io/docs/), [RAGFlow GitHub repo](https://github.com/infiniflow/ragflow), [LlamaIndex framework docs](https://developers.llamaindex.ai/python/framework/), [Haystack docs](https://haystack.deepset.ai/).
 - Coding-agent, observability, ML, and data layers: [OpenHands docs](https://docs.openhands.dev/overview/introduction), [MLflow docs](https://mlflow.org/docs/latest/), [Langfuse docs](https://langfuse.com/docs), [OpenMetadata docs](https://docs.open-metadata.org/v1.13.x), [Dagster docs](https://docs.dagster.io/), [Superset docs](https://superset.apache.org/user-docs/intro/).
 - Kubernetes-based AI platforms: [Kubeflow introduction](https://www.kubeflow.org/docs/started/introduction/), [Open Data Hub getting started](https://opendatahub.io/docs/getting-started-with-open-data-hub/).
+
+Task 4 MCP and dashboard notes (official/current sources checked July 2, 2026):
+
+- MCP protocol baseline: [Model Context Protocol specification, version 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18).
+- MetaMCP current capabilities: [docs home](https://docs.metamcp.com/en), [namespaces](https://docs.metamcp.com/en/concepts/namespaces), [endpoints](https://docs.metamcp.com/en/concepts/endpoints), [Open WebUI integration](https://docs.metamcp.com/en/integrations/open-web-ui), and the [official GitHub repo](https://github.com/metatool-ai/metamcp).
+- Docker MCP Gateway current capabilities: [Docker docs](https://docs.docker.com/ai/mcp-catalog-and-toolkit/mcp-gateway/) and the [official GitHub repo](https://github.com/docker/mcp-gateway).
+- Open WebUI current MCP position: [native MCP docs](https://docs.openwebui.com/features/extensibility/mcp/), [mcpo docs](https://docs.openwebui.com/features/extensibility/plugin/tools/openapi-servers/mcp/), [tools overview](https://docs.openwebui.com/features/extensibility/plugin/tools/), [FAQ](https://docs.openwebui.com/faq/), and the [mcpo repo](https://github.com/open-webui/mcpo).
+- LiteLLM current MCP position: [MCP overview](https://docs.litellm.ai/docs/mcp), [usage](https://docs.litellm.ai/docs/mcp_usage), [permission management](https://docs.litellm.ai/docs/mcp_control), [deployment guide](https://docs.litellm.ai/docs/mcp_deployment), [OpenAPI-to-MCP](https://docs.litellm.ai/docs/mcp_openapi).
+- Hermes current MCP position: [feature docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp), [usage guide](https://hermes-agent.nousresearch.com/docs/guides/use-mcp-with-hermes), and the [official Hermes repo](https://github.com/NousResearch/hermes-agent).
+- Docling MCP current capabilities: the [official Docling MCP repo](https://github.com/docling-project/docling-mcp) and [docling-serve releases](https://github.com/DS4SD/docling-serve/releases) for current bundled versions.
+- Atlas-internal evidence used for the Kong-root recommendation: [ports-and-routes](../deployment/ports-and-routes.md), [Kong README](../../services/kong/README.md), [Open WebUI README](../../services/open-webui/README.md), [LiteLLM README](../../services/litellm/README.md), [Hermes README](../../services/hermes/README.md), and the current [ROADMAP](../ROADMAP.md).
