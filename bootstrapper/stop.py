@@ -99,32 +99,36 @@ Examples:
     def stop_services(self, cold_stop: bool, project_name: str) -> bool:
         """Stop Docker services."""
         self.banner.show_section_header("Stopping Docker Compose Services", "🐳")
-        
-        if cold_stop:
-            self.banner.show_status_message("Performing cold stop (removing volumes and aggressive cleanup)...", "warning")
-            self.banner.console.print("⚠️ WARNING: This will permanently delete all data!", style="bold red")
-            print()
-            
-            # Use the enhanced cold stop cleanup from Docker manager
-            success = self.docker_manager.perform_cold_stop_cleanup()
-            
-            if success:
-                self.banner.show_status_message("Cold stop completed successfully - all containers stopped and data removed", "success")
-            else:
-                self.banner.show_status_message("Some issues occurred during cold stop", "warning")
+        previous_project = self.docker_manager.project_name_override
+        self.docker_manager.project_name_override = project_name
+        try:
+            if cold_stop:
+                self.banner.show_status_message("Performing cold stop (removing volumes and aggressive cleanup)...", "warning")
+                self.banner.console.print("⚠️ WARNING: This will permanently delete all data!", style="bold red")
+                print()
 
-            return success
-                
-        else:
-            self.banner.show_status_message("Performing standard stop (preserving volumes)...", "info")
-            result = self.docker_manager.stop_services(remove_volumes=False, remove_orphans=True)
-            
-            if result == 0:
-                self.banner.show_status_message("All containers stopped successfully - data volumes preserved", "success")
-                return True
+                # Use the enhanced cold stop cleanup from Docker manager
+                success = self.docker_manager.perform_cold_stop_cleanup()
+
+                if success:
+                    self.banner.show_status_message("Cold stop completed successfully - all containers stopped and data removed", "success")
+                else:
+                    self.banner.show_status_message("Some issues occurred during cold stop", "warning")
+
+                return success
+
             else:
-                self.banner.show_status_message("Some issues occurred while stopping containers", "warning")
-                return False
+                self.banner.show_status_message("Performing standard stop (preserving volumes)...", "info")
+                result = self.docker_manager.stop_services(remove_volumes=False, remove_orphans=True)
+
+                if result == 0:
+                    self.banner.show_status_message("All containers stopped successfully - data volumes preserved", "success")
+                    return True
+                else:
+                    self.banner.show_status_message("Some issues occurred while stopping containers", "warning")
+                    return False
+        finally:
+            self.docker_manager.project_name_override = previous_project
                 
     def cleanup_hosts_entries(self) -> bool:
         """Clean up hosts file entries if requested."""

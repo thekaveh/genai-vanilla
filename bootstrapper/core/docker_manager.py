@@ -32,6 +32,7 @@ class DockerManager:
 
         self.config_parser = ConfigParser(str(self.root_dir))
         self._compose_cmd = None
+        self.project_name_override: Optional[str] = None
 
         # Callback for the "Command: docker compose …" echo. Defaults to
         # builtin print so the legacy linear flow is unchanged. The Live
@@ -166,7 +167,12 @@ class DockerManager:
             file_args.extend(['-f', str(overlay.relative_to(self.root_dir))])
         return file_args
 
-    def execute_compose_command(self, args: List[str], use_env_file: bool = True) -> int:
+    def execute_compose_command(
+        self,
+        args: List[str],
+        use_env_file: bool = True,
+        project_name: Optional[str] = None,
+    ) -> int:
         """
         Execute a docker compose command with proper error handling.
         Builds and runs a compose command (descended from the legacy
@@ -185,8 +191,12 @@ class DockerManager:
         full_cmd = compose_cmd.copy()
 
         # Add project name to ensure consistency with PROJECT_NAME from .env
-        project_name = self.config_parser.get_project_name()
-        full_cmd.extend(['-p', project_name])
+        resolved_project_name = (
+            project_name
+            or self.project_name_override
+            or self.config_parser.get_project_name()
+        )
+        full_cmd.extend(['-p', resolved_project_name])
 
         # Add --env-file if .env exists and use_env_file is True
         if use_env_file and self.config_parser.env_file_exists():
@@ -363,7 +373,7 @@ class DockerManager:
 
         Returns True if every step succeeded.
         """
-        project_name = self.config_parser.get_project_name()
+        project_name = self.project_name_override or self.config_parser.get_project_name()
         all_successful = True
 
         self._on_command("    - Stopping and removing containers...")
@@ -408,7 +418,10 @@ class DockerManager:
         all_successful = True
         
         print("    - Stopping containers and removing volumes...")
-        result = self.execute_compose_command(['down', '--volumes', '--remove-orphans'])
+        result = self.execute_compose_command(
+            ['down', '--volumes', '--remove-orphans'],
+            project_name=project_name,
+        )
         if result != 0:
             all_successful = False
             

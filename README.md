@@ -46,7 +46,7 @@ git clone https://github.com/thekaveh/atlas && cd atlas
 # n8n:             owner account created in the web UI on first visit
 ```
 
-The default configuration runs the full stack on CPU: chat UI, workflow automation, vector database, and privacy search.
+The default configuration runs a CPU starter stack: chat UI, workflow automation, vector database, and privacy search. Additional services such as Ray, Airflow, Spark, Zeppelin, LightRAG, and observability are opt-in through tracks, CLI flags, or the wizard.
 
 ### 1.2 Common option combinations
 
@@ -134,7 +134,7 @@ Omit `--track` entirely to get the full interactive wizard (with the
 track picker as step 1). Pass `--track all` to skip the picker and
 prompt for every configurable service.
 
-## Table of contents
+### 1.6 Table of contents
 
 - [Quick Start](#1-quick-start)
 - [Overview](#2-overview)
@@ -182,7 +182,7 @@ Key technical traits:
 
 The canonical architecture diagram is embedded at the top of this README; the source lives at [`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg) — hand-authored via the [`architecture-diagram` skill](https://github.com/anthropics/claude-code/tree/main/skills/architecture-diagram) (cyan / emerald / violet / amber / rose / orange palette, JetBrains Mono, layered topological flow). See [`docs/diagrams/README.md`](docs/diagrams/README.md) for update instructions.
 
-The diagram summarizes the default stack around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker / Airflow + Spark + Zeppelin / Prometheus + Grafana services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
+The diagram summarizes the full Atlas topology around Kong, Open WebUI, the always-on Backend API, the always-on LiteLLM gateway (fronting Ollama and any enabled cloud LLM providers), Supabase/PostgreSQL, Redis, Neo4j, Weaviate, n8n, ComfyUI, JupyterHub, SearxNG, Ray, and optional Hermes Agent / OpenClaw / STT/TTS/document-processing / LightRAG + TEI Reranker / Airflow + Spark + Zeppelin / Prometheus + Grafana services. Per-service diagrams (auto-regenerated from each manifest's `data_flow.calls`) live next to each service folder at `services/<name>/architecture.{svg,html}`.
 
 ## 3. Getting Started
 

@@ -375,7 +375,14 @@ class SourceValidator:
         if rewrites:
             try:
                 from utils.source_override_manager import SourceOverrideManager
-                SourceOverrideManager(self.config_parser).update_env_file(rewrites)
+                if not SourceOverrideManager(self.config_parser).update_env_file(rewrites):
+                    self.validation_errors.append(
+                        "❌ Could not persist TTS/STT migration rewrite. "
+                        "Manually edit .env: set TTS_PROVIDER_SOURCE to a current value "
+                        "(speaches-container-cpu, speaches-container-gpu, "
+                        "chatterbox-container-gpu, chatterbox-localhost, or disabled)."
+                    )
+                    return False
             except Exception as exc:  # noqa: BLE001
                 self.validation_errors.append(
                     f"❌ Could not persist TTS/STT migration rewrite: {exc}. "
@@ -455,7 +462,12 @@ class SourceValidator:
         # for test contexts.
         try:
             from utils.source_override_manager import SourceOverrideManager
-            SourceOverrideManager(self.config_parser).update_env_file(rewrites)
+            if not SourceOverrideManager(self.config_parser).update_env_file(rewrites):
+                self.validation_errors.append(
+                    "❌ Could not persist cloud-provider auto-disable rewrite. "
+                    "Manually fix .env (paste keys or set CLOUD_*_SOURCE=disabled) and retry."
+                )
+                return False
             return True
         except Exception as exc:  # noqa: BLE001
             # A failed repair-pass write is not silently recoverable:

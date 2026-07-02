@@ -45,3 +45,27 @@ def test_default_env_example_is_valid(env_with_overrides):
     v = _validator(env_with_overrides({}))
     assert v.validate_all_sources() is True
     assert v.get_validation_errors() == []
+
+
+def test_cloud_key_auto_disable_write_failure_is_validation_error(tmp_path, monkeypatch):
+    from utils.source_override_manager import SourceOverrideManager
+
+    env = tmp_path / ".env"
+    env.write_text(
+        "LLM_PROVIDER_SOURCE=none\n"
+        "CLOUD_OPENAI_SOURCE=enabled\n"
+        "OPENAI_API_KEY=\n",
+        encoding="utf-8",
+    )
+
+    cp = ConfigParser(str(REPO_ROOT))
+    cp.env_file_path = env
+    validator = SourceValidator(config_parser=cp)
+
+    def fail_update(self, overrides):
+        return False
+
+    monkeypatch.setattr(SourceOverrideManager, "update_env_file", fail_update)
+
+    assert validator._enforce_cloud_keys_present() is False
+    assert any("Could not persist cloud-provider" in e for e in validator.validation_errors)

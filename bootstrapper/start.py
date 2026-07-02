@@ -2018,7 +2018,6 @@ class AtlasStarter:
                    'so the migration re-prompts on the next run.')
 @click.option('--profile',
               type=click.Choice(['default', 'prod'], case_sensitive=False),
-              default='default',
               help='Deployment profile. "prod": bind all service ports to '
                    '127.0.0.1 (public edge fronts Kong), enable log rotation, '
                    'default observability ON, and hide dev-only (localhost) '

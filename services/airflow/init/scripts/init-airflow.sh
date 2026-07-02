@@ -24,19 +24,23 @@ echo "==> airflow-init: ensuring airflow role exists"
 # psql :'var' interpolation quotes the password server-side, avoiding
 # SQL breakage on quoted passwords — but it only works in SCRIPT input
 # (stdin / -f), NOT inside -c strings, so the statements are piped in.
-psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres -tAc \
-     "SELECT 1 FROM pg_roles WHERE rolname='${AIRFLOW_DB_USER}'" | grep -q 1 \
-  || printf "CREATE ROLE %s WITH LOGIN PASSWORD :'pw';\n" "${AIRFLOW_DB_USER}" \
+printf "SELECT 1 FROM pg_roles WHERE rolname = :'role';\n" \
+  | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+         -v role="${AIRFLOW_DB_USER}" -v ON_ERROR_STOP=1 -tA | grep -q 1 \
+  || printf "CREATE ROLE :\"role\" WITH LOGIN PASSWORD :'pw';\n" \
        | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
-              -v pw="${AIRFLOW_DB_PASSWORD}" -v ON_ERROR_STOP=1
+              -v role="${AIRFLOW_DB_USER}" -v pw="${AIRFLOW_DB_PASSWORD}" \
+              -v ON_ERROR_STOP=1
 # Re-apply the password every run so that AIRFLOW_DB_PASSWORD rotations
 # in .env are picked up — CREATE ROLE only runs the first time.
 # Idempotent: setting the role's password to its current value is a no-op.
-printf "ALTER ROLE %s WITH PASSWORD :'pw';\n" "${AIRFLOW_DB_USER}" \
+printf "ALTER ROLE :\"role\" WITH PASSWORD :'pw';\n" \
   | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
-         -v pw="${AIRFLOW_DB_PASSWORD}" -v ON_ERROR_STOP=1
-psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
-     -c "GRANT ALL PRIVILEGES ON DATABASE airflow TO ${AIRFLOW_DB_USER}"
+         -v role="${AIRFLOW_DB_USER}" -v pw="${AIRFLOW_DB_PASSWORD}" \
+         -v ON_ERROR_STOP=1
+printf "GRANT ALL PRIVILEGES ON DATABASE airflow TO :\"role\";\n" \
+  | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+         -v role="${AIRFLOW_DB_USER}" -v ON_ERROR_STOP=1
 # Postgres 15+ (the stack ships supabase/postgres:17.x) tightened the
 # public-schema default: ALL PRIVILEGES on the database does NOT include
 # CREATE on `public` — only the database OWNER has that, via the magic
@@ -45,8 +49,9 @@ psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
 # public" on every cold start. Re-owning the database to airflow flips
 # pg_database_owner over (idempotent — `ALTER ... OWNER TO already_owner`
 # is a no-op).
-psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
-     -c "ALTER DATABASE airflow OWNER TO ${AIRFLOW_DB_USER}"
+printf "ALTER DATABASE airflow OWNER TO :\"role\";\n" \
+  | psql -h supabase-db -U "${SUPABASE_DB_USER}" -d postgres \
+         -v role="${AIRFLOW_DB_USER}" -v ON_ERROR_STOP=1
 unset PGPASSWORD
 
 echo "==> airflow-init: running airflow db migrate"

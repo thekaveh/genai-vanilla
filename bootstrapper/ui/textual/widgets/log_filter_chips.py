@@ -305,6 +305,12 @@ class LogFilterChips(Container):
         else:
             popup.styles.offset = (x, y)
 
+    def toggle_source_picker(self) -> None:
+        if self._open_popup is not None:
+            self._open_popup.action_dismiss()
+            return
+        self._open_source_picker()
+
     def _trigger_label(self) -> str:
         total = len(self._known_sources)
         visible = total - len(self._disabled_svcs)

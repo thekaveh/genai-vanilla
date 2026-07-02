@@ -103,6 +103,23 @@ def test_stop_show_configuration_info_honors_override(tmp_path, monkeypatch):
                                            project_name_override="myshowcase") == "myshowcase"
 
 
+def test_stop_services_uses_project_override_for_compose(monkeypatch):
+    import stop as stop_module
+
+    stopper = stop_module.AtlasStopper()
+    calls = []
+
+    def fake_stop_services(*, remove_volumes=False, remove_orphans=True):
+        calls.append(stopper.docker_manager.project_name_override)
+        return 0
+
+    monkeypatch.setattr(stopper.docker_manager, "stop_services", fake_stop_services)
+
+    assert stopper.stop_services(cold_stop=False, project_name="myshowcase") is True
+    assert calls == ["myshowcase"]
+    assert stopper.docker_manager.project_name_override is None
+
+
 # ── wizard "Project name" step ───────────────────────────────────────────────
 
 def test_wizard_project_name_step_and_mapping(tmp_path, monkeypatch):

@@ -88,8 +88,13 @@ If you can't find what you're looking for:
 
 ## 5. Maintainer checks
 
-Run local documentation drift checks before committing docs changes:
+Run the local documentation drift and audit checks before committing docs changes:
 
 ```bash
+PYTHONPATH=bootstrapper python -m bootstrapper.docs.regen --all --check
+python scripts/check_doc_links.py
 python scripts/check-docs-drift.py
+python scripts/check-compose-source-deps.py
+python scripts/check-kong-routes.py
+python scripts/validate_research_schema.py --all
 ```

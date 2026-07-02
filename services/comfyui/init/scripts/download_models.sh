@@ -149,6 +149,13 @@ else
     if [ -z "$filename" ]; then
       filename=$(basename "$url" | cut -d '?' -f 1)
     fi
+    case "$filename" in
+      ""|.|..|*/*|*\\*)
+        echo "✗ $name: unsafe filename '$filename'; skipping"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        continue
+        ;;
+    esac
     download_one "$name" "$url" "$MODELS_ROOT/$dir/$filename" "$sha"
   done < /tmp/_comfy_active
 fi

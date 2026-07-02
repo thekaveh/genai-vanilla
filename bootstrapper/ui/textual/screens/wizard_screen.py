@@ -89,6 +89,7 @@ _LAUNCH_HINTS = [
     (("e",), "errors"),
     (("w",), "warns"),
     (("i",), "info"),
+    (("s",), "sources"),
     (("ctrl+q",), "detach"),
 ]
 
@@ -159,6 +160,7 @@ class WizardScreen(Screen):
         Binding("e", "filter_errors", "Errors only", show=False, priority=True),
         Binding("w", "filter_warns", "Warns only", show=False, priority=True),
         Binding("i", "filter_info", "Info only", show=False, priority=True),
+        Binding("s", "filter_sources", "Sources", show=False, priority=True),
     ]
 
     DEFAULT_CSS = """
@@ -1339,6 +1341,10 @@ class WizardScreen(Screen):
     def action_filter_info(self) -> None:
         if self._phase == "launch" and self._log_chips is not None:
             self._log_chips.set_level("info")
+
+    def action_filter_sources(self) -> None:
+        if self._phase == "launch" and self._log_chips is not None:
+            self._log_chips.toggle_source_picker()
 
     # ─── pipeline + docker compose runner ────────────────────────────
 
