@@ -6,6 +6,7 @@ delegate here).
 """
 
 import os
+import json
 import re
 import signal
 import subprocess
@@ -480,7 +481,7 @@ class DockerManager:
         """
         try:
             cmd = self.get_compose_command()
-            project_name = self.config_parser.get_project_name()
+            project_name = self.project_name_override or self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
                 cmd.append(f'--env-file={self.config_parser.env_file_path}')
@@ -542,6 +543,70 @@ class DockerManager:
             return ""
         except (subprocess.SubprocessError, OSError):
             return ""
+
+    def failed_one_shot_services(self, services: list[str]) -> list[tuple[str, str]]:
+        """Return enabled one-shot services that exited nonzero after launch."""
+        failures: list[tuple[str, str]] = []
+        if not services:
+            return failures
+
+        for service in services:
+            try:
+                cmd = self.get_compose_command()
+                project_name = self.project_name_override or self.config_parser.get_project_name()
+                cmd.extend(['-p', project_name])
+                if self.config_parser.env_file_exists():
+                    cmd.append(f'--env-file={self.config_parser.env_file_path}')
+                cmd.extend(self._compose_file_args())
+                cmd.extend(['ps', '-a', '--format', 'json', service])
+                result = subprocess.run(
+                    cmd,
+                    cwd=str(self.root_dir),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=10,
+                )
+            except (subprocess.SubprocessError, OSError, ValueError) as exc:
+                failures.append((service, f"could not inspect container: {exc}"))
+                continue
+
+            if result.returncode != 0:
+                failures.append((service, result.stderr.strip() or "docker compose ps failed"))
+                continue
+
+            rows: list[dict] = []
+            payload = result.stdout.strip()
+            if not payload:
+                continue
+            try:
+                parsed = json.loads(payload)
+                rows = parsed if isinstance(parsed, list) else [parsed]
+            except json.JSONDecodeError:
+                for line in payload.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(row, dict):
+                        rows.append(row)
+
+            for row in rows:
+                exit_code = str(row.get("ExitCode", "")).strip()
+                state = str(row.get("State", "")).strip().lower()
+                status = str(row.get("Status", "")).strip()
+                if exit_code and exit_code not in {"0", "<nil>", "None"}:
+                    failures.append((service, f"exit {exit_code}: {status or state or 'exited'}"))
+                elif state == "exited":
+                    status_lower = status.lower()
+                    if "exit 0" not in status_lower and "exited (0)" not in status_lower:
+                        failures.append((service, status or state))
+        return failures
     
     def show_container_logs(self, follow: bool = True) -> int:
         """
@@ -586,7 +651,7 @@ class DockerManager:
         full_cmd = self.detect_docker_compose_command().split()
         if top_level_flags:
             full_cmd.extend(top_level_flags)
-        project_name = self.config_parser.get_project_name()
+        project_name = self.project_name_override or self.config_parser.get_project_name()
         full_cmd.extend(['-p', project_name])
         if use_env_file and self.config_parser.env_file_exists():
             # Use the resolved path (honors ATLAS_ENV_FILE) — hardcoding .env

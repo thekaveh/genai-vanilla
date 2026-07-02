@@ -210,14 +210,14 @@ pip install uv
 
 ### 3.3 Installation
 
-#### Quick install (recommended)
+#### 3.3.1 Quick install (recommended)
 ```bash
 git clone https://github.com/thekaveh/atlas.git
 cd atlas
 ./start.sh
 ```
 
-#### Custom configuration
+#### 3.3.2 Custom configuration
 ```bash
 # Edit configuration before starting
 cp .env.example .env
@@ -313,7 +313,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 | **SearxNG** | http://localhost:63043 | http://search.localhost:63000 | Privacy search | None |
 | **JupyterHub** | http://localhost:63081 | http://jupyter.localhost:63000 | Data science IDE — ships Python + Scala 2.13 + Scala 3 kernels; configured for VS Code remote-Jupyter (see [services/jupyterhub/README.md](services/jupyterhub/README.md) §10). | Token (optional; auto-generated if `JUPYTERHUB_TOKEN` is empty — grep from `docker logs ${PROJECT_NAME}-jupyterhub`) |
 | **Neo4j Browser** | http://localhost:63021 | http://graph.localhost:63000 | Graph database | `neo4j` / `GRAPH_DB_PASSWORD` from `.env` |
-| **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | API key |
+| **Backend API** | http://localhost:63080 | http://api.localhost:63000 | REST API | None by default (local/dev surface; add gateway auth before exposing beyond a trusted host) |
 | **LiteLLM Gateway** | http://localhost:63030 | http://litellm.localhost:63000 | OpenAI-compatible LLM front door (Ollama + cloud). The same alias 302-redirects `/` → `/ui/` (admin dashboard). | API: `LITELLM_MASTER_KEY` (Bearer). Dashboard: `admin` / `${LITELLM_MASTER_KEY}` |
 | **Audio (TTS + STT)** | TTS: http://localhost:63044, STT: http://localhost:63042 | http://tts.localhost:63000, http://stt.localhost:63000 | Default install: Speaches serves both `/v1/audio/speech` (Kokoro/Piper) and `/v1/audio/transcriptions` (Faster-Whisper). Engine-specific overrides — Chatterbox on `:63045`, Speaches on `:63046`, host-side variants resolved via `*_LOCALHOST_PORT`. See [services/tts-provider/README.md](services/tts-provider/README.md) and [services/stt-provider/README.md](services/stt-provider/README.md). | None |
 | **Docling Processor** | http://localhost:63040 | http://docling.localhost:63000 | Document processing | None |
@@ -414,7 +414,7 @@ _Engine-only manifests (speaches, chatterbox) are not listed — they're selecte
 
 `*_USER_MODELS` env vars persist across runs, so you only need to pass the model flags once unless you want to change the active set. Cloud-provider key/source flags also imply `--cloud-X-source enabled` when paired with `--X-api-key`.
 
-#### Stop script options
+#### 5.1.1 Stop script options
 
 ```bash
 # Basic stop commands

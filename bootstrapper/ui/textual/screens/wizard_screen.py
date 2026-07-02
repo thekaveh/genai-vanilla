@@ -1412,7 +1412,13 @@ class WizardScreen(Screen):
         # suppressed and doesn't corrupt the Textual chrome.)
         _proj = (self._stack_options or {}).get("project_name")
         if _proj:
-            starter._persist_project_name(_proj)
+            if not starter._persist_project_name(_proj):
+                self._write_status(
+                    "  ✗ Persist project name failed",
+                    style="bold red",
+                    source="pipeline",
+                )
+                return
 
         # Tell the compose-line classifier the actual project name so
         # container names like ``<project>-supabase-db-1`` collapse to
@@ -1455,14 +1461,18 @@ class WizardScreen(Screen):
         # output gets piped into the LogPane like every other compose call.
         original_execute = starter.docker_manager.execute_compose_command
 
-        def _patched_execute(args, use_env_file=True):
+        def _patched_execute(args, use_env_file=True, project_name=None):
             # ``--ansi=never`` — stdout here is a Popen pipe; with
             # ``--ansi=always`` compose tries to attach a TTY-based
             # progress console and fails with "failed to get console:
             # provided file is not a console". Same fix as _run_compose.
+            previous_project = starter.docker_manager.project_name_override
+            if project_name:
+                starter.docker_manager.project_name_override = project_name
             full_cmd = starter.docker_manager._build_compose_command(
                 args, top_level_flags=["--ansi=never"],
             )
+            starter.docker_manager.project_name_override = previous_project
             self._safe_log("$ " + " ".join(full_cmd), source="docker", level="dim")
             try:
                 import subprocess as _sp
@@ -1673,6 +1683,19 @@ class WizardScreen(Screen):
                     f"📝 see {self._launch_log_path or '/tmp/atlas-launch-*.log'} "
                     "for full output",
                     style="bold yellow", source="pipeline",
+                )
+                return
+            ok = await asyncio.to_thread(
+                starter.verify_one_shot_init_containers,
+                lambda msg, level="info": self._safe_log(
+                    msg, source="pipeline", level=level,
+                ),
+            )
+            if not ok:
+                self._write_status(
+                    "❌ Required init container failed — see launch log",
+                    style="bold red",
+                    source="pipeline",
                 )
                 return
             self._write_status("✅ All services started",

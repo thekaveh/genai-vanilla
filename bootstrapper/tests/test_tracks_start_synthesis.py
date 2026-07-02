@@ -60,24 +60,20 @@ def test_off_track_flag_in_overridden_set():
       - leave source_args['comfyui_source'] = 'container' (user choice)
       - NOT write 'disabled' for it
     """
-    # Simulate the synthesis logic directly (mirrors start.py block).
     source_args = {
         "comfyui_source": "container",
         "weaviate_source": None,   # off-track, no user override
     }
-    overridden_services: set = set()
     reg = load_tracks()
     track_obj = reg.by_key["gen-ai-rag"]
     always_on = reg.always_on
     # gen-ai-rag includes weaviate, excludes comfyui
-    for cli_key in list(source_args.keys()):
-        svc_key = cli_key.removesuffix("_source").replace("_", "-")
-        if is_in_track(track_obj, svc_key, always_on=always_on):
-            continue
-        if source_args.get(cli_key) is not None:
-            overridden_services.add(svc_key)
-        else:
-            source_args[cli_key] = "disabled"
+    overridden_services = synthesize_track_source_args(
+        source_args,
+        track_key="gen-ai-rag",
+        registry=reg,
+        force_disable=True,
+    )
     assert "comfyui" in overridden_services
     assert source_args["comfyui_source"] == "container"   # user choice preserved
     # weaviate is in-track → not touched
@@ -88,17 +84,27 @@ def test_off_track_no_flag_force_disabled():
     """When --track gen-ai-rag is passed alone, comfyui_source goes to
     'disabled' (and is NOT added to overridden_services)."""
     source_args = {"comfyui_source": None, "weaviate_source": None}
-    overridden_services: set = set()
     reg = load_tracks()
-    track_obj = reg.by_key["gen-ai-rag"]
-    always_on = reg.always_on
-    for cli_key in list(source_args.keys()):
-        svc_key = cli_key.removesuffix("_source").replace("_", "-")
-        if is_in_track(track_obj, svc_key, always_on=always_on):
-            continue
-        if source_args.get(cli_key) is not None:
-            overridden_services.add(svc_key)
-        else:
-            source_args[cli_key] = "disabled"
+    overridden_services = synthesize_track_source_args(
+        source_args,
+        track_key="gen-ai-rag",
+        registry=reg,
+        force_disable=True,
+    )
+    assert source_args["comfyui_source"] == "disabled"
+    assert "comfyui" not in overridden_services
+
+
+def test_explicit_off_track_disabled_flag_is_not_reported_as_enabling_override():
+    source_args = {"comfyui_source": "disabled", "weaviate_source": None}
+    reg = load_tracks()
+
+    overridden_services = synthesize_track_source_args(
+        source_args,
+        track_key="gen-ai-rag",
+        registry=reg,
+        force_disable=True,
+    )
+
     assert source_args["comfyui_source"] == "disabled"
     assert "comfyui" not in overridden_services

@@ -349,7 +349,7 @@ class AtlasStarter:
 
         return True
         
-    def _persist_project_name(self, project_name: Optional[str]) -> None:
+    def _persist_project_name(self, project_name: Optional[str]) -> bool:
         """Persist ``PROJECT_NAME`` to .env so start AND stop (and every
         ``docker compose -p``) target the same container family.
 
@@ -359,13 +359,21 @@ class AtlasStarter:
         by editing .env) to isolate their namespace from a base Atlas stack.
         """
         if not project_name:
-            return
+            return True
         if self.source_override_manager.update_env_file({"PROJECT_NAME": project_name}):
+            self.docker_manager.project_name_override = project_name
             self.banner.show_status_message(
                 f"Project name set to '{project_name}' (persisted to .env "
                 f"PROJECT_NAME; container family: {project_name}-*)",
                 "info",
             )
+            return True
+        self.banner.show_status_message(
+            f"Failed to persist PROJECT_NAME={project_name!r}; aborting so "
+            "docker compose does not target a stale project.",
+            "error",
+        )
+        return False
 
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None,
                        project_name: Optional[str] = None) -> bool:
@@ -428,15 +436,13 @@ class AtlasStarter:
                     self.unset_port_environment_variables()
 
                 self.banner.show_status_message("Environment file setup completed", "success")
-                self._persist_project_name(project_name)
-                return True
+                return self._persist_project_name(project_name)
 
             except Exception as e:
                 self.banner.show_status_message(f"Failed to create .env file: {e}", "error")
                 return False
 
-        self._persist_project_name(project_name)
-        return True  # .env already exists and not cold start
+        return self._persist_project_name(project_name)  # .env already exists and not cold start
 
     def backfill_missing_env_vars(self) -> bool:
         """Append variables present in ``.env.example`` but missing from
@@ -1480,9 +1486,31 @@ class AtlasStarter:
         if result != 0:
             self.banner.show_status_message("Failed to start some services", "error")
             return False
-        else:
-            self.banner.show_status_message("All services started successfully", "success")
+        if not self.verify_one_shot_init_containers():
+            return False
+        self.banner.show_status_message("All services started successfully", "success")
+        return True
+
+    def verify_one_shot_init_containers(self, on_line=None) -> bool:
+        """Fail startup if enabled post-start one-shot init containers failed."""
+        env_vars = self.config_parser.parse_env_file()
+        services: list[str] = []
+        if env_vars.get("N8N_INIT_SCALE", "0") != "0":
+            services.append("n8n-init")
+        if not services:
             return True
+
+        failures = self.docker_manager.failed_one_shot_services(services)
+        if not failures:
+            return True
+
+        for service, reason in failures:
+            msg = f"{service} failed after compose up ({reason})"
+            if on_line is None:
+                self.banner.show_status_message(msg, "error")
+            else:
+                on_line(f"❌ {msg}", "error")
+        return False
             
     def show_pre_launch_summary(self, *, track: str | None = None) -> bool:
         """
@@ -1762,26 +1790,43 @@ class AtlasStarter:
         # Get expected ports from .env (used by both branches)
         env_vars = self.config_parser.parse_env_file()
 
+        def include_port_check(
+            source_var: str | None = None,
+            scale_var: str | None = None,
+        ) -> bool:
+            if source_var:
+                source = env_vars.get(source_var, "").strip()
+                if source == "disabled" or "localhost" in source:
+                    return False
+            if scale_var and env_vars.get(scale_var, "1").strip() == "0":
+                return False
+            return True
+
         # Service definitions matching original Bash script
         services_to_check = [
-            ("supabase-db", "5432", env_vars.get("SUPABASE_DB_PORT", "")),
-            ("redis", "6379", env_vars.get("REDIS_PORT", "")),
-            ("supabase-meta", "8080", env_vars.get("SUPABASE_META_PORT", "")),
-            ("supabase-storage", "5000", env_vars.get("SUPABASE_STORAGE_PORT", "")),
-            ("supabase-auth", "9999", env_vars.get("SUPABASE_AUTH_PORT", "")),
-            ("supabase-api", "3000", env_vars.get("SUPABASE_API_PORT", "")),
-            ("supabase-realtime", "4000", env_vars.get("SUPABASE_REALTIME_PORT", "")),
-            ("supabase-studio", "3000", env_vars.get("SUPABASE_STUDIO_PORT", "")),
-            ("neo4j-graph-db", "7687", env_vars.get("GRAPH_DB_PORT", "")),
-            ("weaviate", "8080", env_vars.get("WEAVIATE_PORT", "")),
-            ("local-deep-researcher", "2024", env_vars.get("LOCAL_DEEP_RESEARCHER_PORT", "")),
-            ("open-web-ui", "8080", env_vars.get("OPEN_WEB_UI_PORT", "")),
-            ("backend", "8000", env_vars.get("BACKEND_PORT", "")),
-            ("kong-api-gateway", "8000", env_vars.get("KONG_HTTP_PORT", "")),
-            ("kong-api-gateway", "8443", env_vars.get("KONG_HTTPS_PORT", "")),
-            ("n8n", "5678", env_vars.get("N8N_PORT", "")),
-            ("searxng", "8080", env_vars.get("SEARXNG_PORT", "")),
-            ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", "")),
+            ("supabase-db", "5432", env_vars.get("SUPABASE_DB_PORT", ""), None, None),
+            ("redis", "6379", env_vars.get("REDIS_PORT", ""), None, None),
+            ("supabase-meta", "8080", env_vars.get("SUPABASE_META_PORT", ""), None, None),
+            ("supabase-storage", "5000", env_vars.get("SUPABASE_STORAGE_PORT", ""), None, None),
+            ("supabase-auth", "9999", env_vars.get("SUPABASE_AUTH_PORT", ""), None, None),
+            ("supabase-api", "3000", env_vars.get("SUPABASE_API_PORT", ""), None, None),
+            ("supabase-realtime", "4000", env_vars.get("SUPABASE_REALTIME_PORT", ""), None, None),
+            ("supabase-studio", "3000", env_vars.get("SUPABASE_STUDIO_PORT", ""), None, None),
+            ("neo4j-graph-db", "7687", env_vars.get("GRAPH_DB_PORT", ""), "NEO4J_GRAPH_DB_SOURCE", "NEO4J_SCALE"),
+            ("weaviate", "8080", env_vars.get("WEAVIATE_PORT", ""), "WEAVIATE_SOURCE", "WEAVIATE_SCALE"),
+            ("local-deep-researcher", "2024", env_vars.get("LOCAL_DEEP_RESEARCHER_PORT", ""), "LOCAL_DEEP_RESEARCHER_SOURCE", "LOCAL_DEEP_RESEARCHER_SCALE"),
+            ("open-web-ui", "8080", env_vars.get("OPEN_WEB_UI_PORT", ""), "OPEN_WEB_UI_SOURCE", "OPEN_WEB_UI_SCALE"),
+            ("backend", "8000", env_vars.get("BACKEND_PORT", ""), "BACKEND_SOURCE", "BACKEND_SCALE"),
+            ("kong-api-gateway", "8000", env_vars.get("KONG_HTTP_PORT", ""), None, None),
+            ("kong-api-gateway", "8443", env_vars.get("KONG_HTTPS_PORT", ""), None, None),
+            ("n8n", "5678", env_vars.get("N8N_PORT", ""), "N8N_SOURCE", "N8N_SCALE"),
+            ("searxng", "8080", env_vars.get("SEARXNG_PORT", ""), "SEARXNG_SOURCE", "SEARXNG_SCALE"),
+            ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", ""), "JUPYTERHUB_SOURCE", "JUPYTERHUB_SCALE"),
+        ]
+        services_to_check = [
+            (service_name, internal_port, expected_port)
+            for service_name, internal_port, expected_port, source_var, scale_var in services_to_check
+            if include_port_check(source_var, scale_var)
         ]
 
         # LiteLLM is the always-on LLM front door — its host port is the
@@ -2109,7 +2154,7 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
                     'airflow_source': airflow_source,
                 }
                 for cli_key, value in _flag_values.items():
-                    if value is None:
+                    if value is None or value == "disabled":
                         continue
                     svc_key = cli_key.removesuffix("_source").replace("_", "-")
                     if _is_in_track_for_warn(

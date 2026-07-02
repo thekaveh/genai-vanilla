@@ -38,6 +38,9 @@ def test_main_exits_nonzero_when_stop_fails(monkeypatch):
         stop_module.AtlasStopper, "stop_services",
         lambda self, cold, project_name: False,
     )
+    monkeypatch.setattr(
+        stop_module.AtlasStopper, "ensure_dependencies_available", lambda self: True,
+    )
     result = click.testing.CliRunner().invoke(stop_module.main, [])
     assert result.exit_code == 1
 
@@ -51,5 +54,32 @@ def test_main_exits_zero_when_stop_succeeds(monkeypatch):
         stop_module.AtlasStopper, "stop_services",
         lambda self, cold, project_name: True,
     )
+    monkeypatch.setattr(
+        stop_module.AtlasStopper, "ensure_dependencies_available", lambda self: True,
+    )
     result = click.testing.CliRunner().invoke(stop_module.main, [])
     assert result.exit_code == 0
+
+
+def test_main_exits_nonzero_when_compose_version_preflight_fails(monkeypatch):
+    monkeypatch.setattr(
+        stop_module.AtlasStopper,
+        "show_configuration_info",
+        lambda self, cold, clean, project_name_override=None: "atlas",
+    )
+    monkeypatch.setattr(
+        stop_module.AtlasStopper,
+        "ensure_dependencies_available",
+        lambda self: False,
+    )
+    monkeypatch.setattr(
+        stop_module.AtlasStopper,
+        "stop_services",
+        lambda self, cold, project_name: (_ for _ in ()).throw(
+            AssertionError("stop_services should not run")
+        ),
+    )
+
+    result = click.testing.CliRunner().invoke(stop_module.main, [])
+
+    assert result.exit_code == 1

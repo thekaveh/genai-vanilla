@@ -6,7 +6,7 @@ n8n is also the only "agents"-tier service besides Hermes; the two are complemen
 
 ## 1. Overview
 
-Image: `n8nio/n8n:2.28.2`. The web/API container handles HTTP + UI; the worker container handles execution. Both share state through Supabase Postgres (workflow definitions, executions history, credentials) and Redis (queue + execution coordination). The `n8n-init` container runs to completion on first start, then exits — `condition: service_completed_successfully` makes the web container wait for it.
+Image: `n8nio/n8n:2.28.2`. The web/API container handles HTTP + UI; the worker container handles execution. Both share state through Supabase Postgres (workflow definitions, executions history, credentials) and Redis (queue + execution coordination). The `n8n-init` container runs after the web/API container is reachable, installs required community nodes, then exits. Startup now checks that one-shot exit code after detached `compose up` and fails the launcher if it exited nonzero.
 
 ## 2. Access
 
@@ -71,7 +71,7 @@ QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
 3. Print next steps. The seeded workflow template in `services/n8n/init/config/`
    (mounted at `/config/`) is imported **manually** via the n8n UI — `n8n-init`
    does not auto-import workflows.
-4. Exit 0.
+4. Exit 0 only when every required community-node installation succeeded; otherwise exit 1 so startup can fail visibly.
 
 **Hard dependencies** (`depends_on.required`): `supabase`, `redis`, `litellm`. Without LiteLLM, all AI Agent nodes (the most-used feature) 404.
 

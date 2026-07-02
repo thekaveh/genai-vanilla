@@ -95,6 +95,19 @@ Examples:
             self.banner.show_status_message("Clean Hosts: Yes (will remove hosts file entries)", "info")
             
         return project_name
+
+    def ensure_dependencies_available(self) -> bool:
+        """Validate Docker Compose before running commands that read include:."""
+        if not self.docker_manager.check_docker_available():
+            self.banner.show_status_message(
+                "Docker is not available. Please start Docker Desktop or install Docker.",
+                "error",
+            )
+            return False
+        compose_ok, compose_msg = self.docker_manager.check_compose_version()
+        level = "info" if compose_ok else "error"
+        self.banner.show_status_message(compose_msg, level)
+        return compose_ok
         
     def stop_services(self, cold_stop: bool, project_name: str) -> bool:
         """Stop Docker services."""
@@ -219,6 +232,9 @@ def main(project_name, cold, clean_hosts, help_usage):
         # Step 1: Show configuration information
         project_name = stopper.show_configuration_info(cold, clean_hosts,
                                                        project_name_override=project_name)
+
+        if not stopper.ensure_dependencies_available():
+            sys.exit(1)
         
         # Step 2: Stop Docker services. Keep going on failure so hosts
         # cleanup and the final status still run, but exit non-zero at the

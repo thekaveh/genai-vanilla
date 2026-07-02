@@ -328,9 +328,10 @@ def synthesize_track_source_args(
         svc_key = cli_key.removesuffix("_source").replace("_", "-")
         if is_in_track(track, svc_key, always_on=registry.always_on):
             continue
-        if source_args.get(cli_key) is not None:
+        explicit_value = source_args.get(cli_key)
+        if explicit_value is not None and explicit_value != "disabled":
             overridden_services.add(svc_key)
-        elif force_disable:
+        elif explicit_value is None and force_disable:
             source_args[cli_key] = "disabled"
     return overridden_services
 

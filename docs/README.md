@@ -68,6 +68,10 @@ Documentation index for Atlas.
 ### 1.7 Feature-track plans and specs
 - [superpowers/plans](superpowers/plans/) + [superpowers/specs](superpowers/specs/) — point-in-time implementation plans and specs for the larger 2026-05/06 feature tracks (consult when archaeology on a past track is needed; CHANGELOG entries link the relevant ones)
 
+### 1.8 Numbering-policy notes
+- Generated research files keep schema-fixed headings such as `## Headline`; see [research/README.md](research/README.md) for the explicit exemption.
+- Provider implementation notes under `services/*/provider/` are operational backend-specific runbooks. They may keep compact unnumbered headings when numbering would make command-oriented maintenance notes harder to scan.
+
 ## 2. Related documentation
 
 - [Main README](../README.md) — project overview and quick start

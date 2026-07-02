@@ -70,6 +70,22 @@ def test_get_project_name_reads_env(tmp_path):
     assert cp.get_project_name() == "myshowcase"
 
 
+def test_get_project_name_normalizes_env_value(tmp_path):
+    cp = _cp(tmp_path, "PROJECT_NAME=MyShowcase\n")
+    assert cp.get_project_name() == "myshowcase"
+
+
+def test_get_project_name_blank_env_value_defaults_to_atlas(tmp_path):
+    cp = _cp(tmp_path, "PROJECT_NAME=   \n")
+    assert cp.get_project_name() == "atlas"
+
+
+def test_get_project_name_rejects_invalid_env_value(tmp_path):
+    cp = _cp(tmp_path, "PROJECT_NAME=bad.name\n")
+    with pytest.raises(ValueError, match="invalid project name"):
+        cp.get_project_name()
+
+
 def test_get_project_name_defaults_to_atlas(tmp_path):
     cp = _cp(tmp_path, "BASE_PORT=63000\n")  # no PROJECT_NAME
     assert cp.get_project_name() == "atlas"
@@ -87,6 +103,26 @@ def test_persist_then_read_round_trip(tmp_path):
     # e.g. a later bare ./stop.sh) sees the persisted name.
     assert ConfigParser(str(tmp_path)).get_project_name() == "myshowcase"
     assert cp.get_project_name() == "myshowcase"
+
+
+def test_start_setup_env_aborts_when_project_name_persist_fails(tmp_path, monkeypatch):
+    import start as start_module
+
+    env = tmp_path / ".env"
+    env.write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    (tmp_path / ".env.example").write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+
+    starter = start_module.AtlasStarter()
+    starter.config_parser.env_file_path = env
+    starter.config_parser.env_example_path = tmp_path / ".env.example"
+    monkeypatch.setattr(
+        starter.source_override_manager,
+        "update_env_file",
+        lambda _overrides: False,
+    )
+
+    assert starter.setup_env_file(False, project_name="myshowcase") is False
 
 
 # ── stop.py override ─────────────────────────────────────────────────────────

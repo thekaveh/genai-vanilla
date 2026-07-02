@@ -56,6 +56,18 @@ def test_build_compose_command_default_env_file_is_root_anchored(monkeypatch):
     assert expected in cmd
 
 
+def test_streaming_compose_command_honors_project_override(tmp_path, monkeypatch):
+    env = _custom_env(tmp_path, monkeypatch)
+    dm = DockerManager()
+    monkeypatch.setattr(dm, "detect_docker_compose_command", lambda: "docker compose")
+    dm.project_name_override = "customproj"
+
+    cmd = dm._build_compose_command(["down"])
+
+    assert cmd[cmd.index("-p") + 1] == "customproj"
+    assert f"--env-file={env}" in cmd
+
+
 def test_key_generator_targets_custom_env_file(tmp_path, monkeypatch):
     env = _custom_env(tmp_path, monkeypatch)
     kg = KeyGenerator()

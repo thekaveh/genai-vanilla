@@ -169,7 +169,7 @@ Every user-configurable service has an `<SVC>_SOURCE` env var. The wizard reads 
 | `container-cpu` / `container-gpu` | Split when the container has CPU/GPU variants | When you publish a GPU variant of the image |
 | `localhost` | Connect to a user-managed instance on the host | When users typically already have this software installed locally (e.g. Ollama, ComfyUI) |
 | `external` | Connect to a remote URL | **Currently disabled stack-wide** pending an authenticated-remote design (API keys, bearer tokens, mTLS). Do NOT add new `external` source variants until the auth design ships — see the `external`/`api` retirement entry in `docs/CHANGELOG.md`. |
-| `api` | Use a hosted cloud API (no container) | LLM gateways only |
+| `api` | Use a hosted cloud API (no container) | Retired as a service source value. Cloud providers now use `CLOUD_*_SOURCE=enabled|disabled` plus provider API keys. |
 | `disabled` | Excluded from compose entirely | Always — every optional service must support this |
 | `<engine>-*` | Engine-specific sub-variants | For aggregator services that pick from multiple engines (STT/TTS) |
 
@@ -257,7 +257,7 @@ But trimming `litellm` from `ollama.depends_on.required` correctly removed a fak
 - **Don't** list every service you *call* in `required`. Use `data_flow.calls` for that (it drives the architecture diagram and the per-service README's Dependencies & Integrations block — not topology).
 - **Don't** depend on virtual aggregates (`globals`, `cloud-providers`) in `required`. They have no runtime presence; the audit removed phantom `globals` edges from `supabase` and `docling`.
 - **Don't** list `optional` deps that compose doesn't enforce. The `optional` list is documentation; if compose doesn't gate on it, it has no effect.
-- **Don't** list a depends-on for a service that's source-replaceable (`localhost`, `external`, `disabled`). The audit script `scripts/check-compose-source-deps.py` enforces this; SOURCE-replaceable consumers should reach their target via endpoint env vars + runtime readiness checks, not via compose `depends_on`.
+- **Don't** list a depends-on for a service that's source-replaceable (`localhost`, `disabled`, or a future authenticated remote mode). The audit script `scripts/check-compose-source-deps.py` enforces this; SOURCE-replaceable consumers should reach their target via endpoint env vars + runtime readiness checks, not via compose `depends_on`.
 
 > **Worked example — Qdrant:** Qdrant's only data-tier sibling that always runs is Supabase (the substrate the bootstrapper provisions before any other service starts). Listing it as a required dep pins Qdrant's position in the data block topologically. → `required: [supabase]`, `optional: []`.
 
