@@ -9,6 +9,7 @@ Cross-platform startup script for Atlas — the self-hosted engineering platform
 import re
 import sys
 import os
+import subprocess
 from datetime import date
 from pathlib import Path
 import click
@@ -38,6 +39,46 @@ def _format_today() -> str:
     without freezing the system clock globally.
     """
     return date.today().isoformat()
+
+
+def _run_privileged_hosts_setup() -> bool:
+    """Run only the hosts-file mutation in a sudo child process.
+
+    The shell wrapper intentionally refuses to run the whole startup flow as
+    root because that creates root-owned repo artifacts. For `--setup-hosts`,
+    ask for elevation only around the one operation that needs it.
+    """
+    from utils.system import is_elevated
+
+    if is_elevated():
+        return HostsManager().setup_hosts_entries()
+
+    if os.name == "nt":
+        print("  • ❌ Please run from an Administrator shell to modify hosts file")
+        return False
+
+    bootstrapper_dir = Path(__file__).resolve().parent
+    repo_root = bootstrapper_dir.parent
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(bootstrapper_dir)
+        if not existing_pythonpath
+        else f"{bootstrapper_dir}{os.pathsep}{existing_pythonpath}"
+    )
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    helper = (
+        "from utils.hosts_manager import HostsManager; "
+        "raise SystemExit(0 if HostsManager().setup_hosts_entries() else 1)"
+    )
+    print("  • --setup-hosts needs to edit your hosts file; requesting sudo for that write only.")
+    result = subprocess.run(
+        ["sudo", sys.executable, "-c", helper],
+        cwd=repo_root,
+        env=env,
+        check=False,
+    )
+    return result.returncode == 0
 
 # Add the current directory to the path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent))
@@ -2482,13 +2523,18 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             )
             sys.exit(2)
 
-        # Step 0: Early sudo check for CLI --setup-hosts flag
+        # Step 0: Early hosts setup for CLI --setup-hosts. The wrapper
+        # refuses root, so request elevation only for the hosts-file write.
         if setup_hosts:
-            from utils.system import is_elevated as _is_elevated
-            if not _is_elevated():
-                starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
-                starter.banner.console.print("  [bright_white]Please restart with:[/bright_white] [bright_cyan]sudo ./start.sh --setup-hosts[/bright_cyan]")
+            starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
+            if not _run_privileged_hosts_setup():
+                starter.banner.console.print(
+                    "  [bright_white]Hosts setup did not complete. Re-run[/bright_white] "
+                    "[bright_cyan]./start.sh --setup-hosts[/bright_cyan] "
+                    "[bright_white]from a terminal that can approve sudo, or add the entries manually.[/bright_white]"
+                )
                 sys.exit(1)
+            setup_hosts = False
 
         # Check dependencies early — silently in wizard mode (wizard clears screen)
         if not will_run_wizard:
