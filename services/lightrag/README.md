@@ -179,6 +179,7 @@ _No high-confidence opportunities identified._
 ## 8. Troubleshooting
 
 - **First boot exceeds health-check timeout** — `start_period` is 300 s. Initial tokenizer, embedding-model, and document-parser setup can take several minutes.
+- **First boot logs missing PostgreSQL tables** — expected on a cold volume. LightRAG probes for its tables, logs relation-missing errors, then creates the tables and indexes before reporting healthy.
 - **`OPENAI_API_KEY` warning at startup** — LightRAG checks env even when using `openai`-compatible Ollama. Harmless; the actual key is the `LITELLM_MASTER_KEY` forwarded as `LLM_BINDING_API_KEY`.
 - **Empty KG after ingestion** — verify `LIGHTRAG_LLM_MODEL` actually points at a chat-capable model. Some embedding-only Ollama tags will silently produce empty triples.
 - **Rerank does not run even when TEI is enabled** — expected with the stock stack. LightRAG's direct rerank clients and TEI's `/rerank` request body are incompatible without an adapter, so Atlas emits `RERANK_BINDING=null` by default.

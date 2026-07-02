@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add two new services (`lightrag` in `agents` tier, `tei-reranker` in `llm` tier) to the atlas stack. Both default-disabled. Wire LightRAG into existing Supabase pgvector + Neo4j + Redis (with adaptive in-process fallback), register LightRAG with LiteLLM as a callable model, extend `hermes`/`n8n`/`backend` `runtime_adaptive` to consume LightRAG, and add an optional reranker that LightRAG calls when enabled.
+**Goal:** Add two new services (`lightrag` in `agents` tier, `tei-reranker` in `llm` tier) to the atlas stack. Both default-disabled. Wire LightRAG into existing Supabase pgvector + Neo4j + Redis (with adaptive in-process fallback), register LightRAG with LiteLLM as a callable model, extend `hermes`/`n8n`/`backend` `runtime_adaptive` to consume LightRAG, and add a standalone reranker service reusable by compatible callers.
 
 **Architecture:** Two new manifests follow the standard service-addition pattern (~25-file checklist). Slot allocator (`topology.py`) assigns host ports automatically — no hand-coded literals. Storage backends are resolved via `runtime_adaptive`, with in-process fallback when the corresponding source is `disabled`. LiteLLM gets a hand-coded `lightrag_model_entry()` (mirrors `hermes_model_entry()`). RAG-Anything is intentionally not added (subsumed by LightRAG v1.5.0).
 
@@ -11,6 +11,8 @@
 **Spec:** `docs/superpowers/specs/2026-06-05-lightrag-tei-reranker-design.md` (commit `dbe1b70`).
 
 **Memory cross-refs:** `project_service_addition_checklist`, `project_init_container_pattern`, `project_runtime_sc_vs_compose_env_dual_write`, `project_cli_source_flag_three_seams`, `project_compose_include_path_resolution`, `feedback_localhost_url_override_symmetry`, `feedback_commits` (commits use terse third-person verb; no Claude Co-Authored-By trailer).
+
+**Supersession note (2026-07-01):** This implementation plan is historical. Current Atlas keeps TEI Reranker as a standalone reusable service, but stock LightRAG is not wired directly to TEI because LightRAG sends rerank requests as `query` plus `documents` and TEI expects `query` plus `texts`. Current runtime behavior emits `LIGHTRAG_RERANK_BINDING=null` and clears `LIGHTRAG_RERANK_BINDING_HOST`; direct reranking requires a compatible adapter.
 
 ---
 
@@ -652,7 +654,7 @@ git commit -m "feat(tei-reranker): include fragment in top-level compose + regen
 
 HuggingFace `text-embeddings-inference` running BAAI/bge-reranker-v2-m3 — a cross-encoder reranker that scores `(query, passage)` pairs. Use it as a quality lift on top of any first-stage retriever (vector search, BM25, hybrid). The image exposes a stable `/rerank` HTTP endpoint and a `/health` probe.
 
-The vanilla stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's `RERANK_BINDING` points at `${TEI_RERANKER_ENDPOINT}`). The service is reusable: any consumer with an OpenAI-style request body can call it directly.
+The service is reusable by consumers that send TEI's request body shape (`query` plus `texts`). Atlas does not directly wire stock LightRAG to TEI today because LightRAG's built-in Jina/Cohere rerank clients send `query` plus `documents`, which TEI rejects without an adapter.
 
 ## 2. Source variants
 
@@ -661,7 +663,7 @@ The vanilla stack uses TEI Reranker as LightRAG's optional reranker (LightRAG's 
 | `container-cpu` | 1 | `http://tei-reranker:80` | Default CPU image; runs on any host |
 | `container-gpu` | 1 | `http://tei-reranker:80` | CUDA image; needs NVIDIA |
 | `localhost` | 0 | `http://host.docker.internal:${TEI_RERANKER_LOCALHOST_PORT}` | Host-installed TEI |
-| `disabled` | 0 | `""` | LightRAG runs without reranking |
+| `disabled` | 0 | `""` | Reranker service off |
 
 ## 3. Configuration
 
@@ -914,7 +916,7 @@ runtime_adaptive:
       - redis
     environment_adaptation:
       LIGHTRAG_DOCLING_ENDPOINT: ${DOCLING_ENDPOINT}
-      LIGHTRAG_RERANK_BINDING_HOST: ${TEI_RERANKER_ENDPOINT}
+      LIGHTRAG_RERANK_BINDING_HOST: ""
       LIGHTRAG_PG_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@supabase-db:5432/${POSTGRES_DB}"
       LIGHTRAG_NEO4J_URI: "bolt://neo4j:7687"
       LIGHTRAG_NEO4J_USERNAME: neo4j
@@ -1018,7 +1020,7 @@ services:
       REDIS_URI: ${LIGHTRAG_REDIS_URI}
       LIGHTRAG_PARSER: "*:native-teP,*:legacy-R"
       DOCLING_ENDPOINT: ${LIGHTRAG_DOCLING_ENDPOINT}
-      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING_HOST:+openai}
+      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING:-null}
       RERANK_BINDING_HOST: ${LIGHTRAG_RERANK_BINDING_HOST}
       RERANK_MODEL: BAAI/bge-reranker-v2-m3
     volumes:
@@ -1411,7 +1413,7 @@ Open `bootstrapper/services/service_config.py`. Add this method immediately afte
         return env_vars
 ```
 
-Wire into `generate_service_environment()`. Add this call **after** `_generate_tei_reranker_config()` (so TEI_RERANKER_ENDPOINT is resolved before LightRAG's adaptive substitution):
+Wire into `generate_service_environment()`. Add this call **after** `_generate_tei_reranker_config()` (so TEI_RERANKER_ENDPOINT is resolved before any future adapter-owned LightRAG rerank substitution):
 
 ```python
         env_vars.update(self._generate_lightrag_config())
@@ -1952,16 +1954,16 @@ def test_tei_reranker_env_generation_each_source(env_copy, tei_source):
         assert env["TEI_RERANKER_SCALE"] == "1"
 
 
-def test_lightrag_adaptive_picks_up_tei_endpoint(env_copy):
+def test_lightrag_adaptive_disables_direct_tei_rerank(env_copy):
     sc = ServiceConfig(env_file=env_copy, localhost_host="localhost")
     sc.service_sources = {
         "LIGHTRAG_SOURCE": "container",
         "TEI_RERANKER_SOURCE": "container-cpu",
     }
     env = sc.generate_service_environment()
-    # LIGHTRAG_RERANK_BINDING_HOST should mirror TEI_RERANKER_ENDPOINT
-    # via runtime_adaptive substitution.
-    assert env.get("LIGHTRAG_RERANK_BINDING_HOST") == "http://tei-reranker:80"
+    # Direct LightRAG->TEI rerank is disabled unless a compatible adapter is introduced.
+    assert env.get("LIGHTRAG_RERANK_BINDING_HOST", "") == ""
+    assert env.get("LIGHTRAG_RERANK_BINDING") == "null"
 
 
 def test_lightrag_adaptive_blanks_rerank_when_tei_disabled(env_copy):
@@ -2516,12 +2518,12 @@ LightRAG runs out-of-process as either an in-stack container or a host-installed
 
 ### `TEI_RERANKER_SOURCE`
 
-Inference server for BGE-reranker-v2-m3. Used by LightRAG as an optional reranker.
+Inference server for BGE-reranker-v2-m3. Reusable by compatible consumers that send TEI's `query` plus `texts` request body.
 
 - **`container-cpu`** — `ghcr.io/huggingface/text-embeddings-inference:cpu-1.9`. Runs anywhere; ~150 ms per pair latency.
 - **`container-gpu`** — `:1.9` image with NVIDIA reservation. ~15 ms per pair on RTX-class GPU.
 - **`localhost`** — Existing TEI process on host at `TEI_RERANKER_LOCALHOST_PORT` (default 63031).
-- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is blank.
+- **`disabled`** — `TEI_RERANKER_ENDPOINT` empties; LightRAG's `RERANK_BINDING` is emitted as `null` so LightRAG disables reranking instead of crashing on an empty binding.
 ```
 
 - [ ] **Step 5: `docs/quick-start/interactive-setup-wizard.md`**

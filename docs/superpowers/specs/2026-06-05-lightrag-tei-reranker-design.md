@@ -4,6 +4,8 @@
 **Date:** 2026-06-05
 **Scope:** Add LightRAG (graph-augmented RAG server) and TEI Reranker (BGE-reranker-v2-m3) as two new first-class services in the atlas stack. Wire both into existing storage (Supabase pgvector, Neo4j, Redis), document processing (docling), LLM routing (LiteLLM), and agent runtimes (hermes, n8n, backend).
 
+**Supersession note (2026-07-01):** This design is historical. Current Atlas keeps TEI Reranker as a reusable service but does **not** directly wire stock LightRAG to TEI. LightRAG's built-in Jina/Cohere rerank clients send `query` plus `documents`, while TEI expects `query` plus `texts`, so current runtime config emits `RERANK_BINDING=null` and leaves `RERANK_BINDING_HOST` empty unless a compatible adapter is introduced.
+
 ## 1. Summary
 
 Two new services, both default-disabled, both manifest-driven by the existing topology/slot allocator. No new data tier — LightRAG reuses Supabase pgvector, Neo4j, and Redis with graceful in-process fallback when any backend is disabled. Both services participate in the existing `runtime_adaptive` lattice; LightRAG is registered with LiteLLM as a callable `lightrag` model so every downstream consumer (open-webui, openclaw, local-deep-researcher, jupyterhub) reaches RAG transitively without per-service wiring.
@@ -171,7 +173,7 @@ runtime_adaptive:
     adapts_to: [ doc_processor, tei_reranker, supabase, neo4j, redis ]
     environment_adaptation:
       LIGHTRAG_DOCLING_ENDPOINT:        ${DOCLING_ENDPOINT}
-      LIGHTRAG_RERANK_BINDING_HOST:     ${TEI_RERANKER_ENDPOINT}
+      LIGHTRAG_RERANK_BINDING_HOST:     ""  # superseded: direct LightRAG->TEI payloads are incompatible without an adapter
       LIGHTRAG_PG_URI:                  postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@supabase-db:5432/${POSTGRES_DB}
       LIGHTRAG_NEO4J_URI:               bolt://neo4j:7687
       LIGHTRAG_NEO4J_USERNAME:          neo4j
@@ -240,7 +242,7 @@ services:
       LIGHTRAG_PARSER: "*:native-teP,*:legacy-R"
       DOCLING_ENDPOINT: ${LIGHTRAG_DOCLING_ENDPOINT}
       # Reranker
-      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING_HOST:+openai}
+      RERANK_BINDING: ${LIGHTRAG_RERANK_BINDING:-null}
       RERANK_BINDING_HOST: ${LIGHTRAG_RERANK_BINDING_HOST}
       RERANK_MODEL: BAAI/bge-reranker-v2-m3
     volumes:
@@ -388,7 +390,7 @@ The compose fragment uses `image: ${TEI_RERANKER_IMAGE_RESOLVED:-...}`. `_genera
 | LightRAG env var | Source | Failure mode |
 |---|---|---|
 | `LIGHTRAG_DOCLING_ENDPOINT` | `DOCLING_ENDPOINT` | Multimodal images become text-only |
-| `LIGHTRAG_RERANK_BINDING_HOST` | `TEI_RERANKER_ENDPOINT` | No reranking; retrieval quality drops |
+| `LIGHTRAG_RERANK_BINDING_HOST` | Empty by default; adapter-owned when present | No reranking; retrieval quality drops |
 | `LIGHTRAG_PG_URI` | `POSTGRES_*` from Supabase | Falls back to `NanoVectorDBStorage` (file) |
 | `LIGHTRAG_NEO4J_URI`/`_PASSWORD` | `NEO4J_PASSWORD` | Falls back to `NetworkXStorage` (file) |
 | `LIGHTRAG_REDIS_URI` | `REDIS_PASSWORD` | Falls back to `JsonKVStorage` (file) |
