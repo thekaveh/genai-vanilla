@@ -25,6 +25,7 @@ env:
   - name: OPENAI_API_KEY
     default: ""
     secret: true
+    description: "OpenAI API key used by LiteLLM when CLOUD_OPENAI_SOURCE=enabled."
   - name: OPENAI_USER_MODELS
     default: ""
     description: "Comma-separated OpenAI model names the wizard activated."
@@ -35,6 +36,7 @@ env:
   - name: ANTHROPIC_API_KEY
     default: ""
     secret: true
+    description: "Anthropic API key used by LiteLLM when CLOUD_ANTHROPIC_SOURCE=enabled."
   - name: ANTHROPIC_USER_MODELS
     default: ""
     description: "Comma-separated Anthropic model names the wizard activated."
@@ -45,6 +47,7 @@ env:
   - name: OPENROUTER_API_KEY
     default: ""
     secret: true
+    description: "OpenRouter API key used by LiteLLM when CLOUD_OPENROUTER_SOURCE=enabled."
   - name: OPENROUTER_USER_MODELS
     default: ""
     description: "Comma-separated OpenRouter model names the wizard activated."
@@ -124,4 +127,3 @@ runtime_sc:
 
 data_flow:
   calls: []
-

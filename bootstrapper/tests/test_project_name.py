@@ -70,6 +70,22 @@ def test_get_project_name_reads_env(tmp_path):
     assert cp.get_project_name() == "myshowcase"
 
 
+def test_get_project_name_normalizes_env_value(tmp_path):
+    cp = _cp(tmp_path, "PROJECT_NAME=MyShowcase\n")
+    assert cp.get_project_name() == "myshowcase"
+
+
+def test_get_project_name_blank_env_value_defaults_to_atlas(tmp_path):
+    cp = _cp(tmp_path, "PROJECT_NAME=   \n")
+    assert cp.get_project_name() == "atlas"
+
+
+def test_get_project_name_rejects_invalid_env_value(tmp_path):
+    cp = _cp(tmp_path, "PROJECT_NAME=bad.name\n")
+    with pytest.raises(ValueError, match="invalid project name"):
+        cp.get_project_name()
+
+
 def test_get_project_name_defaults_to_atlas(tmp_path):
     cp = _cp(tmp_path, "BASE_PORT=63000\n")  # no PROJECT_NAME
     assert cp.get_project_name() == "atlas"
@@ -89,6 +105,47 @@ def test_persist_then_read_round_trip(tmp_path):
     assert cp.get_project_name() == "myshowcase"
 
 
+def test_start_setup_env_aborts_when_project_name_persist_fails(tmp_path, monkeypatch):
+    import start as start_module
+
+    env = tmp_path / ".env"
+    env.write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    (tmp_path / ".env.example").write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+
+    starter = start_module.AtlasStarter()
+    starter.config_parser.env_file_path = env
+    starter.config_parser.env_example_path = tmp_path / ".env.example"
+    monkeypatch.setattr(
+        starter.source_override_manager,
+        "update_env_file",
+        lambda _overrides: False,
+    )
+
+    assert starter.setup_env_file(False, project_name="myshowcase") is False
+
+
+def test_start_setup_env_rejects_invalid_persisted_project_before_mutation(tmp_path, monkeypatch):
+    import start as start_module
+
+    env = tmp_path / ".env"
+    env.write_text("PROJECT_NAME=bad.name\n", encoding="utf-8")
+    (tmp_path / ".env.example").write_text("PROJECT_NAME=atlas\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS_ENV_FILE", str(env))
+
+    starter = start_module.AtlasStarter()
+    starter.config_parser.env_file_path = env
+    starter.config_parser.env_example_path = tmp_path / ".env.example"
+
+    def fail_if_called(_overrides):
+        raise AssertionError("invalid persisted PROJECT_NAME should fail before .env mutation")
+
+    monkeypatch.setattr(starter.source_override_manager, "update_env_file", fail_if_called)
+
+    assert starter.setup_env_file(False) is False
+    assert env.read_text(encoding="utf-8") == "PROJECT_NAME=bad.name\n"
+
+
 # ── stop.py override ─────────────────────────────────────────────────────────
 
 def test_stop_show_configuration_info_honors_override(tmp_path, monkeypatch):
@@ -101,6 +158,52 @@ def test_stop_show_configuration_info_honors_override(tmp_path, monkeypatch):
     assert stopper.show_configuration_info(False, False) == "atlas"
     assert stopper.show_configuration_info(False, False,
                                            project_name_override="myshowcase") == "myshowcase"
+
+
+def test_stop_services_uses_project_override_for_compose(monkeypatch):
+    import stop as stop_module
+
+    stopper = stop_module.AtlasStopper()
+    calls = []
+
+    def fake_stop_services(*, remove_volumes=False, remove_orphans=True):
+        calls.append(stopper.docker_manager.project_name_override)
+        return 0
+
+    monkeypatch.setattr(stopper.docker_manager, "stop_services", fake_stop_services)
+
+    assert stopper.stop_services(cold_stop=False, project_name="myshowcase") is True
+    assert calls == ["myshowcase"]
+    assert stopper.docker_manager.project_name_override is None
+
+
+def test_cold_stop_uses_project_override_for_compose_and_networks(monkeypatch):
+    import stop as stop_module
+
+    stopper = stop_module.AtlasStopper()
+    calls = []
+    networks = []
+
+    def fake_execute_compose_command(args, *, use_env_file=True, project_name=None):
+        calls.append((args, project_name))
+        return 0
+
+    monkeypatch.setattr(
+        stopper.docker_manager,
+        "execute_compose_command",
+        fake_execute_compose_command,
+    )
+    monkeypatch.setattr(
+        stopper.docker_manager,
+        "remove_project_networks",
+        lambda project_name: networks.append(project_name) or True,
+    )
+    monkeypatch.setattr(stopper.docker_manager, "prune_system", lambda **kwargs: 0)
+
+    assert stopper.stop_services(cold_stop=True, project_name="myshowcase") is True
+    assert calls == [(["down", "--volumes", "--remove-orphans"], "myshowcase")]
+    assert networks == ["myshowcase"]
+    assert stopper.docker_manager.project_name_override is None
 
 
 # ── wizard "Project name" step ───────────────────────────────────────────────

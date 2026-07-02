@@ -518,48 +518,42 @@ def _build_steps_and_rows(
                 number_max=8,
                 unit_suffix="workers",
             )
-        # Filter options by the resolved deployment profile.
-        # Use the manifest option IDs (svc.options are the raw source IDs
-        # from service.yml, e.g. "localhost", "ollama-localhost") so that
-        # option_in_profile matches the annotated SourceOption.id fields.
-        # We look up the manifest name via svc.env_var_name (the SOURCE
-        # var, e.g. "LLM_PROVIDER_SOURCE") → _src_var_to_mname → "ollama",
-        # because svc.key (e.g. "llm_provider") does NOT match manifest.name.
-        # NOTE: the option list is built statically at step-construction time
-        # using the `profile` kwarg (pinned from CLI or prefilled_selections).
-        _prof = profile or "default"
+        # Filter options by deployment profile. CLI --profile is known at
+        # construction time; an in-wizard profile selection is known later, so
+        # service-source steps also carry an options_provider that rebuilds
+        # rows from the current selections when the step is loaded.
         _mname = _src_var_to_mname.get(getattr(svc, "env_var_name", ""), svc.key)
-        visible_opts = [
-            o for o in svc.options
-            if _option_in_profile(_manifests, _mname, o, _prof)
-        ]
-        # Guard: if filtering removed the currently-highlighted option,
-        # fall back to the manifest default if it's in visible_opts,
-        # else the first remaining option. The Task 3 lint guarantees
-        # visible_opts is non-empty for every real service manifest.
-        if not visible_opts:
-            visible_opts = list(svc.options)  # fallback: show all (permissive)
-        opts = [
-            PromptOption(
-                value=opt,
-                label=opt,
-                hint=_option_hint(opt),
-                badges=_badges_for_option(opt, recommended=(opt == svc.current_value)),
-                secondary_number=(
-                    # Ray's container variants → worker-count.
-                    ray_secondary
-                    if ray_secondary is not None
-                       and opt in ("ray-container-cpu", "ray-container-gpu")
-                    # Spark's container variant → worker-count.
-                    else spark_secondary
-                    if spark_secondary is not None and opt == "container"
-                    # Otherwise: per-localhost-row port widget (None if
-                    # this option isn't a localhost variant in the wiring).
-                    else _localhost_port_config(svc.display_name, opt)
-                ),
-            )
-            for opt in visible_opts
-        ]
+
+        def _visible_source_options(selections: dict, _svc=svc, _mname=_mname,
+                                    _ray_secondary=ray_secondary,
+                                    _spark_secondary=spark_secondary) -> list[PromptOption]:
+            selected_profile = profile or selections.get(PROFILE_STEP_TITLE) or "default"
+            visible = [
+                o for o in _svc.options
+                if _option_in_profile(_manifests, _mname, o, selected_profile)
+            ]
+            if not visible:
+                visible = list(_svc.options)
+            return [
+                PromptOption(
+                    value=opt,
+                    label=opt,
+                    hint=_option_hint(opt),
+                    badges=_badges_for_option(opt, recommended=(opt == _svc.current_value)),
+                    secondary_number=(
+                        _ray_secondary
+                        if _ray_secondary is not None
+                           and opt in ("ray-container-cpu", "ray-container-gpu")
+                        else _spark_secondary
+                        if _spark_secondary is not None and opt == "container"
+                        else _localhost_port_config(_svc.display_name, opt)
+                    ),
+                )
+                for opt in visible
+            ]
+
+        opts = _visible_source_options({})
+        visible_opts = [opt.value for opt in opts]
         # If the current .env value was filtered out, fall back to the
         # manifest default (svc.options[0]) if available in visible_opts,
         # else the first visible option.
@@ -579,6 +573,7 @@ def _build_steps_and_rows(
             heading=f"How should {svc.display_name} run?",
             subtitle=svc.description or "",
             options=opts, default_value=default, service_name=svc.display_name,
+            options_provider=_visible_source_options,
             service_key=svc.key,
             # secondary_number REMOVED from PromptStep — config is now
             # on individual PromptOption entries above.

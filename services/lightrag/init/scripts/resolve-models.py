@@ -111,6 +111,13 @@ def main() -> None:
             and m not in ("hermes-agent", "lightrag")
         ]
         chat = chat_candidates[0] if chat_candidates else available[0]
+    if not chat:
+        print(
+            "# ERROR could not resolve a chat model from LIGHTRAG_LLM_MODEL, "
+            "LITELLM_DEFAULT_MODEL, or LiteLLM /v1/models",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     if not embed:
         # Prefer anything with "embed" in the name
         embed_candidates = [m for m in available if "embed" in m.lower()]

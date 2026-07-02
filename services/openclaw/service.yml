@@ -38,6 +38,7 @@ env:
   - name: OPENCLAW_GATEWAY_TOKEN
     default: ""
     secret: true
+    description: "Optional bearer token for securing the OpenClaw gateway and dashboard."
   - name: OPENCLAW_LOCALHOST_PORT
     default: "63065"
     description: "Host port for the localhost source variant (defaults to the freed OPENCLAW_GATEWAY_PORT slot). URL is derived at compose-render time as http://host.docker.internal:63065."
@@ -50,6 +51,7 @@ env:
   - name: OPENCLAW_OPENAI_API_KEY
     default: ""
     secret: true
+    description: "Optional per-OpenClaw OpenAI override; falls back to the stack-wide OPENAI_API_KEY when unset."
   - name: OPENCLAW_SCALE
     auto_managed: true
   - name: OPENCLAW_INIT_SCALE
@@ -124,4 +126,3 @@ data_flow:
   calls:
     - litellm
     - hermes
-

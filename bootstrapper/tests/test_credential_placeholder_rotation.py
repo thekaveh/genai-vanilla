@@ -85,6 +85,57 @@ def test_graph_db_auth_stays_in_sync_with_password(tmp_path):
     assert kg.get_current_env_value("GRAPH_DB_AUTH") == f"neo4j/{new_pw}"
 
 
+def test_graph_db_rotation_skips_when_neo4j_volume_exists(tmp_path, monkeypatch):
+    _seed_env(
+        tmp_path,
+        """
+        PROJECT_NAME=atlas
+        GRAPH_DB_USER=neo4j
+        GRAPH_DB_PASSWORD=neo4j_password
+        GRAPH_DB_AUTH=neo4j/neo4j_password
+        """,
+    )
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_neo4j_db_volume_exists", lambda: True)
+    assert kg.generate_and_update_graph_db_password() is True
+    assert kg.get_current_env_value("GRAPH_DB_PASSWORD") == "neo4j_password"
+    assert kg.get_current_env_value("GRAPH_DB_AUTH") == "neo4j/neo4j_password"
+
+
+def test_graph_db_rotation_proceeds_when_no_neo4j_volume(tmp_path, monkeypatch):
+    _seed_env(
+        tmp_path,
+        """
+        PROJECT_NAME=atlas
+        GRAPH_DB_USER=neo4j
+        GRAPH_DB_PASSWORD=neo4j_password
+        GRAPH_DB_AUTH=neo4j/neo4j_password
+        """,
+    )
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_neo4j_db_volume_exists", lambda: False)
+    assert kg.generate_and_update_graph_db_password() is True
+    new_pw = kg.get_current_env_value("GRAPH_DB_PASSWORD")
+    assert new_pw and new_pw != "neo4j_password"
+    assert kg.get_current_env_value("GRAPH_DB_AUTH") == f"neo4j/{new_pw}"
+
+
+def test_force_rotates_graph_db_password_even_with_existing_volume(tmp_path, monkeypatch):
+    _seed_env(
+        tmp_path,
+        """
+        PROJECT_NAME=atlas
+        GRAPH_DB_USER=neo4j
+        GRAPH_DB_PASSWORD=neo4j_password
+        GRAPH_DB_AUTH=neo4j/neo4j_password
+        """,
+    )
+    kg = KeyGenerator(str(tmp_path))
+    monkeypatch.setattr(kg, "_neo4j_db_volume_exists", lambda: True)
+    assert kg.generate_and_update_graph_db_password(force=True) is True
+    assert kg.get_current_env_value("GRAPH_DB_PASSWORD") != "neo4j_password"
+
+
 def test_no_unrotated_nonempty_secret_defaults():
     """Every env var marked secret: true in a manifest must either ship an
     empty default (generated-when-absent) or be a known PLACEHOLDER_DEFAULTS
@@ -246,6 +297,20 @@ def test_volume_check_false_without_project_name(tmp_path):
     _seed_env(tmp_path, "SUPABASE_DB_PASSWORD=password\n")
     kg = KeyGenerator(str(tmp_path))
     assert kg._supabase_db_volume_exists() is False
+
+
+def test_neo4j_volume_check_accepts_hyphen_and_underscore_names(tmp_path, monkeypatch):
+    import subprocess
+
+    _seed_env(tmp_path, "PROJECT_NAME=atlas\n")
+    kg = KeyGenerator(str(tmp_path))
+
+    class Result:
+        returncode = 0
+        stdout = "atlas_graph-db-data\natlas-graph-db-data\nother-volume\n"
+
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: Result())
+    assert kg._neo4j_db_volume_exists() is True
 
 
 # ── Cold start force-regenerates the volume-baked DB passwords ────────────────

@@ -93,6 +93,7 @@
 | Neo4j LLM Knowledge Graph Builder | apps | neo4j | [candidates/neo4j-llm-graph-builder.md](./candidates/neo4j-llm-graph-builder.md) |
 | NeoDash | apps | neo4j | [candidates/neodash.md](./candidates/neodash.md) |
 | NocoDB | apps | n8n | [candidates/nocodb.md](./candidates/nocodb.md) |
+| OmniVoice (k2-fsa) | media | _(none)_ | [candidates/omnivoice.md](./candidates/omnivoice.md) |
 | Open WebUI Pipelines | apps | open-webui | [candidates/open-webui-pipelines.md](./candidates/open-webui-pipelines.md) |
 | OpenLIT | infra | ollama | [candidates/openlit.md](./candidates/openlit.md) |
 | Perplexica (Vane) | apps | searxng | [candidates/perplexica.md](./candidates/perplexica.md) |
@@ -104,4 +105,5 @@
 | Supavisor | data | supabase | [candidates/supavisor.md](./candidates/supavisor.md) |
 | Unmute (Kyutai) | media | tts-provider | [candidates/unmute.md](./candidates/unmute.md) |
 | Verba | apps | weaviate | [candidates/verba.md](./candidates/verba.md) |
+| Voicebox (jamiepine) | media | _(none)_ | [candidates/voicebox.md](./candidates/voicebox.md) |
 | WhisperX | media | stt-provider | [candidates/whisperx.md](./candidates/whisperx.md) |

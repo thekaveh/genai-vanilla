@@ -44,6 +44,20 @@ class AtlasStopper:
             {"PROJECT_NAME": project_name}
         )
 
+    def validate_persisted_project_name(self, project_name_override: str = None) -> bool:
+        """Validate the stored PROJECT_NAME before Docker or compose preflights."""
+        if project_name_override is not None or not self.config_parser.env_file_exists():
+            return True
+        try:
+            self.config_parser.get_project_name()
+        except ValueError as exc:
+            click.echo(
+                f"stop.sh: invalid PROJECT_NAME in {self.config_parser.env_file_path}: {exc}",
+                err=True,
+            )
+            return False
+        return True
+
     def show_usage(self):
         """Display usage information."""
         usage_text = """
@@ -95,36 +109,53 @@ Examples:
             self.banner.show_status_message("Clean Hosts: Yes (will remove hosts file entries)", "info")
             
         return project_name
+
+    def ensure_dependencies_available(self) -> bool:
+        """Validate Docker Compose before running commands that read include:."""
+        if not self.docker_manager.check_docker_available():
+            self.banner.show_status_message(
+                "Docker is not available. Please start Docker Desktop or install Docker.",
+                "error",
+            )
+            return False
+        compose_ok, compose_msg = self.docker_manager.check_compose_version()
+        level = "info" if compose_ok else "error"
+        self.banner.show_status_message(compose_msg, level)
+        return compose_ok
         
     def stop_services(self, cold_stop: bool, project_name: str) -> bool:
         """Stop Docker services."""
         self.banner.show_section_header("Stopping Docker Compose Services", "🐳")
-        
-        if cold_stop:
-            self.banner.show_status_message("Performing cold stop (removing volumes and aggressive cleanup)...", "warning")
-            self.banner.console.print("⚠️ WARNING: This will permanently delete all data!", style="bold red")
-            print()
-            
-            # Use the enhanced cold stop cleanup from Docker manager
-            success = self.docker_manager.perform_cold_stop_cleanup()
-            
-            if success:
-                self.banner.show_status_message("Cold stop completed successfully - all containers stopped and data removed", "success")
-            else:
-                self.banner.show_status_message("Some issues occurred during cold stop", "warning")
+        previous_project = self.docker_manager.project_name_override
+        self.docker_manager.project_name_override = project_name
+        try:
+            if cold_stop:
+                self.banner.show_status_message("Performing cold stop (removing volumes and aggressive cleanup)...", "warning")
+                self.banner.console.print("⚠️ WARNING: This will permanently delete all data!", style="bold red")
+                print()
 
-            return success
-                
-        else:
-            self.banner.show_status_message("Performing standard stop (preserving volumes)...", "info")
-            result = self.docker_manager.stop_services(remove_volumes=False, remove_orphans=True)
-            
-            if result == 0:
-                self.banner.show_status_message("All containers stopped successfully - data volumes preserved", "success")
-                return True
+                # Use the enhanced cold stop cleanup from Docker manager
+                success = self.docker_manager.perform_cold_stop_cleanup()
+
+                if success:
+                    self.banner.show_status_message("Cold stop completed successfully - all containers stopped and data removed", "success")
+                else:
+                    self.banner.show_status_message("Some issues occurred during cold stop", "warning")
+
+                return success
+
             else:
-                self.banner.show_status_message("Some issues occurred while stopping containers", "warning")
-                return False
+                self.banner.show_status_message("Performing standard stop (preserving volumes)...", "info")
+                result = self.docker_manager.stop_services(remove_volumes=False, remove_orphans=True)
+
+                if result == 0:
+                    self.banner.show_status_message("All containers stopped successfully - data volumes preserved", "success")
+                    return True
+                else:
+                    self.banner.show_status_message("Some issues occurred while stopping containers", "warning")
+                    return False
+        finally:
+            self.docker_manager.project_name_override = previous_project
                 
     def cleanup_hosts_entries(self) -> bool:
         """Clean up hosts file entries if requested."""
@@ -212,9 +243,15 @@ def main(project_name, cold, clean_hosts, help_usage):
     print()
 
     try:
+        if not stopper.validate_persisted_project_name(project_name):
+            sys.exit(2)
+
         # Step 1: Show configuration information
         project_name = stopper.show_configuration_info(cold, clean_hosts,
                                                        project_name_override=project_name)
+
+        if not stopper.ensure_dependencies_available():
+            sys.exit(1)
         
         # Step 2: Stop Docker services. Keep going on failure so hosts
         # cleanup and the final status still run, but exit non-zero at the

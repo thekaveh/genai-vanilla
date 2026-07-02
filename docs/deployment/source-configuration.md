@@ -57,7 +57,7 @@ This matrix lists every `*_SOURCE` variable currently exposed in `.env.example`.
 | `WEAVIATE_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Weaviate schemas/config. |
 | `MINIO_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes MinIO buckets, IAM policies, and service accounts. |
 | `COMFYUI_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes ComfyUI assets/config. |
-| `N8N_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes/imports n8n workflows. |
+| `N8N_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Installs n8n community nodes on first boot; workflow templates are imported manually. |
 | `OPENCLAW_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes OpenClaw config where applicable. |
 | `HERMES_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Renders `/opt/data/config.yaml` for Hermes from environment (model, TTS, STT, ComfyUI host override). |
 | `SUPABASE_DB_INIT_SOURCE` | `container` | `container`, `disabled` | Auto-managed init | Initializes Supabase database state. |
@@ -119,7 +119,7 @@ LLM access in this stack is split between **LiteLLM** (the always-on OpenAI-comp
 
 #### 4.1.1 `LLM_PROVIDER_SOURCE` — Ollama upstream (single-select)
 
-##### `ollama-container-cpu` (Default)
+##### 4.1.1.1 `ollama-container-cpu` (Default)
 ```bash
 LLM_PROVIDER_SOURCE=ollama-container-cpu
 ```
@@ -128,7 +128,7 @@ LLM_PROVIDER_SOURCE=ollama-container-cpu
 - **Cons**: Higher memory usage, slower model loading
 - **Requirements**: None
 
-##### `ollama-container-gpu`
+##### 4.1.1.2 `ollama-container-gpu`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-container-gpu
 ```
@@ -137,7 +137,7 @@ LLM_PROVIDER_SOURCE=ollama-container-gpu
 - **Cons**: Requires NVIDIA GPU + Docker GPU support
 - **Requirements**: NVIDIA Container Toolkit
 
-##### `ollama-localhost`
+##### 4.1.1.3 `ollama-localhost`
 ```bash
 LLM_PROVIDER_SOURCE=ollama-localhost
 ```
@@ -159,7 +159,7 @@ ollama pull qwen3.6:latest
 ollama pull qwen3-embedding:0.6b
 ```
 
-##### `none`
+##### 4.1.1.4 `none`
 ```bash
 LLM_PROVIDER_SOURCE=none
 ```

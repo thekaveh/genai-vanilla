@@ -172,8 +172,8 @@ _No high-confidence opportunities identified._
 
 `lightrag-init` runs once per `docker compose up`. It:
 
-1. Waits for LiteLLM `/v1/models` (60 s timeout).
-2. Resolves the base `LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` / `LIGHTRAG_EMBEDDING_DIM` from LiteLLM and writes LightRAG's native `LLM_MODEL` / `EMBEDDING_MODEL` / `EMBEDDING_DIM` to `/app/data/.env`. Role-specific `LIGHTRAG_EXTRACT_*`, `LIGHTRAG_KEYWORD_*`, and `LIGHTRAG_QUERY_*` variables are passed directly to the runtime container.
+1. Runs after LiteLLM's Compose health gate and reads LiteLLM `/v1/models`.
+2. Resolves the base `LIGHTRAG_LLM_MODEL` / `LIGHTRAG_EMBEDDING_MODEL` / `LIGHTRAG_EMBEDDING_DIM` from explicit overrides, LiteLLM defaults, or LiteLLM's model list, then writes LightRAG's native `LLM_MODEL` / `EMBEDDING_MODEL` / `EMBEDDING_DIM` to `/app/data/.env`. If no chat model can be resolved, init exits non-zero instead of starting LightRAG with an empty `LLM_MODEL`. Role-specific `LIGHTRAG_EXTRACT_*`, `LIGHTRAG_KEYWORD_*`, and `LIGHTRAG_QUERY_*` variables are passed directly to the runtime container.
 3. Polls Postgres until it accepts connections (a readiness gate — `supabase-db` is SOURCE-replaceable, so `lightrag-init` intentionally has no hard compose `depends_on` on it), then runs the idempotent pgvector migration. The Neo4j migration runs separately and is non-fatal — it pre-creates the range index on `(:base).entity_id` that LightRAG otherwise creates on first write.
 
 ## 8. Troubleshooting

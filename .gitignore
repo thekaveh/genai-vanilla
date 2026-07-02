@@ -121,6 +121,8 @@ tmp/
 
 # Project specific
 .claude/
+.Codex/
+.codex/
 CLAUDE.md
 
 .kilo

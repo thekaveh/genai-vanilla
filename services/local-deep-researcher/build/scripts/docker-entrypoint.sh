@@ -73,7 +73,7 @@ echo "Local Deep Researcher: Using LiteLLM at: $LITELLM_URL"
 # Wait for LiteLLM /health/liveliness
 max_retries=30
 retry_count=0
-until curl -s --fail "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; do
+until curl -s --fail --max-time 5 "$LITELLM_URL/health/liveliness" > /dev/null 2>&1; do
     retry_count=$((retry_count + 1))
     if [ $retry_count -ge $max_retries ]; then
         echo "Local Deep Researcher: ERROR - LiteLLM not available after $max_retries attempts"

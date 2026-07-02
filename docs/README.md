@@ -53,6 +53,7 @@ Documentation index for Atlas.
 ### 1.4 Contributors
 - [Adding a service runbook](CONTRIBUTING-services.md) — six-decision walkthrough + the regen + lint chain
 - [Security policy](../SECURITY.md) — threat tiers, supported versions, responsible-disclosure address
+- [External dependency contract ledger](maintenance/external-contract-ledger.md) — durable record of consumed external API/CLI/config contract checks from maintenance passes
 
 ### 1.5 Architecture diagrams
 - [Diagrams README](diagrams/README.md) — top-level diagram update workflow + the per-service auto-generation chain
@@ -66,6 +67,10 @@ Documentation index for Atlas.
 
 ### 1.7 Feature-track plans and specs
 - [superpowers/plans](superpowers/plans/) + [superpowers/specs](superpowers/specs/) — point-in-time implementation plans and specs for the larger 2026-05/06 feature tracks (consult when archaeology on a past track is needed; CHANGELOG entries link the relevant ones)
+
+### 1.8 Numbering-policy notes
+- Generated research files keep schema-fixed headings such as `## Headline`; see [research/README.md](research/README.md) for the explicit exemption.
+- Provider implementation notes under `services/*/provider/` are operational backend-specific runbooks. They may keep compact unnumbered headings when numbering would make command-oriented maintenance notes harder to scan.
 
 ## 2. Related documentation
 
@@ -88,8 +93,13 @@ If you can't find what you're looking for:
 
 ## 5. Maintainer checks
 
-Run local documentation drift checks before committing docs changes:
+Run the local documentation drift and audit checks before committing docs changes:
 
 ```bash
+PYTHONPATH=bootstrapper python -m bootstrapper.docs.regen --all --check
+python scripts/check_doc_links.py
 python scripts/check-docs-drift.py
+python scripts/check-compose-source-deps.py
+python scripts/check-kong-routes.py
+python scripts/validate_research_schema.py --all
 ```

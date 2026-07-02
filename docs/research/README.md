@@ -73,6 +73,11 @@ Six required sections:
 
 `## Why now (and why not sooner)` is optional.
 
+These generated research one-pagers intentionally keep schema-fixed heading
+names such as `## Headline` instead of hierarchical numeric prefixes. They are
+exempt from the repository-wide numbered-docs convention so the schema
+validator and merge script can treat headings as stable field names.
+
 ## 4. Validation
 
 A schema validator lives at `scripts/validate_research_schema.py`. Run it on

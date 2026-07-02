@@ -9,6 +9,7 @@ Cross-platform startup script for Atlas — the self-hosted engineering platform
 import re
 import sys
 import os
+import subprocess
 from datetime import date
 from pathlib import Path
 import click
@@ -38,6 +39,46 @@ def _format_today() -> str:
     without freezing the system clock globally.
     """
     return date.today().isoformat()
+
+
+def _run_privileged_hosts_setup() -> bool:
+    """Run only the hosts-file mutation in a sudo child process.
+
+    The shell wrapper intentionally refuses to run the whole startup flow as
+    root because that creates root-owned repo artifacts. For `--setup-hosts`,
+    ask for elevation only around the one operation that needs it.
+    """
+    from utils.system import is_elevated
+
+    if is_elevated():
+        return HostsManager().setup_hosts_entries()
+
+    if os.name == "nt":
+        print("  • ❌ Please run from an Administrator shell to modify hosts file")
+        return False
+
+    bootstrapper_dir = Path(__file__).resolve().parent
+    repo_root = bootstrapper_dir.parent
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(bootstrapper_dir)
+        if not existing_pythonpath
+        else f"{bootstrapper_dir}{os.pathsep}{existing_pythonpath}"
+    )
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    helper = (
+        "from utils.hosts_manager import HostsManager; "
+        "raise SystemExit(0 if HostsManager().setup_hosts_entries() else 1)"
+    )
+    print("  • --setup-hosts needs to edit your hosts file; requesting sudo for that write only.")
+    result = subprocess.run(
+        ["sudo", sys.executable, "-c", helper],
+        cwd=repo_root,
+        env=env,
+        check=False,
+    )
+    return result.returncode == 0
 
 # Add the current directory to the path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent))
@@ -180,7 +221,14 @@ class AtlasStarter:
         # Show detected Docker compose command
         compose_cmd = self.docker_manager.get_compose_command_display()
         self.banner.show_status_message(f"Using Docker Compose command: {compose_cmd}", "info")
-        
+        compose_ok, compose_message = self.docker_manager.check_compose_version()
+        self.banner.show_status_message(
+            compose_message,
+            "success" if compose_ok else "error",
+        )
+        if not compose_ok:
+            return False
+
         # Check docker-compose.yml exists
         compose_file = self.root_dir / "docker-compose.yml"
         if not compose_file.exists():
@@ -342,7 +390,7 @@ class AtlasStarter:
 
         return True
         
-    def _persist_project_name(self, project_name: Optional[str]) -> None:
+    def _persist_project_name(self, project_name: Optional[str]) -> bool:
         """Persist ``PROJECT_NAME`` to .env so start AND stop (and every
         ``docker compose -p``) target the same container family.
 
@@ -352,13 +400,33 @@ class AtlasStarter:
         by editing .env) to isolate their namespace from a base Atlas stack.
         """
         if not project_name:
-            return
+            return True
         if self.source_override_manager.update_env_file({"PROJECT_NAME": project_name}):
+            self.docker_manager.project_name_override = project_name
             self.banner.show_status_message(
                 f"Project name set to '{project_name}' (persisted to .env "
                 f"PROJECT_NAME; container family: {project_name}-*)",
                 "info",
             )
+            return True
+        self.banner.show_status_message(
+            f"Failed to persist PROJECT_NAME={project_name!r}; aborting so "
+            "docker compose does not target a stale project.",
+            "error",
+        )
+        return False
+
+    def validate_persisted_project_name(self) -> bool:
+        """Fail before mutating .env when its stored PROJECT_NAME is invalid."""
+        try:
+            self.config_parser.get_project_name()
+        except ValueError as e:
+            self.banner.show_status_message(
+                f"Invalid PROJECT_NAME in {self.config_parser.env_file_path}: {e}",
+                "error",
+            )
+            return False
+        return True
 
     def setup_env_file(self, cold_start: bool, base_port: Optional[int] = None,
                        project_name: Optional[str] = None) -> bool:
@@ -388,6 +456,10 @@ class AtlasStarter:
                 f"Using custom env file: {env_file_path}",
                 "info"
             )
+
+        if project_name is None and env_file_path.exists() and not cold_start:
+            if not self.validate_persisted_project_name():
+                return False
 
         # Check if .env exists, if not or if cold start is requested, create from .env.example
         if not env_file_path.exists() or cold_start:
@@ -421,15 +493,13 @@ class AtlasStarter:
                     self.unset_port_environment_variables()
 
                 self.banner.show_status_message("Environment file setup completed", "success")
-                self._persist_project_name(project_name)
-                return True
+                return self._persist_project_name(project_name)
 
             except Exception as e:
                 self.banner.show_status_message(f"Failed to create .env file: {e}", "error")
                 return False
 
-        self._persist_project_name(project_name)
-        return True  # .env already exists and not cold start
+        return self._persist_project_name(project_name)  # .env already exists and not cold start
 
     def backfill_missing_env_vars(self) -> bool:
         """Append variables present in ``.env.example`` but missing from
@@ -1473,9 +1543,39 @@ class AtlasStarter:
         if result != 0:
             self.banner.show_status_message("Failed to start some services", "error")
             return False
-        else:
-            self.banner.show_status_message("All services started successfully", "success")
+        if not self.verify_one_shot_init_containers():
+            return False
+        self.banner.show_status_message("All services started successfully", "success")
+        return True
+
+    def verify_one_shot_init_containers(self, on_line=None) -> bool:
+        """Fail startup if enabled post-start one-shot init containers failed."""
+        env_vars = self.config_parser.parse_env_file()
+        services: list[str] = []
+        if env_vars.get("N8N_INIT_SCALE", "0") != "0":
+            services.append("n8n-init")
+        if env_vars.get("OPEN_WEB_UI_INIT_SCALE", "0") != "0":
+            services.append("open-webui-init")
+        if env_vars.get("COMFYUI_INIT_SCALE", "0") != "0":
+            services.append("comfyui-init")
+        if not services:
             return True
+
+        failures = self.docker_manager.failed_one_shot_services(
+            services,
+            timeout_seconds=900.0,
+            poll_interval_seconds=5.0,
+        )
+        if not failures:
+            return True
+
+        for service, reason in failures:
+            msg = f"{service} failed after compose up ({reason})"
+            if on_line is None:
+                self.banner.show_status_message(msg, "error")
+            else:
+                on_line(f"❌ {msg}", "error")
+        return False
             
     def show_pre_launch_summary(self, *, track: str | None = None) -> bool:
         """
@@ -1755,26 +1855,43 @@ class AtlasStarter:
         # Get expected ports from .env (used by both branches)
         env_vars = self.config_parser.parse_env_file()
 
+        def include_port_check(
+            source_var: str | None = None,
+            scale_var: str | None = None,
+        ) -> bool:
+            if source_var:
+                source = env_vars.get(source_var, "").strip()
+                if source == "disabled" or "localhost" in source:
+                    return False
+            if scale_var and env_vars.get(scale_var, "1").strip() == "0":
+                return False
+            return True
+
         # Service definitions matching original Bash script
         services_to_check = [
-            ("supabase-db", "5432", env_vars.get("SUPABASE_DB_PORT", "")),
-            ("redis", "6379", env_vars.get("REDIS_PORT", "")),
-            ("supabase-meta", "8080", env_vars.get("SUPABASE_META_PORT", "")),
-            ("supabase-storage", "5000", env_vars.get("SUPABASE_STORAGE_PORT", "")),
-            ("supabase-auth", "9999", env_vars.get("SUPABASE_AUTH_PORT", "")),
-            ("supabase-api", "3000", env_vars.get("SUPABASE_API_PORT", "")),
-            ("supabase-realtime", "4000", env_vars.get("SUPABASE_REALTIME_PORT", "")),
-            ("supabase-studio", "3000", env_vars.get("SUPABASE_STUDIO_PORT", "")),
-            ("neo4j-graph-db", "7687", env_vars.get("GRAPH_DB_PORT", "")),
-            ("weaviate", "8080", env_vars.get("WEAVIATE_PORT", "")),
-            ("local-deep-researcher", "2024", env_vars.get("LOCAL_DEEP_RESEARCHER_PORT", "")),
-            ("open-web-ui", "8080", env_vars.get("OPEN_WEB_UI_PORT", "")),
-            ("backend", "8000", env_vars.get("BACKEND_PORT", "")),
-            ("kong-api-gateway", "8000", env_vars.get("KONG_HTTP_PORT", "")),
-            ("kong-api-gateway", "8443", env_vars.get("KONG_HTTPS_PORT", "")),
-            ("n8n", "5678", env_vars.get("N8N_PORT", "")),
-            ("searxng", "8080", env_vars.get("SEARXNG_PORT", "")),
-            ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", "")),
+            ("supabase-db", "5432", env_vars.get("SUPABASE_DB_PORT", ""), None, None),
+            ("redis", "6379", env_vars.get("REDIS_PORT", ""), None, None),
+            ("supabase-meta", "8080", env_vars.get("SUPABASE_META_PORT", ""), None, None),
+            ("supabase-storage", "5000", env_vars.get("SUPABASE_STORAGE_PORT", ""), None, None),
+            ("supabase-auth", "9999", env_vars.get("SUPABASE_AUTH_PORT", ""), None, None),
+            ("supabase-api", "3000", env_vars.get("SUPABASE_API_PORT", ""), None, None),
+            ("supabase-realtime", "4000", env_vars.get("SUPABASE_REALTIME_PORT", ""), None, None),
+            ("supabase-studio", "3000", env_vars.get("SUPABASE_STUDIO_PORT", ""), None, None),
+            ("neo4j-graph-db", "7687", env_vars.get("GRAPH_DB_PORT", ""), "NEO4J_GRAPH_DB_SOURCE", "NEO4J_SCALE"),
+            ("weaviate", "8080", env_vars.get("WEAVIATE_PORT", ""), "WEAVIATE_SOURCE", "WEAVIATE_SCALE"),
+            ("local-deep-researcher", "2024", env_vars.get("LOCAL_DEEP_RESEARCHER_PORT", ""), "LOCAL_DEEP_RESEARCHER_SOURCE", "LOCAL_DEEP_RESEARCHER_SCALE"),
+            ("open-web-ui", "8080", env_vars.get("OPEN_WEB_UI_PORT", ""), "OPEN_WEB_UI_SOURCE", "OPEN_WEB_UI_SCALE"),
+            ("backend", "8000", env_vars.get("BACKEND_PORT", ""), "BACKEND_SOURCE", "BACKEND_SCALE"),
+            ("kong-api-gateway", "8000", env_vars.get("KONG_HTTP_PORT", ""), None, None),
+            ("kong-api-gateway", "8443", env_vars.get("KONG_HTTPS_PORT", ""), None, None),
+            ("n8n", "5678", env_vars.get("N8N_PORT", ""), "N8N_SOURCE", "N8N_SCALE"),
+            ("searxng", "8080", env_vars.get("SEARXNG_PORT", ""), "SEARXNG_SOURCE", "SEARXNG_SCALE"),
+            ("jupyterhub", "8888", env_vars.get("JUPYTERHUB_PORT", ""), "JUPYTERHUB_SOURCE", "JUPYTERHUB_SCALE"),
+        ]
+        services_to_check = [
+            (service_name, internal_port, expected_port)
+            for service_name, internal_port, expected_port, source_var, scale_var in services_to_check
+            if include_port_check(source_var, scale_var)
         ]
 
         # LiteLLM is the always-on LLM front door — its host port is the
@@ -2018,7 +2135,6 @@ class AtlasStarter:
                    'so the migration re-prompts on the next run.')
 @click.option('--profile',
               type=click.Choice(['default', 'prod'], case_sensitive=False),
-              default='default',
               help='Deployment profile. "prod": bind all service ports to '
                    '127.0.0.1 (public edge fronts Kong), enable log rotation, '
                    'default observability ON, and hide dev-only (localhost) '
@@ -2103,7 +2219,7 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
                     'airflow_source': airflow_source,
                 }
                 for cli_key, value in _flag_values.items():
-                    if value is None:
+                    if value is None or value == "disabled":
                         continue
                     svc_key = cli_key.removesuffix("_source").replace("_", "-")
                     if _is_in_track_for_warn(
@@ -2342,9 +2458,12 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
         no_stack_flags = (base_port is None and not cold and not setup_hosts and not skip_hosts)
         no_model_flags = not user_model_selections
         no_key_flags = not cloud_api_keys
-        will_run_wizard = (
+        wizard_requested = (
             no_source_flags and no_stack_flags
             and no_model_flags and no_key_flags
+        )
+        will_run_wizard = (
+            wizard_requested
             and sys.stdin.isatty()
         )
 
@@ -2366,31 +2485,17 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
         if track is not None:
             try:
                 from tracks import load_tracks as _ld
-                from tracks import is_in_track as _ii
+                from tracks import synthesize_track_source_args as _synth
                 _rg2 = _ld()
             except Exception:  # noqa: BLE001
                 _rg2 = None
             if _rg2 is not None:
-                _t2 = _rg2.by_key.get(track)
-                if _t2 is not None and _t2.services is not None:
-                    # 'all' track → services is None → no synthesis, no
-                    # overrides to track. Same source_args as today.
-                    for cli_key in list(source_args.keys()):
-                        if cli_key.startswith("cloud_"):
-                            continue  # cloud keys are always-on
-                        svc_key = cli_key.removesuffix("_source").replace("_", "-")
-                        is_in = _ii(
-                            _t2, svc_key, always_on=_rg2.always_on,
-                        )
-                        if is_in:
-                            continue
-                        # Off-track service. If the user passed a CLI flag
-                        # for it (non-None), record the override; otherwise
-                        # force-disable (non-wizard paths only).
-                        if source_args.get(cli_key) is not None:
-                            overridden_services.add(svc_key)
-                        elif not will_run_wizard:
-                            source_args[cli_key] = "disabled"
+                overridden_services |= _synth(
+                    source_args,
+                    track_key=track,
+                    registry=_rg2,
+                    force_disable=not wizard_requested,
+                )
 
         # Detect legacy `external` source values left in .env from versions
         # before PR #(observability bundle). These options have been removed
@@ -2418,13 +2523,18 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             )
             sys.exit(2)
 
-        # Step 0: Early sudo check for CLI --setup-hosts flag
+        # Step 0: Early hosts setup for CLI --setup-hosts. The wrapper
+        # refuses root, so request elevation only for the hosts-file write.
         if setup_hosts:
-            from utils.system import is_elevated as _is_elevated
-            if not _is_elevated():
-                starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
-                starter.banner.console.print("  [bright_white]Please restart with:[/bright_white] [bright_cyan]sudo ./start.sh --setup-hosts[/bright_cyan]")
+            starter.banner.console.print("\n  [bright_yellow]⚠️  --setup-hosts requires admin privileges.[/bright_yellow]")
+            if not _run_privileged_hosts_setup():
+                starter.banner.console.print(
+                    "  [bright_white]Hosts setup did not complete. Re-run[/bright_white] "
+                    "[bright_cyan]./start.sh --setup-hosts[/bright_cyan] "
+                    "[bright_white]from a terminal that can approve sudo, or add the entries manually.[/bright_white]"
+                )
                 sys.exit(1)
+            setup_hosts = False
 
         # Check dependencies early — silently in wizard mode (wizard clears screen)
         if not will_run_wizard:
@@ -2434,8 +2544,12 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             if not starter.docker_manager.check_docker_available():
                 print("❌ Docker is not available. Please install Docker and ensure it's running.")
                 sys.exit(1)
+            compose_ok, compose_message = starter.docker_manager.check_compose_version()
+            if not compose_ok:
+                print(f"❌ {compose_message}")
+                sys.exit(1)
 
-        if will_run_wizard:
+        if wizard_requested:
             # Setup .env first so wizard can read current defaults.
             if not starter.setup_env_file(cold_start=cold, base_port=base_port, project_name=project_name):
                 sys.exit(1)
@@ -2453,7 +2567,7 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             # narrow terminals) skip the wizard and use the user's .env
             # defaults plus any CLI flags they passed.
             from ui.term_caps import is_tui_capable as _is_tui_capable
-            if _is_tui_capable(no_tui_flag=no_tui):
+            if will_run_wizard and _is_tui_capable(no_tui_flag=no_tui):
                 # Single-Textual-app flow: wizard + pipeline + docker
                 # compose log streaming all run inside one App. start.py
                 # exits when the user detaches.
@@ -2515,19 +2629,13 @@ def main(project_name, base_port, track, list_tracks, cold, setup_hosts, skip_ho
             # recorded as overrides. No-op for the 'all' track (services is None).
             if _reg is not None and track is not None:
                 try:
-                    from tracks import is_in_track as _ii
-                    _t2 = _reg.by_key.get(track)
-                    if _t2 is not None and _t2.services is not None:
-                        for cli_key in list(source_args.keys()):
-                            if cli_key.startswith("cloud_"):
-                                continue
-                            svc_key = cli_key.removesuffix("_source").replace("_", "-")
-                            if _ii(_t2, svc_key, always_on=_reg.always_on):
-                                continue
-                            if source_args.get(cli_key) is not None:
-                                overridden_services.add(svc_key)
-                            else:
-                                source_args[cli_key] = "disabled"
+                    from tracks import synthesize_track_source_args as _synth
+                    overridden_services |= _synth(
+                        source_args,
+                        track_key=track,
+                        registry=_reg,
+                        force_disable=True,
+                    )
                 except Exception:  # noqa: BLE001
                     pass
 

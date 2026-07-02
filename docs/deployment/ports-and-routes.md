@@ -4,10 +4,11 @@ Ports and Kong hostnames are derived from `BASE_PORT` in `.env` (default `63000`
 
 ## 1. Authoritative sources
 
-The full per-service port + Kong-alias mapping is maintained in three places (kept in sync by tests):
+The full per-service port + Kong-alias mapping is maintained in three places:
 
 - **`.env.example`** at the repo root — every `*_PORT` env var with its default; the auto-regenerated baseline.
-- **README "Service overview" table** — every browser-facing service with both direct and Kong URLs (§ 4.1).
+- **README generated topology block** — the tested, generated service/port/Kong-host table near the top of the README.
+- **README "Service overview" table** — manually curated browser-facing URLs and auth notes (§ 4.1); review it when route or auth behavior changes.
 - **`bootstrapper/services/topology.py`** — code-level source of truth; `Topology.port_defaults` and `Topology.aliases`.
 
 ## 2. Kong hostnames
@@ -30,7 +31,8 @@ Active aliases (every `*-localhost` source also routes through `host.docker.inte
 - `jupyter.localhost` → JupyterHub (`JUPYTERHUB_SOURCE != disabled`)
 - `lightrag.localhost` → LightRAG API + WebUI (`LIGHTRAG_SOURCE != disabled`; `preserve_host: True` for the SPA)
 - `litellm.localhost` → LiteLLM gateway + admin dashboard (always-on; same alias exposes `/ui/`, `/v1/*`, `/spend/*`)
-- `minio.localhost` → MinIO admin console (`MINIO_SOURCE != disabled`; S3 API is NOT aliased — clients use the direct port)
+- `minio.localhost` → MinIO admin console (`MINIO_SOURCE != disabled`)
+- `s3.minio.localhost` → MinIO S3 API (`MINIO_SOURCE != disabled`; S3 clients can also use the direct `MINIO_PORT`)
 - `n8n.localhost` → n8n (`N8N_SOURCE != disabled`)
 - `ollama.localhost` → Ollama upstream (`LLM_PROVIDER_SOURCE` is `ollama-container-*` or `ollama-localhost`)
 - `openclaw.localhost` → OpenClaw gateway (`OPENCLAW_SOURCE != disabled`)

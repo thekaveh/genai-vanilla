@@ -14,7 +14,7 @@ Source: `services/backend/app/`. The FastAPI app boots in `app/main.py`, mounts 
 |---|---|---|
 | Direct | `http://localhost:${BACKEND_PORT}` (default `63080`) | Always exposed when the container is up. |
 | Kong | `http://api.localhost:${KONG_HTTP_PORT}` | Requires `./start.sh --setup-hosts`. Recommended for browser-side calls. |
-| Health | `GET /health` | Returns service + upstream-probe matrix. |
+| Health | `GET /health` | Returns a minimal `{status, version}` response. |
 
 Canonical port table: [Ports and Routes](../../docs/deployment/ports-and-routes.md).
 
@@ -53,7 +53,7 @@ HERMES_API_KEY=${HERMES_API_KEY}
 NEO4J_URI=bolt://neo4j-graph-db:7687
 NEO4J_USER=${GRAPH_DB_USER}
 NEO4J_PASSWORD=${GRAPH_DB_PASSWORD}
-SUPABASE_URL=http://supabase-api:3000
+KONG_URL=http://kong-api-gateway:8000
 SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
 REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
 ```
@@ -72,7 +72,7 @@ Adaptive listing comes from `runtime_adaptive.backend.adapts_to` in `services/ba
 4. LiteLLM dispatches to the registered provider (Ollama, Anthropic, OpenAI, etc.).
 
 **Required hard dependencies** (from `depends_on.required`):
-- `supabase` — Postgres (LangMem facts, public tables), Auth (JWT), Storage (file uploads ≤50 MB), Realtime (declared via compose).
+- `supabase` — Postgres (LangMem facts, public tables) and Storage (file uploads default to 100 MiB via `MAX_UPLOAD_BYTES`). The backend uses Supabase service credentials for outbound storage/database work, but it does **not** validate inbound Supabase JWTs today; add gateway or application auth before exposing backend routes beyond a trusted local host.
 - `redis` — declared required (ordering + future use); `REDIS_URL` is injected into the container but no backend code consumes it today.
 - `litellm` — gated `service_healthy` in compose; backend's startup performs first-call probes against the gateway.
 

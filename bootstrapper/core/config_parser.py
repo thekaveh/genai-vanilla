@@ -269,12 +269,15 @@ class ConfigParser:
     def get_project_name(self) -> str:
         """
         Get the project name from .env file.
-        
+
         Returns:
             str: Project name, defaults to 'atlas' if not found
         """
         env_vars = self.parse_env_file()
-        return env_vars.get('PROJECT_NAME', DEFAULT_PROJECT_NAME)
+        raw = env_vars.get('PROJECT_NAME', DEFAULT_PROJECT_NAME)
+        if raw is None or not str(raw).strip():
+            return DEFAULT_PROJECT_NAME
+        return normalize_project_name(str(raw))
     
     def env_file_exists(self) -> bool:
         """

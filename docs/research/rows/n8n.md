@@ -26,7 +26,7 @@ sources_consulted:
   - Why valuable: `n8n-nodes-comfyui` is already installed by `n8n-init`, but no `COMFYUI_ENDPOINT` env var is injected into the n8n container, so users must hand-enter `http://comfyui:18188` in every workflow credential. ComfyUI's manifest already declares n8n as a consumer.
   - Mechanism sketch: inject `COMFYUI_ENDPOINT=${COMFYUI_ENDPOINT}` into n8n's compose env block (matches the STT/TTS/DOCLING pattern) and add `comfyui` to `runtime_deps.optional`.
   - Effort: small
-  - Risks / open questions: ComfyUI source can be `disabled` or `external` — the env var already resolves per-source, so n8n just needs to read it.
+  - Risks / open questions: ComfyUI source can be `disabled`, `localhost`, or a container variant — the env var already resolves per-source, so n8n just needs to read it.
   - Confidence: high (community node verified in `init/config/nodes.json`; endpoint pattern proven for STT/TTS).
 
 - **n8n ↔ minio**

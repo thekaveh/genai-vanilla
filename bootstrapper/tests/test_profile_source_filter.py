@@ -136,6 +136,26 @@ def test_prod_profile_hides_comfyui_localhost():
         )
 
 
+def test_in_wizard_prod_selection_hides_later_localhost_options():
+    """profile=None starts interactive; later source rows follow selection."""
+    from ui.textual.integration import PROFILE_STEP_TITLE
+
+    steps = _build_steps(profile=None)
+    llm_step = next(
+        s for s in steps
+        if "LLM Engine" in (getattr(s, "title", "") or "")
+           and "source" in (getattr(s, "title", "") or "").lower()
+    )
+    provider = getattr(llm_step, "options_provider", None)
+    assert provider is not None
+
+    default_values = [o.value for o in provider({PROFILE_STEP_TITLE: "default"})]
+    prod_values = [o.value for o in provider({PROFILE_STEP_TITLE: "prod"})]
+
+    assert any("localhost" in v for v in default_values)
+    assert not any("localhost" in v for v in prod_values)
+
+
 def test_default_profile_shows_ollama_localhost():
     """Under profile=default, localhost options must still appear."""
     steps = _build_steps(profile="default")

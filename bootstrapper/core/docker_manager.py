@@ -6,9 +6,11 @@ delegate here).
 """
 
 import os
+import json
 import re
 import signal
 import subprocess
+import time
 from typing import Callable, List, Optional
 from pathlib import Path
 from core.config_parser import ConfigParser
@@ -32,6 +34,7 @@ class DockerManager:
 
         self.config_parser = ConfigParser(str(self.root_dir))
         self._compose_cmd = None
+        self.project_name_override: Optional[str] = None
 
         # Callback for the "Command: docker compose …" echo. Defaults to
         # builtin print so the legacy linear flow is unchanged. The Live
@@ -166,7 +169,12 @@ class DockerManager:
             file_args.extend(['-f', str(overlay.relative_to(self.root_dir))])
         return file_args
 
-    def execute_compose_command(self, args: List[str], use_env_file: bool = True) -> int:
+    def execute_compose_command(
+        self,
+        args: List[str],
+        use_env_file: bool = True,
+        project_name: Optional[str] = None,
+    ) -> int:
         """
         Execute a docker compose command with proper error handling.
         Builds and runs a compose command (descended from the legacy
@@ -185,8 +193,12 @@ class DockerManager:
         full_cmd = compose_cmd.copy()
 
         # Add project name to ensure consistency with PROJECT_NAME from .env
-        project_name = self.config_parser.get_project_name()
-        full_cmd.extend(['-p', project_name])
+        resolved_project_name = (
+            project_name
+            or self.project_name_override
+            or self.config_parser.get_project_name()
+        )
+        full_cmd.extend(['-p', resolved_project_name])
 
         # Add --env-file if .env exists and use_env_file is True
         if use_env_file and self.config_parser.env_file_exists():
@@ -363,7 +375,7 @@ class DockerManager:
 
         Returns True if every step succeeded.
         """
-        project_name = self.config_parser.get_project_name()
+        project_name = self.project_name_override or self.config_parser.get_project_name()
         all_successful = True
 
         self._on_command("    - Stopping and removing containers...")
@@ -404,11 +416,14 @@ class DockerManager:
 
         Returns True if every step succeeded.
         """
-        project_name = self.config_parser.get_project_name()
+        project_name = self.project_name_override or self.config_parser.get_project_name()
         all_successful = True
         
         print("    - Stopping containers and removing volumes...")
-        result = self.execute_compose_command(['down', '--volumes', '--remove-orphans'])
+        result = self.execute_compose_command(
+            ['down', '--volumes', '--remove-orphans'],
+            project_name=project_name,
+        )
         if result != 0:
             all_successful = False
             
@@ -467,7 +482,7 @@ class DockerManager:
         """
         try:
             cmd = self.get_compose_command()
-            project_name = self.config_parser.get_project_name()
+            project_name = self.project_name_override or self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
                 cmd.append(f'--env-file={self.config_parser.env_file_path}')
@@ -503,7 +518,7 @@ class DockerManager:
         """
         try:
             cmd = self.get_compose_command()
-            project_name = self.config_parser.get_project_name()
+            project_name = self.project_name_override or self.config_parser.get_project_name()
             cmd.extend(['-p', project_name])
             if self.config_parser.env_file_exists():
                 cmd.append(f'--env-file={self.config_parser.env_file_path}')
@@ -529,6 +544,118 @@ class DockerManager:
             return ""
         except (subprocess.SubprocessError, OSError):
             return ""
+
+    def failed_one_shot_services(
+        self,
+        services: list[str],
+        *,
+        timeout_seconds: float = 60.0,
+        poll_interval_seconds: float = 2.0,
+    ) -> list[tuple[str, str]]:
+        """Return enabled one-shot services that fail or never finish."""
+        failures: list[tuple[str, str]] = []
+        if not services:
+            return failures
+
+        pending = set(services)
+        last_reason = {service: "container not observed yet" for service in services}
+        deadline = time.monotonic() + timeout_seconds
+
+        while pending:
+            for service in list(pending):
+                rows, error = self._compose_ps_json(service)
+                if error is not None:
+                    failures.append((service, error))
+                    pending.remove(service)
+                    continue
+
+                if not rows:
+                    last_reason[service] = "container not observed yet"
+                    continue
+
+                all_exited_zero = True
+                for row in rows:
+                    exit_code = str(row.get("ExitCode", "")).strip()
+                    state = str(row.get("State", "")).strip().lower()
+                    status = str(row.get("Status", "")).strip()
+                    status_lower = status.lower()
+
+                    if exit_code and exit_code not in {"0", "<nil>", "None"}:
+                        failures.append((service, f"exit {exit_code}: {status or state or 'exited'}"))
+                        pending.remove(service)
+                        all_exited_zero = False
+                        break
+                    if state == "exited":
+                        if exit_code == "0" or "exit 0" in status_lower or "exited (0)" in status_lower:
+                            continue
+                        failures.append((service, status or state))
+                        pending.remove(service)
+                        all_exited_zero = False
+                        break
+
+                    all_exited_zero = False
+                    last_reason[service] = status or state or "not exited yet"
+
+                if service in pending and all_exited_zero:
+                    pending.remove(service)
+
+            if not pending:
+                return failures
+            if time.monotonic() >= deadline:
+                for service in sorted(pending):
+                    failures.append(
+                        (service, f"timed out waiting for terminal state ({last_reason[service]})")
+                    )
+                return failures
+            time.sleep(min(poll_interval_seconds, max(0.0, deadline - time.monotonic())))
+
+        return failures
+
+    def _compose_ps_json(self, service: str) -> tuple[list[dict], str | None]:
+        """Inspect one compose service via ``docker compose ps --format json``."""
+        try:
+            cmd = self.get_compose_command()
+            project_name = self.project_name_override or self.config_parser.get_project_name()
+            cmd.extend(['-p', project_name])
+            if self.config_parser.env_file_exists():
+                cmd.append(f'--env-file={self.config_parser.env_file_path}')
+            cmd.extend(self._compose_file_args())
+            cmd.extend(['ps', '-a', '--format', 'json', service])
+            result = subprocess.run(
+                cmd,
+                cwd=str(self.root_dir),
+                capture_output=True,
+                text=True,
+                check=False,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+            )
+        except (subprocess.SubprocessError, OSError, ValueError) as exc:
+            return [], f"could not inspect container: {exc}"
+
+        if result.returncode != 0:
+            return [], result.stderr.strip() or "docker compose ps failed"
+
+        rows: list[dict] = []
+        payload = result.stdout.strip()
+        if not payload:
+            return rows, None
+        try:
+            parsed = json.loads(payload)
+            rows = parsed if isinstance(parsed, list) else [parsed]
+        except json.JSONDecodeError:
+            for line in payload.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+        return rows, None
     
     def show_container_logs(self, follow: bool = True) -> int:
         """
@@ -573,7 +700,7 @@ class DockerManager:
         full_cmd = self.detect_docker_compose_command().split()
         if top_level_flags:
             full_cmd.extend(top_level_flags)
-        project_name = self.config_parser.get_project_name()
+        project_name = self.project_name_override or self.config_parser.get_project_name()
         full_cmd.extend(['-p', project_name])
         if use_env_file and self.config_parser.env_file_exists():
             # Use the resolved path (honors ATLAS_ENV_FILE) — hardcoding .env

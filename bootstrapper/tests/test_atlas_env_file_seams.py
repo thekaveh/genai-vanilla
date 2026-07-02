@@ -56,6 +56,42 @@ def test_build_compose_command_default_env_file_is_root_anchored(monkeypatch):
     assert expected in cmd
 
 
+def test_streaming_compose_command_honors_project_override(tmp_path, monkeypatch):
+    env = _custom_env(tmp_path, monkeypatch)
+    dm = DockerManager()
+    monkeypatch.setattr(dm, "detect_docker_compose_command", lambda: "docker compose")
+    dm.project_name_override = "customproj"
+
+    cmd = dm._build_compose_command(["down"])
+
+    assert cmd[cmd.index("-p") + 1] == "customproj"
+    assert f"--env-file={env}" in cmd
+
+
+def test_get_service_port_honors_project_override(tmp_path, monkeypatch):
+    env = _custom_env(tmp_path, monkeypatch)
+    dm = DockerManager()
+    dm.project_name_override = "customproj"
+    seen = {}
+
+    class Result:
+        returncode = 0
+        stdout = "0.0.0.0:63080\n"
+        stderr = ""
+
+    monkeypatch.setattr(dm, "detect_docker_compose_command", lambda: "docker compose")
+
+    def fake_run(cmd, **_kwargs):
+        seen["cmd"] = cmd
+        return Result()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    assert dm.get_service_port("backend", "8000") == "63080"
+    assert seen["cmd"][seen["cmd"].index("-p") + 1] == "customproj"
+    assert f"--env-file={env}" in seen["cmd"]
+
+
 def test_key_generator_targets_custom_env_file(tmp_path, monkeypatch):
     env = _custom_env(tmp_path, monkeypatch)
     kg = KeyGenerator()

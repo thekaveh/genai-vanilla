@@ -82,7 +82,8 @@ jobs:
         # import closure is needed — NOT the full requirements.txt
         # (which build-validation already pip-installs in Docker).
         run: |
-          uv venv .ci-venv
+          BACKEND_TEST_VENV="${RUNNER_TEMP:-$PWD}/backend-ci-venv"
+          uv venv "$BACKEND_TEST_VENV"
           # Pins mirror services/backend/app/app/requirements.txt's floors.
           # If you bump a floor there, bump it here too — the inline list
           # does NOT read requirements.txt (per
@@ -92,17 +93,17 @@ jobs:
           # pytest-asyncio omitted intentionally — backend tests in
           # services/backend/app/app/tests/ contain no asyncio markers
           # (Ray client + routes are tested with httpx + sync stubs).
-          VIRTUAL_ENV=$PWD/.ci-venv uv pip install \
-            'pytest>=9.1.0' \
+          VIRTUAL_ENV="$BACKEND_TEST_VENV" uv pip install \
+            'pytest>=9.1.1' \
             'fastapi>=0.110.0,<0.137' \
             'httpx>=0.27.0' \
             'pydantic>=2.6.0' \
-            'asyncpg>=0.29.0' \
+            'asyncpg>=0.31.0' \
             'storage3>=0.7.0' \
             'prometheus-fastapi-instrumentator>=7.0.0' \
             'python-multipart>=0.0.9' \
             'pyyaml>=6.0'
-          .ci-venv/bin/python -m pytest tests/ -q
+          "$BACKEND_TEST_VENV/bin/python" -m pytest tests/ -q
 
   compose-equivalence:
     name: Compose merge + byte-equivalence + source-permutation matrix

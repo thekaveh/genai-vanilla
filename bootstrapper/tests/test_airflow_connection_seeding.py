@@ -137,10 +137,22 @@ def test_init_script_re_applies_airflow_db_password():
     # Anchored at line start: the ALTER must run UNCONDITIONALLY (not
     # inside the ||-guarded CREATE branch) or rotations stop applying.
     import re as _re
-    assert _re.search(r"(?m)^printf \"ALTER ROLE %s WITH PASSWORD :'pw'", body), (
+    assert _re.search(r"(?m)^printf \"ALTER ROLE :\\\"role\\\" WITH PASSWORD :'pw'", body), (
         "init-airflow.sh must ALTER ROLE the airflow role's password every "
         "run; without this, AIRFLOW_DB_PASSWORD rotations don't take effect."
     )
+
+
+def test_init_script_quotes_configurable_airflow_db_role():
+    """AIRFLOW_DB_USER is configurable, so role use must be quoted by psql."""
+    body = SCRIPT.read_text(encoding="utf-8")
+    assert "rolname = :'role'" in body
+    assert r'CREATE ROLE :\"role\"' in body
+    assert r'ALTER ROLE :\"role\"' in body
+    assert r'GRANT ALL PRIVILEGES ON DATABASE airflow TO :\"role\"' in body
+    assert r'ALTER DATABASE airflow OWNER TO :\"role\"' in body
+    assert "-v role=\"${AIRFLOW_DB_USER}\"" in body
+    assert "rolname='${AIRFLOW_DB_USER}'" not in body
 
 
 def test_init_script_orphan_cleanup_pass_present():

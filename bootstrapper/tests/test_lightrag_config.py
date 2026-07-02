@@ -2,9 +2,16 @@
 """Tests for _generate_lightrag_config()."""
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from services.service_config import ServiceConfig
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 _BASE_ENV = {
@@ -63,3 +70,23 @@ def test_init_waits_for_postgres_before_pgvector_migration():
     assert poll_at < migrate_at, (
         "the Postgres readiness poll must come BEFORE the pgvector migration"
     )
+
+
+def test_resolve_models_fails_when_chat_model_cannot_be_resolved(monkeypatch, capsys):
+    """lightrag-init must not write LLM_MODEL= and exit 0 on a bad model list."""
+    script = REPO_ROOT / "services/lightrag/init/scripts/resolve-models.py"
+    spec = importlib.util.spec_from_file_location("lightrag_resolve_models", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.delenv("LIGHTRAG_LLM_MODEL", raising=False)
+    monkeypatch.delenv("LITELLM_DEFAULT_MODEL", raising=False)
+    monkeypatch.setenv("LITELLM_EMBEDDING_MODEL", "ollama/nomic-embed-text")
+    monkeypatch.setattr(module, "fetch_models", lambda: [])
+
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+
+    assert exc.value.code == 1
+    assert "could not resolve a chat model" in capsys.readouterr().err

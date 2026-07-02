@@ -166,6 +166,41 @@ class TestGeneratorWritesFiles:
         cols = tsv.split("\t")
         assert cols[3] == url
 
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("name", "Bad\tName"),
+            ("name", "Bad\nName"),
+            ("filename", "../escape.safetensors"),
+            ("filename", "nested/escape.safetensors"),
+            ("filename", "nested\\escape.safetensors"),
+            ("download_url", "https://example.test/model\nother"),
+            ("sha256", "abc\tdef"),
+        ],
+    )
+    def test_tsv_rejects_unsafe_fields(self, tmp_path, monkeypatch, field, value):
+        """TSV fields must not shift columns or write outside the model dir."""
+        kwargs = {}
+        name = "SafeName"
+        sha256 = "deadbeef"
+        url = "https://huggingface.co/example/model.safetensors"
+        if field == "name":
+            name = value
+        elif field == "filename":
+            kwargs["filename"] = value
+        elif field == "download_url":
+            url = value
+        elif field == "sha256":
+            sha256 = value
+        catalog = [_entry(name, url=url, sha256=sha256, **kwargs)]
+        env = {"COMFYUI_SOURCE": "container", "COMFYUI_USER_MODELS": name}
+
+        import utils.comfyui_resolver as resolver
+        monkeypatch.setattr(resolver, "active_comfyui_models", lambda e, **kw: catalog)
+
+        with pytest.raises(ValueError):
+            ComfyUIManifestGenerator(env).write(tmp_path)
+
     def test_empty_catalog_produces_empty_tsv(self, tmp_path, monkeypatch):
         """Empty active set → empty TSV (zero bytes → download_models.sh exits 0)."""
         env = {"COMFYUI_SOURCE": "container", "COMFYUI_USER_MODELS": ""}

@@ -406,6 +406,25 @@ class KeyGenerator:
         """Generic infrastructure-credential generator. URL-safe, CLI-safe."""
         return _cli_safe_token_urlsafe(nbytes)
 
+    def _project_volume_exists(self, suffixes: set[str]) -> bool:
+        """Best-effort: True when any candidate project-scoped volume exists."""
+        project = (self.get_current_env_value("PROJECT_NAME") or "").strip()
+        if not project:
+            return False
+        candidates = {f"{project}{suffix}" for suffix in suffixes}
+        try:
+            import subprocess  # local import: keep module import surface small
+            result = subprocess.run(
+                ["docker", "volume", "ls", "--format", "{{.Name}}"],
+                capture_output=True, text=True, timeout=10, check=False,
+            )
+            if result.returncode != 0:
+                return False
+            names = {ln.strip() for ln in result.stdout.splitlines() if ln.strip()}
+            return bool(candidates & names)
+        except Exception:
+            return False
+
     def _supabase_db_volume_exists(self) -> bool:
         """Best-effort: True when THIS project's Postgres data volume already
         exists.
@@ -422,33 +441,24 @@ class KeyGenerator:
         uncertainty — no PROJECT_NAME, docker missing/not running, non-zero
         exit, timeout — so a genuine first run is never blocked from rotating.
         """
-        project = (self.get_current_env_value("PROJECT_NAME") or "").strip()
-        if not project:
-            return False
-        candidates = {
-            f"{project}_supabase-db-data",
-            f"{project}-supabase-db-data",
-        }
-        try:
-            import subprocess  # local import: keep module import surface small
-            result = subprocess.run(
-                ["docker", "volume", "ls", "--format", "{{.Name}}"],
-                capture_output=True, text=True, timeout=10, check=False,
-            )
-            if result.returncode != 0:
-                return False
-            names = {ln.strip() for ln in result.stdout.splitlines() if ln.strip()}
-            return bool(candidates & names)
-        except Exception:
-            return False
+        return self._project_volume_exists({"_supabase-db-data", "-supabase-db-data"})
 
-    def _warn_db_password_locked(self, var_name: str) -> None:
+    def _neo4j_db_volume_exists(self) -> bool:
+        """Best-effort: True when THIS project's Neo4j data volume exists.
+
+        Neo4j applies `NEO4J_AUTH` on first boot. If the graph data volume
+        already exists, rotating `GRAPH_DB_PASSWORD` in `.env` would desync
+        clients from the persisted database password.
+        """
+        return self._project_volume_exists({"_graph-db-data", "-graph-db-data"})
+
+    def _warn_db_password_locked(self, var_name: str, service_name: str) -> None:
         """Warn that a placeholder DB password can't be safely rotated because
         the data volume (which baked the role password at initdb) already
         exists."""
         project = (self.get_current_env_value("PROJECT_NAME") or "").strip()
         print(
-            f"⚠ {var_name} is still the placeholder, but the Postgres data volume "
+            f"⚠ {var_name} is still the placeholder, but the {service_name} data volume "
             f"for project '{project}' already exists.\n"
             f"   The DB role password was baked into that volume at initdb and cannot "
             f"be changed by rewriting .env, so rotation is skipped.\n"
@@ -471,7 +481,7 @@ class KeyGenerator:
         if not force and not self._is_placeholder_or_empty('SUPABASE_DB_PASSWORD'):
             return True
         if not force and self._supabase_db_volume_exists():
-            self._warn_db_password_locked('SUPABASE_DB_PASSWORD')
+            self._warn_db_password_locked('SUPABASE_DB_PASSWORD', 'Postgres')
             return True
         return self.update_env_key('SUPABASE_DB_PASSWORD', self.generate_password())
 
@@ -483,7 +493,7 @@ class KeyGenerator:
         if not force and not self._is_placeholder_or_empty('SUPABASE_DB_APP_PASSWORD'):
             return True
         if not force and self._supabase_db_volume_exists():
-            self._warn_db_password_locked('SUPABASE_DB_APP_PASSWORD')
+            self._warn_db_password_locked('SUPABASE_DB_APP_PASSWORD', 'Postgres')
             return True
         return self.update_env_key('SUPABASE_DB_APP_PASSWORD', self.generate_password())
 
@@ -496,6 +506,9 @@ class KeyGenerator:
         initialises requires `ALTER USER ... SET PASSWORD` in cypher-shell.
         """
         if not force and not self._is_placeholder_or_empty('GRAPH_DB_PASSWORD'):
+            return True
+        if not force and self._neo4j_db_volume_exists():
+            self._warn_db_password_locked('GRAPH_DB_PASSWORD', 'Neo4j')
             return True
         new_pw = self.generate_password()
         if not self.update_env_key('GRAPH_DB_PASSWORD', new_pw):

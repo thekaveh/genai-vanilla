@@ -99,6 +99,32 @@ class ComfyUIManifestGenerator:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _safe_tsv_field(row: dict[str, Any], key: str) -> str:
+        value = str(row[key])
+        if "\t" in value or "\n" in value or "\r" in value:
+            raise ValueError(
+                f"ComfyUI model field {key!r} for {row.get('name', '<unknown>')!r} "
+                "contains a tab or newline; cannot write active-models.tsv safely."
+            )
+        return value
+
+    @staticmethod
+    def _safe_filename(row: dict[str, Any]) -> str:
+        filename = ComfyUIManifestGenerator._safe_tsv_field(row, "filename")
+        if (
+            not filename
+            or filename != os.path.basename(filename)
+            or filename in {".", ".."}
+            or "/" in filename
+            or "\\" in filename
+        ):
+            raise ValueError(
+                f"ComfyUI model filename for {row.get('name', '<unknown>')!r} "
+                f"must be a plain basename, got {filename!r}."
+            )
+        return filename
+
+    @staticmethod
     def _row_tsv(row: dict[str, Any]) -> str:
         """Format a manifest-dict row as a single TSV line.
 
@@ -107,11 +133,16 @@ class ComfyUIManifestGenerator:
         ``COALESCE(sha256, '')`` pattern used by the former psql query.
         """
         sha = row.get("sha256") or ""  # None → ""
+        if "\t" in str(sha) or "\n" in str(sha) or "\r" in str(sha):
+            raise ValueError(
+                f"ComfyUI model sha256 for {row.get('name', '<unknown>')!r} "
+                "contains a tab or newline; cannot write active-models.tsv safely."
+            )
         return "\t".join([
-            str(row["name"]),
-            str(row["type"]),
-            str(row["filename"]),
-            str(row["download_url"]),
+            ComfyUIManifestGenerator._safe_tsv_field(row, "name"),
+            ComfyUIManifestGenerator._safe_tsv_field(row, "type"),
+            ComfyUIManifestGenerator._safe_filename(row),
+            ComfyUIManifestGenerator._safe_tsv_field(row, "download_url"),
             str(sha),
         ])
 

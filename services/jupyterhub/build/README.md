@@ -154,11 +154,11 @@ with driver.session() as session:
 
 ```python
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 engine = create_engine(os.getenv("DATABASE_URL"))
 with engine.connect() as conn:
-    result = conn.execute("SELECT version()")
+    result = conn.execute(text("SELECT version()"))
     print(result.fetchone())
 ```
 

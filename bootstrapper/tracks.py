@@ -29,6 +29,7 @@ __all__ = [
     "load_tracks",
     "compute_always_on",
     "is_in_track",
+    "synthesize_track_source_args",
     "normalize_service_key",
     "format_track_list",
 ]
@@ -299,6 +300,40 @@ def is_in_track(
     if track.services is None:
         return True
     return normalized in track.services
+
+
+def synthesize_track_source_args(
+    source_args: dict[str, str | None],
+    *,
+    track_key: str | None,
+    registry: TrackRegistry,
+    force_disable: bool,
+) -> set[str]:
+    """Apply track membership to Click-style ``*_source`` argument dicts.
+
+    Returns the off-track services that the user explicitly overrode. When
+    ``force_disable`` is true, off-track services without an explicit value are
+    filled with ``"disabled"``. Wizard mode passes ``force_disable=False`` so
+    it can record overrides without making source_args look CLI-configured.
+    """
+    overridden_services: set[str] = set()
+    if track_key is None:
+        return overridden_services
+    track = registry.by_key.get(track_key)
+    if track is None or track.services is None:
+        return overridden_services
+    for cli_key in list(source_args.keys()):
+        if cli_key.startswith("cloud_"):
+            continue
+        svc_key = cli_key.removesuffix("_source").replace("_", "-")
+        if is_in_track(track, svc_key, always_on=registry.always_on):
+            continue
+        explicit_value = source_args.get(cli_key)
+        if explicit_value is not None and explicit_value != "disabled":
+            overridden_services.add(svc_key)
+        elif explicit_value is None and force_disable:
+            source_args[cli_key] = "disabled"
+    return overridden_services
 
 
 # ────────────────────────────────────────────────────────────────────

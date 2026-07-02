@@ -74,7 +74,7 @@ sources_consulted:
 
 - **pg_cron + pg_net extensions** — Why pursue: enables scheduled jobs and outbound HTTP from inside Postgres (database webhooks to Hermes/n8n/Edge Functions); `01-extensions.sql` only enables vector/postgis/pgcrypto. Effort: small.
 - **Database Webhooks** — Why pursue: lets row-level changes trigger LiteLLM calls or n8n flows without a polling worker; depends on pg_net. Effort: small.
-- **Row Level Security policies** — Why pursue: README documents `anon`/`authenticated`/`service_role` roles but no policies are defined in `06-permissions.sql`; PostgREST today leaks across users. Effort: medium.
+- **RLS gaps** — Why pursue: research tables have user/service policies and memory is service-role scoped, but `public.users` and ComfyUI tables still need table-specific RLS before broad PostgREST exposure. Effort: medium.
 - **GoTrue OAuth providers (Google, GitHub)** — Why pursue: stack ships with email-only login; SSO is a near-zero-code add via `GOTRUE_EXTERNAL_*` envs. Effort: small.
 - **pg_graphql endpoint** — Why pursue: README mentions "GraphQL endpoint available" but Kong has no route and no consumer; would give n8n/backend a typed schema. Effort: small.
 - **Realtime broadcast + presence channels** — Why pursue: `supabase-realtime` runs but nothing subscribes; broadcast channels would let backend push job-status updates to open-webui without polling. Effort: medium.
