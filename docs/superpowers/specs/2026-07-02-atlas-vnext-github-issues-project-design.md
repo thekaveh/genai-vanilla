@@ -7,7 +7,7 @@ Turn the Atlas vNext strategy report into a durable GitHub planning system so th
 The GitHub system should:
 
 - Create one actionable GitHub issue per Build Now work item.
-- Create epic issues for the larger themes named by the user: Atlas Root Dashboard, MCP Package, Observability, Ingestion, and Async Jobs.
+- Create epic issues for the larger themes named by the user and the downstream lakehouse handoff: Atlas Root Dashboard, MCP Package, Observability, Ingestion, Async Jobs, and Data Engineering Lakehouse Enablement.
 - Capture Build Next, Build Later, watchlist, and deferred/rejected candidates as backlog or decision issues so they remain searchable and intentionally triaged.
 - Use a GitHub Project as the prioritization board over the issues.
 - Keep the active working surface focused on Build Now while preserving every vNext candidate, watchlist item, and explicit defer/reject decision from the report.
@@ -51,7 +51,7 @@ Suggested Project fields:
 | --- | --- | --- |
 | Status | Single select | `Build Now`, `Ready`, `Backlog`, `Watchlist`, `Deferred`, `Rejected For Now`, `Blocked`, `Done` |
 | Wave | Single select | `Build Now`, `Build Next`, `Build Later`, `Watchlist`, `Deferred`, `Rejected For Now`, `Already Shipped` |
-| Track | Single select | `platform`, `mcp`, `observability`, `rag`, `async-jobs`, `data-ml`, `identity-security`, `creative-3d`, `trading`, `voice`, `infra`, `decision` |
+| Track | Single select | `platform`, `mcp`, `observability`, `rag`, `async-jobs`, `data-eng`, `data-ml`, `identity-security`, `creative-3d`, `trading`, `voice`, `infra`, `decision` |
 | Effort | Single select | `small`, `medium`, `large`, `unknown` |
 | Risk | Single select | `low`, `medium`, `high`, `unknown` |
 | Priority | Single select | `P0`, `P1`, `P2`, `P3` |
@@ -99,6 +99,7 @@ Track labels:
 - `track:observability`
 - `track:rag`
 - `track:async-jobs`
+- `track:data-eng`
 - `track:data-ml`
 - `track:identity-security`
 - `track:creative-3d`
@@ -128,6 +129,8 @@ Recommended extra labels:
 - `epic:observability`
 - `epic:ingestion`
 - `epic:async-jobs`
+- `epic:lakehouse`
+- `source:data-eng-lab`
 
 ## 5. Standard Issue Body Template
 
@@ -160,6 +163,22 @@ Use this structure for implementation, evaluation, and watchlist issues:
 ## Dependencies
 
 - <Existing Atlas service or prerequisite issue>
+
+## Service Admission Contract
+
+Complete this section for every issue that adds a new service, changes a service's runtime role, or materially changes how a service participates in Atlas' graph.
+
+- Service category: `infra`, `data`, `llm`, `media`, `agents`, or `apps`
+- Track membership: existing track keys and any proposed new track key
+- SOURCE values: user-selectable values, default value, and whether a CLI flag is required
+- Setup wizard: where the prompt appears, prompt copy, option copy, and track-skip behavior
+- Port/topology: `bootstrapper/services/topology.py` row, port slot, aliases, and internal-only ports
+- Kong exposure: route alias, direct port, internal-only posture, or no route
+- Upstream dependencies: required and optional services this service calls
+- Downstream consumers: services expected to call or link to this service
+- Manifest/data-flow: `services/<name>/service.yml`, `runtime_sc`, `runtime_deps`, and `data_flow.calls`
+- Docs/diagrams: service README, regenerated Dependencies & Integrations section, `architecture.svg`, and `architecture.html`
+- Validation: manifest lint, docs drift, compose/source-dependency checks, route checks, and targeted tests
 
 ## Acceptance Criteria
 
@@ -267,6 +286,22 @@ Acceptance criteria:
 - [ ] Epic explains that Atlas should establish one backend async-job pattern before adding alternate server-side execution surfaces.
 - [ ] Epic identifies Redis and backend code sharing as required prerequisites.
 
+### 6.6 Epic: Data Engineering Lakehouse Enablement
+
+- **Labels:** `vnext`, `type:epic`, `track:data-eng`, `track:data-ml`, `risk:medium`, `effort:large`, `epic:lakehouse`, `wave:build-now`, `source:data-eng-lab`
+- **Project:** Status `Build Now`, Wave `Build Now`, Track `data-eng`, Priority `P0`
+- **Source:** [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), [Build Later](../../strategy/atlas-vnext-strategy-report.md#93-build-later), local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md`
+
+Acceptance criteria:
+
+- [ ] Child issues exist for A1 through A8 from the `data-eng-lab` handoff.
+- [ ] A1 and A2 are active Build Now issues because they are the lakehouse critical path.
+- [ ] A3, A4, A6, and A8 are backlog/ready issues that depend on A1/A2.
+- [ ] A5 remains backlog because Jenkins is useful but not required for the lakehouse runtime core.
+- [ ] A7 is captured as the Trino watchlist issue and explicitly depends on A1-A6.
+- [ ] Epic body states that Atlas owns reusable infrastructure, while `data-eng-lab` owns project notebooks, DAGs, Scala apps, datasets, and job definitions.
+- [ ] Epic body requires every new service child issue to complete the Service Admission Contract.
+
 ## 7. Build Now Implementation Issues
 
 ### 7.1 Build Now: Atlas Root Dashboard
@@ -370,6 +405,64 @@ Acceptance criteria:
 - [ ] Extracted text preserves document provenance for RAG audit.
 - [ ] Tests cover fallback selection without regressing the Docling-first path.
 
+### 7.8 Build Now: Iceberg REST Catalog And Lakehouse Buckets
+
+- **Labels:** `vnext`, `enhancement`, `type:implementation`, `wave:build-now`, `track:data-eng`, `track:data-ml`, `risk:medium`, `effort:medium`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A1
+
+Service Admission Contract:
+
+- Service category: `data`
+- Track membership: `data-eng`; consider `ml-eng` only after notebook examples prove broader ML reuse
+- SOURCE values: `ICEBERG_REST_SOURCE=container|disabled`, default `disabled`; expose `--iceberg-rest-source`
+- Setup wizard: prompt in the `data-eng` track with copy that explains it enables shared Iceberg tables over MinIO
+- Port/topology: add an `iceberg-rest` topology row with `ICEBERG_REST_PORT` assigned by the slot allocator; internal service port `8181`
+- Kong exposure: prefer internal-only first; add a Kong route only if the dashboard or operators need browser/API access
+- Upstream dependencies: MinIO, `minio-init`, Supabase Postgres if JDBC-backed
+- Downstream consumers: Spark Connect, Zeppelin, JupyterHub, Airflow, future Trino, future DuckDB/PyIceberg notebooks
+- Manifest/data-flow: new `services/iceberg-rest/service.yml`, `compose.yml`, runtime slices, dependencies, and `data_flow.calls` to MinIO and Supabase when JDBC-backed
+- Docs/diagrams: new service README plus regenerated diagrams and Dependencies & Integrations block
+- Validation: manifest tests, source validation, compose/source-dependency checks, docs regen, and a catalog `/v1/config` smoke check
+
+Acceptance criteria:
+
+- [ ] `iceberg-rest` service exists with Atlas-standard manifest, compose fragment, SOURCE toggle, env declarations, and docs.
+- [ ] Catalog persistence uses a Supabase Postgres-backed JDBC catalog unless implementation proves the pinned image cannot support it.
+- [ ] Required database, role, and password generation follow the Airflow/Supabase init pattern and key generator conventions.
+- [ ] MinIO provisioning creates `lakehouse`, `jars`, and `checkpoints` buckets idempotently with scoped service accounts where appropriate.
+- [ ] `curl http://iceberg-rest:8181/v1/config` from inside the network returns a valid catalog config.
+- [ ] Catalog metadata and tables survive a stack restart when JDBC-backed.
+- [ ] The service is included in the `data-eng` track only after topology, wizard, and source-skip behavior are defined.
+
+### 7.9 Build Now: Iceberg Spark Runtime And Default Catalog Config
+
+- **Labels:** `vnext`, `enhancement`, `type:implementation`, `wave:build-now`, `track:data-eng`, `track:data-ml`, `risk:medium`, `effort:medium`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A2
+
+Service Admission Contract:
+
+- Service category: existing `spark` service remains `data`
+- Track membership: existing `data-eng` and `ml-eng` Spark membership; Iceberg behavior is active only when the catalog is enabled/reachable
+- SOURCE values: no new Spark SOURCE value unless a separate `spark-lakehouse` variant proves necessary
+- Setup wizard: Spark prompt copy should mention Iceberg catalog support when `iceberg-rest` is selected in `data-eng`
+- Port/topology: no new Spark port unless Spark Connect exposure changes; preserve current internal Spark Connect posture
+- Kong exposure: none for the runtime jar itself
+- Upstream dependencies: `iceberg-rest`, MinIO, Spark Connect, Maven Central pinned artifacts
+- Downstream consumers: Zeppelin `%spark`, JupyterHub PySpark, Airflow SparkSubmitOperator, future Trino/DuckDB examples
+- Manifest/data-flow: update Spark manifest/docs if the Spark service now calls `iceberg-rest`
+- Docs/diagrams: Spark README documents Iceberg catalog config and regenerated Dependencies & Integrations if `data_flow.calls` changes
+- Validation: SHA-512 verification for downloaded jars, Spark Connect SQL smoke tests, and docs drift checks
+
+Acceptance criteria:
+
+- [ ] Spark image bakes `org.apache.iceberg:iceberg-spark-runtime-4.1_2.13:1.11.0` or a newer verified compatible artifact with SHA-512 verification.
+- [ ] Spark image includes `iceberg-aws-bundle` when required for `S3FileIO`.
+- [ ] Spark Connect default config includes the `lakehouse` REST catalog pointed at `http://iceberg-rest:8181` and MinIO S3 path-style settings.
+- [ ] `spark.sql("SHOW NAMESPACES IN lakehouse")` works from Spark Connect when `iceberg-rest` is enabled.
+- [ ] `CREATE TABLE lakehouse.bronze.t (...) USING iceberg` writes metadata under the `lakehouse` bucket.
+- [ ] Iceberg extension SQL such as `MERGE INTO`, `CALL lakehouse.system.rewrite_data_files`, or time travel is verified or explicitly documented as unsupported by the pinned runtime.
+- [ ] No manual `--packages` step is required from notebooks.
+
 ## 8. Build Next Backlog Issues
 
 ### 8.1 Build Next: SSO Pilot With Authentik First
@@ -470,6 +563,101 @@ Acceptance criteria:
 - [ ] A notebook shows export to Weaviate or MLflow.
 - [ ] SSO/permissions dependency is documented before broad multi-user usage.
 
+### 8.9 Build Next: Zeppelin Spark And Iceberg Interpreter Auto-Seeding
+
+- **Labels:** `vnext`, `type:implementation`, `wave:build-next`, `track:data-eng`, `risk:medium`, `effort:medium`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A3
+
+Service Admission Contract:
+
+- Service category: existing `zeppelin` service remains `apps`
+- Track membership: `data-eng`; existing Zeppelin membership remains unchanged
+- SOURCE values: no new Zeppelin SOURCE value expected; keep `ZEPPELIN_SOURCE=container|disabled`
+- Setup wizard: Zeppelin prompt/help text should mention zero-touch Spark Connect setup once shipped
+- Port/topology: no new ports
+- Kong exposure: unchanged `zeppelin.localhost`
+- Upstream dependencies: Spark Connect, MinIO, Iceberg REST catalog when enabled
+- Downstream consumers: browser Zeppelin users, VS Code Zeppelin extension users
+- Manifest/data-flow: update Zeppelin manifest/docs if it now calls `iceberg-rest`
+- Docs/diagrams: Zeppelin README no longer describes manual `spark.remote` setup as required for the happy path
+- Validation: fresh Zeppelin `%spark` notebook smoke test
+
+Acceptance criteria:
+
+- [ ] Fresh Zeppelin can run `%spark` Scala against `sc://spark-connect:15002` with no manual interpreter UI setup.
+- [ ] Interpreter config includes Iceberg catalog and S3A settings required for `SHOW NAMESPACES IN lakehouse`.
+- [ ] Implementation uses a stable Atlas-friendly mechanism: mounted interpreter config or an idempotent init step through the Zeppelin REST API.
+- [ ] Existing starter notebooks continue to work.
+- [ ] Docs explain the zero-touch path and the fallback/manual recovery path.
+
+### 8.10 Build Next: JupyterHub Lakehouse Python Libraries
+
+- **Labels:** `vnext`, `type:implementation`, `wave:build-next`, `track:data-eng`, `track:data-ml`, `risk:medium`, `effort:small`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A4
+
+Service Admission Contract:
+
+- Service category: existing `jupyterhub` service remains `apps`
+- Track membership: `data-eng`, `ml-eng`
+- SOURCE values: no new JupyterHub SOURCE value expected
+- Setup wizard: JupyterHub prompt/help text should mention PySpark/PyIceberg lakehouse support in data tracks
+- Port/topology: no new ports
+- Kong exposure: unchanged `jupyter.localhost`/JupyterHub route
+- Upstream dependencies: MinIO, Iceberg REST catalog, Spark Connect
+- Downstream consumers: notebooks, downstream labs that mount notebooks into Atlas
+- Manifest/data-flow: update JupyterHub manifest/docs if env now references `iceberg-rest`
+- Docs/diagrams: JupyterHub README documents `boto3`, `s3fs`, `pyiceberg`, `pyarrow`, and `duckdb` usage
+- Validation: import smoke test and catalog load smoke test
+
+Acceptance criteria:
+
+- [ ] JupyterHub image includes `boto3`, `s3fs`, `pyiceberg[s3fs]`, `pyarrow`, and `duckdb`.
+- [ ] Environment exposes MinIO endpoint/credentials and `ICEBERG_REST_URI=http://iceberg-rest:8181` when appropriate.
+- [ ] In a Jupyter kernel, `import boto3, s3fs, pyiceberg, duckdb` succeeds.
+- [ ] `pyiceberg.catalog.load_catalog("rest", **{"uri": ICEBERG_REST_URI})` can list namespaces when A1 is enabled.
+- [ ] Docs include a minimal PyIceberg/DuckDB example and validation command.
+
+### 8.11 Build Next: Airflow S3A SparkSubmitOperator Path
+
+- **Labels:** `vnext`, `type:implementation`, `wave:build-next`, `track:data-eng`, `risk:medium`, `effort:medium`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A6
+
+Service Admission Contract:
+
+- Service category: existing `airflow` service remains `agents`
+- Track membership: `data-eng`
+- SOURCE values: no new Airflow SOURCE value expected; keep `AIRFLOW_SOURCE=container|disabled`
+- Setup wizard: Airflow prompt/help text should mention SparkSubmit support when Spark and lakehouse services are enabled
+- Port/topology: no new Airflow ports
+- Kong exposure: unchanged `airflow.localhost`
+- Upstream dependencies: Spark master, Spark workers, MinIO, `jars` bucket, Iceberg REST catalog
+- Downstream consumers: DAGs and downstream labs that mount DAGs into Atlas
+- Manifest/data-flow: update Airflow manifest/docs if it now calls `iceberg-rest` or requires Spark jar submission wiring
+- Docs/diagrams: Airflow README documents cluster deploy versus client deploy choice
+- Validation: sample DAG or smoke DAG submits an S3A jar and records Spark History
+
+Acceptance criteria:
+
+- [ ] Decide and document the robust path: standalone cluster deploy mode or Airflow client mode with S3A jars baked into Airflow.
+- [ ] `SparkSubmitOperator` can submit an app JAR from `s3a://jars/...` to `spark://spark-master:7077`.
+- [ ] Submitted app can read from `landing` and write an Iceberg table under `lakehouse`.
+- [ ] Run appears in Spark History.
+- [ ] Airflow seeded connections or env are updated idempotently without breaking existing Spark/MinIO DAGs.
+
+### 8.12 Build Next: Data-Eng Track And Wizard Lakehouse Coverage
+
+- **Labels:** `vnext`, `type:implementation`, `wave:build-next`, `track:data-eng`, `risk:medium`, `effort:small`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A8
+
+Acceptance criteria:
+
+- [ ] `bootstrapper/tracks.yml` includes `iceberg-rest` in the `data-eng` track once A1 lands.
+- [ ] Jenkins and Trino are not made default active track members until their own issues land and defaults are approved.
+- [ ] Setup wizard presents every new data-eng service with clear option copy, default SOURCE values, and track-skip behavior.
+- [ ] `bootstrapper/start.py` exposes CLI flags for new source-configurable services.
+- [ ] Service categories and port slots are assigned through existing topology and manifest validation paths.
+- [ ] `./start.sh --track data-eng --no-tui` brings up the intended lakehouse-capable stack when required SOURCE flags are enabled.
+
 ## 9. Build Later Backlog Issues
 
 ### 9.1 Build Later: Graphiti Temporal Graph Memory
@@ -494,17 +682,33 @@ Acceptance criteria:
 - [ ] Document collection dimension and revectorization implications.
 - [ ] Do not silently change existing vector dimensions.
 
-### 9.3 Build Later: Iceberg + DuckDB With Lakekeeper Evaluation
+### 9.3 Build Later: Jenkins Maven Spark App Builder
 
-- **Labels:** `vnext`, `type:evaluation`, `wave:build-later`, `track:data-ml`, `risk:medium`, `effort:medium`
-- **Source:** [vNext Top 20](../../strategy/atlas-vnext-strategy-report.md#7-vnext-top-20), [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), [Build Later](../../strategy/atlas-vnext-strategy-report.md#93-build-later)
+- **Labels:** `vnext`, `type:implementation`, `wave:build-later`, `track:data-eng`, `risk:medium`, `effort:medium`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A5
+
+Service Admission Contract:
+
+- Service category: `apps`
+- Track membership: candidate for `data-eng`, but disabled by default
+- SOURCE values: `JENKINS_SOURCE=container|disabled`, default `disabled`; expose `--jenkins-source`
+- Setup wizard: prompt only in `data-eng` or explicit all-services mode; copy must state Atlas provides Jenkins server/JCasC seams, not project jobs
+- Port/topology: add `JENKINS_PORT` and agent port handling through topology/manifest conventions
+- Kong exposure: UI route only if auth posture is acceptable; otherwise direct/admin-only docs first
+- Upstream dependencies: MinIO for artifact publishing, optional Git provider access, optional Spark app repositories
+- Downstream consumers: Airflow DAGs and downstream labs that consume JARs from the `jars` bucket
+- Manifest/data-flow: new `services/jenkins/service.yml`, compose fragment, volume, credentials, and `data_flow.calls` to MinIO
+- Docs/diagrams: Jenkins README clarifies scope boundary between Atlas server and downstream job definitions
+- Validation: Jenkins startup smoke test and a Maven build/upload pipeline smoke path
 
 Acceptance criteria:
 
-- [ ] Create or document an `analytics` bucket over MinIO artifacts.
-- [ ] Provide one notebook that writes and reads Iceberg tables through DuckDB.
-- [ ] Evaluate Lakekeeper only if REST catalog write/concurrency needs are demonstrated.
-- [ ] Do not add Trino or Superset before this foundation has real datasets.
+- [ ] Jenkins service exists with Atlas-standard manifest, compose fragment, SOURCE toggle, env declarations, generated password, and docs.
+- [ ] Image uses a JDK 21-compatible Jenkins base with Maven and `mc` or equivalent MinIO upload tooling.
+- [ ] JCasC and default plugin set are documented and version-pinned where practical.
+- [ ] Jenkins UI is reachable only through the approved route/direct-port posture.
+- [ ] A pipeline can run `mvn -q package` and upload `target/*.jar` to `s3a://jars/<app>/<version>/app.jar` or the equivalent MinIO alias path.
+- [ ] Atlas does not bake `data-eng-lab` job definitions into the Jenkins service.
 
 ### 9.4 Build Later: OpenBB + CCXT Financial Research Kit
 
@@ -589,16 +793,31 @@ Acceptance criteria:
 - [ ] Do not add a second scheduler with unclear ownership.
 - [ ] Identify a concrete asset-lineage workflow first.
 
-### 10.6 Watchlist: Trino Multi-User SQL
+### 10.6 Watchlist: Trino Over Iceberg REST Catalog
 
-- **Labels:** `vnext`, `type:watchlist`, `wave:watchlist`, `track:data-ml`, `risk:medium`, `effort:medium`
-- **Source:** [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), [Watchlist](../../strategy/atlas-vnext-strategy-report.md#104-watchlist--already-shipped)
+- **Labels:** `vnext`, `type:watchlist`, `wave:watchlist`, `track:data-eng`, `track:data-ml`, `risk:medium`, `effort:medium`, `epic:lakehouse`, `source:data-eng-lab`
+- **Source:** [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), [Watchlist](../../strategy/atlas-vnext-strategy-report.md#104-watchlist--already-shipped), local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md` A7
+
+Service Admission Contract:
+
+- Service category: `data`
+- Track membership: candidate for `data-eng`; disabled by default until A1-A6 prove the lakehouse path
+- SOURCE values: `TRINO_SOURCE=container|disabled`, default `disabled`; expose `--trino-source` only when implemented
+- Setup wizard: prompt in `data-eng` only after the Iceberg REST catalog is available
+- Port/topology: add `TRINO_PORT` through topology/manifest conventions when implemented
+- Kong exposure: route only after auth/BI exposure posture is clear
+- Upstream dependencies: Iceberg REST catalog, MinIO, lakehouse bucket, optional Supabase-backed catalog metadata
+- Downstream consumers: BI tools, notebooks, future Superset
+- Manifest/data-flow: future `services/trino/service.yml`, catalog config, and `data_flow.calls` to Iceberg REST and MinIO
+- Docs/diagrams: Trino README must show the catalog config and cross-engine read path
+- Validation: `SELECT * FROM iceberg.gold.<mart>` can read rows written by Spark
 
 Acceptance criteria:
 
-- [ ] Revisit after Iceberg + DuckDB has real datasets.
-- [ ] Confirm multi-user SQL demand over object storage.
-- [ ] Define auth and catalog boundaries before adding.
+- [ ] Revisit after the Iceberg REST catalog and Spark lakehouse path have real datasets.
+- [ ] Confirm multi-user SQL demand over object storage and Iceberg tables.
+- [ ] Confirm A1-A6 lakehouse foundations are working before implementation.
+- [ ] Define auth, catalog, MinIO, and Kong exposure boundaries before adding.
 
 ### 10.7 Watchlist: Superset BI
 
@@ -640,7 +859,7 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- [ ] Revisit only if Iceberg + DuckDB proves catalog write/concurrency pressure.
+- [ ] Revisit only if the Iceberg REST catalog plus notebook/DuckDB usage proves catalog write/concurrency pressure.
 - [ ] Compare against the simplest possible local catalog path.
 - [ ] Do not add before MinIO analytics has real data.
 
@@ -803,13 +1022,13 @@ Acceptance criteria:
 
 Expected issue count:
 
-- 5 epic issues
-- 7 Build Now issues
-- 8 Build Next issues
+- 6 epic issues
+- 9 Build Now issues
+- 12 Build Next issues
 - 5 Build Later issues
 - 10 watchlist issues
 - 13 deferred/rejected/already-shipped decision issues
-- **48 total issues**
+- **55 total issues**
 
 ## 13. Verification
 
@@ -819,6 +1038,7 @@ Before considering the ticketing pass complete:
 - [ ] `gh project list --owner thekaveh --format json` shows `Atlas vNext Roadmap`.
 - [ ] `gh issue list --label vnext --limit 200` shows the expected issue count.
 - [ ] Each Build Now issue has a report link, acceptance criteria, and at least one epic label where applicable.
+- [ ] Every issue that adds a service or materially changes a service role includes a completed Service Admission Contract.
 - [ ] All Build Now issues are in Project status `Build Now`.
 - [ ] Deferred/rejected issues are not in `Build Now`.
 - [ ] `python scripts/check_doc_links.py` passes after this spec is committed.
@@ -826,5 +1046,5 @@ Before considering the ticketing pass complete:
 ## 14. Open Decisions
 
 - Whether to use GitHub's sub-issues UI if available for the repository, or rely on issue body links and labels for epic relationships.
-- Whether to create all 48 issues in one scripted pass or create epics plus Build Now manually first, then bulk-create the rest.
+- Whether to create all 55 issues in one scripted pass or create epics plus Build Now manually first, then bulk-create the rest.
 - Whether to keep the existing `LinguAI Kanban` project separate or migrate any relevant Atlas items from it later. The vNext board should be separate by default.

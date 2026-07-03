@@ -15,7 +15,7 @@
 - Project title: `Atlas vNext Roadmap`.
 - Source spec: `docs/superpowers/specs/2026-07-02-atlas-vnext-github-issues-project-design.md`.
 - Report source: `docs/strategy/atlas-vnext-strategy-report.md`.
-- Expected issue count: `48` issues with label `vnext`.
+- Expected issue count: `55` issues with label `vnext`.
 - Do not create active Build Now status for Build Next, Build Later, watchlist, deferred, rejected-for-now, or already-shipped issues.
 - Do not create a second Project if `Atlas vNext Roadmap` already exists; reuse it.
 - Do not delete or mutate unrelated GitHub Projects, labels, or issues.
@@ -135,6 +135,7 @@ track:mcp|5319e7|Model Context Protocol work
 track:observability|0052cc|Observability, tracing, logs, evals
 track:rag|0e8a16|RAG, GraphRAG, ingestion, retrieval
 track:async-jobs|fbca04|Async jobs and background workers
+track:data-eng|0e8a16|Data engineering and lakehouse work
 track:data-ml|006b75|Data and ML platform work
 track:identity-security|d29922|Identity, auth, secrets, security
 track:creative-3d|f9d0c4|Creative and 3D track work
@@ -155,6 +156,8 @@ epic:mcp|5319e7|Belongs to MCP Package epic
 epic:observability|0052cc|Belongs to Observability epic
 epic:ingestion|0e8a16|Belongs to Ingestion epic
 epic:async-jobs|fbca04|Belongs to Async Jobs epic
+epic:lakehouse|0e8a16|Belongs to Data Engineering Lakehouse epic
+source:data-eng-lab|5319e7|Derived from data-eng-lab enablement handoff
 LABELS
 ```
 
@@ -226,7 +229,7 @@ Run:
 
 ```bash
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Wave" --data-type SINGLE_SELECT --single-select-options "Build Now,Build Next,Build Later,Watchlist,Deferred,Rejected For Now,Already Shipped"
-gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Track" --data-type SINGLE_SELECT --single-select-options "platform,mcp,observability,rag,async-jobs,data-ml,identity-security,creative-3d,trading,voice,infra,decision"
+gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Track" --data-type SINGLE_SELECT --single-select-options "platform,mcp,observability,rag,async-jobs,data-eng,data-ml,identity-security,creative-3d,trading,voice,infra,decision"
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Effort" --data-type SINGLE_SELECT --single-select-options "small,medium,large,unknown"
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Risk" --data-type SINGLE_SELECT --single-select-options "low,medium,high,unknown"
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Priority" --data-type SINGLE_SELECT --single-select-options "P0,P1,P2,P3"
@@ -254,15 +257,15 @@ Expected:
 ## Task 4: Create Epic Issues
 
 **Files:**
-- Read: `docs/superpowers/specs/2026-07-02-atlas-vnext-github-issues-project-design.md` sections 6.1 through 6.5
+- Read: `docs/superpowers/specs/2026-07-02-atlas-vnext-github-issues-project-design.md` sections 6.1 through 6.6
 
 **Interfaces:**
 - Consumes: epic issue content from spec section 6.
-- Produces: 5 GitHub epic issues.
+- Produces: 6 GitHub epic issues.
 
 - [ ] **Step 1: Create temporary body files**
 
-Create one temporary Markdown body file under `/tmp/atlas-vnext-issues/` per epic. Each body must contain the exact source links and acceptance criteria from spec sections 6.1 through 6.5.
+Create one temporary Markdown body file under `/tmp/atlas-vnext-issues/` per epic. Each body must contain the exact source links and acceptance criteria from spec sections 6.1 through 6.6.
 
 Run:
 
@@ -284,6 +287,7 @@ gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "E
 gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Epic: Observability" --label "vnext,type:epic,track:observability,risk:medium,effort:medium,epic:observability,wave:build-now" --body-file /tmp/atlas-vnext-issues/epic-observability.md
 gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Epic: Ingestion" --label "vnext,type:epic,track:rag,risk:medium,effort:medium,epic:ingestion,wave:build-now" --body-file /tmp/atlas-vnext-issues/epic-ingestion.md
 gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Epic: Async Jobs" --label "vnext,type:epic,track:async-jobs,risk:medium,effort:small,epic:async-jobs,wave:build-now" --body-file /tmp/atlas-vnext-issues/epic-async-jobs.md
+gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Epic: Data Engineering Lakehouse Enablement" --label "vnext,type:epic,track:data-eng,track:data-ml,risk:medium,effort:large,epic:lakehouse,wave:build-now,source:data-eng-lab" --body-file /tmp/atlas-vnext-issues/epic-data-engineering-lakehouse-enablement.md
 ```
 
 Expected:
@@ -300,20 +304,20 @@ gh issue list --repo thekaveh/atlas --label "vnext" --label "type:epic" --state 
 
 Expected:
 
-- Exactly 5 open epic issues are shown.
+- Exactly 6 open epic issues are shown.
 
 ## Task 5: Create Build Now Issues
 
 **Files:**
-- Read: `docs/superpowers/specs/2026-07-02-atlas-vnext-github-issues-project-design.md` sections 7.1 through 7.7
+- Read: `docs/superpowers/specs/2026-07-02-atlas-vnext-github-issues-project-design.md` sections 7.1 through 7.9
 
 **Interfaces:**
 - Consumes: Build Now issue content from spec section 7.
-- Produces: 7 active implementation issues.
+- Produces: 9 active implementation issues.
 
 - [ ] **Step 1: Create temporary body files**
 
-Create one temporary Markdown body file under `/tmp/atlas-vnext-issues/` per Build Now issue. Each body must contain summary, source links, why, scope, out of scope, dependencies, acceptance criteria, and validation guidance drawn from spec sections 7.1 through 7.7.
+Create one temporary Markdown body file under `/tmp/atlas-vnext-issues/` per Build Now issue. Each body must contain summary, source links, why, scope, out of scope, dependencies, Service Admission Contract where applicable, acceptance criteria, and validation guidance drawn from spec sections 7.1 through 7.9.
 
 - [ ] **Step 2: Create each Build Now issue**
 
@@ -327,6 +331,8 @@ gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "B
 gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Build Now: Celery + Flower Worker Tier" --label "vnext,enhancement,type:implementation,wave:build-now,track:async-jobs,risk:medium,effort:small,epic:async-jobs" --body-file /tmp/atlas-vnext-issues/build-now-celery-flower-worker-tier.md
 gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Build Now: Supavisor Transaction Pooler" --label "vnext,enhancement,type:implementation,wave:build-now,track:infra,risk:medium,effort:medium" --body-file /tmp/atlas-vnext-issues/build-now-supavisor-transaction-pooler.md
 gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Build Now: Apache Tika Fallback Extractor" --label "vnext,enhancement,type:implementation,wave:build-now,track:rag,risk:medium,effort:small,epic:ingestion" --body-file /tmp/atlas-vnext-issues/build-now-apache-tika-fallback-extractor.md
+gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Build Now: Iceberg REST Catalog And Lakehouse Buckets" --label "vnext,enhancement,type:implementation,wave:build-now,track:data-eng,track:data-ml,risk:medium,effort:medium,epic:lakehouse,source:data-eng-lab" --body-file /tmp/atlas-vnext-issues/build-now-iceberg-rest-catalog-and-lakehouse-buckets.md
+gh issue create --repo thekaveh/atlas --project "Atlas vNext Roadmap" --title "Build Now: Iceberg Spark Runtime And Default Catalog Config" --label "vnext,enhancement,type:implementation,wave:build-now,track:data-eng,track:data-ml,risk:medium,effort:medium,epic:lakehouse,source:data-eng-lab" --body-file /tmp/atlas-vnext-issues/build-now-iceberg-spark-runtime-and-default-catalog-config.md
 ```
 
 Expected:
@@ -343,7 +349,7 @@ gh issue list --repo thekaveh/atlas --label "vnext" --label "wave:build-now" --s
 
 Expected:
 
-- 12 open issues are shown: 5 epics plus 7 Build Now implementation issues.
+- 15 open issues are shown: 6 epics plus 9 Build Now implementation issues.
 
 ## Task 6: Create Backlog, Watchlist, And Decision Issues
 
@@ -352,11 +358,11 @@ Expected:
 
 **Interfaces:**
 - Consumes: backlog/watchlist/decision issue content from spec sections 8 through 11.
-- Produces: 36 additional GitHub issues.
+- Produces: 40 additional GitHub issues.
 
 - [ ] **Step 1: Create Build Next issues**
 
-Create the 8 issues from spec sections 8.1 through 8.8, using each section title as the GitHub issue title and each section's labels. Add every issue to `Atlas vNext Roadmap`.
+Create the 12 issues from spec sections 8.1 through 8.12, using each section title as the GitHub issue title and each section's labels. Add every issue to `Atlas vNext Roadmap`.
 
 Expected titles:
 
@@ -368,14 +374,18 @@ Expected titles:
 - `Build Next: Neo4j LLM Knowledge Graph Builder`
 - `Build Next: Verba RAG UI`
 - `Build Next: Label Studio Review Loop`
+- `Build Next: Zeppelin Spark And Iceberg Interpreter Auto-Seeding`
+- `Build Next: JupyterHub Lakehouse Python Libraries`
+- `Build Next: Airflow S3A SparkSubmitOperator Path`
+- `Build Next: Data-Eng Track And Wizard Lakehouse Coverage`
 
 - [ ] **Step 2: Create Build Later issues**
 
-Create the 5 issues from spec sections 9.1 through 9.5, using each section title as the GitHub issue title and each section's labels. Add every issue to `Atlas vNext Roadmap`.
+Create the 5 issues from spec sections 9.1 through 9.5, using each section title as the GitHub issue title and each section's labels. Add every issue to `Atlas vNext Roadmap`. Section 9.3 is the Jenkins Maven Spark app builder issue from the `data-eng-lab` handoff; the old generic Iceberg/DuckDB issue is superseded by the lakehouse epic plus A1/A2.
 
 - [ ] **Step 3: Create Watchlist issues**
 
-Create the 10 issues from spec sections 10.1 through 10.10, using each section title as the GitHub issue title and each section's labels. Add every issue to `Atlas vNext Roadmap`.
+Create the 10 issues from spec sections 10.1 through 10.10, using each section title as the GitHub issue title and each section's labels. Add every issue to `Atlas vNext Roadmap`. Section 10.6 is the Trino-over-Iceberg REST watchlist issue from the `data-eng-lab` A7 request.
 
 - [ ] **Step 4: Create decision issues**
 
@@ -391,8 +401,8 @@ gh issue list --repo thekaveh/atlas --label "vnext" --state open --limit 100 --j
 
 Expected:
 
-- JSON contains 48 open issues if there were no pre-existing `vnext` issues.
-- If pre-existing `vnext` issues exist, compare titles against the expected 48 titles from the spec and report the difference.
+- JSON contains 55 open issues if there were no pre-existing `vnext` issues.
+- If pre-existing `vnext` issues exist, compare titles against the expected 55 titles from the spec and report the difference.
 
 ## Task 7: Populate Project Fields
 
@@ -425,7 +435,7 @@ gh project item-list "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --limit 100 
 
 Expected:
 
-- `/tmp/atlas-vnext-items.json` contains all 48 created issue items.
+- `/tmp/atlas-vnext-items.json` contains all 55 created issue items.
 
 - [ ] **Step 3: Set fields for Build Now and epics first**
 
@@ -490,7 +500,7 @@ gh issue list --repo thekaveh/atlas --label "vnext" --state open --limit 100 --j
 
 Expected:
 
-- `48`, unless pre-existing `vnext` issues were found and reported.
+- `55`, unless pre-existing `vnext` issues were found and reported.
 
 - [ ] **Step 3: Verify active wave count**
 
@@ -502,7 +512,7 @@ gh issue list --repo thekaveh/atlas --label "wave:build-now" --state open --limi
 
 Expected:
 
-- `12`.
+- `15`.
 
 - [ ] **Step 4: Verify Project membership**
 
@@ -514,7 +524,7 @@ gh project item-list "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --limit 100 
 
 Expected:
 
-- At least `48`; more is acceptable only if the Project had existing items.
+- At least `55`; more is acceptable only if the Project had existing items.
 
 - [ ] **Step 5: Commit plan file**
 
