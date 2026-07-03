@@ -39,7 +39,7 @@ Create one GitHub Project:
 
 Suggested views:
 
-- **Roadmap Board:** grouped by `Status`.
+- **Roadmap Board:** grouped by `Roadmap Status`.
 - **Wave Planning:** grouped by `Wave`.
 - **Track Planning:** grouped by `Track`.
 - **Risk Review:** grouped by `Risk`.
@@ -49,7 +49,7 @@ Suggested Project fields:
 
 | Field | Type | Values |
 | --- | --- | --- |
-| Status | Single select | `Build Now`, `Ready`, `Backlog`, `Watchlist`, `Deferred`, `Rejected For Now`, `Blocked`, `Done` |
+| Roadmap Status | Single select | `Build Now`, `Ready`, `Backlog`, `Watchlist`, `Deferred`, `Rejected For Now`, `Blocked`, `Done` |
 | Wave | Single select | `Build Now`, `Build Next`, `Build Later`, `Watchlist`, `Deferred`, `Rejected For Now`, `Already Shipped` |
 | Track | Single select | `platform`, `mcp`, `observability`, `rag`, `async-jobs`, `data-eng`, `data-ml`, `identity-security`, `creative-3d`, `trading`, `voice`, `infra`, `decision` |
 | Effort | Single select | `small`, `medium`, `large`, `unknown` |
@@ -60,14 +60,14 @@ Suggested Project fields:
 
 Initial Project status rules:
 
-- Epic issues: `Build Now`
-- Build Now implementation issues: `Build Now`
-- Build Next issues: `Backlog`
-- Build Later issues: `Backlog`
-- Watchlist issues: `Watchlist`
-- Deferred decisions: `Deferred`
-- Rejected-for-now decisions: `Rejected For Now`
-- Already-shipped notes: `Done` or omitted from the board unless an issue is needed for traceability
+- Epic issues: Roadmap Status `Build Now`
+- Build Now implementation issues: Roadmap Status `Build Now`
+- Build Next issues: Roadmap Status `Backlog`
+- Build Later issues: Roadmap Status `Backlog`
+- Watchlist issues: Roadmap Status `Watchlist`
+- Deferred decisions: Roadmap Status `Deferred`
+- Rejected-for-now decisions: Roadmap Status `Rejected For Now`
+- Already-shipped notes: Roadmap Status `Done` or omitted from the board unless an issue is needed for traceability
 
 ## 4. Labels
 
@@ -224,7 +224,7 @@ Use this structure for deferred/rejected decision issues:
 ### 6.1 Epic: Atlas Root Dashboard
 
 - **Labels:** `vnext`, `type:epic`, `track:platform`, `risk:low`, `effort:medium`, `epic:dashboard`, `wave:build-now`
-- **Project:** Status `Build Now`, Wave `Build Now`, Track `platform`, Priority `P0`
+- **Project:** Roadmap Status `Build Now`, Wave `Build Now`, Track `platform`, Priority `P0`
 - **Source:** [Executive summary](../../strategy/atlas-vnext-strategy-report.md#1-executive-summary), [Kong root recommendation](../../strategy/atlas-vnext-strategy-report.md#6-kong-root-dashboard-recommendation), [Build Now](../../strategy/atlas-vnext-strategy-report.md#91-build-now)
 
 Acceptance criteria:
@@ -237,7 +237,7 @@ Acceptance criteria:
 ### 6.2 Epic: MCP Package
 
 - **Labels:** `vnext`, `type:epic`, `track:mcp`, `risk:medium`, `effort:medium`, `epic:mcp`, `wave:build-now`
-- **Project:** Status `Build Now`, Wave `Build Now`, Track `mcp`, Priority `P0`
+- **Project:** Roadmap Status `Build Now`, Wave `Build Now`, Track `mcp`, Priority `P0`
 - **Source:** [MCP bottom-line decision](../../strategy/atlas-vnext-strategy-report.md#54-bottom-line-decision), [vNext Top 20](../../strategy/atlas-vnext-strategy-report.md#7-vnext-top-20), [Build Now](../../strategy/atlas-vnext-strategy-report.md#91-build-now)
 
 Acceptance criteria:
@@ -250,7 +250,7 @@ Acceptance criteria:
 ### 6.3 Epic: Observability
 
 - **Labels:** `vnext`, `type:epic`, `track:observability`, `risk:medium`, `effort:medium`, `epic:observability`, `wave:build-now`
-- **Project:** Status `Build Now`, Wave `Build Now`, Track `observability`, Priority `P1`
+- **Project:** Roadmap Status `Build Now`, Wave `Build Now`, Track `observability`, Priority `P1`
 - **Source:** [Current weaknesses](../../strategy/atlas-vnext-strategy-report.md#22-weaknesses), [vNext Top 20](../../strategy/atlas-vnext-strategy-report.md#7-vnext-top-20), [Build Now](../../strategy/atlas-vnext-strategy-report.md#91-build-now), [Build Next](../../strategy/atlas-vnext-strategy-report.md#92-build-next)
 
 Acceptance criteria:
@@ -263,7 +263,7 @@ Acceptance criteria:
 ### 6.4 Epic: Ingestion
 
 - **Labels:** `vnext`, `type:epic`, `track:rag`, `risk:medium`, `effort:medium`, `epic:ingestion`, `wave:build-now`
-- **Project:** Status `Build Now`, Wave `Build Now`, Track `rag`, Priority `P1`
+- **Project:** Roadmap Status `Build Now`, Wave `Build Now`, Track `rag`, Priority `P1`
 - **Source:** [RAG and content-ingestion track](../../strategy/atlas-vnext-strategy-report.md#83-rag-and-content-ingestion-track), [Build Now](../../strategy/atlas-vnext-strategy-report.md#91-build-now)
 
 Acceptance criteria:
@@ -276,7 +276,7 @@ Acceptance criteria:
 ### 6.5 Epic: Async Jobs
 
 - **Labels:** `vnext`, `type:epic`, `track:async-jobs`, `risk:medium`, `effort:small`, `epic:async-jobs`, `wave:build-now`
-- **Project:** Status `Build Now`, Wave `Build Now`, Track `async-jobs`, Priority `P1`
+- **Project:** Roadmap Status `Build Now`, Wave `Build Now`, Track `async-jobs`, Priority `P1`
 - **Source:** [vNext Top 20](../../strategy/atlas-vnext-strategy-report.md#7-vnext-top-20), [Build Now](../../strategy/atlas-vnext-strategy-report.md#91-build-now), [Reject/defer notes](../../strategy/atlas-vnext-strategy-report.md#94-reject-or-defer-for-now)
 
 Acceptance criteria:
@@ -289,7 +289,7 @@ Acceptance criteria:
 ### 6.6 Epic: Data Engineering Lakehouse Enablement
 
 - **Labels:** `vnext`, `type:epic`, `track:data-eng`, `track:data-ml`, `risk:medium`, `effort:large`, `epic:lakehouse`, `wave:build-now`, `source:data-eng-lab`
-- **Project:** Status `Build Now`, Wave `Build Now`, Track `data-eng`, Priority `P0`
+- **Project:** Roadmap Status `Build Now`, Wave `Build Now`, Track `data-eng`, Priority `P0`
 - **Source:** [Data / ML platform track](../../strategy/atlas-vnext-strategy-report.md#84-data--ml-platform-track), [Build Later](../../strategy/atlas-vnext-strategy-report.md#93-build-later), local handoff `/Users/kaveh/repos/data-eng-lab/docs/atlas-enablement.md`
 
 Acceptance criteria:
@@ -1039,8 +1039,8 @@ Before considering the ticketing pass complete:
 - [ ] `gh issue list --label vnext --limit 200` shows the expected issue count.
 - [ ] Each Build Now issue has a report link, acceptance criteria, and at least one epic label where applicable.
 - [ ] Every issue that adds a service or materially changes a service role includes a completed Service Admission Contract.
-- [ ] All Build Now issues are in Project status `Build Now`.
-- [ ] Deferred/rejected issues are not in `Build Now`.
+- [ ] All Build Now issues are in Project Roadmap Status `Build Now`.
+- [ ] Deferred/rejected issues are not in Roadmap Status `Build Now`.
 - [ ] `python scripts/check_doc_links.py` passes after this spec is committed.
 
 ## 14. Open Decisions

@@ -228,6 +228,7 @@ Expected:
 Run:
 
 ```bash
+gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Roadmap Status" --data-type SINGLE_SELECT --single-select-options "Build Now,Ready,Backlog,Watchlist,Deferred,Rejected For Now,Blocked,Done"
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Wave" --data-type SINGLE_SELECT --single-select-options "Build Now,Build Next,Build Later,Watchlist,Deferred,Rejected For Now,Already Shipped"
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Track" --data-type SINGLE_SELECT --single-select-options "platform,mcp,observability,rag,async-jobs,data-eng,data-ml,identity-security,creative-3d,trading,voice,infra,decision"
 gh project field-create "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --name "Effort" --data-type SINGLE_SELECT --single-select-options "small,medium,large,unknown"
@@ -252,7 +253,7 @@ gh project field-list "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --format js
 
 Expected:
 
-- Fields include `Status`, `Wave`, `Track`, `Effort`, `Risk`, `Priority`, `Type`, and `Source`.
+- Fields include GitHub's built-in `Status` plus custom fields `Roadmap Status`, `Wave`, `Track`, `Effort`, `Risk`, `Priority`, `Type`, and `Source`.
 
 ## Task 4: Create Epic Issues
 
@@ -423,7 +424,7 @@ gh project field-list "$ATLAS_VNEXT_PROJECT_NUMBER" --owner thekaveh --format js
 
 Expected:
 
-- `/tmp/atlas-vnext-fields.json` contains field IDs and single-select option IDs for Wave, Track, Effort, Risk, Priority, Type, Source, and Status.
+- `/tmp/atlas-vnext-fields.json` contains field IDs and single-select option IDs for Roadmap Status, Wave, Track, Effort, Risk, Priority, Type, and Source.
 
 - [ ] **Step 2: List Project items**
 
@@ -444,7 +445,7 @@ Use `gh project item-edit` with the relevant field IDs and single-select option 
 For every issue labeled `wave:build-now`:
 
 - Set `Wave` to `Build Now`.
-- Set `Status` to `Build Now`.
+- Set `Roadmap Status` to `Build Now`.
 - Set `Type` from `type:*`.
 - Set `Risk` from `risk:*`.
 - Set `Effort` from `effort:*`.
@@ -458,16 +459,16 @@ Expected:
 
 For all remaining vNext issues:
 
-- `wave:build-next` -> Wave `Build Next`, Status `Backlog`.
-- `wave:build-later` -> Wave `Build Later`, Status `Backlog`.
-- `wave:watchlist` -> Wave `Watchlist`, Status `Watchlist`.
-- `wave:deferred` -> Wave `Deferred`, Status `Deferred`.
-- `wave:rejected-for-now` -> Wave `Rejected For Now`, Status `Rejected For Now`.
-- `wave:already-shipped` -> Wave `Already Shipped`, Status `Done`.
+- `wave:build-next` -> Wave `Build Next`, Roadmap Status `Backlog`.
+- `wave:build-later` -> Wave `Build Later`, Roadmap Status `Backlog`.
+- `wave:watchlist` -> Wave `Watchlist`, Roadmap Status `Watchlist`.
+- `wave:deferred` -> Wave `Deferred`, Roadmap Status `Deferred`.
+- `wave:rejected-for-now` -> Wave `Rejected For Now`, Roadmap Status `Rejected For Now`.
+- `wave:already-shipped` -> Wave `Already Shipped`, Roadmap Status `Done`.
 
 Expected:
 
-- No non-Build-Now issue has Status `Build Now`.
+- No non-Build-Now issue has Roadmap Status `Build Now`.
 
 ## Task 8: Final Verification
 
